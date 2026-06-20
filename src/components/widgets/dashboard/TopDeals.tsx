@@ -264,22 +264,39 @@ const TopDeals: React.FC<TopDealsProps> = ({
 
   // The ranking selector lives in the DataTable toolbar (rendered before the
   // search/view-toggle controls), so the widget body is just the table.
-  const renderMetricSelect = (triggerClassName: string) => (
-    <Select
-      value={metric}
-      onValueChange={(v) => setMetric(v as TopDealsMetric)}
-    >
-      <SelectTrigger className={triggerClassName} aria-label="Rank deals by">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {METRIC_OPTIONS.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            Top by {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+  // Memoised (keyed on `metric`) so the toolbar action keeps a stable element
+  // identity across re-renders. A fresh element every render makes the
+  // DataTable toolbar's `buttonConfigs` useMemo recompute each render, which
+  // re-runs ResponsiveButtonRow's measurement/layout effects continuously —
+  // the amplifier behind the toolbar's "Maximum update depth exceeded" (#185)
+  // render loop seen on /overview.
+  const renderMetricSelect = useCallback(
+    (triggerClassName: string) => (
+      <Select
+        value={metric}
+        onValueChange={(v) => setMetric(v as TopDealsMetric)}
+      >
+        <SelectTrigger className={triggerClassName} aria-label="Rank deals by">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {METRIC_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              Top by {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ),
+    [metric, setMetric]
+  );
+  const metricSelectFull = useMemo(
+    () => renderMetricSelect('h-9 w-44'),
+    [renderMetricSelect]
+  );
+  const metricSelectCompact = useMemo(
+    () => renderMetricSelect('h-9 w-28'),
+    [renderMetricSelect]
   );
 
   const content = isLoading ? (
@@ -305,8 +322,8 @@ const TopDeals: React.FC<TopDealsProps> = ({
       initialPageSize={pageSize}
       getRowId={(row) => row.id}
       className="h-full"
-      firstToolbarActions={renderMetricSelect('h-9 w-44')}
-      firstToolbarActionsCompact={renderMetricSelect('h-9 w-28')}
+      firstToolbarActions={metricSelectFull}
+      firstToolbarActionsCompact={metricSelectCompact}
       emptyContent={
         <EmptyState
           size="widget"

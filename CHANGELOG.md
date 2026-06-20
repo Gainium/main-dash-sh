@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.4] - 2026-06-20
+
+### Fixed
+
+- Overview: the Top Deals widget no longer triggers an infinite render loop ("Maximum update depth exceeded") from its "Top by" ranking selector — the toolbar control now keeps a stable identity across re-renders instead of forcing the table toolbar to re-measure on every render.
+- Create bot: the Quick mode form no longer crashes ("trim is not a function") when the bot name arrives as a non-text value — the auto-naming logic now coerces non-string names safely.
+
 ## [2.12.3] - 2026-06-18
 
 ### Fixed
