@@ -1575,7 +1575,14 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     (field: string, alert: import('@/types/bots/form').BotFormAlert | null) => {
       setComponentErrors((prev) => {
         if (!alert) {
-          // Remove error
+          // Remove error — but only allocate a new state object if the
+          // field was actually present. Error-free components call this on
+          // mount/update with `null`; returning a fresh object every time
+          // re-rendered all form consumers and could feed render loops
+          // (React #185) on heavy forms like /bot/edit.
+          if (!(field in prev)) {
+            return prev;
+          }
           const next = { ...prev } as Record<
             string,
             (typeof prev)[keyof typeof prev]
@@ -1585,7 +1592,23 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           return next as typeof prev;
         }
 
-        // Add/update error
+        // Add/update error — skip the state write when the stored alert is
+        // identical, so re-registering the same error doesn't churn renders.
+        const existing = (
+          prev as Record<string, import('@/types/bots/form').BotFormAlert[]>
+        )[field];
+        if (
+          existing &&
+          existing.length === 1 &&
+          existing[0].variant === alert.variant &&
+          existing[0].message === alert.message &&
+          existing[0].title === alert.title &&
+          existing[0].navId === alert.navId &&
+          existing[0].description === alert.description
+        ) {
+          return prev;
+        }
+
         return {
           ...prev,
           [field]: [alert],

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.12.4] - 2026-06-21
+
+### Fixed
+
+- Overview: stop an infinite render loop in the Portfolio Value widget that could pin the CPU (the per-page exchange selection now keeps a stable reference across renders).
+- Bot editor: reduce excessive re-rendering of the settings form by skipping redundant validation-alert state updates, which could compound into a render loop on heavy forms.
+
 ## [2.12.3] - 2026-06-18
 
 ### Fixed
