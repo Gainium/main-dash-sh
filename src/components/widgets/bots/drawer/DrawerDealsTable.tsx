@@ -2038,6 +2038,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           );
         },
         enableSorting: true,
+        enableColumnFilter: true,
+        meta: { filterType: 'number' },
         sortingFn: 'basic',
       },
       {

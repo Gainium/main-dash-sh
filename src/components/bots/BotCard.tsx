@@ -368,8 +368,20 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
       mutationLoading: cloneMutation.isPending,
     });
 
+    // Parity with legacy: clone opens an unsaved, pre-filled create form so
+    // the exchange (and everything else) is still editable before saving.
+    // Landing on the edit page instead locks the exchange (`isExchangeLocked
+    // = !!id`), which is the regression users hit when cloning combo/grid.
     if (type === BotTypesEnum.dca) {
       navigate(`/bot/new?load=${bot.id}`);
+      return;
+    }
+    if (type === BotTypesEnum.combo) {
+      navigate(`/combo/new?load=${bot.id}`);
+      return;
+    }
+    if (type === BotTypesEnum.grid) {
+      navigate(`/grid/new?load=${bot.id}`);
       return;
     }
 

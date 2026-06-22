@@ -1437,6 +1437,9 @@ const ComboBots: React.FC = () => {
       },
       {
         accessorKey: 'usage',
+        // Sort/filter on the numeric `usageTotal` percentage, not the nested
+        // `usage` object that `accessorKey: 'usage'` would otherwise resolve to.
+        accessorFn: (row) => row.usageTotal || 0,
         header: 'USAGE',
         meta: { filterType: 'number' },
         cell: ({ row }) => {
