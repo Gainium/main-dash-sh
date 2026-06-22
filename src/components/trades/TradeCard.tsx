@@ -1419,6 +1419,13 @@ const SimpleCard = React.memo(
           : `${formatNumber(trade.unrealizedProfit || 0, true)} ${symbolAssets.quoteAsset}`,
       [privacyMode, trade.unrealizedProfit, symbolAssets.quoteAsset]
     );
+    const fundingDisplay = useMemo(
+      () =>
+        privacyMode
+          ? '***'
+          : `${formatNumber(trade.funding?.totalUsd || 0, true)} ${symbolAssets.quoteAsset}`,
+      [privacyMode, trade.funding, symbolAssets.quoteAsset]
+    );
     return (
       <>
         {/* Header Section */}
@@ -1513,6 +1520,25 @@ const SimpleCard = React.memo(
                   }`}
                 >
                   {unrealizedProfitDisplay}
+                </div>
+              </div>
+            )}
+            {/* Funding Fees Box (only when funding has accrued) */}
+            {!!trade.funding?.totalUsd && (
+              <div
+                className={`p-1 rounded-md border text-center ${
+                  trade.funding.totalUsd < 0
+                    ? 'bg-loss/10 border-loss/20'
+                    : 'bg-profit/10 border-profit/20'
+                }`}
+              >
+                <div className="text-xs text-muted-foreground">Funding</div>
+                <div
+                  className={`text-sm font-semibold ${
+                    trade.funding.totalUsd < 0 ? 'text-loss' : 'text-profit'
+                  }`}
+                >
+                  {fundingDisplay}
                 </div>
               </div>
             )}

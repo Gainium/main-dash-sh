@@ -3178,6 +3178,19 @@ export type DCADeals = {
     gridProfit?: number;
     gridProfitUsd?: number;
   };
+  funding?: {
+    total: number;
+    totalUsd: number;
+    lastTime?: number;
+    history?: {
+      time: number;
+      rate: number;
+      markPrice?: number;
+      qty: number;
+      feeQuote: number;
+      feeUsd: number;
+    }[];
+  };
   feePaid?: {
     base?: number;
     quote?: number;

@@ -128,6 +128,13 @@ interface TradeItem {
         pureQuote: number;
       }
     | undefined;
+  funding?:
+    | {
+        total: number;
+        totalUsd: number;
+        lastTime?: number;
+      }
+    | undefined;
   unrealizedProfit?: number | undefined;
   avgPrice?: number | undefined;
   levels: {
@@ -1122,6 +1129,7 @@ const Trading: React.FC = () => {
         pureBase: 0,
         pureQuote: 0,
       },
+      funding: trade.funding,
       unrealizedProfit: trade.unrealizedProfit || 0,
       avgPrice: trade.avgPrice || 0,
       levels: trade.levels,
@@ -2028,6 +2036,9 @@ const Trading: React.FC = () => {
                     }),
                   },
                   ...(originalTrade.profit && { profit: originalTrade.profit }),
+                  ...(originalTrade.funding && {
+                    funding: originalTrade.funding,
+                  }),
                   ...(!['closed', 'cancelled', 'canceled'].includes(
                     String(originalTrade.status || '').toLowerCase()
                   ) &&

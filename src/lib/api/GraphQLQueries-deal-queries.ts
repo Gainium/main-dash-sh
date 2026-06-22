@@ -75,6 +75,11 @@ export const dealQueries = {
                         pureBase
                         pureQuote
                       }
+                      funding {
+                        total
+                        totalUsd
+                        lastTime
+                      }
                         exchangeUUID
                         initialPrice
                         createTime
@@ -147,6 +152,11 @@ export const dealQueries = {
                       totalUsd
                       pureBase
                       pureQuote
+                    }
+                    funding {
+                      total
+                      totalUsd
+                      lastTime
                     }
                     feePaid {
                       base
@@ -231,6 +241,11 @@ export const dealQueries = {
                       pureBase
                       pureQuote
                     }
+                    funding {
+                      total
+                      totalUsd
+                      lastTime
+                    }
                     feePaid {
                       base
                       quote
@@ -303,6 +318,11 @@ export const dealQueries = {
                       totalUsd
                       pureBase
                       pureQuote
+                    }
+                    funding {
+                      total
+                      totalUsd
+                      lastTime
                     }
                     feePaid {
                       base
@@ -448,6 +468,11 @@ export const dealQueries = {
   profit{
   totalUsd
   total
+  }
+  funding{
+  totalUsd
+  total
+  lastTime
   }
   avgPrice
   commission
@@ -607,6 +632,11 @@ export const dealQueries = {
   profit{
   totalUsd
   total
+  }
+  funding{
+  totalUsd
+  total
+  lastTime
   }
   avgPrice
   commission

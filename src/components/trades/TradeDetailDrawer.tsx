@@ -145,6 +145,13 @@ interface TradeDetailDrawerProps {
           pureQuote: number;
         }
       | undefined;
+    funding?:
+      | {
+          total: number;
+          totalUsd: number;
+          lastTime?: number;
+        }
+      | undefined;
     unrealizedProfit?: number | undefined;
     avgPrice?: number | undefined;
     levels: {

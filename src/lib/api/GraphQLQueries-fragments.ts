@@ -870,6 +870,11 @@ note
                     pureBase
                     pureQuote
                 }
+                funding {
+                    total
+                    totalUsd
+                    lastTime
+                }
                 feePaid {
                   base
                   quote
@@ -1087,6 +1092,11 @@ moveSlActivated
                     pureQuote
                     gridProfit
                     gridProfitUsd
+                }
+                funding {
+                    total
+                    totalUsd
+                    lastTime
                 }
                 feePaid {
                   base

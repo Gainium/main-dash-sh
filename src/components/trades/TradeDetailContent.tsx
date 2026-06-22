@@ -63,6 +63,13 @@ interface TradeDetailContentProps {
           pureQuote: number;
         }
       | undefined;
+    funding?:
+      | {
+          total: number;
+          totalUsd: number;
+          lastTime?: number;
+        }
+      | undefined;
     unrealizedProfit?: number | undefined;
     avgPrice?: number | undefined;
     levels: {
@@ -237,6 +244,32 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
                   chipPosition="right"
                   size="lg"
                 />
+              </div>
+            </Card>
+          )}
+
+          {!!trade.funding?.totalUsd && (
+            <Card className="p-md">
+              <div className="space-y-xs">
+                <div className="text-sm text-muted-foreground">
+                  Funding Fees
+                </div>
+                <ProfitAndPerc
+                  value={trade.funding.totalUsd}
+                  percentage={
+                    trade.usage.currentUsd
+                      ? (trade.funding.totalUsd / trade.usage.currentUsd) * 100
+                      : 0
+                  }
+                  privacyMode={privacyMode}
+                  chipPosition="right"
+                  size="lg"
+                />
+                {trade.funding.lastTime ? (
+                  <div className="text-sm text-muted-foreground">
+                    Last funding {new Date(trade.funding.lastTime).toLocaleString()}
+                  </div>
+                ) : null}
               </div>
             </Card>
           )}

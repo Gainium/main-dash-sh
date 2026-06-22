@@ -67,6 +67,23 @@ export type TransformedTrade = {
         pureQuote: number;
       }
     | undefined;
+  funding?:
+    | {
+        /** Cumulative funding in quote asset (signed; negative = paid) */
+        total: number;
+        totalUsd: number;
+        /** Last applied settlement time (ms) */
+        lastTime?: number;
+        history?: {
+          time: number;
+          rate: number;
+          markPrice?: number;
+          qty: number;
+          feeQuote: number;
+          feeUsd: number;
+        }[];
+      }
+    | undefined;
   unrealizedProfit?: number | undefined;
   avgPrice?: number | undefined;
   levels: {
@@ -379,6 +396,7 @@ export const transformDealToTrade = (
       pureBase: ('pureBase' in profit ? profit.pureBase : 0) || 0,
       pureQuote: ('pureQuote' in profit ? profit.pureQuote : 0) || 0,
     },
+    ...(deal.funding && { funding: deal.funding }),
     avgPrice: deal.avgPrice || 0,
     levels,
     created: createTime,

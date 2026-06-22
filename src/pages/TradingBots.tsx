@@ -2264,6 +2264,7 @@ const TradingBots: React.FC = () => {
           pureBase: deal.profit?.pureBase || 0,
           pureQuote: deal.profit?.pureQuote || 0,
         },
+        ...(deal.funding && { funding: deal.funding }),
         unrealizedProfit,
         avgPrice: deal.avgPrice || 0,
         levels: deal.levels || { complete: 0, all: 0 },

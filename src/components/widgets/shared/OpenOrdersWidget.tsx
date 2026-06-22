@@ -231,6 +231,11 @@ export interface OpenTrade {
     pureBase: number;
     pureQuote: number;
   };
+  funding?: {
+    total: number;
+    totalUsd: number;
+    lastTime?: number;
+  };
   unrealizedProfit?: number;
   avgPrice?: number;
   levels: {
