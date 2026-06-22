@@ -18,6 +18,12 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from '@/components/ui/tabs';
 import { Tooltip } from '@/components/ui/tooltip';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
@@ -26,20 +32,48 @@ import type {
   WebhookPayloadGroup,
 } from '@/features/bots/bot-types/dca/form/sections/WebhookHelper';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
+import {
+  useBotWebhookOptions,
+  useUpdateBotWebhookOptions,
+} from '@/hooks/useBotWebhooks';
 import { copyToClipboard, generateWebhookUrl } from '@/lib/webhookUtils';
 import { useUIStore } from '@/stores/uiStore';
 import type { BotFormData } from '@/types/bots';
+import {
+  BotWebhookOptionMethodEnum,
+  BotWebhookOptionTriggerEnum,
+  type BotWebhookOption,
+} from '@/types/webhook';
 import { resolveDealStartWebhookAvailability } from '@/utils/bots/dca/deal-start-behaviours';
 import { Check, Copy, ExternalLink, Plus, Trash2 } from 'lucide-react';
 import React from 'react';
 
-interface OutgoingWebhook {
-  id: string;
-  trigger: string;
-  url: string;
-  method: 'GET' | 'POST' | 'PUT';
-  payload: string;
-}
+const TRIGGER_LABELS: Record<BotWebhookOptionTriggerEnum, string> = {
+  [BotWebhookOptionTriggerEnum.startBot]: 'Bot Started',
+  [BotWebhookOptionTriggerEnum.stopBot]: 'Bot Stopped',
+  [BotWebhookOptionTriggerEnum.startDeal]: 'Deal Started',
+  [BotWebhookOptionTriggerEnum.closeDeal]: 'Deal Closed',
+};
+
+const ALL_TRIGGERS = Object.values(BotWebhookOptionTriggerEnum);
+
+const DEFAULT_OUTGOING_PAYLOAD = JSON.stringify(
+  {
+    trigger: '{{trigger}}',
+    botName: '{{botName}}',
+    botId: '{{botId}}',
+    timestamp: '{{timestamp}}',
+    symbol: '{{symbol}}',
+    dealId: '{{dealId}}',
+    exchange: '{{exchange}}',
+    duration: '{{duration}}',
+    closePnL: '{{closePnL}}',
+  },
+  null,
+  2
+);
+
+const MAX_OUTGOING_PAYLOAD = 500;
 
 interface BotWebhookSettingsProps {
   formData: BotFormData; // using existing typing from other sections is optional
@@ -581,37 +615,31 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
     });
   }
 
-  // Outgoing webhooks state
-  const [outgoingWebhooks, setOutgoingWebhooks] = React.useState<
-    OutgoingWebhook[]
-  >([]);
+  // Outgoing webhooks — loaded from and persisted to the backend via a
+  // dedicated mutation (independent of the main bot save), mirroring
+  // main-dash's webhookDialog. `realBotId` is undefined for unsaved bots.
+  const realBotId = botId ?? bot?._id;
+  const { data: webhookOptionsResult, isLoading: webhooksLoading } =
+    useBotWebhookOptions(realBotId);
+  const updateWebhooks = useUpdateBotWebhookOptions(realBotId);
+  const outgoingWebhooks: BotWebhookOption[] = React.useMemo(
+    () => webhookOptionsResult?.data ?? [],
+    [webhookOptionsResult]
+  );
+
   const [showWebhookDialog, setShowWebhookDialog] = React.useState(false);
   const [editingWebhook, setEditingWebhook] =
-    React.useState<OutgoingWebhook | null>(null);
+    React.useState<BotWebhookOption | null>(null);
   const [webhookForm, setWebhookForm] = React.useState<{
-    trigger: string;
+    trigger: BotWebhookOptionTriggerEnum;
     url: string;
-    method: 'GET' | 'POST' | 'PUT';
+    method: BotWebhookOptionMethodEnum;
     payload: string;
   }>({
-    trigger: 'startBot',
+    trigger: BotWebhookOptionTriggerEnum.startBot,
     url: '',
-    method: 'POST',
-    payload: JSON.stringify(
-      {
-        trigger: '{{trigger}}',
-        botName: '{{botName}}',
-        botId: '{{botId}}',
-        timestamp: '{{timestamp}}',
-        symbol: '{{symbol}}',
-        dealId: '{{dealId}}',
-        exchange: '{{exchange}}',
-        duration: '{{duration}}',
-        closePnL: '{{closePnL}}',
-      },
-      null,
-      2
-    ),
+    method: BotWebhookOptionMethodEnum.POST,
+    payload: DEFAULT_OUTGOING_PAYLOAD,
   });
 
   const webhookVariables = {
@@ -626,58 +654,76 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
     closeDealOnly: ['{{duration}}', '{{closePnL}}'],
   };
 
+  // One webhook per trigger (backend keys options by trigger). Disable the
+  // triggers already used by other webhooks, like the legacy dialog.
+  const usedTriggers = React.useMemo(
+    () =>
+      new Set(
+        outgoingWebhooks
+          .filter((w) => w.uuid !== editingWebhook?.uuid)
+          .map((w) => w.trigger)
+      ),
+    [outgoingWebhooks, editingWebhook]
+  );
+  const allTriggersUsed = ALL_TRIGGERS.every((t) =>
+    outgoingWebhooks.some((w) => w.trigger === t)
+  );
+
+  const resetWebhookForm = () => {
+    setWebhookForm({
+      trigger: BotWebhookOptionTriggerEnum.startBot,
+      url: '',
+      method: BotWebhookOptionMethodEnum.POST,
+      payload: DEFAULT_OUTGOING_PAYLOAD,
+    });
+  };
+
   const handleSaveWebhook = () => {
     if (!webhookForm.url.trim()) return;
 
-    if (editingWebhook) {
-      setOutgoingWebhooks(
-        outgoingWebhooks.map((w) =>
-          w.id === editingWebhook.id ? { ...w, ...webhookForm } : w
-        )
-      );
-      setEditingWebhook(null);
-    } else {
-      setOutgoingWebhooks([
-        ...outgoingWebhooks,
-        { id: crypto.randomUUID(), ...webhookForm },
-      ]);
-    }
+    const next: BotWebhookOption = {
+      uuid: editingWebhook?.uuid ?? crypto.randomUUID(),
+      trigger: webhookForm.trigger,
+      url: webhookForm.url.trim(),
+      method: webhookForm.method,
+      body: webhookForm.payload.trim().slice(0, MAX_OUTGOING_PAYLOAD),
+    };
 
-    setWebhookForm({
-      trigger: 'startBot',
-      url: '',
-      method: 'POST',
-      payload: JSON.stringify(
-        {
-          trigger: '{{trigger}}',
-          botName: '{{botName}}',
-          botId: '{{botId}}',
-          timestamp: '{{timestamp}}',
-          symbol: '{{symbol}}',
-          dealId: '{{dealId}}',
-          exchange: '{{exchange}}',
-          duration: '{{duration}}',
-          closePnL: '{{closePnL}}',
-        },
-        null,
-        2
-      ),
-    });
+    const nextOptions = editingWebhook
+      ? outgoingWebhooks.map((w) => (w.uuid === editingWebhook.uuid ? next : w))
+      : [...outgoingWebhooks, next];
+
+    updateWebhooks.mutate(nextOptions);
+    setEditingWebhook(null);
+    resetWebhookForm();
     setShowWebhookDialog(false);
   };
 
-  const handleDeleteWebhook = (id: string) => {
-    setOutgoingWebhooks(outgoingWebhooks.filter((w) => w.id !== id));
+  const handleDeleteWebhook = (uuid: string) => {
+    updateWebhooks.mutate(outgoingWebhooks.filter((w) => w.uuid !== uuid));
   };
 
-  const handleEditWebhook = (webhook: OutgoingWebhook) => {
+  const handleEditWebhook = (webhook: BotWebhookOption) => {
     setEditingWebhook(webhook);
     setWebhookForm({
       trigger: webhook.trigger,
       url: webhook.url,
       method: webhook.method,
-      payload: webhook.payload,
+      payload: webhook.body || DEFAULT_OUTGOING_PAYLOAD,
     });
+    setShowWebhookDialog(true);
+  };
+
+  const handleAddWebhook = () => {
+    setEditingWebhook(null);
+    resetWebhookForm();
+    // Default the new webhook to the first unused trigger.
+    const firstFree = ALL_TRIGGERS.find(
+      (t) => !outgoingWebhooks.some((w) => w.trigger === t)
+    );
+    if (firstFree) {
+      setWebhookForm((f) => ({ ...f, trigger: firstFree }));
+    }
     setShowWebhookDialog(true);
   };
 
@@ -732,8 +778,14 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
   );
 
   return (
-    <div className="space-y-md">
-      <Card position={2} className="space-y-md">
+    <Tabs defaultValue="incoming" className="space-y-md">
+      <TabsList className="w-full" fullWidth>
+        <TabsTrigger value="incoming">Incoming webhooks</TabsTrigger>
+        <TabsTrigger value="outgoing">Outgoing webhooks</TabsTrigger>
+      </TabsList>
+
+      <TabsContent value="incoming" className="space-y-md">
+        <Card position={2} className="space-y-md">
         <CardHeader className="p-0">
           <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div className="space-y-1 min-w-0">
@@ -825,14 +877,30 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
           </div>
         </SettingsRow>
       ))}
+      </TabsContent>
 
+      <TabsContent value="outgoing" className="space-y-md">
       <SettingsRow
         name="Outgoing Webhooks"
-        tooltip="Send bot events to external services"
+        tooltip="Send bot events (start/stop, deal open/close) to external services"
         colSpan="full"
       >
         <div className="space-y-md">
-          {outgoingWebhooks.length === 0 ? (
+          {missingBotId ? (
+            <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+              <AlertTitle className="text-sm font-semibold">
+                Save the bot first
+              </AlertTitle>
+              <AlertDescription className="text-xs sm:text-sm">
+                Outgoing webhooks are stored per bot. Create the bot before
+                configuring webhook notifications.
+              </AlertDescription>
+            </Alert>
+          ) : webhooksLoading ? (
+            <div className="rounded-lg border border-border/60 bg-muted/30 p-md text-sm text-muted-foreground">
+              Loading webhooks…
+            </div>
+          ) : outgoingWebhooks.length === 0 ? (
             <div className="rounded-lg border border-border/60 bg-muted/30 p-md text-sm text-muted-foreground">
               No outgoing webhooks configured. Click Add to create one.
             </div>
@@ -840,13 +908,15 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
             <div className="space-y-sm">
               {outgoingWebhooks.map((webhook) => (
                 <div
-                  key={webhook.id}
+                  key={webhook.uuid}
                   className="rounded-lg border border-border/70 bg-background p-sm flex items-start justify-between gap-sm"
                 >
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium">{webhook.trigger}</p>
+                    <p className="text-sm font-medium">
+                      {TRIGGER_LABELS[webhook.trigger] ?? webhook.trigger}
+                    </p>
                     <p className="text-xs text-muted-foreground truncate">
-                      {webhook.url}
+                      {webhook.method} · {webhook.url}
                     </p>
                   </div>
                   <div className="flex gap-xs shrink-0">
@@ -860,7 +930,8 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleDeleteWebhook(webhook.id)}
+                      onClick={() => handleDeleteWebhook(webhook.uuid)}
+                      disabled={updateWebhooks.isPending}
                       className="text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -870,18 +941,18 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
               ))}
             </div>
           )}
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              setEditingWebhook(null);
-              setShowWebhookDialog(true);
-            }}
-            className="gap-xs"
-          >
-            <Plus className="h-4 w-4" />
-            Add Webhook
-          </Button>
+          {!missingBotId && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAddWebhook}
+              disabled={allTriggersUsed || updateWebhooks.isPending}
+              className="gap-xs"
+            >
+              <Plus className="h-4 w-4" />
+              Add Webhook
+            </Button>
+          )}
         </div>
       </SettingsRow>
 
@@ -898,17 +969,25 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                 <Select
                   value={webhookForm.trigger}
                   onValueChange={(value) =>
-                    setWebhookForm({ ...webhookForm, trigger: value })
+                    setWebhookForm({
+                      ...webhookForm,
+                      trigger: value as BotWebhookOptionTriggerEnum,
+                    })
                   }
                 >
                   <SelectTrigger id="trigger">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="startBot">Bot Started</SelectItem>
-                    <SelectItem value="startDeal">Deal Started</SelectItem>
-                    <SelectItem value="closeDeal">Deal Closed</SelectItem>
-                    <SelectItem value="stopBot">Bot Stopped</SelectItem>
+                    {ALL_TRIGGERS.map((t) => (
+                      <SelectItem
+                        key={t}
+                        value={t}
+                        disabled={usedTriggers.has(t)}
+                      >
+                        {TRIGGER_LABELS[t]}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -932,7 +1011,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                   onValueChange={(value) =>
                     setWebhookForm({
                       ...webhookForm,
-                      method: value as 'GET' | 'POST' | 'PUT',
+                      method: value as BotWebhookOptionMethodEnum,
                     })
                   }
                 >
@@ -940,9 +1019,12 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="POST">POST</SelectItem>
-                    <SelectItem value="PUT">PUT</SelectItem>
-                    <SelectItem value="GET">GET</SelectItem>
+                    <SelectItem value={BotWebhookOptionMethodEnum.POST}>
+                      POST
+                    </SelectItem>
+                    <SelectItem value={BotWebhookOptionMethodEnum.GET}>
+                      GET
+                    </SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -976,7 +1058,10 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                       </code>
                     ))}
                   </div>
-                  {['startDeal', 'closeDeal'].includes(webhookForm.trigger) && (
+                  {[
+                    BotWebhookOptionTriggerEnum.startDeal,
+                    BotWebhookOptionTriggerEnum.closeDeal,
+                  ].includes(webhookForm.trigger) && (
                     <div className="grid grid-cols-2 gap-1">
                       {webhookVariables.dealTriggers.map((v) => (
                         <code key={v} className="text-xs bg-muted p-1 rounded">
@@ -985,7 +1070,8 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                       ))}
                     </div>
                   )}
-                  {webhookForm.trigger === 'closeDeal' && (
+                  {webhookForm.trigger ===
+                    BotWebhookOptionTriggerEnum.closeDeal && (
                     <div className="grid grid-cols-2 gap-1">
                       {webhookVariables.closeDealOnly.map((v) => (
                         <code key={v} className="text-xs bg-muted p-1 rounded">
@@ -1005,6 +1091,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
                 onClick={() => {
                   setShowWebhookDialog(false);
                   setEditingWebhook(null);
+                  resetWebhookForm();
                 }}
               >
                 Cancel
@@ -1012,7 +1099,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
               <Button
                 type="button"
                 onClick={handleSaveWebhook}
-                disabled={!webhookForm.url.trim()}
+                disabled={!webhookForm.url.trim() || updateWebhooks.isPending}
               >
                 {editingWebhook ? 'Update' : 'Add'} Webhook
               </Button>
@@ -1020,7 +1107,8 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
           </div>
         </div>
       )}
-    </div>
+      </TabsContent>
+    </Tabs>
   );
 };
 

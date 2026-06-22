@@ -18,6 +18,7 @@ import type {
   ExchangeIntervals,
 } from '../../types';
 import type { ExchangeEnum } from '../../types/exchange.types';
+import type { BotWebhookOption } from '../../types/webhook';
 import {
   backtest,
   botFragment,
@@ -38,6 +39,13 @@ import {
   botSettings,
   sharedSettings,
 } from './GraphQLQueries-fragments';
+
+const botWebhookOptionsFragment = `
+  trigger
+  url
+  method
+  body
+  uuid`;
 
 type CreateBotInput = Omit<
   DCABot['settings'],
@@ -2038,6 +2046,58 @@ export const botQueries = {
   }
   }
   }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  // Outgoing webhook options (one option per trigger). Persisted via a
+  // dedicated mutation, independent of the main bot save — mirrors
+  // main-dash's webhookDialog flow.
+  getBotWebhookOptions: (input: { botId: string }) => {
+    const query = `query getBotWebhookOptions($input: getBotWebhookOptionsInput!) {
+      getBotWebhookOptions(input: $input) {
+        status
+        reason
+        data {${botWebhookOptionsFragment}}
+      }
+    }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  updateBotWebhookOptions: (input: {
+    options: BotWebhookOption[];
+    botId: string;
+  }) => {
+    const query = `mutation updateBotWebhookOptions($input: botWebhookOptionsInput!) {
+      updateBotWebhookOptions(input: $input) {
+        status
+        reason
+        data {${botWebhookOptionsFragment}}
+      }
+    }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getBotWebhookLogs: (input: { botId: string }) => {
+    const query = `query getBotWebhookLogs($input: getBotWebhookOptionsInput!) {
+      getBotWebhookLogs(input: $input) {
+        status
+        reason
+        data {
+          _id
+          optionUuid
+          requestBody
+          responseBody
+          status
+          trigger
+          method
+          url
+          created
+        }
+      }
+    }`;
     const variables = { input };
     return { query, variables };
   },
