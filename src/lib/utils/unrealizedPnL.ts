@@ -195,20 +195,14 @@ export const calculateUnrealizedPnL = (
         ? deal.symbol.quoteAsset
         : symbolString.replace(baseAsset, '') || 'USDT';
 
-    let usdRate: number;
-
-    if (deal.settings?.futures) {
-      // For futures deals
-      usdRate = deal.settings.coinm
-        ? findUSDRate(baseAsset, latestPrices, exchange)
-        : findUSDRate(quoteAsset, latestPrices, exchange);
-    } else {
-      // For spot deals: the unrealized PnL formula produces a result in
-      // quote-asset terms for BOTH long and short strategies, so we always
-      // convert from quoteAsset → USD.  (Legacy parity: terminal/utils.ts
-      // always calls findUSDRate(symbol.quoteAsset, …) regardless of strategy.)
-      usdRate = findUSDRate(quoteAsset, latestPrices, exchange);
-    }
+    // The unrealized-PnL formula below produces a result in quote-asset terms
+    // for spot, USD-M, AND COIN-M alike, so we always convert quoteAsset → USD.
+    // (Legacy parity: terminal/utils.ts and hedge/new.tsx call
+    // findUSDRate(symbol.quoteAsset, …) unconditionally. For COIN-M the
+    // `base * price` term already does the coin→USD conversion, so converting
+    // via the base asset here double-converted by ~the coin price, inflating
+    // unrealized PnL by orders of magnitude.)
+    const usdRate = findUSDRate(quoteAsset, latestPrices, exchange);
 
     if (!usdRate) {
       if (import.meta.env.DEV) {

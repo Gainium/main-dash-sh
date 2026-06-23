@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.1] - 2026-06-23
+
+### Fixed
+
+- Hedge combo bot deals: unrealized profit no longer shows a wildly inflated figure for COIN-M (inverse) legs. The deal table now applies the combo profit formula to hedge-combo legs and converts via the quote asset, matching the value the backend reports.
+- COIN-M unrealized profit on the dashboard treemap, bot cards, and DCA deal lists no longer shows an inflated figure — the shared calculation now converts via the quote asset for COIN-M positions too.
+
 ## [2.15.0] - 2026-06-23
 
 ### Added
