@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.0] - 2026-06-23
+
+### Added
+
+- Sidebar edit mode: reorder navigation items by dragging, move them between sections, create and rename your own sections, and add custom links into any section. A "Reset to default" control restores the shipped layout. Open it from the pencil button in the sidebar header.
+
 ## [2.14.1] - 2026-06-23
 
 ### Fixed

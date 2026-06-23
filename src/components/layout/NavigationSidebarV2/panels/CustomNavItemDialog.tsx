@@ -197,22 +197,50 @@ const COMMON_ICONS = [
   'Store',
 ] as const;
 
+// Custom nav items navigate via React Router, so the URL must be an in-app
+// path starting with "/". Paste-friendly: if the user pastes a full
+// app.gainium.io URL, strip the origin down to the path.
+const APP_ORIGINS = ['https://app.gainium.io', 'http://app.gainium.io'];
+
+const sanitizeNavUrl = (raw: string): string => {
+  const url = raw.trim();
+  for (const origin of APP_ORIGINS) {
+    if (url.toLowerCase().startsWith(origin)) {
+      const path = url.slice(origin.length);
+      // A bare origin (no path) maps to the app root.
+      return path === '' ? '/' : path;
+    }
+  }
+  return url;
+};
+
 interface CustomNavItemDialogProps {
   open: boolean;
   onClose: () => void;
   editingItem?: CustomNavItem | null;
+  /** When provided, a section picker is shown so a new item can be placed in a
+   *  specific sidebar section (V1 layout). Absent → legacy flat behavior. */
+  sections?: { id: string; title: string }[];
+  /** Pre-selected section for a new item. */
+  defaultSectionId?: string;
+  /** Called after a new item is created so the caller can place it. */
+  onAddedToSection?: (itemId: string, sectionId: string) => void;
 }
 
 const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
   open,
   onClose,
   editingItem,
+  sections,
+  defaultSectionId,
+  onAddedToSection,
 }) => {
   const [name, setName] = useState('');
   const [url, setUrl] = useState('');
   const [selectedIcon, setSelectedIcon] = useState('Home');
   const [shortcutKey, setShortcutKey] = useState<ShortcutKey | null>(null);
   const [iconSearch, setIconSearch] = useState('');
+  const [sectionId, setSectionId] = useState('');
 
   // Generate a temporary ID for the ShortcutRecorder
   const tempShortcutId = React.useMemo(
@@ -229,6 +257,7 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
       setName(editingItem?.name || '');
       setUrl(editingItem?.url || '');
       setSelectedIcon(editingItem?.icon || 'Home');
+      setSectionId(defaultSectionId || sections?.[0]?.id || '');
       // Parse existing shortcut string if available
       if (editingItem?.shortcut) {
         // For existing shortcuts, we just store the string format
@@ -238,20 +267,31 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
         setShortcutKey(null);
       }
     }
-  }, [open, editingItem]);
+    // `sections` is intentionally omitted: it's a fresh array each render, and
+    // depending on it would reset the user's section pick mid-edit.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, editingItem, defaultSectionId]);
+
+  const sanitizedUrl = sanitizeNavUrl(url);
+  const urlError =
+    url.trim() && !sanitizedUrl.startsWith('/')
+      ? 'Enter an in-app path starting with "/" (e.g. /strategy)'
+      : null;
+  const canSave = Boolean(name.trim()) && sanitizedUrl.startsWith('/');
 
   const handleSave = () => {
-    if (!name.trim() || !url.trim()) {
-      logger.error('[CustomNavItemDialog] Name and URL are required', {
-        name,
-        url,
-      });
+    const finalUrl = sanitizeNavUrl(url);
+    if (!name.trim() || !finalUrl.startsWith('/')) {
+      logger.error(
+        '[CustomNavItemDialog] Name and a "/"-prefixed URL are required',
+        { name, url }
+      );
       return;
     }
 
     const itemData = {
       name: name.trim(),
-      url: url.trim(),
+      url: finalUrl,
       icon: selectedIcon,
       shortcut: shortcutKey ? formatShortcut(shortcutKey) : undefined,
     };
@@ -259,7 +299,10 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
     if (editingItem) {
       updateCustomNavItem(editingItem.id, itemData);
     } else {
-      addCustomNavItem(itemData);
+      const newId = addCustomNavItem(itemData);
+      if (onAddedToSection && sectionId) {
+        onAddedToSection(newId, sectionId);
+      }
     }
 
     handleClose();
@@ -315,11 +358,40 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
             <Label htmlFor="nav-url">URL</Label>
             <Input
               id="nav-url"
-              placeholder="e.g., /strategy or https://example.com"
+              placeholder="e.g. /strategy"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
+              onBlur={() => setUrl((prev) => sanitizeNavUrl(prev))}
+              aria-invalid={Boolean(urlError)}
             />
+            {urlError ? (
+              <p className="text-xs text-destructive">{urlError}</p>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Must be an in-app path starting with &quot;/&quot;. Pasted
+                app.gainium.io links are converted automatically.
+              </p>
+            )}
           </div>
+
+          {/* Section picker (V1 layout only, new items only) */}
+          {!editingItem && sections && sections.length > 0 && (
+            <div className="space-y-2">
+              <Label htmlFor="nav-section">Section</Label>
+              <select
+                id="nav-section"
+                value={sectionId}
+                onChange={(e) => setSectionId(e.target.value)}
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                {sections.map((section) => (
+                  <option key={section.id} value={section.id}>
+                    {section.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Icon Picker */}
           <div className="space-y-2">
@@ -386,7 +458,7 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button onClick={handleSave} disabled={!name.trim() || !url.trim()}>
+          <Button onClick={handleSave} disabled={!canSave}>
             {editingItem ? 'Update' : 'Add'}
           </Button>
         </DialogFooter>

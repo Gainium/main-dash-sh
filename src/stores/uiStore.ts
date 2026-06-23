@@ -1,4 +1,5 @@
 import { DEFAULT_VISIBLE_NAV_IDS } from '@/components/layout/NavigationSidebarV2/navigationConfig';
+import type { NavLayoutSection } from '@/components/layout/navigationLayout';
 import { logger } from '@/lib/loggerInstance';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
@@ -19,6 +20,11 @@ interface UIState {
   // Which V1 sidebar items the user has enabled (keyed by item `id`).
   // Items not present in the map fall back to `defaultNavigationItemsEnabled`.
   navigationItemsEnabled: Record<string, boolean>;
+
+  // User-customized V1 sidebar layout (section order, item order, item→section
+  // assignment, custom sections). `null` means "follow the default layout".
+  // Reconciled against the live item registry at render time.
+  navigationLayout: NavLayoutSection[] | null;
 
   // Navigation version (V1 or V2)
   useNavigationV2: boolean;
@@ -104,6 +110,17 @@ interface UIState {
   toggleNavigationSubmenu: (itemKey: string) => void;
   setNavigationItemEnabled: (itemId: string, enabled: boolean) => void;
   resetNavigationItemsToDefault: () => void;
+  setNavigationLayout: (layout: NavLayoutSection[] | null) => void;
+  // Full reset of V1 sidebar customization: visibility, layout, and all
+  // user-created custom nav items back to the shipped defaults.
+  resetNavigationToDefault: () => void;
+  // Restore a snapshot of the V1 sidebar customization (used by the editor's
+  // Cancel action — edits persist live, so cancelling rolls all of it back).
+  restoreNavigationCustomization: (snapshot: {
+    navigationLayout: NavLayoutSection[] | null;
+    navigationItemsEnabled: Record<string, boolean>;
+    customNavItems: CustomNavItem[];
+  }) => void;
   setNavigationV2: (enabled: boolean) => void;
   toggleNavigationV2: () => void;
   setLeftNavVisibleIds: (ids: string[]) => void;
@@ -112,7 +129,8 @@ interface UIState {
   setLeftNavShowLabels: (show: boolean) => void;
   setLeftNavLabel: (id: string, label: string) => void;
   resetLeftNavToDefault: () => void;
-  addCustomNavItem: (item: Omit<CustomNavItem, 'id' | 'createdAt'>) => void;
+  // Returns the id of the created item so callers can place it in a section.
+  addCustomNavItem: (item: Omit<CustomNavItem, 'id' | 'createdAt'>) => string;
   updateCustomNavItem: (id: string, item: Partial<CustomNavItem>) => void;
   deleteCustomNavItem: (id: string) => void;
   setNavigationSecondaryPinned: (pinned: boolean) => void;
@@ -245,6 +263,7 @@ export const useUIStore = create<UIState>()(
         navigationSidebarSections: defaultNavigationSections,
         navigationSubmenuItems: defaultNavigationSubmenus,
         navigationItemsEnabled: { ...defaultNavigationItemsEnabled },
+        navigationLayout: null, // null = follow the default section/item layout
         useNavigationV2: false, // Default to V1
         // Default left nav state (should match navigationConfig DEFAULT_VISIBLE_NAV_IDS)
         leftNavVisibleIds: DEFAULT_VISIBLE_NAV_IDS,
@@ -358,6 +377,23 @@ export const useUIStore = create<UIState>()(
             navigationItemsEnabled: { ...defaultNavigationItemsEnabled },
           })),
 
+        setNavigationLayout: (layout) =>
+          set(() => ({ navigationLayout: layout })),
+
+        resetNavigationToDefault: () =>
+          set(() => ({
+            navigationItemsEnabled: { ...defaultNavigationItemsEnabled },
+            navigationLayout: null,
+            customNavItems: [],
+          })),
+
+        restoreNavigationCustomization: (snapshot) =>
+          set(() => ({
+            navigationLayout: snapshot.navigationLayout,
+            navigationItemsEnabled: snapshot.navigationItemsEnabled,
+            customNavItems: snapshot.customNavItems,
+          })),
+
         // Navigation version actions
         setNavigationV2: (enabled) =>
           set(() => ({
@@ -430,9 +466,9 @@ export const useUIStore = create<UIState>()(
             leftNavLabelOverrides: {},
           })),
 
-        addCustomNavItem: (item) =>
+        addCustomNavItem: (item) => {
+          const id = `custom-nav-${Date.now()}`;
           set((state) => {
-            const id = `custom-nav-${Date.now()}`;
             const newItem: CustomNavItem = {
               ...item,
               id,
@@ -447,7 +483,9 @@ export const useUIStore = create<UIState>()(
                 'more',
               ],
             };
-          }),
+          });
+          return id;
+        },
 
         updateCustomNavItem: (id, updates) =>
           set((state) => ({
@@ -463,6 +501,14 @@ export const useUIStore = create<UIState>()(
             ),
             leftNavVisibleIds: state.leftNavVisibleIds.filter((i) => i !== id),
             leftNavOrder: state.leftNavOrder.filter((i) => i !== id),
+            // Drop the deleted id from the V1 layout so it doesn't linger as a
+            // dangling reference in a section.
+            navigationLayout: state.navigationLayout
+              ? state.navigationLayout.map((section) => ({
+                  ...section,
+                  itemIds: section.itemIds.filter((i) => i !== id),
+                }))
+              : state.navigationLayout,
           })),
 
         toggleNavigationV2: () =>
@@ -728,6 +774,7 @@ export const useUIStore = create<UIState>()(
           navigationSidebarSections: state.navigationSidebarSections,
           navigationSubmenuItems: state.navigationSubmenuItems,
           navigationItemsEnabled: state.navigationItemsEnabled,
+          navigationLayout: state.navigationLayout, // Persist V1 sidebar layout
           useNavigationV2: state.useNavigationV2, // Persist navigation version setting
           navigationSecondaryPinned: state.navigationSecondaryPinned, // Persist secondary pinned state
           navigationActivePanel: state.navigationActivePanel, // Persist active panel

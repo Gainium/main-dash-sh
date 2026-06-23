@@ -1,7 +1,7 @@
 {
   "name": "@gainium/main-dash-sh",
   "private": false,
-  "version": "2.14.1",
+  "version": "2.15.0",
   "description": "Gainium self-hosted dashboard. React + TS UI with feature flags and a license-key gate for premium features.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
@@ -17,11 +17,7 @@
     "lint": "eslint . --cache",
     "lint:fix": "eslint . --fix",
     "lint:check": "eslint . --max-warnings 0",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,json,css,md}\"",
     "type-check": "tsc -b --noEmit",
-    "clean:code": "npm run lint:fix && npm run format",
-    "clean:all": "npm run type-check && npm run lint:fix && npm run format",
     "preview": "vite preview",
     "test": "playwright test",
     "test:unit": "playwright test --config=playwright.unit.config.ts",
@@ -108,7 +104,6 @@
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "postcss": "^8.5.6",
-    "prettier": "^3.7.3",
     "tailwindcss": "^4.1.17",
     "tailwindcss-animate": "^1.0.7",
     "tsx": "^4.21.0",

@@ -18,14 +18,17 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { isNavigationItemEnabled, useUIStore } from '../../stores/uiStore';
+import {
+  isNavigationItemEnabled,
+  useUIStore,
+  type CustomNavItem,
+} from '../../stores/uiStore';
 import {
   type PageCategory,
   useUserSessionsStore,
 } from '../../stores/userSessionsStore';
 import { Badge } from '../ui/badge';
 import { Button } from '../ui/button';
-import { Checkbox } from '../ui/checkbox';
 import { InputDialog } from '../ui/confirmation-dialog';
 import { CreateDashboardDialog } from '../dashboard/CreateDashboardDialog';
 import { Switch } from '../ui/switch';
@@ -53,6 +56,17 @@ import {
   type NavigationItem,
   type NavigationSection,
 } from './navigationConfig';
+import SidebarNavEditor, {
+  type EditorItem,
+  type EditorSection,
+} from './SidebarNavEditor';
+import {
+  buildDefaultLayout,
+  isCustomNavItemId,
+  reconcileLayout,
+  type NavLayoutSection,
+} from './navigationLayout';
+import * as LucideIcons from 'lucide-react';
 
 interface NavigationSidebarProps {
   activePage: string;
@@ -194,17 +208,48 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
     (s) => s.setNavigationSidebarHidden
   );
   const navigationItemsEnabled = useUIStore((s) => s.navigationItemsEnabled);
-  const setNavigationItemEnabled = useUIStore(
-    (s) => s.setNavigationItemEnabled
-  );
   const hasSeenSidebarEditNudge = useUIStore((s) => s.hasSeenSidebarEditNudge);
   const setHasSeenSidebarEditNudge = useUIStore(
     (s) => s.setHasSeenSidebarEditNudge
   );
+  const navigationLayout = useUIStore((s) => s.navigationLayout);
+  const customNavItems = useUIStore((s) => s.customNavItems);
 
-  // Edit mode (toggle from header) — swaps the nav list for a checkbox list
-  // so the user can pick which items appear in the sidebar.
+  // Edit mode — swaps the nav list for the drag/drop layout editor.
   const [isEditMode, setIsEditMode] = useState(false);
+
+  // Snapshot of the customization captured when entering edit mode. Edits are
+  // persisted live, so Cancel rolls everything (layout, visibility, custom
+  // items) back to this snapshot.
+  const editSnapshotRef = useRef<{
+    navigationLayout: NavLayoutSection[] | null;
+    navigationItemsEnabled: Record<string, boolean>;
+    customNavItems: CustomNavItem[];
+  } | null>(null);
+
+  const enterEditMode = () => {
+    const s = useUIStore.getState();
+    editSnapshotRef.current = {
+      navigationLayout: s.navigationLayout,
+      navigationItemsEnabled: { ...s.navigationItemsEnabled },
+      customNavItems: [...s.customNavItems],
+    };
+    setIsEditMode(true);
+    if (!hasSeenSidebarEditNudge) {
+      setHasSeenSidebarEditNudge(true);
+    }
+  };
+
+  const saveEditMode = () => setIsEditMode(false);
+
+  const cancelEditMode = () => {
+    if (editSnapshotRef.current) {
+      useUIStore
+        .getState()
+        .restoreNavigationCustomization(editSnapshotRef.current);
+    }
+    setIsEditMode(false);
+  };
 
   // Drag-to-pin state (drag the right edge to pin/unpin/hide the sidebar)
   const [isDragHandleHovered, setIsDragHandleHovered] = useState(false);
@@ -674,6 +719,88 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       }
     : undefined;
 
+  // ── Customizable navigation layout ──────────────────────────────────────
+  // Default sections from config, overlaid with the user's persisted layout
+  // (section + item order, custom sections, custom items). Resolved against a
+  // live registry so newly shipped built-in items still surface automatically.
+  const baseSections = getNavigationSections(
+    dashboards.map((d) => ({ id: d.id, name: d.name })),
+    currentDashboardId,
+    handleCreateDashboard,
+    switchDashboard,
+    isDemoMode,
+    reports.map((r) => ({ id: r.id, name: r.name })),
+    currentReportId,
+    handleCreateReport
+  );
+
+  const builtinItemById = new Map<string, NavigationItem>();
+  for (const section of baseSections) {
+    for (const item of section.items) {
+      if (item.id) builtinItemById.set(item.id, item);
+    }
+  }
+
+  const customItemById = new Map<string, NavigationItem>();
+  for (const custom of customNavItems) {
+    const CustomIcon =
+      (
+        LucideIcons as unknown as Record<
+          string,
+          React.ComponentType<{ className?: string }>
+        >
+      )[custom.icon] || LucideIcons.Home;
+    customItemById.set(custom.id, {
+      id: custom.id,
+      icon: <CustomIcon className="w-4 h-4" />,
+      label: custom.name,
+      href: custom.url,
+      shortcut: custom.shortcut,
+    });
+  }
+
+  const resolveItem = (id: string): NavigationItem | undefined =>
+    builtinItemById.get(id) ?? customItemById.get(id);
+
+  const availableItemIds = new Set<string>([
+    ...builtinItemById.keys(),
+    ...customItemById.keys(),
+  ]);
+
+  const effectiveLayout = reconcileLayout(
+    navigationLayout,
+    buildDefaultLayout(baseSections),
+    availableItemIds
+  );
+
+  const sectionsToRender = effectiveLayout.map((section) => ({
+    id: section.id,
+    title: section.title,
+    isCustom: Boolean(section.isCustom),
+    items: section.itemIds
+      .map(resolveItem)
+      .filter((item): item is NavigationItem => Boolean(item)),
+  }));
+
+  const editorSections: EditorSection[] = effectiveLayout.map((section) => ({
+    id: section.id,
+    title: section.title,
+    isCustom: Boolean(section.isCustom),
+    items: section.itemIds
+      .map((id): EditorItem | null => {
+        const nav = resolveItem(id);
+        if (!nav) return null;
+        return {
+          id,
+          label: nav.label,
+          icon: nav.icon,
+          isCustom: isCustomNavItemId(id),
+          enabled: isNavigationItemEnabled(navigationItemsEnabled, id),
+        };
+      })
+      .filter((item): item is EditorItem => Boolean(item)),
+  }));
+
   return (
     <div className={outerClasses} style={outerStyle}>
       {/* Hidden-mode left-edge hover trigger. Fixed so it always sits
@@ -801,27 +928,18 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             mimics the thin Radix scrollbar via CSS. */}
         <div className="flex-1 overflow-y-auto custom-scrollbar">
           <div className="p-2">
-            {getNavigationSections(
-              dashboards.map((d) => ({ id: d.id, name: d.name })),
-              currentDashboardId,
-              handleCreateDashboard,
-              switchDashboard,
-              isDemoMode, // Pass current demo mode state
-              reports.map((r) => ({ id: r.id, name: r.name })),
-              currentReportId,
-              handleCreateReport
-            )
-              .filter((section) => {
-                // In edit mode, always show every section so the user can
-                // toggle items inside. In normal mode, hide a section if
-                // every one of its items is disabled.
-                if (isEditMode) return true;
-                return section.items.some((item) =>
+            {isEditMode ? (
+              <SidebarNavEditor sections={editorSections} />
+            ) : (
+              <>
+                {sectionsToRender
+              .filter((section) =>
+                section.items.some((item) =>
                   isNavigationItemEnabled(navigationItemsEnabled, item.id)
-                );
-              })
+                )
+              )
               .map((section) => (
-                <div key={section.title || 'root'} className="mb-4">
+                <div key={section.id} className="mb-4">
                   {/* Section Separator - only show if section has a title */}
                   {section.title && (
                     <div className="flex items-center mt-5 px-2">
@@ -835,7 +953,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                               : 'opacity-0 ml-0 mr-0'
                           }`}
                           onClick={() =>
-                            toggleSection(section.title.toLowerCase())
+                            toggleSection(section.id)
                           }
                         >
                           {section.title}
@@ -850,10 +968,10 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                             isExpanded ? 'opacity-100' : 'opacity-0'
                           }`}
                           onClick={() =>
-                            toggleSection(section.title.toLowerCase())
+                            toggleSection(section.id)
                           }
                         >
-                          {openSections[section.title.toLowerCase()] ? (
+                          {openSections[section.id] ? (
                             <ChevronDown className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
                           ) : (
                             <ChevronRight className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
@@ -867,7 +985,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       section.title
-                        ? isSectionVisible(section.title.toLowerCase(), section)
+                        ? isSectionVisible(section.id, section)
                           ? 'max-h-[2000px] opacity-100'
                           : 'max-h-0 opacity-0'
                         : 'max-h-[2000px] opacity-100'
@@ -877,7 +995,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                       className={`${section.title ? 'mt-2' : 'mt-0'} transform transition-transform duration-300 ease-in-out ${
                         section.title
                           ? isSectionVisible(
-                              section.title.toLowerCase(),
+                              section.id,
                               section
                             )
                             ? 'translate-y-0'
@@ -885,15 +1003,14 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                           : 'translate-y-0'
                       }`}
                     >
-                      {(isEditMode
-                        ? section.items
-                        : section.items.filter((it) =>
-                            isNavigationItemEnabled(
-                              navigationItemsEnabled,
-                              it.id
-                            )
+                      {section.items
+                        .filter((it) =>
+                          isNavigationItemEnabled(
+                            navigationItemsEnabled,
+                            it.id
                           )
-                      ).map((item, itemIndex) => {
+                        )
+                        .map((item, itemIndex) => {
                         const hasSubmenu =
                           item.children && item.children.length > 0;
                         const hasActiveChild = hasSubmenu
@@ -940,66 +1057,6 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                           ? itemRecentVisits
                           : itemRecentVisits.slice(0, 3);
                         const itemHasMore = itemRecentVisits.length > 3;
-
-                        // Edit mode: render a checkbox row instead of the
-                        // normal nav link so the user can toggle visibility.
-                        if (isEditMode) {
-                          const enabled = isNavigationItemEnabled(
-                            navigationItemsEnabled,
-                            item.id
-                          );
-                          return (
-                            <div key={itemIndex} className="mb-2 px-2">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  if (!item.id) return;
-                                  setNavigationItemEnabled(item.id, !enabled);
-                                }}
-                                disabled={!item.id}
-                                className="flex w-full items-center gap-3 rounded-lg px-1 py-1 text-left hover:bg-muted/50 transition-colors duration-150"
-                              >
-                                <span
-                                  aria-hidden
-                                  className="flex items-center justify-center w-8 h-8 shrink-0"
-                                >
-                                  <Checkbox
-                                    checked={enabled}
-                                    // Click handled on the parent button
-                                    onCheckedChange={() => {
-                                      if (!item.id) return;
-                                      setNavigationItemEnabled(
-                                        item.id,
-                                        !enabled
-                                      );
-                                    }}
-                                  />
-                                </span>
-                                <span
-                                  className={`flex items-center justify-center w-6 h-6 shrink-0 ${
-                                    enabled
-                                      ? 'text-foreground'
-                                      : 'text-muted-foreground'
-                                  }`}
-                                >
-                                  {item.icon}
-                                </span>
-                                <span
-                                  className={`flex-1 text-sm ${
-                                    enabled
-                                      ? 'text-foreground'
-                                      : 'text-muted-foreground'
-                                  }`}
-                                >
-                                  <TruncatedText
-                                    text={item.label}
-                                    maxWidth="min(160px, 10rem)"
-                                  />
-                                </span>
-                              </button>
-                            </div>
-                          );
-                        }
 
                         // Tour anchors for the Max onboarding walkthrough.
                         // Only nav items referenced by the explore script
@@ -1596,65 +1653,59 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                 </div>
               ))}
 
-            {/* Discovery footer: shows how many items are hidden and
-                opens edit mode on click. Hidden in edit mode and when
-                everything is already enabled. */}
-            {!isEditMode &&
-              (() => {
-                const hiddenCount = getNavigationSections(
-                  dashboards.map((d) => ({ id: d.id, name: d.name })),
-                  currentDashboardId,
-                  handleCreateDashboard,
-                  switchDashboard,
-                  isDemoMode,
-                  reports.map((r) => ({ id: r.id, name: r.name })),
-                  currentReportId,
-                  handleCreateReport
-                ).reduce(
-                  (acc, section) =>
-                    acc +
-                    section.items.filter(
-                      (it) =>
-                        !isNavigationItemEnabled(navigationItemsEnabled, it.id)
-                    ).length,
-                  0
-                );
-                if (hiddenCount === 0) return null;
-                return (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsEditMode(true);
-                      if (!hasSeenSidebarEditNudge) {
-                        setHasSeenSidebarEditNudge(true);
+                {/* Footer entry into edit mode. Always available — this is the
+                    primary way to open navigation editing; it surfaces the
+                    hidden-item count when some items are turned off. */}
+                {(() => {
+                  const hiddenCount = sectionsToRender.reduce(
+                    (acc, section) =>
+                      acc +
+                      section.items.filter(
+                        (it) =>
+                          !isNavigationItemEnabled(
+                            navigationItemsEnabled,
+                            it.id
+                          )
+                      ).length,
+                    0
+                  );
+                  return (
+                    <button
+                      type="button"
+                      onClick={enterEditMode}
+                      title={
+                        hiddenCount > 0
+                          ? `Edit navigation — ${hiddenCount} hidden`
+                          : 'Edit navigation'
                       }
-                    }}
-                    title={`Show all ${hiddenCount} hidden items`}
-                    className="relative w-full flex items-center gap-3 px-2 py-2 mt-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors duration-200"
-                  >
-                    <span className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-dashed border-muted-foreground/30 shrink-0">
-                      <Pencil className="w-3.5 h-3.5" />
-                      {/* First-run pulse — fades after the user clicks
-                          this row (or the pencil-equivalent) once. */}
-                      {!hasSeenSidebarEditNudge && (
-                        <span
-                          aria-hidden
-                          className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-2 w-2"
-                        >
-                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
-                          <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                      className="relative w-full flex items-center gap-3 px-2 py-2 mt-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted/40 transition-colors duration-200"
+                    >
+                      <span className="relative flex items-center justify-center w-8 h-8 rounded-lg border border-dashed border-muted-foreground/30 shrink-0">
+                        <Pencil className="w-3.5 h-3.5" />
+                        {/* First-run pulse — fades after the user opens edit
+                            mode once. */}
+                        {!hasSeenSidebarEditNudge && (
+                          <span
+                            aria-hidden
+                            className="pointer-events-none absolute -top-0.5 -right-0.5 flex h-2 w-2"
+                          >
+                            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary opacity-75" />
+                            <span className="relative inline-flex h-2 w-2 rounded-full bg-primary" />
+                          </span>
+                        )}
+                      </span>
+                      {isExpanded && (
+                        <span className="text-sm whitespace-nowrap">
+                          {hiddenCount > 0
+                            ? `Edit navigation · +${hiddenCount}`
+                            : 'Edit navigation'}
                         </span>
                       )}
-                    </span>
-                    {isExpanded && (
-                      <span className="text-sm whitespace-nowrap">
-                        +{hiddenCount} more
-                        {hiddenCount === 1 ? ' item' : ' items'}
-                      </span>
-                    )}
-                  </button>
-                );
-              })()}
+                    </button>
+                  );
+                })()}
+              </>
+            )}
           </div>
         </div>
 
@@ -1810,18 +1861,25 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
           </div>
         )}
 
-        {/* Edit-mode Save bar — fixed at the very bottom while editing.
-            Clicking commits the new visible-items selection by simply
-            exiting edit mode (changes are already persisted live). */}
+        {/* Edit-mode action bar — Save keeps the live-persisted edits; Cancel
+            rolls everything back to the snapshot taken on entering edit mode. */}
         {isEditMode && (
-          <div className="border-t border-border p-2">
+          <div className="border-t border-border p-2 flex items-center gap-2">
             <Button
               type="button"
-              onClick={() => setIsEditMode(false)}
-              className="w-full gradient-brand text-primary-foreground hover:opacity-90"
+              variant="outline"
+              onClick={cancelEditMode}
+              className="flex-1"
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={saveEditMode}
+              className="flex-1 gradient-brand text-primary-foreground hover:opacity-90"
             >
               <Check className="w-4 h-4 mr-2" />
-              Save sidebar
+              Save
             </Button>
           </div>
         )}
