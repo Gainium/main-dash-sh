@@ -11,6 +11,7 @@ import {
   useBotEvents,
   type BotEvent,
 } from '../../../hooks/useBotEvents';
+import { classifyBotEvent } from '../../../lib/botEventTaxonomy';
 import { useDcaBots } from '../../../hooks/useDcaBots';
 import { useGridBots } from '../../../hooks/useGridBots';
 import { BotTypesEnum } from '../../../types';
@@ -355,7 +356,7 @@ const EditBotEvents: React.FC<EditBotEventsProps> = ({
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-xs">
                             <Badge variant="outline" className="text-xs">
-                              {event.event}
+                              {classifyBotEvent(event).title}
                             </Badge>
                             {event.symbol && (
                               <Badge variant="secondary" className="text-xs">

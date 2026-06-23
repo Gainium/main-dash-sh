@@ -5,6 +5,7 @@ import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { getEventSeverity, type BotEvent } from '@/hooks/useBotEvents';
+import { classifyBotEvent } from '@/lib/botEventTaxonomy';
 import type { GridEventsState } from '@/types/bots/grid';
 
 interface EventsFeedProps {
@@ -64,7 +65,7 @@ const renderEvent = (
           className={`flex items-center gap-xs text-xs font-semibold uppercase tracking-wide ${styles.tone}`}
         >
           {styles.icon}
-          <span>{event.event}</span>
+          <span>{classifyBotEvent(event).title}</span>
         </div>
         <Badge variant={styles.badge} className="capitalize">
           {severity}

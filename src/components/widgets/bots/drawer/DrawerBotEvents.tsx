@@ -1,11 +1,11 @@
 import type { DrawerBot } from '@/types/bots/drawer';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
+import { useBotEvents, type BotEvent } from '../../../../hooks/useBotEvents';
 import {
-  getEventSeverity,
-  useBotEvents,
-  type BotEvent,
-} from '../../../../hooks/useBotEvents';
+  classifyBotEvent,
+  type EventIconKey,
+} from '../../../../lib/botEventTaxonomy';
 /* import { useComboBots } from '../../../../hooks/useComboBots';
 import { useDcaBots } from '../../../../hooks/useDcaBots';
 import { useGridBots } from '../../../../hooks/useGridBots';
@@ -36,16 +36,55 @@ import {
   AlertTriangle,
   ArrowDown,
   ArrowUp,
+  Ban,
   CheckCircle,
   Clock,
   Copy,
   Eye,
   Info,
+  Layers,
+  Plus,
+  Power,
   RefreshCw,
   Search,
+  Settings,
+  Share2,
+  Trash2,
   TrendingUp,
+  Webhook,
   X,
 } from 'lucide-react';
+
+// Maps the taxonomy's semantic icon key to a concrete lucide icon. Keeping the
+// mapping here (not in the taxonomy module) keeps that module JSX/dependency
+// free and testable in isolation.
+const ICON_BY_KEY: Record<
+  EventIconKey,
+  React.ComponentType<{ className?: string }>
+> = {
+  buy: ArrowUp,
+  sell: ArrowDown,
+  filled: CheckCircle,
+  placed: Plus,
+  cancelled: Ban,
+  error: AlertCircle,
+  warning: AlertTriangle,
+  dealOpen: TrendingUp,
+  dealClose: CheckCircle,
+  takeProfit: TrendingUp,
+  stopLoss: ArrowDown,
+  statusStarted: Power,
+  statusStopped: Power,
+  settings: Settings,
+  share: Share2,
+  restart: RefreshCw,
+  delete: Trash2,
+  webhook: Webhook,
+  manualBuy: ArrowUp,
+  merge: Layers,
+  reset: RefreshCw,
+  info: Info,
+};
 
 const formatEventMetadata = (metadata: BotEvent['metadata']): string => {
   if (!metadata) {
@@ -78,120 +117,6 @@ const formatDayWithSuffix = (day: number): string => {
     default:
       return `${day}th`;
   }
-};
-
-const normalizeMetadataString = (metadata: BotEvent['metadata']): string => {
-  if (!metadata) {
-    return '';
-  }
-
-  const candidate = metadata as unknown;
-
-  if (typeof candidate === 'string') {
-    const lower = candidate.toLowerCase();
-
-    try {
-      const parsedLower = JSON.stringify(JSON.parse(candidate)).toLowerCase();
-      return `${lower} ${parsedLower}`;
-    } catch (_error) {
-      return lower;
-    }
-  }
-
-  try {
-    return JSON.stringify(candidate).toLowerCase();
-  } catch (_error) {
-    return '';
-  }
-};
-
-const SELL_KEYWORDS = [
-  'sell',
-  'close',
-  'closing',
-  'exit',
-  'take-profit',
-  'take profit',
-  'tp',
-];
-const BUY_KEYWORDS = ['buy', 'entry', 'long'];
-const TRADE_CONTEXT_KEYWORDS = [
-  'deal',
-  'order',
-  'entry',
-  'exit',
-  'position',
-  'buy',
-  'sell',
-  'take profit',
-  'take-profit',
-  'tp',
-  'safety order',
-  'filled',
-  'executed',
-  'closed',
-  'opened',
-];
-const NON_TRADE_CONTEXT_KEYWORDS = [
-  'status',
-  'restart',
-  'restarted',
-  'bot restarted',
-  'setting',
-  'configuration',
-  'webhook',
-  'alert',
-  'warning',
-  'error',
-  'open -> closed',
-  'closed -> open',
-];
-
-type TradeDirection = 'buy' | 'sell';
-
-const detectTradeDirection = (event: BotEvent): TradeDirection | null => {
-  const sources: string[] = [];
-  const eventText = (event.event ?? '').toLowerCase();
-  if (eventText) {
-    sources.push(eventText);
-  }
-
-  const descriptionText = (event.description ?? '').toLowerCase();
-  if (descriptionText) {
-    sources.push(descriptionText);
-  }
-
-  const metadataText = normalizeMetadataString(event.metadata);
-  if (metadataText) {
-    sources.push(metadataText);
-  }
-
-  const includesKeyword = (keywords: string[]) =>
-    sources.some((text) => keywords.some((keyword) => text.includes(keyword)));
-
-  const hasTradeContext = includesKeyword(TRADE_CONTEXT_KEYWORDS);
-  const hasNonTradeContext = includesKeyword(NON_TRADE_CONTEXT_KEYWORDS);
-
-  const hasExplicitSell = sources.some((text) => /\b(sell|short)\b/.test(text));
-  const hasExplicitBuy = sources.some((text) => /\b(buy|long)\b/.test(text));
-
-  if (!hasTradeContext && !hasExplicitSell && !hasExplicitBuy) {
-    return null;
-  }
-
-  if (hasNonTradeContext && !hasExplicitSell && !hasExplicitBuy) {
-    return null;
-  }
-
-  if (hasExplicitSell || includesKeyword(SELL_KEYWORDS)) {
-    return 'sell';
-  }
-
-  if (hasExplicitBuy || includesKeyword(BUY_KEYWORDS)) {
-    return 'buy';
-  }
-
-  return null;
 };
 
 // Order ids only live inside the event description, e.g.
@@ -405,21 +330,6 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
     setVisibleCount((current) => current + PAGE_SIZE);
   }, []);
 
-  // Get event icon based on severity
-  const getEventIcon = useCallback((event: BotEvent) => {
-    const severity = getEventSeverity(event);
-    switch (severity) {
-      case 'error':
-        return AlertCircle;
-      case 'warning':
-        return AlertTriangle;
-      case 'success':
-        return CheckCircle;
-      default:
-        return Info;
-    }
-  }, []);
-
   // Format event timestamp
   const formatEventTime = useCallback((created: string) => {
     const date = new Date(created);
@@ -511,173 +421,16 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
     };
   }, [eventsLoading, isRefreshing]);
 
-  const getTradeAction = useCallback((text: string): string | null => {
-    if (!text) {
-      return null;
-    }
-
-    if (text.includes('cancel')) {
-      return 'Cancelled';
-    }
-
-    if (text.includes('partial') && text.includes('fill')) {
-      return 'Partially Filled';
-    }
-
-    if (
-      text.includes('fill') ||
-      text.includes('fulfilled') ||
-      text.includes('executed') ||
-      text.includes('completed')
-    ) {
-      return 'Filled';
-    }
-
-    if (text.includes('close') || text.includes('closed')) {
-      return 'Closed';
-    }
-
-    if (
-      text.includes('open') ||
-      text.includes('placed') ||
-      text.includes('submitted') ||
-      text.includes('created') ||
-      text.includes('start') ||
-      text.includes('entry')
-    ) {
-      return 'Placed';
-    }
-
-    if (text.includes('expire') || text.includes('timeout')) {
-      return 'Expired';
-    }
-
-    return null;
-  }, []);
-
-  const getEventLabel = useCallback(
-    (
-      event: BotEvent,
-      tradeDirection: TradeDirection | null
-    ): string | undefined => {
-      const eventName = (event.event ?? '').toLowerCase();
-      const description = (event.description ?? '').toLowerCase();
-      const combined = `${eventName} ${description}`;
-
-      if (tradeDirection) {
-        const action = getTradeAction(combined);
-        const directionLabel = tradeDirection === 'buy' ? 'Buy' : 'Sell';
-        return action ? `${directionLabel} ${action}` : directionLabel;
-      }
-
-      if (eventName.includes('entry') || eventName.includes('market')) {
-        return 'Entry';
-      }
-
-      if (combined.includes('deal')) {
-        if (combined.includes('open')) return 'Deal Opened';
-        if (combined.includes('close')) return 'Deal Closed';
-        return 'Deal';
-      }
-
-      if (combined.includes('start') || combined.includes('stop')) {
-        return 'Bot Status';
-      }
-
-      if (combined.includes('error') || combined.includes('warning')) {
-        return 'Alert';
-      }
-
-      return undefined;
-    },
-    [getTradeAction]
-  );
-
-  const getEventVariant = useCallback(
-    (event: BotEvent, tradeDirection: TradeDirection | null) => {
-      const severity = getEventSeverity(event);
-      const eventText = (event.event ?? '').toLowerCase();
-      const descriptionText = (event.description ?? '').toLowerCase();
-      const combined = `${eventText} ${descriptionText}`;
-
-      if (tradeDirection === 'buy') {
-        return 'profit' as const;
-      }
-
-      if (tradeDirection === 'sell') {
-        return 'loss' as const;
-      }
-
-      if (severity === 'error') {
-        return 'error' as const;
-      }
-
-      if (severity === 'warning') {
-        return 'warning' as const;
-      }
-
-      if (severity === 'success') {
-        return 'success' as const;
-      }
-
-      if (combined.includes('restart') || combined.includes('restarted')) {
-        return 'success' as const;
-      }
-
-      if (severity === 'info') {
-        return 'info' as const;
-      }
-
-      return 'default' as const;
-    },
-    []
-  );
-
-  const getEventIconBySemantic = useCallback(
-    (event: BotEvent, tradeDirection: TradeDirection | null) => {
-      if (tradeDirection === 'buy') {
-        return ArrowUp;
-      }
-
-      if (tradeDirection === 'sell') {
-        return ArrowDown;
-      }
-
-      const eventText = (event.event ?? '').toLowerCase();
-      const descriptionText = (event.description ?? '').toLowerCase();
-      const combined = `${eventText} ${descriptionText}`;
-
-      if (combined.includes('restart')) {
-        return RefreshCw;
-      }
-
-      if (combined.includes('status')) {
-        return Activity;
-      }
-
-      return getEventIcon(event);
-    },
-    [getEventIcon]
-  );
-
-  // Convert events to timeline items
+  // Convert events to timeline items. All title/label/variant/icon derivation
+  // is delegated to the canonical taxonomy (keyed on the backend event name),
+  // replacing the previous free-text keyword sniffing.
   const convertToTimelineItems = useCallback(
     (eventList: BotEvent[]): TimelineItem[] => {
       return eventList.map((event) => {
-        const severity = getEventSeverity(event);
-        // Error/warning events are alerts, not trades. Don't infer a buy/sell
-        // direction from text like "side: sell ... deal close" — otherwise an
-        // order error renders as a completed "Sell Closed" trade.
-        const isAlert = severity === 'error' || severity === 'warning';
-        const tradeDirection = isAlert ? null : detectTradeDirection(event);
-        const EventIcon = getEventIconBySemantic(event, tradeDirection);
-        const label = isAlert
-          ? severity === 'error'
-            ? 'Error'
-            : 'Warning'
-          : getEventLabel(event, tradeDirection);
-
-        const variant = getEventVariant(event, tradeDirection);
+        const classified = classifyBotEvent(event);
+        const EventIcon = ICON_BY_KEY[classified.iconKey] ?? Info;
+        const label = classified.label;
+        const variant = classified.variant;
 
         const orderId = extractOrderId(event);
         const badgeContent =
@@ -704,7 +457,7 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
 
         const timelineItem: TimelineItem = {
           id: event._id,
-          title: event.event,
+          title: classified.title,
           content: event.description ? (
             <ExpandableMessage text={event.description} />
           ) : undefined,
@@ -755,9 +508,6 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
       });
     },
     [
-      getEventIconBySemantic,
-      getEventLabel,
-      getEventVariant,
       formatEventTime,
       formatEventDateLabel,
       formatEventTimeLabel,
