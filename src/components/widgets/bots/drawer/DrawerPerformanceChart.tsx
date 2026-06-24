@@ -453,6 +453,11 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     />
                   }
                 />
+                {/* isAnimationActive must stay false on every series here:
+                    recharts' JavascriptAnimate calls setState from its unmount
+                    cleanup, and the drawer remounting / switching legs
+                    mid-animation trips React's nested-update limit (minified
+                    error #185) on the performance tab. */}
                 {showEquity && (
                   <Area
                     yAxisId="equity"
@@ -463,6 +468,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     fill={`url(#equityGradient-${actualBotId})`}
                     fillOpacity={0.3}
                     name="Bot Equity"
+                    isAnimationActive={false}
                   />
                 )}
                 {showProfit && (
@@ -476,6 +482,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     strokeWidth={2}
                     dot={false}
                     name="Realized Profit"
+                    isAnimationActive={false}
                   />
                 )}
                 {showBuyAndHold && (
@@ -488,6 +495,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     fill={`url(#buyAndHoldGradient-${actualBotId})`}
                     fillOpacity={0.3}
                     name="Buy & Hold"
+                    isAnimationActive={false}
                   />
                 )}
               </ComposedChart>

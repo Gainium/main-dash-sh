@@ -1032,7 +1032,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       fieldsMapped.push('maxNumberOfOpenDeals');
     }
 
-    const trimmedOrderSize = (orderSize ?? '').trim();
+    const trimmedOrderSize = String(orderSize ?? '').trim();
     if (!trimmedOrderSize) {
       warnings.push('Order size is empty; defaulting to 0');
       dcaFields['orderSize'] = '0';
@@ -1171,7 +1171,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
 
     const requiresMinimumDeviation =
       scaleDcaType === 'atr' || scaleDcaType === 'adr';
-    const minimumDeviationValue = (minimumDeviation ?? '').trim();
+    const minimumDeviationValue = String(minimumDeviation ?? '').trim();
 
     if (requiresMinimumDeviation || minimumDeviationValue) {
       if (!minimumDeviationValue) {
@@ -1213,7 +1213,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     dcaFields['dcaVolumeRequiredChangeRef'] = resolvedVolumeRef;
     fieldsMapped.push('dcaVolumeRequiredChangeRef');
 
-    const volumeChangeValue = (dcaVolumeRequiredChange ?? '').trim();
+    const volumeChangeValue = String(dcaVolumeRequiredChange ?? '').trim();
     if (resolvedVolumeBasedOn === DCAVolumeType.change) {
       if (!volumeChangeValue) {
         errors.push(
@@ -1237,7 +1237,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       fieldsSkipped.push('dcaVolumeRequiredChange');
     }
 
-    const volumeMaxValue = (dcaVolumeMaxValue ?? '').trim();
+    const volumeMaxValue = String(dcaVolumeMaxValue ?? '').trim();
     if (volumeMaxValue) {
       const parsedMax = Number(volumeMaxValue);
       if (!Number.isFinite(parsedMax) || (parsedMax < 0 && parsedMax !== -1)) {
@@ -1253,7 +1253,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       fieldsSkipped.push('dcaVolumeMaxValue');
     }
 
-    const orderAmountValue = (orderSize ?? '').trim();
+    const orderAmountValue = String(orderSize ?? '').trim();
     if (orderAmountValue) {
       const parsedAmount = Number(orderAmountValue);
       if (!Number.isFinite(parsedAmount) || parsedAmount < 0) {
@@ -1339,7 +1339,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       dcaFields['useMaxDealsPerHigherTimeframe'] = true;
       fieldsMapped.push('useMaxDealsPerHigherTimeframe');
 
-      const higherTimeframeLimit = (maxDealsPerHigherTimeframe ?? '').trim();
+      const higherTimeframeLimit = String(maxDealsPerHigherTimeframe ?? '').trim();
       if (higherTimeframeLimit) {
         const parsedLimit = Number(higherTimeframeLimit);
         if (!Number.isFinite(parsedLimit) || parsedLimit <= 0) {

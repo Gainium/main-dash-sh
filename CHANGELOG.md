@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.15.2] - 2026-06-24
+
+### Fixed
+
+- Creating a bot no longer crashes when an imported template, clone, or bound variable supplies a numeric value for order size, DCA volume, minimum deviation, max-deals, or volume fields. These values are now coerced to text before trimming, so the new-bot form stays responsive instead of throwing.
+- Hedge combo performance chart no longer freezes the tab (Maximum update depth / React error #185) when the bot drawer remounts or switches legs mid-animation. Chart series animation is disabled, matching the rest of the app's recharts usage.
+
 ## [2.15.1] - 2026-06-23
 
 ### Fixed
