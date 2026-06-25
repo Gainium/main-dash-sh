@@ -24,6 +24,9 @@ export interface AddExchangeInput {
   passphrase?: string | undefined;
   stablecoinBalance?: number | undefined;
   coinToTopUp?: string | undefined;
+  topUps?:
+    | { provider: ExchangeEnum; asset: string; amount: number }[]
+    | undefined;
   tradeType?: string | undefined;
   keysType?: CoinbaseKeysType | undefined;
   okxSource?: OKXSource | undefined;
@@ -198,6 +201,20 @@ export const formDataToAddExchangeInput = (
       ? parseFloat(formData.stablecoinBalance)
       : undefined,
     coinToTopUp: formData.isPaperTrading ? formData.coinToTopUp : undefined,
+    // Independent per-sub-account funding for a paper `SPOT & Futures`
+    // create. Omitted (undefined) for single-market selections so the
+    // backend keeps using coinToTopUp/stablecoinBalance — backward
+    // compatible.
+    topUps:
+      formData.isPaperTrading &&
+      formData.paperTopUps &&
+      formData.paperTopUps.length > 0
+        ? formData.paperTopUps.map((t) => ({
+            provider: t.provider,
+            asset: t.asset,
+            amount: parseFloat(t.amount),
+          }))
+        : undefined,
     keysType: formData.keysType || undefined,
     okxSource: formData.okxSource || undefined,
     bybitHost: formData.bybitHost || undefined,
@@ -283,7 +300,13 @@ export function useExchangeMutations() {
         return oldData;
       });
 
-      useExchangesStore.getState().addOrUpdateExchange(exchanges[0]);
+      // A `SPOT & Futures` (all) selection creates BOTH a spot and a
+      // futures account, so the backend returns more than one exchange.
+      // Add every one to the store — adding only exchanges[0] left the
+      // second account missing from "My Accounts" until a hard refresh.
+      (exchanges ?? []).forEach((exchange) => {
+        useExchangesStore.getState().addOrUpdateExchange(exchange);
+      });
     },
     onError: (error, input) => {
       logger.error('Failed to add exchange:', error);

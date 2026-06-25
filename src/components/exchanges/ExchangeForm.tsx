@@ -39,14 +39,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import {
   coinbaseKeyTypes,
   exchangeProviders,
+  getDefaultAccountName,
   getExchangeConfig,
   getExchangeHostOptions,
+  getPaperAllSubAccounts,
+  getPaperSubAccountLabel,
   getPaperTradingAssets,
+  getSubAccountTopUpAssets,
   isPaperExchange,
   requiresPassphrase,
   supportsHostSelection,
   supportsKeyTypes,
 } from './exchangeConfig';
+import { mapProviderToBackend } from '@/hooks/useExchangeMutations';
 import type {
   ExchangeConnectionStatus,
   ExchangeFormData,
@@ -308,6 +313,10 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
   // Hyperliquid variants when the user doesn't have a premium license.
   const availableExchanges = useMemo(() => {
     return exchangeProviders.filter((config) => {
+      // Hide legacy umbrella ids that an explicit SPOT / `SPOT & Futures`
+      // variant already covers (de-dupes e.g. "Paper Kraken" vs
+      // "Paper Kraken SPOT").
+      if (config.hideFromProviderList) return false;
       if (formData.isPaperTrading && !config.isPaperExchange) return false;
       if (!formData.isPaperTrading && config.isPaperExchange) return false;
       return true;
@@ -368,7 +377,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
   useEffect(() => {
     if (!initialData) {
       const defaultProvider = formData.isPaperTrading
-        ? ExchangeEnum.paperBybit
+        ? ExchangeEnum.paperBybitAll
         : ExchangeEnum.bybitAll;
       const config = getExchangeConfig(defaultProvider);
 
@@ -376,7 +385,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         setFormData((prev) => ({
           ...prev,
           provider: defaultProvider,
-          name: config.displayName,
+          name: getDefaultAccountName(config),
         }));
       }
     }
@@ -417,6 +426,51 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
     });
     return assets;
   }, [exchangeConfig]);
+
+  // A paper `SPOT & Futures` (all) ADD creates one account per market — list
+  // them so the form can render an independent funding row for each. Empty
+  // for single-market selections, edit mode, and live exchanges.
+  const paperAllSubAccounts = useMemo(() => {
+    if (mode !== 'add' || !formData.isPaperTrading) return [];
+    if (exchangeConfig?.category !== 'all') return [];
+    return getPaperAllSubAccounts(mapProviderToBackend(formData.provider));
+  }, [mode, formData.isPaperTrading, formData.provider, exchangeConfig?.category]);
+
+  // Per-sub-account funding state for the multi-account case, keyed by the
+  // created account's provider id. Seeded from each market's default asset
+  // whenever the set of sub-accounts changes (i.e. on provider change).
+  const [paperTopUps, setPaperTopUps] = useState<
+    Record<string, { asset: string; amount: string }>
+  >({});
+
+  useEffect(() => {
+    if (paperAllSubAccounts.length === 0 || !exchangeConfig) {
+      setPaperTopUps({});
+      return;
+    }
+    const brand = exchangeConfig.name;
+    const next: Record<string, { asset: string; amount: string }> = {};
+    for (const id of paperAllSubAccounts) {
+      const first = getSubAccountTopUpAssets(id, brand)[0];
+      next[id] = {
+        asset: first?.symbol ?? 'USDT',
+        amount: first?.defaultBalance ?? '10000',
+      };
+    }
+    setPaperTopUps(next);
+  }, [paperAllSubAccounts, exchangeConfig]);
+
+  const updatePaperTopUp = (
+    id: string,
+    patch: Partial<{ asset: string; amount: string }>
+  ) => {
+    // Radix Select emits a spurious onValueChange('') during mount/hydration
+    // before the seeded value registers; ignore it so it doesn't wipe the
+    // per-market default asset. A real user selection is never empty.
+    if (patch.asset === '') return;
+    setPaperTopUps((prev) => ({ ...prev, [id]: { ...prev[id], ...patch } }));
+    setErrors({});
+  };
 
   // Get host options for current exchange
   const hostOptions = useMemo(() => {
@@ -467,7 +521,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
     const updates: Partial<ExchangeFormData> = {
       provider,
-      name: config.displayName,
+      name: getDefaultAccountName(config),
       isPaperTrading: config.isPaperExchange,
     };
 
@@ -559,7 +613,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
     if (config) {
       updates.provider = config.id;
-      updates.name = config.displayName;
+      updates.name = getDefaultAccountName(config);
     }
 
     updateFormData(updates);
@@ -645,26 +699,42 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       }
     }
 
-    // Paper trading validation (only for non-All exchanges that need asset selection)
-    if (
-      (formData.isPaperTrading || isPaperExchange(formData.provider)) &&
-      !formData.provider.includes('All')
-    ) {
-      if (!formData.coinToTopUp) {
-        newErrors.coinToTopUp = 'Please select an asset';
-      }
+    // Paper trading validation — every paper account is funded with an
+    // asset + starting balance. A `SPOT & Futures` create funds each
+    // sub-account independently (one row per market), so validate those
+    // rows; single-market selections validate the single asset/balance.
+    if (formData.isPaperTrading || isPaperExchange(formData.provider)) {
+      if (paperAllSubAccounts.length > 0) {
+        const topUpErrors: Record<string, string> = {};
+        for (const id of paperAllSubAccounts) {
+          const row = paperTopUps[id];
+          const amount = parseFloat(row?.amount ?? '');
+          if (!row?.asset) {
+            topUpErrors[id] = 'Please select an asset';
+          } else if (!Number.isFinite(amount) || amount <= 0) {
+            topUpErrors[id] = 'Enter a positive amount';
+          }
+        }
+        if (Object.keys(topUpErrors).length > 0) {
+          newErrors.paperTopUps = topUpErrors;
+        }
+      } else {
+        if (!formData.coinToTopUp) {
+          newErrors.coinToTopUp = 'Please select an asset';
+        }
 
-      const balance = parseFloat(formData.stablecoinBalance);
-      if (isNaN(balance)) {
-        newErrors.stablecoinBalance = 'Balance must be a valid number';
-      } else if (balance < 0) {
-        newErrors.stablecoinBalance = 'Balance must be a positive number';
-      } else if (balance < 100) {
-        newErrors.stablecoinBalance =
-          'Minimum balance is $100 for meaningful testing';
-      } else if (balance > 1000000) {
-        newErrors.stablecoinBalance =
-          'Maximum balance is $1,000,000 for paper trading';
+        const balance = parseFloat(formData.stablecoinBalance);
+        if (isNaN(balance)) {
+          newErrors.stablecoinBalance = 'Balance must be a valid number';
+        } else if (balance < 0) {
+          newErrors.stablecoinBalance = 'Balance must be a positive number';
+        } else if (balance < 100) {
+          newErrors.stablecoinBalance =
+            'Minimum balance is $100 for meaningful testing';
+        } else if (balance > 1000000) {
+          newErrors.stablecoinBalance =
+            'Maximum balance is $1,000,000 for paper trading';
+        }
       }
     }
 
@@ -831,6 +901,17 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         const parsed = parseFloat(topUpAmount);
         submissionData.stablecoinBalance =
           Number.isFinite(parsed) && parsed > 0 ? topUpAmount : '';
+      }
+
+      // Independent funding for a paper `SPOT & Futures` create — one entry
+      // per created sub-account. Single-market selections leave this unset
+      // and keep using coinToTopUp/stablecoinBalance.
+      if (paperAllSubAccounts.length > 0) {
+        submissionData.paperTopUps = paperAllSubAccounts.map((id) => ({
+          provider: id,
+          asset: paperTopUps[id]?.asset ?? '',
+          amount: paperTopUps[id]?.amount ?? '',
+        }));
       }
 
       // Track top up event for paper trading exchanges
@@ -1028,8 +1109,83 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
             </div>
           </div>
 
-          {/* Asset to Top Up and Token Balance - Only visible in paper trading for non-All exchanges */}
-          {formData.isPaperTrading && !formData.provider.includes('All') && (
+          {/* Independent funding rows — a `SPOT & Futures` create makes one
+              paper account per market (SPOT / USDⓈ-M / COIN-M), each funded
+              on its own. COIN-M is coin-margined (fund with BTC/ETH). */}
+          {formData.isPaperTrading && paperAllSubAccounts.length > 0 && (
+            <div className="space-y-md">
+              <p className="text-sm text-muted-foreground">
+                This creates a separate paper account per market — set the
+                funding for each below.
+              </p>
+              {paperAllSubAccounts.map((id) => {
+                const assets = getSubAccountTopUpAssets(
+                  id,
+                  exchangeConfig?.name ?? 'binance'
+                );
+                const row = paperTopUps[id] ?? { asset: '', amount: '' };
+                const rowError = errors.paperTopUps?.[id];
+                return (
+                  <div key={id} className="space-y-xs">
+                    <Label>{getPaperSubAccountLabel(id)}</Label>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
+                      <Select
+                        value={row.asset}
+                        onValueChange={(value) =>
+                          updatePaperTopUp(id, { asset: value })
+                        }
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select an asset" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {assets.map((asset) => (
+                            <SelectItem key={asset.symbol} value={asset.symbol}>
+                              <div className="flex items-center gap-xs">
+                                <span className="font-medium">
+                                  {asset.symbol}
+                                </span>
+                                <span className="text-muted-foreground text-sm">
+                                  {asset.name}
+                                </span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Input
+                        type="number"
+                        value={row.amount}
+                        onChange={(e) =>
+                          updatePaperTopUp(id, { amount: e.target.value })
+                        }
+                        placeholder="0"
+                        min="0"
+                        step="0.01"
+                        aria-label={`Starting ${row.asset} balance`}
+                        className={rowError ? 'border-destructive' : ''}
+                      />
+                    </div>
+                    {rowError && (
+                      <p className="text-sm text-destructive">{rowError}</p>
+                    )}
+                  </div>
+                );
+              })}
+              <p className="text-xs text-muted-foreground">
+                <a
+                  href="/help/paper-trading-forward-testing"
+                  className="text-primary underline hover:text-primary/80"
+                >
+                  Paper trading guide
+                </a>
+              </p>
+            </div>
+          )}
+
+          {/* Asset to Top Up and Token Balance - single-market paper
+              selections (and edit mode) keep one asset + balance field. */}
+          {formData.isPaperTrading && paperAllSubAccounts.length === 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
               {/* Paper Trading Asset Selection */}
               <div className="space-y-xs">

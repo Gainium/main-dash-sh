@@ -39,6 +39,11 @@ export interface ExchangeFormData {
   isPaperTrading: boolean;
   stablecoinBalance: string;
   coinToTopUp: string;
+  // Independent per-sub-account funding for a `SPOT & Futures` (all) paper
+  // create. When set, each entry funds the created account whose provider
+  // matches `provider`. Empty/undefined for single-market selections, which
+  // keep using stablecoinBalance/coinToTopUp.
+  paperTopUps?: { provider: ExchangeEnum; asset: string; amount: string }[];
 
   // Hyperliquid-specific settings
   useApproveBuilderFees?: boolean;
@@ -58,6 +63,9 @@ export interface ExchangeFormErrors {
   passphrase?: string;
   stablecoinBalance?: string;
   coinToTopUp?: string;
+  // Per-sub-account funding errors for a `SPOT & Futures` paper create,
+  // keyed by the sub-account provider id.
+  paperTopUps?: Record<string, string>;
 }
 
 // Exchange provider configuration
@@ -72,6 +80,12 @@ export interface ExchangeProviderConfig {
   isPaperExchange: boolean;
   category: 'spot' | 'futures' | 'all';
   popular?: boolean;
+  // Legacy "umbrella" provider id kept for backward-compat lookup/display
+  // of already-saved accounts, but hidden from the add-exchange dropdown
+  // because an explicit SPOT / `SPOT & Futures` variant of the same
+  // exchange already covers it (e.g. bare `paperKraken` duplicates
+  // `paperKrakenSpot`). Lookups via getExchangeConfig still resolve it.
+  hideFromProviderList?: boolean;
 }
 
 // Paper trading asset options

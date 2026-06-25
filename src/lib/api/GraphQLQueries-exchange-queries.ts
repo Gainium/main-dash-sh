@@ -114,6 +114,9 @@ export const exchangeQueries = {
     passphrase?: string | undefined;
     stablecoinBalance?: number | undefined;
     coinToTopUp?: string | undefined;
+    topUps?:
+      | { provider: ExchangeEnum; asset: string; amount: number }[]
+      | undefined;
     tradeType?: string | undefined;
     keysType?: CoinbaseKeysType | undefined;
     okxSource?: OKXSource | undefined;

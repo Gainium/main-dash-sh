@@ -22,6 +22,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.binanceAll,
@@ -92,6 +93,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.kucoinAll,
@@ -149,6 +151,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.bybitAll,
@@ -207,6 +210,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.okxAll,
@@ -277,6 +281,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.paperBinanceAll,
@@ -335,6 +340,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.paperKucoinAll,
@@ -392,6 +398,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.paperBybitAll,
@@ -450,6 +457,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.paperOkxAll,
@@ -560,7 +568,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
   {
     id: ExchangeEnum.hyperliquid,
     name: 'hyperliquid',
-    displayName: 'Hyperliquid',
+    displayName: 'Hyperliquid SPOT',
     requiresPassphrase: false,
     supportsKeyTypes: false,
     supportsHostSelection: false,
@@ -602,7 +610,30 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
+  },
+  {
+    id: ExchangeEnum.paperBitgetAll,
+    name: 'bitget',
+    displayName: 'Paper Bitget SPOT & Futures',
+    requiresPassphrase: false,
+    supportsKeyTypes: false,
+    supportsHostSelection: false,
+    supportsPaperTrading: true,
+    isPaperExchange: true,
+    category: 'all',
     popular: true,
+  },
+  {
+    id: ExchangeEnum.paperBitgetSpot,
+    name: 'bitget',
+    displayName: 'Paper Bitget SPOT',
+    requiresPassphrase: false,
+    supportsKeyTypes: false,
+    supportsHostSelection: false,
+    supportsPaperTrading: true,
+    isPaperExchange: true,
+    category: 'spot',
   },
   {
     id: ExchangeEnum.paperBitgetUsdm,
@@ -631,7 +662,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
   {
     id: ExchangeEnum.paperHyperliquid,
     name: 'hyperliquid',
-    displayName: 'Paper Hyperliquid',
+    displayName: 'Paper Hyperliquid SPOT',
     requiresPassphrase: false,
     supportsKeyTypes: false,
     supportsHostSelection: false,
@@ -673,6 +704,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.krakenAll,
@@ -719,6 +751,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    hideFromProviderList: true,
   },
   {
     id: ExchangeEnum.paperKrakenAll,
@@ -755,58 +788,81 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
   },
 ];
 
-// Paper trading asset configurations
+// Paper trading top-up assets per exchange brand.
+//
+// The list a user can fund a paper account with must match the quote
+// currencies that exchange actually trades on Gainium — otherwise you
+// top up an asset with no tradeable pairs (e.g. Kraken trades USD/EUR,
+// not USDT). Each list below is ordered by real pair coverage, so the
+// FIRST entry is the sensible default; dead stablecoins (BUSD, TUSD,
+// GUSD, PAX, DAI) have been dropped. Counts in the comments are the
+// number of spot pairs quoted in that asset (Gainium `getAllPairs`,
+// reviewed 2026-06). Keyed by `name` (brand) because every market-type
+// variant of a brand shares one list (getPaperTradingAssets).
+const USD_BAL = '10000';
 export const paperTradingAssets: Record<string, PaperTradingAsset[]> = {
+  // USDT 437 · USDC 288 · FDUSD 37 · BTC 54 · ETH 12
   binance: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'BUSD', name: 'Binance USD', defaultBalance: '10000' },
-    { symbol: 'TUSD', name: 'TrueUSD', defaultBalance: '10000' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'FDUSD', name: 'First Digital USD', defaultBalance: USD_BAL },
     { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
     { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
   ],
+  // USDT 433 · USDC 87 · EUR 18 · BTC 7
   bybit: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-    { symbol: 'DAI', name: 'Dai Stablecoin', defaultBalance: '10000' },
-    { symbol: 'BUSD', name: 'Binance USD', defaultBalance: '10000' },
-    { symbol: 'TUSD', name: 'TrueUSD', defaultBalance: '10000' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
     { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
-    { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
   ],
+  // USDT 300 · USD 289 · EUR 265 · USDC 262
   okx: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-    { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
-    { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
   ],
+  // USDT 881 · BTC 64 · USDC 59 · ETH 25
   kucoin: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-    { symbol: 'TUSD', name: 'TrueUSD', defaultBalance: '10000' },
-    { symbol: 'GUSD', name: 'Gemini Dollar', defaultBalance: '10000' },
-    { symbol: 'PAX', name: 'Paxos Standard', defaultBalance: '10000' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
     { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
     { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
   ],
+  // USDT 1096 · USDC 32 · EUR 12
   bitget: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
+  ],
+  // USDC 408 · USD 404 · EUR 35 · GBP 25 · BTC 24 · USDT 23
+  coinbase: [
+    { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
+    { symbol: 'GBP', name: 'British Pound', defaultBalance: USD_BAL },
+    { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
+  ],
+  // USDT 2283 · USDC 76 · BTC 20 · ETH 9
+  mexc: [
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
     { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
     { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
   ],
-  coinbase: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-    { symbol: 'EUR', name: 'Euro', defaultBalance: '10000' },
-    { symbol: 'GBP', name: 'British Pound', defaultBalance: '10000' },
+  // USDC 290 (Hyperliquid settles everything in USDC)
+  hyperliquid: [
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
   ],
-  mexc: [{ symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' }],
-  hyperliquid: [{ symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' }],
+  // USD 685 · EUR 584 · USDT 48 · USDC 46 · BTC 32 · GBP 27 · ETH 19
   kraken: [
-    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-    { symbol: 'EUR', name: 'Euro', defaultBalance: '10000' },
-    { symbol: 'GBP', name: 'British Pound', defaultBalance: '10000' },
+    { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
+    { symbol: 'GBP', name: 'British Pound', defaultBalance: USD_BAL },
     { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '1' },
     { symbol: 'ETH', name: 'Ethereum', defaultBalance: '10' },
   ],
@@ -867,6 +923,23 @@ export const getExchangeConfig = (
   return exchangeProviders.find((config) => config.id === provider);
 };
 
+// Default account name to seed the form's "Exchange Name" field when a
+// provider is picked. For a `SPOT & Futures` (category 'all') selection
+// the backend splits the account into two and appends " (SPOT)" /
+// " (FUTURES)" to each, so seeding the decorated displayName would yield
+// a confusing "Paper Kraken SPOT & Futures (SPOT)". Strip the
+// `SPOT & Futures` decoration so the result reads "Paper Kraken (SPOT)".
+// Single-market variants keep their descriptive name (no suffix is added
+// by the backend for them).
+export const getDefaultAccountName = (
+  config: ExchangeProviderConfig
+): string => {
+  if (config.category === 'all') {
+    return config.displayName.replace(/\s*SPOT & Futures\s*$/i, '').trim();
+  }
+  return config.displayName;
+};
+
 export const getExchangesByCategory = (
   category?: 'spot' | 'futures' | 'all'
 ) => {
@@ -878,6 +951,134 @@ export const getPaperTradingAssets = (
   exchangeName: string
 ): PaperTradingAsset[] => {
   return paperTradingAssets[exchangeName] || paperTradingAssets['binance'];
+};
+
+// ---------------------------------------------------------------------------
+// Independent per-sub-account paper funding ("SPOT & Futures" create)
+//
+// A paper `all` selection spawns one account per market on the backend. The
+// expansion below MUST mirror main-app's addExchange resolver (tradeType=all
+// branch) exactly, since each created account is funded independently and the
+// frontend renders one funding row per entry. Order is display order
+// (SPOT → USDⓈ-M → COIN-M).
+// ---------------------------------------------------------------------------
+const PAPER_ALL_SUB_ACCOUNTS: Partial<Record<ExchangeEnum, ExchangeEnum[]>> = {
+  [ExchangeEnum.paperBinance]: [
+    ExchangeEnum.paperBinance,
+    ExchangeEnum.paperBinanceUsdm,
+    ExchangeEnum.paperBinanceCoinm,
+  ],
+  [ExchangeEnum.paperBybit]: [
+    ExchangeEnum.paperBybit,
+    ExchangeEnum.paperBybitUsdm,
+    ExchangeEnum.paperBybitCoinm,
+  ],
+  [ExchangeEnum.paperKucoin]: [
+    ExchangeEnum.paperKucoin,
+    ExchangeEnum.paperKucoinLinear,
+    ExchangeEnum.paperKucoinInverse,
+  ],
+  [ExchangeEnum.paperOkx]: [
+    ExchangeEnum.paperOkx,
+    ExchangeEnum.paperOkxLinear,
+    ExchangeEnum.paperOkxInverse,
+  ],
+  [ExchangeEnum.paperBitget]: [
+    ExchangeEnum.paperBitget,
+    ExchangeEnum.paperBitgetUsdm,
+    ExchangeEnum.paperBitgetCoinm,
+  ],
+  [ExchangeEnum.paperKraken]: [
+    ExchangeEnum.paperKraken,
+    ExchangeEnum.paperKrakenUsdm,
+  ],
+  [ExchangeEnum.paperHyperliquid]: [
+    ExchangeEnum.paperHyperliquid,
+    ExchangeEnum.paperHyperliquidLinear,
+  ],
+};
+
+const COIN_MARGINED_SUB_ACCOUNTS = new Set<ExchangeEnum>([
+  ExchangeEnum.paperBinanceCoinm,
+  ExchangeEnum.paperBybitCoinm,
+  ExchangeEnum.paperOkxInverse,
+  ExchangeEnum.paperKucoinInverse,
+  ExchangeEnum.paperBitgetCoinm,
+  ExchangeEnum.paperKrakenCoinm,
+]);
+
+const LINEAR_SUB_ACCOUNTS = new Set<ExchangeEnum>([
+  ExchangeEnum.paperBinanceUsdm,
+  ExchangeEnum.paperBybitUsdm,
+  ExchangeEnum.paperOkxLinear,
+  ExchangeEnum.paperKucoinLinear,
+  ExchangeEnum.paperBitgetUsdm,
+  ExchangeEnum.paperHyperliquidLinear,
+  ExchangeEnum.paperKrakenUsdm,
+]);
+
+export type PaperSubAccountMarket = 'spot' | 'linear' | 'inverse';
+
+export const getPaperSubAccountMarket = (
+  id: ExchangeEnum
+): PaperSubAccountMarket =>
+  COIN_MARGINED_SUB_ACCOUNTS.has(id)
+    ? 'inverse'
+    : LINEAR_SUB_ACCOUNTS.has(id)
+      ? 'linear'
+      : 'spot';
+
+// Short market label for a sub-account funding row.
+export const getPaperSubAccountLabel = (id: ExchangeEnum): string => {
+  const market = getPaperSubAccountMarket(id);
+  return market === 'inverse'
+    ? 'COIN-M Futures'
+    : market === 'linear'
+      ? 'USDⓈ-M Futures'
+      : 'SPOT';
+};
+
+// Accounts a paper `all` selection will create. `baseProvider` is the
+// backend base id (e.g. paperKraken) — map the `…All` UX id to it first.
+// Returns [provider] for anything without an `all` expansion.
+export const getPaperAllSubAccounts = (
+  baseProvider: ExchangeEnum
+): ExchangeEnum[] => PAPER_ALL_SUB_ACCOUNTS[baseProvider] ?? [baseProvider];
+
+// COIN-M (inverse) accounts are coin-margined — funded with the base coin,
+// not a stablecoin. Default mirrors the backend's 0.5 BTC seed.
+const COIN_MARGIN_ASSETS: PaperTradingAsset[] = [
+  { symbol: 'BTC', name: 'Bitcoin', defaultBalance: '0.5' },
+  { symbol: 'ETH', name: 'Ethereum', defaultBalance: '5' },
+];
+
+// USDⓈ-M (linear) margin assets per brand, from real futures-pair coverage:
+// most exchanges margin in USDT/USDC; Kraken futures settle in USD;
+// Hyperliquid in USDC.
+const LINEAR_MARGIN_ASSETS_BY_BRAND: Record<string, PaperTradingAsset[]> = {
+  kraken: [{ symbol: 'USD', name: 'US Dollar', defaultBalance: '10000' }],
+  hyperliquid: [
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
+    { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
+  ],
+};
+const DEFAULT_LINEAR_MARGIN_ASSETS: PaperTradingAsset[] = [
+  { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
+  { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
+];
+
+// Valid top-up assets for one created sub-account, by its market type.
+// SPOT reuses the brand's spot list; USDⓈ-M uses the brand's margin stable;
+// COIN-M uses coin-margin assets.
+export const getSubAccountTopUpAssets = (
+  id: ExchangeEnum,
+  brand: string
+): PaperTradingAsset[] => {
+  const market = getPaperSubAccountMarket(id);
+  if (market === 'inverse') return COIN_MARGIN_ASSETS;
+  if (market === 'linear')
+    return LINEAR_MARGIN_ASSETS_BY_BRAND[brand] ?? DEFAULT_LINEAR_MARGIN_ASSETS;
+  return getPaperTradingAssets(brand);
 };
 
 export const getExchangeHostOptions = (

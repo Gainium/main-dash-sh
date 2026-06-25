@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.0] - 2026-06-25
+
+### Added
+
+- Paper `SPOT & Futures` accounts can now be funded independently per market: the Add Exchange form shows a separate asset + amount for each account it will create (SPOT / USDⓈ-M / COIN-M), with the COIN-M account coin-margined (BTC/ETH). Sent via the new `addExchange` `topUps` field.
+
+### Changed
+
+- Add Exchange paper dropdown de-duplicated: each exchange now lists one clear entry per market (SPOT / SPOT & Futures / Futures) instead of a redundant bare umbrella alongside an explicit variant. Hyperliquid's spot entry is labeled "SPOT"; Paper Bitget gains SPOT and SPOT & Futures entries.
+- Paper top-up asset lists corrected per exchange from real tradeable-pair coverage (e.g. Kraken defaults to USD, not USDT; dropped delisted BUSD/TUSD/GUSD/PAX/DAI; Coinbase offers USD).
+- A `SPOT & Futures` selection now shows the funding field and defaults the account name to the exchange brand (e.g. "Paper Kraken"), so created accounts read "Paper Kraken (Spot)" instead of "Paper Kraken SPOT & Futures (Spot)".
+
+### Fixed
+
+- "My Accounts" now refreshes immediately after adding a `SPOT & Futures` account (every created sub-account is added to the list, not just the first).
+
 ## [2.16.1] - 2026-06-25
 
 ### Fixed
