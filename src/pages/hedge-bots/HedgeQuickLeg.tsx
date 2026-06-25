@@ -234,10 +234,18 @@ export const HedgeQuickInvestment: React.FC = () => {
   const coinm = useBotFormSelector('coinm');
   const baseOrderSize = useBotFormSelector('baseOrderSize');
 
-  const unit =
-    strategy === StrategyEnum.short
-      ? OrderSizeTypeEnum.base
-      : OrderSizeTypeEnum.quote;
+  // Match resolveBaseOrderContext's denomination rules so the icon, unit
+  // label, stored orderSizeType, and balance check all agree:
+  //  - COIN-M futures settle in base (e.g. BTC)
+  //  - USDⓈ-M futures settle in quote (e.g. USDT) regardless of direction
+  //  - spot: a long buys with quote, a short sells base
+  const unit = coinm
+    ? OrderSizeTypeEnum.base
+    : futures
+      ? OrderSizeTypeEnum.quote
+      : strategy === StrategyEnum.short
+        ? OrderSizeTypeEnum.base
+        : OrderSizeTypeEnum.quote;
 
   // Keep the leg denominated in its natural side even if the user never
   // touches the field (so the saved bot + balance check use the right wallet).

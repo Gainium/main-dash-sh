@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.1] - 2026-06-25
+
+### Fixed
+
+- Hedge bots Quick form: a short leg on a USDⓈ-M futures account now shows its Investment in the settlement asset (e.g. USDT) instead of the base coin; the coin icon and unit label always match. COIN-M still shows the base coin, spot shorts the base asset.
+- Hedge bots Quick form: the Investment slider now scales to the leg's actual available balance on its exchange, instead of a fixed 0–100 range. Both legs resolve their own balance even when they sit on different exchanges.
+
 ## [2.17.0] - 2026-06-25
 
 ### Added

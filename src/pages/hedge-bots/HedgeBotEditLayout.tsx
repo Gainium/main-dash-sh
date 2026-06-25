@@ -61,6 +61,7 @@ import {
   useExchangesFromContext,
   useTradingPairsFromContext,
 } from '@/contexts/ExchangeDataContext';
+import { useBotFormMutations } from '@/hooks/bots/base/useBotFormMutations';
 import {
   HEDGE_QUICK_PRESETS,
   getHedgeLegDcaState,
@@ -298,6 +299,22 @@ export const HedgeBotEditLayout: React.FC = () => {
     null
   );
   const [quickSeedSeq, setQuickSeedSeq] = useState(0);
+
+  // In Quick mode the legs mount bare BotFormProviders (not the full BotForm
+  // widget), so nothing hydrates the per-asset balance store the investment
+  // sliders read. Both legs can also sit on different exchanges, and the store
+  // replaces (not merges) on each fetch — so a single all-exchanges fetch is
+  // the only way both legs resolve their balance without clobbering. Fetch
+  // once on entering Quick mode; manual legs fetch their own exchange.
+  const { getBalances: getHedgeBalances } = useBotFormMutations({
+    mode: 'create',
+    botType,
+  });
+  useEffect(() => {
+    if (hedgeMode === 'quick') {
+      void getHedgeBalances(undefined, true).catch(() => {});
+    }
+  }, [hedgeMode, getHedgeBalances]);
 
   // Quick-mode per-leg formData refs. Each HedgeQuickLeg mounts a
   // BotFormProvider with its own state for exchange + pair; the ref
