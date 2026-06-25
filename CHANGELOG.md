@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.2] - 2026-06-25
+
+### Fixed
+
+- DCA, Combo and Hedge bots can again set max open deals up to 200. The save-time field mapper was silently capping the value at 50 (rejecting anything higher with "Max open deals must be between 1 and 50"), even though the form validation and the previous dashboard both allowed up to 200. The mapper now matches at 200.
+
 ## [2.18.1] - 2026-06-25
 
 ### Fixed

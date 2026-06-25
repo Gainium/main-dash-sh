@@ -1024,8 +1024,8 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       );
     }
 
-    if (+(maxNumberOfOpenDeals || 1) < 1 || +(maxNumberOfOpenDeals || 1) > 50) {
-      errors.push('Max open deals must be between 1 and 50');
+    if (+(maxNumberOfOpenDeals || 1) < 1 || +(maxNumberOfOpenDeals || 1) > 200) {
+      errors.push('Max open deals must be between 1 and 200');
       fieldsSkipped.push('maxNumberOfOpenDeals');
     } else {
       dcaFields['maxNumberOfOpenDeals'] = String(maxNumberOfOpenDeals);
