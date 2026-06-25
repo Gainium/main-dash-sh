@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.0] - 2026-06-25
+
+### Added
+
+- Hedge bot details: a unified view that shows **both legs together** instead of a Long/Short switcher. The Overview has a combined stats block plus each leg; Deals lists both legs' deals in one table; Events is one merged feed; the chart is a single panel. Settings keeps a Hedge / Long / Short switch (Hedge shows the shared take-profit / stop-loss).
+
+### Fixed
+
+- Hedge bot combined and per-leg **Unrealized PnL / current value** no longer read $0.00 for bots on exchanges absent from the price feed (e.g. Kraken futures): the values are now taken from the server-computed deal data. Capital "cost" on each leg is likewise sourced from the deals so it no longer flickers.
+- Clicking a deal in a hedge bot's Deals tab now opens it **in place** within the same drawer, matching the other bot types, instead of stacking a second drawer on top.
+- Grid bots Quick form: the Investment now defaults to a sensible non-zero amount (sized so each grid level clears the exchange minimum, capped at your available balance) instead of 0, which previously tripped a per-level-minimum error on launch.
+
 ## [2.17.2] - 2026-06-25
 
 ### Fixed

@@ -235,6 +235,39 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
     return Number.isFinite(min) && min > 0 ? min : null;
   }, [formData.pairPrecisionMap, firstPair]);
 
+  // One-shot seed: a brand-new grid form lands with budget 0, which trips the
+  // per-level-minimum check and looks broken / errors on launch. Seed a
+  // sensible default the first time we have a balance + pair — large enough
+  // that each level clears the exchange minimum (levels x min x 2), floored at
+  // 100, capped at the user's available balance. The user can freely change it
+  // afterwards (and a curated preset that stages its own budget pre-empts this,
+  // since we only seed while budget is still 0).
+  const didSeedBudgetRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (mode !== 'create') return;
+    if (!quoteAsset || !firstPair) return;
+    if (availableBalance <= 0) return;
+    if (budget > 0) return;
+    const seedKey = `${firstPair}:${quoteAsset}`;
+    if (didSeedBudgetRef.current === seedKey) return;
+    const perLevelMin = exchangeMinOrderSize ?? 10;
+    const target = Math.max((levels || 10) * perLevelMin * 2, 100);
+    const seed = Math.round(Math.min(target, availableBalance) * 100) / 100;
+    if (seed > 0) {
+      updateFormData('budget' as Fields, seed);
+      didSeedBudgetRef.current = seedKey;
+    }
+  }, [
+    mode,
+    quoteAsset,
+    firstPair,
+    availableBalance,
+    budget,
+    levels,
+    exchangeMinOrderSize,
+    updateFormData,
+  ]);
+
   const budgetAlerts = useMemo<BotFormAlert[]>(() => {
     if (
       !selectedPreset ||

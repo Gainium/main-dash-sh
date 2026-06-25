@@ -8,6 +8,7 @@ import {
   DCAOrderTypeEnum,
   ScaleDcaTypeEnum,
   StartConditionEnum,
+  DCADealStatusEnum,
   StrategyEnum,
   type AvgPrice,
   type BotStatus,
@@ -85,9 +86,33 @@ import {
 import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import DrawerWidgetRenderer from '../widgets/bots/drawer/DrawerWidgetRenderer';
+import OpenOrdersWidget from '../widgets/shared/OpenOrdersWidget';
 import StaleIndicator from '../widgets/shared/StaleIndicator';
 import { getDrawerWidgetsForBot } from './drawerWidgetConfig';
 import { UnfoldingChartPanel } from './panels/contents';
+import HedgeOverviewPanel from './panels/HedgeOverviewPanel';
+import { HedgeSharedSettingsCard } from './panels/HedgeSharedSettingsCard';
+import { useHedgeDeals } from '@/hooks/useHedgeDeals';
+import type { ComboDeal } from '@/hooks/useComboDeals';
+import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
+import { comboDealToOpenTrade } from '@/lib/utils/comboDealToOpenTrade';
+import type { HedgeUnPnlResult } from '@/utils/bots/hedge/computeHedgeUnPnl';
+
+/**
+ * Combined hedge context passed by the hedge list pages. The drawer renders
+ * both legs together when this is present (see the `hedge` prop docs).
+ */
+export interface HedgeDrawerContext {
+  longBot: DrawerBot | null;
+  shortBot: DrawerBot | null;
+  unPnl: HedgeUnPnlResult;
+  /** Combined realized profit (USD) across both legs. */
+  totalProfitUsd: number;
+  /** Whether the legs are combo bots (picks the combo deal query/mapper). */
+  isCombo: boolean;
+  /** Hedge wrapper id — scopes the combined deals query to this bot. */
+  wrapperId: string;
+}
 
 export interface TradeDetails {
   id: string;
@@ -161,8 +186,19 @@ interface BotDetailsDrawerProps {
    * Optional UI rendered above the tabs row. Used by hedge lists to
    * inject a Long / Short leg switcher so the same drawer surface can
    * display either leg's data without remounting.
+   *
+   * @deprecated Superseded by `hedge` (combined view). Kept for any
+   * caller still passing a switcher; ignored when `hedge` is set.
    */
   legSwitcher?: React.ReactNode;
+  /**
+   * Combined hedge context. When supplied the drawer renders BOTH legs
+   * together (no leg switcher): Overview shows a combined block + each
+   * leg's widgets, Deals/Events/Webhook stack both legs, the chart panel
+   * stacks both legs, and only Settings keeps an internal Long/Short
+   * toggle. `bot` should be the primary (long) leg for the header chrome.
+   */
+  hedge?: HedgeDrawerContext;
   /**
    * Read-only mode — true for share-link visitors and for logged-in
    * users viewing a bot they don't own. Hides edit / start-stop / clone
@@ -212,11 +248,13 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     onClose,
     parentBotId,
     legSwitcher,
+    hedge,
     viewOnly = false,
     ownerUserId,
     fullWidth = false,
   }) => {
     const privacyMode = useMemo(() => _privacyMode ?? false, [_privacyMode]);
+    const isHedge = !!hedge;
     const isGrid = useMemo(() => type === BotTypesEnum.grid, [type]);
     // View state: 'bot' or 'trade' or 'edit-deal'
     type ViewMode = 'bot' | 'trade' | 'edit-deal';
@@ -270,6 +308,135 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const handleTabChange = useCallback((_tab: string) => {
       // No manual URL update needed - Tabs component handles it
     }, []);
+
+    // Combined hedge deals (both legs of THIS hedge bot). Fetched only while
+    // the Deals tab is active, via the dedicated hedge query that keeps its
+    // own react-query cache and never clobbers the shared deal store.
+    const [hedgeDealsStatus, setHedgeDealsStatus] = useState<'open' | 'closed'>(
+      'open'
+    );
+    // Settings is the only hedge tab with a sub-switch — Hedge (shared TP/SL)
+    // / Long / Short — mirroring the new hedge bot page's tab layout.
+    const [settingsLeg, setSettingsLeg] = useState<'hedge' | 'long' | 'short'>(
+      'hedge'
+    );
+    // Fetch ALL the user's hedge deals (the wrapper-id filter isn't reliable
+    // server-side) and scope to THIS bot's legs client-side via their ids.
+    // Enabled whenever the drawer is a hedge bot (not just on the Deals tab):
+    // the Overview's combined unrealized is derived from these deals because
+    // the client-side price calc can't value bots on exchanges missing from
+    // the price feed (e.g. Kraken futures) — only the server-computed deal
+    // unrealized is reliable there.
+    const { deals: allHedgeDeals } = useHedgeDeals(hedge?.isCombo ?? false, {
+      status:
+        hedgeDealsStatus === 'closed'
+          ? DCADealStatusEnum.closed
+          : DCADealStatusEnum.open,
+      enabled: isHedge,
+    });
+    const hedgeLegIds = useMemo(() => {
+      const ids = new Set<string>();
+      // Accept either keying: deal.botId may be the leg id or the wrapper id.
+      if (hedge?.wrapperId) ids.add(hedge.wrapperId);
+      if (hedge?.longBot?._id) ids.add(hedge.longBot._id);
+      if (hedge?.shortBot?._id) ids.add(hedge.shortBot._id);
+      return ids;
+    }, [hedge?.wrapperId, hedge?.longBot?._id, hedge?.shortBot?._id]);
+    const hedgeRawDeals = useMemo(
+      () =>
+        allHedgeDeals.filter(
+          (d) => !d.botId || hedgeLegIds.size === 0 || hedgeLegIds.has(d.botId)
+        ),
+      [allHedgeDeals, hedgeLegIds]
+    );
+    const hedgeDealsAsOpenTrades = useMemo(() => {
+      if (!isHedge) return [];
+      return hedge?.isCombo
+        ? (hedgeRawDeals as ComboDeal[]).map((d) => comboDealToOpenTrade(d))
+        : (hedgeRawDeals as DCADeals[]).map((d) => dcaDealToOpenTrade(d));
+    }, [isHedge, hedge?.isCombo, hedgeRawDeals]);
+
+    // Server-accurate combined unrealized for the Overview: sum the open
+    // deals' unrealized (the mapper already zeroes inactive deals). Only
+    // meaningful while the status toggle is on "open" (its default).
+    const hedgeCombinedUnrealized = useMemo(
+      () =>
+        hedgeDealsStatus === 'open'
+          ? hedgeDealsAsOpenTrades.reduce(
+              (sum, t) => sum + (t.unrealizedProfit || 0),
+              0
+            )
+          : 0,
+      [hedgeDealsAsOpenTrades, hedgeDealsStatus]
+    );
+
+    // Enrich each leg bot with server-accurate cost / value / unrealized
+    // derived from its deals. The client price calc reads 0 for bots on
+    // exchanges missing from the price feed (e.g. Kraken futures), so the leg
+    // summary widgets and the combined block would otherwise show 0 / flicker.
+    const enrichLegFromDeals = useCallback(
+      (leg: DrawerBot | null): DrawerBot | null => {
+        if (!leg) return null;
+        if (hedgeDealsStatus !== 'open') return leg;
+        const legDeals = hedgeRawDeals.filter((d) => d.botId === leg._id);
+        if (legDeals.length === 0) return leg;
+        const cost = legDeals.reduce(
+          (s, d) => s + (d.usage?.currentUsd ?? d.usage?.current?.quote ?? 0),
+          0
+        );
+        const maxCost = legDeals.reduce(
+          (s, d) => s + (d.usage?.maxUsd ?? d.usage?.max?.quote ?? 0),
+          0
+        );
+        const unrealized = legDeals.reduce((s, d) => {
+          const active = ['open', 'start', 'error'].includes(
+            String(d.status).toLowerCase()
+          );
+          const u =
+            (d as { unrealizedUsd?: number }).unrealizedUsd ??
+            d.stats?.unrealizedProfit ??
+            0;
+          return s + (active ? u : 0);
+        }, 0);
+        return {
+          ...leg,
+          currentValue: cost,
+          value: cost + unrealized,
+          unPnl: unrealized,
+          unPnlPerc: cost > 0 ? (unrealized / cost) * 100 : 0,
+          usage: {
+            ...leg.usage,
+            currentUsd: cost,
+            maxUsd:
+              maxCost || (leg.usage as { maxUsd?: number } | undefined)?.maxUsd,
+          },
+        } as DrawerBot;
+      },
+      [hedgeRawDeals, hedgeDealsStatus]
+    );
+    const enrichedLongBot = useMemo(
+      () => (isHedge ? enrichLegFromDeals(hedge?.longBot ?? null) : null),
+      [isHedge, hedge?.longBot, enrichLegFromDeals]
+    );
+    const enrichedShortBot = useMemo(
+      () => (isHedge ? enrichLegFromDeals(hedge?.shortBot ?? null) : null),
+      [isHedge, hedge?.shortBot, enrichLegFromDeals]
+    );
+
+    // The events widget derives its bot type from `bot.type`; give it the
+    // hedge type + wrapper id so it loads the merged hedge event feed.
+    const hedgeEventsBot = useMemo(
+      () =>
+        hedge
+          ? ({
+              ...bot,
+              type: hedge.isCombo
+                ? BotTypesEnum.hedgeCombo
+                : BotTypesEnum.hedgeDca,
+            } as typeof bot)
+          : null,
+      [hedge, bot]
+    );
 
     // Modal state
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -985,6 +1152,8 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const leftPanel = useMemo(
       () =>
         isLeftPanelCollapsed ? null : (
+          // Hedge legs share the pair, so a single chart (the primary leg)
+          // covers both — one chart, not two.
           <div className="h-full w-full">
             <UnfoldingChartPanel
               botId={bot._id}
@@ -1168,7 +1337,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   {/* Optional leg switcher — supplied by the hedge list
                       pages so the same drawer can flip between long /
                       short leg data without remounting. */}
-                  {legSwitcher && (
+                  {legSwitcher && !isHedge && (
                     <div className="mb-sm flex items-center">{legSwitcher}</div>
                   )}
 
@@ -1207,14 +1376,32 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     transition={{ duration: 0.2 }}
                     className="h-full"
                   >
-                    {/* Deals widget */}
-                    <DrawerWidgetRenderer
-                      botId={bot._id}
-                      bot={bot}
-                      privacyMode={privacyMode}
-                      widgets={dealWidgetWithProps}
-                      onTradeSelect={handleTradeSelect}
-                    />
+                    {/* Deals widget — hedge shows both legs' deals combined
+                        via the dedicated hedge query; non-hedge uses the
+                        single-bot deals table. */}
+                    {isHedge ? (
+                      <OpenOrdersWidget
+                        widgetId={`hedge-bot-${hedge?.wrapperId}-deals`}
+                        data={{ trades: hedgeDealsAsOpenTrades }}
+                        rawDeals={hedgeRawDeals as DCADeals[]}
+                        enableStatusToggle={true}
+                        onStatusFilterChange={setHedgeDealsStatus}
+                        privacyMode={privacyMode}
+                        // Click a deal -> open it IN-PLACE in this drawer (like
+                        // the other bot drawers), not a second drawer on top.
+                        onTradeClick={(t) =>
+                          handleTradeSelect(t as unknown as TradeDetails)
+                        }
+                      />
+                    ) : (
+                      <DrawerWidgetRenderer
+                        botId={bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={dealWidgetWithProps}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    )}
                   </motion.div>
                 </TabsContent>
 
@@ -1227,25 +1414,37 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     transition={{ duration: 0.2 }}
                     className="space-y-5 sm:space-y-lg"
                   >
-                    {/* Performance widgets */}
-                    <DrawerWidgetRenderer
-                      botId={bot._id}
-                      bot={bot}
-                      privacyMode={privacyMode}
-                      widgets={drawerWidgets.filter(
-                        (w) =>
-                          ![
-                            'drawer-bot-events',
-                            'drawer-webhook-info',
-                            'drawer-bot-settings',
-                            'drawer-deals-table',
-                            'drawer-orders-table',
-                            'drawer-backtest-results',
-                            'drawer-additional-details',
-                          ].includes(w.type)
-                      )}
-                      onTradeSelect={handleTradeSelect}
-                    />
+                    {/* Performance widgets — hedge shows a combined block plus
+                        each leg's widgets; non-hedge shows the single bot. */}
+                    {isHedge && hedge ? (
+                      <HedgeOverviewPanel
+                        longBot={enrichedLongBot ?? hedge.longBot}
+                        shortBot={enrichedShortBot ?? hedge.shortBot}
+                        totalProfitUsd={hedge.totalProfitUsd}
+                        unrealizedUsd={hedgeCombinedUnrealized}
+                        privacyMode={privacyMode}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    ) : (
+                      <DrawerWidgetRenderer
+                        botId={bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={drawerWidgets.filter(
+                          (w) =>
+                            ![
+                              'drawer-bot-events',
+                              'drawer-webhook-info',
+                              'drawer-bot-settings',
+                              'drawer-deals-table',
+                              'drawer-orders-table',
+                              'drawer-backtest-results',
+                              'drawer-additional-details',
+                            ].includes(w.type)
+                        )}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    )}
 
                     {/* Bot ID — parent (hedge wrapper) takes precedence so
                         the user sees the id that owns the bot card / list
@@ -1289,18 +1488,35 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     transition={{ duration: 0.2 }}
                     className="space-y-5 sm:space-y-lg"
                   >
-                    {/* Events widget — for hedge bots events live on the
-                        wrapper id (the worker emits hedge-level lifecycle
-                        events), so prefer the parent id when supplied. */}
-                    <DrawerWidgetRenderer
-                      botId={parentBotId ?? bot._id}
-                      bot={bot}
-                      privacyMode={privacyMode}
-                      widgets={drawerWidgets.filter(
-                        (w) => w.type === 'drawer-bot-events'
-                      )}
-                      onTradeSelect={handleTradeSelect}
-                    />
+                    {/* Events — hedge fetches the MERGED hedge-level event
+                        feed (the events widget keys off bot.type + wrapper id;
+                        a hedge type makes the backend return both legs'
+                        lifecycle events as one stream). Non-hedge shows the
+                        single bot's events. */}
+                    {isHedge && hedge ? (
+                      <DrawerWidgetRenderer
+                        botId={hedge.wrapperId}
+                        bot={hedgeEventsBot ?? bot}
+                        privacyMode={privacyMode}
+                        widgets={[
+                          {
+                            type: 'drawer-bot-events',
+                            botId: hedge.wrapperId,
+                          },
+                        ]}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    ) : (
+                      <DrawerWidgetRenderer
+                        botId={parentBotId ?? bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={drawerWidgets.filter(
+                          (w) => w.type === 'drawer-bot-events'
+                        )}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    )}
                   </motion.div>
                 </TabsContent>
 
@@ -1313,16 +1529,68 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     transition={{ duration: 0.2 }}
                     className="-mt-5 sm:-mt-6"
                   >
-                    {/* Bot Settings widget */}
-                    <DrawerWidgetRenderer
-                      botId={bot._id}
-                      bot={bot}
-                      privacyMode={privacyMode}
-                      widgets={[
-                        { type: 'drawer-bot-settings', botId: bot._id },
-                      ]}
-                      onTradeSelect={handleTradeSelect}
-                    />
+                    {/* Bot Settings — the ONE hedge tab with a sub-switch:
+                        Hedge (shared TP/SL) / Long / Short, mirroring the new
+                        hedge bot page. */}
+                    {isHedge && hedge ? (
+                      (() => {
+                        const activeLegBot =
+                          settingsLeg === 'short'
+                            ? hedge.shortBot
+                            : hedge.longBot;
+                        const shared = hedge.longBot ?? hedge.shortBot;
+                        return (
+                          <div className="space-y-4 pt-5 sm:pt-6">
+                            <Tabs
+                              value={settingsLeg}
+                              onValueChange={(v) =>
+                                setSettingsLeg(v as 'hedge' | 'long' | 'short')
+                              }
+                            >
+                              <TabsList>
+                                <TabsTrigger value="hedge">Hedge</TabsTrigger>
+                                <TabsTrigger value="long">Long leg</TabsTrigger>
+                                <TabsTrigger value="short">
+                                  Short leg
+                                </TabsTrigger>
+                              </TabsList>
+                            </Tabs>
+                            {settingsLeg === 'hedge' ? (
+                              <HedgeSharedSettingsCard
+                                settings={shared?.settings}
+                              />
+                            ) : activeLegBot ? (
+                              <DrawerWidgetRenderer
+                                botId={activeLegBot._id}
+                                bot={activeLegBot}
+                                privacyMode={privacyMode}
+                                widgets={[
+                                  {
+                                    type: 'drawer-bot-settings',
+                                    botId: activeLegBot._id,
+                                  },
+                                ]}
+                                onTradeSelect={handleTradeSelect}
+                              />
+                            ) : (
+                              <div className="rounded-lg bg-muted p-sm text-sm text-muted-foreground">
+                                This leg has no settings.
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })()
+                    ) : (
+                      <DrawerWidgetRenderer
+                        botId={bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={[
+                          { type: 'drawer-bot-settings', botId: bot._id },
+                        ]}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    )}
                   </motion.div>
                 </TabsContent>
 
@@ -1335,16 +1603,53 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     transition={{ duration: 0.2 }}
                     className="space-y-5 sm:space-y-lg"
                   >
-                    {/* Webhook config widget */}
-                    <DrawerWidgetRenderer
-                      botId={bot._id}
-                      bot={bot}
-                      privacyMode={privacyMode}
-                      widgets={drawerWidgets.filter(
-                        (w) => w.type === 'drawer-webhook-info'
-                      )}
-                      onTradeSelect={handleTradeSelect}
-                    />
+                    {/* Webhook — hedge stacks both legs' webhook configs
+                        (each leg has its own); non-hedge shows the single
+                        bot's webhook. */}
+                    {isHedge && hedge ? (
+                      <div className="space-y-5 sm:space-y-lg">
+                        {[
+                          { key: 'long' as const, bot: hedge.longBot },
+                          { key: 'short' as const, bot: hedge.shortBot },
+                        ]
+                          .filter(
+                            (l): l is { key: 'long' | 'short'; bot: DrawerBot } =>
+                              !!l.bot
+                          )
+                          .map(({ key, bot: legBot }) => (
+                            <section key={key} className="space-y-2">
+                              <div className="text-xs font-semibold capitalize text-muted-foreground">
+                                {key} leg
+                                {legBot.settings?.name
+                                  ? ` · ${legBot.settings.name}`
+                                  : ''}
+                              </div>
+                              <DrawerWidgetRenderer
+                                botId={legBot._id}
+                                bot={legBot}
+                                privacyMode={privacyMode}
+                                widgets={[
+                                  {
+                                    type: 'drawer-webhook-info',
+                                    botId: legBot._id,
+                                  },
+                                ]}
+                                onTradeSelect={handleTradeSelect}
+                              />
+                            </section>
+                          ))}
+                      </div>
+                    ) : (
+                      <DrawerWidgetRenderer
+                        botId={bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={drawerWidgets.filter(
+                          (w) => w.type === 'drawer-webhook-info'
+                        )}
+                        onTradeSelect={handleTradeSelect}
+                      />
+                    )}
                   </motion.div>
                 </TabsContent>
               </DetailDrawerBody>
