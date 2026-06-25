@@ -6,6 +6,7 @@ import {
   type MenuStatBox,
 } from '@/components/ui/MenuPanelStatsBoxes';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   getBotDataFromCache,
   useUserSessionsStore,
@@ -101,7 +102,9 @@ const TradingPanel: React.FC<TradingPanelProps> = ({ onClose, onNavigate }) => {
     /* hedgeDcaDeals, hedgeComboDeals, */ terminalDeals,
   ]);
 
-  const { getTotalUnrealizedPnL } = useUnrealizedPnL(allDeals as any);
+  const { getTotalUnrealizedPnL, isLoading: pricesLoading } = useUnrealizedPnL(
+    allDeals as any
+  );
 
   const totalUnrealizedPnL = getTotalUnrealizedPnL();
 
@@ -299,7 +302,14 @@ const TradingPanel: React.FC<TradingPanelProps> = ({ onClose, onNavigate }) => {
     },
     {
       title: 'Total PnL',
-      value: privacyMode ? '***' : formatCurrency(totalPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalPnL, 2)
+        ),
       colorClass:
         totalPnL >= 0
           ? 'from-green-500 to-green-600'
@@ -312,7 +322,14 @@ const TradingPanel: React.FC<TradingPanelProps> = ({ onClose, onNavigate }) => {
     },
     {
       title: 'uPnL',
-      value: privacyMode ? '***' : formatCurrency(totalUnrealizedPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalUnrealizedPnL, 2)
+        ),
       colorClass: 'from-yellow-500 to-yellow-600',
     },
   ];

@@ -6,6 +6,7 @@ import {
   type MenuStatBox,
 } from '@/components/ui/MenuPanelStatsBoxes';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useUserSessionsStore } from '@/stores/userSessionsStore';
 
 import { useDcaBots } from '@/hooks/useDcaBots';
@@ -60,7 +61,9 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
     return [...dcaDeals, ...terminalDeals];
   }, [dcaDeals, terminalDeals]);
 
-  const { getTotalUnrealizedPnL } = useUnrealizedPnL(allDeals as any);
+  const { getTotalUnrealizedPnL, isLoading: pricesLoading } = useUnrealizedPnL(
+    allDeals as any
+  );
 
   const totalUnrealizedPnL = getTotalUnrealizedPnL();
 
@@ -221,7 +224,14 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
     },
     {
       title: 'Total PnL',
-      value: privacyMode ? '***' : formatCurrency(totalPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalPnL, 2)
+        ),
       colorClass:
         totalPnL >= 0
           ? 'from-green-500 to-green-600'
@@ -234,7 +244,14 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
     },
     {
       title: 'uPnL',
-      value: privacyMode ? '***' : formatCurrency(totalUnrealizedPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalUnrealizedPnL, 2)
+        ),
       colorClass: 'from-yellow-500 to-yellow-600',
     },
   ];

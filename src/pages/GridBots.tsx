@@ -51,6 +51,7 @@ import {
   type BotTypeId,
 } from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
@@ -884,7 +885,10 @@ const GridBots: React.FC = () => {
             totalsDefaultAggregation: 'sum',
           },
           aggregationFn: 'sum',
-          cell: ({ getValue }) => {
+          cell: ({ row, getValue }) => {
+            if (row.original.isActive && row.original.loadedPrices === false) {
+              return <Skeleton className="h-4 w-16" />;
+            }
             const value = getValue() as number;
             return privacyMode ? '***' : `$${value.toFixed(2)}`;
           },
@@ -905,6 +909,9 @@ const GridBots: React.FC = () => {
           },
           aggregationFn: 'sum',
           cell: ({ row }) => {
+            if (row.original.isActive && row.original.loadedPrices === false) {
+              return <Skeleton className="h-4 w-16" />;
+            }
             const bot = row.original;
             const valueChangeUsd = +(bot.valueChangeUsd || 0);
             const valueChangePerc = +(bot.valueChange || 0);

@@ -10,6 +10,7 @@ import {
   type MenuStatBox,
 } from '@/components/ui/MenuPanelStatsBoxes';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Skeleton } from '@/components/ui/skeleton';
 import { useComboBots } from '@/hooks/useComboBots';
 import { useComboDeals } from '@/hooks/useComboDeals';
 import { useUnrealizedPnL } from '@/lib/hooks/useUnrealizedPnL';
@@ -59,7 +60,9 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
     return [...comboDeals];
   }, [comboDeals]);
 
-  const { getTotalUnrealizedPnL } = useUnrealizedPnL(allDeals as any);
+  const { getTotalUnrealizedPnL, isLoading: pricesLoading } = useUnrealizedPnL(
+    allDeals as any
+  );
   const totalUnrealizedPnL = getTotalUnrealizedPnL();
 
   function extractNumeric(val: any): number {
@@ -203,7 +206,14 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
     },
     {
       title: 'Total PnL',
-      value: privacyMode ? '***' : formatCurrency(totalPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalPnL, 2)
+        ),
       colorClass:
         totalPnL >= 0
           ? 'from-green-500 to-green-600'
@@ -216,7 +226,14 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
     },
     {
       title: 'uPnL',
-      value: privacyMode ? '***' : formatCurrency(totalUnrealizedPnL, 2),
+      value:
+        pricesLoading && !privacyMode ? (
+          <Skeleton className="h-4 w-16" />
+        ) : privacyMode ? (
+          '***'
+        ) : (
+          formatCurrency(totalUnrealizedPnL, 2)
+        ),
       colorClass: 'from-yellow-500 to-yellow-600',
     },
   ];

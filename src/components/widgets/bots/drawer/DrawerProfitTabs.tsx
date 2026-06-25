@@ -26,6 +26,8 @@ import { useUIStore } from '../../../../stores/uiStore';
 import { ProfitAndPerc } from '../../../ui/chip/ProfitAndPerc';
 import { ProfitLossPercChip } from '../../../ui/chip/ProfitLossPercChip';
 import { ProgressBar } from '../../../ui/ProgressBar';
+import { Skeleton } from '../../../ui/skeleton';
+import { usePricesLoaded } from '../../../../lib/hooks/usePricesLoaded';
 import { DrawerSection } from './DrawerSection';
 
 // Utility function to format working time like old Info widget (23 D 10 H 27 MIN)
@@ -120,6 +122,11 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
   const botType = useMemo(() => botProp?.type || 'dca', [botProp?.type]);
 
   const isGrid = useMemo(() => botType === 'grid', [botType]);
+  // Current Value & Unrealized P&L are derived client-side from the live-price
+  // feed (via transformDcaBotToBot). Until prices arrive they read 0; show a
+  // skeleton instead. Grid bots derive Value Change from server stats, so they
+  // don't gate on the price feed.
+  const pricesLoading = !usePricesLoaded();
 
   // Get bot and deals data using real GraphQL hooks (exclude terminal deals)
   /*  const {
@@ -741,19 +748,22 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
     // Grid bots: show Value Change (USD diff); Others: show Current Value
     {
       label: isGrid ? 'Value Change' : 'Current Value',
-      value: (
-        <ProfitAndPerc
-          value={
-            isGrid
-              ? parseFloat(transformedBot?.valueChangeUsd || '0') || 0
-              : valueMetrics.currentValue
-          }
-          percentage={valueMetrics.currentValuePercent}
-          privacyMode={privacyMode}
-          chipPosition="right"
-          size="sm"
-        />
-      ),
+      value:
+        !isGrid && pricesLoading ? (
+          <Skeleton className="h-4 w-20" />
+        ) : (
+          <ProfitAndPerc
+            value={
+              isGrid
+                ? parseFloat(transformedBot?.valueChangeUsd || '0') || 0
+                : valueMetrics.currentValue
+            }
+            percentage={valueMetrics.currentValuePercent}
+            privacyMode={privacyMode}
+            chipPosition="right"
+            size="sm"
+          />
+        ),
       valueClassName: 'text-sm font-semibold',
     },
     // Grid bots: show Bot Profit + Bot Free Profit; Others: show Total Profit
@@ -912,7 +922,9 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
     ? [
         {
           label: 'Unrealized P&L',
-          value: (
+          value: pricesLoading ? (
+            <Skeleton className="h-4 w-20" />
+          ) : (
             <ProfitAndPerc
               value={botWithUnrealizedPnl?.unrealizedPnlUsd || 0}
               percentage={botWithUnrealizedPnl?.unrealizedPnlPercent || 0}

@@ -954,6 +954,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     [latestPrices]
   );
 
+  // Unrealized/net P&L are computed from the live-prices feed. Until it
+  // arrives the values fall back to a stale/zero number, so gate the
+  // price-dependent cells on a skeleton (legacy parity with main-dash's
+  // per-row `loadedPrices`).
+  const pricesLoading = latestPrices.length === 0;
+
   // Helper function to determine gauge color based on percentage
   const getGaugeColor = useCallback(
     (percentage: number): string => {
@@ -2117,6 +2123,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (!row.original.active) {
             return <span className="text-muted-foreground">-</span>;
           }
+          if (pricesLoading) {
+            return <Skeleton className="h-4 w-16" />;
+          }
           const unrealizedProfit = row.original.unrealizedProfit;
           if (isMetricUnavailable(unrealizedProfit)) {
             return (
@@ -2157,6 +2166,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           // Closed/canceled deals have no unrealized P&L (legacy parity).
           if (!row.original.active) {
             return <span className="text-muted-foreground">-</span>;
+          }
+          if (pricesLoading) {
+            return <Skeleton className="h-4 w-12" />;
           }
           const unrealizedProfit = row.original.unrealizedProfit;
           if (isMetricUnavailable(unrealizedProfit)) {
@@ -2207,6 +2219,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           </span>
         ),
         cell: ({ row }) => {
+          if (row.original.active && pricesLoading) {
+            return <Skeleton className="h-4 w-16" />;
+          }
           const unrealizedProfit = Number(row.original.unrealizedProfit || 0);
           const realizedProfit = Number(row.original.profit?.totalUsd || 0);
           const netPnl = unrealizedProfit + realizedProfit;
@@ -2235,6 +2250,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         meta: { filterType: 'number' },
         enableHiding: true,
         cell: ({ row }) => {
+          if (row.original.active && pricesLoading) {
+            return <Skeleton className="h-4 w-12" />;
+          }
           const unrealizedProfit = Number(row.original.unrealizedProfit || 0);
           const realizedProfit = Number(row.original.profit?.totalUsd || 0);
           const netPnl = unrealizedProfit + realizedProfit;
@@ -2803,6 +2821,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   }, [
     getGaugeColor,
     privacyMode,
+    pricesLoading,
     hideBotName,
     getBotTypeForChip,
     setSelectedDeal,

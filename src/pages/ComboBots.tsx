@@ -53,6 +53,7 @@ import {
   type BotTypeId,
 } from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
+import { Skeleton } from '@/components/ui/skeleton';
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
@@ -1215,6 +1216,9 @@ const ComboBots: React.FC = () => {
         },
         aggregationFn: 'sum',
         cell: ({ row }) => {
+          if (row.original.isActive && row.original.loadedPrices === false) {
+            return <Skeleton className="h-4 w-16" />;
+          }
           const value = row.original.unPnl ?? 0;
           const percentage = row.original.unPnlPerc ?? 0;
           return (
@@ -1296,6 +1300,9 @@ const ComboBots: React.FC = () => {
           return totalProfit + unrealized;
         },
         cell: ({ row }) => {
+          if (row.original.isActive && row.original.loadedPrices === false) {
+            return <Skeleton className="h-4 w-16" />;
+          }
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
@@ -1339,6 +1346,9 @@ const ComboBots: React.FC = () => {
           return cost > 0 ? (netPnl / cost) * 100 : 0;
         },
         cell: ({ row }) => {
+          if (row.original.isActive && row.original.loadedPrices === false) {
+            return <Skeleton className="h-4 w-12" />;
+          }
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;

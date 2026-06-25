@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.3] - 2026-06-25
+
+### Fixed
+
+- Values derived from live market prices (Unrealized P&L, Net P&L, Current Value, and the sidebar uPnL/Total PnL totals) now show a loading skeleton while prices are still being fetched, instead of briefly displaying a misleading `0`. Applies to the deals and open-orders tables, the bot performance drawer, the DCA/Combo/Grid bot list tables, and the trading-bot sidebar panels.
+
 ## [2.18.2] - 2026-06-25
 
 ### Fixed

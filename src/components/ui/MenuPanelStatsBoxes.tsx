@@ -3,8 +3,11 @@ import React from 'react';
 import { StaggerContainer, StaggerItem } from './MotionWrapper';
 import { type StatBox } from './StatsBoxes';
 
-export type MenuStatBox = Omit<StatBox, 'isLoading' | 'icon'> & {
+export type MenuStatBox = Omit<StatBox, 'isLoading' | 'icon' | 'value'> & {
   icon?: React.ReactNode; // optional for backward compatibility
+  // ReactNode (not just string | number) so callers can pass a loading
+  // skeleton for price-dependent values (uPnL, Total PnL) while prices load.
+  value: React.ReactNode;
 };
 
 export type MenuPanelStatsBoxesProps = {

@@ -78,6 +78,7 @@ import {
   StrategyChip,
 } from '../../../ui/chip';
 import { ConfirmationDialog } from '../../../ui/confirmation-dialog';
+import { Skeleton } from '../../../ui/skeleton';
 import { DataTable, type BulkAction } from '../../../ui/data-table/data-table';
 import {
   Dialog,
@@ -975,6 +976,13 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     fees: memoizedAllFees,
     lastUpdated: Date.now(),
   }));
+
+  // Live prices feed the unrealized/net P&L computation in
+  // transformDealToTrade. Until they arrive that transform falls back to a
+  // stale/zero value, so gate the price-dependent cells on a skeleton — in
+  // lockstep with the exact prices the transform reads (legacy parity with
+  // main-dash's per-row `loadedPrices`).
+  const pricesLoading = stableDependencies.prices.length === 0;
 
   const tokens = useAuthStore((state) => state.tokens);
 
@@ -2458,6 +2466,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (!trade.active) {
           return <span className="text-muted-foreground">-</span>;
         }
+        if (pricesLoading) {
+          return <Skeleton className="h-4 w-16" />;
+        }
         const unrealizedPnl = trade.unrealizedProfit;
         if (isMetricUnavailable(unrealizedPnl)) {
           return (
@@ -2500,6 +2511,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         // Closed/canceled deals have no unrealized P&L (legacy parity).
         if (!trade.active) {
           return <span className="text-muted-foreground">-</span>;
+        }
+        if (pricesLoading) {
+          return <Skeleton className="h-4 w-12" />;
         }
         const unrealizedPnl = trade.unrealizedProfit;
         if (isMetricUnavailable(unrealizedPnl)) {
@@ -2584,6 +2598,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       header: 'Net P&L',
       cell: ({ row }) => {
         const trade = row.original;
+        if (trade.active && pricesLoading) {
+          return <Skeleton className="h-4 w-16" />;
+        }
         const unrealizedPnl = trade.unrealizedProfit || 0;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
         const netPnl = unrealizedPnl + realizedPnl;
@@ -2618,6 +2635,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       header: 'Net P&L, %',
       cell: ({ row }) => {
         const trade = row.original;
+        if (trade.active && pricesLoading) {
+          return <Skeleton className="h-4 w-12" />;
+        }
         const unrealizedPnl = trade.unrealizedProfit || 0;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
         const netPnl = unrealizedPnl + realizedPnl;
@@ -2664,6 +2684,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     return filteredColumns;
   }, [
     privacyMode,
+    pricesLoading,
     handleOpenOrdersDialog,
     handleRowClick,
     completedOrders,
