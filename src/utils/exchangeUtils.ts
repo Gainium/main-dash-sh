@@ -79,17 +79,37 @@ export const isCoinmExchange = (
   return normalized.includes('coinm') || normalized.includes('inverse');
 };
 
-const KUCOIN_SPOT_ENUM_SET = new Set<ExchangeEnum>([
+// Exchanges whose candle API expects the dashed native pair ("BTC-USDT")
+// rather than the concatenated form ("BTCUSDT") the app stores internally.
+//
+// - KuCoin **spot** ("BTC-USDT"). KuCoin futures (linear/inverse) use contract
+//   symbols and are intentionally excluded.
+// - Kraken **spot and futures** — Kraken's `/candles` backend rejects the
+//   concatenated form ("Unknown asset pair" on spot, "Bad Request" on
+//   krakenUsdm) and only resolves the dashed pair (`BTC-USDT`, `BTC-USD`). The
+//   legacy dashboard never hit this because it carried the dashed pair through;
+//   the redesign normalizes bot pairs to the concatenated form, so the dash has
+//   to be restored here. Paper variants are included because callers may pass an
+//   un-stripped exchange.
+const DASHED_CANDLE_SYMBOL_ENUM_SET = new Set<ExchangeEnum>([
   ExchangeEnum.kucoin,
   ExchangeEnum.paperKucoin,
+  ExchangeEnum.kraken,
+  ExchangeEnum.krakenSpot,
+  ExchangeEnum.krakenAll,
+  ExchangeEnum.krakenUsdm,
+  ExchangeEnum.paperKraken,
+  ExchangeEnum.paperKrakenSpot,
+  ExchangeEnum.paperKrakenAll,
+  ExchangeEnum.paperKrakenUsdm,
 ]);
 
 /**
  * Convert our normalized concatenated pair (e.g. "BTCUSDT") into the symbol an
- * exchange's candle API expects. KuCoin **spot** identifies pairs with a dash
- * ("BTC-USDT"); Binance/Bybit/etc. use the concatenated form natively and pass
- * through unchanged, as do symbols that already carry a separator. KuCoin
- * futures (linear/inverse) use contract symbols and are intentionally excluded.
+ * exchange's candle API expects. KuCoin spot and Kraken (spot + futures)
+ * identify pairs with a dash ("BTC-USDT"); Binance/Bybit/etc. use the
+ * concatenated form natively and pass through unchanged, as do symbols that
+ * already carry a separator.
  *
  * Applied at the single `requestCandles` chokepoint so every candle consumer
  * (chart, backtest, market-stats / quick-panel risk calc, …) is covered.
@@ -98,7 +118,10 @@ export const toExchangeCandleSymbol = (
   exchange: ExchangeEnum | string | null | undefined,
   symbol: string
 ): string => {
-  if (!KUCOIN_SPOT_ENUM_SET.has(exchange as ExchangeEnum) || symbol.includes('-')) {
+  if (
+    !DASHED_CANDLE_SYMBOL_ENUM_SET.has(exchange as ExchangeEnum) ||
+    symbol.includes('-')
+  ) {
     return symbol;
   }
   const { baseAsset, quoteAsset } = extractPairAssets(symbol);

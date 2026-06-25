@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.1] - 2026-06-25
+
+### Fixed
+
+- Kraken backtests work again on both spot and futures. Bot backtests (and the curated-preset return estimates) on Kraken pairs were silently returning no candle data and 0 deals because the candle request used the concatenated pair form (`BTCUSDT`) that Kraken's market-data API rejects. Candle requests now use Kraken's dashed native pair (`BTC-USDT` for spot, `BTC-USD` for USDⓈ-M futures), matching the existing KuCoin-spot handling.
+
 ## [2.18.0] - 2026-06-25
 
 ### Added
