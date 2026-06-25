@@ -11,7 +11,7 @@
  * Routes: `/hedge/bot`.
  */
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Bot, Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
@@ -32,21 +32,21 @@ import { DataTable } from '@/components/ui/data-table/data-table';
 import EmptyState from '@/components/ui/empty-state';
 import { HedgeBotActionsCell } from './HedgeBotActionsCell';
 import { MotionButton } from '@/components/ui/MotionWrapper';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Widget from '@/components/ui/widget';
+import OpenOrdersWidget from '@/components/widgets/shared/OpenOrdersWidget';
 import BotListStatsBoxes from '@/components/ui/BotListStatsBoxes';
-import {
-  computeBotListStats,
-  sumQuoteValues,
-  type BotForStats,
-} from '@/hooks/useBotListStats';
+import { computeBotListStats, type BotForStats } from '@/hooks/useBotListStats';
 import { useUIStore } from '@/stores/uiStore';
+import { useDcaDeals } from '@/hooks/useDcaDeals';
+import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
 import { useHedgeDcaBots } from '@/hooks/useHedgeDcaBots';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { getLocalPrices } from '@/helper/price';
 import { useHedgeUnPnlMap } from '@/utils/bots/hedge/useHedgeUnPnlMap';
 import {
   BotTypesEnum,
+  DCADealStatusEnum,
   StrategyEnum,
   type DCABot,
   type HedgeBot,
@@ -157,13 +157,22 @@ const HedgeDcaBots = () => {
   const privacyMode = useUIStore((s) => s.privacyMode);
 
   /** Unified KPI stats for the bot-list header. Sums per-leg fields up to
-   * the hedge wrapper because the backend leaves `profit/assets/dealsInBot`
-   * un-aggregated on the wrapper itself. */
+   * the hedge wrapper because the backend leaves `profit/dealsInBot`
+   * un-aggregated on the wrapper itself.
+   *
+   * Capital deployed / required come from the SAME `unPnlMap` the table's
+   * "Cost" and "Max cost" columns read (`currentValue` / `maxValue`), not the
+   * raw `assets.used.quote`. The raw assets sum ignores `usdRate` and isn't
+   * leg-direction-aware, so on hedge bots — which always carry a short leg
+   * valued off its base balance — it diverged from the per-bot cost shown in
+   * the table. Sourcing both from `unPnlMap` keeps the stat reconciled with
+   * the column it summarizes. */
   const botListStats = useMemo(
     () =>
       computeBotListStats(
         bots.map<BotForStats>((bot) => {
           const legs = bot.bots ?? [];
+          const u = unPnlMap.get(bot._id);
           return {
             status: bot.status,
             totalProfitUsd: legs.reduce(
@@ -174,14 +183,8 @@ const HedgeDcaBots = () => {
               (sum, leg) => sum + (leg.profitToday?.totalTodayUsd || 0),
               0
             ),
-            usedQuote: legs.reduce(
-              (sum, leg) => sum + sumQuoteValues(leg.assets?.used?.quote),
-              0
-            ),
-            requiredQuote: legs.reduce(
-              (sum, leg) => sum + sumQuoteValues(leg.assets?.required?.quote),
-              0
-            ),
+            usedQuote: u?.currentValue ?? 0,
+            requiredQuote: u?.maxValue ?? 0,
             activeDeals: legs.reduce(
               (sum, leg) => sum + (leg.dealsInBot?.active || 0),
               0
@@ -189,7 +192,7 @@ const HedgeDcaBots = () => {
           };
         })
       ),
-    [bots]
+    [bots, unPnlMap]
   );
   const { data: exchangesData } = useExchangesFromContext();
   const exchanges = exchangesData?.data?.exchanges;
@@ -301,6 +304,61 @@ const HedgeDcaBots = () => {
   const handleCloseDrawer = useCallback(
     () => navigate('/hedge/bot'),
     [navigate]
+  );
+
+  // ----- Deals tab -----
+  // `?view=deals` drives the page-level Bots/Deals toggle so reloads and deep
+  // links land on the right view — same contract the regular `/bot` page uses.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const pageTab: 'bots' | 'deals' =
+    searchParams.get('view') === 'deals' ? 'deals' : 'bots';
+  const setPageTab = useCallback(
+    (tab: 'bots' | 'deals') => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (tab === 'deals') next.set('view', 'deals');
+          else next.delete('view');
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
+
+  // Drive the deal fetch by the widget's open/closed toggle (backend defaults
+  // to open-only, so the Closed view is empty without this).
+  const [dealsStatus, setDealsStatus] = useState<'open' | 'closed'>('open');
+  const { deals: allDcaDeals } = useDcaDeals({
+    terminal: false,
+    status:
+      dealsStatus === 'closed'
+        ? DCADealStatusEnum.closed
+        : DCADealStatusEnum.open,
+  });
+
+  // Hedge legs are regular DCA bots, so their deals live in the same store as
+  // standalone DCA deals. Restrict the tab to deals whose bot is a leg of one
+  // of THIS user's hedge bots so the standalone DCA deals don't leak in.
+  const legBotIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const bot of bots) {
+      for (const leg of bot.bots ?? []) {
+        if (leg._id) ids.add(leg._id);
+      }
+    }
+    return ids;
+  }, [bots]);
+
+  const hedgeDealsForTab = useMemo(
+    () => (allDcaDeals ?? []).filter((d) => d.botId && legBotIds.has(d.botId)),
+    [allDcaDeals, legBotIds]
+  );
+
+  const hedgeDealsAsOpenTrades = useMemo(
+    () => hedgeDealsForTab.map(dcaDealToOpenTrade),
+    [hedgeDealsForTab]
   );
 
   const columns = useMemo<ColumnDef<EnrichedHedgeBot>[]>(
@@ -590,6 +648,10 @@ const HedgeDcaBots = () => {
               noPadding
               overflow="auto"
             >
+              <Tabs
+                value={pageTab}
+                onValueChange={(v) => setPageTab(v as 'bots' | 'deals')}
+              >
               <div className="flex h-full min-h-[500px] flex-col">
                 <motion.div
                   className="mb-md shrink-0"
@@ -598,13 +660,19 @@ const HedgeDcaBots = () => {
                   {/* Small screens: title + New stacked, stats row below */}
                   <div className="flex items-center justify-between gap-xs sm:hidden">
                     <h2 className="text-xl font-semibold">Hedge DCA Bots</h2>
-                    <MotionButton
-                      variant="default"
-                      onClick={() => navigate('/hedge/bot/new')}
-                    >
-                      <Plus className="mr-xs h-4 w-4" />
-                      New
-                    </MotionButton>
+                    <div className="flex items-center gap-xs">
+                      <TabsList className="w-auto!" fullWidth={false}>
+                        <TabsTrigger value="bots">Bots</TabsTrigger>
+                        <TabsTrigger value="deals">Deals</TabsTrigger>
+                      </TabsList>
+                      <MotionButton
+                        variant="default"
+                        onClick={() => navigate('/hedge/bot/new')}
+                      >
+                        <Plus className="mr-xs h-4 w-4" />
+                        New
+                      </MotionButton>
+                    </div>
                   </div>
                   <div className="w-full sm:hidden mt-2">
                     <BotListStatsBoxes
@@ -625,16 +693,26 @@ const HedgeDcaBots = () => {
                         isLoading={isLoading}
                       />
                     </div>
-                    <MotionButton
-                      variant="default"
-                      onClick={() => navigate('/hedge/bot/new')}
-                    >
-                      <Plus className="mr-xs h-4 w-4" />
-                      New
-                    </MotionButton>
+                    <div className="flex items-center gap-xs justify-end">
+                      <TabsList className="w-auto!" fullWidth={false}>
+                        <TabsTrigger value="bots">Bots</TabsTrigger>
+                        <TabsTrigger value="deals">Deals</TabsTrigger>
+                      </TabsList>
+                      <MotionButton
+                        variant="default"
+                        onClick={() => navigate('/hedge/bot/new')}
+                      >
+                        <Plus className="mr-xs h-4 w-4" />
+                        New
+                      </MotionButton>
+                    </div>
                   </div>
                 </motion.div>
 
+                <TabsContent
+                  value="bots"
+                  className="flex-1 min-h-[400px] overflow-hidden mt-0"
+                >
                 <motion.div
                   className="flex-1 min-h-[400px] overflow-hidden"
                   {...HEDGE_BOTS_TABLE_MOTION}
@@ -680,7 +758,23 @@ const HedgeDcaBots = () => {
                     />
                   )}
                 </motion.div>
+                </TabsContent>
+
+                <TabsContent
+                  value="deals"
+                  className="flex-1 min-h-[400px] overflow-hidden mt-0"
+                >
+                  <OpenOrdersWidget
+                    widgetId="hedge-dca-bot-deals"
+                    data={{ trades: hedgeDealsAsOpenTrades }}
+                    rawDeals={hedgeDealsForTab}
+                    enableStatusToggle={true}
+                    onStatusFilterChange={setDealsStatus}
+                    privacyMode={privacyMode}
+                  />
+                </TabsContent>
               </div>
+              </Tabs>
             </Widget>
           </motion.div>
 

@@ -10,7 +10,8 @@ import { type DcaBotListResponse } from '../types/dcaBot';
 import {
   computeBotListStats,
   emptyBotListStats,
-  sumQuoteValues,
+  usageCurrentUsd,
+  usageMaxUsd,
   type BotForStats,
   type BotListStats,
 } from './useBotListStats';
@@ -95,8 +96,8 @@ function dcaBotToBotForStats(bot: DCABot): BotForStats {
     status: bot.status,
     totalProfitUsd: bot.profit?.totalUsd || 0,
     todayProfitUsd: bot.profitToday?.totalTodayUsd || 0,
-    usedQuote: sumQuoteValues(bot.assets?.used?.quote),
-    requiredQuote: sumQuoteValues(bot.assets?.required?.quote),
+    usedQuote: usageCurrentUsd(bot.usage),
+    requiredQuote: usageMaxUsd(bot.usage),
     activeDeals: bot.dealsInBot?.active || 0,
   };
 }

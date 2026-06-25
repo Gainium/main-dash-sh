@@ -18,7 +18,9 @@ import { useUIStore } from '@/stores/uiStore';
 /** Map a Grid bot into the unified BotForStats shape. Grid uses scalar
  * `assets.used.quote` (not the {key,value}[] shape DCA uses) and has no
  * `dealsInBot` — active "deals" are surfaced on the page as "active bots"
- * instead. */
+ * instead. Unlike DCA/Combo, grid's `assets.used.quote` already reflects the
+ * live used capital (grid has no separate `usage` block), so it stays the
+ * basis for capital deployed. */
 function gridBotToBotForStats(bot: GridBot): BotForStats {
   return {
     status: bot.status,

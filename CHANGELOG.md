@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.0] - 2026-06-25
+
+### Added
+
+- Hedge DCA bots page: a "Deals" tab (next to "Bots") lists every open or closed deal across your hedge bots' legs, matching the Deals view already on the regular bots page.
+
+### Fixed
+
+- "Capital Deployed" now reflects the capital actually committed to open positions (the live cost shown in each bot's "Cost" column) instead of the larger reserved-budget figure, so the stat reconciles with the table. Applies to the DCA, Combo, Hedge DCA, and Hedge Combo bot lists and the combined Trading overview.
+
 ## [2.15.1] - 2026-06-23
 
 ### Fixed

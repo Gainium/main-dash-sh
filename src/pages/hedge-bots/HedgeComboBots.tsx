@@ -30,11 +30,7 @@ import { MotionButton } from '@/components/ui/MotionWrapper';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Widget from '@/components/ui/widget';
 import BotListStatsBoxes from '@/components/ui/BotListStatsBoxes';
-import {
-  computeBotListStats,
-  sumQuoteValues,
-  type BotForStats,
-} from '@/hooks/useBotListStats';
+import { computeBotListStats, type BotForStats } from '@/hooks/useBotListStats';
 import { useUIStore } from '@/stores/uiStore';
 import { useHedgeComboBots } from '@/hooks/useHedgeComboBots';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
@@ -144,13 +140,20 @@ const HedgeComboBots = () => {
   const { bots, isLoading } = useHedgeComboBots();
   const privacyMode = useUIStore((s) => s.privacyMode);
 
+  const unPnlMap = useHedgeUnPnlMap(bots, true);
+
   /** Unified KPI stats. Same pattern as HedgeDcaBots: hedge wrapper has
-   * no aggregated `profit/assets/dealsInBot`, so we walk the legs. */
+   * no aggregated `profit/dealsInBot`, so we walk the legs. Capital
+   * deployed / required come from the same `unPnlMap` the table's "Cost" /
+   * "Max cost" columns read (`currentValue` / `maxValue`) rather than the
+   * reserved `assets.used.quote`, so the stat reconciles with the table —
+   * see HedgeDcaBots for the full rationale. */
   const botListStats = useMemo(
     () =>
       computeBotListStats(
         bots.map<BotForStats>((bot) => {
           const legs = bot.bots ?? [];
+          const u = unPnlMap.get(bot._id);
           return {
             status: bot.status,
             totalProfitUsd: legs.reduce(
@@ -161,14 +164,8 @@ const HedgeComboBots = () => {
               (sum, leg) => sum + (leg.profitToday?.totalTodayUsd || 0),
               0
             ),
-            usedQuote: legs.reduce(
-              (sum, leg) => sum + sumQuoteValues(leg.assets?.used?.quote),
-              0
-            ),
-            requiredQuote: legs.reduce(
-              (sum, leg) => sum + sumQuoteValues(leg.assets?.required?.quote),
-              0
-            ),
+            usedQuote: u?.currentValue ?? 0,
+            requiredQuote: u?.maxValue ?? 0,
             activeDeals: legs.reduce(
               (sum, leg) => sum + (leg.dealsInBot?.active || 0),
               0
@@ -176,9 +173,8 @@ const HedgeComboBots = () => {
           };
         })
       ),
-    [bots]
+    [bots, unPnlMap]
   );
-  const unPnlMap = useHedgeUnPnlMap(bots, true);
   const { data: exchangesData } = useExchangesFromContext();
   const exchanges = exchangesData?.data?.exchanges;
 

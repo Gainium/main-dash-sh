@@ -137,3 +137,32 @@ export function sumQuoteValues(
   if (!arr || !arr.length) return 0;
   return arr.reduce((sum, a) => sum + (a?.value || 0), 0);
 }
+
+type UsageLike = {
+  currentUsd?: number | null;
+  maxUsd?: number | null;
+  current?: { quote?: number | null } | null;
+  max?: { quote?: number | null } | null;
+} | null;
+
+/**
+ * Live deployed cost in USD from a DCA/Combo-style `usage` object.
+ *
+ * "Capital deployed" must reflect what is *currently* committed to open
+ * positions — the same number the per-bot "Cost" column shows — NOT the
+ * reserved allocation in `assets.used.quote`. The reserved figure is the
+ * worst-case budget the bot is allowed to draw; it routinely runs several
+ * times larger than the live cost, so summing it made the stat diverge from
+ * the table it summarizes. Prefer the backend's pre-converted `currentUsd`,
+ * falling back to the quote leg when an older record lacks it.
+ */
+export function usageCurrentUsd(usage?: UsageLike): number {
+  return usage?.currentUsd ?? usage?.current?.quote ?? 0;
+}
+
+/** Max (worst-case) cost in USD from a DCA/Combo-style `usage` object — the
+ * companion to {@link usageCurrentUsd} used as the utilization denominator so
+ * deployed/required share one basis. */
+export function usageMaxUsd(usage?: UsageLike): number {
+  return usage?.maxUsd ?? usage?.max?.quote ?? 0;
+}
