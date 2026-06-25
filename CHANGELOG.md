@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.17.2] - 2026-06-25
+
+### Fixed
+
+- Hedge bots Quick form: Investment is now the **total** funds the leg deploys across the base order and every safety order, distributed using the same math as the standalone Quick bot — instead of being set as each individual order size (which over-committed by the order count). Editing the total redistributes it, and risk-profile presets keep the total constant while re-spreading it over the new orders ladder.
+
 ## [2.17.1] - 2026-06-25
 
 ### Fixed

@@ -36,6 +36,11 @@ import {
   BotFormQueryProvider,
   useBotFormQuery,
 } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
+import { computeStepDecimals } from '@/features/bots/shared/utils/order-guard';
+import {
+  computeInvestmentFromDca,
+  distributeInvestmentToDca,
+} from '@/features/bots/widgets/BotForm/components/quickSetupPresets';
 import {
   resolveBaseOrderContext,
   useDcaTradingContext,
@@ -232,7 +237,6 @@ export const HedgeQuickInvestment: React.FC = () => {
   const strategy = useBotFormSelector('strategy');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
-  const baseOrderSize = useBotFormSelector('baseOrderSize');
 
   // Match resolveBaseOrderContext's denomination rules so the icon, unit
   // label, stored orderSizeType, and balance check all agree:
@@ -288,21 +292,45 @@ export const HedgeQuickInvestment: React.FC = () => {
     tradingContext.quoteAsset
   );
 
-  const numericValue = Number(baseOrderSize) || 0;
+  // Investment is the TOTAL funds the leg deploys across the base order + all
+  // safety orders (base + Σ orderSize·volumeScale^i) — NOT a single order
+  // size. Reuse the same total/distribute math the standalone Quick form and
+  // its presets use so the figure reconciles. Typing a total redistributes it
+  // back into baseOrderSize/orderSize for the current orders ladder.
+  const firstPair = Array.isArray(formData.pair)
+    ? formData.pair[0]
+    : formData.pair;
+  const precision = useMemo(() => {
+    if (unit !== OrderSizeTypeEnum.base) return 2;
+    const info = firstPair ? formData.pairPrecisionMap?.[firstPair] : undefined;
+    const baseDec = computeStepDecimals(info?.baseStep);
+    return Math.min(8, Math.max(2, baseDec ?? 6));
+  }, [unit, firstPair, formData.pairPrecisionMap]);
+
+  const investment = computeInvestmentFromDca(formData.dca);
+
+  const setInvestment = (raw: number) => {
+    const safe = Number.isFinite(raw) && raw >= 0 ? raw : 0;
+    const factor = Math.pow(10, precision);
+    const rounded = Math.round(safe * factor) / factor;
+    const { baseOrderSize, orderSize } = distributeInvestmentToDca(
+      rounded,
+      formData.dca,
+      precision
+    );
+    updateFormData('baseOrderSize' as Fields, baseOrderSize);
+    updateFormData('orderSize' as Fields, orderSize);
+  };
+
   // Cap the slider at the leg's available balance when we know it; before a
   // pair (and therefore balance) resolves, fall back to a usable range.
   const sliderMax =
-    availableBalance > 0 ? availableBalance : Math.max(100, numericValue);
-
-  const setInvestment = (next: string) => {
-    updateFormData('baseOrderSize' as Fields, next);
-    updateFormData('orderSize' as Fields, next);
-  };
+    availableBalance > 0 ? availableBalance : Math.max(100, investment);
 
   return (
     <SettingsRow
       name="Investment"
-      tooltip={`Amount this leg deploys, in ${currencyLabel}.`}
+      tooltip={`Total funds this leg deploys across all orders, in ${currencyLabel}.`}
       navId={`hedge-investment-${strategy}`}
     >
       <div className="space-y-xs">
@@ -310,9 +338,9 @@ export const HedgeQuickInvestment: React.FC = () => {
           type="number"
           inputMode="decimal"
           min={0}
-          step="0.01"
-          value={baseOrderSize ?? ''}
-          onChange={(e) => setInvestment(e.target.value)}
+          step={Math.pow(10, -precision)}
+          value={investment}
+          onChange={(e) => setInvestment(Number(e.target.value))}
           placeholder="0.00"
           className="pl-[4.5rem]"
           startAdornment={
@@ -325,11 +353,11 @@ export const HedgeQuickInvestment: React.FC = () => {
           }
         />
         <Slider
-          value={Math.min(Math.max(0, numericValue), sliderMax)}
+          value={Math.min(Math.max(0, investment), sliderMax)}
           min={0}
           max={sliderMax}
           step={sliderMax > 0 ? sliderMax / 100 : 1}
-          onChange={(v) => setInvestment(String(v))}
+          onChange={(v) => setInvestment(v)}
           aria-label="Investment amount"
         />
         {availableBalance > 0 && (

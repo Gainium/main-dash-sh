@@ -63,6 +63,10 @@ import {
 } from '@/contexts/ExchangeDataContext';
 import { useBotFormMutations } from '@/hooks/bots/base/useBotFormMutations';
 import {
+  computeInvestmentFromDca,
+  distributeInvestmentToDca,
+} from '@/features/bots/widgets/BotForm/components/quickSetupPresets';
+import {
   HEDGE_QUICK_PRESETS,
   getHedgeLegDcaState,
   type HedgeQuickPreset,
@@ -102,6 +106,7 @@ import { useUIStore } from '@/stores/uiStore';
 import {
   BotTypesEnum,
   ExchangeIntervals,
+  OrderSizeTypeEnum,
   StrategyEnum,
   type ComboBot,
   type DCABot,
@@ -1109,23 +1114,31 @@ export const HedgeBotEditLayout: React.FC = () => {
       const longLive = longQuickRef.current;
       const shortLive = shortQuickRef.current;
 
-      // A preset carries full DCA defaults (baseOrderSize '10', orderSizeType
-      // 'quote'), which would wipe the per-leg investment + the short leg's
-      // base unit. Re-apply the leg's current sizing on top of the preset.
-      const preserveSizing = (dca: BotFormData['dca']) =>
-        presetDca
-          ? {
-              ...(dca.baseOrderSize !== undefined
-                ? { baseOrderSize: dca.baseOrderSize }
-                : {}),
-              ...(dca.orderSize !== undefined
-                ? { orderSize: dca.orderSize }
-                : {}),
-              ...(dca.orderSizeType !== undefined
-                ? { orderSizeType: dca.orderSizeType }
-                : {}),
-            }
-          : {};
+      // A preset changes ordersCount / volumeScale and resets the per-order
+      // sizes to defaults — which would change the leg's TOTAL investment. Keep
+      // the user's total constant by recomputing it from the pre-preset dca and
+      // redistributing it over the preset's new orders ladder (mirrors the
+      // standalone Quick form's preset applier). Also keep the leg's base/quote
+      // unit, which the preset defaults would otherwise reset.
+      const preserveSizing = (dca: BotFormData['dca']) => {
+        if (!presetDca) return {};
+        const total = computeInvestmentFromDca(dca);
+        const precision =
+          dca.orderSizeType === OrderSizeTypeEnum.base ? 8 : 2;
+        const merged = { ...dca, ...presetDca } as BotFormData['dca'];
+        const { baseOrderSize, orderSize } = distributeInvestmentToDca(
+          total,
+          merged,
+          precision
+        );
+        return {
+          baseOrderSize,
+          orderSize,
+          ...(dca.orderSizeType !== undefined
+            ? { orderSizeType: dca.orderSizeType }
+            : {}),
+        };
+      };
 
       if (longLive || presetDca) {
         const existing = longSeedRef.current ?? {};
