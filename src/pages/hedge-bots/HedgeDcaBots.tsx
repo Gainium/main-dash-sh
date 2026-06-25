@@ -38,7 +38,7 @@ import OpenOrdersWidget from '@/components/widgets/shared/OpenOrdersWidget';
 import BotListStatsBoxes from '@/components/ui/BotListStatsBoxes';
 import { computeBotListStats, type BotForStats } from '@/hooks/useBotListStats';
 import { useUIStore } from '@/stores/uiStore';
-import { useDcaDeals } from '@/hooks/useDcaDeals';
+import { useHedgeDcaDeals } from '@/hooks/useHedgeDcaDeals';
 import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
 import { useHedgeDcaBots } from '@/hooks/useHedgeDcaBots';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
@@ -328,33 +328,19 @@ const HedgeDcaBots = () => {
   );
 
   // Drive the deal fetch by the widget's open/closed toggle (backend defaults
-  // to open-only, so the Closed view is empty without this).
+  // to open-only, so the Closed view is empty without this). Fetch only while
+  // the Deals tab is active — the dedicated `hedgeDcaDealList` query keeps its
+  // own react-query cache and never touches the shared DCA deal store, so it
+  // can't be clobbered by the list page's `useDcaDeals` reconcile (which is
+  // what made these deals appear then vanish).
   const [dealsStatus, setDealsStatus] = useState<'open' | 'closed'>('open');
-  const { deals: allDcaDeals } = useDcaDeals({
-    terminal: false,
+  const { deals: hedgeDealsForTab } = useHedgeDcaDeals({
     status:
       dealsStatus === 'closed'
         ? DCADealStatusEnum.closed
         : DCADealStatusEnum.open,
+    enabled: pageTab === 'deals',
   });
-
-  // Hedge legs are regular DCA bots, so their deals live in the same store as
-  // standalone DCA deals. Restrict the tab to deals whose bot is a leg of one
-  // of THIS user's hedge bots so the standalone DCA deals don't leak in.
-  const legBotIds = useMemo(() => {
-    const ids = new Set<string>();
-    for (const bot of bots) {
-      for (const leg of bot.bots ?? []) {
-        if (leg._id) ids.add(leg._id);
-      }
-    }
-    return ids;
-  }, [bots]);
-
-  const hedgeDealsForTab = useMemo(
-    () => (allDcaDeals ?? []).filter((d) => d.botId && legBotIds.has(d.botId)),
-    [allDcaDeals, legBotIds]
-  );
 
   const hedgeDealsAsOpenTrades = useMemo(
     () => hedgeDealsForTab.map(dcaDealToOpenTrade),
