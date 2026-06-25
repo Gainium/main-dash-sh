@@ -409,6 +409,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
                     disabled={isBaseOrderVarBound || baseOrderLocked}
                     onRefreshBalance={handleRefreshBalances}
                     coinIcon={baseOrderCoinIcon}
+                    unitLabel={baseOrderContext.currencyLabel}
                     currencyReference={orderSizeType}
                     onCurrencyReferenceChange={handleCurrencyReferenceChange}
                     currencyReferenceOptions={currencyReferenceOptions}

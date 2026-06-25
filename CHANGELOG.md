@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.16.1] - 2026-06-25
+
+### Fixed
+
+- Hedge bots Quick form: creating a bot no longer fails with "Cannot read properties of undefined" — each leg's pair metadata is now preserved when the create payload is built.
+- Hedge bots Quick form: Investment is set per leg in the correct asset — the long leg in quote (e.g. USDT) and the short leg in base (e.g. BTC) — instead of one shared number that landed as the wrong asset on the short leg. Each leg's slider is capped at that leg's available balance.
+- Order-size coin icon could briefly show the wrong coin (e.g. a USDT logo labelled BTC) when the unit changed; the icon now always matches its label.
+
+### Changed
+
+- Order-size fields across all bot types now show the unit symbol (e.g. "USDT", "BTC") next to the coin icon.
+
 ## [2.16.0] - 2026-06-25
 
 ### Added

@@ -44,7 +44,6 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import type { WidgetMenuActionItem } from '@/components/widgets/WidgetWrapper';
-import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -113,6 +112,7 @@ import HedgeChartPanel from './HedgeChartPanel';
 import HedgeQuickLeg, {
   HedgeFooterShell,
   HedgeQuickFooter,
+  HedgeQuickInvestment,
 } from './HedgeQuickLeg';
 
 /**
@@ -304,9 +304,10 @@ export const HedgeBotEditLayout: React.FC = () => {
   // is its publisher, kept in sync on every formData change.
   const longQuickRef = useRef<BotFormData | null>(null);
   const shortQuickRef = useRef<BotFormData | null>(null);
-  // Investment lives at the hedge level — same value flows into both
-  // legs' baseOrderSize/orderSize at Manual switch or preset apply.
-  const [quickInvestment, setQuickInvestment] = useState<string>('10');
+  // Investment is per-leg (HedgeQuickInvestment): a long leg deploys quote,
+  // a short leg deploys base, each capped at that leg's available balance.
+  // The value lives in each leg's own formData (baseOrderSize/orderSize),
+  // so it flows through the seed refs like every other leg field.
 
   // Stable widget IDs so each leg's BotFormProvider keeps its own draft
   // state across tab toggles. Includes the hedge bot ID so different
@@ -1090,7 +1091,24 @@ export const HedgeBotEditLayout: React.FC = () => {
       const presetDca = preset ? getHedgeLegDcaState(preset) : null;
       const longLive = longQuickRef.current;
       const shortLive = shortQuickRef.current;
-      const investment = quickInvestment || '10';
+
+      // A preset carries full DCA defaults (baseOrderSize '10', orderSizeType
+      // 'quote'), which would wipe the per-leg investment + the short leg's
+      // base unit. Re-apply the leg's current sizing on top of the preset.
+      const preserveSizing = (dca: BotFormData['dca']) =>
+        presetDca
+          ? {
+              ...(dca.baseOrderSize !== undefined
+                ? { baseOrderSize: dca.baseOrderSize }
+                : {}),
+              ...(dca.orderSize !== undefined
+                ? { orderSize: dca.orderSize }
+                : {}),
+              ...(dca.orderSizeType !== undefined
+                ? { orderSizeType: dca.orderSizeType }
+                : {}),
+            }
+          : {};
 
       if (longLive || presetDca) {
         const existing = longSeedRef.current ?? {};
@@ -1100,18 +1118,17 @@ export const HedgeBotEditLayout: React.FC = () => {
           ({} as BotFormData['dca']);
         longSeedRef.current = {
           ...existing,
-          ...(longLive
-            ? {
-                exchangeUUID: longLive.exchangeUUID,
-                pair: longLive.pair,
-              }
-            : {}),
+          // Spread the full live leg formData (not just exchange/pair) so
+          // pairMetadata + every other field carries into the seed. The
+          // seed is what handleSave maps in Quick mode; dropping
+          // pairMetadata made the payload mapper crash on save
+          // (`Cannot read properties of undefined (reading '<pair>')`).
+          ...(longLive ?? {}),
           dca: {
             ...baseDca,
             ...(presetDca ?? {}),
+            ...preserveSizing(baseDca),
             strategy: StrategyEnum.long,
-            baseOrderSize: investment,
-            orderSize: investment,
           },
         } as Partial<BotFormData>;
       }
@@ -1123,24 +1140,20 @@ export const HedgeBotEditLayout: React.FC = () => {
           ({} as BotFormData['dca']);
         shortSeedRef.current = {
           ...existing,
-          ...(shortLive
-            ? {
-                exchangeUUID: shortLive.exchangeUUID,
-                pair: shortLive.pair,
-              }
-            : {}),
+          // See long-leg note above: carry the full live formData so
+          // pairMetadata survives into the seed handleSave maps.
+          ...(shortLive ?? {}),
           dca: {
             ...baseDca,
             ...(presetDca ?? {}),
+            ...preserveSizing(baseDca),
             strategy: StrategyEnum.short,
-            baseOrderSize: investment,
-            orderSize: investment,
           },
         } as Partial<BotFormData>;
       }
       setQuickSeedSeq((n) => n + 1);
     },
-    [quickInvestment]
+    []
   );
 
   // Apply a Quick-mode preset: writes both leg seeds and mirrors the
@@ -1196,19 +1209,10 @@ export const HedgeBotEditLayout: React.FC = () => {
         ) as BotFormData | null;
         const base = live ?? seed ?? null;
         if (!base) return null;
-        // Quick mode keeps Investment as a separate hedge-level field that's
-        // only folded into each leg's order size at submit time (see
-        // writeSeeds). Mirror that fold here so export + templates capture the
-        // investment the user actually entered, not the leg's default.
-        const investment = quickInvestment || '10';
-        return {
-          ...base,
-          dca: {
-            ...(base.dca ?? {}),
-            baseOrderSize: investment,
-            orderSize: investment,
-          },
-        } as BotFormData;
+        // Investment now lives in each leg's own formData (baseOrderSize/
+        // orderSize, set by HedgeQuickInvestment), so the live/seed data
+        // already carries the value the user entered — no fold needed.
+        return base;
       }
       const ref = leg === 'long' ? longFormDataRef.current : shortFormDataRef.current;
       const seed = (
@@ -1216,7 +1220,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       ) as BotFormData | null;
       return (activeTab === leg ? ref : (ref ?? seed)) ?? seed ?? null;
     },
-    [hedgeMode, activeTab, quickInvestment]
+    [hedgeMode, activeTab]
   );
 
   const buildExportJson = useCallback((): string => {
@@ -1392,7 +1396,6 @@ export const HedgeBotEditLayout: React.FC = () => {
     longFormDataRef.current = null;
     shortFormDataRef.current = null;
     setSharedSettings({ ...SHARED_SETTINGS_DEFAULTS });
-    setQuickInvestment('10');
     setSelectedHedgePreset(null);
     setActiveTab('long');
     setQuickSeedSeq((n) => n + 1);
@@ -1458,6 +1461,9 @@ export const HedgeBotEditLayout: React.FC = () => {
           <HedgeQuickFooter footerOverride={quickFooterOverrideWithMenu} />
         }
       >
+        {/* Long leg's investment (quote), inside the long leg's context. */}
+        <HedgeQuickInvestment />
+
         <HedgeQuickLeg
           legId="short"
           widgetId={`hedge-quick-short-${quickSeedSeq}`}
@@ -1465,34 +1471,10 @@ export const HedgeBotEditLayout: React.FC = () => {
             ? { initialFormData: shortSeedRef.current }
             : {})}
           formDataRef={shortQuickRef}
-        />
-
-        <SettingsRow
-          name="Investment"
-          tooltip="Quote-asset amount each leg deploys. Applied to both legs."
-          navId="hedge-investment"
         >
-          <div className="space-y-xs">
-            <Input
-              id="hedge-investment"
-              type="number"
-              inputMode="decimal"
-              min={0}
-              step="0.01"
-              value={quickInvestment}
-              onChange={(e) => setQuickInvestment(e.target.value)}
-              placeholder="0.00"
-            />
-            <Slider
-              value={Math.max(0, Number(quickInvestment) || 0)}
-              min={0}
-              max={Math.max(100, Number(quickInvestment) || 0)}
-              step={1}
-              onChange={(v) => setQuickInvestment(String(v))}
-              aria-label="Investment amount"
-            />
-          </div>
-        </SettingsRow>
+          {/* Short leg's investment (base), inside the short leg's context. */}
+          <HedgeQuickInvestment />
+        </HedgeQuickLeg>
 
         <div className="rounded-lg bg-muted/40 p-md space-y-sm">
           <div>

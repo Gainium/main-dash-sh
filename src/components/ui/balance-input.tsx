@@ -41,6 +41,10 @@ export interface BalanceInputProps {
   onRefreshBalance?: () => void;
   showRefreshButton?: boolean;
   coinIcon?: React.ReactNode;
+  /** Unit symbol shown as text next to the coin icon (e.g. "USDT", "BTC").
+   *  Opt-in: when set, the left adornment becomes icon + label and the input
+   *  gains room for it. Used by order-size fields across all bot types. */
+  unitLabel?: string;
   endAdornment?: React.ReactNode;
   // Currency reference integration
   currencyReference?: 'base' | 'quote' | 'percTotal' | 'percFree' | 'usd';
@@ -80,6 +84,7 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
   onRefreshBalance,
   showRefreshButton = true,
   coinIcon,
+  unitLabel,
   endAdornment,
   currencyReference,
   onCurrencyReferenceChange,
@@ -456,9 +461,22 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
                 step={step}
                 className={cn(
                   'w-full text-base font-semibold text-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
-                  'pr-1'
+                  'pr-1',
+                  // Make room for the icon + unit label on the left.
+                  unitLabel && 'pl-[4.5rem]'
                 )}
-                startAdornment={coinIcon || defaultCoinIcon}
+                startAdornment={
+                  unitLabel ? (
+                    <span className="flex items-center gap-1.5">
+                      {coinIcon || defaultCoinIcon}
+                      <span className="text-xs font-semibold text-muted-foreground">
+                        {unitLabel}
+                      </span>
+                    </span>
+                  ) : (
+                    coinIcon || defaultCoinIcon
+                  )
+                }
                 startAdornmentOnClick={undefined}
                 endAdornment={
                   <div className="flex items-center gap-1 pr-0">

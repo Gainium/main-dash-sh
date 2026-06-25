@@ -344,6 +344,7 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
             balanceAmount={availableBalance}
             balanceCurrency={quoteAsset || 'USDT'}
             coinIcon={<CoinIcon symbol={quoteAsset || 'USDT'} size="w-6 h-6" />}
+            unitLabel={quoteAsset || 'USDT'}
             showPercentageButtons
             showRefreshButton={false}
             precision={2}

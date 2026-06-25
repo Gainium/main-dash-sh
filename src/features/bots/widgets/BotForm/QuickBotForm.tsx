@@ -460,6 +460,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
             coinIcon={
               <CoinIcon symbol={displayAsset || 'USDT'} size="w-6 h-6" />
             }
+            unitLabel={displayAsset || 'USDT'}
             showPercentageButtons
             showRefreshButton={false}
             precision={displayPrecision}

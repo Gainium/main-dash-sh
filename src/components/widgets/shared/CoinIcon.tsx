@@ -44,6 +44,13 @@ const CoinIcon: React.FC<CoinIconProps> = ({
       return;
     }
 
+    // Guard against a stale async load winning: when `symbol` changes fast
+    // (e.g. a hedge short leg mounts as long then flips to short, or a
+    // base/quote toggle), the previous symbol's image load can resolve after
+    // the new one and overwrite the src with the wrong coin. Ignore resolved
+    // loads once this effect has been cleaned up.
+    let cancelled = false;
+
     setIsLoading(true);
     setImageSrc(null);
 
@@ -111,27 +118,31 @@ const CoinIcon: React.FC<CoinIconProps> = ({
       try {
         // Try primary path
         const src = await tryImage(primaryPath);
-        setImageSrc(src);
+        if (!cancelled) setImageSrc(src);
       } catch {
         // Try fallback path if primary fails
         if (fallbackPath) {
           try {
             const src = await tryImage(fallbackPath);
-            setImageSrc(src);
+            if (!cancelled) setImageSrc(src);
           } catch {
             // Both failed, will show text fallback
-            setImageSrc(null);
+            if (!cancelled) setImageSrc(null);
           }
         } else {
           // No fallback available
-          setImageSrc(null);
+          if (!cancelled) setImageSrc(null);
         }
       } finally {
-        setIsLoading(false);
+        if (!cancelled) setIsLoading(false);
       }
     };
 
     loadImage();
+
+    return () => {
+      cancelled = true;
+    };
   }, [symbol]);
 
   // Handle missing symbol

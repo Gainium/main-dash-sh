@@ -112,11 +112,16 @@ const resolvePairAssetTuple = (
   pair: string,
   pairMetadata: BotFormData['pairMetadata']
 ): PairAssetTuple => {
-  const directMeta = pairMetadata[pair];
+  // pairMetadata is typed non-optional but can be undefined at runtime when
+  // a partially-built formData seed reaches the mapper (e.g. the hedge Quick
+  // form's leg seeds). Fall back to an empty map so we degrade to the
+  // pair-string split below instead of throwing.
+  const metaMap = pairMetadata ?? {};
+  const directMeta = metaMap[pair];
 
   const fallbackMeta =
     directMeta ??
-    Object.values(pairMetadata).find((meta) => {
+    Object.values(metaMap).find((meta) => {
       if (!meta || typeof meta !== 'object') {
         return false;
       }

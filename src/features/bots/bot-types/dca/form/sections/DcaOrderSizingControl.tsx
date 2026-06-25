@@ -426,6 +426,7 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
             disabled={isVarBound}
             showRefreshButton={shouldShowRefresh}
             coinIcon={coinIconElement}
+            unitLabel={isPercentageMode ? '%' : coinIconSymbol}
             showPercentageButtons={!isPercentageMode}
             currencyReference={orderSizeType}
             onCurrencyReferenceChange={handleOrderSizeTypeChange}
