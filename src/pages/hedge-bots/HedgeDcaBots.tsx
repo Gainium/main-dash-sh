@@ -600,7 +600,10 @@ const HedgeDcaBots = () => {
         ),
       },
     ],
-    [unPnlMap]
+    // Column defs read each row's already-enriched bot, not unPnlMap directly
+    // (the unrealized values are baked into `enrichedBots`), so the table
+    // structure has no reactive deps.
+    []
   );
 
   if (!isPremium) {

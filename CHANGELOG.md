@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.6] - 2026-06-26
+
+### Changed
+
+- Hedge DCA and Combo bot tables: dropped an unused `unPnlMap` dependency from the column-definition memo so the table structure isn't rebuilt on every price tick. No visible change (the unrealized values are already baked into each row).
+
 ## [2.18.5] - 2026-06-26
 
 ### Changed
