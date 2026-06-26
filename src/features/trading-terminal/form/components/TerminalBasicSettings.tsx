@@ -411,17 +411,33 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
           1024: 3,
         }}
       >
-        <ExchangeSelector
-          isExchangeLocked={false}
-          currentExchange={currentExchange}
-          formData={formData}
-          updateFormData={updateFormData}
-          exchangesLoading={exchangesLoading}
-          exchangesData={exchangesData}
-          tooltip="Select the exchange account to use for this bot"
-          mode={'create'}
-          disableFutures={isSimple}
-        />
+        <div className="space-y-xs">
+          <ExchangeSelector
+            isExchangeLocked={false}
+            currentExchange={currentExchange}
+            formData={formData}
+            updateFormData={updateFormData}
+            exchangesLoading={exchangesLoading}
+            exchangesData={exchangesData}
+            tooltip="Select the exchange account to use for this bot"
+            mode={'create'}
+          />
+          {/* Simple is a one-off market order with no position tracking, so on
+              a futures account it opens an UNMANAGED position. We let the user
+              do it (some want a quick manual entry) but warn first, rather than
+              disabling the futures option outright as the terminal used to. */}
+          {isSimple && futures && (
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-sm text-xs text-warning">
+              A Simple order places a one-off market order and doesn&apos;t open
+              a tracked position. On a futures account this opens an{' '}
+              <span className="font-medium">unmanaged position</span> with no
+              automatic take-profit, stop-loss, or DCA — you&apos;ll need to
+              monitor and close it yourself. Use{' '}
+              <span className="font-medium">Smart</span> if you want Gainium to
+              track and manage the position.
+            </div>
+          )}
+        </div>
         <SettingsRow
           name="Trading Pairs"
           tooltip="Configure the trading pairs used by this bot"

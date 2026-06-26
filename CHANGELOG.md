@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.18.5] - 2026-06-26
 
+### Changed
+
+- Trading terminal: a futures account can now be selected for a **Simple** order instead of being disabled. Because a Simple order is a one-off market order with no position tracking, picking a futures account now shows a warning that it opens an unmanaged position (no automatic take-profit, stop-loss, or DCA) and to use Smart if you want Gainium to manage it.
+
 ### Fixed
 
 - Hyperliquid spot BTC balances now show up in the trading terminal and bot creators. The BTC spot market trades as the `BTC-USDC` pair but Hyperliquid holds the position as `UBTC` (Unit BTC), so the per-asset balance never matched the pair and the terminal showed `0` available to sell — users couldn't sell their spot BTC. Wallet symbols are now canonicalized (`UBTC`/`SBTC` → `BTC`, `SUSD`/`SUSDT` → `USD`/`USDT`) when reconciling balances against the selected pair.
