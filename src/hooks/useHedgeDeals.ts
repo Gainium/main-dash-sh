@@ -29,8 +29,7 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { GraphQLClient, getGraphQLConfig } from '../lib/api';
-import type { ReturnResult } from '../lib/api';
+import { GraphQLClient, getGraphQLConfig, type ReturnResult } from '../lib/api';
 import { dealQueries } from '../lib/api/GraphQLQueries-deal-queries';
 import {
   comboDealFragment,
