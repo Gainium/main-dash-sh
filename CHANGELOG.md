@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.5] - 2026-06-26
+
+### Fixed
+
+- Hyperliquid spot BTC balances now show up in the trading terminal and bot creators. The BTC spot market trades as the `BTC-USDC` pair but Hyperliquid holds the position as `UBTC` (Unit BTC), so the per-asset balance never matched the pair and the terminal showed `0` available to sell — users couldn't sell their spot BTC. Wallet symbols are now canonicalized (`UBTC`/`SBTC` → `BTC`, `SUSD`/`SUSDT` → `USD`/`USDT`) when reconciling balances against the selected pair.
+
 ## [2.18.4] - 2026-06-26
 
 ### Fixed

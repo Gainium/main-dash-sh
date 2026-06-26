@@ -79,6 +79,37 @@ export const isCoinmExchange = (
   return normalized.includes('coinm') || normalized.includes('inverse');
 };
 
+// Hyperliquid spot bridges a few assets under synthetic / Unit symbols that
+// differ from the symbol the app shows in the trading pair. The clearest case:
+// the BTC spot market trades as the "BTC-USDC" pair, but the wallet holds the
+// position as "UBTC" (Unit BTC) — and "SBTC"/"SUSD"/"SUSDT" are the older
+// synthetic names. Because balances are matched to the pair's base/quote
+// asset by symbol, a wallet asset of "UBTC" never matches a pair base of
+// "BTC", so the balance reads 0 (user can't sell their spot BTC; forum #4860).
+//
+// Most Unit tokens KEEP their "U" prefix in the pair name too ("UETH-USDC",
+// "USOL-USDC"), so those already match — only the handful below are renamed
+// on one side. Hence an explicit, exact-match alias table rather than a blanket
+// "strip leading U" (which would wrongly rewrite real tickers like "UP" or
+// "USDC"). Mirrors the same remap already applied in `findUSDRate`.
+const SPOT_BALANCE_ASSET_ALIASES: Record<string, string> = {
+  UBTC: 'BTC',
+  SBTC: 'BTC',
+  SUSD: 'USD',
+  SUSDT: 'USDT',
+};
+
+/**
+ * Canonicalize a wallet balance asset symbol to the symbol the app uses in
+ * trading pairs, so per-asset balances reconcile against the selected pair.
+ * Exact-match only; unknown symbols pass through upper-cased.
+ */
+export const normalizeBalanceAsset = (asset?: string | null): string => {
+  if (!asset) return '';
+  const upper = asset.toUpperCase().trim();
+  return SPOT_BALANCE_ASSET_ALIASES[upper] ?? upper;
+};
+
 // Exchanges whose candle API expects the dashed native pair ("BTC-USDT")
 // rather than the concatenated form ("BTCUSDT") the app stores internally.
 //

@@ -32,6 +32,7 @@ import {
 } from '@/types';
 import { normalizePairKey } from '@/utils/bots/dca/basic-settings';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { normalizeBalanceAsset } from '@/utils/exchangeUtils';
 
 interface BalanceSnapshot {
   free: number;
@@ -334,14 +335,26 @@ export const useDcaTradingContext = (
         if (!balance?.asset) {
           return;
         }
-        const key = balance.asset.toUpperCase();
+        // Canonicalize the wallet symbol to the pair-facing symbol (e.g.
+        // Hyperliquid spot "UBTC" -> "BTC") so per-asset balances reconcile
+        // against the selected pair's base/quote. Without this the user's
+        // Hyperliquid spot BTC reads 0 (forum #4860).
+        const key = normalizeBalanceAsset(balance.asset);
         const usdValue =
           typeof balance.usdValue === 'number' ? balance.usdValue : undefined;
+        // Merge on collision (defensive — a wallet shouldn't hold both the
+        // synthetic and canonical symbol, but summing is the correct behavior
+        // if it ever does) rather than letting the last write win.
+        const existing = map.get(key);
+        const mergedUsd =
+          usdValue !== undefined || existing?.usdValue !== undefined
+            ? (existing?.usdValue ?? 0) + (usdValue ?? 0)
+            : undefined;
         map.set(key, {
-          free: Number(balance.free) || 0,
-          locked: Number(balance.locked) || 0,
-          total: Number(balance.total) || 0,
-          ...(usdValue !== undefined ? { usdValue } : {}),
+          free: (existing?.free ?? 0) + (Number(balance.free) || 0),
+          locked: (existing?.locked ?? 0) + (Number(balance.locked) || 0),
+          total: (existing?.total ?? 0) + (Number(balance.total) || 0),
+          ...(mergedUsd !== undefined ? { usdValue: mergedUsd } : {}),
         });
       });
     return map;
