@@ -15,20 +15,46 @@
  * Pass no `botId` to get every hedge deal across the user's hedge bots; pass a
  * hedge wrapper id to scope to a single bot (both legs). Status is expressed as
  * a dataGrid filter the same way the standalone deal hooks do it.
+ *
+ * Pagination: the backend hard-caps each `hedge*DealList` response at 500 rows
+ * regardless of the requested `pageSize`. A user with more than 500 open hedge
+ * deals would otherwise have whichever bots' deals fell outside the
+ * newest-500 (`createTime desc`) window silently dropped — surfacing as $0.00
+ * unrealized on cards/table and an empty Deals drawer for those bots even
+ * though the deals exist. So we page through (`page` 0,1,2…) until the server
+ * stops returning full pages or we've drained its reported `total`, then
+ * concatenate. Most users fetch a single page; only large accounts pay for the
+ * extra round-trips.
  */
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 
+import { GraphQLClient, getGraphQLConfig } from '../lib/api';
+import type { ReturnResult } from '../lib/api';
 import { dealQueries } from '../lib/api/GraphQLQueries-deal-queries';
 import {
   comboDealFragment,
   dcaDealFragment,
 } from '../lib/api/GraphQLQueries-fragments';
 import { statusFilterItem } from '../lib/utils/dealStatusFilter';
+import logger from '../lib/loggerInstance';
+import { useAuthStore } from '../stores/authStore';
+import { useUIStore } from '../stores/uiStore';
 import type { ComboDeal } from './useComboDeals';
 import type { DCADeals, DCADealStatusEnum } from '../types';
+import { useCacheKey } from './useCacheKey';
 import { type DcaDealsResponse } from './useDcaDeals';
-import { useGraphQL } from './useGraphQL';
 import { useShareContext } from './useShareContext';
+
+/** Server caps each page at 500 rows; mirror that as the page size we request. */
+const HEDGE_DEAL_PAGE_SIZE = 500;
+/**
+ * Safety bound so a pathological account (or a backend that never returns a
+ * short page) can't spin forever. 40 × 500 = 20k deals — far above any real
+ * open-hedge-deal count. If we ever hit it we log and return what we have
+ * rather than truncating silently.
+ */
+const HEDGE_DEAL_MAX_PAGES = 40;
 
 // The list builders append `botName` themselves for the generic queries but the
 // hedge builders don't, and neither fragment includes it — so request it
@@ -59,32 +85,102 @@ function useHedgeDealsInternal(
   filter?: UseHedgeDealsFilter
 ): HedgeDealsResultBase & { deals: DcaDealsResponse['result'] } {
   const { isDemo } = useShareContext();
+  const { tokens } = useAuthStore();
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
-  const input = useMemo(() => {
+  const operation = isCombo ? 'hedgeComboDealList' : 'hedgeDcaDealList';
+  const fields = isCombo ? HEDGE_COMBO_DEAL_FIELDS : HEDGE_DCA_DEAL_FIELDS;
+
+  const baseInput = useMemo(() => {
     const statusItem = statusFilterItem(filter?.status);
     return {
       ...(filter?.botId ? { botId: filter.botId } : {}),
       dataGridInput: {
         page: 0,
-        pageSize: 500,
+        pageSize: HEDGE_DEAL_PAGE_SIZE,
         sortModel: [{ field: 'createTime', sort: 'desc' as const }],
         filterModel: { items: statusItem ? [statusItem] : [] },
       },
     };
   }, [filter?.status, filter?.botId]);
 
-  const queryResult = useGraphQL<DcaDealsResponse>(
-    isCombo ? 'hedgeComboDealList' : 'hedgeDcaDealList',
-    isCombo
-      ? dealQueries.hedgeComboDealList(input, HEDGE_COMBO_DEAL_FIELDS)
-      : dealQueries.hedgeDcaDealList(input, HEDGE_DCA_DEAL_FIELDS),
-    {
-      enabled: isDemo ? false : filter?.enabled !== false,
-      ...(typeof filter?.paperContext === 'boolean'
-        ? { paperContext: filter.paperContext }
-        : {}),
-    }
+  const paperContextOverride =
+    typeof filter?.paperContext === 'boolean' ? filter.paperContext : undefined;
+
+  // Distinct base key (`:all-pages`) so this paginated entry never collides
+  // with a single-page `useGraphQL` cache of the same operation.
+  const cacheKey = useCacheKey(
+    `${operation}:all-pages`,
+    baseInput as unknown as Record<string, unknown>,
+    paperContextOverride
   );
+
+  const queryResult = useQuery<ReturnResult<DcaDealsResponse>, Error>({
+    queryKey: cacheKey,
+    enabled:
+      (isDemo ? false : filter?.enabled !== false) && !!tokens?.accessToken,
+    queryFn: async () => {
+      const endpoint =
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+      const config = getGraphQLConfig(tokens, isLiveTrading);
+      const { tradingMode } = useUIStore.getState();
+      const isDemoMode = tradingMode === 'demo';
+      const paperContext = isDemoMode
+        ? true
+        : (paperContextOverride ?? config.paperContext);
+      const client = new GraphQLClient(endpoint, config.token, paperContext);
+
+      const all: DcaDealsResponse['result'] = [];
+      let total = Infinity;
+      let page = 0;
+      for (; page < HEDGE_DEAL_MAX_PAGES; page += 1) {
+        const input = {
+          ...baseInput,
+          dataGridInput: { ...baseInput.dataGridInput, page },
+        };
+        const built = isCombo
+          ? dealQueries.hedgeComboDealList(input, fields)
+          : dealQueries.hedgeDcaDealList(input, fields);
+        const res = await client.request<{
+          [k: string]: ReturnResult<DcaDealsResponse>;
+        }>(built.query, built.variables);
+        const node = res[operation];
+        const pageResult =
+          (node && 'data' in node ? node.data?.result : undefined) ?? [];
+        all.push(...(pageResult as DcaDealsResponse['result']));
+        // The backend reports the authoritative count on the operation's own
+        // `total` field — its `data.totalResults` is frequently null — so trust
+        // `total` to know when the list is drained.
+        const reported =
+          node && 'total' in node && typeof node.total === 'number'
+            ? node.total
+            : undefined;
+        if (typeof reported === 'number') total = reported;
+        // Stop on a short page (server has no more rows) or once we've
+        // collected everything it claims to hold.
+        if (pageResult.length < HEDGE_DEAL_PAGE_SIZE || all.length >= total) {
+          break;
+        }
+      }
+      if (page >= HEDGE_DEAL_MAX_PAGES && all.length < total) {
+        logger.warn(
+          `[useHedgeDeals] Stopped paginating ${operation} at ${HEDGE_DEAL_MAX_PAGES} pages; collected ${all.length}/${total}. Some hedge deals are not shown.`
+        );
+      }
+
+      return {
+        status: 'OK',
+        reason: null,
+        total: all.length,
+        data: {
+          page: 0,
+          totalPages: 1,
+          totalResults: all.length,
+          result: all,
+        },
+      } satisfies ReturnResult<DcaDealsResponse>;
+    },
+  });
 
   const deals = useMemo(() => {
     const result = queryResult.data?.data?.result;
