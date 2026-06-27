@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.7] - 2026-06-27
+
+### Fixed
+
+- Hedge bot details drawer: the read-only Settings → Hedge tab now shows the hedge-level Take Profit / Stop Loss from the bot's shared settings instead of always reading "Off". Previously it read these off a leg (which never carries them), so a configured hedge take-profit displayed as "Off" even though editing the bot showed the correct value.
+
 ## [2.18.6] - 2026-06-26
 
 ### Changed

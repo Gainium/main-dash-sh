@@ -2,8 +2,9 @@
  * Read-only view of a hedge bot's SHARED settings — the take-profit /
  * stop-loss applied at the hedge level across both legs. Mirrors the "Hedge"
  * tab on the new hedge bot page (which edits these); here we just display the
- * current values. The shared TP/SL are mirrored into both legs' settings, so
- * we read them off whichever leg we have.
+ * current values. The shared TP/SL live ONLY on the hedge wrapper
+ * (`hedgeBot.sharedSettings`) — they are NOT mirrored into either leg's
+ * settings — so the caller must pass the wrapper's `sharedSettings`.
  */
 
 interface SharedSettingsLike {

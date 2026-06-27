@@ -14,6 +14,7 @@ import {
   type BotStatus,
   type DCABot,
   type DCADeals,
+  type HedgeBotSettings,
 } from '@/types';
 /* import type { DrawerBot } from '@/types/bots/drawer'; */
 import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
@@ -112,6 +113,12 @@ export interface HedgeDrawerContext {
   isCombo: boolean;
   /** Hedge wrapper id — scopes the combined deals query to this bot. */
   wrapperId: string;
+  /**
+   * Hedge-level shared TP/SL, read off the wrapper (`hedgeBot.sharedSettings`).
+   * These live ONLY on the wrapper — they are NOT mirrored into either leg's
+   * settings — so the read-only "Hedge" settings tab must read them from here.
+   */
+  sharedSettings?: HedgeBotSettings;
 }
 
 export interface TradeDetails {
@@ -1538,7 +1545,6 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                           settingsLeg === 'short'
                             ? hedge.shortBot
                             : hedge.longBot;
-                        const shared = hedge.longBot ?? hedge.shortBot;
                         return (
                           <div className="space-y-4 pt-5 sm:pt-6">
                             <Tabs
@@ -1557,7 +1563,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                             </Tabs>
                             {settingsLeg === 'hedge' ? (
                               <HedgeSharedSettingsCard
-                                settings={shared?.settings}
+                                settings={hedge.sharedSettings}
                               />
                             ) : activeLegBot ? (
                               <DrawerWidgetRenderer

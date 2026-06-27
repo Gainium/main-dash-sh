@@ -322,6 +322,7 @@ const HedgeDcaBots = () => {
       totalProfitUsd,
       isCombo: false,
       wrapperId: selectedHedgeBot._id,
+      sharedSettings: selectedHedgeBot.sharedSettings,
     };
   }, [selectedHedgeBot, drawerPrimaryBot, longBot, shortBot, unPnlMap, exchanges]);
 
