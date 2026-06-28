@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.8] - 2026-06-28
+
+### Fixed
+
+- Hedge combo/DCA bot details drawer: short-leg deals now show their orders. The drawer only fetched orders for the primary (long) leg, so a short-side deal's order timeline rendered empty ("No orders found") even though the orders existed on the exchange. It now fetches and merges both legs' orders, filtered per deal.
+
+### Changed
+
+- Deal details Orders section: now defaults to a sortable, paginated **table** view (with search and CSV/JSON export) and splits orders into **Pending** and **Completed** tabs. The previous card layout is preserved and available via the Table/Cards toggle.
+
 ## [2.18.7] - 2026-06-27
 
 ### Fixed

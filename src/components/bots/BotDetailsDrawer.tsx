@@ -832,6 +832,33 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       hasValidResponse: hasCompletedResponse,
     } = useBotOrders(bot._id, type, statusFilled);
 
+    // For hedge bots the drawer is mounted with `bot` = the primary leg
+    // (HedgeCombo/DcaBots pass `drawerPrimaryBot = longBot ?? shortBot`), so
+    // the `useBotOrders(bot._id)` calls above only ever fetch ONE leg's
+    // orders. The other leg's deals then render an empty order timeline even
+    // though their orders exist on the exchange (forum bug #4864 — short deal
+    // had no orders shown). Fetch the other leg's orders too and merge them
+    // into the pool below; orders stay filtered by dealId downstream, so each
+    // deal still only shows its own orders. Empty id = disabled query.
+    const otherLegId = useMemo(() => {
+      if (!isHedge) return '';
+      const longId = hedge?.longBot?._id;
+      const shortId = hedge?.shortBot?._id;
+      if (bot._id === longId) return shortId ?? '';
+      if (bot._id === shortId) return longId ?? '';
+      return shortId ?? longId ?? '';
+    }, [isHedge, bot._id, hedge?.longBot?._id, hedge?.shortBot?._id]);
+
+    const {
+      orders: pendingOtherLegOrders,
+      hasValidResponse: hasPendingOtherResponse,
+    } = useBotOrders(otherLegId, type, statusNew);
+
+    const {
+      orders: completedOtherLegOrders,
+      hasValidResponse: hasCompletedOtherResponse,
+    } = useBotOrders(otherLegId, type, statusFilled);
+
     const transformOrders = useMemo(() => {
       return (backendOrders: typeof pendingBotOrders): ViewOrder[] => {
         return backendOrders.map((order) => {
@@ -887,14 +914,37 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       };
     }, [bot.exchange]);
 
-    // Get pending and completed orders for this deal
+    // Get pending and completed orders for this deal. For hedge bots we merge
+    // the other leg's orders so short-leg deals show their timeline too (#4864).
     const pendingOrders = useMemo(() => {
-      return hasPendingResponse ? transformOrders(pendingBotOrders) : [];
-    }, [hasPendingResponse, pendingBotOrders, transformOrders]);
+      const own = hasPendingResponse ? transformOrders(pendingBotOrders) : [];
+      const other = hasPendingOtherResponse
+        ? transformOrders(pendingOtherLegOrders)
+        : [];
+      return other.length ? [...own, ...other] : own;
+    }, [
+      hasPendingResponse,
+      pendingBotOrders,
+      hasPendingOtherResponse,
+      pendingOtherLegOrders,
+      transformOrders,
+    ]);
 
     const completedOrders = useMemo(() => {
-      return hasCompletedResponse ? transformOrders(completedBotOrders) : [];
-    }, [hasCompletedResponse, completedBotOrders, transformOrders]);
+      const own = hasCompletedResponse
+        ? transformOrders(completedBotOrders)
+        : [];
+      const other = hasCompletedOtherResponse
+        ? transformOrders(completedOtherLegOrders)
+        : [];
+      return other.length ? [...own, ...other] : own;
+    }, [
+      hasCompletedResponse,
+      completedBotOrders,
+      hasCompletedOtherResponse,
+      completedOtherLegOrders,
+      transformOrders,
+    ]);
 
     const isLoadingOrders = useMemo(
       () => pendingOrdersLoading || completedOrdersLoading,
