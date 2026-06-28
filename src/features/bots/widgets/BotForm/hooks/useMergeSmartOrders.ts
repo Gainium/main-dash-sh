@@ -78,6 +78,15 @@ export function useMergeSmartOrders() {
       queryClient.invalidateQueries({ queryKey: ['dcaDealList'] });
       queryClient.invalidateQueries({ queryKey: ['getBotDeals'] });
       queryClient.invalidateQueries({ queryKey: ['getComboDeals'] });
+      // Hedge bots render their Deals tab from useHedgeDeals, which caches
+      // under its own `hedge*DealList:all-pages` key (see useCacheKey). Without
+      // invalidating it, a merge on a hedge bot leaves the drawer showing the
+      // stale pre-merge list (old child deals, no merged parent) until a manual
+      // refresh. Prefix-match invalidation refetches it immediately.
+      queryClient.invalidateQueries({ queryKey: ['hedgeDcaDealList:all-pages'] });
+      queryClient.invalidateQueries({
+        queryKey: ['hedgeComboDealList:all-pages'],
+      });
 
       logger.info('[useMergeSmartOrders] Queries invalidated', {
         dealCount: variables.dealIds.length,

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.9] - 2026-06-28
+
+### Fixed
+
+- Hedge bot Deals tab now refreshes immediately after merging deals. The merge action didn't invalidate the hedge deals query, so the drawer kept showing the stale pre-merge list (old child deals, no merged deal) until a manual page refresh.
+
 ## [2.18.8] - 2026-06-28
 
 ### Fixed
