@@ -49,6 +49,7 @@ import {
 } from 'recharts';
 import getLatestPrices from '../../helper/price';
 import { ConfirmationDialog } from '../ui';
+import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -275,6 +276,7 @@ const EnhancedCard = React.memo(
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
     const [closeDialogOpen, setCloseDialogOpen] = useState(false);
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+    const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
     const handleAddFunds = () => {
       setAdjustFundsDialog('add');
     };
@@ -693,6 +695,16 @@ const EnhancedCard = React.memo(
         String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
       [canShowMoveToTerminal, trade.status]
     );
+    // The inverse of "Move to Terminal": only terminal deals can be moved back
+    // into a bot, and only while open (a closed deal has no position to adopt).
+    const canShowMoveToBot = useMemo(
+      () =>
+        trade.type === 'Terminal' &&
+        typeof trade.botId === 'string' &&
+        trade.botId.length > 0 &&
+        String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
+      [trade.botId, trade.type, trade.status]
+    );
     const handleCancelConfirm = () => {
       if (!trade.botId) {
         logger.error(`${LOG_PREFIX}: Cannot cancel deal - missing botId`, {
@@ -844,6 +856,22 @@ const EnhancedCard = React.memo(
           cancelText="Cancel"
           onConfirm={handleMoveToTerminalConfirm}
         />
+        <MoveDealToBotDialog
+          open={moveToBotDialogOpen}
+          onOpenChange={setMoveToBotDialogOpen}
+          deal={
+            canShowMoveToBot && trade.botId
+              ? {
+                  dealId: trade.id,
+                  sourceBotId: trade.botId,
+                  symbol: symbolString,
+                  exchange: trade.exchange,
+                  exchangeUUID: trade.exchangeUUID,
+                  strategy: trade.strategy,
+                }
+              : null
+          }
+        />
         <CardContent className="p-md relative" style={{ isolation: 'isolate' }}>
           {/* Floating actions — hover-reveal on desktop, always visible on
               mobile (matches BotCard / WidgetWrapper pattern) */}
@@ -913,6 +941,12 @@ const EnhancedCard = React.memo(
                   >
                     <ArrowRightLeft className="w-4 h-4 mr-2" />
                     Move to Terminal
+                  </DropdownMenuItem>
+                )}
+                {canShowMoveToBot && (
+                  <DropdownMenuItem onClick={() => setMoveToBotDialogOpen(true)}>
+                    <ArrowRightLeft className="w-4 h-4 mr-2" />
+                    Move to Bot
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>

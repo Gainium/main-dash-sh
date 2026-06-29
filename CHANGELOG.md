@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.19.0] - 2026-06-29
+
+### Added
+
+- Move a terminal deal back into a bot. Open terminal deals now have a "Move to Bot" action (in the trades card menu and the terminal Open Orders table) that adopts the position into an existing DCA bot you choose. Only compatible bots are offered — same exchange, account, direction (long/short), and trading pair — and the now-empty terminal entry is removed afterward. The position is adopted bare and then follows the target bot's take-profit, stop-loss and safety-order settings.
+
 ## [2.18.12] - 2026-06-29
 
 ### Fixed

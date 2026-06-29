@@ -88,6 +88,7 @@ import {
     StrategyChip,
 } from '../../ui/chip';
 import { ConfirmationDialog } from '../../ui/confirmation-dialog';
+import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import { DataTable, type BulkAction } from '../../ui/data-table/data-table';
 import {
     DropdownMenu,
@@ -381,6 +382,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
+  const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
   const moveDealToTerminalMutation = useMoveDealToTerminal();
@@ -392,6 +394,13 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
 
   const canMoveToTerminal =
     canShowMoveToTerminal &&
+    String(trade.status || '').toLowerCase() === DCADealStatusEnum.open;
+
+  // Inverse of "Move to Terminal": only open terminal deals can go back to a bot.
+  const canShowMoveToBot =
+    trade.type === 'Terminal' &&
+    typeof trade.botId === 'string' &&
+    trade.botId.length > 0 &&
     String(trade.status || '').toLowerCase() === DCADealStatusEnum.open;
 
   const handleAddToJournal = async () => {
@@ -686,6 +695,12 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
               Move to Terminal
             </DropdownMenuItem>
           )}
+          {canShowMoveToBot && (
+            <DropdownMenuItem onClick={() => setMoveToBotDialogOpen(true)}>
+              <ArrowRightLeft className="w-4 h-4 mr-2" />
+              Move to Bot
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleCancelClick}>
             <X className="w-4 h-4 mr-2" />
             Cancel
@@ -724,6 +739,22 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
           confirmText="Confirm"
           cancelText="Cancel"
           onConfirm={handleMoveToTerminalConfirm}
+        />
+        <MoveDealToBotDialog
+          open={moveToBotDialogOpen}
+          onOpenChange={setMoveToBotDialogOpen}
+          deal={
+            canShowMoveToBot && trade.botId
+              ? {
+                  dealId: trade.id,
+                  sourceBotId: trade.botId,
+                  symbol: trade.symbol,
+                  exchange: trade.exchange,
+                  exchangeUUID: trade.exchangeUUID,
+                  strategy: trade.strategy,
+                }
+              : null
+          }
         />
         {/* <ConfirmationDialog
         open={closeDialogOpen}

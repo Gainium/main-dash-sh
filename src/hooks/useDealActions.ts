@@ -54,6 +54,15 @@ interface MoveDealToTerminalInput {
   combo: boolean;
 }
 
+interface MoveDealToBotInput {
+  /** The terminal deal being moved. */
+  dealId: string;
+  /** The existing DCA bot to adopt the deal into. */
+  targetBotId: string;
+  /** The terminal bot currently hosting the deal (cleaned up after the move). */
+  sourceBotId: string;
+}
+
 /**
  * Optimistically reflect a close/cancel in the deal store so the deal leaves
  * the active list immediately, rather than waiting for a `bot deal update`
@@ -421,6 +430,143 @@ export function useMoveDealToTerminal() {
       logger.error('[useMoveDealToTerminal] Failed to move deal to terminal', {
         dealId: variables.dealId,
         botId: variables.botId,
+        error: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * Best-effort cleanup of the now-empty terminal bot a deal was moved out of.
+ *
+ * The backend schedules the merge on the target bot's worker and only cancels
+ * the source (terminal) deal a moment later, so `deleteBot` may briefly report
+ * "Cannot delete bot with active deal" — retry a few times, then give up. An
+ * empty terminal bot has no open deals and is invisible in the terminal view,
+ * so a leftover is harmless (deleting it only ever soft-deletes the already
+ * cancelled original deal; the freshly adopted deal lives under the target
+ * bot's id and is never touched).
+ */
+async function cleanupOrphanTerminalBot(
+  client: GraphQLClient,
+  botId: string
+): Promise<void> {
+  const { query, variables } = botQueries.deleteBot({
+    id: botId,
+    type: BotTypesEnum.dca,
+  });
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    }
+    try {
+      const result = await client.request<{ deleteBot: DealResponse }>(
+        query,
+        variables
+      );
+      if (result.deleteBot.status === 'OK') {
+        logger.info('[useMoveDealToBot] Orphan terminal bot deleted', { botId });
+        return;
+      }
+      logger.info(
+        '[useMoveDealToBot] Orphan terminal bot not yet deletable, will retry',
+        { botId, reason: result.deleteBot.reason }
+      );
+    } catch (error) {
+      logger.warn('[useMoveDealToBot] deleteBot attempt failed', {
+        botId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+  logger.warn(
+    '[useMoveDealToBot] Gave up deleting orphan terminal bot (harmless; it is empty and hidden)',
+    { botId }
+  );
+}
+
+/**
+ * Move a terminal deal into an existing DCA bot — the inverse of
+ * {@link useMoveDealToTerminal}.
+ *
+ * There is no dedicated backend mutation for this. We reuse `mergeDeals`, which
+ * adopts the deal's live position into the target bot (recomputed from the
+ * deal's filled orders, with TP/SL/DCA reset to the target bot's policy) and
+ * cancels the original terminal deal — exactly the safe "land the position in
+ * the bot, bare" behaviour. The now-empty terminal bot is then best-effort
+ * deleted.
+ *
+ * Mirrors `useMoveDealToTerminal`'s optimistic store cleanup so the moved deal
+ * isn't resurrected by a stale cached websocket replay (its status doesn't
+ * change in a way the tombstone's updateTime branch would catch, so we use a
+ * sentinel status).
+ */
+export function useMoveDealToBot() {
+  const { tokens } = useAuthStore();
+
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  const client = new GraphQLClient(
+    import.meta.env['VITE_API_ENDPOINT'],
+    tokens?.accessToken,
+    !isLiveTrading
+  );
+
+  return useMutation<DealResponse, Error, MoveDealToBotInput>({
+    mutationFn: async ({ dealId, targetBotId, sourceBotId }) => {
+      logger.info('[useMoveDealToBot] Moving terminal deal to bot:', {
+        dealId,
+        targetBotId,
+        sourceBotId,
+      });
+
+      const { query, variables } = dealQueries.mergeDeals({
+        botId: targetBotId,
+        dealIds: [dealId],
+      });
+
+      const response = await client.request<{
+        mergeDeals: DealResponse;
+      }>(query, variables);
+
+      if (response.mergeDeals.status !== 'OK') {
+        throw new Error(
+          response.mergeDeals.reason || 'Failed to move deal to bot'
+        );
+      }
+
+      // Fire-and-forget: reap the empty terminal bot once the merge settles.
+      // Never blocks (or fails) the move itself.
+      void cleanupOrphanTerminalBot(client, sourceBotId);
+
+      return response.mergeDeals;
+    },
+    onSuccess: (data, variables) => {
+      logger.info('[useMoveDealToBot] Deal moved to bot', {
+        dealId: variables.dealId,
+        targetBotId: variables.targetBotId,
+        response: data,
+      });
+      // The deal no longer lives under the terminal bot — drop it from the
+      // terminal scope immediately. Capture updateTime first so the tombstone
+      // can arbitrate a stale cached replay.
+      const existing = useDealStore
+        .getState()
+        .getDeal(variables.sourceBotId, variables.dealId);
+      useDealStore.getState().removeDeal(variables.sourceBotId, variables.dealId);
+      recordDealTombstone(
+        variables.sourceBotId,
+        variables.dealId,
+        'moved-to-bot',
+        existing?.updateTime ?? 0
+      );
+      removeDealFromListCaches(variables.dealId, DEAL_LIST_QUERY_KEYS);
+      invalidateListCaches(DEAL_LIST_QUERY_KEYS);
+    },
+    onError: (error, variables) => {
+      logger.error('[useMoveDealToBot] Failed to move deal to bot', {
+        dealId: variables.dealId,
+        targetBotId: variables.targetBotId,
         error: error.message,
       });
     },
