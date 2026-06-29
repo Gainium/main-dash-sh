@@ -269,10 +269,24 @@ export const Profit: React.FC<ProfitProps> = ({
       }
       // Daily rows are matched by tz calendar day (DST-safe); other timeframes
       // use the backend's own key format ("2026-13" week, "2026-5" month, etc.).
-      const key =
-        timeframe === 0
-          ? toTzDateKey(new Date(item.date as string))
-          : item.date.toString();
+      // A malformed daily `date` yields an Invalid Date, and toTzDateKey's
+      // Intl.DateTimeFormat.format() THROWS "Invalid time value" on it (unlike
+      // toLocaleDateString, which returns "Invalid Date"), crashing the whole
+      // widget. Skip such rows the same way we skip missing dates.
+      let key: string;
+      if (timeframe === 0) {
+        const parsed = new Date(item.date as string);
+        if (Number.isNaN(parsed.getTime())) {
+          logger.warn(
+            '[ProfitWidget] Skipping daily result row with unparseable date',
+            item
+          );
+          return;
+        }
+        key = toTzDateKey(parsed);
+      } else {
+        key = item.date.toString();
+      }
       dataMap.set(key, item.quote || 0);
     });
 

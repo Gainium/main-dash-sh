@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.10] - 2026-06-29
+
+### Fixed
+
+- Profit dashboard widget no longer crashes the whole dashboard when the profit data contains a daily row with an unparseable date. Such rows are now skipped instead of throwing "Invalid time value".
+
 ## [2.18.9] - 2026-06-28
 
 ### Fixed
