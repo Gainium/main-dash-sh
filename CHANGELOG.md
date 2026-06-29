@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.12] - 2026-06-29
+
+### Fixed
+
+- Trading terminal "Import" deal type: the Purchased Price field no longer rejects an entry price above (long) or below (short) the current price. An import declares an already-held position at its historical entry, which can legitimately sit on either side of the current market price. Previously the limit-order direction rule wrongly blocked the price, leaving the deal to import at the wrong (current) price or fall through to a real buy order.
+- Trading terminal: placing an order or importing a deal now runs a client-side balance check before submitting (legacy parity). When the account can't fund the order the submit is blocked with "Not enough assets to place order", instead of returning a premature success and then failing asynchronously in the engine ("Not enough balance to start new deal"). Imports of an existing futures position are exempt — they adopt the held position and require no free margin.
+
 ## [2.18.11] - 2026-06-29
 
 ### Fixed

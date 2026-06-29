@@ -62,6 +62,10 @@ const LimitPriceInput: React.FC<{
   baseAssetSymbol?: string;
   quoteAssetSymbol?: string;
   label?: string;
+  // Import declares an already-held position at its historical entry price,
+  // which can sit on either side of the current price — so the limit-order
+  // direction rule must not apply (legacy parity: no such check for imports).
+  isImport?: boolean;
 }> = ({
   baseOrderPrice,
   latestPrice,
@@ -71,6 +75,7 @@ const LimitPriceInput: React.FC<{
   baseAssetSymbol,
   quoteAssetSymbol,
   label,
+  isImport,
 }) => {
   const { activePickerField, setActivePickerField, setCoordinates } =
     useTradingTerminalUtils();
@@ -109,6 +114,12 @@ const LimitPriceInput: React.FC<{
         return null; // Can't validate without current price
       }
 
+      // Import = historical entry price, not a pending limit entry order.
+      // The buy-below / sell-above rule doesn't apply.
+      if (isImport) {
+        return null;
+      }
+
       const isLong = strategy === StrategyEnum.long;
       if (isLong && limitPriceValue > latestPrice) {
         return `For long positions, limit price must be at or below current price ($${latestPrice.toFixed(2)})`;
@@ -119,7 +130,7 @@ const LimitPriceInput: React.FC<{
 
       return null;
     },
-    [strategy, latestPrice]
+    [strategy, latestPrice, isImport]
   );
 
   // Handle chart picker coordinates
@@ -721,6 +732,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
               baseAssetSymbol={displayBaseAsset}
               quoteAssetSymbol={displayQuoteAsset}
               label={importPriceLabel}
+              isImport
             />
           </SettingsRow>
         ) : (

@@ -73,6 +73,7 @@ import { calculateCost } from '@/utils/bots/credits';
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { useBotDealCapital } from '@/hooks/bots/dca/useBotDealCapital';
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
+import { useVerifyTerminalBalance } from '@/hooks/bots/dca/useVerifyTerminalBalance';
 import { BotFormSaveTemplateDialog } from './BotFormSaveTemplateDialog';
 import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog';
 import GridStopBotDialog from '@/features/bots/shared/runtime/dialogs/GridStopBotDialog';
@@ -846,9 +847,29 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = ({
     };
   }, [botType, budget, dcaTradingContext, dealCapital]);
 
+  // Legacy parity (terminal/index.tsx `addNewBot` lines 4219-4225): before
+  // placing a terminal order / importing a deal, verify the account can fund
+  // it. Without this the request goes through, `createDCABot` returns OK, the
+  // success toast fires, and the deal then fails asynchronously in the engine
+  // ("Not enough balance to start new deal") — a false success. Block up front
+  // with the legacy message instead. Only gates terminal creates; regular bot
+  // creation and edits are unaffected.
+  const terminalBalanceSufficient = useVerifyTerminalBalance(
+    formData,
+    dcaTradingContext
+  );
+
   const handleSubmit = useCallback(() => {
+    if (
+      mode === 'create' &&
+      formData.terminal &&
+      !terminalBalanceSufficient
+    ) {
+      toast.error('Not enough assets to place order');
+      return;
+    }
     void onSubmit();
-  }, [onSubmit]);
+  }, [onSubmit, mode, formData.terminal, terminalBalanceSufficient]);
 
   // Backtest handler - track bot backtests with PostHog
   const handleBacktest = useCallback(
