@@ -177,7 +177,14 @@ export const calculateExpectedAverageProfit = ({
     return 0;
   }
 
-  const normalizedSingleTarget = sanitizePercentageInput(tpPerc ?? 0, 0, 100);
+  // No upper cap on the TP target value — expected profit must reflect large
+  // high-leverage targets (e.g. 5000%), not clamp them to 100%. The position
+  // allocation (amount) still legitimately caps at 100%.
+  const normalizedSingleTarget = sanitizePercentageInput(
+    tpPerc ?? 0,
+    0,
+    Number.POSITIVE_INFINITY
+  );
 
   const targets = multiTargets ?? [];
   if (!useMultipleTpTargets || targets.length === 0) {
@@ -185,7 +192,11 @@ export const calculateExpectedAverageProfit = ({
   }
 
   const sanitizedTargets = targets.map((target) => ({
-    percentage: sanitizePercentageInput(target.target ?? '0', 0, 100),
+    percentage: sanitizePercentageInput(
+      target.target ?? '0',
+      0,
+      Number.POSITIVE_INFINITY
+    ),
     amount: sanitizeAmountInput(target.amount ?? 0, 0, 100),
   }));
 

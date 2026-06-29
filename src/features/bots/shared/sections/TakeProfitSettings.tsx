@@ -117,11 +117,19 @@ import { IndicatorGroupsManager } from '../components/IndicatorGroupsManager';
 import MultiTarget from '../components/MultiTarget';
 
 const MAX_MULTI_TP_TARGETS = 10;
+// Position-allocation ceiling: the % of the position closed across all targets
+// must sum to 100. This is the ALLOCATION cap (target.amount), never a cap on
+// the take-profit price-distance value.
 const MAX_TOTAL_PERCENTAGE = 100;
-// Upper bound for the single take-profit %. Kept high (not 50) so cross-margin
-// / high-leverage users can target large gains, matching the open input in the
-// legacy dashboard. See StopLossSettings MAX_TP_SL_PERCENT for the SL twin.
-const MAX_TP_SL_PERCENT = 250;
+// Practical ceiling for the take-profit *slider* only. The slider is a
+// convenience control; the typed input and the stored value are intentionally
+// uncapped so high-leverage users can target very large gains (e.g. 5000% on
+// 100x), matching the open input in the legacy dashboard.
+const TP_SLIDER_MAX_PERCENT = 250;
+// No upper cap on the take-profit price-distance value itself. TP targets are
+// independent price levels (not allocations), so they are never bounded above
+// nor forced to sum to anything — only the slider is bounded, for UX.
+const TP_TARGET_VALUE_MAX = Number.POSITIVE_INFINITY;
 const TRAILING_TP_MIN = 0;
 const TRAILING_TP_MAX = 10;
 type TakeProfitBindableField =
@@ -205,7 +213,7 @@ const createMultiTarget = ({
   const sanitizedPercentage = sanitizePercentageInput(
     target,
     0,
-    MAX_TOTAL_PERCENTAGE
+    TP_TARGET_VALUE_MAX
   );
   const sanitizedAmount = sanitizeAmountInput(amount, 0, MAX_TOTAL_PERCENTAGE);
   const generatedId = getNextMultiTpId(existingTargets);
@@ -651,7 +659,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       sanitizePercentageInput(
         tpPerc || minTpToUse,
         minTpToUse,
-        MAX_TOTAL_PERCENTAGE
+        TP_TARGET_VALUE_MAX
       )
     );
 
@@ -806,8 +814,10 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     [multiTargetsTotal]
   );
 
+  // TP price-distance targets are uncapped and independent, so the sum of
+  // target values can never "overflow". (Allocation overflow is hasAmountOverflow.)
   const hasAllocationOverflow = useMemo(
-    () => multiTargetsTotal > MAX_TOTAL_PERCENTAGE + 1e-6,
+    () => multiTargetsTotal > TP_TARGET_VALUE_MAX,
     [multiTargetsTotal]
   );
 
@@ -842,14 +852,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       return;
     }
 
-    const percentageClamped = clampTargetsToTotal(
-      multiTp ?? [],
-      -1,
-      minTpToUse,
-      MAX_TOTAL_PERCENTAGE,
-      boundPercentagePaths,
-      (targetId) => getMultiTargetBindingPath(targetId, 'target')
-    );
+    const percentageClamped = clampTargetsToTotal(multiTp ?? [], minTpToUse);
 
     const amountClamped = clampTargetAmountsToTotal(
       percentageClamped,
@@ -983,7 +986,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
             const sanitizedPercentage = sanitizePercentageInput(
               computedPercent,
               minTpToUse,
-              MAX_TOTAL_PERCENTAGE
+              TP_TARGET_VALUE_MAX
             );
             derivedPercentage = formatNumericString(sanitizedPercentage);
           }
@@ -999,7 +1002,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
           const sanitizedPercentage = sanitizePercentageInput(
             rawValue,
             minTpToUse,
-            MAX_TOTAL_PERCENTAGE
+            TP_TARGET_VALUE_MAX
           );
 
           const { fixed: _removedFixed, ...rest } = target;
@@ -1027,14 +1030,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       });
 
       if (field === 'target' || field === 'fixed') {
-        const clamped = clampTargetsToTotal(
-          nextTargets,
-          targetIndex,
-          minTpToUse,
-          MAX_TOTAL_PERCENTAGE,
-          boundPercentagePaths,
-          (id) => getMultiTargetBindingPath(id, 'target')
-        );
+        const clamped = clampTargetsToTotal(nextTargets, minTpToUse);
         setMultiTargets(clamped);
         return;
       }
@@ -1055,7 +1051,6 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     },
     [
       boundAmountPaths,
-      boundPercentagePaths,
       currentPrice,
       isShort,
       minTpToUse,
@@ -1101,7 +1096,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         sanitizePercentageInput(
           tpPerc || minTpToUse,
           minTpToUse,
-          MAX_TOTAL_PERCENTAGE
+          TP_TARGET_VALUE_MAX
         )
       );
 
@@ -1136,7 +1131,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       let nextPercentage = sanitizePercentageInput(
         value,
         minTpToUse,
-        MAX_TOTAL_PERCENTAGE
+        TP_TARGET_VALUE_MAX
       );
 
       // Enforce minimum 0.5% gap from previous target
@@ -1181,14 +1176,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         };
       });
 
-      const clamped = clampTargetsToTotal(
-        nextTargets,
-        index,
-        minTpToUse,
-        MAX_TOTAL_PERCENTAGE,
-        boundPercentagePaths,
-        (targetId) => getMultiTargetBindingPath(targetId, 'target')
-      );
+      const clamped = clampTargetsToTotal(nextTargets, minTpToUse);
       setMultiTargets(clamped);
 
       // When there's only one target, sync with legacy single target value
@@ -1268,7 +1256,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         const sanitizedPercentage = sanitizePercentageInput(
           computedPercent,
           minTpToUse,
-          MAX_TOTAL_PERCENTAGE
+          TP_TARGET_VALUE_MAX
         );
         derivedPercentage = formatNumericString(sanitizedPercentage);
       }
@@ -1285,14 +1273,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         };
       });
 
-      const clamped = clampTargetsToTotal(
-        nextTargets,
-        index,
-        minTpToUse,
-        MAX_TOTAL_PERCENTAGE,
-        boundPercentagePaths,
-        (targetId) => getMultiTargetBindingPath(targetId, 'target')
-      );
+      const clamped = clampTargetsToTotal(nextTargets, minTpToUse);
 
       updateFormData('useFixedTPPrices', true);
       setMultiTargets(clamped);
@@ -1304,7 +1285,6 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       }
     },
     [
-      boundPercentagePaths,
       currentPrice,
       formData.terminal,
       isShort,
@@ -1444,19 +1424,11 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       (targetId) => getMultiTargetBindingPath(targetId, 'amount')
     );
 
-    const percentageClamped = clampTargetsToTotal(
-      distributed,
-      multiTargets.length,
-      minTpToUse,
-      MAX_TOTAL_PERCENTAGE,
-      boundPercentagePaths,
-      (targetId) => getMultiTargetBindingPath(targetId, 'target')
-    );
+    const percentageClamped = clampTargetsToTotal(distributed, minTpToUse);
 
     setMultiTargets(percentageClamped);
   }, [
     boundAmountPaths,
-    boundPercentagePaths,
     useMultiTp,
     minTpToUse,
     multiTargets,
@@ -2240,7 +2212,11 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         return;
       }
 
-      const sanitized = sanitizePercentageInput(numericValue, minTpToUse, 50);
+      const sanitized = sanitizePercentageInput(
+        numericValue,
+        minTpToUse,
+        TP_SLIDER_MAX_PERCENT
+      );
 
       const nextValue = sanitized.toString();
       updateFormData('tpPerc', nextValue);
@@ -2255,10 +2231,13 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
   // registration of errors is done centrally to avoid duplication.
 
   const tpValidation = React.useMemo(() => {
+    // No upper cap on the single take-profit value (matches legacy). The slider
+    // is still capped for practical reasons, but a typed value can go arbitrarily
+    // high for high-leverage targets.
     return validateTpTarget(
       tpPerc ?? String(minTpToUse),
       minTpToUse,
-      MAX_TP_SL_PERCENT,
+      Number.POSITIVE_INFINITY,
       Boolean(isTpPercBound)
     );
   }, [tpPerc, minTpToUse, isTpPercBound]);
@@ -2355,7 +2334,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                 value={parseFloat(tpPerc) || minTpToUse}
                 onChange={handleSliderChange}
                 min={minTpToUse}
-                max={MAX_TP_SL_PERCENT}
+                max={TP_SLIDER_MAX_PERCENT}
                 step={0.1}
                 className="w-full"
                 disabled={isTpPercBound}
@@ -2380,7 +2359,6 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                   value={tpPerc}
                   onChange={(value) => updateFormData('tpPerc', value)}
                   min={minTpToUse}
-                  max={MAX_TP_SL_PERCENT}
                   step={0.1}
                   precision={3}
                   className={`w-full${
@@ -2602,14 +2580,9 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                           boundAmountPaths.has(amountPath);
                         const isTargetFixedBound =
                           boundFixedPaths.has(fixedPath);
-                        const parsedCurrent = parseFloat(target.target);
-                        const totalWithoutCurrent =
-                          multiTargetsTotal -
-                          (Number.isFinite(parsedCurrent) ? parsedCurrent : 0);
-                        const maxForCurrent = Math.max(
-                          minTpToUse,
-                          MAX_TOTAL_PERCENTAGE - totalWithoutCurrent
-                        );
+                        // TP targets are uncapped price levels — no per-target
+                        // maximum derived from a shared total.
+                        const maxForCurrent = TP_TARGET_VALUE_MAX;
                         const previousTarget =
                           index > 0 ? multiTargets[index - 1] : undefined;
                         const previousTargetValue = previousTarget

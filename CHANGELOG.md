@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.18.11] - 2026-06-29
+
+### Fixed
+
+- Take profit is no longer capped across all bot types (DCA, grid, combo, and hedge variants). High-leverage users can now set an arbitrarily large take profit target (e.g. 5000% on 100x), matching the legacy dashboard. The slider still tops out at 250% for practical use, but the typed value and stored target are uncapped. Previously combo/hedge TP capped at 250% and DCA TP at 100%.
+- DCA multi-target take profit: the individual price-distance targets are no longer wrongly forced to sum to ≤100%. Each target is an independent price level (position allocation across targets still sums to 100% as before).
+- Combo TP slider drag no longer silently clamps to 50%.
+
 ## [2.18.10] - 2026-06-29
 
 ### Fixed

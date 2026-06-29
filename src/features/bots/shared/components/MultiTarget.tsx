@@ -125,7 +125,7 @@ const MultiTarget = ({
         value={target.target}
         onChange={(value) => handleTargetPercentageChange(index, value)}
         min={isStopLoss ? -250 : minSlToUse}
-        max={isStopLoss ? -minSlToUse : 50}
+        max={isStopLoss ? -minSlToUse : 250}
         step={0.1}
         precision={3}
         placeholder={isStopLoss ? '-1.0' : '1.0'}
@@ -134,7 +134,7 @@ const MultiTarget = ({
         isInvalid={!validation.isValid}
         showSlider={!isTargetPercentageBound}
         sliderMin={isStopLoss ? minSlToUse : minSlToUse}
-        sliderMax={isStopLoss ? 250 : 50}
+        sliderMax={250}
         sliderStep={0.1}
         sliderValue={
           isStopLoss

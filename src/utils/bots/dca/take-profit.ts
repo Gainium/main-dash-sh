@@ -154,75 +154,21 @@ export const resolveTpReferencePrice = (
   return 0;
 };
 
+// Take-profit targets are independent price-distance levels, NOT position
+// allocations, so they are never capped to a shared total nor bounded above.
+// This pass only floors each target at the minimum; the upper bound is open so
+// high-leverage users can set very large targets. (Allocation sum-to-100 is
+// enforced separately on target.amount via clampTargetAmountsToTotal.)
 export const clampTargetsToTotal = (
   targets: MultiTP[],
-  changedIndex: number,
-  minimum: number,
-  maximum: number,
-  boundPercentagePaths: Set<string>,
-  getPath: (targetId: string) => string
-): MultiTP[] => {
-  const normalized = targets.map((target) => ({
+  minimum: number
+): MultiTP[] =>
+  targets.map((target) => ({
     ...target,
     target: formatNumericString(
-      sanitizePercentageInput(target.target, minimum, maximum)
+      sanitizePercentageInput(target.target, minimum, Number.POSITIVE_INFINITY)
     ),
   }));
-
-  const total = normalized.reduce(
-    (sum, target) => sum + (Number.parseFloat(target.target) || 0),
-    0
-  );
-
-  let overflow = total - maximum;
-  if (overflow <= EPSILON) {
-    return normalized;
-  }
-
-  const adjustmentOrder = normalized.reduce<number[]>((order, _, index) => {
-    if (index === changedIndex) {
-      order.unshift(index);
-      return order;
-    }
-    order.push(index);
-    return order;
-  }, []);
-
-  for (const index of adjustmentOrder) {
-    if (overflow <= EPSILON) {
-      break;
-    }
-
-    if (index < 0 || index >= normalized.length) {
-      continue;
-    }
-
-    const target = normalized[index];
-    const path = getPath(target.uuid);
-    if (boundPercentagePaths.has(path)) {
-      continue;
-    }
-
-    const currentValue = Number.parseFloat(target.target) || 0;
-    const minValue = index === changedIndex ? minimum : 0;
-    const reducible = Math.max(0, currentValue - minValue);
-
-    if (reducible <= EPSILON) {
-      continue;
-    }
-
-    const deduction = Math.min(reducible, overflow);
-    const nextValue = currentValue - deduction;
-    normalized[index] = {
-      ...target,
-      target: formatNumericString(nextValue),
-    };
-
-    overflow -= deduction;
-  }
-
-  return normalized;
-};
 
 const extractNumericSuffix = (value: string): number | null => {
   const match = value.match(/(\d+)$/);
@@ -341,11 +287,11 @@ const normalizeTarget = (
   }
 
   const rawTarget = Number.parseFloat(String(t.target ?? '0'));
+  // No upper cap on the TP target value (high-leverage users may target
+  // thousands of %). Keep the lower floor so stop-loss magnitudes (negative
+  // targets) stay bounded.
   const clampedTarget = Number.isFinite(rawTarget)
-    ? Math.max(
-        -MAX_TARGET_PERCENTAGE,
-        Math.min(rawTarget, MAX_TARGET_PERCENTAGE)
-      )
+    ? Math.max(-MAX_TARGET_PERCENTAGE, rawTarget)
     : 0;
 
   const target = formatNumericString(clampedTarget, 3);
@@ -532,7 +478,9 @@ export const validateTpTarget = (
   if (!Number.isFinite(numericValue)) {
     return {
       isValid: false,
-      message: `Enter a take profit between ${minimum.toFixed(2)}% and ${maximum.toFixed(2)}%`,
+      message: Number.isFinite(maximum)
+        ? `Enter a take profit between ${minimum.toFixed(2)}% and ${maximum.toFixed(2)}%`
+        : `Enter a take profit of at least ${minimum.toFixed(2)}%`,
     };
   }
 
