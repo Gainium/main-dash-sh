@@ -95,7 +95,7 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
     },
     {
       id: 'move-to-terminal',
-      label: 'Move to Terminal (beta)',
+      label: 'Move to Terminal',
       icon: ArrowRightLeft,
       onAction: onMoveToTerminal,
       shouldShow: (selectedDeals: T[]) => {

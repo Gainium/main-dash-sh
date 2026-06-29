@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select';
 import { Slider } from '@/components/ui/slider';
 import { StatsBoxes } from '@/components/ui/StatsBoxes';
@@ -21,43 +21,43 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import SettingsRow, {
-  SettingsRowSurface,
+    SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
 import {
-  DealOverviewGraphTab,
-  DealOverviewTableTab,
-  formatTotalFunds,
-  useDealOverviewData,
+    DealOverviewGraphTab,
+    DealOverviewTableTab,
+    formatTotalFunds,
+    useDealOverviewData,
 } from '@/components/widgets/trading/DealOverview';
 import {
-  useBotDcaProjection,
-  type BotDcaProjection,
-} from '@/hooks/bots/dca/useBotDcaProjection';
-import {
-  useBotFormSelector,
-  useBotFormState,
-  useOptionalBotFormState,
-  type BotFormMode,
-  type BotFormUpdateValue,
-  type Fields,
+    useBotFormSelector,
+    useBotFormState,
+    useOptionalBotFormState,
+    type BotFormMode,
+    type BotFormUpdateValue,
+    type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { InputButtonsSlider } from '@/features/bots/shared/components/InputButtonsSlider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import {
-  resolveBaseOrderContext,
-  useDcaTradingContext,
-  type DcaTradingContext,
+    useBotDcaProjection,
+    type BotDcaProjection,
+} from '@/hooks/bots/dca/useBotDcaProjection';
+import {
+    resolveBaseOrderContext,
+    useDcaTradingContext,
+    type DcaTradingContext,
 } from '@/hooks/bots/dca/useDcaTradingContext';
 import {
-  useBotVarBinding,
-  type DCACustomVarBindingPath,
-  type IndicatorsVarBindingPath,
+    useBotVarBinding,
+    type DCACustomVarBindingPath,
+    type IndicatorsVarBindingPath,
 } from '@/hooks/bots/global-variables/useBotVarBinding';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import {
-  useIndicatorSelector,
-  type OpenIndicatorSelectorOptions,
+    useIndicatorSelector,
+    type OpenIndicatorSelectorOptions,
 } from '@/hooks/useIndicatorSelector';
 import type { DcaBot } from '@/types/dcaBot';
 /* import { indicatorStore } from '@/stores/indicatorStore'; */
@@ -65,50 +65,50 @@ import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import { logger } from '@/lib/loggerInstance';
 import {
-  BotTypesEnum,
-  DCAConditionEnum,
-  DCAVolumeType,
-  ExchangeIntervals,
-  IndicatorAction,
-  IndicatorEnum,
-  IndicatorSection,
-  IndicatorsLogicEnum,
-  OrderSizeTypeEnum,
-  ScaleDcaTypeEnum,
-  StrategyEnum,
-  timeIntervalMap,
-  type DCACustom,
-  type ExchangeInUser,
-  type SettingsIndicators,
+    BotTypesEnum,
+    DCAConditionEnum,
+    DCAVolumeType,
+    ExchangeIntervals,
+    IndicatorAction,
+    IndicatorEnum,
+    IndicatorSection,
+    IndicatorsLogicEnum,
+    OrderSizeTypeEnum,
+    ScaleDcaTypeEnum,
+    StrategyEnum,
+    timeIntervalMap,
+    type DCACustom,
+    type ExchangeInUser,
+    type SettingsIndicators,
 } from '@/types';
 import { CloseConditionEnum } from '@/types/bots/dealConditions';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 import type { IndicatorConfig } from '@/types/indicators';
 import {
-  getIndicatorDefaultParams,
-  getIndicatorDefinition,
+    getIndicatorDefaultParams,
+    getIndicatorDefinition,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
-  buildSmartOrdersHelperMessage,
-  deriveSmartOrdersRange,
+    buildSmartOrdersHelperMessage,
+    deriveSmartOrdersRange,
 } from '@/utils/bots/dca/smart-orders';
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import {
-  AlertTriangle,
-  Crosshair,
-  DollarSign,
-  Trash2,
-  TrendingDown,
-  TrendingUp,
+    AlertTriangle,
+    Crosshair,
+    DollarSign,
+    Trash2,
+    TrendingDown,
+    TrendingUp,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import SettingsAlert from '../../../../../../components/ui/SettingsAlert';
 import {
-  formatNumericInput,
-  formatRange,
-  useTerminalControls,
+    formatNumericInput,
+    formatRange,
+    useTerminalControls,
 } from '../hooks/useTerminalControls';
 import type { TerminalControlsToolkit } from '../hooks/useTerminalControls.types';
 import { DcaOrderSizingControl } from './DcaOrderSizingControl';
@@ -1767,7 +1767,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
 
       <SettingsLoadMore id="dca-volume-advanced" title="More Settings">
         <SettingsRow
-          name="Volume based on (beta)"
+          name="Volume based on"
           tooltip="Choose how DCA order volumes should be derived when indicators trigger."
         >
           {showVolumeControls ? (
@@ -1799,7 +1799,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
           >
             <SettingsRowSurface spacing="sm">
               <div className="space-y-xs">
-                <Label>Required changed based on (beta)</Label>
+                <Label>Required changed based on</Label>
                 <TerminalButtonStack
                   value={dcaVolumeRequiredChangeRef || 'tp'}
                   onValueChange={(value) =>
@@ -2380,7 +2380,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
         title="More Settings"
       >
         <SettingsRow
-          name="Volume based on (beta)"
+          name="Volume based on"
           tooltip="Choose how DCA order volumes should be derived when indicators trigger."
         >
           {showVolumeControls ? (
@@ -2411,7 +2411,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
           >
             <SettingsRowSurface spacing="sm">
               <div className="space-y-xs">
-                <Label>Required changed based on (beta)</Label>
+                <Label>Required changed based on</Label>
                 <TerminalButtonStack
                   value={dcaVolumeRequiredChangeRef || 'tp'}
                   onValueChange={(value) =>
@@ -3681,7 +3681,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
           />
         </SettingsRow>
         <SettingsRow
-          name="Volume based on (beta)"
+          name="Volume based on"
           tooltip="Choose how DCA order volumes should be derived when indicators trigger."
         >
           {showVolumeControls ? (

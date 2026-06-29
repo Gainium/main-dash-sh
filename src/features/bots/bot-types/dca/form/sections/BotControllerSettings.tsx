@@ -6,21 +6,21 @@ import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip } from '@/components/ui/tooltip';
 /* Webhook helper moved to its own section */
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
-  useBotFormSelector,
-  useBotFormState,
-  type BotFormUpdateValue,
-  type Fields,
+    useBotFormSelector,
+    useBotFormState,
+    type BotFormUpdateValue,
+    type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
@@ -28,29 +28,29 @@ import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { useIndicatorSelector } from '@/hooks/useIndicatorSelector';
 // webhook payloads handled in BotWebhookSettings
 import {
-  BotStartTypeEnum,
-  IndicatorAction,
-  IndicatorEnum,
-  indicatorsLimit,
-  IndicatorsLogicEnum,
+    BotStartTypeEnum,
+    IndicatorAction,
+    IndicatorEnum,
+    indicatorsLimit,
+    IndicatorsLogicEnum,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import {
-  getIndicatorDefaultParams,
-  getIndicatorDefinition,
+    getIndicatorDefaultParams,
+    getIndicatorDefinition,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
-  buildIndicatorConfig,
-  sanitizeIndicatorParams,
+    buildIndicatorConfig,
+    sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
 import {
-  AlertCircle,
-  AlertTriangle,
-  Copy,
-  HelpCircle,
-  Trash2,
+    AlertCircle,
+    AlertTriangle,
+    Copy,
+    HelpCircle,
+    Trash2,
 } from 'lucide-react';
 import React, { useCallback } from 'react';
 import { IndicatorActionsToolbar } from '../../../../shared/components/IndicatorActionsToolbar';
@@ -860,12 +860,12 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
                 <SelectItem value="indicators" disabled={!!useMulti}>
                   {/* Legacy label preserves the "Tecnical" typo + "(beta)" on
                       Bot Start; Bot Stop intentionally uses the corrected
-                      "Technical indicators" with no (beta). */}
-                  Tecnical Indicators (beta)
+                      "Technical indicators" with no. */}
+                  Tecnical Indicators
                   {useMulti ? ' (disable multipair)' : ''}
                 </SelectItem>
                 <SelectItem value="price" disabled={!!useMulti}>
-                  Price (beta)
+                  Price
                   {useMulti ? ' (disable multipair)' : ''}
                 </SelectItem>
               </SelectContent>
@@ -1071,7 +1071,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
                   {useMulti ? ' (disable multipair)' : ''}
                 </SelectItem>
                 <SelectItem value="price" disabled={!!useMulti}>
-                  Price (beta)
+                  Price
                   {useMulti ? ' (disable multipair)' : ''}
                 </SelectItem>
               </SelectContent>
@@ -1416,7 +1416,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
           </SettingsRow>
 
           <SettingsRow
-            name="Stop after X winning deals (beta)"
+            name="Stop after X winning deals"
             tooltip="Stop the bot after a run of successful deals."
             colSpan="full"
             navId="stop-after-win"
@@ -1451,7 +1451,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
           </SettingsRow>
 
           <SettingsRow
-            name="Stop after X losing deals (beta)"
+            name="Stop after X losing deals"
             tooltip="Stop the bot after accumulating a number of losses."
             colSpan="full"
             navId="stop-after-loss"
@@ -1486,7 +1486,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
           </SettingsRow>
 
           <SettingsRow
-            name="Stop after X accumulated bot profit (beta)"
+            name="Stop after X accumulated bot profit"
             tooltip="Stop the bot once total bot profit hits a limit."
             colSpan="full"
             navId="stop-after-profit"

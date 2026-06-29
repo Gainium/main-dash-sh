@@ -1,5 +1,5 @@
-import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
+import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { TerminalButtonStack } from '@/components/ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,11 @@ import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
@@ -21,96 +21,96 @@ import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import SettingsRow, {
-  SettingsRowSurface,
+    SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import {
-  useBotFormSelector,
-  useBotFormState,
-  type BotFormUpdateValue,
-  type Fields,
+    useBotFormSelector,
+    useBotFormState,
+    type BotFormUpdateValue,
+    type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import useBotVarBinding, {
-  type MultipleTPVarBindingPath,
+    type MultipleTPVarBindingPath,
 } from '@/hooks/bots/global-variables/useBotVarBinding';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import {
-  useIndicatorSelector,
-  type OpenIndicatorSelectorOptions,
+    useIndicatorSelector,
+    type OpenIndicatorSelectorOptions,
 } from '@/hooks/useIndicatorSelector';
 import { useWebhookEligibility } from '@/hooks/useWebhookEligibility';
 import { logger } from '@/lib/loggerInstance';
 import { math } from '@/lib/utils/math';
 import {
-  CloseConditionEnum,
-  closeConditionsMap,
-  CloseDCATypeEnum,
-  IndicatorAction,
-  IndicatorEnum,
-  IndicatorSection,
-  indicatorsLimit,
-  IndicatorsLogicEnum,
-  MIN_DCA_TP,
-  MIN_DCA_TP_NEW,
-  OrderTypeEnum,
-  StrategyEnum,
-  TerminalDealTypeEnum,
-  type MultiTP,
+    CloseConditionEnum,
+    closeConditionsMap,
+    CloseDCATypeEnum,
+    IndicatorAction,
+    IndicatorEnum,
+    IndicatorSection,
+    indicatorsLimit,
+    IndicatorsLogicEnum,
+    MIN_DCA_TP,
+    MIN_DCA_TP_NEW,
+    OrderTypeEnum,
+    StrategyEnum,
+    TerminalDealTypeEnum,
+    type MultiTP,
 } from '@/types';
 import type {
-  BotFormData,
-  BotFormErrors,
-  ExchangeBotForm,
+    BotFormData,
+    BotFormErrors,
+    ExchangeBotForm,
 } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 import { type IndicatorConfig, type IndicatorGroup } from '@/types/indicators';
 import { getIndicatorDefaultParams } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
-  distributePositionSizesEqually,
-  redistributePositionSizes,
+    distributePositionSizesEqually,
+    redistributePositionSizes,
 } from '@/utils/bots/dca/position-size-redistribution';
 import {
-  calculatePercentFromValue,
-  calculateValueFromPercent,
-  clampTargetAmountsToTotal,
-  clampTargetsToTotal,
-  formatNumericString,
-  getNextMultiTpId,
-  hasConfiguredMultiTpTargets,
-  normalizeMultiTpTargets,
-  resolveTpReferencePrice,
-  sanitizeAmountInput,
-  sanitizeFixedInput,
-  sanitizePercentageInput,
-  validateTpTarget,
+    calculatePercentFromValue,
+    calculateValueFromPercent,
+    clampTargetAmountsToTotal,
+    clampTargetsToTotal,
+    formatNumericString,
+    getNextMultiTpId,
+    hasConfiguredMultiTpTargets,
+    normalizeMultiTpTargets,
+    resolveTpReferencePrice,
+    sanitizeAmountInput,
+    sanitizeFixedInput,
+    sanitizePercentageInput,
+    validateTpTarget,
 } from '@/utils/bots/dca/take-profit';
 import {
-  calculateExpectedAverageProfit,
-  collectMultiTargetWarnings,
-  derivePresetClickEffects,
-  deriveTimerAvailabilityEffects,
-  deriveTimerValueChangeEffects,
-  enforceMinTpGuardAvailability,
-  enforceMultiTargetLimit,
-  enforceTrailingCompatibility,
-  resolveVariableBindingEffects,
-  type FormUpdateInstruction,
+    calculateExpectedAverageProfit,
+    collectMultiTargetWarnings,
+    derivePresetClickEffects,
+    deriveTimerAvailabilityEffects,
+    deriveTimerValueChangeEffects,
+    enforceMinTpGuardAvailability,
+    enforceMultiTargetLimit,
+    enforceTrailingCompatibility,
+    resolveVariableBindingEffects,
+    type FormUpdateInstruction,
 } from '@/utils/bots/dca/take-profit-behaviours';
 import {
-  buildIndicatorConfig,
-  sanitizeIndicatorParams,
+    buildIndicatorConfig,
+    sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
 import { AlertTriangle, Info } from 'lucide-react';
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 import { BaseStopLosslOn } from '../../bot-types/combo/form/components/BaseStopLossOn';
 import { IndicatorGroupsManager } from '../components/IndicatorGroupsManager';
@@ -3217,7 +3217,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                 {!isComboBot && !isHedgeBot && (
                   <SettingsRow
                     key="close-order-type"
-                    name="Close order type (beta)"
+                    name="Close order type"
                     tooltip="Select the order type used to close the deal."
                     className={interactionDisabledClass}
                     contentClassName="space-y-xs"

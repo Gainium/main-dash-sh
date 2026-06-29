@@ -4,16 +4,16 @@
 // Not used in the bot drawer (see DrawerDealsTable for drawer deals UI).
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import {
-  AdjustFundsDialog,
-  CloseOptionsDialog,
-  type AdjustFundsDialogMode,
+    AdjustFundsDialog,
+    CloseOptionsDialog,
+    type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
 import getLatestPrices from '@/helper/price';
 import {
-  useAdjustFunds,
-  useDealActions,
-  useMoveDealToTerminal,
+    useAdjustFunds,
+    useDealActions,
+    useMoveDealToTerminal,
 } from '@/hooks/useDealActions';
 import { fetchDealOrders } from '@/hooks/useDealOrders';
 import { useSetDealNote } from '@/hooks/useSetDealNote';
@@ -27,25 +27,25 @@ import { useDcaDeals } from '@/hooks/useDcaDeals';
 import { toast } from '@/lib/toast';
 import { formatTradingPair } from '@/lib/utils';
 import {
-  calculateDealCost,
-  calculateDealSize,
-  calculateDealValue,
-  calculatePnlPercentage,
-  calculatePnlPercentageNullable,
-  isLongStrategy,
-  isMetricUnavailable,
-  toSortableMetricValue,
+    calculateDealCost,
+    calculateDealSize,
+    calculateDealValue,
+    calculatePnlPercentage,
+    calculatePnlPercentageNullable,
+    isLongStrategy,
+    isMetricUnavailable,
+    toSortableMetricValue,
 } from '@/lib/utils/tradingMetrics';
 import { useTableCustomState } from '@/stores/tablePreferencesStore';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
 import {
-  BotTypesEnum,
-  CloseDCATypeEnum,
-  DCADealStatusEnum,
-  type AddFundsSettings,
-  type DCADeals,
-  type GetLatestPricesResult,
-  type Prices,
+    BotTypesEnum,
+    CloseDCATypeEnum,
+    DCADealStatusEnum,
+    type AddFundsSettings,
+    type DCADeals,
+    type GetLatestPricesResult,
+    type Prices,
 } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
@@ -54,26 +54,24 @@ import { extractPairAssets } from '@/utils/pairs';
 import { calculateExecutionsSummary } from '@/utils/tradeJournalMetrics';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
-  ArrowRightLeft,
-  BookOpen,
-  Copy,
-  Edit,
-  ExternalLink,
-  MinusCircle,
-  MoreHorizontal,
-  PlusCircle,
-  Receipt,
-  X,
-  XCircle,
+    ArrowRightLeft,
+    BookOpen,
+    Copy,
+    Edit,
+    ExternalLink,
+    MinusCircle,
+    MoreHorizontal,
+    PlusCircle,
+    Receipt,
+    X,
+    XCircle,
 } from 'lucide-react';
-import EmptyState from '../../ui/empty-state';
-import { Skeleton } from '../../ui/skeleton';
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useLiveUpdate } from '../../../contexts/LiveUpdateContext';
@@ -82,29 +80,31 @@ import logger from '../../../lib/loggerInstance';
 import { TradeCard } from '../../trades/TradeCard';
 import { Button } from '../../ui/button';
 import {
-  BotTypeChip,
-  ExchangeChip,
-  ProfitAndPerc,
-  ProfitLossPercChip,
-  StatusChip,
-  StrategyChip,
+    BotTypeChip,
+    ExchangeChip,
+    ProfitAndPerc,
+    ProfitLossPercChip,
+    StatusChip,
+    StrategyChip,
 } from '../../ui/chip';
 import { ConfirmationDialog } from '../../ui/confirmation-dialog';
 import { DataTable, type BulkAction } from '../../ui/data-table/data-table';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '../../ui/dropdown-menu';
 import { DualArcProgressGauge } from '../../ui/DualArcProgressGauge';
+import EmptyState from '../../ui/empty-state';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '../../ui/select';
+import { Skeleton } from '../../ui/skeleton';
 import CoinPair from './CoinPair';
 import { DealOrdersDialog } from './DealOrdersDialog';
 
@@ -683,7 +683,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
               disabled={!canMoveToTerminal}
             >
               <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Move to Terminal (beta)
+              Move to Terminal
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={handleCancelClick}>

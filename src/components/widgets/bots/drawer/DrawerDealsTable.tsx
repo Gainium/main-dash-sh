@@ -4,105 +4,105 @@
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-  ArrowRightLeft,
-  BookOpen,
-  Check,
-  Edit,
-  Eye,
-  Handshake,
-  MinusCircle,
-  MoreHorizontal,
-  Plus,
-  PlusCircle,
-  Search,
-  Square,
-  X,
-  XCircle,
+    ArrowRightLeft,
+    BookOpen,
+    Check,
+    Edit,
+    Eye,
+    Handshake,
+    MinusCircle,
+    MoreHorizontal,
+    Plus,
+    PlusCircle,
+    Search,
+    Square,
+    X,
+    XCircle,
 } from 'lucide-react';
 import React, {
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
+    useCallback,
+    useEffect,
+    useMemo,
+    useRef,
+    useState,
 } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useBotSpecificDeals } from '../../../../hooks/useBotSpecificDeals';
 /* import { useComboBots } from '../../../../hooks/useComboBots'; */
 import {
-  /* useComboDeals, */ type ComboDeal,
+/* useComboDeals, */ type ComboDeal,
 } from '../../../../hooks/useComboDeals';
 /* import { useHedgeDeals } from '../../../../hooks/useHedgeDeals'; */
 import {
-  AdjustFundsDialog,
-  CloseOptionsDialog,
-  type AdjustFundsDialogMode,
+    AdjustFundsDialog,
+    CloseOptionsDialog,
+    type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { formatNumber } from '@/utils/numberFormatter';
 import { logger } from '../../../../lib/loggerInstance';
 import { toast } from '../../../../lib/toast';
 import { useTradeJournalStore } from '../../../../stores/tradeJournalStore';
 import {
-  BotTypesEnum,
-  CloseDCATypeEnum,
-  DCADealStatusEnum,
-  type AddFundsSettings,
-  type DCABot,
-  type DCADeals,
+    BotTypesEnum,
+    CloseDCATypeEnum,
+    DCADealStatusEnum,
+    type AddFundsSettings,
+    type DCABot,
+    type DCADeals,
 } from '../../../../types';
 import { TradeCard } from '../../../trades/TradeCard';
 /* import { TradeDetailDrawer } from '../../../trades/TradeDetailDrawer'; */
+import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
-  useAdjustFunds,
-  useDealActions,
-  useMoveDealToTerminal,
+    useAdjustFunds,
+    useDealActions,
+    useMoveDealToTerminal,
 } from '@/hooks/useDealActions';
 import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import {
-  calculatePnlPercentageNullable,
-  isMetricUnavailable,
-  toSortableMetricValue,
+    calculatePnlPercentageNullable,
+    isMetricUnavailable,
+    toSortableMetricValue,
 } from '@/lib/utils/tradingMetrics';
 import { useAuthStore } from '@/stores/authStore';
 import type { ViewOrder } from '@/types/bots';
 import { transformDealToTrade, type TransformedTrade } from '@/types/dcaDeal';
-import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 import { Button } from '../../../ui/button';
 import {
-  ProfitAndPerc,
-  ProfitLossPercChip,
-  StatusChip,
-  StrategyChip,
+    ProfitAndPerc,
+    ProfitLossPercChip,
+    StatusChip,
+    StrategyChip,
 } from '../../../ui/chip';
 import { ConfirmationDialog } from '../../../ui/confirmation-dialog';
-import { Skeleton } from '../../../ui/skeleton';
 import { DataTable, type BulkAction } from '../../../ui/data-table/data-table';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
 } from '../../../ui/dialog';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '../../../ui/dropdown-menu';
 import { DualArcProgressGauge } from '../../../ui/DualArcProgressGauge';
 import { Input } from '../../../ui/input';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '../../../ui/select';
+import { Skeleton } from '../../../ui/skeleton';
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
 interface TradeCardWrapperProps {
@@ -512,7 +512,7 @@ const DealActionsMenu: React.FC<{
               disabled={!canMoveToTerminal}
             >
               <ArrowRightLeft className="w-4 h-4 mr-2" />
-              Move to Terminal (beta)
+              Move to Terminal
             </DropdownMenuItem>
           )}
           <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>

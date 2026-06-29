@@ -1,12 +1,12 @@
-import React, { useMemo } from 'react';
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
 } from '@/components/ui/select';
 import { formatBalance } from '@/utils/numberFormatter';
+import React, { useMemo } from 'react';
 
 interface CurrencySelectProps {
   value: 'base' | 'quote' | 'percTotal' | 'percFree' | 'usd';
@@ -96,7 +96,7 @@ const CurrencySelect: React.FC<CurrencySelectProps> = ({
       }
 
       case 'usd': {
-        return 'USD (beta)';
+        return 'USD';
       }
 
       case 'percFree':

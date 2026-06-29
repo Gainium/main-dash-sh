@@ -1,72 +1,72 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 import {
-  AdjustFundsDialog,
-  CloseOptionsDialog,
-  type AdjustFundsDialogMode,
+    AdjustFundsDialog,
+    CloseOptionsDialog,
+    type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { useChartColors } from '@/hooks/useChartColors';
 import { useDealActions, useMoveDealToTerminal } from '@/hooks/useDealActions';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useDealPriceHistory } from '@/hooks/useDealPriceHistory';
-import { deriveTradeLevels } from '@/utils/trades/deriveTradeLevels';
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { cn, formatTradingPair } from '@/lib/utils';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
 import {
-  BotTypesEnum,
-  CloseDCATypeEnum,
-  DCADealStatusEnum,
-  type AddFundsSettings,
+    BotTypesEnum,
+    CloseDCATypeEnum,
+    DCADealStatusEnum,
+    type AddFundsSettings,
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatNumber } from '@/utils/numberFormatter';
 import { extractPairAssets } from '@/utils/pairs';
+import { deriveTradeLevels } from '@/utils/trades/deriveTradeLevels';
 import {
-  ArrowRightLeft,
-  BookOpen,
-  Edit,
-  ExternalLink,
-  Eye,
-  MinusCircle,
-  MoreVertical,
-  PlusCircle,
-  X,
-  XCircle,
+    ArrowRightLeft,
+    BookOpen,
+    Edit,
+    ExternalLink,
+    Eye,
+    MinusCircle,
+    MoreVertical,
+    PlusCircle,
+    X,
+    XCircle,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  Area,
-  ComposedChart,
-  Line,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
+    Area,
+    ComposedChart,
+    Line,
+    ReferenceLine,
+    ResponsiveContainer,
+    Tooltip,
+    XAxis,
+    YAxis,
 } from 'recharts';
 import getLatestPrices from '../../helper/price';
 import { ConfirmationDialog } from '../ui';
-import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
 import {
-  BotTypeChip,
-  ExchangeChip,
-  ProfitAndPerc,
-  StatusChip,
-  StrategyChip,
-  TimeChip,
+    BotTypeChip,
+    ExchangeChip,
+    ProfitAndPerc,
+    StatusChip,
+    StrategyChip,
+    TimeChip,
 } from '../ui/chip';
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
+import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import CoinPair from '../widgets/shared/CoinPair';
 import { TradeDetailDrawer } from './TradeDetailDrawer';
 
@@ -912,7 +912,7 @@ const EnhancedCard = React.memo(
                     disabled={!canMoveToTerminal}
                   >
                     <ArrowRightLeft className="w-4 h-4 mr-2" />
-                    Move to Terminal (beta)
+                    Move to Terminal
                   </DropdownMenuItem>
                 )}
                 <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
