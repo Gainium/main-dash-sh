@@ -33,6 +33,7 @@ import {
 
 import { PresetsPicker } from './components/PresetsPicker';
 import {
+  computeInvestmentDivisor,
   computeInvestmentFromDca,
   distributeInvestmentToDca,
   getQuickSetupPreset,
@@ -365,13 +366,46 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
     updateFormData('orderSize' as Fields, orderSize);
   };
 
+  // Minimum investment so the base order + every safety order clears the
+  // exchange per-order minimum. The Quick form distributes investment
+  // evenly (base = orderSize = investment / divisor), so the minimum is
+  // simply `orderMinimum × divisor`. Rounded up to the display precision
+  // so the shown figure is actually sufficient. Drives both the helper
+  // line and the slider floor.
+  const minInvestment = useMemo(() => {
+    if (orderMinimum === null) return null;
+    const divisor = computeInvestmentDivisor(
+      dcaState.ordersCount,
+      dcaState.volumeScale
+    );
+    const factor = Math.pow(10, displayPrecision);
+    const min = Math.ceil(orderMinimum * divisor * factor) / factor;
+    return min > 0 ? min : null;
+  }, [
+    orderMinimum,
+    dcaState.ordersCount,
+    dcaState.volumeScale,
+    displayPrecision,
+  ]);
+
+  // Slider spans [floor, availableBalance] where floor is the minimum to
+  // run (capped at the balance). Dragging fully left lands on the
+  // minimum, never below; the numeric input stays free so typing below
+  // still surfaces the below-minimum order alerts.
+  const sliderFloor =
+    minInvestment !== null ? Math.min(minInvestment, availableBalance) : 0;
+  const sliderRange = Math.max(0, availableBalance - sliderFloor);
   const investmentPercent =
-    availableBalance > 0 ? (investment / availableBalance) * 100 : 0;
+    sliderRange > 0 ? ((investment - sliderFloor) / sliderRange) * 100 : 0;
   const sliderPercentValue = Math.max(0, Math.min(100, investmentPercent));
   const setInvestmentPercent = (percent: number) => {
     if (availableBalance <= 0) return;
     const bounded = Math.max(0, Math.min(100, percent));
-    setInvestment((availableBalance * bounded) / 100);
+    if (sliderRange <= 0) {
+      setInvestment(sliderFloor);
+      return;
+    }
+    setInvestment(sliderFloor + (sliderRange * bounded) / 100);
   };
 
   const summary = useMemo(() => {
@@ -475,9 +509,15 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
             max={100}
             step={1}
             onChange={(v) => setInvestmentPercent(v)}
-            disabled={availableBalance <= 0}
+            disabled={availableBalance <= 0 || sliderRange <= 0}
             aria-label="Investment as % of available balance"
           />
+          {minInvestment !== null && (
+            <p className="text-xs text-muted-foreground">
+              Min to run: {minInvestment.toFixed(displayPrecision)}
+              {displayAsset ? ` ${displayAsset}` : ''}
+            </p>
+          )}
         </div>
       </SettingsRow>
 

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.3] - 2026-06-30
+
+### Added
+
+- DCA & Combo Quick Setup show the minimum investment needed to run ("Min to run"), and the investment slider now floors at that minimum so it can't select a sub-minimum amount.
+- Grid Quick Setup shows the minimum budget to run and floors the investment slider at it.
+
+### Fixed
+
+- Grid Manual mode restores the "Min budget is …" hint under the Investment field (ported from the legacy dashboard's budget-range calculation).
+
 ## [2.21.2] - 2026-06-30
 
 ### Fixed

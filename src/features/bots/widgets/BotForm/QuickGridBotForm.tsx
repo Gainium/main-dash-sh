@@ -24,6 +24,7 @@ import {
 import type { BotFormAlert, BotFormErrors } from '@/types/bots/form';
 
 import { formatPriceWithPrecision } from '@/utils/formatters';
+import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 
 import { Slot } from '@/lib/extensions';
 
@@ -208,13 +209,56 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
     updateFormData('budget' as Fields, rounded);
   };
 
+  // Minimum budget for every level to clear the exchange minimum —
+  // faithful port of the legacy `budgetRanges()`. Drives both the helper
+  // line and the slider floor so the slider can't select a sub-minimum
+  // investment.
+  const minToRun = useMemo(() => {
+    if (!firstPair) return null;
+    const latest =
+      marketStats?.latestPrice && marketStats.latestPrice > 0
+        ? marketStats.latestPrice
+        : latestPairPrice;
+    const range = computeGridBudgetRangeFromForm({
+      grid: gridState,
+      primaryPair: firstPair,
+      pairPrecisionMap: formData.pairPrecisionMap,
+      userFee: formData.userFee,
+      latestPrice: latest || undefined,
+      initialPrice: latest || undefined,
+      provider: currentExchange?.provider
+        ? String(currentExchange.provider)
+        : undefined,
+    });
+    return range && range.min > 0 ? range.min : null;
+  }, [
+    firstPair,
+    gridState,
+    formData.pairPrecisionMap,
+    formData.userFee,
+    marketStats?.latestPrice,
+    latestPairPrice,
+    currentExchange?.provider,
+  ]);
+
+  // Slider spans [floor, availableBalance] where floor is the minimum to
+  // run (capped at the balance so the range stays valid). Dragging fully
+  // left lands on the minimum, never below. The numeric input is left
+  // free — typing below the minimum still surfaces the per-level error.
+  const sliderFloor =
+    minToRun !== null ? Math.min(minToRun, availableBalance) : 0;
+  const sliderRange = Math.max(0, availableBalance - sliderFloor);
   const budgetPercent =
-    availableBalance > 0 ? (budget / availableBalance) * 100 : 0;
+    sliderRange > 0 ? ((budget - sliderFloor) / sliderRange) * 100 : 0;
   const sliderPercentValue = Math.max(0, Math.min(100, budgetPercent));
   const setBudgetPercent = (percent: number) => {
     if (availableBalance <= 0) return;
     const bounded = Math.max(0, Math.min(100, percent));
-    setBudget((availableBalance * bounded) / 100);
+    if (sliderRange <= 0) {
+      setBudget(sliderFloor);
+      return;
+    }
+    setBudget(sliderFloor + (sliderRange * bounded) / 100);
   };
 
   // Per-level capital allocation. When the user spreads too little
@@ -392,9 +436,15 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
             max={100}
             step={1}
             onChange={(v) => setBudgetPercent(v)}
-            disabled={availableBalance <= 0}
+            disabled={availableBalance <= 0 || sliderRange <= 0}
             aria-label="Investment as % of available balance"
           />
+          {minToRun !== null && (
+            <p className="text-xs text-muted-foreground">
+              Min to run: {minToRun}
+              {quoteAsset ? ` ${quoteAsset}` : ''}
+            </p>
+          )}
         </div>
       </SettingsRow>
 

@@ -1,6 +1,7 @@
 import React from 'react';
 
 import { Label } from '@/components/ui/label';
+import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import { Switch } from '@/components/ui/switch';
@@ -14,10 +15,8 @@ import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import type { BotFormAlert } from '@/types/bots/form';
 
 export const GridBudgetSettings: React.FC = () => {
-  const {
-    formState: { updateFormData, errors },
-    quoteAsset,
-  } = useGridForm();
+  const { formState, quoteAsset } = useGridForm();
+  const { updateFormData, errors, formData, mode } = formState;
   const budget = useBotFormSelector('budget');
   const useOrderInAdvance = useBotFormSelector('useOrderInAdvance');
   const ordersInAdvance = useBotFormSelector('ordersInAdvance');
@@ -42,6 +41,39 @@ export const GridBudgetSettings: React.FC = () => {
   };
 
   const quoteAdornmentLabel = quoteAsset ?? 'quote';
+
+  // Minimum budget needed for every grid level to clear the exchange's
+  // per-order minimum — the "Min budget is X" hint the legacy dashboard
+  // showed under this input. Only surfaced while creating a bot, matching
+  // the legacy `isAddingNew` gate.
+  const minBudget = React.useMemo(() => {
+    if (mode !== 'create') {
+      return null;
+    }
+    const primaryPair = Array.isArray(formData.pair)
+      ? formData.pair[0]
+      : formData.pair;
+    if (!primaryPair) {
+      return null;
+    }
+    const seedPrice = Number(formData.initialPrice ?? 0) || undefined;
+    const range = computeGridBudgetRangeFromForm({
+      grid: formData.grid,
+      primaryPair,
+      pairPrecisionMap: formData.pairPrecisionMap,
+      userFee: formData.userFee,
+      latestPrice: seedPrice,
+      initialPrice: seedPrice,
+    });
+    return range && range.min > 0 ? range.min : null;
+  }, [
+    mode,
+    formData.pair,
+    formData.grid,
+    formData.pairPrecisionMap,
+    formData.userFee,
+    formData.initialPrice,
+  ]);
 
   // Grid form populates `errors` (the legacy bag) instead of the
   // newer `alerts` map. Adapt locally to the SettingsRow alert chip
@@ -88,6 +120,12 @@ export const GridBudgetSettings: React.FC = () => {
               className: 'whitespace-nowrap',
             })}
           />
+          {minBudget !== null && (
+            <p className="text-xs text-muted-foreground">
+              Min budget is {minBudget}
+              {quoteAsset ? ` ${quoteAsset}` : ''}
+            </p>
+          )}
         </div>
       </SettingsRow>
 
