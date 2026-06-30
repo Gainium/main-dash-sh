@@ -1,12 +1,39 @@
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Chip } from '@/components/ui/chip';
 import { Input } from '@/components/ui/input';
+import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
-import { type TradingPair } from '@/hooks/useTradingPairs';
+import { type AssetClass, type TradingPair } from '@/hooks/useTradingPairs';
 import { useWidgetPortal } from '@/hooks/useWidgetPortal';
 import { Plus, Search, X } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
+
+// Canonical asset-class order + human-readable labels for the modal filter.
+// Pairs without an explicit `assetCategory` are treated as crypto.
+const ASSET_CLASS_ORDER: AssetClass[] = [
+  'crypto',
+  'stock',
+  'etf',
+  'commodity',
+  'metal',
+  'forex',
+  'index',
+];
+
+const ASSET_CLASS_LABELS: Record<AssetClass | 'all', string> = {
+  all: 'All',
+  crypto: 'Crypto',
+  stock: 'Stocks',
+  etf: 'ETFs',
+  commodity: 'Commodities',
+  metal: 'Metals',
+  forex: 'Forex',
+  index: 'Indices',
+};
+
+type AssetClassFilter = AssetClass | 'all';
 
 export interface PairSelectorProps {
   onPairSelect: (pair: TradingPair) => void;
@@ -27,7 +54,23 @@ const PairSelector: React.FC<PairSelectorProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedAssetClass, setSelectedAssetClass] =
+    useState<AssetClassFilter>('all');
   const { pairsByExchange, isLoading, error } = useTradingPairsFromContext();
+
+  // Asset classes actually present among the available pairs. Drives which
+  // filter chips render — only classes that appear are shown, plus a constant
+  // 'All'. Missing `assetCategory` counts as crypto. Ordered canonically.
+  const availableAssetClasses = useMemo<AssetClass[]>(() => {
+    if (!pairsByExchange) return [];
+    const present = new Set<AssetClass>();
+    Object.values(pairsByExchange).forEach((pairs) => {
+      pairs.forEach((pair) => {
+        present.add(pair.assetCategory ?? 'crypto');
+      });
+    });
+    return ASSET_CLASS_ORDER.filter((cls) => present.has(cls));
+  }, [pairsByExchange]);
 
   // Get hybrid portal configuration
   const { portalTarget, zIndexClass, shouldUsePortal } = useWidgetPortal(
@@ -51,6 +94,14 @@ const PairSelector: React.FC<PairSelectorProps> = ({
           return false;
         }
 
+        // Filter by asset class (treat missing as crypto)
+        if (
+          selectedAssetClass !== 'all' &&
+          (pair.assetCategory ?? 'crypto') !== selectedAssetClass
+        ) {
+          return false;
+        }
+
         // Filter by search term
         if (searchTerm) {
           const term = searchTerm.toLowerCase();
@@ -69,12 +120,13 @@ const PairSelector: React.FC<PairSelectorProps> = ({
     });
 
     return filtered;
-  }, [pairsByExchange, searchTerm, selectedPairs, mode]);
+  }, [pairsByExchange, searchTerm, selectedPairs, mode, selectedAssetClass]);
 
   const handlePairSelect = (pair: TradingPair) => {
     onPairSelect(pair);
     setIsOpen(false);
     setSearchTerm(''); // Clear search after selection
+    setSelectedAssetClass('all'); // Reset asset-class filter
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -146,6 +198,39 @@ const PairSelector: React.FC<PairSelectorProps> = ({
               />
             </div>
 
+            {/* Asset-class filter chips — only render when more than one class
+                is available among the pairs (otherwise there's nothing to
+                filter). 'All' is always included. */}
+            {!isLoading && !error && availableAssetClasses.length > 1 && (
+              <div className="flex flex-wrap gap-xs">
+                {(['all', ...availableAssetClasses] as AssetClassFilter[]).map(
+                  (cls) => {
+                    const isActive = selectedAssetClass === cls;
+                    return (
+                      <button
+                        key={cls}
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setSelectedAssetClass(cls);
+                        }}
+                        className="focus:outline-none"
+                      >
+                        <Chip
+                          variant={isActive ? 'primary' : 'default'}
+                          chipStyle={isActive ? 'soft' : 'ghost'}
+                          size="sm"
+                          className="cursor-pointer"
+                        >
+                          {ASSET_CLASS_LABELS[cls]}
+                        </Chip>
+                      </button>
+                    );
+                  }
+                )}
+              </div>
+            )}
+
             {/* Loading State */}
             {isLoading && (
               <div className="flex justify-center py-8">
@@ -193,12 +278,19 @@ const PairSelector: React.FC<PairSelectorProps> = ({
                             className="justify-start h-auto p-sm text-left"
                             onClick={() => handlePairSelect(pair)}
                           >
-                            <div className="flex flex-col gap-1 w-full">
-                              <div className="font-medium text-sm">
-                                {pair.pair}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {pair.baseAsset.name}/{pair.quoteAsset.name}
+                            <div className="flex items-center gap-xs w-full">
+                              <CoinIcon
+                                symbol={pair.baseAsset.name}
+                                assetClass={pair.assetCategory}
+                                size="sm"
+                              />
+                              <div className="flex flex-col gap-1 min-w-0">
+                                <div className="font-medium text-sm truncate">
+                                  {pair.pair}
+                                </div>
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {pair.baseAsset.name}/{pair.quoteAsset.name}
+                                </div>
                               </div>
                             </div>
                           </Button>

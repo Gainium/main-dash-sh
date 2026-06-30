@@ -1,4 +1,5 @@
 import { extractPairAssets } from '@/utils/pairs';
+import { type AssetClass } from '@/hooks/useTradingPairs';
 import React, {
   useCallback,
   useEffect,
@@ -15,6 +16,9 @@ export interface CoinPairProps {
   // Primary method - use separate assets (universal solution)
   baseAsset?: string;
   quoteAsset?: string;
+  // Asset class of the BASE asset — drives base icon resolution (crypto →
+  // CoinGecko, stock/etf → logo.dev, etc.). The quote is always crypto/fiat.
+  assetClass?: AssetClass;
   // Fallback method - parse from pair string (backward compatibility)
   pair?: string;
   // Support multiple symbols (new unified behavior)
@@ -48,6 +52,7 @@ const sanitizeSymbol = (value = '') =>
 const CoinPair: React.FC<CoinPairProps> = ({
   baseAsset,
   quoteAsset,
+  assetClass,
   pair,
   symbols = [],
   maxDisplay = 3,
@@ -262,7 +267,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
     if (layout === 'vertical') {
       return (
         <div className="flex flex-col items-center gap-1 px-2 py-1 bg-background rounded-md border border-border/30">
-          <CoinIcon symbol={base} size={sizes.base} />
+          <CoinIcon symbol={base} size={sizes.base} assetClass={assetClass} />
           {quote && <CoinIcon symbol={quote} size={sizes.quote} />}
           {showText && (
             <span className="font-mono text-xs font-medium text-foreground whitespace-nowrap">
@@ -278,7 +283,12 @@ const CoinPair: React.FC<CoinPairProps> = ({
       return (
         <div className="flex flex-col items-center gap-1 px-1 py-1 bg-background rounded-md border border-border/30">
           <div className="relative flex items-center">
-            <CoinIcon symbol={base} size={sizes.base} isQuote={false} />
+            <CoinIcon
+              symbol={base}
+              size={sizes.base}
+              isQuote={false}
+              assetClass={assetClass}
+            />
             {quote && (
               <div className={sizes.overlap}>
                 <CoinIcon symbol={quote} size={sizes.quote} isQuote={true} />
@@ -356,7 +366,12 @@ const CoinPair: React.FC<CoinPairProps> = ({
             >
               {/* Base icon with quote overlapped */}
               <div className="relative flex items-center">
-                <CoinIcon symbol={b} size={sizes.base} isQuote={false} />
+                <CoinIcon
+                  symbol={b}
+                  size={sizes.base}
+                  isQuote={false}
+                  assetClass={assetClass}
+                />
                 {/* Quote icon overlapped */}
                 <div className={sizes.overlap}>
                   <CoinIcon
@@ -434,7 +449,12 @@ const CoinPair: React.FC<CoinPairProps> = ({
                           : {})}
                       >
                         <div className="relative flex items-center">
-                          <CoinIcon symbol={base} size="sm" isQuote={false} />
+                          <CoinIcon
+                            symbol={base}
+                            size="sm"
+                            isQuote={false}
+                            assetClass={assetClass}
+                          />
                           <div className="-ml-2">
                             <CoinIcon
                               symbol={quoteSymbol}

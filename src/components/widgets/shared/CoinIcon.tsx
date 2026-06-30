@@ -1,3 +1,4 @@
+import type { AssetClass } from '@/hooks/useTradingPairs';
 import React, { useState, useEffect } from 'react';
 
 export interface CoinIconProps {
@@ -5,7 +6,25 @@ export interface CoinIconProps {
   size?: 'sm' | 'md' | 'lg' | string;
   isQuote?: boolean;
   className?: string;
+  /**
+   * Normalized asset class for the symbol. Defaults to crypto behavior when
+   * omitted, so existing callers are unaffected.
+   *  - crypto / undefined → remote coins host (existing behavior + fallbacks)
+   *  - stock / etf        → remote stock-icon host, ticker uppercased w/ the
+   *                         tokenized 'on'/'x' suffix stripped (AAPLon → AAPL)
+   *  - commodity/metal/forex/index → local /images/{class}/{symbol}.svg
+   */
+  assetClass?: AssetClass;
 }
+
+// Asset classes that resolve to a locally-shipped SVG badge under
+// /images/{assetClass}/{symbol}.svg (mirrors the fiat-SVG branch).
+const LOCAL_SVG_CLASSES = new Set<AssetClass>([
+  'commodity',
+  'metal',
+  'forex',
+  'index',
+]);
 
 // Fiat quote currencies don't have coin logos on the remote icon host, so we
 // ship local SVG icons for them under /images/fiat/<code>.svg.
@@ -20,6 +39,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
   size = 'md',
   isQuote = false,
   className = '',
+  assetClass,
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -57,6 +77,15 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     // Fiat currencies use locally-shipped SVG icons — no remote lookup needed.
     if (FIAT_ICONS.has(symbol.toUpperCase())) {
       setImageSrc(`/images/fiat/${symbol.toLowerCase()}.svg`);
+      setIsLoading(false);
+      return;
+    }
+
+    // Non-crypto asset classes resolve to a local SVG badge under
+    // /images/{assetClass}/{symbol}.svg. A missing file degrades to the text
+    // fallback via the rendered <img>'s onError handler below.
+    if (assetClass && LOCAL_SVG_CLASSES.has(assetClass)) {
+      setImageSrc(`/images/${assetClass}/${symbol.toUpperCase()}.svg`);
       setIsLoading(false);
       return;
     }
@@ -114,6 +143,40 @@ const CoinIcon: React.FC<CoinIconProps> = ({
       });
     };
 
+    // Stocks / ETFs: NEVER the CoinGecko coin host (that gives false-positive
+    // icons for same-named crypto). Resolve from OUR backend's self-hosted icon
+    // library (`/icons/stock/{TICKER}.png`), which lazily fetches the logo from
+    // logo.dev on a cache miss, saves it to disk, and serves it — same
+    // "save-then-serve-ourselves" model as crypto coin icons. The frontend
+    // never calls logo.dev directly. Missing/unresolvable → text fallback.
+    if (assetClass === 'stock' || assetClass === 'etf') {
+      // Canonical equity-ticker rule — MUST match the backend
+      // (main-app core/src/utils/assetClass.ts `normalizeStockTicker`): reality
+      // wrapper `rTSLA`→TSLA, lower-case `AAPLon`/`AAPLx`→AAPL; a clean base
+      // (AAPL, NFLX) is left intact.
+      const realityMatch = symbol.match(/^r([A-Za-z][A-Za-z0-9]+)$/);
+      const ticker = realityMatch
+        ? realityMatch[1].toUpperCase()
+        : /^[A-Za-z0-9]+on$/.test(symbol)
+          ? symbol.slice(0, -2).toUpperCase()
+          : /^[A-Za-z0-9]+x$/.test(symbol)
+            ? symbol.slice(0, -1).toUpperCase()
+            : symbol.toUpperCase();
+      const apiBase = (import.meta.env['VITE_API_ENDPOINT'] as string) || '';
+      const stockPath = `${apiBase}/icons/stock/${ticker}.png`;
+      tryImage(stockPath)
+        .then((src) => {
+          if (!cancelled) setImageSrc(src);
+        })
+        .catch(() => {
+          if (!cancelled) setImageSrc(null);
+        })
+        .finally(() => {
+          if (!cancelled) setIsLoading(false);
+        });
+      return;
+    }
+
     const loadImage = async () => {
       try {
         // Try primary path
@@ -143,7 +206,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [symbol]);
+  }, [symbol, assetClass]);
 
   // Handle missing symbol
   if (!symbol) {
@@ -190,6 +253,10 @@ const CoinIcon: React.FC<CoinIconProps> = ({
           src={imageSrc}
           alt={symbol}
           className="w-full h-full object-cover"
+          // Locally-resolved SVGs (fiat + non-crypto asset classes) are set
+          // without a pre-load check; if the file is missing, degrade to the
+          // letter fallback instead of showing a broken image.
+          onError={() => setImageSrc(null)}
         />
       ) : (
         <span className="text-muted-foreground text-xs font-medium">

@@ -558,7 +558,8 @@ export const otherQueries = {
                             minAmount
                         }
                         priceAssetPrecision
-                        crossAvailable`
+                        crossAvailable
+                        assetCategory`
                         }
                     }
                 }

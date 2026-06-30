@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.0] - 2026-06-30
+
+### Added
+
+- Asset-class filter in the coin/pair pickers (terminal + bot form): browse by Crypto / Stocks / Metals / Commodities (etc.) across exchanges. Only classes actually present render as chips; the market-data sort (crypto-only) hides for non-crypto classes.
+- Multi-asset icons: stock/ETF logos load from our backend's self-hosted cache; crypto unchanged (CoinGecko). `CoinIcon`/`CoinPair` resolve icons by asset class, so stocks no longer show false-positive crypto icons.
+
 ## [2.20.0] - 2026-06-30
 
 ### Added

@@ -1,3 +1,4 @@
+import type { AssetClass } from '@/hooks/useTradingPairs';
 import logger from '@/lib/loggerInstance';
 import { createIndexedDBStorage } from '@/lib/zustand-indexeddb-storage';
 import type { ExchangeEnum } from '@/types';
@@ -19,6 +20,9 @@ export interface TradingPair {
   };
   priceAssetPrecision: number;
   crossAvailable: boolean;
+  // Normalized asset class from the backend (default 'crypto'). Preserved
+  // through the store so consumers (pair-picker, icons) can read it.
+  assetCategory?: AssetClass;
 }
 
 export interface TradingPairsByExchange {
