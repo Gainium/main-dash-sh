@@ -4947,6 +4947,10 @@ export interface CoinListItem {
   quoteAsset?: string;
   subtitle?: string;
   isHelper?: boolean;
+  // The base pair's exchange (ExchangeEnum value). Forwarded to CoinIcon so it
+  // can venue-gate tokenized-stock ticker normalization (Bitget reality / Bybit
+  // spot xstocks). Optional; only meaningful for stock/etf pairs.
+  exchange?: string;
   // Optional market-data enrichment (cloud only — populated from the
   // screener + curated-presets via the pairMarketData provider). All
   // optional so sh and coins-mode are unaffected.

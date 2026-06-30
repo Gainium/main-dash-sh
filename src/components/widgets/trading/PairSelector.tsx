@@ -282,6 +282,7 @@ const PairSelector: React.FC<PairSelectorProps> = ({
                               <CoinIcon
                                 symbol={pair.baseAsset.name}
                                 assetClass={pair.assetCategory}
+                                exchange={pair.exchange}
                                 size="sm"
                               />
                               <div className="flex flex-col gap-1 min-w-0">

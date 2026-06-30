@@ -5,6 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.1] - 2026-06-30
+
+### Fixed
+- Tokenized-stock icons now show the real company logo for Bitget reality (`RAAPL`), Bybit-spot and Kraken xStock (`AAPLX`) pairs — including their paper twins — instead of a generic letter tile. `CoinIcon` venue-gates the ticker normalization and the pair's exchange is threaded through the pair pickers (`CoinPair`, `CoinSelect`, `ListModal`, `PairSelector`); clean tickers like `NFLX` are unaffected.
+
 ## [2.21.0] - 2026-06-30
 
 ### Added

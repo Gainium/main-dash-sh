@@ -314,6 +314,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           icon: '',
           color: item.color,
           assetCategory,
+          // Forward the venue so the modal's CoinIcon can venue-gate
+          // tokenized-stock ticker normalization (Bitget reality / Bybit spot).
+          ...(item.exchange ? { exchange: item.exchange } : {}),
           ...(item.baseAsset && item.quoteAsset
             ? { baseAsset: item.baseAsset, quoteAsset: item.quoteAsset }
             : {}),
@@ -474,6 +477,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
             baseAsset={baseAsset}
             quoteAsset={quoteAsset}
             assetClass={assetCategoryByBase[baseAsset.toUpperCase()]}
+            exchange={item?.exchange}
             iconSize="sm"
             showText={false}
           />
@@ -518,6 +522,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
             symbol={symbol}
             size="w-4 h-4"
             assetClass={assetCategoryByBase[symbol.toUpperCase()]}
+            exchange={item?.exchange}
           />
           <span className="text-foreground text-xs font-medium truncate">
             {label}

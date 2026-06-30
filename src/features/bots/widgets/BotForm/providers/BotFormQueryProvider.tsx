@@ -164,6 +164,10 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           name: `${base}/${quote}`,
           baseAsset: base,
           quoteAsset: quote,
+          // Carry the venue so CoinIcon can normalize tokenized-stock tickers
+          // (the base is upper-cased here, so the lower-case wrapper hint is
+          // gone — exchange is the only signal left to strip RAAPL/AAPLX).
+          exchange: pair.exchange,
           color: 'var(--color-primary)',
         });
 

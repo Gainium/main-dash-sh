@@ -19,6 +19,10 @@ export interface CoinPairProps {
   // Asset class of the BASE asset — drives base icon resolution (crypto →
   // CoinGecko, stock/etf → logo.dev, etc.). The quote is always crypto/fiat.
   assetClass?: AssetClass;
+  // The BASE pair's `exchange` (ExchangeEnum value). Forwarded to the base
+  // CoinIcon so it can venue-gate the tokenized-stock ticker normalization
+  // (Bitget reality / Bybit-spot xstocks). Optional; only relevant for stock/etf.
+  exchange?: string;
   // Fallback method - parse from pair string (backward compatibility)
   pair?: string;
   // Support multiple symbols (new unified behavior)
@@ -53,6 +57,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
   baseAsset,
   quoteAsset,
   assetClass,
+  exchange,
   pair,
   symbols = [],
   maxDisplay = 3,
@@ -267,7 +272,12 @@ const CoinPair: React.FC<CoinPairProps> = ({
     if (layout === 'vertical') {
       return (
         <div className="flex flex-col items-center gap-1 px-2 py-1 bg-background rounded-md border border-border/30">
-          <CoinIcon symbol={base} size={sizes.base} assetClass={assetClass} />
+          <CoinIcon
+            symbol={base}
+            size={sizes.base}
+            assetClass={assetClass}
+            exchange={exchange}
+          />
           {quote && <CoinIcon symbol={quote} size={sizes.quote} />}
           {showText && (
             <span className="font-mono text-xs font-medium text-foreground whitespace-nowrap">
@@ -288,6 +298,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
               size={sizes.base}
               isQuote={false}
               assetClass={assetClass}
+              exchange={exchange}
             />
             {quote && (
               <div className={sizes.overlap}>
@@ -322,7 +333,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
         )}
       </div>
     );
-  }, [layout, base, quote, sizes, showText]);
+  }, [layout, base, quote, sizes, showText, assetClass, exchange]);
 
   // Render icons for multi mode - now renders full pairs (BASE/QUOTE) individually
   const renderIconsMulti = () => {
@@ -371,6 +382,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
                   size={sizes.base}
                   isQuote={false}
                   assetClass={assetClass}
+                  exchange={exchange}
                 />
                 {/* Quote icon overlapped */}
                 <div className={sizes.overlap}>
@@ -454,6 +466,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
                             size="sm"
                             isQuote={false}
                             assetClass={assetClass}
+                            exchange={exchange}
                           />
                           <div className="-ml-2">
                             <CoinIcon

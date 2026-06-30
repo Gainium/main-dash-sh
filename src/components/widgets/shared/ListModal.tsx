@@ -35,6 +35,9 @@ interface ListItem {
   // Normalized asset class (crypto/stock/etf/commodity/metal/forex/index),
   // used by the optional asset-class filter. Missing => treated as crypto.
   assetCategory?: AssetClass;
+  // Base pair's exchange (ExchangeEnum value). Forwarded to CoinIcon to
+  // venue-gate tokenized-stock ticker normalization. Only relevant for stock/etf.
+  exchange?: string;
   // Optional market-data enrichment (cloud only — see pairMarketData
   // provider). All optional so sh / coins-mode lists are unaffected.
   // (`price` is already declared above for coin/exchange rows.)
@@ -127,6 +130,7 @@ const renderItemIcon = (item: ListItem) => {
         baseAsset={item.baseAsset}
         quoteAsset={item.quoteAsset}
         assetClass={item.assetCategory}
+        exchange={item.exchange}
         iconSize="md"
         showText={false}
       />
@@ -156,7 +160,12 @@ const renderItemIcon = (item: ListItem) => {
 
   // Default: single token/coin
   return (
-    <CoinIcon symbol={item.symbol} size="lg" assetClass={item.assetCategory} />
+    <CoinIcon
+      symbol={item.symbol}
+      size="lg"
+      assetClass={item.assetCategory}
+      exchange={item.exchange}
+    />
   );
 };
 

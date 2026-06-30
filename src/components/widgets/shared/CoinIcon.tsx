@@ -11,11 +11,57 @@ export interface CoinIconProps {
    * omitted, so existing callers are unaffected.
    *  - crypto / undefined → remote coins host (existing behavior + fallbacks)
    *  - stock / etf        → remote stock-icon host, ticker uppercased w/ the
-   *                         tokenized 'on'/'x' suffix stripped (AAPLon → AAPL)
+   *                         tokenized wrapper stripped (AAPLon/AAPLx → AAPL)
    *  - commodity/metal/forex/index → local /images/{class}/{symbol}.svg
    */
   assetClass?: AssetClass;
+  /**
+   * The pair's `exchange` (an `ExchangeEnum` value, e.g. `bitget`, `bybit`,
+   * `bybitLinear`). Only used for stock/etf rows: it gates the *upper-case*
+   * tokenized-stock wrapper strips (Bitget reality `RAAPL`, Bybit-spot xstock
+   * `AAPLX`) so a clean ticker that legitimately starts with R / ends in X
+   * (`RBLX`, `NFLX`) on another venue isn't mangled. Optional — absent => only
+   * the unambiguous lower-case wrappers strip. See `normalizeStockTicker`.
+   */
+  exchange?: string;
 }
+
+/**
+ * Canonical equity-ticker normalization for the stock-icon URL — MUST stay in
+ * lock-step with the backend `normalizeStockTicker` (main-app
+ * `core/src/utils/assetClass.ts`). Lower-case wrappers (`rTSLA`/`AAPLx`/
+ * `AAPLon`) are unambiguous and strip on any venue; upper-case wrappers
+ * (`RAAPL`/`AAPLX`) collide with clean tickers (`NFLX`/`RBLX`) so they strip
+ * only on the venue that mints them — Bitget reality (`R`-prefix, any bitget
+ * market) and Bybit *spot* xstocks (`X`-suffix, exchange `bybit`; the clean
+ * perps live on `bybitLinear`). `exchange` absent => only the safe lower-case
+ * strips apply.
+ */
+const normalizeStockTicker = (symbol: string, exchange?: string): string => {
+  const s = symbol || '';
+  const reality = s.match(/^r([A-Za-z][A-Za-z0-9]+)$/); // rTSLA → TSLA
+  if (reality) return reality[1].toUpperCase();
+  if (/^[A-Za-z0-9]+on$/.test(s)) return s.slice(0, -2).toUpperCase(); // AAPLon → AAPL
+  if (/^[A-Za-z0-9]+x$/.test(s)) return s.slice(0, -1).toUpperCase(); // AAPLx → AAPL
+  const upper = s.toUpperCase();
+  // Normalize the venue: lower-case and drop the `paper` prefix so paper twins
+  // (paperBitget / paperBybit / paperBybitLinear …) gate like their real
+  // counterparts — the local/paper stack lists these tokenized stocks too.
+  const venue = (exchange ?? '').toLowerCase().replace(/^paper/, '');
+  if (venue.startsWith('bitget') && /^R[A-Z][A-Z0-9]+$/.test(upper)) {
+    return upper.slice(1); // Bitget reality RAAPL → AAPL
+  }
+  // Upper-case `X` xstock suffix: strip only where the venue's stock listings
+  // are exclusively tokenized — Bybit SPOT (`bybit`; clean NFLX is on
+  // bybitLinear) and Kraken (any market; Kraken has no clean equity perps).
+  if (
+    (venue === 'bybit' || venue.startsWith('kraken')) &&
+    /^[A-Z0-9]+X$/.test(upper)
+  ) {
+    return upper.slice(0, -1); // xstock AAPLX → AAPL
+  }
+  return upper;
+};
 
 // Asset classes that resolve to a locally-shipped SVG badge under
 // /images/{assetClass}/{symbol}.svg (mirrors the fiat-SVG branch).
@@ -40,6 +86,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
   isQuote = false,
   className = '',
   assetClass,
+  exchange,
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -150,18 +197,11 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     // "save-then-serve-ourselves" model as crypto coin icons. The frontend
     // never calls logo.dev directly. Missing/unresolvable → text fallback.
     if (assetClass === 'stock' || assetClass === 'etf') {
-      // Canonical equity-ticker rule — MUST match the backend
-      // (main-app core/src/utils/assetClass.ts `normalizeStockTicker`): reality
-      // wrapper `rTSLA`→TSLA, lower-case `AAPLon`/`AAPLx`→AAPL; a clean base
-      // (AAPL, NFLX) is left intact.
-      const realityMatch = symbol.match(/^r([A-Za-z][A-Za-z0-9]+)$/);
-      const ticker = realityMatch
-        ? realityMatch[1].toUpperCase()
-        : /^[A-Za-z0-9]+on$/.test(symbol)
-          ? symbol.slice(0, -2).toUpperCase()
-          : /^[A-Za-z0-9]+x$/.test(symbol)
-            ? symbol.slice(0, -1).toUpperCase()
-            : symbol.toUpperCase();
+      // Venue-gated canonical equity-ticker rule (mirrors the backend) — maps a
+      // tokenized-stock base (Bitget reality RAAPL, Bybit-spot xstock AAPLX,
+      // lower-case AAPLon/AAPLx/rTSLA) to its clean underlying for logo lookup,
+      // without mangling a clean ticker like NFLX/RBLX. See normalizeStockTicker.
+      const ticker = normalizeStockTicker(symbol, exchange);
       const apiBase = (import.meta.env['VITE_API_ENDPOINT'] as string) || '';
       const stockPath = `${apiBase}/icons/stock/${ticker}.png`;
       tryImage(stockPath)
@@ -206,7 +246,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [symbol, assetClass]);
+  }, [symbol, assetClass, exchange]);
 
   // Handle missing symbol
   if (!symbol) {
