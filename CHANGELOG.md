@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.19.1] - 2026-06-30
+
+### Fixed
+
+- Trades page: fixed a crash ("unexpected error") that made the page fail to load whenever you had open trades and the table layout was selected. The trades table now renders correctly in both table and card views.
+- Editing an exchange account: the Update button no longer silently fails to save, the exchange and passphrase fields now populate correctly when opening an existing account (including Bitget), and leaving the API secret or passphrase blank keeps the stored credentials instead of wiping them.
+
 ## [2.19.0] - 2026-06-29
 
 ### Added

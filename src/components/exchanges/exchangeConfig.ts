@@ -519,6 +519,24 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
 
   // Bitget variants (live)
   {
+    // Legacy "umbrella" id. `mapProviderToBackend` collapses both
+    // `bitgetSpot` and `bitgetAll` to `bitget` on save, so every saved
+    // Bitget account comes back as `bitget`. Without this entry
+    // `getExchangeConfig('bitget')` was undefined, leaving the edit
+    // dialog's exchange dropdown blank and hiding the passphrase field.
+    // Hidden from the add list like the other umbrella ids.
+    id: ExchangeEnum.bitget,
+    name: 'bitget',
+    displayName: 'Bitget',
+    requiresPassphrase: true,
+    supportsKeyTypes: false,
+    supportsHostSelection: false,
+    supportsPaperTrading: true,
+    isPaperExchange: false,
+    category: 'all',
+    hideFromProviderList: true,
+  },
+  {
     id: ExchangeEnum.bitgetAll,
     name: 'bitget',
     displayName: 'Bitget SPOT & Futures',

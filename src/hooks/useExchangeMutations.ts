@@ -244,7 +244,11 @@ export const formDataToUpdateExchangeInput = (
   return {
     uuid,
     key: formData.key,
-    secret: formData.secret,
+    // Omit an empty secret so a rename-only edit keeps the stored
+    // credential. The backend never returns the secret, so the form's
+    // field is blank unless the user typed a replacement — sending ''
+    // would clear it. Mirror the passphrase handling below.
+    secret: formData.secret || undefined,
     name: formData.name,
     passphrase: formData.passphrase || undefined,
     stablecoinBalance: includeTopUp ? parsedBalance : undefined,

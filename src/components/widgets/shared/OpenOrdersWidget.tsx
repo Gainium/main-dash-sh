@@ -821,6 +821,20 @@ export interface OpenTradesWidgetProps {
   rawDeals?: DCADeals[];
 }
 
+// Stable module-level defaults. Using inline `= []` / `= {}` defaults in the
+// destructure (or inline object props below) mints a NEW reference every render,
+// which churns the `columns` memo / DataTable table-preference state every render
+// and can drive a "Maximum update depth exceeded" remount loop (React #185).
+const EMPTY_STRING_LIST: string[] = [];
+const TRADES_DEFAULT_COLUMN_VISIBILITY = {
+  unrealizedProfitPercentage: false,
+  realizedProfitPercentage: false,
+  netPnl: false,
+  netPnlPercentage: false,
+  gridProfitPercentage: false,
+};
+const TRADES_DEFAULT_PINNED_COLUMNS = { left: [], right: ['actions'] };
+
 const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   widgetId = 'open-trades',
   data: _data,
@@ -828,9 +842,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   showClosedTrades: _showClosedTrades = false,
   enableStatusToggle: _enableStatusToggle = false,
   defaultStatusFilter,
-  filteredExchanges = [],
-  filteredBotTypes = [],
-  filteredStrategies = [],
+  filteredExchanges = EMPTY_STRING_LIST,
+  filteredBotTypes = EMPTY_STRING_LIST,
+  filteredStrategies = EMPTY_STRING_LIST,
   emptyMessage = 'No trades found',
   emptyContent,
   enableCardView = true,
@@ -1841,9 +1855,15 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         canMoveToTerminal: canMoveTradeToTerminal,
         getSymbol: (trade) => trade.symbol,
       }),
+    // Depend on the stable `mutateAsync` method, not the react-query mutation
+    // result object — react-query returns a NEW result object every render, so
+    // listing the whole object here recreated `defaultBulkActions` (and thus the
+    // DataTable `bulkActions`/selection column) on every render, remounting the
+    // header checkbox in a loop → "Maximum update depth exceeded" (React #185).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [
       addToJournalBulk,
-      mergeSmartOrdersMutation,
+      mergeSmartOrdersMutation.mutateAsync,
       canMoveTradeToTerminal,
       handleEdit,
       allKnownDeals,
@@ -1875,7 +1895,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         }
       );
     },
-    [setDealNoteMutation]
+    // Stable `mutate` ref, not the whole react-query mutation object (new every
+    // render) — keeps this callback (and the memoized `columns` that depends on
+    // it) stable so DataTable cells don't remount every render (React #185).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setDealNoteMutation.mutate]
   );
 
   const handleAdjustFundsConfirm = useCallback(
@@ -1895,7 +1919,10 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         mode,
       });
     },
-    [adjustFundsMutation]
+    // Stable `mutate` ref, not the whole react-query mutation object (new every
+    // render) — see handleSaveNote/defaultBulkActions above (React #185).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustFundsMutation.mutate]
   );
   handleAdjustFundsConfirmRef.current = handleAdjustFundsConfirm;
   // Define table columns
@@ -3194,13 +3221,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         enableColumnFilters={true}
         enableSorting={true}
         enableColumnVisibility={true}
-        defaultColumnVisibility={{
-          unrealizedProfitPercentage: false,
-          realizedProfitPercentage: false,
-          netPnl: false,
-          netPnlPercentage: false,
-          gridProfitPercentage: false,
-        }}
+        defaultColumnVisibility={TRADES_DEFAULT_COLUMN_VISIBILITY}
         enableCardView={enableCardView}
         emptyMessage={emptyMessage}
         emptyContent={
@@ -3226,7 +3247,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         cardViewGap={16}
         getRowId={(row) => row.id}
         bulkActions={effectiveBulkActions}
-        defaultPinnedColumns={{ left: [], right: ['actions'] }}
+        defaultPinnedColumns={TRADES_DEFAULT_PINNED_COLUMNS}
         enableQuickFilterBar={true}
         quickFilterBarStorageKey={`${widgetId}-trades-filters`}
       />

@@ -1465,7 +1465,11 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                     spellCheck={false}
                     value={formData.secret}
                     onChange={(e) => updateFormData({ secret: e.target.value })}
-                    placeholder="Enter your API secret"
+                    placeholder={
+                      mode === 'edit'
+                        ? '•••••••••••• — leave blank to keep current'
+                        : 'Enter your API secret'
+                    }
                     className={`pr-10 ${errors.secret ? 'border-destructive' : ''}`}
                   />
                   <Button
@@ -1499,7 +1503,11 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                       onChange={(e) =>
                         updateFormData({ passphrase: e.target.value })
                       }
-                      placeholder="Enter your passphrase"
+                      placeholder={
+                        mode === 'edit'
+                          ? '•••••••••••• — leave blank to keep current'
+                          : 'Enter your passphrase'
+                      }
                       className={`pr-10 ${errors.passphrase ? 'border-destructive' : ''}`}
                     />
                     <Button

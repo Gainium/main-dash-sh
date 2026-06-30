@@ -63,8 +63,13 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
     return {
       name: exchangeData.name,
       provider: exchangeData.provider,
-      key: exchangeData.key,
-      secret: exchangeData.secret,
+      // `key` is returned by the exchange fragment, but `secret` is NOT
+      // (the backend never sends stored secrets to the client). Coalesce
+      // both to '' so the form's string invariants hold — otherwise
+      // `formData.secret` is `undefined` and `validateForm`'s
+      // `secret.trim()` throws, silently killing the Update button.
+      key: exchangeData.key ?? '',
+      secret: exchangeData.secret ?? '',
       passphrase: exchangeData.passphrase || '',
       keysType: exchangeData.keysType || undefined,
       okxSource: exchangeData.okxSource || undefined,
