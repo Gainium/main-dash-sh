@@ -4,6 +4,7 @@ import { ExchangeChip } from '@/components/ui/chip/ExchangeChip';
 import { ProfitAndPerc } from '@/components/ui/chip/ProfitAndPerc';
 import { StrategyChip as StrategyChipDirect } from '@/components/ui/chip/StrategyChip';
 import CoinPair from '@/components/widgets/shared/CoinPair';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import { logger } from '@/lib/loggerInstance';
 import { cn } from '@/lib/utils';
 import type { BotTypesEnum } from '@/types';
@@ -31,6 +32,7 @@ export const BotItemPanel: React.FC<BotItemPanelProps> = ({
   isStarred = false,
   className,
 }) => {
+  const resolvePairAsset = useResolvePairAsset();
   const name =
     bot?.settings?.name ||
     bot?.name ||
@@ -141,6 +143,24 @@ export const BotItemPanel: React.FC<BotItemPanelProps> = ({
     return coinPair || bot?.pair;
   }, [bot?.symbol, bot?.coinPair, bot?.pair, baseAsset, quoteAsset]);
 
+  // Resolve asset class + venue so tokenized-stock pairs show their real logo.
+  // Fall back to the computed "BASE/QUOTE" string when base/quote aren't set.
+  const panelBaseAsset =
+    baseAsset ??
+    (typeof computedPair === 'string' && computedPair.includes('/')
+      ? computedPair.split('/')[0]
+      : undefined);
+  const panelQuoteAsset =
+    quoteAsset ??
+    (typeof computedPair === 'string' && computedPair.includes('/')
+      ? computedPair.split('/')[1]
+      : undefined);
+  const stockMeta = resolvePairAsset(
+    bot?.exchange,
+    panelBaseAsset,
+    panelQuoteAsset
+  );
+
   return (
     <button
       onClick={() => onClick?.(bot)}
@@ -209,6 +229,8 @@ export const BotItemPanel: React.FC<BotItemPanelProps> = ({
                 baseAsset={baseAsset}
                 quoteAsset={quoteAsset}
                 symbols={bot.symbols || []}
+                assetClass={stockMeta.assetClass}
+                exchange={stockMeta.exchange}
                 maxDisplay={1}
                 iconSize="sm"
                 showText={false}

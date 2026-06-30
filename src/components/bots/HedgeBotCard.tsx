@@ -34,6 +34,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import CoinPair from '@/components/widgets/shared/CoinPair';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import {
   useBotArchive,
   useBotDelete,
@@ -254,6 +255,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
   legUnPnlPerc,
 }) => {
   const navigate = useNavigate();
+  const resolvePairAsset = useResolvePairAsset();
   const { tokens } = useAuthStore();
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
@@ -275,6 +277,13 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
   const symbol = bot.symbol?.[0]?.value;
   const pairLabel =
     symbol?.symbol ?? `${symbol?.baseAsset ?? ''}${symbol?.quoteAsset ?? ''}`;
+  // Resolve asset class + venue (from either leg's exchange) so tokenized
+  // stocks show their real logo on the hedge card.
+  const stockMeta = resolvePairAsset(
+    longLeg?.exchange ?? shortLeg?.exchange,
+    symbol?.baseAsset,
+    symbol?.quoteAsset
+  );
 
   const isOpen = bot.status === 'open' || bot.status === 'monitoring';
   const togglingDisabled = toggling || !tokens?.accessToken;
@@ -549,6 +558,8 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
                   baseAsset={symbol.baseAsset}
                   quoteAsset={symbol.quoteAsset}
                   symbols={pairLabel ? [pairLabel] : []}
+                  assetClass={stockMeta.assetClass}
+                  exchange={stockMeta.exchange}
                   maxDisplay={1}
                   iconSize="sm"
                   showText

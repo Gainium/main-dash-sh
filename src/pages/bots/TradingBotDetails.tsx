@@ -26,6 +26,7 @@ import { StatusChip } from '@/components/ui/chip';
 import { Skeleton } from '@/components/ui/skeleton';
 import Backtests from '@/components/widgets/bots/Backtests';
 import CoinPair from '@/components/widgets/shared/CoinPair';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 /* import { useLiveUpdate } from '@/contexts/LiveUpdateContext'; */
 import { resolveBotType } from '@/features/bots/registry/BotTypeRegistry';
 import { useBacktests } from '@/hooks/useBacktests';
@@ -40,6 +41,7 @@ const INITIAL_LOADING_DELAY_MS = 900;
 const TradingBotDetails = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const resolvePairAsset = useResolvePairAsset();
   const isReadOnly = useIsReadOnly();
 
   // Redirect if in demo mode
@@ -427,6 +429,12 @@ const TradingBotDetails = () => {
 
   const symbolPair =
     bot?.symbol?.[0]?.value?.symbol || bot?.settings?.pair?.[0] || 'BTCUSDT';
+  // Resolve asset class + venue so a tokenized-stock bot shows its real logo.
+  const stockMeta = resolvePairAsset(
+    bot?.exchange,
+    bot?.symbol?.[0]?.value?.baseAsset,
+    bot?.symbol?.[0]?.value?.quoteAsset
+  );
   const isActive = bot?.status === 'open';
 
   return (
@@ -468,6 +476,8 @@ const TradingBotDetails = () => {
                   baseAsset={bot.symbol?.[0]?.value?.baseAsset}
                   quoteAsset={bot.symbol?.[0]?.value?.quoteAsset}
                   pair={symbolPair}
+                  assetClass={stockMeta.assetClass}
+                  exchange={stockMeta.exchange}
                 />
                 <div className="flex flex-col">
                   <h1 className="text-2xl font-bold">

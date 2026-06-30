@@ -38,6 +38,7 @@ import {
 } from '../ui/dropdown-menu';
 import CoinPair from '../widgets/shared/CoinPair';
 import ExchangeIcon from '../widgets/shared/ExchangeIcon';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 
 interface GridBotCardProps {
   item: DrawerBot;
@@ -52,6 +53,7 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
   isSelected = false,
 }) => {
   const navigate = useNavigate();
+  const resolvePairAsset = useResolvePairAsset();
 
   // Modal state
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
@@ -172,6 +174,8 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
   };
 
   const { baseAsset, quoteAsset } = extractPairAssets(bot.pair);
+  // Resolve asset class + venue so tokenized-stock pairs show their real logo.
+  const stockMeta = resolvePairAsset(bot.exchange, baseAsset, quoteAsset);
 
   return (
     <Card
@@ -285,6 +289,8 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
               baseAsset={baseAsset}
               quoteAsset={quoteAsset}
               pair={bot.pair}
+              assetClass={stockMeta.assetClass}
+              exchange={stockMeta.exchange}
             />
           </div>
           <div className="flex items-center gap-1">

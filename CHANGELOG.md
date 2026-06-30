@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.4] - 2026-06-30
+
+### Fixed
+
+- Tokenized-stock pairs now show their real company logo (instead of a first-letter tile) on the bot cards, bot list rows and bot detail header — DCA, Grid and Hedge. The read-only views now resolve each pair's asset class + exchange from the loaded trading pairs, matching the bot edit page and pickers.
+
 ## [2.21.3] - 2026-06-30
 
 ### Added
