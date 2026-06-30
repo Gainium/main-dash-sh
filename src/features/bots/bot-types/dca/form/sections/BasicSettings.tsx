@@ -51,6 +51,8 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
   const {
     pairError,
     exchangeProvider,
+    livePairsIndex,
+    normalizedExchangeProvider,
     multiToggleState,
     multiToggleMessage,
     pairLockState,
@@ -211,6 +213,16 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                         : pairs.slice(0, PAIRS_PREVIEW_LIMIT)
                       ).map((pair, index) => {
                         const [baseAsset, quoteAsset] = splitPair(pair);
+                        // Resolve the pair's asset class + venue so tokenized
+                        // stocks render their real logo (not a letter tile) in
+                        // this read-only view. Same lookup the edit picker uses.
+                        const tp =
+                          livePairsIndex.byExchange[
+                            normalizedExchangeProvider ?? ''
+                          ]?.[`${baseAsset}${quoteAsset}`.toUpperCase()] ??
+                          livePairsIndex.aggregated[
+                            `${baseAsset}${quoteAsset}`.toUpperCase()
+                          ];
                         return (
                           <button
                             type="button"
@@ -223,6 +235,8 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                             <CoinPair
                               baseAsset={baseAsset}
                               quoteAsset={quoteAsset}
+                              assetClass={tp?.assetCategory}
+                              exchange={tp?.exchange}
                               iconSize="sm"
                               showText={false}
                             />

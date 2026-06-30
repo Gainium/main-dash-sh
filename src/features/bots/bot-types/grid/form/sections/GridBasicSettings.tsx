@@ -614,7 +614,17 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
             <div className="space-y-sm rounded-lg border border-border bg-muted/30 p-sm">
               {lockedPairs.length ? (
                 <div className="flex flex-wrap gap-xs">
-                  {lockedPairs.map(({ key, base, quote, label }) => (
+                  {lockedPairs.map(({ key, base, quote, label }) => {
+                    // Resolve asset class + venue so tokenized stocks show their
+                    // real logo (not a letter tile) in this read-only view.
+                    const tp =
+                      livePairsIndex.byExchange[
+                        normalizedExchangeProvider ?? ''
+                      ]?.[`${base}${quote}`.toUpperCase()] ??
+                      livePairsIndex.aggregated[
+                        `${base}${quote}`.toUpperCase()
+                      ];
+                    return (
                     <div
                       key={key}
                       className="flex min-w-0 items-center gap-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
@@ -622,12 +632,15 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
                       <CoinPair
                         baseAsset={base || '?'}
                         quoteAsset={quote || ''}
+                        assetClass={tp?.assetCategory}
+                        exchange={tp?.exchange}
                         iconSize="sm"
                         showText={false}
                       />
                       <span className="truncate">{label || 'Not set'}</span>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="flex items-center gap-xs text-sm text-muted-foreground">

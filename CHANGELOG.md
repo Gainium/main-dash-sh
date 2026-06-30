@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.21.2] - 2026-06-30
+
+### Fixed
+
+- Tokenized-stock pairs now show their real company logo in the read-only (locked) Trading Pairs view on the bot edit page — DCA, Combo and Grid — instead of a generic letter tile. Previously the logo only appeared after clicking Edit; the locked view now resolves each pair's asset class + exchange the same way the edit picker does.
+
 ## [2.21.1] - 2026-06-30
 
 ### Fixed
