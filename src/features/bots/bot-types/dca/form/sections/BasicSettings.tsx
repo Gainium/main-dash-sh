@@ -15,7 +15,7 @@ import { NameInput } from '@/features/bots/shared/components/NameInput';
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import { BotTypesEnum, type ExchangeInUser } from '@/types';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import ExchangeSelector from '../components/exchangeSelector';
 import { useBasicSettingsTab } from '../hooks/useBasicSettingsTab';
 
@@ -80,8 +80,28 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
 
   useDcaTradingContext(formData);
 
+  const { alerts, setActiveChartPair } = useBotFormState();
+
+  // Clicking a pair chip (in create or locked edit mode) switches the
+  // form chart to that pair. The chart effect keys off `formData.pair`,
+  // so map the clicked symbol back to its matching `formData.pair`
+  // element (normalizing away separators/case) and fall back to the
+  // normalized symbol when there's no exact member.
+  const handleChartPairSelect = useCallback(
+    (rawPair: string) => {
+      const normalized = rawPair.replace(/[\s\-/]/g, '').toUpperCase();
+      if (!normalized) {
+        return;
+      }
+      const match = pairs.find(
+        (item) => item.replace(/[\s\-/]/g, '').toUpperCase() === normalized
+      );
+      setActiveChartPair(match ?? normalized);
+    },
+    [pairs, setActiveChartPair]
+  );
+
   const useMulti = useBotFormSelector('useMulti');
-  const { alerts } = useBotFormState();
   const missingPairsMessage =
     formattedMissingPairs && formattedMissingPairs.length > 0
       ? `Some saved pairs are no longer available on ${missingPairsExchangeLabel}: ${formattedMissingPairs.join(', ')}`
@@ -192,9 +212,13 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                       ).map((pair, index) => {
                         const [baseAsset, quoteAsset] = splitPair(pair);
                         return (
-                          <div
+                          <button
+                            type="button"
                             key={`${pair}-${index}`}
-                            className="flex min-w-0 items-center gap-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
+                            onClick={() => handleChartPairSelect(pair)}
+                            title={`Show ${baseAsset}/${quoteAsset} on chart`}
+                            aria-label={`Show ${baseAsset}/${quoteAsset} on chart`}
+                            className="flex min-w-0 cursor-pointer items-center gap-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted/50"
                           >
                             <CoinPair
                               baseAsset={baseAsset}
@@ -205,7 +229,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                             <span className="truncate">
                               {baseAsset}/{quoteAsset}
                             </span>
-                          </div>
+                          </button>
                         );
                       })}
                     </div>
@@ -247,6 +271,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                     : {})}
                   shouldShowAddButton={!isComboBot}
                   showAllOption={false}
+                  onPairClick={handleChartPairSelect}
                 />
                 {useMulti && (
                   <div className="space-y-1">

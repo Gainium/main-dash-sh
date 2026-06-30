@@ -59,6 +59,13 @@ export interface CoinFilterProps {
    * can start over with a different anchor.
    */
   onClearSelection?: () => void;
+  /**
+   * Clicking a selected pair chip's body (not the remove/change button)
+   * fires this with the chip's selection symbol (e.g. `BTC-USDT`). Used
+   * to switch the form chart to that pair. Pairs mode only; omit to keep
+   * chips non-interactive.
+   */
+  onPairClick?: (selectionSymbol: string) => void;
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -73,6 +80,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   showAllOption = true,
   pairFilter,
   onClearSelection,
+  onPairClick,
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -414,22 +422,39 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     if (isPairsMode) {
       const [baseAsset = '?', quoteAsset = '?'] = symbol.split('-');
       const label = item?.name ?? `${baseAsset}/${quoteAsset}`;
+      const pairBody = (
+        <>
+          <CoinPair
+            baseAsset={baseAsset}
+            quoteAsset={quoteAsset}
+            iconSize="sm"
+            showText={false}
+          />
+          <span className="text-foreground text-xs font-medium truncate">
+            {label}
+          </span>
+        </>
+      );
       return (
         <div
           key={`${symbol}-${index}`}
           className="bg-card rounded-lg p-xs flex items-center gap-xs min-w-0"
         >
-          <div className="flex items-center gap-xs flex-1 min-w-0">
-            <CoinPair
-              baseAsset={baseAsset}
-              quoteAsset={quoteAsset}
-              iconSize="sm"
-              showText={false}
-            />
-            <span className="text-foreground text-xs font-medium truncate">
-              {label}
-            </span>
-          </div>
+          {onPairClick ? (
+            <button
+              type="button"
+              onClick={() => onPairClick(symbol)}
+              className="flex items-center gap-xs flex-1 min-w-0 text-left cursor-pointer hover:opacity-80 transition-opacity"
+              title={`Show ${label} on chart`}
+              aria-label={`Show ${label} on chart`}
+            >
+              {pairBody}
+            </button>
+          ) : (
+            <div className="flex items-center gap-xs flex-1 min-w-0">
+              {pairBody}
+            </div>
+          )}
           {renderRemoveOrChange(symbol, label)}
         </div>
       );

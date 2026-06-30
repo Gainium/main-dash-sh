@@ -21,6 +21,13 @@ export interface CoinPairProps {
   symbols?: string[];
   maxDisplay?: number;
   showQuote?: boolean;
+  /**
+   * Multi-symbol mode only: makes each rendered pair clickable and fires
+   * this with the pair's full symbol string (the matching `symbols[]`
+   * entry). Used to switch a chart to the clicked pair. Omit to keep the
+   * pairs purely presentational.
+   */
+  onPairClick?: (symbol: string) => void;
 
   className?: string;
   iconSize?: 'sm' | 'md' | 'lg';
@@ -51,6 +58,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
   //textVariant = 'symbol',
   layout = 'stacked',
   reverseOrder = false,
+  onPairClick,
 }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -319,8 +327,33 @@ const CoinPair: React.FC<CoinPairProps> = ({
                 ? 'flex flex-col items-center gap-1 px-1 py-1 bg-background rounded-lg border border-border/30'
                 : 'flex items-center gap-1 px-1 py-1 bg-background rounded-lg border border-border/30';
 
+          const pairSymbol = symbols[idx];
+          const interactive = Boolean(onPairClick && pairSymbol);
           return (
-            <div key={`${b}-${idx}`} className={wrapperClass} data-pair="true">
+            <div
+              key={`${b}-${idx}`}
+              className={`${wrapperClass}${
+                interactive
+                  ? ' cursor-pointer transition-colors hover:border-primary/60'
+                  : ''
+              }`}
+              data-pair="true"
+              {...(interactive
+                ? {
+                    role: 'button',
+                    tabIndex: 0,
+                    title: `Show ${b}/${quoteSymbol} on chart`,
+                    'aria-label': `Show ${b}/${quoteSymbol} on chart`,
+                    onClick: () => onPairClick?.(pairSymbol),
+                    onKeyDown: (e: React.KeyboardEvent) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        onPairClick?.(pairSymbol);
+                      }
+                    },
+                  }
+                : {})}
+            >
               {/* Base icon with quote overlapped */}
               <div className="relative flex items-center">
                 <CoinIcon symbol={b} size={sizes.base} isQuote={false} />
@@ -369,26 +402,53 @@ const CoinPair: React.FC<CoinPairProps> = ({
                   Additional pairs ({remainingCount}):
                 </div>
                 <div className="grid gap-xs">
-                  {remainingBases.map((base, idx) => (
-                    <div
-                      key={`${base}-${idx}`}
-                      className="flex items-center gap-xs"
-                    >
-                      <div className="relative flex items-center">
-                        <CoinIcon symbol={base} size="sm" isQuote={false} />
-                        <div className="-ml-2">
-                          <CoinIcon
-                            symbol={quoteSymbol}
-                            size="sm"
-                            isQuote={true}
-                          />
+                  {remainingBases.map((base, idx) => {
+                    const pairSymbol = symbols[effectiveMaxDisplay + idx];
+                    const interactive = Boolean(onPairClick && pairSymbol);
+                    return (
+                      <div
+                        key={`${base}-${idx}`}
+                        className={`flex items-center gap-xs${
+                          interactive
+                            ? ' cursor-pointer rounded-md px-1 py-0.5 transition-colors hover:bg-muted/50'
+                            : ''
+                        }`}
+                        {...(interactive
+                          ? {
+                              role: 'button',
+                              tabIndex: 0,
+                              title: `Show ${base}/${quoteSymbol} on chart`,
+                              'aria-label': `Show ${base}/${quoteSymbol} on chart`,
+                              onClick: () => {
+                                onPairClick?.(pairSymbol);
+                                setIsPopoverOpen(false);
+                              },
+                              onKeyDown: (e: React.KeyboardEvent) => {
+                                if (e.key === 'Enter' || e.key === ' ') {
+                                  e.preventDefault();
+                                  onPairClick?.(pairSymbol);
+                                  setIsPopoverOpen(false);
+                                }
+                              },
+                            }
+                          : {})}
+                      >
+                        <div className="relative flex items-center">
+                          <CoinIcon symbol={base} size="sm" isQuote={false} />
+                          <div className="-ml-2">
+                            <CoinIcon
+                              symbol={quoteSymbol}
+                              size="sm"
+                              isQuote={true}
+                            />
+                          </div>
                         </div>
+                        <span className="text-sm font-medium">
+                          {base}/{quoteSymbol}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium">
-                        {base}/{quoteSymbol}
-                      </span>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </PopoverContent>

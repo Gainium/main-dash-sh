@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.19.2] - 2026-06-30
+
+### Added
+
+- Bot create/edit and the bot details drawer: click a trading pair to load it on the chart. On the bot form (new, edit, and the quick/manual sidebar) clicking a selected pair chip switches the chart to that pair; in the bot details drawer clicking a pair in the Basic section (including the "+N more" list) does the same.
+
 ## [2.19.1] - 2026-06-30
 
 ### Fixed

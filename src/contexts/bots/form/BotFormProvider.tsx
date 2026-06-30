@@ -146,6 +146,13 @@ export interface BotFormStateContextValue {
   setQuickSetupMode: Dispatch<SetStateAction<'quick' | 'manual'>>;
   selectedPreset: string | null;
   setSelectedPreset: Dispatch<SetStateAction<string | null>>;
+  /** Pair whose chart the form should display, in the same normalized
+   *  form as the elements of `formData.pair`. Set by clicking a pair
+   *  chip; `null` falls back to the first pair. Shared via context so it
+   *  drives the chart from any view that renders the form (full page or
+   *  sidebar). */
+  activeChartPair: string | null;
+  setActiveChartPair: Dispatch<SetStateAction<string | null>>;
   /** True when this provider is one leg of a hedge bot. Lets consumers
    *  (e.g. the form shell) skip standalone-DCA-only chrome like the
    *  Quick/Manual mode toggle. */
@@ -292,6 +299,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       : 'manual'
   );
   const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  const [activeChartPair, setActiveChartPair] = useState<string | null>(null);
 
   useEffect(() => {
     setIsEditLocked(mode === 'edit');
@@ -1660,6 +1668,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       setQuickSetupMode,
       selectedPreset,
       setSelectedPreset,
+      activeChartPair,
+      setActiveChartPair,
       isNestedLeg: !!isNestedLeg,
     }),
     [
@@ -1685,6 +1695,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       registerComponentError,
       quickSetupMode,
       selectedPreset,
+      activeChartPair,
       isNestedLeg,
     ]
   );

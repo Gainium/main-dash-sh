@@ -44,6 +44,9 @@ export interface DrawerWidgetRendererProps {
   privacyMode?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTradeSelect?: (trade: any) => void;
+  /** Forwarded to widgets that render pairs (e.g. general info) so a pair
+   *  click can drive the drawer chart. */
+  onPairClick?: (symbol: string) => void;
 }
 
 // Animation component for staggered widget loading
@@ -102,6 +105,7 @@ const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
   className = '',
   privacyMode = false,
   onTradeSelect,
+  onPairClick,
 }) => {
   if (!widgets || widgets.length === 0) {
     return (
@@ -148,6 +152,7 @@ const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
           botId: actualBotId,
           bot, // Pass the full bot object to widgets
           onTradeSelect, // Pass the trade selection handler
+          onPairClick, // Pair-click → drawer chart symbol (general info)
           privacyMode, // Pass privacy mode to widgets
           ...widget.props,
         };

@@ -10,11 +10,14 @@ export interface DrawerGeneralInfoProps {
   widgetId: string;
   botId?: string;
   botSnapshot?: DrawerBot;
+  /** Clicking a pair switches the drawer chart to it (see BotDetailsDrawer). */
+  onPairClick?: (symbol: string) => void;
 }
 
 export const DrawerGeneralInfo: React.FC<DrawerGeneralInfoProps> = ({
   widgetId,
   botSnapshot,
+  onPairClick,
 }) => {
   const bot = useMemo(() => botSnapshot, [botSnapshot]);
   const symbols = useMemo(
@@ -69,6 +72,7 @@ export const DrawerGeneralInfo: React.FC<DrawerGeneralInfoProps> = ({
             symbols={symbols.map((s) => s.symbol)}
             maxDisplay={5}
             iconSize="md"
+            {...(onPairClick ? { onPairClick } : {})}
           />
         </div>
 

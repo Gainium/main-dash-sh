@@ -540,6 +540,7 @@ const BotForm: React.FC<BotFormProps> = ({
     quickSetupMode,
     setQuickSetupMode,
     isNestedLeg,
+    activeChartPair,
   } = useBotFormState();
   const { isReadOnly } = useBotFormEditing();
 
@@ -2232,10 +2233,17 @@ const BotForm: React.FC<BotFormProps> = ({
   }, []);
 
   useEffect(() => {
+    // The chart follows the first pair by default, but a clicked pair chip
+    // (activeChartPair) takes precedence as long as it's still a member of
+    // the current selection — otherwise it falls back to the first pair.
     const primaryPair =
-      Array.isArray(formData.pair) && formData.pair.length > 0
-        ? formData.pair[0]
-        : undefined;
+      activeChartPair &&
+      Array.isArray(formData.pair) &&
+      formData.pair.includes(activeChartPair)
+        ? activeChartPair
+        : Array.isArray(formData.pair) && formData.pair.length > 0
+          ? formData.pair[0]
+          : undefined;
 
     // pairMetadata is keyed by the normalized `${base}${quote}` (no dash),
     // but a TradingPair's `.pair` field can use any exchange-specific form
@@ -2281,6 +2289,7 @@ const BotForm: React.FC<BotFormProps> = ({
     onFormDataChange(payload);
   }, [
     formData.pair,
+    activeChartPair,
     botId,
     mode,
     onFormDataChange,

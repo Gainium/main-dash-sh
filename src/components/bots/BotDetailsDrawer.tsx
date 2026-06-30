@@ -1017,6 +1017,17 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const onTradeChartSelect = useCallback((trade: TradeDetails) => {
       setChartTrade(trade);
     }, []);
+
+    // Clicking a pair chip in the drawer switches the chart to that pair.
+    // Clear any selected deal first so the chart shows the plain pair rather
+    // than stale deal-scoped order markers from a different symbol.
+    const handleDrawerPairSelect = useCallback((symbol: string) => {
+      if (!symbol) {
+        return;
+      }
+      setChartTrade(null);
+      setDealSymbol(symbol);
+    }, []);
     const dealWidgetWithProps = useMemo(() => {
       if (dealWidget.length === 0) return dealWidget;
       return dealWidget.map((widget) => ({
@@ -1500,6 +1511,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                             ].includes(w.type)
                         )}
                         onTradeSelect={handleTradeSelect}
+                        onPairClick={handleDrawerPairSelect}
                       />
                     )}
 
