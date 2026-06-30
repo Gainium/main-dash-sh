@@ -31,6 +31,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
@@ -408,9 +409,11 @@ const ComboBotEditWidget = () => {
         accessorKey: 'savePermanent',
         header: 'Save Permanently',
         cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.savePermanent ? 'yes' : 'no'}
-          </div>
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={BotTypesEnum.combo}
+            checked={!!row.original.savePermanent}
+          />
         ),
       },
       {

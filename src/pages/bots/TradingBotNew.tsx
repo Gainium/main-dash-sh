@@ -48,6 +48,7 @@ import {
   BacktestAnalysisTab,
   BacktestDealsTab,
   BacktestOverviewTab,
+  BacktestPermanentCheckbox,
   BacktestStatsTab,
   ShareBacktestButton,
 } from '@/components/widgets/bots/backtest';
@@ -631,9 +632,11 @@ const TradingBotNewWidget = () => {
         accessorKey: 'savePermanent',
         header: 'Save Permanently',
         cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.savePermanent ? 'yes' : 'no'}
-          </div>
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={BotTypesEnum.dca}
+            checked={!!row.original.savePermanent}
+          />
         ),
       },
       {

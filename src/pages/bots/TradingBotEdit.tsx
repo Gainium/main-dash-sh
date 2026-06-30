@@ -33,6 +33,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import {
   BacktestResultsFullModal,
 } from '@/components/widgets/bots/backtest/redesign';
@@ -411,9 +412,11 @@ const TradingBotEditWidget = () => {
         accessorKey: 'savePermanent',
         header: 'Save Permanently',
         cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.savePermanent ? 'yes' : 'no'}
-          </div>
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={BotTypesEnum.dca}
+            checked={!!row.original.savePermanent}
+          />
         ),
       },
       {

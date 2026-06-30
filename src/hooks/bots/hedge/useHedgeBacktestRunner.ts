@@ -160,6 +160,9 @@ export interface UseHedgeBacktestRunnerOptions {
 }
 
 export interface UseHedgeBacktestRunnerApi {
+  /** Which hedge variant this runner is bound to — lets the list view
+   *  pick the right "save permanently" mutation. */
+  hedgeBotType: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo;
   running: boolean;
   progress: BacktestProgress | null;
   /** In-memory result from the most recent run; clears on next run. */
@@ -180,6 +183,9 @@ export interface UseHedgeBacktestRunnerApi {
   cancel: () => void;
   /** Re-fetch the server history list. */
   refreshHistory: () => Promise<void>;
+  /** Flip a history row's `savePermanent` flag in place (after the
+   *  server mutation persists), avoiding a full `refreshHistory` reload. */
+  patchHistorySavePermanent: (id: string, savePermanent: boolean) => void;
   /** Load the full local payload for an existing entry by `_id`. */
   loadById: (id: string) => Promise<HedgeBacktestingResult | null>;
   /** Delete an entry server-side (and via DB cascade locally). */
@@ -315,6 +321,15 @@ export function useHedgeBacktestRunner({
     setRunning(false);
     setProgress(null);
   }, []);
+
+  const patchHistorySavePermanent = useCallback(
+    (id: string, savePermanent: boolean) => {
+      setHistory((prev) =>
+        prev.map((h) => (h._id === id ? { ...h, savePermanent } : h))
+      );
+    },
+    []
+  );
 
   const run = useCallback(
     async (input: HedgeBacktestRunInput): Promise<void> => {
@@ -642,6 +657,7 @@ export function useHedgeBacktestRunner({
 
   return useMemo<UseHedgeBacktestRunnerApi>(
     () => ({
+      hedgeBotType,
       running,
       progress,
       result,
@@ -653,10 +669,12 @@ export function useHedgeBacktestRunner({
       run,
       cancel,
       refreshHistory,
+      patchHistorySavePermanent,
       loadById,
       deleteById,
     }),
     [
+      hedgeBotType,
       running,
       progress,
       result,
@@ -668,6 +686,7 @@ export function useHedgeBacktestRunner({
       run,
       cancel,
       refreshHistory,
+      patchHistorySavePermanent,
       loadById,
       deleteById,
     ]

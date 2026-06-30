@@ -31,6 +31,7 @@ import {
   BacktestAnalysisTab,
   BacktestDealsTab,
   BacktestOverviewTab,
+  BacktestPermanentCheckbox,
   BacktestStatsTab,
 } from '@/components/widgets/bots/backtest';
 import type {
@@ -264,7 +265,13 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
   onSelect,
   activating,
 }) => {
-  const { history, historyLoading, deleteById } = runner;
+  const {
+    history,
+    historyLoading,
+    deleteById,
+    hedgeBotType,
+    patchHistorySavePermanent,
+  } = runner;
 
   const columns = useMemo<ColumnDef<HedgeBacktestHistoryItem>[]>(
     () => [
@@ -275,6 +282,20 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
           <span className="text-muted-foreground text-xs whitespace-nowrap">
             {new Date(row.original.time).toLocaleString()}
           </span>
+        ),
+      },
+      {
+        accessorKey: 'savePermanent',
+        header: 'Save Permanently',
+        cell: ({ row }) => (
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={hedgeBotType}
+            checked={!!row.original.savePermanent}
+            onToggled={(next) =>
+              patchHistorySavePermanent(row.original._id ?? '', next)
+            }
+          />
         ),
       },
       {
@@ -328,7 +349,7 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
         },
       },
     ],
-    []
+    [hedgeBotType, patchHistorySavePermanent]
   );
 
   // DataTable bulk actions — mirrors DCA's quick-actions toolbar.

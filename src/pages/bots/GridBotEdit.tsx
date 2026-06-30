@@ -26,6 +26,7 @@ import {
   type BulkAction,
 } from '@/components/ui/data-table/data-table';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
 import { TVChartPicker } from '@/components/widgets/shared/TradingViewChart';
 import type { TradingViewChartRef } from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
@@ -279,9 +280,11 @@ const GridBotEditWidget = () => {
         accessorKey: 'savePermanent',
         header: 'Save Permanently',
         cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.savePermanent ? 'yes' : 'no'}
-          </div>
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={BotTypesEnum.grid}
+            checked={!!row.original.savePermanent}
+          />
         ),
       },
       {

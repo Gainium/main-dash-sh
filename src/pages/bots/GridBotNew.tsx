@@ -38,6 +38,7 @@ import {
   TabsTrigger,
 } from '@/components/ui/tabs';
 import {
+  BacktestPermanentCheckbox,
   GridBacktestEquityCurveTab,
   GridBacktestOverviewTab,
   GridBacktestStatsTab,
@@ -404,9 +405,11 @@ const GridBotNewWidget = () => {
         accessorKey: 'savePermanent',
         header: 'Save Permanently',
         cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.savePermanent ? 'yes' : 'no'}
-          </div>
+          <BacktestPermanentCheckbox
+            id={row.original._id ?? ''}
+            type={BotTypesEnum.grid}
+            checked={!!row.original.savePermanent}
+          />
         ),
       },
       {
