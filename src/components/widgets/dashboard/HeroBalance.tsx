@@ -128,10 +128,13 @@ export const HeroBalance: React.FC = () => {
         type: BotTypesEnum.dca,
         terminal: false,
       }),
-      grid: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.grid,
-        terminal: false,
-      }),
+      // NOTE: no `grid` deal-stats query. Grid bots have no DCA-style deals,
+      // and the backend's dealDashboardStats resolver returns the *DCA*
+      // dataset for `type: grid`, so summing it double-counts every DCA deal
+      // (normal/inProfit + unrealizedProfit). The legacy dashboard (main-dash)
+      // never queries dealDashboardStats for grid — it only pulls grid bot
+      // counts + realized profit. Mirror that here. See gridAllProfit below
+      // for grid's (legitimate) realized profit contribution.
       combo: GraphQlQuery.dealDashboardStats({
         type: BotTypesEnum.combo,
         terminal: false,
@@ -177,10 +180,6 @@ export const HeroBalance: React.FC = () => {
   const { data: dcaDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
     'dcaDealDashboardStats',
     dealStatsQueries.dca
-  );
-  const { data: gridDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'gridDealDashboardStats',
-    dealStatsQueries.grid
   );
   const { data: comboDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
     'comboDealDashboardStats',
@@ -367,7 +366,7 @@ export const HeroBalance: React.FC = () => {
 
     const buckets = [
       dealsRow(dcaDealStats),
-      dealsRow(gridDealStats),
+      // grid intentionally omitted — see dealStatsQueries note above.
       dealsRow(comboDealStats),
       dealsRow(hedgeDealStats),
       dealsRow(terminalDealStats),
@@ -388,7 +387,6 @@ export const HeroBalance: React.FC = () => {
     return { openTrades, unrealizedPnl, totalProfit };
   }, [
     dcaDealStats,
-    gridDealStats,
     comboDealStats,
     hedgeDealStats,
     terminalDealStats,

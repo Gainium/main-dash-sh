@@ -152,10 +152,13 @@ export const BotStatus: React.FC<BotStatsProps> = ({
         type: BotTypesEnum.dca,
         terminal: false,
       }),
-      grid: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.grid,
-        terminal: false,
-      }),
+      // NOTE: no `grid` deal-stats query. Grid bots have no DCA-style deals,
+      // and the backend's dealDashboardStats resolver returns the *DCA*
+      // dataset for `type: grid` — so summing it double-counts every DCA deal
+      // (normal/inProfit counts + unrealizedProfit). The legacy dashboard
+      // (main-dash) never queries dealDashboardStats for grid; it only pulls
+      // grid bot-status counts + realized profit. Mirror that here. Grid bot
+      // counts still flow through botDashboardStats (processBotStats) below.
       combo: GraphQlQuery.dealDashboardStats({
         type: BotTypesEnum.combo,
         terminal: false,
@@ -245,11 +248,6 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   const { data: dcaDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
     'dcaDealDashboardStats',
     dealDashboardQueryDefs.dca
-  );
-
-  const { data: gridDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'gridDealDashboardStats',
-    dealDashboardQueryDefs.grid
   );
 
   const { data: comboDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
@@ -409,9 +407,9 @@ export const BotStatus: React.FC<BotStatsProps> = ({
     processDealStats(dcaDealStats, 'dca');
     processProfitStats(dcaProfitData, 'dca');
 
-    // Process Grid bot and deal stats
+    // Process Grid bot stats + profit only. Grid has no DCA-style deals; see
+    // dealDashboardQueryDefs note (backend returns DCA data for type:grid).
     processBotStats(gridBotStats, 'grid');
-    processDealStats(gridDealStats, 'grid');
     processProfitStats(gridProfitData, 'grid');
 
     // Process Combo bot and deal stats
@@ -465,7 +463,6 @@ export const BotStatus: React.FC<BotStatsProps> = ({
     comboBotStats,
     hedgeBotStats,
     dcaDealStats,
-    gridDealStats,
     comboDealStats,
     hedgeDealStats,
     terminalDealStats,
@@ -915,13 +912,6 @@ export const BotStatus: React.FC<BotStatsProps> = ({
       {
         queryKey: 'dcaDealDashboardStats',
         variables: dealDashboardQueryDefs.dca.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'gridDealDashboardStats',
-        variables: dealDashboardQueryDefs.grid.variables as Record<
           string,
           unknown
         >,
