@@ -9,6 +9,7 @@ import {
   adminApi,
   isAdminApiConfigured,
   type AdminContainer,
+  type AdminDiagnostics,
   type AdminExchangesResponse,
   type AdminUpdate,
 } from '@/lib/api/adminClient';
@@ -74,6 +75,20 @@ export function useAdminSetExchanges(): UseMutationResult<
       await adminApi.setExchanges(enabled);
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: [...ROOT_KEY, 'exchanges'] }),
+  });
+}
+
+export function useAdminDiagnostics(
+  windowMs?: number
+): UseQueryResult<AdminDiagnostics> {
+  return useQuery({
+    queryKey: [...ROOT_KEY, 'diagnostics', windowMs ?? 'default'],
+    queryFn: () => adminApi.getDiagnostics(windowMs),
+    enabled: isAdminApiConfigured(),
+    // The snapshot runs a live ~2.5s feed probe on the server, so it's
+    // relatively expensive — don't auto-poll; the operator hits Refresh.
+    refetchOnWindowFocus: false,
+    staleTime: 15_000,
   });
 }
 

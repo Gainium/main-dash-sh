@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isAdminApiConfigured } from '@/lib/api/adminClient';
 import { ShieldCheck } from 'lucide-react';
+import { DiagnosticsTab } from './DiagnosticsTab';
 import { ExchangesTab } from './ExchangesTab';
 import { ServicesTab } from './ServicesTab';
 import { UpdatesTab } from './UpdatesTab';
@@ -41,11 +42,15 @@ function AdminPage() {
           <Tabs defaultValue="services" paramKey="tab" paramSync>
             <TabsList>
               <TabsTrigger value="services">Services</TabsTrigger>
+              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
               <TabsTrigger value="exchanges">Exchanges</TabsTrigger>
               <TabsTrigger value="updates">Updates</TabsTrigger>
             </TabsList>
             <TabsContent value="services" className="mt-lg">
               <ServicesTab />
+            </TabsContent>
+            <TabsContent value="diagnostics" className="mt-lg">
+              <DiagnosticsTab />
             </TabsContent>
             <TabsContent value="exchanges" className="mt-lg">
               <ExchangesTab />
