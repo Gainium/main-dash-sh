@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.22.1] - 2026-07-01
+
+### Changed
+
+- Quick mode (DCA, Combo, Grid) now shows the **Bot Name** field and auto-fills a meaningful default of `{pair} {strategy or bot type} {date}` (e.g. `BTCUSDT Mid-term 2026-07-01`) instead of the bare `New Bot`. Multi-pair DCA bots use a `{pair} +{n} …` prefix (e.g. `BTCUSDT +4 Mid-term 2026-07-01`). The name stays editable and is left untouched once you type your own.
+
 ## [2.22.0] - 2026-07-01
 
 ### Added

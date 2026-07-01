@@ -334,8 +334,10 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   useAutoNameFromPreset({
     mode,
     firstPair,
+    pairCount: pairList.length,
     activePreset,
     presetLabels: PRESET_LABELS,
+    botTypeLabel: slice === 'combo' ? 'Combo' : 'DCA',
   });
 
   const { availableBalance } = useQuickBalance({
@@ -458,7 +460,6 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
         {...(exchangesLoading !== undefined ? { exchangesLoading } : {})}
         mode={mode}
         isFieldLocked={isFieldLocked}
-        hideName
       />
 
       <SettingsRow

@@ -173,6 +173,7 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
     firstPair,
     activePreset,
     presetLabels: PRESET_LABELS,
+    botTypeLabel: 'Grid',
   });
 
   const { availableBalance } = useQuickBalance({
@@ -388,7 +389,6 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
         {...(exchangesData !== undefined ? { exchangesData } : {})}
         {...(exchangesLoading !== undefined ? { exchangesLoading } : {})}
         mode={mode}
-        hideName
         hideInitialPrice
       />
 
