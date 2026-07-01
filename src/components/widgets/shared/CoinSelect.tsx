@@ -146,9 +146,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     refresh: refreshTradingPairs,
   } = useTradingPairsFromContext();
 
-  // Map base asset → normalized asset class (from the trading pairs). Used to
-  // tag modal items so the picker's asset-class filter can group crypto vs
-  // stocks/metals/forex/etc. A base maps to the same class across exchanges.
+  // Map base asset → normalized asset class (from the trading pairs). Used only
+  // as a FALLBACK for coins mode (which is exchange-agnostic) and for the ALL
+  // header. Pairs-mode items carry their own per-exchange `assetCategory` and
+  // must be preferred — a base like `CAT` is a stock on Bitget but crypto on
+  // OKX/Hyperliquid, so a cross-exchange base→class map would misclassify it.
   const assetCategoryByBase = useMemo<Record<string, AssetClass>>(() => {
     const map: Record<string, AssetClass> = {};
     if (!pairsByExchange) return map;
@@ -304,10 +306,13 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
         // helpers and the ALL header get no enrichment (lookup → null).
         const datum =
           isPairsMode && item.baseAsset ? marketLookup(item.baseAsset) : null;
-        // Tag with normalized asset class (by base for pairs, by symbol for
-        // coins) so the modal's asset-class filter can narrow the list.
+        // Tag with normalized asset class. Prefer the item's OWN per-exchange
+        // class (pairs mode carries it); fall back to the cross-exchange
+        // base→class map only for coins mode / helpers, which have none.
         const classKey = (item.baseAsset ?? item.symbol)?.toUpperCase();
-        const assetCategory = classKey ? assetCategoryByBase[classKey] : undefined;
+        const assetCategory =
+          item.assetCategory ??
+          (classKey ? assetCategoryByBase[classKey] : undefined);
         return {
           symbol: item.symbol,
           name: item.name,
@@ -476,7 +481,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           <CoinPair
             baseAsset={baseAsset}
             quoteAsset={quoteAsset}
-            assetClass={assetCategoryByBase[baseAsset.toUpperCase()]}
+            assetClass={
+              item?.assetCategory ?? assetCategoryByBase[baseAsset.toUpperCase()]
+            }
             exchange={item?.exchange}
             iconSize="sm"
             showText={false}
@@ -521,7 +528,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           <CoinIcon
             symbol={symbol}
             size="w-4 h-4"
-            assetClass={assetCategoryByBase[symbol.toUpperCase()]}
+            assetClass={
+              item?.assetCategory ?? assetCategoryByBase[symbol.toUpperCase()]
+            }
             exchange={item?.exchange}
           />
           <span className="text-foreground text-xs font-medium truncate">

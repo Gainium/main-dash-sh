@@ -37,8 +37,15 @@ export interface CoinIconProps {
  * perps live on `bybitLinear`). `exchange` absent => only the safe lower-case
  * strips apply.
  */
+// Hyperliquid HIP-3 builder-dex bases carry a `dex:` prefix (`xyz:AAPL`,
+// `flx:NVDA`, `para:AVGO`). Strip it so the clean underlying (ticker / metal /
+// FX / index code) drives icon resolution. Colons only ever appear in these
+// builder-dex bases.
+const stripDexPrefix = (s: string): string =>
+  s.includes(':') ? s.slice(s.indexOf(':') + 1) : s;
+
 const normalizeStockTicker = (symbol: string, exchange?: string): string => {
-  const s = symbol || '';
+  const s = stripDexPrefix(symbol || '');
   const reality = s.match(/^r([A-Za-z][A-Za-z0-9]+)$/); // rTSLA → TSLA
   if (reality) return reality[1].toUpperCase();
   if (/^[A-Za-z0-9]+on$/.test(s)) return s.slice(0, -2).toUpperCase(); // AAPLon → AAPL
@@ -79,6 +86,32 @@ const FIAT_ICONS = new Set([
   'NZD', 'TRY', 'BRL', 'RUB', 'INR', 'KRW', 'ZAR', 'MXN', 'PLN', 'SEK',
   'NOK', 'DKK', 'AED', 'SAR', 'UAH', 'NGN', 'IDR', 'THB', 'PHP', 'ARS',
 ]);
+
+// Explicit icon reuse/aliases for non-crypto bases (keyed by dex-stripped,
+// upper-cased base). FX perps reuse the fiat currency badges (shipped in BOTH
+// editions). Oil variants share one glyph. Everything else resolves by the
+// per-symbol `/images/{class}/{SYMBOL}.svg` convention.
+const CURATED_ASSET_ICON: Record<string, string> = {
+  // forex → fiat badges
+  EUR: '/images/fiat/eur.svg',
+  GBP: '/images/fiat/gbp.svg',
+  JPY: '/images/fiat/jpy.svg',
+  DXY: '/images/fiat/usd.svg',
+  // commodity oil aliases → shared glyph
+  CL: '/images/commodity/OIL.svg',
+  BRENTOIL: '/images/commodity/OIL.svg',
+  WTI: '/images/commodity/OIL.svg',
+  BRENT: '/images/commodity/OIL.svg',
+};
+
+// Generic per-class glyph so an unmapped non-crypto symbol still shows a class
+// badge instead of a bare letter.
+const CLASS_FALLBACK_ICON: Partial<Record<AssetClass, string>> = {
+  commodity: '/images/commodity/_commodity.svg',
+  metal: '/images/commodity/_commodity.svg',
+  forex: '/images/fiat/usd.svg',
+  index: '/images/index/_index.svg',
+};
 
 const CoinIcon: React.FC<CoinIconProps> = ({
   symbol,
@@ -124,15 +157,6 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     // Fiat currencies use locally-shipped SVG icons — no remote lookup needed.
     if (FIAT_ICONS.has(symbol.toUpperCase())) {
       setImageSrc(`/images/fiat/${symbol.toLowerCase()}.svg`);
-      setIsLoading(false);
-      return;
-    }
-
-    // Non-crypto asset classes resolve to a local SVG badge under
-    // /images/{assetClass}/{symbol}.svg. A missing file degrades to the text
-    // fallback via the rendered <img>'s onError handler below.
-    if (assetClass && LOCAL_SVG_CLASSES.has(assetClass)) {
-      setImageSrc(`/images/${assetClass}/${symbol.toUpperCase()}.svg`);
       setIsLoading(false);
       return;
     }
@@ -189,6 +213,58 @@ const CoinIcon: React.FC<CoinIconProps> = ({
         defaultImg.src = defaultImagePath;
       });
     };
+
+    // Commodity / metal / forex / index resolve to a locally-shipped SVG badge.
+    // Candidates are tried in order, first that loads wins:
+    //   1. an explicit reuse/alias (FX → fiat badge, oil variants → one glyph),
+    //   2. the per-symbol curated badge `/images/{class}/{SYMBOL}.svg`,
+    //   3. the crypto coin host — for crypto-native tokens classed non-crypto
+    //      (gold-backed PAXG / XAUT metal), which have a real coin logo,
+    //   4. a generic per-class glyph, so we never fall to a bare letter.
+    // The dex prefix (`xyz:GOLD`) is stripped so the clean code drives lookup.
+    if (assetClass && LOCAL_SVG_CLASSES.has(assetClass)) {
+      const clean = stripDexPrefix(symbol).toUpperCase();
+      const candidates = [
+        CURATED_ASSET_ICON[clean],
+        `/images/${assetClass}/${clean}.svg`,
+        `https://app.gainium.io/coins/${clean.toLowerCase()}.png`,
+        CLASS_FALLBACK_ICON[assetClass],
+      ].filter((c, i, a): c is string => !!c && a.indexOf(c) === i);
+
+      // A local SVG / fiat badge loads via a plain <img>; the coin host needs
+      // the placeholder-dimension check (tryImage) so a missing coin doesn't
+      // resolve to the not-found placeholder.
+      const probeOne = (src: string): Promise<boolean> =>
+        src.includes('/coins/')
+          ? tryImage(src).then(
+              () => true,
+              () => false
+            )
+          : new Promise((res) => {
+              const im = new Image();
+              im.onload = () => res(true);
+              im.onerror = () => res(false);
+              im.src = src;
+            });
+
+      void (async () => {
+        for (const src of candidates) {
+          // eslint-disable-next-line no-await-in-loop
+          if (await probeOne(src)) {
+            if (!cancelled) {
+              setImageSrc(src);
+              setIsLoading(false);
+            }
+            return;
+          }
+        }
+        if (!cancelled) {
+          setImageSrc(null);
+          setIsLoading(false);
+        }
+      })();
+      return;
+    }
 
     // Stocks / ETFs: NEVER the CoinGecko coin host (that gives false-positive
     // icons for same-named crypto). Resolve from OUR backend's self-hosted icon

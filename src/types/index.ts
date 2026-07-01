@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { PrecisionGuard } from '@/features/bots/shared/utils/order-guard';
+import type { AssetClass } from '@/hooks/useTradingPairs';
 import type { VarBindingPath } from '@/hooks/bots/global-variables/useBotVarBinding';
 import type {
   EntityId,
@@ -4951,6 +4952,12 @@ export interface CoinListItem {
   // can venue-gate tokenized-stock ticker normalization (Bitget reality / Bybit
   // spot xstocks). Optional; only meaningful for stock/etf pairs.
   exchange?: string;
+  // The pair's authoritative asset class ON ITS OWN EXCHANGE (from the pair
+  // record). Set for pairs-mode items so the picker's asset-class filter is
+  // exchange-correct — a base like `CAT` is a stock on Bitget but crypto on
+  // OKX/Hyperliquid, so it must NOT be classified from a cross-exchange map.
+  // Missing (coins mode / helpers) => treated as crypto.
+  assetCategory?: AssetClass;
   // Optional market-data enrichment (cloud only — populated from the
   // screener + curated-presets via the pairMarketData provider). All
   // optional so sh and coins-mode are unaffected.

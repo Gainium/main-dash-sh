@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.22.2] - 2026-07-01
+
+### Fixed
+- Asset-class picker: pairs now use their **own per-exchange** class, so a base that is a stock on one venue but crypto on another (e.g. `CAT`, `AAPL` on Hyperliquid) no longer shows under **Stocks** on the wrong exchange.
+
+### Added
+- Multi-asset icons for commodities (Au/Ag/Pt/Pd/Cu/Al, oil, gas, corn) and indices (S&P/N225/K200/…); forex reuses the fiat badges. Hyperliquid HIP-3 `dex:` prefixes are stripped for logo/badge lookup, and crypto-native metals (PAXG/XAUT) fall back to their coin logo. Non-crypto class icons are now shipped in `core` (self-hosted) as well as cloud.
+
 ## [2.22.1] - 2026-07-01
 
 ### Changed

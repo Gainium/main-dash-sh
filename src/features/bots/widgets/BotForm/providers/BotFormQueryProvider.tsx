@@ -168,6 +168,10 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           // (the base is upper-cased here, so the lower-case wrapper hint is
           // gone — exchange is the only signal left to strip RAAPL/AAPLX).
           exchange: pair.exchange,
+          // Carry this pair's OWN class (already scoped to the current
+          // exchange) so the picker's Stocks/Crypto filter is exchange-correct
+          // and doesn't inherit a same-named symbol's class from another venue.
+          assetCategory: pair.assetCategory,
           color: 'var(--color-primary)',
         });
 
