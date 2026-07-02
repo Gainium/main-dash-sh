@@ -265,7 +265,7 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
           ref={scrollContainerRef}
           className="flex-1 overflow-y-auto flex flex-col"
           data-main-content
-          style={{ scrollBehavior: 'smooth' }}
+          style={{ scrollBehavior: 'smooth', scrollbarGutter: 'stable' }}
         >
           <div
             className={

@@ -122,6 +122,45 @@ const actionToBuyTypeEnum: { [key in BotActions]: BuyTypeEnum } = {
   sellDiff: BuyTypeEnum.sellDiff,
 };
 
+/**
+ * A single "label … value" line used inside an asset card. Label is muted,
+ * value is emphasised and right-aligned so amounts line up column-wise.
+ */
+const InfoRow: React.FC<{
+  label: React.ReactNode;
+  value: React.ReactNode;
+}> = ({ label, value }) => (
+  <div className="flex items-baseline justify-between gap-md">
+    <span className="text-xs text-muted-foreground">{label}</span>
+    <span className="shrink-0 text-xs font-semibold tabular-nums text-card-foreground">
+      {value}
+    </span>
+  </div>
+);
+
+/**
+ * Groups one asset's free balance (prominent) with its required-amount rows
+ * (secondary), so "what you have" vs "what's needed" reads at a glance.
+ */
+const AssetSummaryCard: React.FC<{
+  free: React.ReactNode;
+  children?: React.ReactNode;
+}> = ({ free, children }) => (
+  <div className="rounded-lg border border-border/60 bg-muted/5 p-md">
+    <div className="flex items-baseline justify-between gap-md">
+      <span className="text-sm text-muted-foreground">Free balance</span>
+      <span className="shrink-0 text-sm font-semibold tabular-nums text-card-foreground">
+        {free}
+      </span>
+    </div>
+    {children && (
+      <div className="mt-sm space-y-xs border-t border-border/40 pt-sm">
+        {children}
+      </div>
+    )}
+  </div>
+);
+
 export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
   open,
   onOpenChange,
@@ -718,117 +757,94 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-md">
-          {/* Balance Information Section */}
+          {/* Balance Information Section — one card per asset */}
           {!settings?.futures && (
             <div className="space-y-sm">
-              <div className="text-sm space-y-2">
-                <p className="text-card-foreground">
-                  Your free <span className="font-semibold">{mainAsset}</span>{' '}
-                  balance is{' '}
-                  <span className="font-semibold">{mainBalance}</span>{' '}
-                  {mainAsset}.
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Required {mainAsset} quantity to place{' '}
-                  {formData.grid.useOrderInAdvance ? 'ACTIVE ' : ''}
-                  {oppositeAction.toLowerCase()} orders is{' '}
-                  <span className="font-semibold text-card-foreground">
-                    {startDialog.estimatedMainAssetActive}
-                  </span>{' '}
-                  {mainAsset}
-                </p>
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {mainAsset}
+              </p>
+              <AssetSummaryCard free={`${mainBalance} ${mainAsset}`}>
+                <InfoRow
+                  label={`Required to place ${
+                    formData.grid.useOrderInAdvance ? 'active ' : ''
+                  }${oppositeAction.toLowerCase()} orders`}
+                  value={`${startDialog.estimatedMainAssetActive} ${mainAsset}`}
+                />
+                {formData.grid.useOrderInAdvance && (
+                  <InfoRow
+                    label={`Required to place all ${oppositeAction.toLowerCase()} orders`}
+                    value={`${startDialog.estimatedMainAssetTotal} ${mainAsset}`}
+                  />
+                )}
                 {startDialog.textNow !== '' && (
-                  <p className="text-xs text-destructive">
+                  <p className="pt-xs text-xs text-destructive">
                     {startDialog.textNow}
                   </p>
                 )}
-                {formData.grid.useOrderInAdvance && (
-                  <>
-                    <p className="text-muted-foreground text-xs">
-                      Required {mainAsset} quantity to place ALL{' '}
-                      {oppositeAction.toLowerCase()} orders is{' '}
-                      <span className="font-semibold text-card-foreground">
-                        {startDialog.estimatedMainAssetTotal}
-                      </span>{' '}
-                      {mainAsset}.
+                {formData.grid.useOrderInAdvance &&
+                  startDialog.textTotal !== '' && (
+                    <p className="pt-xs text-xs text-destructive">
+                      {startDialog.textTotal}
                     </p>
-                    {startDialog.textTotal !== '' && (
-                      <p className="text-xs text-destructive">
-                        {startDialog.textTotal}
-                      </p>
-                    )}
-                  </>
-                )}
-              </div>
+                  )}
+              </AssetSummaryCard>
             </div>
           )}
 
           {/* Secondary Asset Balance */}
           {!settings?.futures ? (
-            <div className="space-y-sm border-t border-border/50 pt-md">
-              <div className="text-sm space-y-2">
-                <p className="text-card-foreground">
-                  Your free{' '}
-                  <span className="font-semibold">{secondaryAsset}</span>{' '}
-                  balance is{' '}
-                  <span className="font-semibold">{secondaryBalance}</span>{' '}
-                  {secondaryAsset}.
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Required {secondaryAsset} quantity to place{' '}
-                  {formData.grid.useOrderInAdvance ? 'ACTIVE ' : ''}
-                  {action.toLowerCase()} orders is{' '}
-                  <span className="font-semibold text-card-foreground">
-                    {startDialog.estimatedSecondaryNow}
-                  </span>{' '}
-                  {secondaryAsset}.
-                </p>
+            <div className="space-y-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {secondaryAsset}
+              </p>
+              <AssetSummaryCard free={`${secondaryBalance} ${secondaryAsset}`}>
+                <InfoRow
+                  label={`Required to place ${
+                    formData.grid.useOrderInAdvance ? 'active ' : ''
+                  }${action.toLowerCase()} orders`}
+                  value={`${startDialog.estimatedSecondaryNow} ${secondaryAsset}`}
+                />
                 {formData.grid.useOrderInAdvance && (
-                  <p className="text-muted-foreground text-xs">
-                    Required {secondaryAsset} quantity to place ALL{' '}
-                    {action.toLowerCase()} orders is{' '}
-                    <span className="font-semibold text-card-foreground">
-                      {startDialog.estimatedSecondaryAssetTotal}
-                    </span>{' '}
-                    {secondaryAsset}.
-                  </p>
+                  <InfoRow
+                    label={`Required to place all ${action.toLowerCase()} orders`}
+                    value={`${startDialog.estimatedSecondaryAssetTotal} ${secondaryAsset}`}
+                  />
                 )}
-              </div>
+              </AssetSummaryCard>
             </div>
           ) : (
-            <div className="space-y-sm border-t border-border/50 pt-md">
-              <div className="text-sm space-y-2">
-                <p className="text-card-foreground">
-                  Your free balance is{' '}
-                  <span className="font-semibold">
-                    {settings.coinm
-                      ? startDialog.baseBalance
-                      : startDialog.quoteBalance}
-                  </span>{' '}
-                  {settings.coinm ? baseName : quoteName}.
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  Required quantity to place{' '}
-                  {formData.grid.useOrderInAdvance ? 'ACTIVE ' : ''}orders is{' '}
-                  <span className="font-semibold text-card-foreground">
-                    {settings.coinm
+            <div className="space-y-sm">
+              <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {settings.coinm ? baseName : quoteName}
+              </p>
+              <AssetSummaryCard
+                free={`${
+                  settings.coinm
+                    ? startDialog.baseBalance
+                    : startDialog.quoteBalance
+                } ${settings.coinm ? baseName : quoteName}`}
+              >
+                <InfoRow
+                  label={`Required to place ${
+                    formData.grid.useOrderInAdvance ? 'active ' : ''
+                  }orders`}
+                  value={`${
+                    settings.coinm
                       ? startDialog.estimatedMainAssetNow
-                      : startDialog.estimatedSecondaryNow}
-                  </span>{' '}
-                  {settings.coinm ? baseName : quoteName}.
-                </p>
+                      : startDialog.estimatedSecondaryNow
+                  } ${settings.coinm ? baseName : quoteName}`}
+                />
                 {formData.grid.useOrderInAdvance && (
-                  <p className="text-muted-foreground text-xs">
-                    Required quantity to place ALL orders is{' '}
-                    <span className="font-semibold text-card-foreground">
-                      {settings.coinm
+                  <InfoRow
+                    label="Required to place all orders"
+                    value={`${
+                      settings.coinm
                         ? startDialog.estimatedMainAssetTotal
-                        : startDialog.estimatedSecondaryAssetTotal}
-                    </span>{' '}
-                    {settings.coinm ? baseName : quoteName}.
-                  </p>
+                        : startDialog.estimatedSecondaryAssetTotal
+                    } ${settings.coinm ? baseName : quoteName}`}
+                  />
                 )}
-              </div>
+              </AssetSummaryCard>
             </div>
           )}
 
@@ -837,8 +853,8 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
             startDialog.actions.size > 0 &&
             !startDialog.notEnoughBalance && (
               <div className="border-t border-border/50 pt-md">
-                <p className="text-xs text-muted-foreground mb-sm">
-                  Action for {startDialog.mainAsset}
+                <p className="mb-sm text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  How to fund {startDialog.mainAsset}
                 </p>
                 <div className="space-y-sm">
                   {actions.map((action) => {

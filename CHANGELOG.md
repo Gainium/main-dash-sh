@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.3] - 2026-07-02
+
+### Fixed
+
+- Grid **Start/Update bot** confirmation dialog: free balances and required amounts are now grouped into per-asset cards with aligned label/value rows, so "what you have" vs "what's needed" reads clearly instead of stacked prose.
+- Self-hosted **Admin** page no longer shifts horizontally when switching between tabs — the main content scroll area now reserves a stable scrollbar gutter, so tall tabs (Services, Updates) and short tabs (Diagnostics, Exchanges) stay aligned.
+
 ## [2.25.2] - 2026-07-02
 
 ### Fixed
