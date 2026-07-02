@@ -4,10 +4,12 @@ import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
   BotTypesEnum,
   CloseGRIDTypeEnum,
+  PositionSide,
   type Bot,
   type BotStatus,
   type ExchangeInUser,
 } from '@/types';
+import { isFuturesExchange } from '@/utils/exchangeUtils';
 import {
   areAllBotsDeletable,
   filterDeletableBots,
@@ -142,7 +144,10 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
     setStatusModalOpen(true);
   };
 
-  const handleConfirmStatusChange = (closeType?: string) => {
+  const handleConfirmStatusChange = (
+    closeType?: string,
+    cancelPartiallyFilled?: boolean
+  ) => {
     const isActive = isBotActive(bot.status);
     const newStatus = getTargetStatus(bot.status);
 
@@ -151,6 +156,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         id: bot.id,
         status: newStatus,
         closeGridType: closeType as CloseGRIDTypeEnum | undefined,
+        cancelPartiallyFilled,
       },
       {
         onSuccess: () => {
@@ -296,6 +302,10 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
             (originalBotData?.levels?.active?.sell || 0) >
           0
         }
+        botType={BotTypesEnum.grid}
+        gridFutures={isFuturesExchange(bot.exchange)}
+        gridHasOpenPosition={(originalBotData?.position?.price ?? 0) !== 0}
+        gridIsShort={originalBotData?.position?.side === PositionSide.SHORT}
         isLoading={statusToggleMutation.isPending}
       />
 
@@ -514,18 +524,22 @@ const GridBots: React.FC = () => {
   };
 
   // Confirm bulk status change
-  const handleConfirmBulkStatusChange = async (closeType?: string) => {
+  const handleConfirmBulkStatusChange = async (
+    closeType?: string,
+    cancelPartiallyFilled?: boolean
+  ) => {
     setBulkStatusLoading(true);
     try {
       const newStatus = bulkStatusAction === 'start' ? 'open' : 'closed';
+      const isStop = bulkStatusAction === 'stop';
       for (const b of bulkStatusTargets) {
         await statusToggleMutation.mutateAsync({
           id: b.id,
           status: newStatus,
-          closeGridType:
-            bulkStatusAction === 'stop'
-              ? (closeType as CloseGRIDTypeEnum | undefined)
-              : undefined,
+          closeGridType: isStop
+            ? (closeType as CloseGRIDTypeEnum | undefined)
+            : undefined,
+          cancelPartiallyFilled: isStop ? cancelPartiallyFilled : undefined,
         });
       }
       toast.success(
@@ -1806,6 +1820,11 @@ const GridBots: React.FC = () => {
                     bulkStatusAction === 'start' ? 'open' : 'closed'
                   }
                   hasActiveDeals={bulkHasActiveDeals}
+                  botType={BotTypesEnum.grid}
+                  // Bulk targets are heterogeneous — use the generic
+                  // "close position" wording and always offer the options.
+                  gridFutures
+                  gridHasOpenPosition
                   isLoading={bulkStatusLoading}
                 />
               </motion.div>

@@ -4,11 +4,13 @@ import {
   BotTypesEnum,
   CloseConditionEnum,
   CloseDCATypeEnum,
+  CloseGRIDTypeEnum,
   DCAConditionEnum,
   DCAOrderTypeEnum,
   ScaleDcaTypeEnum,
   StartConditionEnum,
   DCADealStatusEnum,
+  PositionSide,
   StrategyEnum,
   type AvgPrice,
   type BotStatus,
@@ -22,6 +24,8 @@ import { indicatorStore } from '@/stores/indicatorStore';
 import { useDealStore } from '@/stores/live/dealStore';
 import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
+import type { GridBot } from '@/types/gridBot';
+import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import { buildBotEditRoute } from '@/utils/bots/navigation';
 import {
@@ -753,15 +757,25 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       setStatusModalOpen(true);
     };
 
-    const handleConfirmStatusChange = (closeType?: string) => {
+    const handleConfirmStatusChange = (
+      closeType?: string,
+      cancelPartiallyFilled?: boolean
+    ) => {
       const newStatus = getTargetStatus(bot.status);
 
-      // Use the mutation directly with callbacks for modal close and toast
+      // Use the mutation directly with callbacks for modal close and toast.
+      // Grid bots route the close decision through `closeGridType`
+      // (+ cancelPartiallyFilled); DCA/combo use `closeType`.
       statusToggleMutation.mutate(
         {
           id: actionBotId,
           status: newStatus,
-          closeType: closeType as CloseDCATypeEnum | undefined,
+          ...(isGrid
+            ? {
+                closeGridType: closeType as CloseGRIDTypeEnum | undefined,
+                cancelPartiallyFilled,
+              }
+            : { closeType: closeType as CloseDCATypeEnum | undefined }),
         },
         {
           onSuccess: () => {
@@ -1923,6 +1937,16 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           currentStatus={bot.status}
           targetStatus={getTargetStatus(bot.status)}
           hasActiveDeals={((bot as DCABot)?.dealsInBot?.active || 0) > 0}
+          botType={isGrid ? BotTypesEnum.grid : undefined}
+          gridFutures={isGrid ? isFuturesExchange(bot.exchange) : undefined}
+          gridHasOpenPosition={
+            isGrid ? ((bot as GridBot).position?.price ?? 0) !== 0 : undefined
+          }
+          gridIsShort={
+            isGrid
+              ? (bot as GridBot).position?.side === PositionSide.SHORT
+              : undefined
+          }
           isLoading={statusToggleMutation.isPending}
         />
 

@@ -207,8 +207,16 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         tokens.accessToken,
         paperContext
       );
+      // Grid bots decide the fate of orders/position via `closeGridType`, not
+      // `closeType`. Injecting a default DCA `leave` here would ride along and
+      // cause the backend to keep positions open, so only default for
+      // DCA/combo stops.
       const resolvedCloseType =
-        status === 'open' ? undefined : (closeType ?? CloseDCATypeEnum.leave);
+        status === 'open'
+          ? undefined
+          : type === BotTypesEnum.grid
+            ? closeType
+            : (closeType ?? CloseDCATypeEnum.leave);
       const input: ChangeStatusInput = {
         id: `${id}`, // Use template literal like old dashboard
         status: status === 'open' ? 'open' : 'closed', // Toggle between open/closed

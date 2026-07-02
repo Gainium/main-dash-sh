@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.4] - 2026-07-02
+
+### Fixed
+
+- Stopping a **grid bot** now asks how to handle the orders/position before stopping — cancel all orders, cancel and close the position by LIMIT or MARKET, or cancel except partially filled — matching the legacy dashboard. Previously grid bots stopped silently and left positions/orders open on the exchange. Applies to the bot list, the bot card, the details drawer, and bulk stop.
+
 ## [2.25.3] - 2026-07-02
 
 ### Fixed

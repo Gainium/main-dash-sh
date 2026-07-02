@@ -1,6 +1,12 @@
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
-import { BotTypesEnum, type BotSettings } from '@/types';
+import {
+  BotTypesEnum,
+  CloseGRIDTypeEnum,
+  PositionSide,
+  type BotSettings,
+} from '@/types';
+import { isFuturesExchange } from '@/utils/exchangeUtils';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
 import { buildBotEditRoute } from '@/utils/bots/navigation';
@@ -137,7 +143,10 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
     setStatusModalOpen(true);
   };
 
-  const handleConfirmStatusChange = () => {
+  const handleConfirmStatusChange = (
+    closeType?: string,
+    cancelPartiallyFilled?: boolean
+  ) => {
     const isActive = bot.isActive;
     const newStatus = isActive ? 'closed' : 'open'; // Use 'paused' for grid bots
 
@@ -145,6 +154,8 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
       {
         id: bot.id,
         status: newStatus,
+        closeGridType: closeType as CloseGRIDTypeEnum | undefined,
+        cancelPartiallyFilled,
       },
       {
         onSuccess: () => {
@@ -425,6 +436,10 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
         currentStatus={bot.status}
         targetStatus={bot.isActive ? 'closed' : 'open'}
         hasActiveDeals={false} // Grid bots don't have deals in the same way
+        botType={BotTypesEnum.grid}
+        gridFutures={isFuturesExchange(bot.exchange)}
+        gridHasOpenPosition={((bot as GridBot).position?.price ?? 0) !== 0}
+        gridIsShort={(bot as GridBot).position?.side === PositionSide.SHORT}
         isLoading={statusToggleMutation.isPending}
       />
 
