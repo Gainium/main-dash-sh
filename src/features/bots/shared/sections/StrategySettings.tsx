@@ -294,7 +294,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
             tooltip="Select margin type and leverage for your futures position."
             colSpan="full"
           >
-            <div className="space-y-md rounded-lg border border-border/50 bg-muted/20 p-md">
+            <div className="space-y-md rounded-lg bg-muted p-md">
               <div className="space-y-xs">
                 <div className="flex items-center gap-xs">
                   <Label>Margin Type</Label>
@@ -330,26 +330,16 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
                     <InfoIcon />
                   </Tooltip>
                 </div>
-                <div className="grid gap-sm sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center">
-                  <NumberInput
-                    value={leverageInputValue}
-                    onChange={handleLeverageInputChange}
-                    onBlur={handleLeverageInputBlur}
-                    min={1}
-                    max={maxLeverage}
-                    step={1}
-                    endAdornment={unitAdornment('×')}
-                    aria-label="Leverage"
-                    disabled={leverageControlsDisabled}
-                  />
-                  <LeverageSlider
-                    value={normalizedLeverage}
-                    onChange={handleLeverageChange}
-                    min={1}
-                    max={maxLeverage}
-                    disabled={leverageControlsDisabled}
-                  />
-                </div>
+                <LeverageSlider
+                  value={normalizedLeverage}
+                  onChange={handleLeverageChange}
+                  inputValue={leverageInputValue}
+                  onInputChange={handleLeverageInputChange}
+                  onInputBlur={handleLeverageInputBlur}
+                  min={1}
+                  max={maxLeverage}
+                  disabled={leverageControlsDisabled}
+                />
                 <p className="text-xs text-muted-foreground">
                   Max available leverage: {maxLeverage}×
                 </p>

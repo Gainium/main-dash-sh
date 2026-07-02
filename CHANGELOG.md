@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.6] - 2026-07-02
+
+### Changed
+
+- Leverage control (trading terminal and DCA/grid bot forms): redesigned into a single full-width row — the amount input, slider and current value sit together, with one compact row of quick-select presets below — instead of a cramped two-column layout. The slider track is now visible on filled surfaces, the preset buttons were trimmed to the common values (capped at the exchange max), and the bot-form container now uses a filled background to match the terminal.
+
 ## [2.25.5] - 2026-07-02
 
 ### Fixed

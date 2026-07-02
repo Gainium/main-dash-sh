@@ -25,7 +25,6 @@ import {
 import { useBasicSettingsTab } from '@/features/bots/bot-types/dca/form/hooks/useBasicSettingsTab';
 import { useStrategySettingsTab } from '@/features/bots/bot-types/dca/form/hooks/useStrategySettignsTab';
 import TerminalAmountTotalFields from './TerminalAmountTotalFields';
-import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { formatBalance } from '@/utils/numberFormatter';
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import {
@@ -597,26 +596,16 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                     <InfoIcon />
                   </Tooltip>
                 </div>
-                <div className="grid gap-sm sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center">
-                  <NumberInput
-                    value={leverageInputValue}
-                    onChange={handleLeverageInputChange}
-                    onBlur={handleLeverageInputBlur}
-                    min={1}
-                    max={maxLeverage}
-                    step={1}
-                    endAdornment={unitAdornment('×')}
-                    aria-label="Leverage"
-                    disabled={leverageControlsDisabled}
-                  />
-                  <LeverageSlider
-                    value={normalizedLeverage}
-                    onChange={handleLeverageChange}
-                    min={1}
-                    max={maxLeverage}
-                    disabled={leverageControlsDisabled}
-                  />
-                </div>
+                <LeverageSlider
+                  value={normalizedLeverage}
+                  onChange={handleLeverageChange}
+                  inputValue={leverageInputValue}
+                  onInputChange={handleLeverageInputChange}
+                  onInputBlur={handleLeverageInputBlur}
+                  min={1}
+                  max={maxLeverage}
+                  disabled={leverageControlsDisabled}
+                />
                 <p className="text-xs text-muted-foreground">
                   Max available leverage: {maxLeverage}×
                 </p>

@@ -80,8 +80,10 @@ const Slider = React.forwardRef<HTMLInputElement, SliderProps>(
           className
         )}
       >
-        {/* Custom track background - works reliably on all browsers */}
-        <div className="absolute inset-x-0 h-1.5 rounded-full bg-muted pointer-events-none" />
+        {/* Custom track background - works reliably on all browsers.
+            Uses a theme-inverting wash so the track stays visible on any
+            surface (bg-muted containers would otherwise swallow a bg-muted track). */}
+        <div className="absolute inset-x-0 h-1.5 rounded-full bg-foreground/10 pointer-events-none" />
         {/* Custom track fill */}
         <div
           className="absolute left-0 h-1.5 rounded-full bg-primary pointer-events-none"

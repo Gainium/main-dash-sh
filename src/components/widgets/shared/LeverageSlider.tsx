@@ -1,13 +1,18 @@
 import { AlertTriangle } from 'lucide-react';
 import React from 'react';
 
+import { cn } from '../../../lib/utils';
 import { Button } from '../../ui/button';
-import { Label } from '../../ui/label';
+import { NumberInput } from '../../ui/number-input';
 import { Slider } from '../../ui/slider';
 
 interface LeverageSliderProps {
   value: number;
   onChange: (value: number) => void;
+  /** Optional editable input value (draft string while typing). */
+  inputValue?: number | string;
+  onInputChange?: (value: number | string) => void;
+  onInputBlur?: React.FocusEventHandler<HTMLInputElement>;
   min?: number;
   max?: number;
   step?: number;
@@ -18,14 +23,20 @@ interface LeverageSliderProps {
 const LeverageSlider: React.FC<LeverageSliderProps> = ({
   value,
   onChange,
+  inputValue,
+  onInputChange,
+  onInputBlur,
   min = 1,
   max = 125,
   step = 1,
   className = '',
   disabled = false,
 }) => {
-  // Preset leverage values from old dashboard
-  const presetValues = [1, 2, 3, 5, 25, 50, 75, 100, 125];
+  // A tight set of common presets, filtered to the exchange's max and
+  // always including the max itself (slider/number-input cover the rest).
+  const presetValues = Array.from(
+    new Set([...[1, 5, 25, 50, 100].filter((preset) => preset <= max), max])
+  ).sort((a, b) => a - b);
 
   const handlePresetClick = (presetValue: number) => {
     if (disabled) {
@@ -46,54 +57,61 @@ const LeverageSlider: React.FC<LeverageSliderProps> = ({
   const formatLeverage = (val: number) => `${val}x`;
 
   return (
-    <div className={`space-y-md ${className}`}>
-      {/* Current Value Display */}
-      <div className="flex items-center justify-center">
-        <div className="text-2xl font-bold text-primary">
+    <div className={cn('space-y-sm', className)}>
+      {/* Number input + slider share one full-width row */}
+      <div className="flex items-center gap-sm">
+        {onInputChange && (
+          <div className="w-28 shrink-0">
+            <NumberInput
+              value={inputValue}
+              onChange={onInputChange}
+              onBlur={onInputBlur}
+              min={min}
+              max={max}
+              step={step}
+              endAdornment={
+                <span className="text-sm text-muted-foreground">×</span>
+              }
+              aria-label="Leverage"
+              disabled={disabled}
+            />
+          </div>
+        )}
+        <div className="flex-1">
+          <Slider
+            value={value}
+            onChange={handleSliderChange}
+            min={min}
+            max={max}
+            step={step}
+            className="w-full"
+            disabled={disabled}
+          />
+        </div>
+        <div className="w-10 shrink-0 text-right text-lg font-bold tabular-nums text-primary">
           {formatLeverage(value)}
         </div>
       </div>
 
-      {/* Slider */}
-      <div className="px-2">
-        <Slider
-          value={value}
-          onChange={handleSliderChange}
-          min={min}
-          max={max}
-          step={step}
-          className="w-full"
-          disabled={disabled}
-        />
-      </div>
-
-      {/* Min/Max Labels */}
-      <div className="flex justify-between text-xs text-muted-foreground px-2">
-        <span>{formatLeverage(min)}</span>
-        <span>{formatLeverage(max)}</span>
-      </div>
-
-      {/* Preset Buttons */}
-      <div className="space-y-xs">
-        <Label className="text-xs text-muted-foreground">Quick Select</Label>
-        <div className="grid grid-cols-3 gap-xs">
-          {presetValues.map((preset) => (
-            <Button
-              key={preset}
-              variant={value === preset ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => handlePresetClick(preset)}
-              className={`text-xs h-8 ${
-                value === preset
-                  ? 'bg-primary hover:bg-primary/90 text-primary-foreground'
-                  : 'hover:bg-primary/10 hover:border-primary/30'
-              }`}
-              disabled={disabled}
-            >
-              {formatLeverage(preset)}
-            </Button>
-          ))}
-        </div>
+      {/* Quick-select presets — single full-width row */}
+      <div className="grid grid-cols-6 gap-xs">
+        {presetValues.map((preset) => (
+          <Button
+            key={preset}
+            variant={value === preset ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => handlePresetClick(preset)}
+            className={cn(
+              'h-8 text-xs',
+              value === preset
+                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                : 'hover:border-primary/30 hover:bg-primary/10'
+            )}
+            disabled={disabled}
+          >
+            {formatLeverage(preset)}
+          </Button>
+        ))}
       </div>
 
       {/* Risk Warning */}

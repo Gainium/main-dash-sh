@@ -13,7 +13,6 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { Label } from '@/components/ui/label';
-import { NumberInput } from '@/components/ui/number-input';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import MarginTypeSelector from '@/components/widgets/bots/MarginTypeSelector';
@@ -24,7 +23,6 @@ import {
   useBotFormState,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
-import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { useUIStore } from '@/stores/uiStore';
@@ -344,7 +342,7 @@ export const MarginLeverageBlock: React.FC<MarginLeverageBlockProps> = ({
   if (!futuresEnabled) return null;
 
   return (
-    <div className="space-y-md rounded-lg border border-border/50 bg-muted/20 p-md">
+    <div className="space-y-md rounded-lg bg-muted p-md">
       <div className="space-y-xs">
         <div className="flex items-center gap-xs">
           <Label>Margin Type</Label>
@@ -374,26 +372,16 @@ export const MarginLeverageBlock: React.FC<MarginLeverageBlockProps> = ({
             <InfoIcon />
           </Tooltip>
         </div>
-        <div className="grid gap-sm sm:grid-cols-[minmax(0,180px)_1fr] sm:items-center">
-          <NumberInput
-            value={leverageInputValue}
-            onChange={handleLeverageInputChange}
-            onBlur={handleLeverageInputBlur}
-            min={1}
-            max={maxLeverage}
-            step={1}
-            endAdornment={unitAdornment('×')}
-            aria-label="Leverage"
-            disabled={leverageControlsDisabled}
-          />
-          <LeverageSlider
-            value={normalizedLeverage}
-            onChange={handleLeverageChange}
-            min={1}
-            max={maxLeverage}
-            disabled={leverageControlsDisabled}
-          />
-        </div>
+        <LeverageSlider
+          value={normalizedLeverage}
+          onChange={handleLeverageChange}
+          inputValue={leverageInputValue}
+          onInputChange={handleLeverageInputChange}
+          onInputBlur={handleLeverageInputBlur}
+          min={1}
+          max={maxLeverage}
+          disabled={leverageControlsDisabled}
+        />
         <p className="text-xs text-muted-foreground">
           Max available leverage: {maxLeverage}×
         </p>
