@@ -356,6 +356,7 @@ export const PortfolioCategoriesAnalysis: React.FC<
                 content={<CustomTooltip valueFormatter={formatTooltip} />}
               />
               <Bar
+                isAnimationActive={false}
                 dataKey="value"
                 fill={chartColors.chart1}
                 radius={[4, 4, 0, 0]}

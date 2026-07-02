@@ -197,6 +197,7 @@ export const DrawerPnLScatterChart: React.FC<DrawerPnLScatterChartProps> = ({
                   }}
                 />
                 <Scatter
+                  isAnimationActive={false}
                   name="Deals"
                   data={allPoints}
                   fill={colors.success}

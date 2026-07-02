@@ -78,6 +78,7 @@ const PerformanceMetricsChart: React.FC<PerformanceMetricsChartProps> = ({
 
           {metrics.map((metric) => (
             <Bar
+              isAnimationActive={false}
               key={metric.key}
               dataKey={metric.key}
               name={metric.name}

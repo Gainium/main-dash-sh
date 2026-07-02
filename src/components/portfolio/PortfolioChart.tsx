@@ -245,6 +245,7 @@ export const PortfolioChart: React.FC = () => {
                 />
                 <Tooltip content={<CustomTooltip />} />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey="value"
                   stroke="#3b82f6"

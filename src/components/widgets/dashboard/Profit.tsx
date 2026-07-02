@@ -833,7 +833,8 @@ export const Profit: React.FC<ProfitProps> = ({
                 }
                 cursor={false}
               />
-              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+              <Bar
+                isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]}>
                 {currentProfitData.chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}

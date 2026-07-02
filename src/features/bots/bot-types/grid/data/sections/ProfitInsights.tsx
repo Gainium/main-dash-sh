@@ -241,6 +241,7 @@ export const ProfitInsights: React.FC<ProfitInsightsProps> = ({
                   }}
                 />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey="value"
                   strokeWidth={2}

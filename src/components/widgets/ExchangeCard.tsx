@@ -420,6 +420,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                   }
                 />
                 <Area
+                  isAnimationActive={false}
                   type="monotone"
                   dataKey="value"
                   stroke="#60a5fa"

@@ -951,6 +951,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                       />
                       <Tooltip content={<CustomTooltip />} />
                       <Area
+                        isAnimationActive={false}
                         type="monotone"
                         dataKey="value"
                         stroke={

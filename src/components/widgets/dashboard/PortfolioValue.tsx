@@ -898,6 +898,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                 {/* Show main "All coins" area when ALL is selected */}
                 {selectedCoins.includes('ALL') && (
                   <Area
+                    isAnimationActive={false}
                     type="monotone"
                     dataKey="value"
                     stroke="#3b82f6"
@@ -924,6 +925,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                     const gradientId = `color${asset.name.toUpperCase()}`;
                     return (
                       <Area
+                        isAnimationActive={false}
                         key={asset.name}
                         type="monotone"
                         dataKey={asset.name.toUpperCase()}

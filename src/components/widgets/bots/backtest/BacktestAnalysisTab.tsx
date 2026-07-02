@@ -143,6 +143,7 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
                     }
                   />
                   <Bar
+                    isAnimationActive={false}
                     dataKey="value"
                     fill={chartColors.profit}
                     radius={[4, 4, 0, 0]}

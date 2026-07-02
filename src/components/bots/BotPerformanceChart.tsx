@@ -69,6 +69,7 @@ export const BotPerformanceChart: React.FC<BotPerformanceChartProps> = ({
           />
           <Tooltip content={<CustomTooltip />} />
           <Area
+            isAnimationActive={false}
             type="monotone"
             dataKey="value"
             stroke={colors.chart1}

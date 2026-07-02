@@ -463,6 +463,12 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     fill={`url(#equityGradient-${actualBotId})`}
                     fillOpacity={0.3}
                     name="Bot Equity"
+                    // Keep isAnimationActive false on every series here:
+                    // recharts' JavascriptAnimate calls setState from its
+                    // unmount cleanup, so a chart unmounting mid-animation
+                    // trips React's nested-update limit (minified #185).
+                    // Mirrors BotCard/TradeCard.
+                    isAnimationActive={false}
                   />
                 )}
                 {showProfit && (
@@ -476,6 +482,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     strokeWidth={2}
                     dot={false}
                     name="Realized Profit"
+                    isAnimationActive={false}
                   />
                 )}
                 {showBuyAndHold && (
@@ -488,6 +495,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     fill={`url(#buyAndHoldGradient-${actualBotId})`}
                     fillOpacity={0.3}
                     name="Buy & Hold"
+                    isAnimationActive={false}
                   />
                 )}
               </ComposedChart>

@@ -70,12 +70,14 @@ const BuyAndHoldChart: React.FC<BuyAndHoldChartProps> = ({
           <Legend />
 
           <Bar
+            isAnimationActive={false}
             dataKey="strategy"
             name="Strategy Return"
             fill="#3b82f6"
             radius={[2, 2, 0, 0]}
           />
           <Bar
+            isAnimationActive={false}
             dataKey="buyAndHold"
             name="Buy & Hold Return"
             fill="#6b7280"

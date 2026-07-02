@@ -548,7 +548,8 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                   width={40}
                 />
                 <Tooltip content={<CustomTooltip />} cursor={false} />
-                <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                <Bar
+                  isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]}>
                   {currentProfitData.chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
@@ -562,6 +563,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                 </Bar>
                 {showBuyAndHold && (
                   <Line
+                    isAnimationActive={false}
                     type="monotone"
                     dataKey="buyAndHoldValue"
                     stroke="#6b7280"

@@ -534,6 +534,7 @@ export function BacktestOverviewTab({ backtest }: BacktestOverviewTabProps) {
                       }}
                     />
                     <Scatter
+                      isAnimationActive={false}
                       data={scatterData}
                       shape="circle"
                       legendType="circle"

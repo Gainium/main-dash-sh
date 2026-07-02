@@ -820,7 +820,8 @@ const EditBotProfit: React.FC<EditBotProfitProps> = ({
           width={50}
         />
         <Tooltip content={<CustomTooltip />} cursor={false} />
-        <Bar dataKey={dataKey} radius={[4, 4, 0, 0]} maxBarSize={50}>
+        <Bar
+          isAnimationActive={false} dataKey={dataKey} radius={[4, 4, 0, 0]} maxBarSize={50}>
           {data.map((entry, index) => (
             <Cell
               key={`cell-${index}`}

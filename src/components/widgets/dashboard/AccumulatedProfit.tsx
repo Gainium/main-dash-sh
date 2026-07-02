@@ -422,6 +422,7 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
                     }
                   />
                   <Area
+                    isAnimationActive={false}
                     type="monotone"
                     dataKey="value"
                     stroke="var(--color-chart-4)"

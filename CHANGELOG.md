@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.8] - 2026-07-02
+
+### Fixed
+
+- Bot drawer performance tab: the equity, realized-profit and buy-and-hold series no longer animate on mount, matching every other chart in the app. This closes a class of crashes ("Something went wrong" / Maximum update depth exceeded) where a chart unmounting mid-animation would trip an internal render loop.
+- All remaining charts now disable enter animation consistently, and a lint rule enforces that every new chart series makes this choice explicitly, so the crash class can't come back through a missed chart.
+
 ## [2.25.7] - 2026-07-02
 
 ### Changed

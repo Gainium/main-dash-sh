@@ -77,6 +77,7 @@ const ReturnsRiskChart: React.FC<ReturnsRiskChartProps> = ({
             cursor={{ strokeDasharray: '3 3' }}
           />
           <Scatter
+            isAnimationActive={false}
             name="Backtests"
             data={chartData}
             fill="#3b82f6"

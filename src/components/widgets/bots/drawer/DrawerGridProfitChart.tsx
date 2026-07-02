@@ -466,6 +466,7 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                 />
                 <Tooltip content={<CustomTooltip />} cursor={false} />
                 <Bar
+                  isAnimationActive={false}
                   dataKey="value"
                   radius={[4, 4, 0, 0]}
                   name={`Profit (${symbolProfit})`}

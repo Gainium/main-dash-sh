@@ -1333,6 +1333,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                               opacity={0.6}
                             />
                             <Area
+                              isAnimationActive={false}
                               type="monotone"
                               dataKey="equity"
                               stroke="oklch(var(--primary))"
@@ -1368,6 +1369,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                           <ResponsiveContainer width="100%" height={150}>
                             <RechartsPieChart>
                               <Pie
+                                isAnimationActive={false}
                                 data={winLossData}
                                 cx="50%"
                                 cy="50%"
@@ -1552,6 +1554,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                               strokeDasharray="2 2"
                             />
                             <Bar
+                              isAnimationActive={false}
                               dataKey="profit"
                               fill="#3b82f6"
                               radius={[2, 2, 0, 0]}
