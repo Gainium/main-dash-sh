@@ -222,6 +222,7 @@ export const otherQueries = {
                               scheduledDate
                               title
                               text
+                              duration
                             }
                         }
                   }`;
