@@ -34,6 +34,15 @@ export const INACTIVE_STATUSES: string[] = ['closed', 'archive', 'archived'];
 export const DELETABLE_STATUSES: string[] = ['closed', 'archive', 'archived'];
 
 /**
+ * Statuses that allow archiving / unarchiving.
+ * Legacy rule (enforced by the backend): only a stopped bot can be archived,
+ * and an archived bot can be unarchived. Archiving a running bot is rejected
+ * server-side, so the action must be blocked for active statuses here too.
+ * Note: some API responses may return 'archived' instead of 'archive'.
+ */
+export const ARCHIVABLE_STATUSES: string[] = ['closed', 'archive', 'archived'];
+
+/**
  * Statuses that allow bot restart.
  * Restart is only available for active bots.
  */
@@ -84,6 +93,27 @@ export function getDeleteBlockedReason(
   }
 
   return 'Only closed or archived bots can be deleted. Stop the bot first.';
+}
+
+/**
+ * Check if a bot can be archived or unarchived.
+ * Only stopped/archived bots qualify; running bots must be stopped first.
+ */
+export function isBotArchivable(status: BotStatus | string): boolean {
+  return ARCHIVABLE_STATUSES.includes(normalizeStatus(status));
+}
+
+/**
+ * Helper message explaining why archive is blocked.
+ */
+export function getArchiveBlockedReason(
+  status: BotStatus | string
+): string | undefined {
+  if (isBotArchivable(status)) {
+    return undefined;
+  }
+
+  return 'Only stopped bots can be archived. Stop the bot first.';
 }
 
 /**

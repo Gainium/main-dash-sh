@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.26.2] - 2026-07-03
+
+### Changed
+
+- Bot actions menu: the Archive action is now disabled for running bots (open/range/monitoring/error) with a "Stop the bot first" tooltip, matching the backend rule that only stopped bots can be archived. Prevents the misleading "archived successfully" that used to hide a running bot locally until the next full reload. Applies to all bot types (DCA/Grid/Combo/Hedge Combo/Hedge DCA).
+
 ## [2.26.1] - 2026-07-02
 
 ### Fixed

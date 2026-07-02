@@ -5,8 +5,10 @@ import {
   canToggleBotStatus,
   getActionPresent,
   getActionText,
+  getArchiveBlockedReason,
   getDeleteBlockedReason,
   isBotActive,
+  isBotArchivable,
   isBotDeletable,
   isBotRestartable,
 } from '@/utils/botStatusUtils';
@@ -92,6 +94,8 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   const canRestart = isBotRestartable(bot.status);
   const canDelete = isBotDeletable(bot.status);
   const deleteBlockedReason = getDeleteBlockedReason(bot.status);
+  const canArchive = isBotArchivable(bot.status);
+  const archiveBlockedReason = getArchiveBlockedReason(bot.status);
   // Either the global demo-mode flag OR the per-view viewOnly flag
   // (share visitor / non-owner) is enough to lock mutating actions.
   const readOnly = isReadOnly() || viewOnly;
@@ -214,9 +218,13 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
 
       {/* Archive Action */}
       <DropdownMenuItem
-        onClick={readOnly ? undefined : onArchive}
-        disabled={!!pending?.archive || readOnly}
-        title={readOnly ? 'Not available in demo mode' : undefined}
+        onClick={readOnly || !canArchive ? undefined : onArchive}
+        disabled={!!pending?.archive || readOnly || !canArchive}
+        title={
+          readOnly
+            ? 'Not available in demo mode'
+            : archiveBlockedReason /* undefined when archivable */
+        }
       >
         {pending?.archive ? (
           <>
