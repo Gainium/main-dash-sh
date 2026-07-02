@@ -81,6 +81,7 @@ import Widget from '../components/ui/widget';
 import CoinPair from '../components/widgets/shared/CoinPair';
 import StaleIndicator from '../components/widgets/shared/StaleIndicator';
 import { CARD_VIEW_COLUMNS } from '../config/responsive';
+import { useBotModeGuard } from '../hooks/bots/base/useBotModeGuard';
 import {
   useBotArchive,
   useBotDelete,
@@ -334,6 +335,13 @@ const GridBots: React.FC = () => {
   const params = useParams<{ id?: string }>();
   const selectedBot = params.id ?? null;
   const privacyMode = useUIStore((state) => state.privacyMode);
+
+  // When opening a specific bot via /grid/view/:id, keep the bot's real
+  // paper/live mode authoritative over the global toggle so a refresh doesn't
+  // flip the drawer to the wrong mode (and the bot vanishes). Thread 4872.
+  useBotModeGuard(selectedBot ?? undefined, BotTypesEnum.grid, {
+    enabled: !!selectedBot,
+  });
 
   // Check if in demo mode (read-only)
   const readOnly = isReadOnly();

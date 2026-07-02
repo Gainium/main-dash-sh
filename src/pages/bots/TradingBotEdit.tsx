@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
 import {
   BotPanelInsights,
   BotPanelLayout,
@@ -44,6 +45,7 @@ import {
   TradingTerminalUtilsProvider,
   useTradingTerminalUtils,
 } from '@/context/TradingTerminalUtilsContext';
+import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useBotPageLoading } from '@/hooks/bots/base/useBotPageLoading';
 import { useBotPageRedirect } from '@/hooks/bots/base/useBotPageRedirect';
 import {
@@ -124,6 +126,13 @@ const TradingBotEditWidget = () => {
 
   const hasBotId = Boolean(id);
   const safeBotId = id ?? '';
+
+  // Keep this bot's real paper/live mode authoritative over the global
+  // toggle so a refresh doesn't flip it (and surface a clear error when the
+  // bot exists in neither mode instead of "Unknown exchange"). Thread 4872.
+  const modeGuard = useBotModeGuard(safeBotId, BotTypesEnum.dca, {
+    enabled: hasBotId,
+  });
 
   useEffect(() => {
     return () => {
@@ -1092,6 +1101,8 @@ const TradingBotEditWidget = () => {
             No bot ID provided.
           </div>
         </div>
+      ) : modeGuard.notFound ? (
+        <BotNotFoundNotice backTo="/bot" backLabel="bots" botId={safeBotId} />
       ) : (
         <div className="flex flex-col gap-md">
           {isLoading ? (

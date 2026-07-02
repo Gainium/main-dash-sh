@@ -7,6 +7,7 @@ import {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
 import {
   BotPanelInsights,
   BotPanelLayout,
@@ -35,6 +36,7 @@ import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
+import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useBotPageLoading } from '@/hooks/bots/base/useBotPageLoading';
 import { useBotPageRedirect } from '@/hooks/bots/base/useBotPageRedirect';
 import {
@@ -115,6 +117,13 @@ const ComboBotEditWidget = () => {
 
   const hasBotId = Boolean(id);
   const safeBotId = id ?? '';
+
+  // Keep this bot's real paper/live mode authoritative over the global
+  // toggle so a refresh doesn't flip it (and surface a clear error when the
+  // bot exists in neither mode instead of "Unknown exchange"). Thread 4872.
+  const modeGuard = useBotModeGuard(safeBotId, BotTypesEnum.combo, {
+    enabled: hasBotId,
+  });
   const [chartData, setChartData] = useState<BotChartData>({});
   const handleFormDataChange = useCallback((data: BotChartData) => {
     setChartData(data);
@@ -1038,6 +1047,18 @@ const ComboBotEditWidget = () => {
             No bot ID provided.
           </div>
         </div>
+      </MainLayout>
+    );
+  }
+
+  if (modeGuard.notFound) {
+    return (
+      <MainLayout pageTitle="Combo Bot - Edit" activePage="/combo" navigationBack>
+        <BotNotFoundNotice
+          backTo="/combo"
+          backLabel="combo bots"
+          botId={safeBotId}
+        />
       </MainLayout>
     );
   }

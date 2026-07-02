@@ -113,6 +113,7 @@ import {
   useBotRestart,
   useBotStatusToggle,
 } from '../hooks/useBotMutations';
+import { useBotModeGuard } from '../hooks/bots/base/useBotModeGuard';
 import { useCacheKey } from '../hooks/useCacheKey';
 import { useCacheStatus } from '../hooks/useCacheStatus';
 import { logger } from '../lib/loggerInstance';
@@ -611,6 +612,13 @@ const TradingBots: React.FC = () => {
 
   // Selected bot comes from route param now
   const selectedBot = useMemo(() => params.id ?? null, [params.id]);
+
+  // When opening a specific bot via /bot/view/:id, keep the bot's real
+  // paper/live mode authoritative over the global toggle so a refresh doesn't
+  // flip the drawer to the wrong mode (and the bot vanishes). Thread 4872.
+  useBotModeGuard(selectedBot ?? undefined, BotTypesEnum.dca, {
+    enabled: !!selectedBot,
+  });
 
   // One-time migration: if legacy ?view=<botId> is present on /bot, redirect
   // to /bot/view/:id. Only ObjectId-shaped values are legacy bot links —

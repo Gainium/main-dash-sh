@@ -97,6 +97,7 @@ import {
   useBotRestart,
   useBotStatusToggle,
 } from '../hooks/useBotMutations';
+import { useBotModeGuard } from '../hooks/bots/base/useBotModeGuard';
 import { useCacheKey } from '../hooks/useCacheKey';
 import { useCacheStatus } from '../hooks/useCacheStatus';
 import {
@@ -353,6 +354,13 @@ const ComboBots: React.FC = () => {
   const params = useParams<{ id?: string }>();
   const selectedBot = params.id ?? null;
   const privacyMode = useUIStore((state) => state.privacyMode);
+
+  // When opening a specific bot via /combo/view/:id, keep the bot's real
+  // paper/live mode authoritative over the global toggle so a refresh doesn't
+  // flip the drawer to the wrong mode (and the bot vanishes). Thread 4872.
+  useBotModeGuard(selectedBot ?? undefined, BotTypesEnum.combo, {
+    enabled: !!selectedBot,
+  });
 
   // Check if in demo mode (read-only)
   const readOnly = isReadOnly();
