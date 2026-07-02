@@ -1,6 +1,7 @@
 import type { BotTypesEnum } from '@/types';
 import { io, Socket } from 'socket.io-client';
 import { logger } from '../../lib/loggerInstance';
+import { recordSocketBreadcrumb } from '../../lib/crashBreadcrumbs';
 
 // Test environment variables at module load time
 logger.info(
@@ -381,6 +382,10 @@ export class BotWebSocketManager {
   }
 
   private emitToSubscribers(event: WebSocketEvent) {
+    // Crash breadcrumb: record the inbound event NAME only (never the
+    // payload) so a later crash report can show the last socket traffic.
+    recordSocketBreadcrumb(event.type);
+
     // Filter out events that don't match the current paper context
     // Only apply filtering when event explicitly provides paperContext.
     if (

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.7] - 2026-07-02
+
+### Changed
+
+- Crash reports (the automatic error reporter behind the "Something went wrong" screen) now carry the deployed bundle hash, build mode, React error digest, and a short trail of the last route changes, clicks, resizes and live-update events leading up to a crash, so hard-to-reproduce production crashes can be pinpointed without asking the user to reproduce them. No payload or text content is captured.
+- Added an internal render-loop tripwire on the responsive button toolbar: if a component starts re-rendering pathologically fast (the pattern behind "Maximum update depth exceeded"), it reports which props were changing before the page crashes, instead of after. Can be disabled with `localStorage['gainium:tripwire']='off'`.
+
 ## [2.25.6] - 2026-07-02
 
 ### Changed

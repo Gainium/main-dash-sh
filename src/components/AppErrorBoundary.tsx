@@ -5,6 +5,15 @@ import { GraphQLClient } from '@/lib/api/GraphQLClient';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/loggerInstance';
+import {
+  initCrashBreadcrumbs,
+  serializeCrashMeta,
+} from '@/lib/crashBreadcrumbs';
+
+// Start recording route/click/resize/socket breadcrumbs as soon as this
+// module loads. Both entry points (cloud src/main.tsx and core/src/main.tsx)
+// import AppErrorBoundary, so this covers both bundles. Idempotent + HMR-safe.
+initCrashBreadcrumbs();
 
 /**
  * Friendly text for the React production "minified error" codes we actually
@@ -62,8 +71,17 @@ export class AppErrorBoundary extends Component<Props, State> {
     const token = useAuthStore.getState().tokens?.accessToken;
 
     const errorMessage = `Page: ${window.location.href}, Message: ${decodeReactError(error.message || '')}`;
-    const errorStack = error.stack || '';
     const componentStack = errorInfo.componentStack || '';
+
+    // The `sendError` GraphQL input shape is rigid (error.{message,stack},
+    // errorInfo.componentStack, subType, source) — no room for new fields.
+    // So serialize the extras (bundle hash for source-map lookup, build mode,
+    // React 19 digest, and the breadcrumb trail) into a compact JSON block and
+    // append it to error.stack. Zero backend change; the triage pipeline reads
+    // the `[[meta]]` marker. React 19 puts a `digest` on ErrorInfo when present.
+    const digest = (errorInfo as ErrorInfo & { digest?: string }).digest;
+    const metaBlock = serializeCrashMeta(digest ? { digest } : undefined);
+    const errorStack = (error.stack || '') + metaBlock;
 
     logger.error('[AppErrorBoundary] Unhandled error:', {
       message: errorMessage,

@@ -1,4 +1,5 @@
 import { useContainerWidth } from '@/hooks/useContainerWidth';
+import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire';
 import { cn } from '@/lib/utils';
 import { MoreVertical } from 'lucide-react';
 import React, {
@@ -256,6 +257,31 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> = ({
   overflowMenuContentClassName,
   onOverflowStateChange,
 }) => {
+  // Render-loop tripwire (additive, non-fatal). This component has a history of
+  // measurement-jitter feedback (see the rounding/equality-guard comments in
+  // `measure` below); if an unstable prop ever revives that loop in production,
+  // the tripwire captures WHICH prop was oscillating and reports it before
+  // React #185 kills the tree. Near-zero cost when idle; kill via
+  // localStorage['gainium:tripwire']='off'.
+  useRenderLoopTripwire('ResponsiveButtonRow', {
+    buttons,
+    gap,
+    className,
+    alignment,
+    buffer,
+    compactAllTogether,
+    compactThreshold,
+    highestPriorityFullWidth,
+    onCompactStateChange,
+    onLayoutMetrics,
+    enableOverflowMenu,
+    overflowMenuItems,
+    overflowMenuTriggerClassName,
+    overflowMenuAriaLabel,
+    overflowMenuContentClassName,
+    onOverflowStateChange,
+  });
+
   const [containerRef, containerWidth] = useContainerWidth();
   const measureFullRef = useRef<HTMLDivElement>(null);
   const measureCompactRef = useRef<HTMLDivElement>(null);
