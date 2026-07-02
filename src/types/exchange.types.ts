@@ -123,3 +123,29 @@ export enum TradeTypeEnum {
   spot = 'spot',
   futures = 'futures',
 }
+
+/**
+ * A single active Binance Futures "Quantitative Rules" (-4400) cooldown, as
+ * returned by the `getQuantRulesStatus` GraphQL query. When Binance trips its
+ * quantitative rules the account/symbol is forced reduce-only temporarily; the
+ * backend pauses new (non-reduceOnly) orders for the window and retries them
+ * automatically after `until`.
+ *
+ * `symbol` is null for a whole-account restriction (`scope === 'account'`).
+ * `until` is serialized by main-app as an ISO-8601 string (see main-app
+ * `core/src/graphql/handlers/quantRules.handler.ts`), but parse defensively
+ * (ISO string or epoch-ms) on the client.
+ */
+export interface QuantRulesCooldown {
+  exchangeUUID: string | null;
+  exchange: string | null;
+  /** null => whole-account restriction (scope 'account') */
+  symbol: string | null;
+  /** 'symbol' | 'account' */
+  scope: string | null;
+  /** 1 | 2 | 3 */
+  level: number | null;
+  /** cooldown expiry — ISO string (or epoch-ms) of a Date */
+  until: string | null;
+  violationCount24h: number | null;
+}

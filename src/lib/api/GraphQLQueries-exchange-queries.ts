@@ -279,7 +279,7 @@ export const exchangeQueries = {
     positionId: string;
     exchangeUUID: string;
   }) => {
-    const query = `mutation closePositionOnExchange($input: closePositionOnExchangeInput!) { 
+    const query = `mutation closePositionOnExchange($input: closePositionOnExchangeInput!) {
   closePositionOnExchange(input: $input) {
   status
   reason
@@ -288,5 +288,28 @@ export const exchangeQueries = {
   }`;
     const variables = { input };
     return { query, variables };
+  },
+
+  // Active Binance Futures "Quantitative Rules" (-4400) cooldowns for the
+  // authenticated user. Returns only currently-active windows (until > now),
+  // newest per (exchangeUUID, symbol||account). Used by the global cooldown
+  // banner + notification awareness. No input.
+  getQuantRulesStatus: () => {
+    const query = `query getQuantRulesStatus {
+                        getQuantRulesStatus {
+                            status
+                            reason
+                            data {
+                                exchangeUUID
+                                exchange
+                                symbol
+                                scope
+                                level
+                                until
+                                violationCount24h
+                            }
+                        }
+                    }`;
+    return { query };
   },
 };
