@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.23.0] - 2026-07-02
+
+### Changed
+
+- Admin → Updates: upgrading **admin-sh** now shows its real outcome. Because the admin service restarts itself, the page waits for it to come back and then confirms the new version instead of reporting "success" immediately. If the self-upgrade can't complete (e.g. `COMPOSE_DIR_HOST_PATH` not set), it now shows a clear error with a copy-paste manual command (`docker compose pull admin-sh && docker compose up -d --force-recreate admin-sh`). "Upgrade all" also upgrades admin-sh last so it can't cut off the other upgrades. Requires admin-sh ≥ 1.2.0.
+
 ## [2.22.3] - 2026-07-01
 
 ### Fixed

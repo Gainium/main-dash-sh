@@ -12,6 +12,7 @@ import {
   type AdminDiagnostics,
   type AdminExchangesResponse,
   type AdminUpdate,
+  type AdminUpgradeResult,
 } from '@/lib/api/adminClient';
 
 // All admin queries share a single root key. Invalidating ['admin']
@@ -105,17 +106,21 @@ export function useAdminUpdates(): UseQueryResult<AdminUpdate[]> {
 }
 
 export function useAdminUpgrade(): UseMutationResult<
-  { results: { service: string; oldId: string; newId: string }[] },
+  { results: AdminUpgradeResult[] },
   Error,
   { service: string; tag: string }
 > {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({ service, tag }) => adminApi.upgrade(service, tag),
-    onSuccess: () => {
-      // Refetch both containers (recreated IDs) and updates (current
-      // tags shifted) once an upgrade lands.
-      qc.invalidateQueries({ queryKey: ROOT_KEY });
+    onSuccess: (data) => {
+      // An admin-sh self-upgrade is still in flight when the POST returns
+      // (admin-sh restarts itself) — refetching now would just hit the
+      // dying container. The UpdatesTab poller invalidates once the
+      // self-upgrade reconciles. For every other service the recreate is
+      // already done, so refresh immediately.
+      const pendingSelf = data.results.some((r) => r.selfUpgrade?.pending);
+      if (!pendingSelf) qc.invalidateQueries({ queryKey: ROOT_KEY });
     },
   });
 }
