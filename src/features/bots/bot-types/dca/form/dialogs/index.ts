@@ -1,8 +1,4 @@
 export {
-  default as DeleteConfirmationModal,
-  type DeleteConfirmationModalProps,
-} from './DeleteConfirmationModal';
-export {
   default as BotStatusConfirmationModal,
   type BotStatusConfirmationModalProps,
 } from './BotStatusConfirmationModal';

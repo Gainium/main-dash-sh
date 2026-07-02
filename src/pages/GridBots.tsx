@@ -280,6 +280,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         description="Are you sure you want to delete this bot? This action cannot be undone."
         itemType="bot"
         itemName={bot.name}
+        requireConfirmation={false}
       />
 
       <BotStatusConfirmationModal
