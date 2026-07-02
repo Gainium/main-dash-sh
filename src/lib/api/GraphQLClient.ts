@@ -21,6 +21,25 @@ export class GraphQLHttpError extends Error {
   }
 }
 
+// Thrown when a request exceeds its caller-supplied `timeoutMs` and is
+// aborted client-side. Used by bot lifecycle mutations so a stalled queue
+// RPC (worker down / restarting) surfaces as a fast, actionable error
+// instead of an indefinite spinner. `name` is distinct so callers can
+// tell a timeout apart from an HTTP/GraphQL error if they need to.
+export class GraphQLTimeoutError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'GraphQLTimeoutError';
+  }
+}
+
+export interface GraphQLRequestOptions {
+  // When set, the underlying fetch is aborted after this many ms and the
+  // request rejects with a GraphQLTimeoutError. Omitted = no client timeout
+  // (default for queries; long-running reads must not be capped here).
+  timeoutMs?: number;
+}
+
 // Global request deduplication system
 const requestMutex = new IdMutex();
 const requestCache = new Map<
@@ -148,7 +167,11 @@ export class GraphQLClient {
     this.shareId = shareId;
   }
 
-  async request<T>(query: string, variables?: unknown): Promise<T> {
+  async request<T>(
+    query: string,
+    variables?: unknown,
+    options?: GraphQLRequestOptions
+  ): Promise<T> {
     // Check if we're in mock mode and should skip GraphQL requests
     const useMockAuth =
       import.meta.env.MODE === 'development' &&
@@ -251,7 +274,12 @@ export class GraphQLClient {
       logger.debug('Making actual GraphQL request:', {
         signature: requestSignature.substring(0, 8),
       });
-      const result = await this.makeActualRequest<T>(query, variables, headers);
+      const result = await this.makeActualRequest<T>(
+        query,
+        variables,
+        headers,
+        options?.timeoutMs
+      );
 
       // Cache the successful result
       const cacheEntry = requestCache.get(requestSignature);
@@ -289,11 +317,23 @@ export class GraphQLClient {
   private async makeActualRequest<T>(
     query: string,
     variables?: unknown,
-    headers?: Record<string, string>
+    headers?: Record<string, string>,
+    timeoutMs?: number
   ): Promise<T> {
     if (!headers) {
       throw new Error('Headers not provided to makeActualRequest');
     }
+
+    // When a caller supplies a timeout, abort the fetch after `timeoutMs`.
+    // Without this a stalled queue RPC on the backend (worker down /
+    // restarting) leaves the request pending for the full ~5-minute server
+    // timeout, which the UI shows as an indefinite spinner.
+    const controller =
+      timeoutMs !== undefined ? new AbortController() : undefined;
+    const timeoutId =
+      controller !== undefined
+        ? setTimeout(() => controller.abort(), timeoutMs)
+        : undefined;
 
     const body = JSON.stringify({
       query,
@@ -312,6 +352,7 @@ export class GraphQLClient {
         headers,
         body,
         credentials: 'include',
+        ...(controller ? { signal: controller.signal } : {}),
       });
 
       if (!response.ok) {
@@ -401,12 +442,29 @@ export class GraphQLClient {
 
       return result.data;
     } catch (error) {
+      // A client-side timeout aborts the fetch; surface it as a clear,
+      // actionable message instead of the opaque native "AbortError" so the
+      // mutation's onError toast tells the user what actually happened.
+      if (controller?.signal.aborted) {
+        logger.error('GraphQL request timed out', {
+          endpoint: this.endpoint,
+          timeoutMs,
+          query: query.substring(0, 200) + '...',
+        });
+        throw new GraphQLTimeoutError(
+          'The request timed out. The bot service may be busy or restarting — please try again in a moment.'
+        );
+      }
       logger.error('GraphQL request failed', {
         error: error instanceof Error ? error.message : 'Unknown error',
         endpoint: this.endpoint,
         query: query.substring(0, 200) + '...',
       });
       throw error;
+    } finally {
+      if (timeoutId !== undefined) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

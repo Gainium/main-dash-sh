@@ -151,6 +151,16 @@ const botUpdatedMsFor = (type: BotTypesEnum, id: string): number => {
   return Number.isNaN(ms) ? 0 : ms;
 };
 
+// Client-side timeout for bot lifecycle commands (start/stop/restart/delete).
+// These are relayed to the per-type bot worker over a queue RPC that the
+// backend caps at ~5 minutes; if the worker is down, restarting, or backed
+// up, the request would otherwise leave the UI spinning for that whole
+// window. 60s is well below the server cap so a stuck worker surfaces
+// quickly, yet generous enough that a healthy-but-loaded worker still
+// completes. On timeout the request rejects → the mutation's onError shows a
+// toast and React Query flips isPending back, resetting the button.
+const BOT_COMMAND_TIMEOUT_MS = 60_000;
+
 /**
  * Hook for toggling bot status (start/pause/stop)
  * Implements optimistic updates with rollback on error
@@ -222,7 +232,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
       try {
         const result = await client.request<{
           changeStatus: ReturnResult<{ _id: string; status: string }>;
-        }>(mutation, variables);
+        }>(mutation, variables, { timeoutMs: BOT_COMMAND_TIMEOUT_MS });
         if (result.changeStatus.status !== 'OK') {
           throw new Error(
             result.changeStatus.reason || 'Failed to change bot status'
@@ -357,7 +367,7 @@ export function useBotRestart() {
       const { query, variables } = botQueries.restartBot({ id: `${id}`, type });
       const result = await client.request<{
         restartBot: ReturnResult<{ _id?: string; status?: string }>;
-      }>(query, variables);
+      }>(query, variables, { timeoutMs: BOT_COMMAND_TIMEOUT_MS });
 
       if (result.restartBot.status !== 'OK') {
         throw new Error(result.restartBot.reason || 'Failed to restart bot');
@@ -1108,7 +1118,7 @@ export function useBotDelete() {
 
       const result = await client.request<{
         deleteBot: ReturnResult<{ id: string }>;
-      }>(mutation, variables);
+      }>(mutation, variables, { timeoutMs: BOT_COMMAND_TIMEOUT_MS });
 
       if (result.deleteBot.status !== 'OK') {
         throw new Error(result.deleteBot.reason || 'Failed to delete bot');
