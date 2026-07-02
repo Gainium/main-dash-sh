@@ -174,11 +174,29 @@ export interface AdminFeedProbe {
   liveCount: number;
 }
 
+export interface AdminFeedConnector {
+  service: string;
+  running: boolean;
+  /** raw PRICEROLE (candle | all | ticker | unset) */
+  role: string;
+  /** produces the `trade@` ticker feed that paper/live fills consume */
+  producesTicker: boolean;
+  /** produces the `*Candle` streams (charts / indicators) */
+  producesCandle: boolean;
+  exchanges: string[];
+}
+
 export interface AdminDiagnostics {
   ts: number;
   services: AdminServiceHealth[];
   redis: { ok: boolean; latencyMs?: number; error?: string };
   feeds: AdminFeedProbe;
+  // Present on admin-sh >= 1.3.0; optional so older backends degrade cleanly.
+  feedConnectors?: AdminFeedConnector[];
+  /** any running connector produces the ticker feed (paper/live fills need it) */
+  tickerRoleRunning?: boolean;
+  /** exchanges with no candle producer — need a ticker/all-role connector */
+  tickerOnlyExchanges?: string[];
 }
 
 // ---------------------------------------------------------------------

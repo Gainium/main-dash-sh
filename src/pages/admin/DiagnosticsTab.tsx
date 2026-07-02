@@ -111,6 +111,11 @@ export function DiagnosticsTab() {
     (s) => !s.up || s.health === 'unhealthy'
   );
   const feeds = data.feeds;
+  const connectors = data.feedConnectors ?? [];
+  // Explicit false (not undefined) means an admin-sh >= 1.3.0 confirmed no
+  // ticker-role connector is running — the config cause of "no ticks".
+  const tickerMissing = data.tickerRoleRunning === false;
+  const tickerOnly = new Set(data.tickerOnlyExchanges ?? []);
 
   return (
     <div className="space-y-md">
@@ -134,6 +139,39 @@ export function DiagnosticsTab() {
           )}
         </Button>
       </div>
+
+      {/* Root config cause: no connector is producing the ticker feed that
+          paper/live fills consume. This is the 4872 condition. */}
+      {tickerMissing ? (
+        <Card compact className="p-md border-destructive/40">
+          <div className="flex items-start gap-sm">
+            <AlertTriangle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <div className="font-semibold text-sm">
+                No price connector is running the ticker feed
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Every running price connector is in a candle-only role, so the{' '}
+                <span className="font-mono">trade@</span> ticker feed that
+                paper and live order-filling depend on is never produced —
+                bots won't place orders. Set the price connector to the{' '}
+                <span className="font-mono">all</span> role (it produces both
+                candle streams and the ticker feed) and recreate it.
+                {tickerOnly.size > 0 ? (
+                  <>
+                    {' '}
+                    Ticker-only exchanges (
+                    <span className="font-mono">
+                      {[...tickerOnly].join(', ')}
+                    </span>
+                    ) produce nothing at all without it.
+                  </>
+                ) : null}
+              </p>
+            </div>
+          </div>
+        </Card>
+      ) : null}
 
       {/* Headline: enabled exchanges with no live feed — the "bot not
           trading because prices aren't flowing" smoking gun. */}
@@ -210,6 +248,54 @@ export function DiagnosticsTab() {
           )}
         </Card>
       </div>
+
+      {/* Price feed connectors + their role (candle vs ticker). Surfaces the
+          config that decides whether the ticker feed exists at all. */}
+      {connectors.length > 0 ? (
+        <section className="space-y-sm">
+          <header className="flex items-baseline gap-2">
+            <h2 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Price feed connectors
+            </h2>
+          </header>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
+            {connectors.map((c) => (
+              <Card key={c.service} compact className="px-md py-sm">
+                <div className="flex items-center gap-md">
+                  <div className="flex-1 min-w-0 space-y-0.5">
+                    <div className="flex items-center gap-sm flex-wrap">
+                      <span className="font-semibold text-sm font-mono">
+                        {c.service}
+                      </span>
+                      <Badge
+                        variant={c.running ? 'secondary' : 'destructive'}
+                        className="text-[10px]"
+                      >
+                        {c.running ? 'running' : 'stopped'}
+                      </Badge>
+                      <Badge variant="outline" className="text-[10px]">
+                        role: {c.role}
+                      </Badge>
+                    </div>
+                    <div className="text-xs text-muted-foreground font-mono truncate">
+                      ticker {c.producesTicker ? '✓' : '✗'} · candle{' '}
+                      {c.producesCandle ? '✓' : '✗'}
+                      {c.exchanges.length
+                        ? ` · ${c.exchanges.length} exchange${c.exchanges.length === 1 ? '' : 's'}`
+                        : ''}
+                    </div>
+                  </div>
+                  {c.running && c.producesTicker ? (
+                    <Radio className="w-4 h-4 text-primary shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-4 h-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+              </Card>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       {/* Per-exchange feed liveness. */}
       <section className="space-y-sm">
