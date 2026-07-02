@@ -99,9 +99,18 @@ const CURATED_ASSET_ICON: Record<string, string> = {
   DXY: '/images/fiat/usd.svg',
   // commodity oil aliases → shared glyph
   CL: '/images/commodity/OIL.svg',
+  BZ: '/images/commodity/OIL.svg', // Brent crude (Binance `BZUSDT`)
   BRENTOIL: '/images/commodity/OIL.svg',
   WTI: '/images/commodity/OIL.svg',
   BRENT: '/images/commodity/OIL.svg',
+  // precious-metal tickers → the metal glyphs we already ship. Binance
+  // classifies these as `commodity` and uses the XAU/XAG/XPT/XPD symbols, so
+  // map them onto the named badges (GOLD/SILVER/PLATINUM/PALLADIUM.svg) rather
+  // than letting them fall to the generic commodity glyph.
+  XAU: '/images/commodity/GOLD.svg',
+  XAG: '/images/commodity/SILVER.svg',
+  XPT: '/images/commodity/PLATINUM.svg',
+  XPD: '/images/commodity/PALLADIUM.svg',
 };
 
 // Generic per-class glyph so an unmapped non-crypto symbol still shows a class

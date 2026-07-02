@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.25.5] - 2026-07-02
+
+### Fixed
+
+- Coin icons: map Binance's precious-metal commodity tickers (`XAU`/`XAG`/`XPT`/`XPD`) and Brent (`BZ`) onto the shipped metal/oil glyphs instead of the generic commodity badge, so stock/commodity perps show a proper icon.
+
 ## [2.25.4] - 2026-07-02
 
 ### Fixed
