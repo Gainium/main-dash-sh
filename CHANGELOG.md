@@ -11,6 +11,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Grid **Start/Update bot** confirmation dialog: free balances and required amounts are now grouped into per-asset cards with aligned label/value rows, so "what you have" vs "what's needed" reads clearly instead of stacked prose.
 - Self-hosted **Admin** page no longer shifts horizontally when switching between tabs — the main content scroll area now reserves a stable scrollbar gutter, so tall tabs (Services, Updates) and short tabs (Diagnostics, Exchanges) stay aligned.
+- Opening or refreshing a **paper bot's** detail/edit page (grid, combo, DCA) no longer flips it to Live and shows "Unknown exchange" when your account default is Live — the page now stays in the bot's own paper/live mode.
+- Opening a bot that doesn't exist in your paper **or** live account now shows a clear "Bot not found" message with a way back to the list, instead of a broken form with "Unknown exchange".
 
 ## [2.25.2] - 2026-07-02
 
