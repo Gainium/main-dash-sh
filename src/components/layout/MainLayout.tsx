@@ -293,6 +293,11 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
               />
             </div>
 
+            {/* Cloud-only scheduled-maintenance warning, inside the content
+                column so it inherits the panel gutter + spacing. Sh renders
+                nothing (a self-hosted operator maintains their own box). */}
+            <Slot name="layout.maintenanceBanner" />
+
             {/* Page content with mobile bottom navigation padding and standardized spacing */}
             <main
               className={`transition-all duration-300 ease-in-out pb-20 md:pb-0 ${fullyScrollable ? 'shrink-0 flex flex-col' : 'shrink-0 md:flex-1 md:min-h-0 flex flex-col'}`}

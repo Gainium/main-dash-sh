@@ -131,6 +131,12 @@ export interface SlotPropsMap {
    *  the page content. */
   'layout.pendingDeleteBanner': Record<string, unknown>;
 
+  /** Scheduled-maintenance warning banner. Cloud only — a self-hosted
+   *  operator is their own platform operator and has no one scheduling
+   *  maintenance for them, so sh renders nothing. Mounted once in
+   *  MainLayout above the page content. */
+  'layout.maintenanceBanner': Record<string, unknown>;
+
   /** Detached Max chat panel. Cloud's filler renders a floating
    *  panel (desktop) / bottom sheet (mobile) that hosts the real
    *  ChatCore plus the first-run onboarding walkthrough overlays.

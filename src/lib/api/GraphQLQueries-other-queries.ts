@@ -221,7 +221,7 @@ export const otherQueries = {
                             data {
                               scheduledDate
                               title
-                              textf
+                              text
                             }
                         }
                   }`;
