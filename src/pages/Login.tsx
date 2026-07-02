@@ -2,8 +2,6 @@ import { GoogleLoginButton } from '@/components/auth/GoogleLoginButton';
 import PasskeyLoginButton from '@/components/auth/PasskeyLoginButton';
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist';
 import TwoFactorAuth from '@/components/auth/TwoFactorAuth';
-import { useRequestMagicLink } from '@/hooks/useMagicLink';
-import { useRequestPasswordReset } from '@/hooks/usePasswordReset';
 import { LogoLockup } from '@/components/common/LogoLockup';
 import LoggerDrawer from '@/components/dev/LoggerDrawer';
 import { Button } from '@/components/ui/button';
@@ -13,6 +11,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip } from '@/components/ui/tooltip';
 import { IS_CLOUD } from '@/config/mode';
+import { useRequestMagicLink } from '@/hooks/useMagicLink';
+import { useRequestPasswordReset } from '@/hooks/usePasswordReset';
 import { useAuthCapabilities } from '@/lib/auth';
 import { RealAuthService } from '@/lib/realAuthService';
 import {
@@ -392,7 +392,7 @@ const Login: React.FC = () => {
                           <span className="text-muted-foreground font-normal">
                             (generate at{' '}
                             <a
-                              href="https://app.gainium.io/settings"
+                              href="https://app.gainium.io/settings/license-key"
                               target="_blank"
                               rel="noreferrer"
                               className="text-primary hover:underline"
