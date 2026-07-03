@@ -1,6 +1,6 @@
 import { TabParamsCleaner } from '@/components/ui/tabs';
 import logger from '@/lib/loggerInstance';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { Slot } from '@/lib/extensions';
 import { useSyncInitializer } from '@/lib/sync';
@@ -372,9 +372,9 @@ const DemoModePill: React.FC = () => {
   const { isDemoMode } = usePaperContext();
   const navigate = useNavigate();
 
-  const handleExit = () => {
+  const handleExit = useCallback(() => {
     navigate('/add-exchange', { replace: true });
-  };
+  }, [navigate]);
 
   return (
     <PromptPill

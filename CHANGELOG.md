@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.26.4] - 2026-07-03
+
+### Fixed
+
+- Deal chart: the trade overlay now dedupes markers to one per price level per bar and merges any that would overlap on screen at the current zoom, so high-frequency (tight-grid) deals stay responsive without dropping any traded level. Builds on the visible-range filtering from 2.26.3.
+- Reduced needless re-renders of the demo-mode prompt pill on every live update.
+
 ## [2.26.3] - 2026-07-03
 
 ### Fixed

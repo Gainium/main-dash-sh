@@ -534,6 +534,9 @@ const EnhancedCard = React.memo(
         // TP exists only once a position is open (a buy has filled).
         const tp =
           tpPct !== null && qty > 0 ? (cost / qty) * scale * (1 + tpPct) : null;
+        // One marker per candle per side (i.e. per level-per-bar already, since a
+        // candle carries a single price): drawing every candle's fill is the
+        // accurate representation and never drops a bar.
         return {
           ...p,
           tp,
