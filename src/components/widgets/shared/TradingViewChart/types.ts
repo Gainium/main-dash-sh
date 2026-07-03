@@ -132,6 +132,7 @@ export interface TradingViewChartCoreRef {
   clearAllOrderLines: () => void;
   addTransaction: (transaction: unknown) => void;
   clearTransactions: () => void;
+  updateTransactions: (transactions: unknown[] | null) => void;
   updateIndicators: (
     indicators: ChartIndicatorConfig[] | null | undefined
   ) => Promise<void> | void;

@@ -531,7 +531,7 @@ const TradingViewChartComponent = forwardRef<
     if (!coreChartRef.current?.isReady()) return;
 
     if (!showTransactions) {
-      coreChartRef.current.clearTransactions();
+      coreChartRef.current.updateTransactions([]);
       currentStateRef.current.transactions = [];
       logger.debug('Transaction overlay hidden');
       return;
@@ -548,15 +548,11 @@ const TradingViewChartComponent = forwardRef<
       return;
     }
 
-    // Content changed, reapply
-    coreChartRef.current.clearTransactions();
-    const newTransactionsResult = newTransactions
-      .map((t) => {
-        const trId = coreChartRef.current?.addTransaction(t);
-        return trId ? t : null;
-      })
-      .filter((t) => t !== null);
-    currentStateRef.current.transactions = newTransactionsResult;
+    // Content changed — hand the full set to the core, which plots only the
+    // transactions in the visible range (and re-filters on pan/zoom). See
+    // renderTransactions in TradingViewChartCore (bug #9).
+    coreChartRef.current.updateTransactions(newTransactions);
+    currentStateRef.current.transactions = newTransactions;
     // Only log when actually applying, not on skipped updates
     // logger.debug('Transactions re-applied to chart', {
     //   count: newTransactions.length,

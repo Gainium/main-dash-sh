@@ -22,6 +22,7 @@ import { createOrderLine } from './orderLines';
 import {
   addTransactionInternal,
   clearTransactionsInternal,
+  normalizeTimeToSeconds,
 } from './transactions';
 import type {
   ChartInstance,
@@ -31,6 +32,7 @@ import type {
   TradingViewDropdownHandle,
   TradingViewToolbarDropdownConfig,
   TradingViewWidgetInstance,
+  TransactionExtended,
 } from './types';
 import { useInitializeWidget } from './useInitializeWidget';
 
@@ -141,6 +143,7 @@ export const TradingViewChartCore = forwardRef<
     const visibleRangeRef = useRef<{ from: number; to: number } | null>(null);
     const orderDrawingsCacheRef = useRef<ChartOrderDrawing[]>([]);
     const pastEntriesCacheRef = useRef<IndicatorsEvents[]>([]);
+    const transactionsCacheRef = useRef<TransactionExtended[]>([]);
     const avgPriceCacheRef = useRef<AvgPrice[]>([]);
     // Signature of the last avgPrice payload we rendered. Used to skip
     // redundant redraws when the same content arrives multiple times in
@@ -710,10 +713,75 @@ export const TradingViewChartCore = forwardRef<
       [renderAvgPriceLines]
     );
 
+    // Plot the transaction overlay, but only for trades whose time span overlaps
+    // the currently visible range. On a high-frequency deal the full set can be
+    // thousands of trades — each completed trade adds ~4-6 TradingView drawing
+    // shapes, so plotting (and letting TradingView repaint) all of them froze the
+    // chart on every pan and on every live deal update (bug #9 / ClickUp 86ey529bk).
+    // This mirrors the visible-range filtering already used for order drawings and
+    // past entries, and is re-run from reapplyRangeFilteredOverlays on pan/zoom so
+    // the off-screen trades are never materialized as shapes.
+    const renderTransactions = useCallback(() => {
+      if (!widgetRef.current || !isChartReady) return;
+      const chart = getActiveChart();
+      if (!chart) return;
+
+      // Remove the shapes plotted on the previous pass before re-filtering.
+      clearTransactionsInternal(
+        widgetRef.current as ExtendedWidget,
+        isChartReady,
+        transactionEntitiesRef.current
+      );
+
+      const resolvedRange =
+        visibleRangeRef.current ?? chart.getVisibleRange?.() ?? null;
+
+      const inRange = (tr: TransactionExtended): boolean => {
+        if (!resolvedRange) return true;
+        // Completed trades span [entryTime, exitTime] (ms) — keep any whose span
+        // overlaps the viewport. Point transactions are keyed off `time`.
+        if (
+          tr.isCompletedTrade === true &&
+          tr.entryTime != null &&
+          tr.exitTime != null
+        ) {
+          const startSec = tr.entryTime / 1000;
+          const endSec = tr.exitTime / 1000;
+          return endSec >= resolvedRange.from && startSec <= resolvedRange.to;
+        }
+        const t = normalizeTimeToSeconds(Number(tr.time));
+        return t >= resolvedRange.from && t <= resolvedRange.to;
+      };
+
+      const cache = transactionsCacheRef.current ?? [];
+      let visible = resolvedRange ? cache.filter(inRange) : cache.slice();
+
+      // Safety bound: even fully zoomed out we never materialize more than
+      // MAX_PLOTTED trades, keeping the worst-case pan/paint cost bounded. Keep the
+      // most recent ones (highest time), where activity is densest.
+      const MAX_PLOTTED = 400;
+      if (visible.length > MAX_PLOTTED) {
+        visible = visible
+          .slice()
+          .sort((a, b) => Number(a.time) - Number(b.time))
+          .slice(visible.length - MAX_PLOTTED);
+      }
+
+      visible.forEach((t) => {
+        addTransactionInternal(
+          widgetRef.current as ExtendedWidget,
+          isChartReady,
+          t,
+          (id, entities) => transactionEntitiesRef.current.set(id, entities)
+        );
+      });
+    }, [getActiveChart, isChartReady, widgetRef]);
+
     const reapplyRangeFilteredOverlays = useCallback(() => {
       renderOrderDrawings();
       renderPastEntries();
-    }, [renderOrderDrawings, renderPastEntries]);
+      renderTransactions();
+    }, [renderOrderDrawings, renderPastEntries, renderTransactions]);
 
     const handleVisibleRangeChange = useCallback(
       (range?: { from: number; to: number } | null) => {
@@ -1144,6 +1212,12 @@ export const TradingViewChartCore = forwardRef<
             isChartReady,
             transactionEntitiesRef.current
           );
+        },
+        updateTransactions: (transactions?: unknown[] | null) => {
+          transactionsCacheRef.current = Array.isArray(transactions)
+            ? (transactions as TransactionExtended[])
+            : [];
+          renderTransactions();
         },
         updateIndicators: async (indicators?: ChartIndicatorsConfig | null) => {
           if (!widgetRef.current || !isChartReady) return;
@@ -1696,6 +1770,7 @@ export const TradingViewChartCore = forwardRef<
       isChartReady,
       removePositionOverlay,
       reapplyRangeFilteredOverlays,
+      renderTransactions,
       setAvgPriceLines,
       setOrderDrawings,
       setPastEntries,

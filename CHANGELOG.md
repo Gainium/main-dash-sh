@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.26.3] - 2026-07-03
+
+### Fixed
+
+- Deal chart: the trade overlay now draws only the transactions in the visible time range and re-filters as you pan/zoom, instead of drawing every trade at once. High-frequency deals with thousands of trades previously froze the chart and made panning progressively unresponsive; plotting is now bounded and scales with the visible window rather than the deal size.
+
 ## [2.26.2] - 2026-07-03
 
 ### Changed

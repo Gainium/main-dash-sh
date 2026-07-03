@@ -6,7 +6,7 @@ import type {
   TransactionExtended,
 } from './types';
 
-function normalizeTimeToSeconds(time: number): number {
+export function normalizeTimeToSeconds(time: number): number {
   if (time >= 1e15) return Math.floor(time / 1_000_000); // microseconds -> s
   if (time >= 1e12) return Math.floor(time / 1_000); // ms -> s
   return Math.floor(time); // seconds
