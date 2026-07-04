@@ -319,6 +319,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           icon: '',
           color: item.color,
           assetCategory,
+          // Preserve the canonical flag (false is meaningful; undefined =>
+          // canonical) so the picker's "Canonical only" toggle can filter.
+          isCanonical: item.isCanonical,
           // Forward the venue so the modal's CoinIcon can venue-gate
           // tokenized-stock ticker normalization (Bitget reality / Bybit spot).
           ...(item.exchange ? { exchange: item.exchange } : {}),

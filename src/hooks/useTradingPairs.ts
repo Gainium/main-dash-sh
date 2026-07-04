@@ -49,6 +49,11 @@ export interface TradingPair {
   // Normalized asset class from the backend (default 'crypto'). Used for icon
   // resolution and the pair-picker asset-class filter.
   assetCategory?: AssetClass;
+  // Whether the market is a canonical / officially-curated listing (HL spot
+  // only: HL-canonical or Unit-bridged = true; permissionless HIP-1 = false).
+  // Absent for every other exchange => treated as canonical. Drives the
+  // pair-picker "Canonical only" toggle.
+  isCanonical?: boolean;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // scopes an account's pairs by matching this to the account's okxSource.

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.28.0] - 2026-07-04
+
+### Added
+
+- Pair picker: "Canonical only" toggle (on by default) with a risk tooltip. Hides permissionless listings (Hyperliquid HIP-1 spot tokens that can impersonate real tickers or carry liquidity/rug risk) while keeping HL-native and Unit-bridged assets; toggle off to show and trade them. Only appears when the list contains non-canonical pairs, and never blocks selection. Applies to every pair-picking surface (DCA, Grid, Combo, Terminal).
+
 ## [2.27.2] - 2026-07-04
 
 ### Fixed

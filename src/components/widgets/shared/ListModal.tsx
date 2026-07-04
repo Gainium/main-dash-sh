@@ -13,6 +13,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../../ui/select';
+import { Switch } from '../../ui/switch';
+import { Tooltip, InfoIcon } from '../../ui/tooltip';
 import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import ExchangeIcon from './ExchangeIcon';
@@ -35,6 +37,9 @@ interface ListItem {
   // Normalized asset class (crypto/stock/etf/commodity/metal/forex/index),
   // used by the optional asset-class filter. Missing => treated as crypto.
   assetCategory?: AssetClass;
+  // Canonical/curated-listing flag (HL spot only; missing elsewhere =>
+  // canonical). Drives the "Canonical only" toggle. `false` = permissionless.
+  isCanonical?: boolean;
   // Base pair's exchange (ExchangeEnum value). Forwarded to CoinIcon to
   // venue-gate tokenized-stock ticker normalization. Only relevant for stock/etf.
   exchange?: string;
@@ -567,7 +572,15 @@ export const ListModal: React.FC<ListModalProps> = ({
   onAssetClassChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  // "Canonical only" filter — ON by default. Hides permissionless
+  // (non-canonical) listings, currently Hyperliquid HIP-1 spot tokens. Only
+  // relevant when the list actually contains non-canonical items.
+  const [canonicalOnly, setCanonicalOnly] = useState(true);
   const deferredItems = useDeferredValue(items);
+  const hasNonCanonical = useMemo(
+    () => deferredItems.some((i) => i.isCanonical === false),
+    [deferredItems]
+  );
   const assetChips = useMemo<AssetClass[]>(
     () =>
       assetClassOptions?.length
@@ -590,15 +603,25 @@ export const ListModal: React.FC<ListModalProps> = ({
       return [] as ListItem[];
     }
 
+    // "Canonical only" (default on): drop permissionless listings
+    // (isCanonical === false). The ALL header + items with no flag (every
+    // non-HL exchange => canonical) are always kept.
+    const canonicalFiltered =
+      canonicalOnly && hasNonCanonical
+        ? deferredItems.filter(
+            (item) => item.symbol === 'ALL' || item.isCanonical !== false
+          )
+        : deferredItems;
+
     const classFiltered =
       showAssetFilter && selectedAssetClass !== 'all'
-        ? deferredItems.filter(
+        ? canonicalFiltered.filter(
             (item) =>
               // Keep the pinned ALL header; match class (missing => crypto).
               item.symbol === 'ALL' ||
               (item.assetCategory ?? 'crypto') === selectedAssetClass
           )
-        : deferredItems;
+        : canonicalFiltered;
 
     if (!searchTerm.trim()) return classFiltered;
 
@@ -624,6 +647,8 @@ export const ListModal: React.FC<ListModalProps> = ({
     searchTerm,
     showAssetFilter,
     selectedAssetClass,
+    canonicalOnly,
+    hasNonCanonical,
   ]);
 
   // Apply the active sort (and optional favorites-first float). The `ALL`
@@ -742,6 +767,26 @@ export const ListModal: React.FC<ListModalProps> = ({
                   );
                 }
               )}
+            </div>
+          )}
+
+          {/* Canonical-only toggle — only when the list has permissionless
+              listings (Hyperliquid HIP-1 spot). ON by default; filters them out
+              but never blocks selection (toggle off to trade them). */}
+          {hasNonCanonical && (
+            <div className="flex items-center gap-2">
+              <Switch
+                checked={canonicalOnly}
+                onCheckedChange={setCanonicalOnly}
+                aria-label="Canonical only"
+              />
+              <span className="text-sm text-foreground">Canonical only</span>
+              <Tooltip
+                side="bottom"
+                tooltip="Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them."
+              >
+                <InfoIcon />
+              </Tooltip>
             </div>
           )}
 

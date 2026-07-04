@@ -180,6 +180,8 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           // exchange) so the picker's Stocks/Crypto filter is exchange-correct
           // and doesn't inherit a same-named symbol's class from another venue.
           assetCategory: pair.assetCategory,
+          // Canonical flag → drives the picker's "Canonical only" toggle.
+          isCanonical: pair.isCanonical,
           color: 'var(--color-primary)',
         });
 

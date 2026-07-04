@@ -4958,6 +4958,9 @@ export interface CoinListItem {
   // OKX/Hyperliquid, so it must NOT be classified from a cross-exchange map.
   // Missing (coins mode / helpers) => treated as crypto.
   assetCategory?: AssetClass;
+  // Canonical/curated-listing flag (HL spot only; missing elsewhere =>
+  // canonical). Drives the picker's "Canonical only" toggle.
+  isCanonical?: boolean;
   // Optional market-data enrichment (cloud only — populated from the
   // screener + curated-presets via the pairMarketData provider). All
   // optional so sh and coins-mode are unaffected.

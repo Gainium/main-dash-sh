@@ -561,6 +561,7 @@ export const otherQueries = {
                         priceAssetPrecision
                         crossAvailable
                         assetCategory
+                        isCanonical
                         source`
                         }
                     }
