@@ -6,6 +6,7 @@ import {
 } from '@/stores/tradingPairsDataStore';
 import { useUIStore } from '@/stores/uiStore';
 import type { ExchangeEnum } from '@/types';
+import type { OKXSource } from '@/types/exchange.types';
 import { useCallback, useEffect, useMemo } from 'react';
 import { useGraphQL } from './useGraphQL';
 
@@ -48,6 +49,10 @@ export interface TradingPair {
   // Normalized asset class from the backend (default 'crypto'). Used for icon
   // resolution and the pair-picker asset-class filter.
   assetCategory?: AssetClass;
+  // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
+  // spot universe; unset for the global feed + all other exchanges. The bot form
+  // scopes an account's pairs by matching this to the account's okxSource.
+  source?: OKXSource;
 }
 
 export interface GetAllPairsResponse {
