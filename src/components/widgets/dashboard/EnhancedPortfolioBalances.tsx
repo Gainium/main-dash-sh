@@ -334,6 +334,28 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           }>)
         : undefined;
 
+    // Raw balances can carry exchange-normalized tickers (e.g. Hyperliquid Unit
+    // aliases UBTC->BTC, USDT0->USDT) that differ from the snapshot asset names.
+    // `calculateEnhancedBalances` prices each balance by matching its token
+    // against `prices` (built above from snapshot names) by exact symbol, so an
+    // aliased token the snapshot never had renders at $0.00 even though the
+    // screener knows it (USDC is unaffected — same name everywhere). Add a
+    // screener-derived price for every balance token not already in `prices`.
+    if (balances) {
+      const pricedSymbols = new Set(
+        prices.map((p) => p.symbol.toUpperCase())
+      );
+      for (const b of balances) {
+        const sym = (b.asset || '').toString();
+        if (!sym || pricedSymbols.has(sym.toUpperCase())) continue;
+        const coin = findBestScreenerMatch(sym.toUpperCase(), screenerMap);
+        if (coin?.currentPrice != null) {
+          prices.push({ symbol: sym, price: coin.currentPrice });
+          pricedSymbols.add(sym.toUpperCase());
+        }
+      }
+    }
+
     // Calculate enhanced balances with screener prices and coin metadata.
     // Pass raw balances when available so the calculation uses real free/used splits.
     return calculateEnhancedBalances(

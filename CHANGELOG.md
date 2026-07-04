@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.2] - 2026-07-04
+
+### Fixed
+
+- Portfolio balances: price balance tokens whose exchange-normalized ticker differs from the snapshot asset name (e.g. Hyperliquid Unit aliases `UBTC`→`BTC`, `USDT0`→`USDT`). These previously rendered at `$0.00` in the enhanced balances table because the price map was keyed only by snapshot names; balance tokens are now also priced from the screener. USDC was unaffected (same name everywhere).
+
 ## [2.27.1] - 2026-07-04
 
 ### Fixed
