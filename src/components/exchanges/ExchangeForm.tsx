@@ -1614,6 +1614,23 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
+                  {/* OKX Europe (my.okx.com) has a restricted product set that
+                      differs from the global venue — surface it so EU users aren't
+                      confused when the pair list looks different. Informational
+                      only; it doesn't block adding the account. */}
+                  {exchangeConfig.name === 'okx' &&
+                    formData.okxSource === OKXSource.my && (
+                      <div className="flex items-start gap-2 rounded-md bg-surface-2 p-sm text-xs text-muted-foreground">
+                        <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
+                        <span>
+                          OKX Europe offers a restricted product set. Through
+                          Gainium you can currently trade{' '}
+                          <strong>USDC/EUR spot</strong> pairs on EU accounts —
+                          USDT pairs aren&apos;t available, and X-Perp futures
+                          aren&apos;t supported yet.
+                        </span>
+                      </div>
+                    )}
                 </div>
               )}
 

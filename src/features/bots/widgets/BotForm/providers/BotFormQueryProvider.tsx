@@ -22,6 +22,7 @@ import {
 import { type TradingPair } from '@/hooks/useTradingPairs';
 import { useUserFee } from '@/hooks/useUserFee';
 import type { Asset, CoinListItem, ExchangeInUser } from '@/types';
+import { OKXSource } from '@/types/exchange.types';
 
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
@@ -141,7 +142,14 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
         return;
       }
 
+      const accountIsOkxEu = currentExchange?.okxSource === OKXSource.my;
       pairs.forEach((pair) => {
+        // OKX Europe (okxSource=my) accounts trade a distinct USDC/EUR universe
+        // tagged source='my'; every other account — including global OKX — uses
+        // the source-less global list. Keep the two from leaking into each other.
+        if (accountIsOkxEu !== (pair.source === OKXSource.my)) {
+          return;
+        }
         const base = pair.baseAsset?.name?.toUpperCase?.() ?? '';
         const quote = pair.quoteAsset?.name?.toUpperCase?.() ?? '';
 

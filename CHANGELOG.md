@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.27.0] - 2026-07-04
+
+### Added
+
+- OKX Europe support: adding an OKX account with the **my.okx.com** origin now shows a notice that EU accounts trade a restricted product set (USDC/EUR spot; USDT unavailable), and the bot-form pair selector scopes to that account's real universe — EU accounts see only their USDC/EUR pairs, other OKX accounts keep the global list.
+
 ## [2.26.4] - 2026-07-03
 
 ### Fixed

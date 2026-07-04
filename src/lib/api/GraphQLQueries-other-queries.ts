@@ -560,7 +560,8 @@ export const otherQueries = {
                         }
                         priceAssetPrecision
                         crossAvailable
-                        assetCategory`
+                        assetCategory
+                        source`
                         }
                     }
                 }
