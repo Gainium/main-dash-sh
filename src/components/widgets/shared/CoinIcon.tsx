@@ -49,7 +49,7 @@ const normalizeStockTicker = (symbol: string, exchange?: string): string => {
   const reality = s.match(/^r([A-Za-z][A-Za-z0-9]+)$/); // rTSLA → TSLA
   if (reality) return reality[1].toUpperCase();
   if (/^[A-Za-z0-9]+on$/.test(s)) return s.slice(0, -2).toUpperCase(); // AAPLon → AAPL
-  if (/^[A-Za-z0-9]+x$/.test(s)) return s.slice(0, -1).toUpperCase(); // AAPLx → AAPL
+  if (/^[A-Za-z0-9.]+x$/.test(s)) return s.slice(0, -1).toUpperCase(); // AAPLx → AAPL, BRK.Bx → BRK.B
   const upper = s.toUpperCase();
   // Normalize the venue: lower-case and drop the `paper` prefix so paper twins
   // (paperBitget / paperBybit / paperBybitLinear …) gate like their real
@@ -63,7 +63,7 @@ const normalizeStockTicker = (symbol: string, exchange?: string): string => {
   // bybitLinear) and Kraken (any market; Kraken has no clean equity perps).
   if (
     (venue === 'bybit' || venue.startsWith('kraken')) &&
-    /^[A-Z0-9]+X$/.test(upper)
+    /^[A-Z0-9.]+X$/.test(upper)
   ) {
     return upper.slice(0, -1); // xstock AAPLX → AAPL
   }

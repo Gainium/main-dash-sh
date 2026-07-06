@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.28.3] - 2026-07-06
+
+### Fixed
+
+- Tokenized-stock (xStocks) icons: `normalizeStockTicker` now strips the `x`/`X` wrapper from dotted tickers (`BRK.Bx` → `BRK.B`) so the stock logo resolves instead of a letter monogram. Kept in lock-step with the main-app backend copy.
+
+
 ## [2.28.2] - 2026-07-06
 
 ### Fixed
