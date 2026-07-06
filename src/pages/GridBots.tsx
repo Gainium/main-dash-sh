@@ -1585,10 +1585,6 @@ const GridBots: React.FC = () => {
                   </div>
                 ) : (
                 <DataTable
-                  key={`grid-table-${filteredData.length}-${filteredData.reduce(
-                    (sum, bot) => sum + (bot.totalProfitUsd ?? 0),
-                    0
-                  )}`}
                   tableId="grid-bots"
                   columns={columns}
                   data={orderedFilteredData}

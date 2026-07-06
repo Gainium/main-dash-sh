@@ -1901,10 +1901,6 @@ const ComboBots: React.FC = () => {
                       </div>
                     ) : (
                     <DataTable
-                      key={`combo-table-${orderedFilteredData.length}-${orderedFilteredData.reduce(
-                        (sum, bot) => sum + (bot.totalProfitUsd ?? 0),
-                        0
-                      )}`}
                       tableId="combo-bots"
                       columns={columns}
                       data={orderedFilteredData}
