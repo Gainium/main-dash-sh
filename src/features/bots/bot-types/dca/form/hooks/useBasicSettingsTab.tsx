@@ -346,13 +346,18 @@ export const useBasicSettingsTab = (
     if (!pair) {
       return ['?', 'USDT'] as const;
     }
-    if (pair.includes('/')) {
-      const [base, quote] = pair.split('/');
-      return [base || '?', quote || 'USDT'] as const;
+    // Pairs may be stored slash- OR dash-separated (e.g. "BTC/USDT", and
+    // "PGx-USD" for Kraken xStocks). Split on either separator so a dash-pair
+    // base isn't left with a trailing "-" — that stray dash broke the
+    // live-pairs index lookup (→ assetClass lost → stock icon fell back) and
+    // the "BASE/QUOTE" label (rendered "PGX-/USD"). Mirrors GRID's splitPairParts.
+    const parts = pair.split(/[-/]/).filter(Boolean);
+    if (parts.length === 2) {
+      return [parts[0] || '?', parts[1] || 'USDT'] as const;
     }
 
     const normalized = pair.toUpperCase();
-    const knownQuotes = ['USDT', 'USDC', 'BTC', 'ETH', 'BNB', 'BUSD'];
+    const knownQuotes = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
     for (const quote of knownQuotes) {
       if (normalized.endsWith(quote)) {
         return [
