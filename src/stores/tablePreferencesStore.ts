@@ -23,6 +23,11 @@ export interface TablePreferences {
   viewMode?: 'table' | 'cards';
   sorting?: SortingState;
   columnFilters?: ColumnFiltersState;
+  /** Free-text search box value. Persisted alongside columnFilters so the
+   *  search survives remounts (paper/live switch, live-data skeleton flips,
+   *  navigating away and back) natively — without relying on the debounced
+   *  URL sync. */
+  globalFilter?: string;
   /** Bag for widget-specific state that lives next to a table but isn't a
    *  built-in tanstack-table feature (e.g. an "Open vs Closed" segment toggle
    *  rendered above the table, a custom non-column filter dropdown, etc).
@@ -59,6 +64,7 @@ interface TablePreferencesState {
     tableId: string,
     columnFilters: ColumnFiltersState
   ) => void;
+  setGlobalFilter: (tableId: string, globalFilter: string) => void;
   setCustomState: (tableId: string, key: string, value: unknown) => void;
   getPreferences: (tableId: string) => TablePreferences | undefined;
   resetPreferences: (tableId: string) => void;
@@ -182,6 +188,18 @@ export const useTablePreferencesStore = create<TablePreferencesState>()(
         }));
       },
 
+      setGlobalFilter: (tableId: string, globalFilter: string) => {
+        set((state) => ({
+          preferences: {
+            ...state.preferences,
+            [tableId]: {
+              ...state.preferences[tableId],
+              globalFilter,
+            },
+          },
+        }));
+      },
+
       setCustomState: (tableId: string, key: string, value: unknown) => {
         set((state) => ({
           preferences: {
@@ -298,6 +316,7 @@ export const useTablePreferences = (
     setViewMode,
     setSorting,
     setColumnFilters,
+    setGlobalFilter,
     resetPreferences,
   } = useTablePreferencesStore();
 
@@ -371,6 +390,7 @@ export const useTablePreferences = (
       viewMode: tablePreferences?.viewMode ?? defViewMode,
       sorting: tablePreferences?.sorting ?? defSorting,
       columnFilters: tablePreferences?.columnFilters ?? defFilters,
+      globalFilter: tablePreferences?.globalFilter ?? '',
       setColumnOrder: (order: string[]) => setColumnOrder(tableId, order),
       setColumnVisibility: (visibility: VisibilityState) =>
         setColumnVisibility(tableId, visibility),
@@ -384,6 +404,7 @@ export const useTablePreferences = (
       setSorting: (sorting: SortingState) => setSorting(tableId, sorting),
       setColumnFilters: (filters: ColumnFiltersState) =>
         setColumnFilters(tableId, filters),
+      setGlobalFilter: (value: string) => setGlobalFilter(tableId, value),
       resetPreferences: () => resetPreferences(tableId),
     }),
     [
@@ -404,6 +425,8 @@ export const useTablePreferences = (
       setViewMode,
       setSorting,
       setColumnFilters,
+      setGlobalFilter,
+      tablePreferences?.globalFilter,
       tablePreferences?.columnOrder,
       tablePreferences?.columnVisibility,
       tablePreferences?.pagination,

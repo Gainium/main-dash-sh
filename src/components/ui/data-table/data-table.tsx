@@ -2014,6 +2014,7 @@ function DataTableComponent<TData, TValue>(
     viewMode: persistedViewMode,
     sorting: persistedSorting,
     columnFilters: persistedColumnFilters,
+    globalFilter: persistedGlobalFilter,
     setColumnOrder,
     setColumnVisibility,
     setColumnWidths,
@@ -2022,6 +2023,7 @@ function DataTableComponent<TData, TValue>(
     setViewMode: setPersistedViewMode,
     setSorting: setPersistedSorting,
     setColumnFilters: setPersistedColumnFilters,
+    setGlobalFilter: setPersistedGlobalFilter,
     resetPreferences,
   } = useTablePreferences(
     tableId,
@@ -2078,7 +2080,20 @@ function DataTableComponent<TData, TValue>(
     [columnFilters, setPersistedColumnFilters]
   );
 
-  const [globalFilter, setGlobalFilter] = useState('');
+  // Global (search) filter is persisted per-tableId in the same store as
+  // columnFilters, so the search box survives remounts (paper/live switch,
+  // live-data skeleton flips, navigating away and back) without depending on
+  // the debounced URL sync. Setter accepts a value or an updater function so
+  // it stays drop-in compatible with react-table's onGlobalFilterChange.
+  const globalFilter = persistedGlobalFilter;
+  const setGlobalFilter = useCallback(
+    (updater: string | ((prev: string) => string)) => {
+      const next =
+        typeof updater === 'function' ? updater(persistedGlobalFilter) : updater;
+      setPersistedGlobalFilter(next);
+    },
+    [persistedGlobalFilter, setPersistedGlobalFilter]
+  );
   const [searchExpanded, setSearchExpanded] = useState(false);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const [toolbarRowRef, toolbarRowWidth] = useContainerWidth();
