@@ -172,6 +172,9 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           name: `${base}/${quote}`,
           baseAsset: base,
           quoteAsset: quote,
+          // Human-readable base-asset name for display alongside the ticker
+          // (falls back to the ticker in the UI when unresolved).
+          baseDisplayName: pair.baseAsset?.displayName,
           // Carry the venue so CoinIcon can normalize tokenized-stock tickers
           // (the base is upper-cased here, so the lower-case wrapper hint is
           // gone — exchange is the only signal left to strip RAAPL/AAPLX).

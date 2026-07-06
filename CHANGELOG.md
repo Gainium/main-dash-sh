@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.29.0] - 2026-07-06
+
+### Added
+
+- Human-readable asset names alongside tickers. The pair picker now shows the base asset's name under the ticker (e.g. "Apple Inc. · USD", "Bitcoin · USDT"), and bot/deal cards reveal it on hover — for all exchanges and asset classes (crypto + tokenized stocks/ETFs). Names come from the new `baseAsset.displayName` field on pairs (`getAllPairs`); the UI falls back to the ticker when a name isn't resolved yet.
+
 ## [2.28.3] - 2026-07-06
 
 ### Fixed

@@ -13,6 +13,12 @@ export interface ResolvedPairAsset {
    * to venue-gate tokenized-stock ticker normalization.
    */
   exchange?: string;
+  /**
+   * Human-readable name of the BASE asset (e.g. "Apple Inc.", "Bitcoin"),
+   * resolved backend-side. Undefined until resolved; callers fall back to the
+   * ticker. Lets read-only surfaces (cards, headers) show the asset name.
+   */
+  displayName?: string;
 }
 
 /**
@@ -46,7 +52,11 @@ export function useResolvePairAsset(): (
       const pick = (list?: TradingPair[]): ResolvedPairAsset | undefined => {
         const hit = list?.find(matches);
         return hit
-          ? { assetClass: hit.assetCategory, exchange: hit.exchange }
+          ? {
+              assetClass: hit.assetCategory,
+              exchange: hit.exchange,
+              displayName: hit.baseAsset?.displayName,
+            }
           : undefined;
       };
 

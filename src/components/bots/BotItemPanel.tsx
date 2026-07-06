@@ -231,6 +231,7 @@ export const BotItemPanel: React.FC<BotItemPanelProps> = ({
                 symbols={bot.symbols || []}
                 assetClass={stockMeta.assetClass}
                 exchange={stockMeta.exchange}
+                baseName={stockMeta.displayName}
                 maxDisplay={1}
                 iconSize="sm"
                 showText={false}

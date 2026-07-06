@@ -30,6 +30,10 @@ export interface TradingPair {
   exchange: ExchangeEnum;
   baseAsset: {
     name: string;
+    // Human-readable asset name (e.g. "Apple Inc.", "Bitcoin"), resolved
+    // backend-side by the `saveAssetNames` cron. Optional: absent until
+    // resolved; the UI falls back to the ticker (`name`).
+    displayName?: string;
     minAmount: number;
     maxAmount: number;
     step: number;

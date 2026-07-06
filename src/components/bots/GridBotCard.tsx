@@ -302,6 +302,7 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
               pair={bot.pair}
               assetClass={stockMeta.assetClass}
               exchange={stockMeta.exchange}
+              baseName={stockMeta.displayName}
             />
           </div>
           <div className="flex items-center gap-1">

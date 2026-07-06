@@ -328,6 +328,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           ...(item.baseAsset && item.quoteAsset
             ? { baseAsset: item.baseAsset, quoteAsset: item.quoteAsset }
             : {}),
+          // Human-readable base-asset name → shown under the ticker in the
+          // modal's pair rows (falls back to the ticker when unresolved).
+          ...(item.baseDisplayName
+            ? { baseDisplayName: item.baseDisplayName }
+            : {}),
           ...(item.subtitle ? { subtitle: item.subtitle } : {}),
           ...(item.isHelper ? { isHelper: true } : {}),
           // Spread all provider fields (price, marketCap, volume, the

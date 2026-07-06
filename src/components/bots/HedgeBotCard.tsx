@@ -560,6 +560,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
                   symbols={pairLabel ? [pairLabel] : []}
                   assetClass={stockMeta.assetClass}
                   exchange={stockMeta.exchange}
+                  baseName={stockMeta.displayName}
                   maxDisplay={1}
                   iconSize="sm"
                   showText

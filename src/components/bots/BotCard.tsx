@@ -758,6 +758,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                   className="text-sm font-medium text-muted-foreground"
                   assetClass={headerStockMeta.assetClass}
                   exchange={headerStockMeta.exchange}
+                  baseName={headerStockMeta.displayName}
                 />
               </div>
             </div>

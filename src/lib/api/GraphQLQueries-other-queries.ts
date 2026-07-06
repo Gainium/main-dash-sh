@@ -550,6 +550,7 @@ export const otherQueries = {
                         code
                         baseAsset {
                             name
+                            displayName
                             minAmount
                             maxAmount
                             step

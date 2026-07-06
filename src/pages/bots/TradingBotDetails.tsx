@@ -478,6 +478,7 @@ const TradingBotDetails = () => {
                   pair={symbolPair}
                   assetClass={stockMeta.assetClass}
                   exchange={stockMeta.exchange}
+                  baseName={stockMeta.displayName}
                 />
                 <div className="flex flex-col">
                   <h1 className="text-2xl font-bold">

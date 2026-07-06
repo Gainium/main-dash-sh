@@ -43,6 +43,13 @@ export interface CoinPairProps {
   textVariant?: 'symbol' | 'name' | 'both';
   layout?: 'horizontal' | 'vertical' | 'stacked';
   reverseOrder?: boolean;
+  /**
+   * Human-readable name of the BASE asset (e.g. "Apple Inc.", "Bitcoin"),
+   * resolved backend-side (see `useResolvePairAsset`). When set, it's surfaced
+   * as a hover tooltip on the pair so read-only surfaces (bot/deal cards) can
+   * reveal the full name without changing the compact ticker layout. Optional.
+   */
+  baseName?: string;
 }
 
 // Known dash characters (ASCII hyphen and common Unicode dashes/minus)
@@ -69,6 +76,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
   layout = 'stacked',
   reverseOrder = false,
   onPairClick,
+  baseName,
 }) => {
   const [isPopoverOpen, setIsPopoverOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -291,7 +299,10 @@ const CoinPair: React.FC<CoinPairProps> = ({
     if (layout === 'stacked') {
       // Stacked layout: icons overlapped on top, text below, in a chip-like container
       return (
-        <div className="flex flex-col items-center gap-1 px-1 py-1 bg-background rounded-md border border-border/30">
+        <div
+          className="flex flex-col items-center gap-1 px-1 py-1 bg-background rounded-md border border-border/30"
+          title={baseName || undefined}
+        >
           <div className="relative flex items-center">
             <CoinIcon
               symbol={base}
@@ -317,7 +328,10 @@ const CoinPair: React.FC<CoinPairProps> = ({
 
     // Horizontal layout (default) - base to the left, quote behind/right
     return (
-      <div className="flex items-center gap-1 px-1 py-1 bg-background rounded-md border border-border/30">
+      <div
+        className="flex items-center gap-1 px-1 py-1 bg-background rounded-md border border-border/30"
+        title={baseName || undefined}
+      >
         <div className="relative flex items-center">
           <CoinIcon symbol={base} size={sizes.base} isQuote={false} />
           {quote && (
@@ -333,7 +347,7 @@ const CoinPair: React.FC<CoinPairProps> = ({
         )}
       </div>
     );
-  }, [layout, base, quote, sizes, showText, assetClass, exchange]);
+  }, [layout, base, quote, sizes, showText, assetClass, exchange, baseName]);
 
   // Render icons for multi mode - now renders full pairs (BASE/QUOTE) individually
   const renderIconsMulti = () => {
@@ -373,7 +387,8 @@ const CoinPair: React.FC<CoinPairProps> = ({
                       }
                     },
                   }
-                : {})}
+                : // Non-interactive rows surface the base-asset name on hover.
+                  { title: baseName || undefined })}
             >
               {/* Base icon with quote overlapped */}
               <div className="relative flex items-center">

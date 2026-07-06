@@ -31,6 +31,9 @@ interface ListItem {
   quoteIcon?: string;
   baseAsset?: string;
   quoteAsset?: string;
+  // Human-readable base-asset name (e.g. "Apple Inc."), shown under the ticker
+  // in pair rows. Optional: falls back to just the ticker when absent.
+  baseDisplayName?: string;
   // Exchange-specific properties
   isExchange?: boolean;
   isHelper?: boolean;
@@ -390,8 +393,13 @@ const ListModalRow = React.memo<ListModalRowProps>(
                   <div className="text-foreground font-semibold text-sm truncate leading-tight">
                     {item.baseAsset}
                   </div>
+                  {/* Human-readable base-asset name next to the quote ticker
+                      (e.g. "Apple Inc. · USD"); falls back to the quote only
+                      when the name is unresolved. */}
                   <div className="text-muted-foreground text-xs truncate leading-tight">
-                    {item.quoteAsset}
+                    {item.baseDisplayName
+                      ? `${item.baseDisplayName} · ${item.quoteAsset}`
+                      : item.quoteAsset}
                   </div>
                 </>
               ) : (
