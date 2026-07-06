@@ -89,8 +89,16 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
   // Initialize cloud sync (no-op in sh; cloud registers a PouchDB poller).
   useSyncInitializer();
 
-  // User sessions tracking
-  const { startPageVisit, endPageVisit } = useUserSessionsStore();
+  // User sessions tracking. Select the two actions individually rather than
+  // destructuring the whole store — a bare `useUserSessionsStore()` subscribes
+  // MainLayout (which wraps the entire app chrome) to EVERY write to this store
+  // from anywhere (cacheBotMetadata, visits growth, start/endPageVisit itself),
+  // re-rendering the whole tree and, under a redirect/unmount timing race, able
+  // to retrigger the page-visit effect below into a re-entry storm (React #185).
+  // The action refs are stable (fixed by the store creator closure), so this is
+  // a pure best-practice narrowing with zero behavior change to what/when fires.
+  const startPageVisit = useUserSessionsStore((s) => s.startPageVisit);
+  const endPageVisit = useUserSessionsStore((s) => s.endPageVisit);
   const tradingMode = useUIStore((s) => s.tradingMode);
 
   // Track page visits

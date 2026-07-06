@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.28.1] - 2026-07-06
+
+### Fixed
+
+- Recent-items page tracking: narrow `MainLayout`'s subscription to the user-sessions store so the app chrome no longer re-renders on unrelated store writes. This removes the amplifier behind a rare navigation crash (React #185) on bot detail pages reached via a redirect.
+
+### Changed
+
+- Crash instrumentation: add an invocation-storm tripwire around page-visit tracking that files a single non-fatal diagnostic (with the recent navigation trail) if start/end-page-visit ever re-enters abnormally fast, and tune the render-loop tripwire to require a sustained burst across consecutive windows so a normal mount/hydration spike no longer reports. Both honor the existing `gainium:tripwire` kill switch.
+
 ## [2.28.0] - 2026-07-04
 
 ### Added

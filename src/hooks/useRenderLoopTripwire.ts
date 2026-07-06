@@ -28,10 +28,19 @@ import { serializeCrashMeta } from '@/lib/crashBreadcrumbs';
  *                      captured — never full objects.
  */
 
-// >WINDOW_LIMIT renders within WINDOW_MS trips the wire. React's own limit is
-// ~50 nested updates; 25/1s is well inside that so we report before the crash.
+// >WINDOW_LIMIT renders within WINDOW_MS marks a window as "elevated". React's
+// own limit is ~50 nested updates; 25/1s is well inside that so we still report
+// before the crash.
 const WINDOW_MS = 1000;
 const WINDOW_LIMIT = 25;
+// Require the elevated rate to persist across at least this many CONSECUTIVE
+// windows before reporting. A single mount/hydration burst reliably settles
+// within ~1s (one window) — investigation confirmed ResponsiveButtonRow etc.
+// always settle — so a one-off spike no longer trips the wire. A genuine
+// runaway loop keeps blowing past WINDOW_LIMIT window after window, so it still
+// trips almost immediately (a real infinite loop exceeds the limit far faster
+// than one window, so requiring 2 barely delays real-loop detection).
+const CONSECUTIVE_WINDOWS = 2;
 // How many render diffs to keep for the report.
 const HISTORY_LEN = 10;
 
@@ -43,6 +52,9 @@ type ChangedKeys = Array<{ key: string; from: string; to: string }>;
 interface TripwireState {
   windowStart: number;
   count: number;
+  // Number of consecutive closed windows whose render count exceeded
+  // WINDOW_LIMIT. Reset to 0 whenever a window closes under the limit.
+  elevatedWindows: number;
   prevProps: Record<string, unknown> | undefined;
   history: ChangedKeys[];
   disarmed: boolean;
@@ -101,6 +113,7 @@ export function useRenderLoopTripwire(
   const stateRef = useRef<TripwireState>({
     windowStart: 0,
     count: 0,
+    elevatedWindows: 0,
     prevProps: undefined,
     history: [],
     disarmed: false,
@@ -132,14 +145,28 @@ export function useRenderLoopTripwire(
       if (state.history.length > HISTORY_LEN) state.history.shift();
     }
 
-    // Sliding-window render counter.
+    // Fixed-window render counter. When a window closes, decide whether it was
+    // "elevated" (over WINDOW_LIMIT) and carry a consecutive-elevated streak so
+    // a single settling burst doesn't trip the wire.
     if (now - state.windowStart > WINDOW_MS) {
+      // The window that just closed had `state.count` renders in it.
+      if (state.count > WINDOW_LIMIT) {
+        state.elevatedWindows += 1;
+      } else {
+        state.elevatedWindows = 0;
+      }
       state.windowStart = now;
       state.count = 1;
       return;
     }
     state.count += 1;
+
+    // Trip only once the current window is itself elevated AND at least one
+    // prior consecutive window was already elevated — i.e. the burst is
+    // SUSTAINED, not a one-off mount/hydration spike that settles within a
+    // single window. A genuine runaway loop satisfies this almost immediately.
     if (state.count <= WINDOW_LIMIT) return;
+    if (state.elevatedWindows < CONSECUTIVE_WINDOWS - 1) return;
 
     // Tripped. Disarm immediately so the report path runs exactly once, even
     // if it throws or the loop keeps going.

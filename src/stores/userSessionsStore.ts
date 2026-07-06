@@ -1,9 +1,122 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { GraphQLClient } from '@/lib/api/GraphQLClient';
+import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
+import { serializeCrashMeta } from '@/lib/crashBreadcrumbs';
 import logger from '@/lib/loggerInstance';
 import { queryClient } from '@/lib/queryClient';
+import { useAuthStore } from '@/stores/authStore';
 import { createIndexedDBStorage } from '@/lib/zustand-indexeddb-storage';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+
+/**
+ * Invocation-storm tripwire for startPageVisit/endPageVisit.
+ *
+ * Normal navigation calls these ~2x per route change (start + the previous
+ * visit's end). A redirect/unmount timing race in MainLayout could, before the
+ * store-subscription narrowing, re-enter the page-visit effect and cascade into
+ * a sustained storm that manifests as React #185. This module-level counter
+ * (deliberately NOT in store state, so it never itself triggers a re-render)
+ * watches the combined call rate and, if it goes unambiguously abnormal, sends
+ * ONE non-fatal report via the same `sendError` path AppErrorBoundary uses,
+ * then disarms for the rest of the session. Mirrors useRenderLoopTripwire's
+ * one-shot + kill-switch (`localStorage['gainium:tripwire'] = 'off'`) pattern.
+ *
+ * Hot-path cost: one numeric array push + a timestamp compare. Never throws,
+ * never blocks the real tracking logic (fire-and-forget report).
+ */
+const STORM_WINDOW_MS = 500;
+// Normal navigation is 2 calls per route change; >15 within 500ms is
+// unambiguously a re-entry storm, not real user navigation.
+const STORM_LIMIT = 15;
+// How many recent call timestamps to retain (a small ring; > STORM_LIMIT so a
+// full window is always measurable).
+const STORM_RING_LEN = 24;
+// How many recent currentPagePath values to include in the report (to reveal
+// the redirect loop).
+const STORM_PATH_HISTORY_LEN = 10;
+
+const stormCallTimes: number[] = [];
+const stormPathHistory: (string | null)[] = [];
+let stormReported = false;
+
+/**
+ * Record one start/endPageVisit invocation and fire the tripwire if the
+ * combined call rate is abnormal. Never throws; adds negligible overhead.
+ */
+function noteSessionInvocation(currentPagePath: string | null): void {
+  try {
+    if (stormReported) return;
+
+    // Kill switch — shared with useRenderLoopTripwire.
+    try {
+      if (
+        typeof localStorage !== 'undefined' &&
+        localStorage.getItem('gainium:tripwire') === 'off'
+      ) {
+        return;
+      }
+    } catch {
+      /* localStorage may throw in some sandboxed contexts */
+    }
+
+    const now = Date.now();
+
+    stormCallTimes.push(now);
+    if (stormCallTimes.length > STORM_RING_LEN) stormCallTimes.shift();
+
+    stormPathHistory.push(currentPagePath);
+    if (stormPathHistory.length > STORM_PATH_HISTORY_LEN) {
+      stormPathHistory.shift();
+    }
+
+    // Count calls within the trailing window.
+    let inWindow = 0;
+    for (let i = stormCallTimes.length - 1; i >= 0; i--) {
+      if (now - stormCallTimes[i] <= STORM_WINDOW_MS) inWindow += 1;
+      else break;
+    }
+    if (inWindow <= STORM_LIMIT) return;
+
+    // Tripped. Disarm immediately so the report path runs exactly once.
+    stormReported = true;
+
+    const pathTrail = stormPathHistory.slice();
+
+    try {
+      const token = useAuthStore.getState().tokens?.accessToken;
+      const message = `[InvocationStormTripwire] userSessionsStore.startPageVisit/endPageVisit — ${inWindow} calls in ${STORM_WINDOW_MS}ms`;
+      const stack =
+        `Combined start/endPageVisit invocations: ${inWindow} within ${STORM_WINDOW_MS}ms (limit ${STORM_LIMIT}).\n` +
+        `Recent currentPagePath values (oldest → newest):\n` +
+        pathTrail.map((p, i) => `#${i}: ${p ?? '(null)'}`).join('\n') +
+        serializeCrashMeta({ tripwire: 'userSessionsStore.pageVisit' });
+
+      logger.error(message, { inWindow, pathTrail });
+
+      const endpoint =
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+      const client = new GraphQLClient(endpoint, token);
+      const { query, variables } = otherQueries.sendError({
+        error: { message, stack },
+        errorInfo: { componentStack: '' },
+        subType: 'Browser',
+        source: 'v2',
+      });
+      void client.request(query, variables).catch((err) => {
+        logger.error('[InvocationStormTripwire] Failed to report:', err);
+      });
+    } catch (err) {
+      try {
+        logger.error('[InvocationStormTripwire] Report path threw:', err);
+      } catch {
+        /* noop */
+      }
+    }
+  } catch {
+    // The tripwire must never disrupt the real tracking logic.
+  }
+}
 
 export type PageCategory =
   | 'dashboard'
@@ -553,6 +666,8 @@ export const useUserSessionsStore = create<UserSessionsStore>()(
         displayName?: string,
         tradingMode?: 'live' | 'paper' | 'demo'
       ) => {
+        noteSessionInvocation(get().currentPagePath);
+
         // End previous visit if any
         get().endPageVisit();
 
@@ -580,6 +695,8 @@ export const useUserSessionsStore = create<UserSessionsStore>()(
           visits,
           botMetadata,
         } = get();
+
+        noteSessionInvocation(currentPagePath);
 
         if (!currentPagePath || !currentPageStartTime) {
           return;
