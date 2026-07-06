@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.28.2] - 2026-07-06
+
+### Fixed
+
+- Add Custom Nav Item dialog: de-duplicate the icon picker so each Lucide icon appears only once (previously `Menu` and `Cloud` showed twice). The list is now deduplicated at render, so accidental repeats can't resurface.
+
 ## [2.28.1] - 2026-07-06
 
 ### Fixed

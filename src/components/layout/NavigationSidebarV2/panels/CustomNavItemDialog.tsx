@@ -326,7 +326,7 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
   };
 
   // Filter icons based on search
-  const filteredCommonIcons = COMMON_ICONS.filter((iconName) =>
+  const filteredCommonIcons = [...new Set(COMMON_ICONS)].filter((iconName) =>
     iconName.toLowerCase().includes(iconSearch.toLowerCase())
   );
 
