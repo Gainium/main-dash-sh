@@ -19,6 +19,16 @@ export const COMMON_QUOTE_ASSETS = [
   'JPY',
 ] as const;
 
+/**
+ * True when a pair carries a tokenized-stock ("xStock") wrapper on its base —
+ * a lowercase `x` right after the upper-case ticker, e.g. `AAPLx-USD`,
+ * `PGxUSD`, `BRK.Bx-USD`. Kraken/Bybit keep that `x` lowercase and their
+ * candle/WS endpoints are case-sensitive on it, so callers must NOT uppercase
+ * these pairs (the same reason `:`-prefixed HIP-3 pairs are left as-is).
+ */
+export const isTokenizedStockPair = (pair: string): boolean =>
+  /[A-Z]x(?:[-/]|USD|USDT|USDC|EUR|GBP|$)/.test(pair || '');
+
 export const extractPairAssets = (symbol: string) => {
   if (!symbol) return { baseAsset: '', quoteAsset: '' };
 

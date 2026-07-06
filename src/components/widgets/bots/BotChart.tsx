@@ -37,6 +37,7 @@ import {
   type BotChartDisplayOptionsResult,
 } from './hooks/useBotChartDisplayOptions';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { isTokenizedStockPair } from '@/utils/pairs';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
 const DEFAULT_EXCHANGE = 'binance';
@@ -124,7 +125,7 @@ const parseSymbolParts = (input?: string): ParsedSymbolParts => {
 // convention); uppercase regular pairs so legacy `btcusdt` inputs
 // still produce `BTCUSDT`.
 const normalizePairCase = (pair: string): string =>
-  pair.includes(':') ? pair : pair.toUpperCase();
+  pair.includes(':') || isTokenizedStockPair(pair) ? pair : pair.toUpperCase();
 
 // Symbol-string equality that ignores case AND treats `:`/`_` as
 // equivalent. TradingView normalizes our HIP-3 ticker (`flx:CRCL-USDH`

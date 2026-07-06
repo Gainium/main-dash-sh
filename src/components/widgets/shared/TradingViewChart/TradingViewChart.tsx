@@ -11,7 +11,7 @@ import {
   type TransactionChart,
 } from '@/types';
 /* import { convertIndicatorConfigsToChart } from '@/utils/indicators/chartIndicatorUtils'; */
-import { extractPairAssets } from '@/utils/pairs';
+import { extractPairAssets, isTokenizedStockPair } from '@/utils/pairs';
 import { maybePrefetchHistory } from '@/utils/tradingView/historyPrefetcher';
 import {
   setAvailableSymbols,
@@ -54,7 +54,10 @@ const buildSymbolFromFullName = (
   // Preserve case for HIP-3 builder-perp pairs (`xyz:SP500`). The dex
   // prefix is lowercase by upstream convention and the backend candles
   // endpoint rejects an uppercased prefix.
-  const pair = rawPair.includes(':') ? rawPair : rawPair.toUpperCase();
+  const pair =
+    rawPair.includes(':') || isTokenizedStockPair(rawPair)
+      ? rawPair
+      : rawPair.toUpperCase();
   const normalizedExchange = rawExchange.toLowerCase();
 
   // Loose match: TradingView normalizes our HIP-3 ticker (`flx:CRCL-USDH`)

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.29.1] - 2026-07-06
+
+### Fixed
+
+- Tokenized-stock (xStock) chart now shows data: stop uppercasing the pair on the chart path (`AAPLx`→`AAPLX` corrupted the case-sensitive Kraken candle symbol → no bars). xStock pairs are now preserved like `:`-prefixed HIP-3 pairs.
+- Stock/ETF icons now render on EVERY surface (bot sidebar, tables, cards): `CoinPair` resolves the base asset's class/venue/name itself from the loaded pairs, so a call site no longer has to pass `assetClass`/`exchange` to get the right logo.
+
+
 ## [2.29.0] - 2026-07-06
 
 ### Added
