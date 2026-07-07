@@ -53,6 +53,12 @@ const getExchangesToFetch = (loadUs: boolean) => {
     ExchangeEnum.coinbase,
     ExchangeEnum.hyperliquid,
     ExchangeEnum.hyperliquidLinear,
+    // Kraken (incl. tokenized-stock "xStocks") was missing here, and the
+    // dynamic activeExchanges effect (useDcaDeals) is commented out — so the
+    // dashboard never fetched Kraken prices, leaving every Kraken deal's
+    // unrealized P&L stuck on "Price unavailable".
+    ExchangeEnum.kraken,
+    ExchangeEnum.krakenUsdm,
   ];
 
   // Combine essential exchanges with active exchanges
