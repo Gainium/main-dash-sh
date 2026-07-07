@@ -46,15 +46,24 @@ const stripDexPrefix = (s: string): string =>
 
 const normalizeStockTicker = (symbol: string, exchange?: string): string => {
   const s = stripDexPrefix(symbol || '');
-  const reality = s.match(/^r([A-Za-z][A-Za-z0-9]+)$/); // rTSLA → TSLA
-  if (reality) return reality[1].toUpperCase();
-  if (/^[A-Za-z0-9]+on$/.test(s)) return s.slice(0, -2).toUpperCase(); // AAPLon → AAPL
-  if (/^[A-Za-z0-9.]+x$/.test(s)) return s.slice(0, -1).toUpperCase(); // AAPLx → AAPL, BRK.Bx → BRK.B
-  const upper = s.toUpperCase();
   // Normalize the venue: lower-case and drop the `paper` prefix so paper twins
   // (paperBitget / paperBybit / paperBybitLinear …) gate like their real
   // counterparts — the local/paper stack lists these tokenized stocks too.
   const venue = (exchange ?? '').toLowerCase().replace(/^paper/, '');
+  // Kraken decorates a tokenized-equity BALANCE/ledger code with a trailing
+  // `.T` (`PGx.T`) that never appears on the tradeable pair base (`PGx`). Strip
+  // it first (Kraken-gated) so the wrapper rules below see the clean base and
+  // resolve `PGx.T` → `PG`. Mirrors backend `normalizeStockTicker`.
+  const ledgerStripped = venue.startsWith('kraken')
+    ? s.replace(/\.T$/i, '')
+    : s;
+  const reality = ledgerStripped.match(/^r([A-Za-z][A-Za-z0-9]+)$/); // rTSLA → TSLA
+  if (reality) return reality[1].toUpperCase();
+  if (/^[A-Za-z0-9]+on$/.test(ledgerStripped))
+    return ledgerStripped.slice(0, -2).toUpperCase(); // AAPLon → AAPL
+  if (/^[A-Za-z0-9.]+x$/.test(ledgerStripped))
+    return ledgerStripped.slice(0, -1).toUpperCase(); // AAPLx → AAPL, BRK.Bx → BRK.B
+  const upper = ledgerStripped.toUpperCase();
   if (venue.startsWith('bitget') && /^R[A-Z][A-Z0-9]+$/.test(upper)) {
     return upper.slice(1); // Bitget reality RAAPL → AAPL
   }

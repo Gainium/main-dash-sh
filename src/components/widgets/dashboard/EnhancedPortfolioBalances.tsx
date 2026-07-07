@@ -13,6 +13,8 @@ import {
   buildScreenerSymbolMap,
   findBestScreenerMatch,
 } from '@/utils/portfolioScreenerMatching';
+import { balanceAssetToPairBase } from '@/utils/pairs';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import { useQuery } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Info, Plus } from 'lucide-react';
@@ -158,6 +160,13 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
   );
 
   const portfolioContext = useContext(PortfolioContext);
+
+  // Resolve a balance row's asset class + venue + human-readable name from the
+  // globally-loaded trading pairs, so tokenized stocks (Kraken xStocks, Bybit
+  // spot xstocks, Hyperliquid spot RWA) render the real logo + company name
+  // instead of a first-letter tile. Crypto rows resolve to `{}` → CoinIcon's
+  // default crypto behavior, so nothing else is affected.
+  const resolvePairAsset = useResolvePairAsset();
 
   // Screener data (used to derive current prices and coin metadata)
   const { data: screenerResp, isLoading: isLoadingScreener } = useQuery({
@@ -423,17 +432,29 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
         header: 'TOKEN',
         cell: ({ row }) => {
           const data = row.original;
+          // Tokenized stocks arrive under a ledger code (Kraken `PGx.T`); map it
+          // to the tradeable pair base so we can look up its class + name.
+          const resolved = resolvePairAsset(
+            data.exchange,
+            balanceAssetToPairBase(data.token)
+          );
+          const assetName =
+            resolved.displayName ||
+            findBestScreenerMatch(data.token.toUpperCase(), screenerMap)?.name ||
+            data.tokenName;
           return (
             <div className="flex items-center gap-sm">
-              <CoinIcon symbol={data.token} size="w-8 h-8" />
+              <CoinIcon
+                symbol={data.token}
+                size="w-8 h-8"
+                assetClass={resolved.assetClass}
+                exchange={resolved.exchange ?? data.exchange}
+              />
               <div>
                 <div className="text-sm font-medium text-foreground">
                   {data.token}
                 </div>
-                <div className="text-xs text-muted-foreground">
-                  {findBestScreenerMatch(data.token.toUpperCase(), screenerMap)
-                    ?.name || data.tokenName}
-                </div>
+                <div className="text-xs text-muted-foreground">{assetName}</div>
               </div>
             </div>
           );
@@ -787,6 +808,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
     screenerMap,
     selectedCurrency,
     getCurrencyInfo,
+    resolvePairAsset,
   ]);
 
   // Filter portfolio data based on selected coins and selected exchanges

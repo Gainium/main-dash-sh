@@ -29,6 +29,22 @@ export const COMMON_QUOTE_ASSETS = [
 export const isTokenizedStockPair = (pair: string): boolean =>
   /[A-Z]x(?:[-/]|USD|USDT|USDC|EUR|GBP|$)/.test(pair || '');
 
+/**
+ * Map an exchange **balance/ledger** asset code to its tradeable **pair base**
+ * (`baseAsset.name` on the loaded trading pairs), so a holding can be looked up
+ * via `useResolvePairAsset` for its asset class + display name. Mirrors the
+ * backend `balanceAssetToPairBase` (main-app `core/src/utils/assetClass.ts`).
+ *
+ * Only Kraken decorates the ledger code (trailing `.T` on tokenized equities,
+ * `PGx.T` → pair base `PGx`); every other venue's balance asset already equals
+ * its pair base (Bybit spot `AAPLX`, Hyperliquid spot alias-normalized). The
+ * `.T` strip is unambiguous on a balance code, so it's safe even when the venue
+ * is unknown (aggregate rows). Keep the trailing `x` — it's part of Kraken's
+ * tokenized display base, not a wrapper.
+ */
+export const balanceAssetToPairBase = (asset: string): string =>
+  (asset || '').replace(/\.T$/i, '');
+
 export const extractPairAssets = (symbol: string) => {
   if (!symbol) return { baseAsset: '', quoteAsset: '' };
 

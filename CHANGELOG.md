@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.1] - 2026-07-07
+
+### Fixed
+
+- Portfolio Balances now shows the logo and company name for tokenized-stock holdings (Kraken xStocks, Bybit spot xstocks, Hyperliquid spot RWA) instead of a blank first-letter tile. The row's asset class + venue + human-readable name are resolved from the loaded trading pairs and passed to the coin icon. `normalizeStockTicker` also strips Kraken's tokenized-ledger `.T` suffix (`PGx.T` → `PG`), and a new `balanceAssetToPairBase` maps a ledger code to its tradeable pair base. Paired with the main-app snapshot fix, these holdings also show a real USD value instead of $0.00.
+
 ## [2.30.0] - 2026-07-07
 
 ### Added
