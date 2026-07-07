@@ -5,6 +5,7 @@
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import {
     AdjustFundsDialog,
+    ChangeDcaLevelsDialog,
     CloseOptionsDialog,
     type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
@@ -13,6 +14,7 @@ import getLatestPrices from '@/helper/price';
 import {
     useAdjustFunds,
     useDealActions,
+    useEditDeal,
     useMoveDealToTerminal,
 } from '@/hooks/useDealActions';
 import { fetchDealOrders } from '@/hooks/useDealOrders';
@@ -63,6 +65,7 @@ import {
     MoreHorizontal,
     PlusCircle,
     Receipt,
+    SlidersHorizontal,
     X,
     XCircle,
 } from 'lucide-react';
@@ -243,6 +246,9 @@ export interface OpenTrade {
     complete: number;
     all: number;
   };
+  /** Risk-based DCA deal (`settings.useRiskReward`) — disables manual
+   * "Change DCA levels". */
+  riskBased?: boolean;
   created?: number;
   notes: string;
   pair: string;
@@ -383,18 +389,63 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
+  const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
   const moveDealToTerminalMutation = useMoveDealToTerminal();
 
+  // Move to Terminal is available to DCA, Combo and Grid bot deals (parity
+  // with legacy main-dash; only combo deals pass `combo: true`).
   const canShowMoveToTerminal =
-    trade.type === 'DCA' &&
+    (trade.type === 'DCA' ||
+      trade.type === 'Combo' ||
+      trade.type === 'Grid') &&
     typeof trade.botId === 'string' &&
     trade.botId.length > 0;
 
-  const canMoveToTerminal =
-    canShowMoveToTerminal &&
+  const isDealOpen =
     String(trade.status || '').toLowerCase() === DCADealStatusEnum.open;
+
+  const canMoveToTerminal = canShowMoveToTerminal && isDealOpen;
+
+  // Change DCA levels — DCA and Combo bot deals only (not grid), disabled for
+  // risk-based deals whose levels are managed by the risk engine.
+  const canShowChangeDca = trade.type === 'DCA' || trade.type === 'Combo';
+  const canChangeDca = canShowChangeDca && isDealOpen && !trade.riskBased;
+  const changeDcaCurrentLevel = (trade.levels?.complete || 1) - 1;
+  const changeDcaMaxLevel = (trade.levels?.all || 1) - 1;
+  const changeDcaBotType =
+    trade.type === 'Combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
+  const editDealMutation = useEditDeal({
+    onSuccess: () => {
+      toast.success('DCA levels updated');
+      setChangeDcaDialogOpen(false);
+    },
+    onError: (e) => {
+      toast.error(
+        e instanceof Error ? e.message : 'Failed to change DCA levels'
+      );
+    },
+  });
+  const handleChangeDcaConfirm = useCallback(
+    (newMax: number) => {
+      if (!trade.botId) {
+        toast.error('Cannot change DCA levels - missing bot ID');
+        return;
+      }
+      editDealMutation.mutate({
+        dealId: trade.id,
+        botId: trade.botId,
+        type: changeDcaBotType,
+        terminal: false,
+        settings:
+          newMax === 0
+            ? { useDca: false }
+            : { useDca: true, ordersCount: `${newMax}` },
+      });
+    },
+    [editDealMutation, trade.botId, trade.id, changeDcaBotType]
+  );
 
   // Inverse of "Move to Terminal": only open terminal deals can go back to a bot.
   const canShowMoveToBot =
@@ -599,7 +650,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
 
   const handleMoveToTerminalConfirm = useCallback(async () => {
     if (!canShowMoveToTerminal || !trade.botId) {
-      toast.error('Only DCA bot deals can be moved to terminal');
+      toast.error('Only DCA, Combo or Grid bot deals can be moved to terminal');
       return;
     }
 
@@ -607,7 +658,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
       const response = await moveDealToTerminalMutation.mutateAsync({
         dealId: trade.id,
         botId: trade.botId,
-        combo: false,
+        combo: trade.type === 'Combo',
       });
 
       toast.success(
@@ -630,6 +681,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
     moveDealToTerminalMutation,
     trade.botId,
     trade.id,
+    trade.type,
   ]);
 
   const handleAdjustFundsConfirm = useCallback(
@@ -686,6 +738,15 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </DropdownMenuItem>
+          {canShowChangeDca && (
+            <DropdownMenuItem
+              onClick={() => setChangeDcaDialogOpen(true)}
+              disabled={!canChangeDca}
+            >
+              <SlidersHorizontal className="w-4 h-4 mr-2" />
+              Change DCA levels
+            </DropdownMenuItem>
+          )}
           {canShowMoveToTerminal && (
             <DropdownMenuItem
               onClick={() => setMoveDialogOpen(true)}
@@ -739,6 +800,14 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
           confirmText="Confirm"
           cancelText="Cancel"
           onConfirm={handleMoveToTerminalConfirm}
+        />
+        <ChangeDcaLevelsDialog
+          open={changeDcaDialogOpen}
+          onOpenChange={setChangeDcaDialogOpen}
+          currentLevel={changeDcaCurrentLevel}
+          maxLevel={changeDcaMaxLevel}
+          onConfirm={handleChangeDcaConfirm}
+          isProcessing={editDealMutation.isPending}
         />
         <MoveDealToBotDialog
           open={moveToBotDialogOpen}
@@ -1379,6 +1448,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         unrealizedProfit: unrealizedPnl,
         avgPrice: executionSummary?.averageEntryPrice ?? entryPrice,
         levels: deal.levels,
+        riskBased: deal.settings?.useRiskReward,
         created: +createdTime,
         notes: deal.note || '',
         pair,
@@ -1662,7 +1732,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
   const canMoveTradeToTerminal = useCallback((trade: OpenTrade): boolean => {
     return (
-      trade.type === 'DCA' &&
+      (trade.type === 'DCA' ||
+        trade.type === 'Combo' ||
+        trade.type === 'Grid') &&
       typeof trade.botId === 'string' &&
       trade.botId.length > 0 &&
       String(trade.status || '').toLowerCase() === DCADealStatusEnum.open
@@ -3101,7 +3173,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
     if (movableTrades.length === 0) {
       setMoveBulkDialogOpen([]);
-      toast.info('Only open DCA bot deals can be moved to terminal');
+      toast.info('Only open DCA, Combo or Grid bot deals can be moved to terminal');
       return;
     }
 
@@ -3113,7 +3185,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         await moveDealToTerminalMutation.mutateAsync({
           dealId: trade.id,
           botId: trade.botId as string,
-          combo: false,
+          combo: trade.type === 'Combo',
         });
         successCount += 1;
       } catch (error) {

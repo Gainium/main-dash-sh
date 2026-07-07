@@ -90,6 +90,9 @@ export type TransformedTrade = {
     complete: number;
     all: number;
   };
+  /** Risk-based DCA deal (`settings.useRiskReward`) — DCA levels are managed
+   * by the risk engine, so manual "Change DCA levels" is disabled for these. */
+  riskBased?: boolean | undefined;
   created?: number | undefined;
   // Enhanced properties for advanced cards
   initialPrice?: number | undefined;
@@ -414,6 +417,7 @@ export const transformDealToTrade = (
     ...(deal.funding && { funding: deal.funding }),
     avgPrice: deal.avgPrice || 0,
     levels,
+    riskBased: deal.settings?.useRiskReward,
     created: createTime,
     initialPrice: deal.initialPrice || 0,
     entryPrice: deal.initialPrice || deal.avgPrice || 0,

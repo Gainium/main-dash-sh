@@ -1,11 +1,16 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 import {
     AdjustFundsDialog,
+    ChangeDcaLevelsDialog,
     CloseOptionsDialog,
     type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { useChartColors } from '@/hooks/useChartColors';
-import { useDealActions, useMoveDealToTerminal } from '@/hooks/useDealActions';
+import {
+    useDealActions,
+    useEditDeal,
+    useMoveDealToTerminal,
+} from '@/hooks/useDealActions';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useDealPriceHistory } from '@/hooks/useDealPriceHistory';
 import logger from '@/lib/loggerInstance';
@@ -33,6 +38,7 @@ import {
     MinusCircle,
     MoreVertical,
     PlusCircle,
+    SlidersHorizontal,
     X,
     XCircle,
 } from 'lucide-react';
@@ -277,6 +283,7 @@ const EnhancedCard = React.memo(
     const [closeDialogOpen, setCloseDialogOpen] = useState(false);
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
+    const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
     const handleAddFunds = () => {
       setAdjustFundsDialog('add');
     };
@@ -684,19 +691,64 @@ const EnhancedCard = React.memo(
     );
     const closeDealMutation = useDealActions();
     const moveDealToTerminalMutation = useMoveDealToTerminal();
+    // Move to Terminal is available to DCA, Combo and Grid bot deals (parity
+    // with legacy main-dash; only combo deals pass `combo: true`).
     const canShowMoveToTerminal = useMemo(
       () =>
-        botType === BotTypesEnum.dca &&
-        trade.type === 'DCA' &&
+        (trade.type === 'DCA' ||
+          trade.type === 'Combo' ||
+          trade.type === 'Grid') &&
         typeof trade.botId === 'string' &&
         trade.botId.length > 0,
-      [botType, trade.botId, trade.type]
+      [trade.botId, trade.type]
+    );
+    const isDealOpen = useMemo(
+      () => String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
+      [trade.status]
     );
     const canMoveToTerminal = useMemo(
-      () =>
-        canShowMoveToTerminal &&
-        String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
-      [canShowMoveToTerminal, trade.status]
+      () => canShowMoveToTerminal && isDealOpen,
+      [canShowMoveToTerminal, isDealOpen]
+    );
+
+    // Change DCA levels — DCA and Combo bot deals only (not grid/terminal),
+    // disabled for risk-based deals whose levels are managed by the risk engine.
+    const canShowChangeDca =
+      !terminal && (trade.type === 'DCA' || trade.type === 'Combo');
+    const canChangeDca = canShowChangeDca && isDealOpen && !trade.riskBased;
+    const changeDcaCurrentLevel = (trade.levels?.complete || 1) - 1;
+    const changeDcaMaxLevel = (trade.levels?.all || 1) - 1;
+    const changeDcaBotType =
+      trade.type === 'Combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
+    const editDealMutation = useEditDeal({
+      onSuccess: () => {
+        toast.success('DCA levels updated');
+        setChangeDcaDialogOpen(false);
+      },
+      onError: (e) => {
+        toast.error(
+          e instanceof Error ? e.message : 'Failed to change DCA levels'
+        );
+      },
+    });
+    const handleChangeDcaConfirm = useCallback(
+      (newMax: number) => {
+        if (!trade.botId) {
+          toast.error('Cannot change DCA levels - missing bot ID');
+          return;
+        }
+        editDealMutation.mutate({
+          dealId: trade.id,
+          botId: trade.botId,
+          type: changeDcaBotType,
+          terminal: false,
+          settings:
+            newMax === 0
+              ? { useDca: false }
+              : { useDca: true, ordersCount: `${newMax}` },
+        });
+      },
+      [editDealMutation, trade.botId, trade.id, changeDcaBotType]
     );
     // The inverse of "Move to Terminal": only terminal deals can be moved back
     // into a bot, and only while open (a closed deal has no position to adopt).
@@ -790,7 +842,9 @@ const EnhancedCard = React.memo(
     );
     const handleMoveToTerminalConfirm = useCallback(async () => {
       if (!canShowMoveToTerminal || !trade.botId) {
-        toast.error('Only DCA bot deals can be moved to terminal');
+        toast.error(
+          'Only DCA, Combo or Grid bot deals can be moved to terminal'
+        );
         return;
       }
 
@@ -798,7 +852,7 @@ const EnhancedCard = React.memo(
         const response = await moveDealToTerminalMutation.mutateAsync({
           dealId: trade.id,
           botId: trade.botId,
-          combo: false,
+          combo: trade.type === 'Combo',
         });
 
         toast.success(
@@ -821,6 +875,7 @@ const EnhancedCard = React.memo(
       moveDealToTerminalMutation,
       trade.botId,
       trade.id,
+      trade.type,
     ]);
     return (
       <>
@@ -858,6 +913,14 @@ const EnhancedCard = React.memo(
           confirmText="Confirm"
           cancelText="Cancel"
           onConfirm={handleMoveToTerminalConfirm}
+        />
+        <ChangeDcaLevelsDialog
+          open={changeDcaDialogOpen}
+          onOpenChange={setChangeDcaDialogOpen}
+          currentLevel={changeDcaCurrentLevel}
+          maxLevel={changeDcaMaxLevel}
+          onConfirm={handleChangeDcaConfirm}
+          isProcessing={editDealMutation.isPending}
         />
         <MoveDealToBotDialog
           open={moveToBotDialogOpen}
@@ -937,6 +1000,15 @@ const EnhancedCard = React.memo(
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
+                {canShowChangeDca && (
+                  <DropdownMenuItem
+                    onClick={() => setChangeDcaDialogOpen(true)}
+                    disabled={!canChangeDca}
+                  >
+                    <SlidersHorizontal className="w-4 h-4 mr-2" />
+                    Change DCA levels
+                  </DropdownMenuItem>
+                )}
                 {canShowMoveToTerminal && (
                   <DropdownMenuItem
                     onClick={() => setMoveDialogOpen(true)}

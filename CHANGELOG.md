@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.0] - 2026-07-07
+
+### Added
+
+- Deal action menus now offer "Change DCA levels" for DCA and Combo bot deals (across the trades card view, trades table, and bot deals table), letting you raise or lower a running deal's max DCA safety orders — disabled for risk-based and non-open deals.
+
+### Fixed
+
+- "Move to Terminal" now appears on Combo and Grid bot deals as well as DCA (trades card view, trades table, bot deals table, and their bulk actions), matching the legacy dashboard; combo deals correctly pass the combo flag when moved.
+
 ## [2.29.3] - 2026-07-07
 
 ### Fixed
