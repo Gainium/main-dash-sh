@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.29.3] - 2026-07-07
+
+### Fixed
+
+- A deal sitting exactly at breakeven (unrealized P&L of $0.00) showed "Price unavailable" instead of "$0.00". The deals-table transform treated a legitimate zero as a missing value. Most visible on Kraken tokenized stocks while the market is closed and the live price is frozen at the average entry price.
+
+
 ## [2.29.2] - 2026-07-07
 
 ### Fixed

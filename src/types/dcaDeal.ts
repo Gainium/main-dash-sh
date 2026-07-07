@@ -303,8 +303,14 @@ export const transformDealToTrade = (
         : undefined;
     const feeAmount = fee !== undefined ? (usage ?? 0) * fee * 2 : undefined;
 
+    // A breakeven deal has an unrealized P&L of exactly 0 (e.g. right after
+    // entry, or while the market is closed and the live price is frozen at the
+    // avg entry price — common for Kraken tokenized "xStocks"). The old
+    // `unrealizedPnL &&` truthy-check treated that legitimate 0 as "no value"
+    // and returned undefined, which the table renders as "Price unavailable".
+    // Guard on `!== undefined` so a real 0 survives.
     unrealizedPnL =
-      unrealizedPnL && feeAmount !== undefined
+      unrealizedPnL !== undefined && feeAmount !== undefined
         ? unrealizedPnL - feeAmount
         : undefined;
     if (
