@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.5] - 2026-07-08
+
+### Fixed
+
+- Grid bot settings: "Grid step" and "Sell displacement" now display as a percentage (e.g. `1%`) instead of the raw decimal (`0.01`) when reading a bot's configuration — both in the read-only settings drawer and the edit form.
+- Grid bot stop loss no longer rejects the negative percentage its own quick-buttons and default fill in. Grid stop loss is a negative drawdown, so a negative value is now accepted (an empty or zero value still prompts you to configure it).
+- Grid bot stop-loss and take-profit "action" no longer offers an option that failed to save. "Close position" is now shown as the futures label on the existing "cancel orders and sell base" action rather than a separate option that the backend rejected.
+
 ## [2.30.4] - 2026-07-08
 
 ### Fixed

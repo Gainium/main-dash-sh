@@ -19,6 +19,23 @@ const isPositiveNumber = (value?: string | number | null): boolean => {
   return false;
 };
 
+// Grid stop loss is expressed as a negative percentage (a drawdown), the
+// same sign convention as DCA bots — the SL trigger multiplies it by -1.
+// So a valid SL percentage is any non-zero finite number, not a positive
+// one. (See bug 865bne405: forcing positive SL caused immediate triggers.)
+const isNonZeroNumber = (value?: string | number | null): boolean => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) && value !== 0;
+  }
+
+  if (typeof value === 'string') {
+    const parsed = parseFloat(value);
+    return Number.isFinite(parsed) && parsed !== 0;
+  }
+
+  return false;
+};
+
 const isNonEmptyString = (value?: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0;
 
@@ -106,7 +123,7 @@ export const validateGridFormData = ({
   if (
     grid.sl &&
     (((!grid.slCondition || grid.slCondition === 'valueChanged') &&
-      !isPositiveNumber(grid.slPerc)) ||
+      !isNonZeroNumber(grid.slPerc)) ||
       (grid.slCondition === 'priceReached' &&
         !isPositiveNumber(grid.slLowPrice)))
   ) {

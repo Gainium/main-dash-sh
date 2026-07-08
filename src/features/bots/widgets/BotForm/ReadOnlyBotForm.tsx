@@ -42,7 +42,11 @@ import {
   tryGetBotExperience,
 } from '@/features/bots/catalog/BotExperienceCatalog';
 import type { BotExperienceDescriptor } from '@/features/bots/catalog/types';
-import { useBotFormInitialization } from '@/hooks/bots/forms/useBotFormInitialization';
+import {
+  useBotFormInitialization,
+  type BotSettingsMapper,
+} from '@/hooks/bots/forms/useBotFormInitialization';
+import { mapGridBotSettingsToFormData } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 
 import { dcaTabDescriptors } from '@/features/bots/bot-types/dca/form/tabs';
@@ -123,11 +127,36 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
   const isGridBot = botType === BotTypesEnum.grid;
   const isComboBot = botType === BotTypesEnum.combo;
 
+  // Grid bots must seed through the grid-specific mapper (same as the
+  // editable BotForm) so percent fields like gridStep / sellDisplacement are
+  // converted from their stored decimal to a percentage. The default DCA
+  // mapper copies them verbatim, which showed e.g. 0.01 instead of 1%.
+  const gridMapper = useMemo<BotSettingsMapper | undefined>(() => {
+    if (!isGridBot) {
+      return undefined;
+    }
+    return (_botType, settings, context) => {
+      const mapperOptions: Parameters<typeof mapGridBotSettingsToFormData>[1] = {
+        bot:
+          (context.bot as {
+            exchange?: string;
+            exchangeUUID?: string;
+            settings?: Record<string, unknown>;
+          }) || null,
+      };
+      if (context.debug !== undefined) {
+        mapperOptions.debug = context.debug;
+      }
+      return mapGridBotSettingsToFormData(settings, mapperOptions);
+    };
+  }, [isGridBot]);
+
   useBotFormInitialization({
     botType,
     mode: 'edit',
     bot,
     botSettings: (bot as { settings?: unknown }).settings,
+    ...(gridMapper ? { mapper: gridMapper } : {}),
   });
 
   const {

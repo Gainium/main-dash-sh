@@ -74,7 +74,17 @@ const formatPercentFromDecimal = (
 
   if (typeof value === 'string') {
     const trimmed = value.trim();
-    return trimmed.length > 0 ? trimmed : undefined;
+    if (trimmed.length === 0) {
+      return undefined;
+    }
+    // Backend returns these percent fields as decimal strings (e.g. "0.01"
+    // for 1%). Coerce and multiply by 100 like the numeric branch above,
+    // otherwise the form shows the raw decimal instead of the percent.
+    const parsed = Number.parseFloat(trimmed);
+    if (!Number.isFinite(parsed)) {
+      return undefined;
+    }
+    return stripTrailingZeros((parsed * 100).toFixed(precision));
   }
 
   return undefined;

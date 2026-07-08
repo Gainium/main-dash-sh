@@ -27,14 +27,20 @@ const CONDITION_OPTIONS = [
   { value: 'priceReached', label: 'Target price' },
 ] as const;
 
-const ACTION_OPTIONS = [
-  { value: 'stop', label: 'Stop and cancel orders' },
-  { value: 'stopAndSell', label: 'Stop, cancel orders and sell base' },
-  {
-    value: 'stopAndClosePosition',
-    label: 'Stop, cancel orders and close position',
-  },
-] as const;
+// Only two values exist in the backend `TpSlAction` enum: `stop` and
+// `stopAndSell`. On futures, `stopAndSell` closes the position, so it's
+// shown with a "close position" label there — it is NOT a separate enum
+// value (a `stopAndClosePosition` value would fail on save).
+const buildActionOptions = (futures: boolean) =>
+  [
+    { value: 'stop', label: 'Stop and cancel orders' },
+    {
+      value: 'stopAndSell',
+      label: futures
+        ? 'Stop, cancel orders and close position'
+        : 'Stop, cancel orders and sell base',
+    },
+  ] as const;
 
 const parse = (value: string | undefined): number => {
   if (!value) return NaN;
@@ -66,6 +72,11 @@ export const GridStopLossSettings: React.FC = () => {
   const slPerc = useBotFormSelector('slPerc');
   const slLowPrice = useBotFormSelector('slLowPrice');
   const slAction = useBotFormSelector('slAction');
+  const futures = useBotFormSelector('futures');
+  const actionOptions = useMemo(
+    () => buildActionOptions(futures ?? false),
+    [futures]
+  );
   const isEnabled = useMemo(() => sl ?? false, [sl]);
   const startPrice = useMemo(
     () =>
@@ -303,9 +314,9 @@ export const GridStopLossSettings: React.FC = () => {
         >
           <Select
             value={
-              (slAction as (typeof ACTION_OPTIONS)[number]['value']) || 'stop'
+              (slAction as (typeof actionOptions)[number]['value']) || 'stop'
             }
-            onValueChange={(value: (typeof ACTION_OPTIONS)[number]['value']) =>
+            onValueChange={(value: (typeof actionOptions)[number]['value']) =>
               updateFormData('slAction', value)
             }
           >
@@ -313,7 +324,7 @@ export const GridStopLossSettings: React.FC = () => {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {ACTION_OPTIONS.map((option) => (
+              {actionOptions.map((option) => (
                 <SelectItem key={option.value} value={option.value}>
                   {option.label}
                 </SelectItem>
