@@ -1,7 +1,12 @@
 import { useBotSpecificDeals } from '@/hooks/useBotSpecificDeals';
 import { useBotDcaProjection } from '@/hooks/bots/dca/useBotDcaProjection';
 import { formatTotalFunds } from '@/utils/bots/dca/deal-summary';
-import { BotTypesEnum, DCADealStatusEnum, type StrategyEnum } from '@/types';
+import {
+  BotTypesEnum,
+  DCADealStatusEnum,
+  DCAOrderTypeEnum,
+  type StrategyEnum,
+} from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import {
   Activity,
@@ -51,7 +56,22 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
   // Config-based projection (coverage / avg down power / capital needed),
   // derived straight from the saved settings — available even before the bot
   // has any deals, and identical to the bot form's DCA overview figures.
-  const { summary: projection } = useBotDcaProjection(bot);
+  const { summary: projection, orders: projectionOrders } =
+    useBotDcaProjection(bot);
+
+  // Number of configured DCA (safety) orders for the bot's CURRENT settings,
+  // taken from the same example-orders engine the bot form's DCA overview uses.
+  // This is correct across every `dcaCondition` mode — for `indicators`/`custom`
+  // bots the raw `ordersCount` field stays at its percentage-mode value (e.g.
+  // 32) and does NOT reflect the real DCA orders (the indicator startDca count /
+  // the custom DCA table length), which is what users see in the old UI.
+  const configuredDcaCount = useMemo(
+    () =>
+      projectionOrders.filter(
+        (order) => !order.hide && order.type === DCAOrderTypeEnum.dca
+      ).length,
+    [projectionOrders]
+  );
   const projectionTiles = useMemo(() => {
     const settings = bot?.settings as
       | { strategy?: StrategyEnum; futures?: boolean; coinm?: boolean }
@@ -127,13 +147,11 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
     );
 
     const getConfiguredDcas = (deal: (typeof botDeals)[number]) => {
-      const configuredFromSettings = Number(deal.settings?.ordersCount);
-
-      if (
-        Number.isFinite(configuredFromSettings) &&
-        configuredFromSettings >= 0
-      ) {
-        return Math.max(0, Math.floor(configuredFromSettings));
+      // Prefer the engine-projected count for the bot's current config — it is
+      // correct for indicator/custom DCA where `ordersCount` is stale. Fall back
+      // to the deal's own level count only when the projection isn't ready.
+      if (configuredDcaCount > 0) {
+        return configuredDcaCount;
       }
 
       const configuredFromLevels = Math.max(0, (deal.levels?.all ?? 0) - 1);
@@ -199,14 +217,12 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
     const maxDcasFinished =
       completedDcaCounts.length > 0 ? Math.max(...completedDcaCounts) : 0;
 
-    // Use the bot's current ordersCount setting rather than historical deal settings
-    const botOrdersCount = Number(
-      (bot as { settings?: { ordersCount?: string | number } })?.settings
-        ?.ordersCount
-    );
+    // Configured DCA orders for the bot's current settings, from the projection
+    // engine (correct for percentage / indicators / custom). Only when the
+    // projection isn't available do we fall back to the deals' own level counts.
     const maxConfiguredDcas =
-      Number.isFinite(botOrdersCount) && botOrdersCount > 0
-        ? Math.floor(botOrdersCount)
+      configuredDcaCount > 0
+        ? configuredDcaCount
         : Math.max(
             0,
             ...activeDeals.map((deal) => getConfiguredDcas(deal)),
@@ -238,7 +254,7 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
       avgActiveDcaCoverage,
       finishedDistribution,
     };
-  }, [bot, botDeals]);
+  }, [bot, botDeals, configuredDcaCount]);
 
   const isLoadingDeals = activeLoading || closedLoading;
 
