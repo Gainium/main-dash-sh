@@ -21,8 +21,6 @@ import { usePanelMenuBridge } from '@/components/bots/panels/hooks/usePanelMenuB
 import { type PanelContentConfig } from '@/components/bots/panels/PanelContainer';
 import MainLayout from '@/components/layout/MainLayout';
 import WidgetContainer from '@/components/layout/WidgetContainer';
-import { PromptPill } from '@/components/onboarding/PromptPill';
-import { DcaSurvey } from '@/components/survey/DcaSurvey';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ProfitLossPercChip, StrategyChip } from '@/components/ui/chip';
@@ -84,9 +82,7 @@ import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { useAuthStore } from '@/stores/authStore';
 import { indicatorStore } from '@/stores/indicatorStore';
-import { useSurveyStore } from '@/stores/surveyStore';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
-import { useUIStore } from '@/stores/uiStore';
 import {
   BotTypesEnum,
   type BotChartData,
@@ -217,46 +213,6 @@ const TradingBotNewWidget = () => {
 
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [backtestsToDelete, setBacktestsToDelete] = useState<string[]>([]);
-
-  // DCA survey prompt and dialog state
-  const [dcaSurveyPromptOpen, setDcaSurveyPromptOpen] = useState(false);
-  const [dcaSurveyDialogOpen, setDcaSurveyDialogOpen] = useState(false);
-
-  const markSurveyDismissed = useSurveyStore(
-    (state) => state.markSurveyDismissed
-  );
-  const isDcaSurveyDone = useSurveyStore(
-    (state) =>
-      state.completedSurveys.has('dcaBotSurvey') ||
-      state.dismissedSurveys.has('dcaBotSurvey')
-  );
-
-  const tradingMode = useUIStore((s) => s.tradingMode);
-
-  // DCA survey prompt: show after user has been on page for at least 30s
-  useEffect(() => {
-    const isDemo = tradingMode === 'demo';
-    if (!isDcaSurveyDone && !dcaSurveyPromptOpen && !isDemo) {
-      const timer = setTimeout(() => {
-        logger.info('[TradingBotNew] Opening DCA survey prompt (30s delay)');
-        setDcaSurveyPromptOpen(true);
-      }, 30000);
-      return () => clearTimeout(timer);
-    }
-    return undefined;
-  }, [isDcaSurveyDone, dcaSurveyPromptOpen, tradingMode]);
-
-  const handleDcaSurveyStart = useCallback(() => {
-    logger.info('[TradingBotNew] DCA survey - start clicked');
-    setDcaSurveyPromptOpen(false);
-    setDcaSurveyDialogOpen(true);
-  }, []);
-
-  const handleDcaSurveyDismiss = useCallback(() => {
-    logger.info('[TradingBotNew] DCA survey - dismissed');
-    markSurveyDismissed('dcaBotSurvey');
-    setDcaSurveyPromptOpen(false);
-  }, [markSurveyDismissed]);
 
   // Hooks for delete and export
   const deleteBacktestsMutation = useDeleteBacktests();
@@ -1441,20 +1397,6 @@ const TradingBotNewWidget = () => {
           />
         )}
       </WidgetContainer>
-
-      {/* DCA Survey prompt & dialog */}
-      <PromptPill
-        open={dcaSurveyPromptOpen}
-        text="Please help us improve this page!"
-        buttonLabel="Start"
-        onStart={handleDcaSurveyStart}
-        onDismiss={handleDcaSurveyDismiss}
-      />
-
-      <DcaSurvey
-        forceOpen={dcaSurveyDialogOpen}
-        onClose={() => setDcaSurveyDialogOpen(false)}
-      />
 
       {/* Delete confirmation dialog */}
       <ConfirmationDialog
