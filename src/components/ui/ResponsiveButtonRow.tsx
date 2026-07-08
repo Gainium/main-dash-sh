@@ -1,4 +1,3 @@
-import { useContainerWidth } from '@/hooks/useContainerWidth'
 import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire'
 import { cn } from '@/lib/utils'
 import { MoreVertical } from 'lucide-react'
@@ -21,6 +20,52 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from './dropdown-menu'
+
+/**
+ * ARCHITECTURE (rewrite, 2026-07)
+ * ================================
+ * The previous implementation kept four re-render sources in React state
+ * (container width, measurements, compactedIds, overflowedIds) coupled through
+ * effects keyed on prop *identities*. Parents that recreate `buttons` /
+ * `overflowMenuItems` arrays each render (live data ticks, resizable-panel
+ * width tracking) made every parent render re-run measurement + layout math +
+ * parent callbacks — the render storms and React #185 loops captured by the
+ * tripwire in production.
+ *
+ * This version keeps the same public API and the same greedy fitting
+ * algorithm, but restructures the dataflow so the loop CLASS is impossible:
+ *
+ * 1. ONE state atom: the committed layout result ({compacted, overflowed}).
+ *    Container width and measurements never enter React state — they are read
+ *    from the DOM inside `recompute()` and used immediately.
+ *
+ * 2. `recompute()` is a single, referentially-stable, idempotent function:
+ *    measure → decide (pure function) → commit iff result changed (set
+ *    equality) → notify parent iff value changed (last-sent refs). It reads
+ *    current props through a latest-value ref, so it never needs to be
+ *    re-created and nothing depends on prop identities.
+ *
+ * 3. Exactly two triggers run it:
+ *      - a layout effect keyed on a *content* signature of the button set
+ *        (ids/priorities/flags — NOT array identity), and
+ *      - one ResizeObserver over the container + hidden measurement nodes
+ *        (catches container resizes, label changes like "Save" → "Saving…",
+ *        late font swaps).
+ *    A parent re-render with fresh-but-equivalent props triggers NEITHER.
+ *    Dragging a resizable panel re-renders this component only when a button
+ *    actually crosses a compact/overflow threshold — not once per pixel.
+ *
+ * 4. Parent notifications (`onCompactStateChange`, `onOverflowStateChange`,
+ *    `onLayoutMetrics`) fire from `recompute()` — outside render, only on
+ *    value change. The old wiring re-fired them per parent render, which is
+ *    what closed the feedback loop through the data-table toolbar's setState.
+ *
+ * Loop analysis: parent render → (no effects fire) → done. Resize → recompute
+ * → possibly one commit → re-render → signature unchanged → done. Callback →
+ * parent setState → parent render → fresh arrays → (no effects fire) → done.
+ * There is no path from a render of this component back into recompute()
+ * without an actual DOM size change or button-set change.
+ */
 
 export interface ResponsiveButtonRenderProps {
   /** Whether the button is currently in compact mode */
@@ -224,20 +269,246 @@ export interface ResponsiveButtonRowMetrics {
   requiredFullWidthExcludingIncompressibles: number
 }
 
-/**
- * ResponsiveButtonRow - A component that intelligently compacts buttons based on
- * available space and their priority.
- *
- * Lower priority buttons will be compacted (icon-only) first when space is limited.
- * When overflow menu is enabled, buttons that still don't fit after compacting
- * will be moved to a 3-dot overflow menu.
- * Uses ResizeObserver to track container width and measurement for accurate sizing.
- */
 const ALIGNMENT_CLASSES = {
   left: 'justify-start',
   center: 'justify-center',
   right: 'justify-end',
 } as const
+
+// ---------------------------------------------------------------------------
+// Pure layout math. No DOM, no React — given measured widths and config,
+// produce the compact/overflow decision. Same greedy algorithm as the
+// original implementation; only the orchestration around it changed.
+// ---------------------------------------------------------------------------
+
+interface LayoutMathInput {
+  /** Visible buttons in display order (priority ascending). */
+  buttons: readonly ResponsiveButtonConfig[]
+  fullWidths: ReadonlyMap<string, number>
+  compactWidths: ReadonlyMap<string, number>
+  menuButtonWidth: number
+  containerWidth: number
+  gapValue: number
+  buffer: number
+  compactAllTogether: boolean
+  compactThreshold: number | undefined
+  enableOverflowMenu: boolean
+  hasCustomMenuItems: boolean
+}
+
+function decideLayout({
+  buttons,
+  fullWidths,
+  compactWidths,
+  menuButtonWidth,
+  containerWidth,
+  gapValue,
+  buffer,
+  compactAllTogether,
+  compactThreshold,
+  enableOverflowMenu,
+  hasCustomMenuItems,
+}: LayoutMathInput): { compacted: Set<string>; overflowed: Set<string> } {
+  const compacted = new Set<string>()
+  const overflowed = new Set<string>()
+
+  if (!containerWidth || fullWidths.size === 0) {
+    return { compacted, overflowed }
+  }
+
+  for (const b of buttons) {
+    if (b.alwaysCompact) compacted.add(b.id)
+  }
+
+  // Compaction/overflow candidates in priority order (lowest first).
+  const candidates = buttons.filter((b) => !b.alwaysFull && !b.alwaysCompact)
+  const hidable = candidates.filter(
+    (b) => !b.neverOverflow && (b.canHide || (b.menuLabel && b.onMenuClick)),
+  )
+
+  const widthOf = () => {
+    let width = 0
+    let count = 0
+    for (const b of buttons) {
+      if (overflowed.has(b.id)) continue
+      count++
+      if (b.alwaysFull) {
+        width += fullWidths.get(b.id) ?? 0
+      } else if (compacted.has(b.id)) {
+        width += compactWidths.get(b.id) ?? 0
+      } else {
+        width += fullWidths.get(b.id) ?? 0
+      }
+    }
+    if (count > 1) width += (count - 1) * gapValue
+    return width
+  }
+
+  // Widths are rounded to integer px at measure time; the container width is
+  // floored. A small tolerance keeps rounding noise from triggering collapse.
+  const FIT_TOLERANCE = 2
+
+  // Menu button space: only reserved when the menu will actually be visible.
+  // - If there are custom menu items, the menu is always rendered → reserve.
+  // - Otherwise the menu only appears when a button actually overflows → don't
+  //   reserve preemptively; the overflow probe below adds it back.
+  const reservedMenuSpace =
+    enableOverflowMenu && hasCustomMenuItems ? menuButtonWidth + gapValue : 0
+  const availableWidth = containerWidth - buffer - reservedMenuSpace
+
+  // If compactThreshold is provided and we're under it, compact everything possible.
+  if (
+    typeof compactThreshold === 'number' &&
+    containerWidth <= compactThreshold
+  ) {
+    for (const b of buttons) {
+      if (!b.alwaysFull) compacted.add(b.id)
+    }
+  }
+
+  const overflowMenuReserve =
+    enableOverflowMenu && !hasCustomMenuItems ? menuButtonWidth + gapValue : 0
+  const availableWithMenu = availableWidth - overflowMenuReserve
+
+  let currentWidth = widthOf()
+
+  // Everything fits at full size (within tolerance).
+  if (currentWidth <= availableWidth + FIT_TOLERANCE) {
+    return { compacted, overflowed }
+  }
+
+  if (compactAllTogether) {
+    for (const b of candidates) compacted.add(b.id)
+    currentWidth = widthOf()
+  } else {
+    // Progressive compacting: drop labels one button at a time, lowest
+    // priority first. Removal (overflow) only happens below, once compaction
+    // has done all it can.
+    for (const b of candidates) {
+      if (currentWidth <= availableWidth + FIT_TOLERANCE) break
+      if (compacted.has(b.id)) continue
+      compacted.add(b.id)
+      currentWidth = widthOf()
+    }
+  }
+
+  // Still doesn't fit: greedy lowest-priority-first overflow into the menu.
+  if (
+    enableOverflowMenu &&
+    currentWidth > availableWithMenu + FIT_TOLERANCE &&
+    hidable.length > 0
+  ) {
+    for (const b of hidable) {
+      if (currentWidth <= availableWithMenu + FIT_TOLERANCE) break
+      overflowed.add(b.id)
+      currentWidth = widthOf()
+    }
+  }
+
+  return { compacted, overflowed }
+}
+
+function computeMetrics({
+  buttons,
+  fullWidths,
+  compactWidths,
+  menuButtonWidth,
+  gapValue,
+  enableOverflowMenu,
+  hasCustomMenuItems,
+}: Omit<
+  LayoutMathInput,
+  'containerWidth' | 'buffer' | 'compactAllTogether' | 'compactThreshold'
+>): ResponsiveButtonRowMetrics {
+  const COMPACT_SAVINGS_EPSILON = 4
+  let fullWidth = 0
+  let compactWidth = 0
+  let count = 0
+  // "Excluding incompressibles" pass: drop hidable buttons whose compact form
+  // doesn't save space — those overflow first when the row is tight, so a
+  // parent sizing a sibling should not budget for them.
+  let fullWidthMinimal = 0
+  let minimalCount = 0
+
+  for (const button of buttons) {
+    const f = fullWidths.get(button.id)
+    const c = compactWidths.get(button.id)
+    const includeInMinimal = (() => {
+      if (button.alwaysFull) return true
+      if (button.neverOverflow) return true
+      const hidable = button.canHide || (button.menuLabel && button.onMenuClick)
+      if (!hidable) return true
+      if (f == null || c == null) return true
+      // Incompressible hidable button: omit from minimal.
+      return f - c > COMPACT_SAVINGS_EPSILON
+    })()
+    if (button.alwaysCompact) {
+      if (c != null) {
+        compactWidth += c
+        fullWidth += c
+        count += 1
+        if (includeInMinimal) {
+          fullWidthMinimal += c
+          minimalCount += 1
+        }
+      }
+    } else {
+      if (f != null) {
+        fullWidth += f
+        count += 1
+        if (includeInMinimal) {
+          fullWidthMinimal += f
+          minimalCount += 1
+        }
+      }
+      if (c != null) {
+        compactWidth += c
+      }
+    }
+  }
+
+  const menuReserve =
+    enableOverflowMenu && hasCustomMenuItems && menuButtonWidth > 0
+      ? menuButtonWidth + gapValue
+      : 0
+  if (count > 1) {
+    const gapsTotal = (count - 1) * gapValue
+    fullWidth += gapsTotal
+    compactWidth += gapsTotal
+  }
+  if (minimalCount > 1) {
+    fullWidthMinimal += (minimalCount - 1) * gapValue
+  }
+
+  return {
+    requiredFullWidth: fullWidth + menuReserve,
+    requiredCompactWidth: compactWidth + menuReserve,
+    requiredFullWidthExcludingIncompressibles: fullWidthMinimal + menuReserve,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
+const EMPTY_SET: ReadonlySet<string> = new Set()
+
+interface CommittedLayout {
+  compacted: ReadonlySet<string>
+  overflowed: ReadonlySet<string>
+  /** Sorted-joined keys so equality checks are single string compares. */
+  compactedKey: string
+  overflowedKey: string
+}
+
+const INITIAL_LAYOUT: CommittedLayout = {
+  compacted: EMPTY_SET,
+  overflowed: EMPTY_SET,
+  compactedKey: '',
+  overflowedKey: '',
+}
+
+const setKey = (s: ReadonlySet<string>) => [...s].sort().join('')
 
 export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
   React.memo(
@@ -259,12 +530,12 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
       overflowMenuContentClassName,
       onOverflowStateChange,
     }) => {
-      // Render-loop tripwire (additive, non-fatal). This component has a history of
-      // measurement-jitter feedback (see the rounding/equality-guard comments in
-      // `measure` below); if an unstable prop ever revives that loop in production,
-      // the tripwire captures WHICH prop was oscillating and reports it before
-      // React #185 kills the tree. Near-zero cost when idle; kill via
-      // localStorage['gainium:tripwire']='off'.
+      // Render-loop tripwire (additive, non-fatal). Kept from the previous
+      // implementation: it is the production signal that verifies this
+      // rewrite. If it still fires, renders are being driven from ABOVE
+      // (parent churn) — this component no longer does any per-render effect
+      // work, so a report now localizes the problem to the call site.
+      // Kill via localStorage['gainium:tripwire']='off'.
       useRenderLoopTripwire('ResponsiveButtonRow', {
         buttons,
         gap,
@@ -283,52 +554,261 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
         overflowMenuContentClassName,
         onOverflowStateChange,
       })
-      console.log('ResponsiveButtonRow render')
 
-      const [containerRef, containerWidth] = useContainerWidth()
-      const measureFullRef = useRef<HTMLDivElement>(null)
-      const measureCompactRef = useRef<HTMLDivElement>(null)
-      const measureMenuRef = useRef<HTMLDivElement>(null)
-      const [compactedIds, setCompactedIds] = useState<Set<string>>(new Set())
-      const [overflowedIds, setOverflowedIds] = useState<Set<string>>(new Set())
-      const [measurements, setMeasurements] = useState<{
-        full: Map<string, number>
-        compact: Map<string, number>
-        menuButton: number
-      }>({ full: new Map(), compact: new Map(), menuButton: 0 })
-
-      // Filter visible buttons
+      // ---- render-scoped derivations (cheap; no state, no effects) ----
       const visibleButtons = useMemo(
         () => buttons.filter((b) => b.visible !== false),
         [buttons],
       )
 
-      // Sort buttons by priority for display order (ascending: lowest priority first/left)
+      // Display order = priority ascending (lowest priority leftmost).
       const sortedForDisplay = useMemo(
         () => [...visibleButtons].sort((a, b) => a.priority - b.priority),
         [visibleButtons],
       )
 
-      // Sort buttons by priority (lower priority number = compact first, then overflow first)
-      const sortedByPriority = useMemo(
-        () =>
-          [...visibleButtons]
-            .filter((b) => !b.alwaysFull && !b.alwaysCompact)
-            .sort((a, b) => a.priority - b.priority),
-        [visibleButtons],
-      )
+      const gapValue = typeof gap === 'number' ? gap : parseInt(gap, 10) || 8
+      const hasCustomMenuItems = overflowMenuItems.length > 0
 
-      // Buttons that can be hidden (either overflowable OR have canHide set)
-      const hidableButtons = useMemo(
-        () =>
-          sortedByPriority.filter(
-            (b) =>
-              !b.neverOverflow && (b.canHide || (b.menuLabel && b.onMenuClick)),
-          ),
-        [sortedByPriority],
-      )
+      // Content signature of everything the layout ALGORITHM depends on.
+      // Deliberately identity-free: a parent recreating equivalent arrays
+      // produces the same string, so no layout work happens. Callback
+      // PRESENCE is included so a callback appearing late still gets its
+      // initial notification; callback identity is not.
+      const layoutSignature = useMemo(() => {
+        const perButton = sortedForDisplay
+          .map((b) =>
+            [
+              b.id,
+              b.priority,
+              b.alwaysFull ? 1 : 0,
+              b.alwaysCompact ? 1 : 0,
+              b.neverOverflow ? 1 : 0,
+              b.canHide ? 1 : 0,
+              b.menuLabel && b.onMenuClick ? 1 : 0,
+            ].join(','),
+          )
+          .join(';')
+        return [
+          perButton,
+          gapValue,
+          buffer,
+          compactAllTogether ? 1 : 0,
+          compactThreshold ?? 'n',
+          enableOverflowMenu ? 1 : 0,
+          hasCustomMenuItems ? 1 : 0,
+          onCompactStateChange ? 1 : 0,
+          onOverflowStateChange ? 1 : 0,
+          onLayoutMetrics ? 1 : 0,
+        ].join('#')
+      }, [
+        sortedForDisplay,
+        gapValue,
+        buffer,
+        compactAllTogether,
+        compactThreshold,
+        enableOverflowMenu,
+        hasCustomMenuItems,
+        onCompactStateChange,
+        onOverflowStateChange,
+        onLayoutMetrics,
+      ])
 
-      // Find the highest priority button (highest number)
+      // ---- the single state atom ----
+      const [layout, setLayout] = useState<CommittedLayout>(INITIAL_LAYOUT)
+
+      // ---- DOM refs ----
+      const containerRef = useRef<HTMLDivElement>(null)
+      const measureFullRef = useRef<HTMLDivElement>(null)
+      const measureCompactRef = useRef<HTMLDivElement>(null)
+      const measureMenuRef = useRef<HTMLDivElement>(null)
+
+      // Latest-value ref: recompute() reads through this so it can stay
+      // referentially stable forever. Updated every render (standard
+      // latest-ref pattern, same as the old sortedForDisplayRef).
+      const latestRef = useRef({
+        sortedForDisplay,
+        gapValue,
+        buffer,
+        compactAllTogether,
+        compactThreshold,
+        enableOverflowMenu,
+        hasCustomMenuItems,
+        onCompactStateChange,
+        onOverflowStateChange,
+        onLayoutMetrics,
+      })
+      latestRef.current = {
+        sortedForDisplay,
+        gapValue,
+        buffer,
+        compactAllTogether,
+        compactThreshold,
+        enableOverflowMenu,
+        hasCustomMenuItems,
+        onCompactStateChange,
+        onOverflowStateChange,
+        onLayoutMetrics,
+      }
+
+      // Last values actually delivered to the parent. `null` = never sent
+      // (or callback currently absent), so a (re)appearing callback receives
+      // one initial notification.
+      const notifiedRef = useRef<{
+        compactedKey: string | null
+        overflowedKey: string | null
+        metricsKey: string | null
+      }>({ compactedKey: null, overflowedKey: null, metricsKey: null })
+
+      /**
+       * Measure → decide → commit-iff-changed → notify-iff-changed.
+       * Idempotent: same DOM sizes + same button set ⇒ no setState, no
+       * callbacks. Never called during render; only from the two triggers
+       * below. getBoundingClientRect here is cheap in the ResizeObserver
+       * path (layout is already clean) and a single forced reflow in the
+       * signature-change path.
+       */
+      const recompute = useCallback(() => {
+        const cfg = latestRef.current
+        const container = containerRef.current
+        const fullHost = measureFullRef.current
+        const compactHost = measureCompactRef.current
+        if (!container || !fullHost || !compactHost) return
+
+        // Round to integer px: getBoundingClientRect returns sub-pixel floats
+        // that jitter between otherwise-identical layouts (DPR, zoom, font
+        // metrics). Integer footing keeps the idempotence guarantee real.
+        const fullWidths = new Map<string, number>()
+        const compactWidths = new Map<string, number>()
+        const fullChildren = fullHost.children
+        const compactChildren = compactHost.children
+        cfg.sortedForDisplay.forEach((button, index) => {
+          const fullEl = fullChildren[index] as HTMLElement | undefined
+          const compactEl = compactChildren[index] as HTMLElement | undefined
+          if (fullEl) {
+            fullWidths.set(
+              button.id,
+              Math.round(fullEl.getBoundingClientRect().width),
+            )
+          }
+          if (compactEl) {
+            compactWidths.set(
+              button.id,
+              Math.round(compactEl.getBoundingClientRect().width),
+            )
+          }
+        })
+        const menuButtonWidth = measureMenuRef.current
+          ? Math.round(measureMenuRef.current.getBoundingClientRect().width)
+          : 0
+        const containerWidth = Math.floor(
+          container.getBoundingClientRect().width,
+        )
+
+        const { compacted, overflowed } = decideLayout({
+          buttons: cfg.sortedForDisplay,
+          fullWidths,
+          compactWidths,
+          menuButtonWidth,
+          containerWidth,
+          gapValue: cfg.gapValue,
+          buffer: cfg.buffer,
+          compactAllTogether: cfg.compactAllTogether,
+          compactThreshold: cfg.compactThreshold,
+          enableOverflowMenu: cfg.enableOverflowMenu,
+          hasCustomMenuItems: cfg.hasCustomMenuItems,
+        })
+
+        const compactedKey = setKey(compacted)
+        const overflowedKey = setKey(overflowed)
+
+        // Commit only when the RESULT changed. This is the only setState in
+        // the component; bailing here is what makes per-pixel panel drags
+        // render-free until a threshold is actually crossed.
+        setLayout((prev) =>
+          prev.compactedKey === compactedKey &&
+          prev.overflowedKey === overflowedKey
+            ? prev
+            : { compacted, overflowed, compactedKey, overflowedKey },
+        )
+
+        // Parent notifications: only on value change, latest callback, and
+        // never re-fired just because a parent render minted new callback
+        // identities.
+        const sent = notifiedRef.current
+        if (cfg.onCompactStateChange) {
+          if (sent.compactedKey !== compactedKey) {
+            sent.compactedKey = compactedKey
+            cfg.onCompactStateChange(new Set(compacted))
+          }
+        } else {
+          sent.compactedKey = null
+        }
+        if (cfg.onOverflowStateChange) {
+          if (sent.overflowedKey !== overflowedKey) {
+            sent.overflowedKey = overflowedKey
+            cfg.onOverflowStateChange(new Set(overflowed))
+          }
+        } else {
+          sent.overflowedKey = null
+        }
+        if (cfg.onLayoutMetrics) {
+          const metrics = computeMetrics({
+            buttons: cfg.sortedForDisplay,
+            fullWidths,
+            compactWidths,
+            menuButtonWidth,
+            gapValue: cfg.gapValue,
+            enableOverflowMenu: cfg.enableOverflowMenu,
+            hasCustomMenuItems: cfg.hasCustomMenuItems,
+          })
+          const metricsKey = `${metrics.requiredFullWidth}/${metrics.requiredCompactWidth}/${metrics.requiredFullWidthExcludingIncompressibles}`
+          if (sent.metricsKey !== metricsKey) {
+            sent.metricsKey = metricsKey
+            cfg.onLayoutMetrics(metrics)
+          }
+        } else {
+          sent.metricsKey = null
+        }
+      }, [])
+
+      // Trigger 1: mount + any change to the button SET or layout config.
+      // useLayoutEffect so the first measured layout commits before paint
+      // (no flash of an unmeasured row). Keyed on the content signature —
+      // NOT array identity — so parent re-renders with equivalent props run
+      // nothing.
+      useLayoutEffect(() => {
+        recompute()
+      }, [recompute, layoutSignature])
+
+      // Trigger 2: one observer for every size that can invalidate the
+      // layout — the container (available width) and the hidden measurement
+      // hosts (intrinsic widths: label changes, count badges, font swaps).
+      // The measurement hosts render full + compact forms unconditionally,
+      // off-screen, so their size never depends on the committed layout —
+      // committing a result cannot re-trigger this observer with different
+      // inputs, which is what makes the observe→recompute cycle settle.
+      // The menu measurement node is rendered unconditionally (even when the
+      // overflow menu is disabled) so the observed set is static for the
+      // component's lifetime.
+      useEffect(() => {
+        const targets = [
+          containerRef.current,
+          measureFullRef.current,
+          measureCompactRef.current,
+          measureMenuRef.current,
+        ].filter((el): el is HTMLDivElement => el !== null)
+        if (targets.length === 0) return
+
+        const observer = new ResizeObserver(() => recompute())
+        targets.forEach((el) => observer.observe(el))
+        return () => observer.disconnect()
+      }, [recompute])
+
+      // ---- render ----
+      const gapStyle = typeof gap === 'number' ? `${gap}px` : gap
+
+      // Find the highest priority button (highest number) for full-width mode.
       const highestPriorityId = useMemo(() => {
         if (!highestPriorityFullWidth || visibleButtons.length === 0)
           return null
@@ -336,387 +816,6 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
           b.priority > max.priority ? b : max,
         ).id
       }, [visibleButtons, highestPriorityFullWidth])
-
-      // Keep the latest display order in a ref so `measure` can stay referentially
-      // stable (no per-render identity churn) while still reading current buttons.
-      const sortedForDisplayRef = useRef(sortedForDisplay)
-      sortedForDisplayRef.current = sortedForDisplay
-
-      // Stable signature of the button SET (ids in display order). A button being
-      // added or removed changes this; a re-render that merely hands us a new array
-      // reference for the same buttons (e.g. live-data ticks recreating
-      // buttonConfigs) does not.
-      const buttonSignature = useMemo(
-        () => sortedForDisplay.map((b) => b.id).join('|'),
-        [sortedForDisplay],
-      )
-
-      // Measure intrinsic button widths. This is the ONLY place that reads layout
-      // (getBoundingClientRect forces a synchronous reflow), so it is deliberately
-      // kept off the per-render path and triggered only by the two effects below.
-      const measure = useCallback(() => {
-        if (!measureFullRef.current || !measureCompactRef.current) return
-
-        const fullMeasurements = new Map<string, number>()
-        const compactMeasurements = new Map<string, number>()
-
-        const fullChildren = measureFullRef.current.children
-        const compactChildren = measureCompactRef.current.children
-
-        // Round to integer pixels. getBoundingClientRect returns sub-pixel floats
-        // that jitter between otherwise-identical layouts (DPR, browser zoom,
-        // subpixel text metrics, font reflow). The equality guard below compares
-        // with exact ===, so unrounded jitter (e.g. 100.6666 vs 100.6667) makes it
-        // fail forever: setMeasurements commits → re-render → re-measure → new tiny
-        // float → "Maximum update depth exceeded". Rounding collapses identical
-        // layouts to the same value so the guard can actually hold. useContainerWidth
-        // already floors its width, so this keeps both sides on integer footing.
-        sortedForDisplayRef.current.forEach((button, index) => {
-          const fullEl = fullChildren[index] as HTMLElement | undefined
-          const compactEl = compactChildren[index] as HTMLElement | undefined
-
-          if (fullEl) {
-            fullMeasurements.set(
-              button.id,
-              Math.round(fullEl.getBoundingClientRect().width),
-            )
-          }
-          if (compactEl) {
-            compactMeasurements.set(
-              button.id,
-              Math.round(compactEl.getBoundingClientRect().width),
-            )
-          }
-        })
-
-        // Measure menu button width
-        let menuButtonWidth = 0
-        if (measureMenuRef.current) {
-          menuButtonWidth = Math.round(
-            measureMenuRef.current.getBoundingClientRect().width,
-          )
-        }
-
-        setMeasurements((prev) => {
-          // Only update if values actually changed — prevents cascade when buttons prop
-          // gets a new reference on every parent render (e.g. unstable buttonConfigs deps)
-          if (
-            prev.menuButton === menuButtonWidth &&
-            prev.full.size === fullMeasurements.size &&
-            prev.compact.size === compactMeasurements.size &&
-            [...fullMeasurements].every(([id, w]) => prev.full.get(id) === w) &&
-            [...compactMeasurements].every(
-              ([id, w]) => prev.compact.get(id) === w,
-            )
-          ) {
-            return prev
-          }
-          return {
-            full: fullMeasurements,
-            compact: compactMeasurements,
-            menuButton: menuButtonWidth,
-          }
-        })
-      }, [])
-
-      // Re-measure on mount and whenever the button SET changes. useLayoutEffect so
-      // the first measured layout is committed before paint (no flash of an
-      // unmeasured row). Keyed on the stable signature — NOT the array identity — so
-      // live-data re-renders that recreate the buttons array don't force a reflow.
-      // Window resize does not run this: container width is tracked separately by
-      // useContainerWidth, which feeds the (cheap, DOM-free) compact/overflow math.
-      useLayoutEffect(() => {
-        measure()
-      }, [measure, buttonSignature])
-
-      // Re-measure when the hidden measure containers actually change size. This
-      // catches content-driven width changes that don't change the button set —
-      // a label going "Save" → "Saving…", a count badge, a late web-font swap —
-      // without paying a forced reflow on every render. The measure containers are
-      // off-screen and render the full + compact forms unconditionally, so their
-      // size is independent of container width and of the compact/overflow result;
-      // committing new measurements can't change their size, so this can't loop.
-      useEffect(() => {
-        const targets = [
-          measureFullRef.current,
-          measureCompactRef.current,
-          measureMenuRef.current,
-        ].filter((el): el is HTMLDivElement => el !== null)
-        if (targets.length === 0) return
-
-        const observer = new ResizeObserver(() => measure())
-        targets.forEach((el) => observer.observe(el))
-        return () => observer.disconnect()
-      }, [measure, enableOverflowMenu])
-
-      // Calculate which buttons should be compacted and which should overflow
-      const calculateButtonStates = useCallback(() => {
-        if (!containerWidth || measurements.full.size === 0) {
-          return { compacted: new Set<string>(), overflowed: new Set<string>() }
-        }
-
-        const gapValue = typeof gap === 'number' ? gap : parseInt(gap, 10) || 8
-        const newCompacted = new Set<string>(
-          visibleButtons.filter((b) => b.alwaysCompact).map((b) => b.id),
-        )
-        const newOverflowed = new Set<string>()
-
-        // Helper to calculate current width based on compacted and overflowed sets
-        const calculateCurrentWidth = (
-          compacted: Set<string>,
-          overflowed: Set<string>,
-        ) => {
-          let width = 0
-          let count = 0
-          for (const button of visibleButtons) {
-            if (overflowed.has(button.id)) continue
-            count++
-            if (button.alwaysFull) {
-              width += measurements.full.get(button.id) ?? 0
-            } else if (button.alwaysCompact || compacted.has(button.id)) {
-              width += measurements.compact.get(button.id) ?? 0
-            } else {
-              width += measurements.full.get(button.id) ?? 0
-            }
-          }
-          // Add gaps between visible buttons
-          if (count > 1) {
-            width += (count - 1) * gapValue
-          }
-          return width
-        }
-
-        // Check if we need to show the overflow menu
-        const hasCustomMenuItems = overflowMenuItems.length > 0
-        const hasHidableButtons = hidableButtons.length > 0
-
-        // The container width is floored in useContainerWidth, and individual button
-        // widths are sub-pixel floats from getBoundingClientRect. Add a small tolerance
-        // so we don't aggressively collapse when we're within rounding noise of fitting.
-        const FIT_TOLERANCE = 2
-
-        // Menu button space: only reserved when the menu will actually be visible.
-        // - If there are custom menu items, the menu is always rendered → reserve.
-        // - Otherwise the menu only appears when a button actually overflows → don't
-        //   reserve preemptively; we add it back if/when we trigger overflow below.
-        const reservedMenuSpace =
-          enableOverflowMenu && hasCustomMenuItems
-            ? measurements.menuButton + gapValue
-            : 0
-
-        // Available width assuming no overflow happens (lenient: don't reserve overflow menu yet).
-        const availableWidth = containerWidth - buffer - reservedMenuSpace
-
-        // If compactThreshold is provided and we're under it, compact everything possible
-        if (
-          typeof compactThreshold === 'number' &&
-          containerWidth <= compactThreshold
-        ) {
-          visibleButtons.forEach((b) => {
-            if (!b.alwaysFull) {
-              newCompacted.add(b.id)
-            }
-          })
-        }
-
-        // Menu reservation used by the overflow probe below.
-        const overflowMenuReserve =
-          enableOverflowMenu && !hasCustomMenuItems
-            ? measurements.menuButton + gapValue
-            : 0
-        const availableWithMenu = availableWidth - overflowMenuReserve
-
-        // Calculate initial width
-        let currentWidth = calculateCurrentWidth(newCompacted, newOverflowed)
-
-        // If everything fits (within tolerance), return only always-compact buttons
-        if (currentWidth <= availableWidth + FIT_TOLERANCE) {
-          return { compacted: newCompacted, overflowed: newOverflowed }
-        }
-
-        if (compactAllTogether) {
-          // Compact all non-always-full buttons at once
-          for (const button of sortedByPriority) {
-            newCompacted.add(button.id)
-          }
-          currentWidth = calculateCurrentWidth(newCompacted, newOverflowed)
-        } else {
-          // Progressive compacting: drop labels one button at a time, lowest
-          // priority first. We don't try to remove buttons here — that happens
-          // below, once compaction has done all it can. The priority order is
-          // what callers configure to express importance, and we honor it: a
-          // wider higher-priority button (e.g. a caller-supplied action) stays
-          // visible while small low-priority buttons compact and then overflow.
-          for (const button of sortedByPriority) {
-            if (currentWidth <= availableWidth + FIT_TOLERANCE) break
-            if (newCompacted.has(button.id)) continue
-            newCompacted.add(button.id)
-            currentWidth = calculateCurrentWidth(newCompacted, newOverflowed)
-          }
-        }
-
-        // Still doesn't fit. Fall back to greedy lowest-priority-first overflow.
-        if (
-          enableOverflowMenu &&
-          currentWidth > availableWithMenu + FIT_TOLERANCE &&
-          hasHidableButtons
-        ) {
-          for (const button of hidableButtons) {
-            if (currentWidth <= availableWithMenu + FIT_TOLERANCE) break
-            if (newOverflowed.has(button.id)) continue // Already overflowed
-
-            // Add to overflow and recalculate width
-            // Note: buttons without menuLabel/onMenuClick will be hidden but not shown in menu
-            newOverflowed.add(button.id)
-            currentWidth = calculateCurrentWidth(newCompacted, newOverflowed)
-          }
-        }
-
-        return { compacted: newCompacted, overflowed: newOverflowed }
-      }, [
-        containerWidth,
-        measurements,
-        visibleButtons,
-        sortedByPriority,
-        hidableButtons,
-        gap,
-        buffer,
-        compactAllTogether,
-        compactThreshold,
-        enableOverflowMenu,
-        overflowMenuItems.length,
-      ])
-
-      // Update compacted and overflowed state when container width or measurements change
-      useEffect(() => {
-        const { compacted, overflowed } = calculateButtonStates()
-
-        // Update compacted state
-        setCompactedIds((prev) => {
-          const prevArray = Array.from(prev).sort()
-          const newArray = Array.from(compacted).sort()
-
-          if (
-            prevArray.length === newArray.length &&
-            prevArray.every((id, i) => id === newArray[i])
-          ) {
-            return prev
-          }
-
-          return compacted
-        })
-
-        // Update overflowed state
-        setOverflowedIds((prev) => {
-          const prevArray = Array.from(prev).sort()
-          const newArray = Array.from(overflowed).sort()
-
-          if (
-            prevArray.length === newArray.length &&
-            prevArray.every((id, i) => id === newArray[i])
-          ) {
-            return prev
-          }
-
-          return overflowed
-        })
-      }, [calculateButtonStates])
-
-      // Notify parent of compact state changes
-      useEffect(() => {
-        onCompactStateChange?.(compactedIds)
-      }, [compactedIds, onCompactStateChange])
-
-      // Notify parent of overflow state changes
-      useEffect(() => {
-        onOverflowStateChange?.(overflowedIds)
-      }, [overflowedIds, onOverflowStateChange])
-
-      // Notify parent of layout metrics so it can make its own space decisions
-      // (e.g. "do I have room for an inline search?") without a hard-coded
-      // breakpoint. Recomputes whenever measurements or visible-button set changes.
-      useEffect(() => {
-        if (!onLayoutMetrics) return
-        const gapValue = typeof gap === 'number' ? gap : parseInt(gap, 10) || 8
-        const COMPACT_SAVINGS_EPSILON = 4
-        let fullWidth = 0
-        let compactWidth = 0
-        let count = 0
-        // "Excluding incompressibles" pass: drop hidable buttons whose compact
-        // form doesn't save space — those overflow first when the row is tight,
-        // so a parent sizing a sibling should not budget for them.
-        let fullWidthMinimal = 0
-        let minimalCount = 0
-        for (const button of visibleButtons) {
-          const f = measurements.full.get(button.id)
-          const c = measurements.compact.get(button.id)
-          const includeInMinimal = (() => {
-            if (button.alwaysFull) return true
-            if (button.neverOverflow) return true
-            const hidable =
-              button.canHide || (button.menuLabel && button.onMenuClick)
-            if (!hidable) return true
-            if (f == null || c == null) return true
-            // Incompressible hidable button: omit from minimal.
-            return f - c > COMPACT_SAVINGS_EPSILON
-          })()
-          if (button.alwaysCompact) {
-            if (c != null) {
-              compactWidth += c
-              fullWidth += c
-              count += 1
-              if (includeInMinimal) {
-                fullWidthMinimal += c
-                minimalCount += 1
-              }
-            }
-          } else {
-            if (f != null) {
-              fullWidth += f
-              count += 1
-              if (includeInMinimal) {
-                fullWidthMinimal += f
-                minimalCount += 1
-              }
-            }
-            if (c != null) {
-              compactWidth += c
-            }
-          }
-        }
-        const hasCustomMenuItems = overflowMenuItems.length > 0
-        const menuReserve =
-          enableOverflowMenu &&
-          hasCustomMenuItems &&
-          measurements.menuButton > 0
-            ? measurements.menuButton + gapValue
-            : 0
-        if (count > 1) {
-          const gapsTotal = (count - 1) * gapValue
-          fullWidth += gapsTotal
-          compactWidth += gapsTotal
-        }
-        if (minimalCount > 1) {
-          fullWidthMinimal += (minimalCount - 1) * gapValue
-        }
-        fullWidth += menuReserve
-        compactWidth += menuReserve
-        fullWidthMinimal += menuReserve
-        onLayoutMetrics({
-          requiredFullWidth: fullWidth,
-          requiredCompactWidth: compactWidth,
-          requiredFullWidthExcludingIncompressibles: fullWidthMinimal,
-        })
-      }, [
-        visibleButtons,
-        measurements,
-        gap,
-        enableOverflowMenu,
-        overflowMenuItems.length,
-        onLayoutMetrics,
-      ])
-
-      const gapStyle = typeof gap === 'number' ? `${gap}px` : gap
 
       // Helper to render content (handles both ReactNode and render functions)
       const renderContent = (
@@ -731,22 +830,25 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
         return content
       }
 
-      // Get buttons that are overflowed (for menu)
-      const overflowedButtons = useMemo(
-        () => sortedByPriority.filter((b) => overflowedIds.has(b.id)),
-        [sortedByPriority, overflowedIds],
+      // Overflowed buttons that can be SHOWN in the menu. Buttons hidden via
+      // `canHide` without menuLabel/onMenuClick are removed from view but get
+      // no menu entry (the old code rendered them as empty, dead menu items).
+      const overflowedMenuButtons = useMemo(
+        () =>
+          sortedForDisplay.filter(
+            (b) =>
+              layout.overflowed.has(b.id) && b.menuLabel && b.onMenuClick,
+          ),
+        [sortedForDisplay, layout.overflowed],
       )
 
-      // Determine if we should show the overflow menu
       const showOverflowMenu =
         enableOverflowMenu &&
-        (overflowMenuItems.length > 0 || overflowedButtons.length > 0)
+        (hasCustomMenuItems || overflowedMenuButtons.length > 0)
 
-      // Render overflow menu items
-      const renderMenuItems = useCallback(() => {
+      const renderMenuItems = () => {
         const items: React.ReactNode[] = []
 
-        // Add custom menu items first
         overflowMenuItems.forEach((item, index) => {
           if (item.type === 'separator') {
             items.push(
@@ -795,13 +897,11 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
           }
         })
 
-        // Add separator if we have both custom items and overflowed buttons
-        if (overflowMenuItems.length > 0 && overflowedButtons.length > 0) {
+        if (hasCustomMenuItems && overflowedMenuButtons.length > 0) {
           items.push(<DropdownMenuSeparator key='overflow-separator' />)
         }
 
-        // Add overflowed buttons as menu items
-        overflowedButtons.forEach((button) => {
+        overflowedMenuButtons.forEach((button) => {
           const Icon = button.menuIcon
           items.push(
             <DropdownMenuItem
@@ -819,7 +919,7 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
         })
 
         return items
-      }, [overflowMenuItems, overflowedButtons])
+      }
 
       return (
         <>
@@ -835,11 +935,11 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
           >
             {sortedForDisplay.map((button) => {
               // Skip overflowed buttons in the main display
-              if (overflowedIds.has(button.id)) return null
+              if (layout.overflowed.has(button.id)) return null
 
               const isCompact =
                 button.alwaysCompact ||
-                (!button.alwaysFull && compactedIds.has(button.id))
+                (!button.alwaysFull && layout.compacted.has(button.id))
               const isHighestPriority = button.id === highestPriorityId
               const content = isCompact
                 ? button.compactContent
@@ -906,7 +1006,10 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
             )}
           </div>
 
-          {/* Hidden measurement containers - used to measure button widths */}
+          {/* Hidden measurement containers — render every button's full and
+              compact form unconditionally so intrinsic widths can be read at
+              any time. Off-screen; size independent of container width and of
+              the committed layout (see the observer comment above). */}
           <div
             ref={measureFullRef}
             aria-hidden
@@ -933,21 +1036,23 @@ export const ResponsiveButtonRow: React.FC<ResponsiveButtonRowProps> =
             ))}
           </div>
 
-          {/* Hidden menu button for measurement */}
-          {enableOverflowMenu && (
-            <div
-              ref={measureMenuRef}
-              aria-hidden
-              className='absolute left-[-9999px] top-0 opacity-0 pointer-events-none select-none'
-            >
-              <Button type='button' variant='ghost' size='icon'>
-                <MoreVertical className='h-4 w-4' />
-              </Button>
-            </div>
-          )}
+          {/* Hidden menu trigger for measurement. Always rendered (even when
+              the overflow menu is disabled) so the ResizeObserver's observed
+              set never changes during the component's lifetime. */}
+          <div
+            ref={measureMenuRef}
+            aria-hidden
+            className='absolute left-[-9999px] top-0 opacity-0 pointer-events-none select-none'
+          >
+            <Button type='button' variant='ghost' size='icon'>
+              <MoreVertical className='h-4 w-4' />
+            </Button>
+          </div>
         </>
       )
     },
   )
+
+ResponsiveButtonRow.displayName = 'ResponsiveButtonRow'
 
 export default ResponsiveButtonRow

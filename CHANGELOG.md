@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.3] - 2026-07-08
+
+### Fixed
+
+- Responsive toolbars (bot/combo deals tables, trades, form footers) no longer trigger a render loop that could freeze the page or crash it with "This page is having a problem / Out of Memory". Rebuilt `ResponsiveButtonRow` so button compaction/overflow recomputes only on a real container-size or button-set change, never on every parent re-render — a parent that recreates its button array on live-data ticks no longer drives the layout math or the parent layout-metrics callback.
+
 ## [2.30.2] - 2026-07-07
 
 ### Changed
