@@ -29,10 +29,16 @@ import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import { buildBotEditRoute } from '@/utils/bots/navigation';
 import {
+  canToggleBotStatus,
   getActionPastTense,
+  getActionPresent,
+  getActionText,
   getTargetStatus,
   isBotActive,
+  isBotRestartable,
 } from '@/utils/botStatusUtils';
+import { cn } from '@/lib/utils';
+import { isReadOnly } from '@/lib/demoMode';
 import { getOrderTypeLabel } from '@/utils/mapOrderName';
 import { motion } from 'framer-motion';
 import {
@@ -40,8 +46,13 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
+  Edit as EditIcon,
+  Loader2,
   MoreVertical,
+  Play,
+  RefreshCw,
   Share2,
+  Square,
   X,
 } from 'lucide-react';
 import React, {
@@ -79,6 +90,10 @@ import {
   SuccessFeedbackModal,
 } from '../modals';
 import { Button } from '../ui/button';
+import {
+  ResponsiveButtonRow,
+  type ResponsiveButtonConfig,
+} from '../ui/ResponsiveButtonRow';
 import { StatusChip } from '../ui/chip';
 import {
   DetailDrawer,
@@ -1254,6 +1269,157 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       [isLeftPanelCollapsed]
     );
 
+    // Bottom action bar (mirrors the edit/new bot form footer, minus the
+    // backtest row). Shown for every bot type in the main "bot" view. Built
+    // fresh each render; ResponsiveButtonRow keys off a content signature, not
+    // array identity, so re-creating it here is cheap and loop-safe.
+    const footerReadOnly = isReadOnly() || viewOnly;
+    const canToggle = canToggleBotStatus(bot.status);
+    const canRestart = isBotRestartable(bot.status);
+    const statusTogglePending = statusToggleMutation.isPending;
+    const restartPending = restartMutation.isPending;
+    const toggleLabel = getActionText(bot.status);
+    const footerActionButtons: ResponsiveButtonConfig[] = [];
+
+    if (canToggle) {
+      footerActionButtons.push({
+        id: 'toggle',
+        // Lowest priority → renders leftmost (Stop/Start).
+        priority: 1,
+        fullContent: (
+          <Button
+            onClick={() => handleStatusToggle()}
+            disabled={statusTogglePending || footerReadOnly}
+            variant="outline"
+            className="flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
+            aria-pressed={isActive}
+            aria-label={toggleLabel}
+          >
+            {statusTogglePending ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span className="truncate">{getActionPresent(bot.status)}…</span>
+              </>
+            ) : isActive ? (
+              <>
+                <Square className="w-4 h-4 shrink-0" />
+                <span className="truncate">{toggleLabel}</span>
+              </>
+            ) : (
+              <>
+                <Play className="w-4 h-4 shrink-0" />
+                <span className="truncate">{toggleLabel}</span>
+              </>
+            )}
+          </Button>
+        ),
+        compactContent: (
+          <Button
+            onClick={() => handleStatusToggle()}
+            size="icon"
+            disabled={statusTogglePending || footerReadOnly}
+            variant="outline"
+            aria-pressed={isActive}
+            aria-label={toggleLabel}
+          >
+            {statusTogglePending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : isActive ? (
+              <Square className="w-4 h-4" />
+            ) : (
+              <Play className="w-4 h-4" />
+            )}
+            <span className="sr-only">{toggleLabel}</span>
+          </Button>
+        ),
+        menuLabel: statusTogglePending
+          ? `${getActionPresent(bot.status)}…`
+          : toggleLabel,
+        menuIcon: isActive ? Square : Play,
+        onMenuClick: () => handleStatusToggle(),
+        disabled: statusTogglePending || footerReadOnly,
+      });
+    }
+
+    footerActionButtons.push({
+      id: 'edit',
+      // Highest priority → with `highestPriorityFullWidth` it becomes the
+      // full-width primary button, anchored to the right of the row.
+      priority: 3,
+      fullContent: (
+        <Button
+          onClick={() => handleEdit()}
+          disabled={footerReadOnly}
+          variant="default"
+          className="flex w-full items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
+          aria-label="Edit bot"
+          title={footerReadOnly ? 'Editing is not available in demo mode' : undefined}
+        >
+          <EditIcon className="w-4 h-4 shrink-0" />
+          <span className="truncate">Edit</span>
+        </Button>
+      ),
+      compactContent: (
+        <Button
+          onClick={() => handleEdit()}
+          size="icon"
+          disabled={footerReadOnly}
+          variant="default"
+          aria-label="Edit bot"
+          title={footerReadOnly ? 'Editing is not available in demo mode' : undefined}
+        >
+          <EditIcon className="w-4 h-4" />
+          <span className="sr-only">Edit</span>
+        </Button>
+      ),
+      menuLabel: 'Edit',
+      menuIcon: EditIcon,
+      onMenuClick: () => handleEdit(),
+      disabled: footerReadOnly,
+    });
+
+    if (canRestart) {
+      footerActionButtons.push({
+        id: 'restart',
+        // Middle priority → sits between Stop (left) and the full-width Edit.
+        priority: 2,
+        fullContent: (
+          <Button
+            onClick={() => handleRestart()}
+            disabled={restartPending || footerReadOnly}
+            variant="outline"
+            className="flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
+            aria-label="Restart bot"
+          >
+            <RefreshCw
+              className={cn('w-4 h-4 shrink-0', restartPending && 'animate-spin')}
+            />
+            <span className="truncate">
+              {restartPending ? 'Restarting…' : 'Restart'}
+            </span>
+          </Button>
+        ),
+        compactContent: (
+          <Button
+            onClick={() => handleRestart()}
+            size="icon"
+            disabled={restartPending || footerReadOnly}
+            variant="outline"
+            aria-label="Restart bot"
+          >
+            <RefreshCw
+              className={cn('w-4 h-4', restartPending && 'animate-spin')}
+            />
+            <span className="sr-only">Restart</span>
+          </Button>
+        ),
+        menuLabel: restartPending ? 'Restarting…' : 'Restart',
+        menuIcon: RefreshCw,
+        onMenuClick: () => handleRestart(),
+        disabled: restartPending || footerReadOnly,
+      });
+    }
+
     return (
       <DetailDrawer open={actualOpen} onOpenChange={handleDrawerOpenChange}>
         <DetailDrawerTrigger asChild>{children}</DetailDrawerTrigger>
@@ -1344,6 +1510,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                           align="end"
                           className="w-56 z-50"
                           viewOnly={viewOnly}
+                          hideLifecycleActions
                           bot={{
                             id: bot._id,
                             name: bot.settings.name,
@@ -1735,6 +1902,26 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   </motion.div>
                 </TabsContent>
               </DetailDrawerBody>
+
+              {/* Bottom action bar — Stop (left), Restart, and a full-width
+                  primary Edit (right), for every bot type. Mirrors the
+                  edit/new bot form footer (without the backtest row). These
+                  actions are intentionally NOT duplicated in the header ⋮
+                  menu (see hideLifecycleActions above). Hidden for share-link
+                  / non-owner viewers. */}
+              {!viewOnly && (
+                <div className="shrink-0 border-t border-border px-3 py-2 sm:px-4">
+                  <ResponsiveButtonRow
+                    buttons={footerActionButtons}
+                    gap={8}
+                    buffer={16}
+                    alignment="left"
+                    highestPriorityFullWidth
+                    enableOverflowMenu
+                    overflowMenuTriggerClassName="rounded-lg"
+                  />
+                </div>
+              )}
             </Tabs>
           ) : viewMode === 'edit-deal' && editingTrade ? (
             <>

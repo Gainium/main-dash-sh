@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.6] - 2026-07-08
+
+### Added
+
+- Bot detail sidebar: a bottom action bar with Stop/Start, Restart, and a full-width primary Edit button, shown for every bot type.
+
+### Changed
+
+- Bot detail sidebar: Start/Stop, Restart, and Edit moved out of the header ⋮ menu into the new footer action bar, so they are no longer duplicated. The ⋮ menu keeps Star, Clone, Share Configuration, Duplicate, Archive, and Delete.
+
 ## [2.30.5] - 2026-07-08
 
 ### Fixed

@@ -70,6 +70,15 @@ export interface BotActionsMenuItemsProps {
    * non-mutating actions like view-backtests stay enabled.
    */
   viewOnly?: boolean;
+  /**
+   * Hide the primary lifecycle actions (Start/Stop, Restart, Edit) from
+   * the menu. Used by surfaces that already expose these as a dedicated
+   * button row (e.g. the bot detail drawer footer) so they aren't
+   * duplicated. Secondary actions (Star, Clone, Share, Duplicate,
+   * Archive, Delete) stay in the menu.
+   * @default false
+   */
+  hideLifecycleActions?: boolean;
 }
 
 export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
@@ -87,6 +96,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   align = 'end',
   className,
   viewOnly = false,
+  hideLifecycleActions = false,
 }) => {
   // Use centralized bot status utilities
   const isActive = isBotActive(bot.status);
@@ -121,7 +131,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         {isStarred(bot.id) ? 'Unstar' : 'Star'}
       </DropdownMenuItem>
 
-      {canToggle && (
+      {!hideLifecycleActions && canToggle && (
         <DropdownMenuItem
           onClick={readOnly ? undefined : onToggleStatus}
           disabled={!!pending?.statusToggle || readOnly}
@@ -146,7 +156,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         </DropdownMenuItem>
       )}
 
-      {canRestart && onRestart && (
+      {!hideLifecycleActions && canRestart && onRestart && (
         <DropdownMenuItem
           onClick={readOnly ? undefined : onRestart}
           disabled={!!pending?.restart || readOnly}
@@ -166,14 +176,16 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         </DropdownMenuItem>
       )}
 
-      <DropdownMenuItem
-        onClick={readOnly ? undefined : onEdit}
-        disabled={readOnly}
-        title={readOnly ? 'Not available in demo mode' : undefined}
-      >
-        <Edit className="w-4 h-4 mr-2" />
-        Edit
-      </DropdownMenuItem>
+      {!hideLifecycleActions && (
+        <DropdownMenuItem
+          onClick={readOnly ? undefined : onEdit}
+          disabled={readOnly}
+          title={readOnly ? 'Not available in demo mode' : undefined}
+        >
+          <Edit className="w-4 h-4 mr-2" />
+          Edit
+        </DropdownMenuItem>
+      )}
 
       <DropdownMenuItem
         onClick={readOnly ? undefined : onClone}
