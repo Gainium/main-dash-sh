@@ -199,6 +199,11 @@ const UnfoldingChartPanel = ({
     const options: UseUnfoldingChartDataOptions = {
       timeframe,
       enabled: canRequestData,
+      // The sidebar chart never renders backtest markers (they're commented
+      // out downstream and `backtests` is not read from the hook result), so
+      // skip the getBacktests request that would otherwise fire on open for
+      // every bot sidebar / trade sidebar.
+      includeBacktests: false,
     };
 
     if (botId) {
