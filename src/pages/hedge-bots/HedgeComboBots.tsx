@@ -50,6 +50,7 @@ import {
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '@/hooks/useShareContext';
 import { useSharedBot } from '@/hooks/useSharedBot';
+import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
 
 const HEDGE_BOTS_WIDGET_MOTION = {
@@ -142,6 +143,15 @@ const HedgeComboBots = () => {
   const navigate = useNavigate();
   const params = useParams<{ id: string }>();
   const selectedBotId = params.id ?? null;
+
+  // When opening a specific hedge bot via /hedge/combo/view/:id, keep the
+  // bot's real paper/live mode authoritative over the global toggle so a
+  // refresh doesn't flip to the wrong mode and make the bot vanish
+  // (community thread 4893, the hedge instance of 4872).
+  useBotModeGuard(selectedBotId ?? undefined, BotTypesEnum.hedgeCombo, {
+    enabled: !!selectedBotId,
+  });
+
   const { bots, isLoading } = useHedgeComboBots();
   const privacyMode = useUIStore((s) => s.privacyMode);
 

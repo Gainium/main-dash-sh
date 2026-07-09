@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.11] - 2026-07-09
+
+### Fixed
+
+- Hedge bots: opening or refreshing a hedge bot's edit or detail page while the global Live/Paper toggle is set to the other mode no longer shows a blank form with the exchange undetected. The page now realigns the toggle to the bot's real mode (as the other bot types already did), or shows a clear "Bot not found" notice if the bot exists in neither mode.
+
 ## [2.30.10] - 2026-07-09
 
 ### Fixed
