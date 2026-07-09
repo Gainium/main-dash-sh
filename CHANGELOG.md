@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.15] - 2026-07-09
+
+### Changed
+
+- Bot routes (`/bot`, `/combo`, `/grid`, `/hedge/bot`, `/hedge/combo` and their `new`/`edit`/`view`/`backtests`/legacy-`:id` variants) are now generated from a single shared descriptor table instead of being hand-maintained. No change to which page renders at any path.
+
+### Removed
+
+- Deleted the unused legacy bot detail pages (`TradingBotDetails`, `ComboBotDetails`, `GridBotDetails`) and the unreferenced `pages/bots` barrel; these were superseded by the drawer view routes and were no longer reachable.
+
 ## [2.30.14] - 2026-07-09
 
 ### Changed

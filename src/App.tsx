@@ -9,13 +9,13 @@ import { IS_CLOUD } from './config/mode';
 // fetch helpers).
 const AdminPage = IS_CLOUD ? null : lazy(() => import('./pages/admin/AdminPage'));
 import { DraggableDevButton } from './components/dev/DraggableDevButton';
-import { BotViewRedirect } from './components/routing/BotViewRedirect';
 import { OfflineHandler } from './components/ui/OfflineHandler';
 import {
   registerComboBotType,
   registerDcaBotType,
   registerGridBotType,
 } from './features/bots/registry/index';
+import { botRoutes, isBotPath } from './features/bots/routes/botRoutes';
 import { useNavigationShortcuts } from './hooks/useNavigationShortcuts';
 import { useApplyVisualSettings } from './hooks/useVisualSettings';
 import logger from './lib/loggerInstance';
@@ -25,23 +25,9 @@ import {
 } from './lib/analytics';
 
 import AddExchange from './pages/AddExchange';
-import ComboBotEdit from './pages/bots/ComboBotEdit';
-import ComboBotNew from './pages/bots/ComboBotNew';
-import GridBotEdit from './pages/bots/GridBotEdit';
-import GridBotNew from './pages/bots/GridBotNew';
-import TradingBotEdit from './pages/bots/TradingBotEdit';
-import TradingBotNew from './pages/bots/TradingBotNew';
-import ComboBots from './pages/ComboBots';
 import Dashboard from './pages/Dashboard';
 import DualArcProgressGaugeTest from './pages/DualArcProgressGaugeTest';
 import Exchanges from './pages/Exchanges';
-import GridBots from './pages/GridBots';
-import HedgeComboBotEdit from './pages/hedge-bots/HedgeComboBotEdit';
-import HedgeComboBotNew from './pages/hedge-bots/HedgeComboBotNew';
-import HedgeComboBots from './pages/hedge-bots/HedgeComboBots';
-import HedgeDcaBotEdit from './pages/hedge-bots/HedgeDcaBotEdit';
-import HedgeDcaBotNew from './pages/hedge-bots/HedgeDcaBotNew';
-import HedgeDcaBots from './pages/hedge-bots/HedgeDcaBots';
 import GlobalVariables from './pages/GlobalVariables';
 import Login from './pages/Login';
 import MagicLinkConsume from './pages/MagicLinkConsume';
@@ -51,7 +37,6 @@ import Overview from './pages/Overview';
 import Portfolio from './pages/Portfolio';
 import Settings from './pages/Settings';
 import Trades from './pages/Trading';
-import TradingBots from './pages/TradingBots';
 import TradingTerminal from './pages/TradingTerminal';
 // Lazy-loaded — 3000+ LOC design-system gallery, only fetched if a user
 // navigates to /ui-showcase. Useful for SH contributors and devs evaluating
@@ -85,22 +70,8 @@ function App() {
   useEffect(() => {
     if (!isAnalyticsReady()) return;
 
-    const pathname = location.pathname;
-
     // Skip bot view/edit pages - they handle their own normalized pageview tracking
-    const isBotPage =
-      pathname.startsWith('/bot/view/') ||
-      pathname.startsWith('/bot/edit/') ||
-      pathname.startsWith('/grid/view/') ||
-      pathname.startsWith('/grid/edit/') ||
-      pathname.startsWith('/combo/view/') ||
-      pathname.startsWith('/combo/edit/') ||
-      pathname.startsWith('/hedge/bot/view/') ||
-      pathname.startsWith('/hedge/bot/edit/') ||
-      pathname.startsWith('/hedge/combo/view/') ||
-      pathname.startsWith('/hedge/combo/edit/');
-
-    if (isBotPage) {
+    if (isBotPath(location.pathname)) {
       return; // Bot pages track their own pageviews with full properties
     }
 
@@ -201,225 +172,13 @@ function App() {
             </ProtectedRoute>
           }
         />
-        <Route
-          path="/bot"
-          element={
-            <ProtectedRoute>
-              <TradingBots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/bot/new"
-          element={
-            <ProtectedRoute>
-              <TradingBotNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/bot/edit/:id"
-          element={
-            <ProtectedRoute>
-              <TradingBotEdit />
-            </ProtectedRoute>
-          }
-        />
-        {/* Drawer view route for Trading (DCA) bots */}
-        <Route
-          path="/bot/view/:id"
-          element={
-            <ProtectedRoute>
-              <TradingBots />
-            </ProtectedRoute>
-          }
-        />
         {/*
-          Shared-backtest landing — `/bot/backtests?backtestShare=<id>`
-          must resolve here (TradingBotNew owns the backtests list +
-          detail view) rather than be eaten by the `/bot/:id` catch-all
-          below. ProtectedRoute lets share URLs through without auth.
+          Common per-type bot routes (list / new / edit / drawer-view /
+          shared-backtest landing / legacy `:id` redirect) for all five bot
+          types are generated from BOT_ROUTE_SPECS in
+          features/bots/routes/botRoutes so cloud + sh stay in lock-step.
         */}
-        <Route
-          path="/bot/backtests"
-          element={
-            <ProtectedRoute>
-              <TradingBotNew />
-            </ProtectedRoute>
-          }
-        />
-        {/* Redirect legacy detail route to drawer route */}
-        <Route path="/bot/:id" element={<BotViewRedirect basePath="/bot" />} />
-        <Route
-          path="/combo"
-          element={
-            <ProtectedRoute>
-              <ComboBots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/combo/new"
-          element={
-            <ProtectedRoute>
-              <ComboBotNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/combo/edit/:id"
-          element={
-            <ProtectedRoute>
-              <ComboBotEdit />
-            </ProtectedRoute>
-          }
-        />
-        {/* Drawer view route for Combo bots */}
-        <Route
-          path="/combo/view/:id"
-          element={
-            <ProtectedRoute>
-              <ComboBots />
-            </ProtectedRoute>
-          }
-        />
-        {/* Shared combo backtest landing — see /bot/backtests comment. */}
-        <Route
-          path="/combo/backtests"
-          element={
-            <ProtectedRoute>
-              <ComboBotNew />
-            </ProtectedRoute>
-          }
-        />
-        {/* Redirect legacy detail route to drawer route */}
-        <Route
-          path="/combo/:id"
-          element={<BotViewRedirect basePath="/combo" />}
-        />
-        <Route
-          path="/grid"
-          element={
-            <ProtectedRoute>
-              <GridBots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/grid/new"
-          element={
-            <ProtectedRoute>
-              <GridBotNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/grid/edit/:id"
-          element={
-            <ProtectedRoute>
-              <GridBotEdit />
-            </ProtectedRoute>
-          }
-        />
-        {/* Drawer view route for Grid bots */}
-        <Route
-          path="/grid/view/:id"
-          element={
-            <ProtectedRoute>
-              <GridBots />
-            </ProtectedRoute>
-          }
-        />
-        {/* Shared grid backtest landing — see /bot/backtests comment. */}
-        <Route
-          path="/grid/backtests"
-          element={
-            <ProtectedRoute>
-              <GridBotNew />
-            </ProtectedRoute>
-          }
-        />
-        {/* Redirect legacy grid detail route to drawer route */}
-        <Route
-          path="/grid/:id"
-          element={<BotViewRedirect basePath="/grid" />}
-        />
-        <Route
-          path="/hedge/bot"
-          element={
-            <ProtectedRoute>
-              <HedgeDcaBots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/hedge/bot/new"
-          element={
-            <ProtectedRoute>
-              <HedgeDcaBotNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/hedge/bot/edit/:id"
-          element={
-            <ProtectedRoute>
-              <HedgeDcaBotEdit />
-            </ProtectedRoute>
-          }
-        />
-        {/* Drawer view route for Hedge DCA bots */}
-        <Route
-          path="/hedge/bot/view/:id"
-          element={
-            <ProtectedRoute>
-              <HedgeDcaBots />
-            </ProtectedRoute>
-          }
-        />
-        {/* Redirect legacy detail route to drawer route */}
-        <Route
-          path="/hedge/bot/:id"
-          element={<BotViewRedirect basePath="/hedge/bot" />}
-        />
-        <Route
-          path="/hedge/combo"
-          element={
-            <ProtectedRoute>
-              <HedgeComboBots />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/hedge/combo/new"
-          element={
-            <ProtectedRoute>
-              <HedgeComboBotNew />
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/hedge/combo/edit/:id"
-          element={
-            <ProtectedRoute>
-              <HedgeComboBotEdit />
-            </ProtectedRoute>
-          }
-        />
-        {/* Drawer view route for Hedge Combo bots */}
-        <Route
-          path="/hedge/combo/view/:id"
-          element={
-            <ProtectedRoute>
-              <HedgeComboBots />
-            </ProtectedRoute>
-          }
-        />
-        {/* Redirect legacy detail route to drawer route */}
-        <Route
-          path="/hedge/combo/:id"
-          element={<BotViewRedirect basePath="/hedge/combo" />}
-        />
+        {botRoutes()}
         <Route
           path="/trading"
           element={
