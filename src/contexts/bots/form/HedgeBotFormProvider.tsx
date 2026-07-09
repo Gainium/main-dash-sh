@@ -103,6 +103,9 @@ export interface HedgeBotFormApi {
    *  tab and can't be used for naming. */
   longLegPair: string | null;
   setLongLegPair: (pair: string | null) => void;
+  /** Number of pairs on the long leg (drives the `+N` multi-pair name). */
+  longLegPairCount: number;
+  setLongLegPairCount: (count: number) => void;
 
   /** Active leg's currently-selected pair (e.g. "BTCUSDT"), lifted from
    *  whichever leg is mounted. The chart panel reads this to render the
@@ -184,6 +187,7 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
   );
   const [hedgeName, setHedgeName] = useState<string>('');
   const [longLegPair, setLongLegPair] = useState<string | null>(null);
+  const [longLegPairCount, setLongLegPairCount] = useState<number>(1);
   const [activeLegPair, setActiveLegPair] = useState<string | null>(null);
   const [activeLegExchangeUUID, setActiveLegExchangeUUID] = useState<
     string | null
@@ -377,6 +381,8 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       setHedgeName,
       longLegPair,
       setLongLegPair,
+      longLegPairCount,
+      setLongLegPairCount,
       activeLegPair,
       setActiveLegPair,
       activeLegExchangeUUID,
@@ -399,6 +405,7 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       sharedSettings,
       hedgeName,
       longLegPair,
+      longLegPairCount,
       activeLegPair,
       activeLegExchangeUUID,
       activeLegBotId,

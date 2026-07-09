@@ -87,13 +87,19 @@ const QuickLegChartPublisher: React.FC = () => {
   const firstPair = Array.isArray(formData.pair)
     ? (formData.pair[0] ?? null)
     : (formData.pair ?? null);
+  const pairCount = Array.isArray(formData.pair)
+    ? formData.pair.length
+    : formData.pair
+      ? 1
+      : 0;
 
   useEffect(() => {
     hedge?.setActiveLegPair(firstPair || null);
-    // QuickLegChartPublisher is long-only, so the long-leg pair the
-    // auto-name hook reads is published here too.
+    // QuickLegChartPublisher is long-only, so the long-leg pair + count the
+    // auto-name hook reads (for the `+N` multi-pair suffix) is published here.
     hedge?.setLongLegPair(firstPair || null);
-  }, [firstPair, hedge]);
+    hedge?.setLongLegPairCount(pairCount || 1);
+  }, [firstPair, pairCount, hedge]);
 
   useEffect(() => {
     hedge?.setActiveLegExchangeUUID(formData.exchangeUUID ?? null);

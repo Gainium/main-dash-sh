@@ -141,12 +141,18 @@ const HedgeLegActiveChartPublisher: React.FC<{ leg: HedgeLeg }> = ({ leg }) => {
     setActiveLegExchangeUUID,
     chartSymbolWriterRef,
     setLongLegPair,
+    setLongLegPairCount,
   } = useHedgeBotForm();
   const { formData, updateFormData } = useBotFormState();
 
   const firstPair = Array.isArray(formData.pair)
     ? (formData.pair[0] ?? null)
     : (formData.pair ?? null);
+  const pairCount = Array.isArray(formData.pair)
+    ? formData.pair.length
+    : formData.pair
+      ? 1
+      : 0;
 
   const expectedStrategy =
     leg === 'long' ? StrategyEnum.long : StrategyEnum.short;
@@ -165,8 +171,9 @@ const HedgeLegActiveChartPublisher: React.FC<{ leg: HedgeLeg }> = ({ leg }) => {
   useEffect(() => {
     if (leg === 'long') {
       setLongLegPair(firstPair || null);
+      setLongLegPairCount(pairCount || 1);
     }
-  }, [leg, firstPair, setLongLegPair]);
+  }, [leg, firstPair, pairCount, setLongLegPair, setLongLegPairCount]);
 
   useEffect(() => {
     setActiveLegExchangeUUID(formData.exchangeUUID ?? null);
@@ -208,6 +215,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     hedgeName,
     setHedgeName,
     longLegPair,
+    longLegPairCount,
     longInitialFormData,
     shortInitialFormData,
     isLoadingHedgeBot,
@@ -341,6 +349,7 @@ export const HedgeBotEditLayout: React.FC = () => {
   useAutoHedgeName({
     mode,
     longLegPair,
+    longLegPairCount,
     activePreset: activeHedgePreset,
     presetLabels: hedgePresetLabels,
     botTypeLabel: hedgeBotTypeLabel,

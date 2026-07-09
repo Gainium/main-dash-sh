@@ -39,6 +39,12 @@ interface UseAutoHedgeNameArgs {
    * name stays blank until then.
    */
   longLegPair: string | null;
+  /**
+   * Number of pairs on the long leg. When > 1 the prefix becomes
+   * `{longLegPair} +{n-1}` (e.g. `BTCUSDT +4`), matching the regular
+   * bots' multi-pair naming. Defaults to 1 (single pair).
+   */
+  longLegPairCount?: number;
   /** The currently-selected hedge preset (Quick), or null (Manual). */
   activePreset: { label: string } | null | undefined;
   /** All hedge preset labels, used to detect auto-generated names. */
@@ -57,6 +63,7 @@ interface UseAutoHedgeNameArgs {
 export const useAutoHedgeName = ({
   mode,
   longLegPair,
+  longLegPairCount = 1,
   activePreset,
   presetLabels,
   botTypeLabel,
@@ -68,8 +75,12 @@ export const useAutoHedgeName = ({
     if (!longLegPair) return;
     const currentName = (hedgeName ?? '').trim();
 
+    const prefix =
+      longLegPairCount > 1
+        ? `${longLegPair} +${longLegPairCount - 1}`
+        : longLegPair;
     const middle = activePreset?.label ?? botTypeLabel;
-    const next = `${longLegPair} ${middle} ${todayIso()}`;
+    const next = `${prefix} ${middle} ${todayIso()}`;
     if (next === currentName) return;
 
     const knownLabels = [...presetLabels, botTypeLabel];
@@ -89,6 +100,7 @@ export const useAutoHedgeName = ({
   }, [
     mode,
     longLegPair,
+    longLegPairCount,
     activePreset,
     presetLabels,
     botTypeLabel,
