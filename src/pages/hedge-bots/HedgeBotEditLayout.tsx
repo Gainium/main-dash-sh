@@ -46,10 +46,8 @@ import { Input } from '@/components/ui/input';
 import type { WidgetMenuActionItem } from '@/components/widgets/WidgetWrapper';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import {
-  HedgeBacktestActiveView,
-  HedgeBacktestListView,
-} from '@/components/widgets/bots/backtest/HedgeBacktestTab';
+import { HedgeBacktestListView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
+import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign/BacktestResultsFullModal';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
 import {
@@ -256,13 +254,14 @@ export const HedgeBotEditLayout: React.FC = () => {
   const [dialogSnapshot, setDialogSnapshot] =
     useState<HedgeBacktestSnapshot | null>(null);
 
-  // History-row selection lives here so it can drive both the
-  // active-backtest tab's visibility and an auto-switch from the
-  // Backtests list to the Active tab when the user clicks a row.
+  // History-row selection lives here so it can be threaded into the
+  // results modal (as `hedgeMeta`) when the user clicks a row.
   const [selectedBacktestMeta, setSelectedBacktestMeta] =
     useState<HedgeBacktestHistoryItem | null>(null);
   const [activatingBacktest, setActivatingBacktest] = useState(false);
-  const [insightsTab, setInsightsTab] = useState<string>('backtests');
+  // Results open in the shared full-screen modal (BacktestResultsFullModal,
+  // hedge kind) rather than an inline insights tab.
+  const [backtestModalOpen, setBacktestModalOpen] = useState(false);
 
   // Refs each leg's BotFormWidget keeps synced with its current formData.
   // Read at save time only — no re-render storm from per-keystroke changes.
@@ -1005,8 +1004,11 @@ export const HedgeBotEditLayout: React.FC = () => {
   });
 
   // Click on a history row: pull the full payload from IndexedDB, then
-  // switch the insights tab to the Active view so the user lands on the
-  // backtest they just opened.
+  // open the results modal on the backtest the user just selected. The
+  // explicit open is load-bearing: for a server-summary-only row,
+  // `loadById` returns null without setting result/resultId, so the
+  // auto-open effect below won't fire — this line surfaces the modal
+  // (with the amber "not on this device" warning) in that case.
   const handleSelectBacktest = useCallback(
     async (item: HedgeBacktestHistoryItem) => {
       setSelectedBacktestMeta(item);
@@ -1016,17 +1018,18 @@ export const HedgeBotEditLayout: React.FC = () => {
       } finally {
         setActivatingBacktest(false);
       }
-      setInsightsTab('active-backtest');
+      setBacktestModalOpen(true);
     },
     [backtestRunner]
   );
 
   // After a fresh run finishes, surface the result automatically by
-  // switching to the Active tab — same UX as DCA where the just-run
-  // backtest jumps into focus.
+  // opening the results modal — same UX as DCA where the just-run
+  // backtest jumps into focus. Idempotent, so overlap with a row-click
+  // that also loads local data is harmless.
   useEffect(() => {
     if (backtestRunner.result && backtestRunner.resultId) {
-      setInsightsTab('active-backtest');
+      setBacktestModalOpen(true);
     }
   }, [backtestRunner.result, backtestRunner.resultId]);
 
@@ -1549,6 +1552,9 @@ export const HedgeBotEditLayout: React.FC = () => {
 
   const hedgeQuickContent = (
     <div className="flex h-full min-h-0 flex-col">
+      {/* Bot name at the top of the Quick panel, matching the regular bots.
+          Binds to hedge context, so it can sit above the long-leg block. */}
+      <HedgeNameInput />
       <HedgeQuickLeg
         legId="long"
         widgetId={`hedge-quick-long-${quickSeedSeq}`}
@@ -1574,10 +1580,6 @@ export const HedgeBotEditLayout: React.FC = () => {
           {/* Short leg's investment (base), inside the short leg's context. */}
           <HedgeQuickInvestment />
         </HedgeQuickLeg>
-
-        {/* Shared Bot Name for the hedge. Rendered by the layout (binds to
-            hedge context) even though it sits inside the long leg's tree. */}
-        <HedgeNameInput />
 
         <div className="rounded-lg bg-muted/40 p-md space-y-sm">
           <div>
@@ -1743,16 +1745,13 @@ export const HedgeBotEditLayout: React.FC = () => {
     containerClassName: 'min-h-[360px]',
   };
 
-  // Insights panel — mirrors DCA's pattern: a stable "Backtests" table
-  // tab (always clickable, with a count badge) plus an "Active backtest"
-  // tab that materialises whenever a row is selected or a run has just
-  // finished. Local-only (no SSB hedge variant); see
+  // Insights panel — a single "Backtests" table tab (always clickable,
+  // with a count badge). Selecting a row (or finishing a fresh run) opens
+  // the shared results modal rather than an inline "Active backtest" tab.
+  // The meta threaded into the modal is the selected row's, falling back to
+  // the just-run synthetic meta. Local-only (no SSB hedge variant); see
   // `useHedgeBacktestRunner`.
   const activeMeta = selectedBacktestMeta ?? backtestRunner.lastRunMeta;
-  const hasActiveBacktest = !!(
-    activeMeta ||
-    (backtestRunner.result && backtestRunner.resultId)
-  );
 
   const insightsTabs: BotPanelInsightsTab[] = [
     {
@@ -1772,25 +1771,9 @@ export const HedgeBotEditLayout: React.FC = () => {
       ),
     },
   ];
-  if (hasActiveBacktest) {
-    insightsTabs.push({
-      key: 'active-backtest',
-      title: 'Active backtest',
-      content: (
-        <HedgeBacktestActiveView
-          result={backtestRunner.result}
-          meta={activeMeta}
-        />
-      ),
-    });
-  }
 
   const insightsContent = (
-    <BotPanelInsights
-      tabs={insightsTabs}
-      value={hasActiveBacktest ? insightsTab : 'backtests'}
-      onTabChange={setInsightsTab}
-    />
+    <BotPanelInsights tabs={insightsTabs} value="backtests" />
   );
 
   return (
@@ -1846,6 +1829,20 @@ export const HedgeBotEditLayout: React.FC = () => {
           }}
         />
       )}
+
+      {/* Hedge backtest RESULTS — shared full-screen modal, hedge kind.
+          Renders the Combined/Long/Short shell (HedgeBacktestActiveView)
+          inside the modal chrome. `result` may be null for server-summary
+          rows; the modal + view handle that (amber warning). */}
+      <BacktestResultsFullModal
+        open={backtestModalOpen}
+        onOpenChange={setBacktestModalOpen}
+        strategy={botType}
+        result={backtestRunner.result}
+        hedgeMeta={activeMeta}
+        hedgeBotType={botType}
+        botName={hedgeName}
+      />
 
       <BotSettingsImportExportDialog
         open={showImportExport}

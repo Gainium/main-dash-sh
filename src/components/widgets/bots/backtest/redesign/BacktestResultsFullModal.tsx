@@ -48,6 +48,7 @@ import {
   type DCABacktestingResultHistory,
   type DCABotSettings,
   type GRIDBacktestingResultHistory,
+  type HedgeBacktestingResult,
 } from '@/types';
 
 import {
@@ -58,6 +59,8 @@ import {
   GridBacktestStatsTab,
   GridBacktestTransactionsTab,
 } from '@/components/widgets/bots/backtest';
+import { HedgeBacktestActiveView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
+import type { HedgeBacktestHistoryItem } from '@/hooks/bots/hedge/useHedgeBacktestRunner';
 
 import { RedesignOverviewTab } from './tabs/RedesignOverviewTab';
 import { RedesignDealsTab } from './tabs/RedesignDealsTab';
@@ -71,7 +74,7 @@ const DCA_TABS = ['Overview', 'Stats', 'Deals', 'Analysis'] as const;
 const GRID_TABS = ['Overview', 'Transactions', 'Equity', 'Stats'] as const;
 type TabKey = (typeof DCA_TABS)[number] | (typeof GRID_TABS)[number];
 
-type ResultKind = 'dca' | 'combo' | 'grid';
+type ResultKind = 'dca' | 'combo' | 'grid' | 'hedge';
 
 /**
  * Any result the modal can be opened with. The concrete engine result types
@@ -88,14 +91,27 @@ type AnyBacktestResult =
 export interface BacktestResultsFullModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** Raw backtest result. Shape depends on `strategy`. */
-  result: AnyBacktestResult;
+  /**
+   * Raw backtest result. Shape depends on `strategy`. Nullable only for the
+   * hedge kind, where the row may be a server-summary that isn't fully loaded
+   * on this device (the hedge body reads `hedgeMeta` in that case). DCA / Grid
+   * / Combo callers always pass a concrete object.
+   */
+  result?: AnyBacktestResult | null;
   /** Bot type signal (`settings.strategy`). Case-insensitive. Default 'DCA'. */
   strategy?: string;
   /** DCA/combo bot settings — used to build the view model. */
   settings?: DCABotSettings;
   /** Identity hints (symbol/exchange/base/quote) when the result lacks them. */
   meta?: BacktestViewModelMeta;
+  /**
+   * Hedge-only: the history-row / `lastRunMeta` shape. Required in practice for
+   * the hedge kind — `HedgeBacktestActiveView` reads per-leg identity + falls
+   * back to `meta.longResult/shortResult/hedgeResult` when `result` is null.
+   */
+  hedgeMeta?: HedgeBacktestHistoryItem | null;
+  /** Hedge-only: drives the header strategy label ("Hedge DCA"/"Hedge Combo"). */
+  hedgeBotType?: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo;
   /** Optional bot name, shown after the pair chip when provided. */
   botName?: string;
 }
@@ -103,6 +119,10 @@ export interface BacktestResultsFullModalProps {
 /** Normalize the strategy string into a render kind. */
 function resultKind(strategy: string | undefined): ResultKind {
   const s = strategy ?? '';
+  // Hedge MUST be tested first: `BotTypesEnum.hedgeCombo === 'hedgeCombo'`
+  // contains 'combo', so the `/combo/i` test below would misclassify a
+  // hedge-combo result as 'combo'. Same trap for 'hedgeDca' vs 'dca'.
+  if (/hedge/i.test(s)) return 'hedge';
   if (/grid/i.test(s)) return 'grid';
   if (/combo/i.test(s)) return 'combo';
   return 'dca';
@@ -153,6 +173,37 @@ function headerFromGrid(result: GRIDBacktestingResultHistory): HeaderModel {
     from: Number(result.duration?.firstDataTime) || 0,
     to: Number(result.duration?.lastDataTime) || 0,
     strategyLabel: 'Grid',
+    direction: null,
+  };
+}
+
+/**
+ * Hedge identity from the history-row meta. Both legs' symbols are joined
+ * with " + " (matching the combined label `HedgeBacktestActiveView`
+ * synthesizes). Interval is not persisted anywhere reachable from `meta`
+ * (the stored `config` is `BacktestingSettings` with no interval field, and
+ * the leg results don't carry one), so it's left empty — the subline's
+ * `.filter(Boolean)` drops it cleanly. Do not fabricate one.
+ */
+function headerFromHedge(
+  meta: HedgeBacktestHistoryItem | null | undefined,
+  hedgeBotType: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo | undefined,
+): HeaderModel {
+  const long = meta?.long;
+  const short = meta?.short;
+  const longExchange = long?.exchange ? String(long.exchange) : '';
+  const shortExchange = short?.exchange ? String(short.exchange) : '';
+  return {
+    pair: [long?.symbol, short?.symbol].filter(Boolean).join(' + '),
+    exchange:
+      longExchange && longExchange === shortExchange
+        ? longExchange
+        : [longExchange, shortExchange].filter(Boolean).join(' · '),
+    interval: '',
+    from: Number(long?.duration?.firstDataTime) || 0,
+    to: Number(long?.duration?.lastDataTime) || 0,
+    strategyLabel:
+      hedgeBotType === BotTypesEnum.hedgeCombo ? 'Hedge Combo' : 'Hedge DCA',
     direction: null,
   };
 }
@@ -209,13 +260,15 @@ export function BacktestResultsFullModal({
   strategy,
   settings,
   meta,
+  hedgeMeta,
+  hedgeBotType,
   botName,
 }: BacktestResultsFullModalProps) {
   const kind = useMemo(() => resultKind(strategy), [strategy]);
 
-  // DCA / combo build a view model; grid renders the raw result directly.
+  // DCA / combo build a view model; grid + hedge render their own views.
   const vm = useMemo<BacktestViewModel | null>(() => {
-    if (kind === 'grid') return null;
+    if (kind === 'grid' || kind === 'hedge') return null;
     return buildBacktestViewModel(
       result as unknown as DCABacktestingResult | DCABacktestingResultHistory,
       settings ?? ({} as DCABotSettings),
@@ -245,7 +298,9 @@ export function BacktestResultsFullModal({
     ? headerFromVm(vm, kind)
     : gridResult
       ? headerFromGrid(gridResult)
-      : null;
+      : kind === 'hedge'
+        ? headerFromHedge(hedgeMeta, hedgeBotType)
+        : null;
 
   // Analysis tab gating (dca/combo) — enable when there are deals or periodic
   // stats; the tab also self-handles the empty case.
@@ -283,6 +338,10 @@ export function BacktestResultsFullModal({
 
   const handleShare = useCallback(async () => {
     if (!shareInfo.id) return;
+    // Hedge has no shareable backtest type (the Share item is disabled for
+    // it); this guard also narrows `kind` away from 'hedge' for the
+    // `backtestType`/`subKind` unions below.
+    if (kind === 'hedge') return;
     try {
       const res = await shareMutation.mutateAsync({
         id: shareInfo.id,
@@ -406,9 +465,13 @@ export function BacktestResultsFullModal({
 
           {/* right rail: tabs + share (full-width below the title on mobile) */}
           <div className="order-3 ml-auto flex w-full flex-shrink-0 items-center gap-md sm:order-2 sm:w-auto">
-            <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
-              <TabBar tabs={tabs} active={activeTab} onChange={setActive} />
-            </div>
+            {/* Hedge owns its own two-level Combined/Long/Short + sub-tab UI
+                inside the body, so the modal's single-row TabBar is hidden. */}
+            {kind !== 'hedge' && (
+              <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
+                <TabBar tabs={tabs} active={activeTab} onChange={setActive} />
+              </div>
+            )}
             {/* overflow menu — Save as template + Share (replaces the
                 standalone Share button) */}
             <DropdownMenu>
@@ -429,7 +492,10 @@ export function BacktestResultsFullModal({
                   <BookmarkPlus className="mr-2 h-3.5 w-3.5" />
                   Save as template
                 </DropdownMenuItem>
-                <DropdownMenuItem onSelect={() => handleExportJson()}>
+                <DropdownMenuItem
+                  disabled={kind === 'hedge' && !result}
+                  onSelect={() => handleExportJson()}
+                >
                   <Download className="mr-2 h-3.5 w-3.5" />
                   Export as JSON
                 </DropdownMenuItem>
@@ -450,6 +516,16 @@ export function BacktestResultsFullModal({
 
         {/* ── body ── */}
         <div className="min-h-0 flex-1 overflow-auto p-sm sm:p-md">
+          {/* hedge — renders its own Combined/Long/Short shell + sub-tabs,
+              including the "deals not on this device" amber warning (driven
+              by the same nullable `result`). */}
+          {kind === 'hedge' && (
+            <HedgeBacktestActiveView
+              result={(result as HedgeBacktestingResult | null) ?? null}
+              meta={hedgeMeta ?? null}
+            />
+          )}
+
           {/* grid */}
           {gridResult && activeTab === 'Overview' && (
             <GridBacktestOverviewTab backtest={gridResult} />
