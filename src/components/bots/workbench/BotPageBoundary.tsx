@@ -65,13 +65,16 @@ export function BotPageBoundary({
     };
   }, [descriptor]);
 
-  // EDIT-only read-only redirect (grid). Fires independently of the guard,
-  // matching the current GridBotEdit behavior.
+  // EDIT-only read-only redirect. Demo / shared-link viewers have no business
+  // on an edit page (the read-only surface is the drawer `/x/view/:id`), so
+  // bounce them back to the list. Applied uniformly to every bot type — this
+  // used to be grid-only, which left a demo user on a dca/combo/hedge edit
+  // page staring at a form that looks editable but whose footer is disabled.
   useEffect(() => {
-    if (isEdit && descriptor.editReadOnlyRedirect && isReadOnly) {
-      navigate(descriptor.editReadOnlyRedirect, { replace: true });
+    if (isEdit && isReadOnly) {
+      navigate(descriptor.basePath, { replace: true });
     }
-  }, [isEdit, descriptor.editReadOnlyRedirect, isReadOnly, navigate]);
+  }, [isEdit, descriptor.basePath, isReadOnly, navigate]);
 
   const ctx = {
     botType: descriptor.botType,

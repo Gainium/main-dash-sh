@@ -169,8 +169,6 @@ export interface BotPageBoundaryDescriptor {
   resetStores?: ReadonlyArray<{ reset: () => void }>;
   /** Run useBotModeGuard in EDIT + honor notFound. Defaults to true. */
   guardEnabled?: boolean;
-  /** EDIT-only demo redirect. Absent → none. */
-  editReadOnlyRedirect?: string;
 }
 
 /**

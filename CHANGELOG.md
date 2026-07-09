@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Bot edit pages (`/bot/edit`, `/combo/edit`, `/grid/edit`, `/hedge/bot/edit`, `/hedge/combo/edit`) now open ready to edit instead of starting locked behind a "Press Edit" step — reaching an edit page from the sidebar, a bot card, or the drawer always expresses intent to edit. The drawer view routes (`/…/view/:id`) remain the read-only surface, and the footer EDIT/CANCEL toggle still locks the form on demand.
 - Unified the DCA, grid, combo, and hedge bot **new & edit** pages onto a shared workbench, page-descriptor, and route table. Cross-cutting concerns — the paper/live mode guard, premium gate, not-found handling, store resets, and the backtests panel — are now declared once per bot type instead of copy-pasted per page, so a bot type can no longer silently miss one. No change to which page renders at any path or to how bots behave.
+- Demo / shared-link viewers are now redirected off **every** bot edit page back to the list (previously only grid bots did this; the other types left them on a form that looked editable but couldn't be saved).
 
 ### Removed
 

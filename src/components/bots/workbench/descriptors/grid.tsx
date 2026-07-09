@@ -80,8 +80,6 @@ export const gridPageDescriptor: BotPageDescriptor<GRIDBacktestingResultHistory>
     loadingHasStatsTab: false,
     // Grid resets only example orders on unmount (no indicators).
     resetStores: [exampleOrdersStore],
-    // Read-only (demo) users can't edit grid bots — bounce back to the list.
-    editReadOnlyRedirect: '/grid',
     backtests: {
       kind: 'grid',
       noteType: BotTypesEnum.grid,
