@@ -200,26 +200,39 @@ export function useNavigationShortcuts() {
             s.id === SHORTCUT_IDS.ManagerShortcuts ||
             s.id === SHORTCUT_IDS.ManagerGlobalSearch)
       )
-      .map((s) => ({
-        key: s.currentKey.key.toLowerCase(),
-        modifiers: {
-          cmd: s.currentKey.modifiers.cmd || false,
-          ctrl: s.currentKey.modifiers.ctrl || false,
-          shift: s.currentKey.modifiers.shift || false,
-          alt: s.currentKey.modifiers.alt || false,
-        },
-        callback: s.action,
-        priority: 80,
-        enabled: true,
-        // Allow these shortcuts to fire even while inputs are focused:
-        // - GlobalSearch: re-pressing should close it.
-        // - ActionChat: users typing into the Max chat input still need
-        //   the toggle shortcut to work so they can close/reopen the
-        //   panel without having to click out of the input first.
-        allowInInputs:
-          s.id === SHORTCUT_IDS.ManagerGlobalSearch ||
-          s.id === SHORTCUT_IDS.ActionChat,
-      }));
+      .flatMap((s) => {
+        // Persisted state (localStorage) can carry a shortcut from an older
+        // build or a partial write that is missing `currentKey`; fall back to
+        // `defaultKey`, and skip entirely if neither has a usable key. Without
+        // this guard a single malformed record throws
+        // "Cannot read properties of undefined (reading 'key')" here and, since
+        // this hook runs in <App>, white-screens the whole dashboard.
+        const activeKey = s.currentKey ?? s.defaultKey;
+        if (!activeKey?.key) return [];
+        const modifiers = activeKey.modifiers ?? {};
+        return [
+          {
+            key: activeKey.key.toLowerCase(),
+            modifiers: {
+              cmd: modifiers.cmd || false,
+              ctrl: modifiers.ctrl || false,
+              shift: modifiers.shift || false,
+              alt: modifiers.alt || false,
+            },
+            callback: s.action,
+            priority: 80,
+            enabled: true,
+            // Allow these shortcuts to fire even while inputs are focused:
+            // - GlobalSearch: re-pressing should close it.
+            // - ActionChat: users typing into the Max chat input still need
+            //   the toggle shortcut to work so they can close/reopen the
+            //   panel without having to click out of the input first.
+            allowInInputs:
+              s.id === SHORTCUT_IDS.ManagerGlobalSearch ||
+              s.id === SHORTCUT_IDS.ActionChat,
+          },
+        ];
+      });
   }, [shortcutsObj]);
 
   // Register with keyboard shortcut manager
