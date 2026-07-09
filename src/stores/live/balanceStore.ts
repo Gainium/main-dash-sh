@@ -57,7 +57,7 @@ export const useBalanceStore = create<BalanceStoreState>()(
         const { data } = update;
 
         // Transform WebSocket data to BalanceData format
-        const balances: BalanceData[] = data.map(
+        const incoming: BalanceData[] = data.map(
           (balance: Record<string, unknown>) => ({
             asset: (balance['asset'] as string) || '',
             free: (balance['free'] as number) || 0,
@@ -69,7 +69,28 @@ export const useBalanceStore = create<BalanceStoreState>()(
           })
         );
 
-        get().updateBalances(balances);
+        // MERGE, don't replace. A `balance` notification carries only the
+        // exchange(s) that had activity (every entry is tagged with its
+        // exchangeUUID). The old code called updateBalances() here, which
+        // wholesale-replaced the cross-exchange store — so a balance event for
+        // one exchange wiped every *other* exchange's balances, and the bot
+        // form (which reads the selected exchange's free balance out of this
+        // store) showed "BAL 0" for any exchange that wasn't in the event.
+        // Upsert per (exchangeUUID, asset) so only the assets in the event
+        // change; all other exchanges and assets are preserved.
+        set((state) => {
+          const keyOf = (b: { exchangeUUID?: string; asset?: string }) =>
+            `${b.exchangeUUID ?? ''}::${(b.asset ?? '').toUpperCase()}`;
+          const byKey = new Map(state.balances.map((b) => [keyOf(b), b]));
+          for (const b of incoming) {
+            byKey.set(keyOf(b), b);
+          }
+          return {
+            balances: Array.from(byKey.values()),
+            loading: false,
+            error: null,
+          };
+        });
       },
 
       updateSingleBalance: (
