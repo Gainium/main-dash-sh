@@ -1,6 +1,4 @@
 export { BacktestStatsTab } from './BacktestStatsTab';
-export { BacktestOverviewTab } from './BacktestOverviewTab';
-export { BacktestDealsTab } from './BacktestDealsTab';
 export { BacktestAnalysisTab } from './BacktestAnalysisTab';
 
 export { GridBacktestOverviewTab } from './GridBacktestOverviewTab';

@@ -22,12 +22,15 @@ import {
 } from '@/components/ui/tabs';
 import {
   BacktestAnalysisTab,
-  BacktestDealsTab,
-  BacktestOverviewTab,
   BacktestStatsTab,
   ShareBacktestButton,
 } from '@/components/widgets/bots/backtest';
-import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
+import {
+  BacktestResultsFullModal,
+  RedesignOverviewTab,
+  RedesignDealsTab,
+  buildBacktestViewModel,
+} from '@/components/widgets/bots/backtest/redesign';
 import {
   useDeleteBacktests,
   useExportBacktests,
@@ -45,7 +48,7 @@ import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
-import type { DCABacktestingResultHistory } from '@/types';
+import type { DCABacktestingResultHistory, DCABotSettings } from '@/types';
 import { removePaperPrefix } from '@/utils/exchangeUtils';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Download, Trash2 } from 'lucide-react';
@@ -723,6 +726,22 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     // shared panel stays generic over TResult.
     const shareBacktest =
       selectedBacktest as unknown as DCABacktestingResultHistory | null;
+    // Build the view-model for the redesign Overview/Deals tabs. Identity
+    // fields feed the header; per-deal Symbols + interval on the raw payload
+    // drive the deal chart (empty state when a shared backtest was persisted
+    // without them). num() coercion makes the settings cast runtime-safe.
+    const shareVm = shareBacktest
+      ? buildBacktestViewModel(
+          shareBacktest,
+          (shareBacktest.settings ?? {}) as DCABotSettings,
+          {
+            symbol: shareBacktest.symbol,
+            exchange: shareBacktest.exchange as unknown as string,
+            baseAsset: shareBacktest.baseAsset,
+            quoteAsset: shareBacktest.quoteAsset,
+          }
+        )
+      : null;
     return (
       <div className="flex flex-col gap-md p-md">
         {shareBacktest ? (
@@ -736,13 +755,13 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
               </TabsTrigger>
             </TabsList>
             <TabsContent value="bt-overview" className="mt-md">
-              <BacktestOverviewTab backtest={shareBacktest} />
+              {shareVm && <RedesignOverviewTab vm={shareVm} />}
             </TabsContent>
             <TabsContent value="bt-stats" className="mt-md">
               <BacktestStatsTab backtest={shareBacktest} />
             </TabsContent>
             <TabsContent value="bt-deals" className="mt-md">
-              <BacktestDealsTab backtest={shareBacktest} />
+              {shareVm && <RedesignDealsTab vm={shareVm} />}
             </TabsContent>
             <TabsContent value="bt-analysis" className="mt-md">
               {hasAnalysis ? (

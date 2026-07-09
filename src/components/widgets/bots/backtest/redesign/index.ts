@@ -14,6 +14,8 @@ export type { BacktestResultsFullModalProps } from './BacktestResultsFullModal';
 
 // Adapter + view-model types — the contract that the modal, tabs, and the
 // BotForm integration seam all render against.
+export { RedesignOverviewTab } from './tabs/RedesignOverviewTab';
+export { RedesignDealsTab } from './tabs/RedesignDealsTab';
 export { buildBacktestViewModel } from './viewModel';
 export type {
   BacktestViewModel,

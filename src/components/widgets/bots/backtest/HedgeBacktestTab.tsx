@@ -29,13 +29,17 @@ import {
 } from '@/components/ui/tabs';
 import {
   BacktestAnalysisTab,
-  BacktestDealsTab,
-  BacktestOverviewTab,
   BacktestPermanentCheckbox,
   BacktestStatsTab,
 } from '@/components/widgets/bots/backtest';
+import {
+  RedesignOverviewTab,
+  RedesignDealsTab,
+  buildBacktestViewModel,
+} from '@/components/widgets/bots/backtest/redesign';
 import type {
   DCABacktestingResultHistory,
+  DCABotSettings,
   HedgeBacktestingResult,
 } from '@/types';
 import type {
@@ -87,30 +91,47 @@ const buildLegHistory = (
 const LegSubTabs: React.FC<{
   backtest: DCABacktestingResultHistory;
   hideDeals?: boolean;
-}> = ({ backtest, hideDeals }) => (
-  <Tabs defaultValue="overview">
-    <TabsList>
-      <TabsTrigger value="overview">Overview</TabsTrigger>
-      <TabsTrigger value="stats">Stats</TabsTrigger>
-      <TabsTrigger value="analysis">Analysis</TabsTrigger>
-      {!hideDeals && <TabsTrigger value="deals">Deals</TabsTrigger>}
-    </TabsList>
-    <TabsContent value="overview" className="pt-md">
-      <BacktestOverviewTab backtest={backtest} />
-    </TabsContent>
-    <TabsContent value="stats" className="pt-md">
-      <BacktestStatsTab backtest={backtest} />
-    </TabsContent>
-    <TabsContent value="analysis" className="pt-md">
-      <BacktestAnalysisTab backtest={backtest} />
-    </TabsContent>
-    {!hideDeals && (
-      <TabsContent value="deals" className="pt-md">
-        <BacktestDealsTab backtest={backtest} />
+}> = ({ backtest, hideDeals }) => {
+  // Build the view-model once per leg. `meta` is omitted: buildLegHistory
+  // sets symbol/exchange/baseAsset/quoteAsset on the synthesized history, and
+  // buildBacktestViewModel falls back to those for the header. Leg settings
+  // (forwarded onto `backtest.settings` by buildLegHistory) let the safety
+  // ladder reconstruct DCA rung prices; numeric fields are coerced via num()
+  // so the `as DCABotSettings` cast is type-only and runtime-safe.
+  const vm = useMemo(
+    () =>
+      buildBacktestViewModel(
+        backtest,
+        (backtest.settings ?? {}) as DCABotSettings
+      ),
+    [backtest]
+  );
+
+  return (
+    <Tabs defaultValue="overview">
+      <TabsList>
+        <TabsTrigger value="overview">Overview</TabsTrigger>
+        <TabsTrigger value="stats">Stats</TabsTrigger>
+        <TabsTrigger value="analysis">Analysis</TabsTrigger>
+        {!hideDeals && <TabsTrigger value="deals">Deals</TabsTrigger>}
+      </TabsList>
+      <TabsContent value="overview" className="pt-md">
+        <RedesignOverviewTab vm={vm} />
       </TabsContent>
-    )}
-  </Tabs>
-);
+      <TabsContent value="stats" className="pt-md">
+        <BacktestStatsTab backtest={backtest} />
+      </TabsContent>
+      <TabsContent value="analysis" className="pt-md">
+        <BacktestAnalysisTab backtest={backtest} />
+      </TabsContent>
+      {!hideDeals && (
+        <TabsContent value="deals" className="pt-md">
+          <RedesignDealsTab vm={vm} />
+        </TabsContent>
+      )}
+    </Tabs>
+  );
+};
 
 // ─── Active view (Combined / Long / Short) ──────────────────────────
 
