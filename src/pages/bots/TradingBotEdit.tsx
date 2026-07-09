@@ -2,6 +2,7 @@ import { useCallback, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
+import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { logger } from '@/lib/loggerInstance';
@@ -62,6 +63,7 @@ const TradingBotEditWidget = () => {
 
   return (
     <BotWorkbench
+      descriptor={dcaPageDescriptor}
       mode="edit"
       botId={safeBotId}
       hasBotId={hasBotId}

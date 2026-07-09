@@ -11,6 +11,10 @@ import BotFormPanel from '@/components/bots/panels/contents/form/BotFormPanel';
 import { BotBacktestPanel } from '@/components/bots/panels/contents/insights/BotBacktestPanel';
 import { usePanelMenuBridge } from '@/components/bots/panels/hooks/usePanelMenuBridge';
 import { type PanelContentConfig } from '@/components/bots/panels/PanelContainer';
+import type {
+  BacktestRowBase,
+  BotPageDescriptor,
+} from '@/components/bots/workbench/descriptors/types';
 import MainLayout from '@/components/layout/MainLayout';
 import WidgetContainer from '@/components/layout/WidgetContainer';
 import { Badge } from '@/components/ui/badge';
@@ -20,21 +24,10 @@ import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import { useBotPageLoading } from '@/hooks/bots/base/useBotPageLoading';
 import { useBotPageRedirect } from '@/hooks/bots/base/useBotPageRedirect';
 import { Slot } from '@/lib/extensions';
-import {
-  BotTypesEnum,
-  type BotChartData,
-  type DCABacktestingResultHistory,
-} from '@/types';
+import { type BotChartData, type DCABacktestingResultHistory } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
-// Mode-keyed initial skeleton window. Both pages called useBotPageLoading
-// unconditionally today; only the delay diverged (New 1200ms / Edit 1000ms).
-const INITIAL_LOADING_DELAY_MS = {
-  create: 1200,
-  edit: 1000,
-} as const;
-
-interface BotWorkbenchCreateProps {
+interface BotWorkbenchCreateProps<TResult extends BacktestRowBase> {
   mode: 'create';
   /** loadedFormData ?? preload?.initialFormData — the page-resolved seed. */
   initialFormData?: Partial<BotFormData>;
@@ -47,10 +40,10 @@ interface BotWorkbenchCreateProps {
    */
   isSeedPending: boolean;
   /** In-place reload: map settings -> setLoadedFormData -> bump formReloadKey. */
-  onLoadBacktestIntoForm: (backtest: DCABacktestingResultHistory) => void;
+  onLoadBacktestIntoForm: (backtest: TResult) => void;
 }
 
-interface BotWorkbenchEditProps {
+interface BotWorkbenchEditProps<TResult extends BacktestRowBase> {
   mode: 'edit';
   /** Route bot id; '' when the param is absent (safeBotId). */
   botId: string;
@@ -59,25 +52,35 @@ interface BotWorkbenchEditProps {
   /** modeGuard.notFound — drives the BotNotFoundNotice short-circuit. */
   notFound: boolean;
   /** Stage settings in sessionStorage.botConfig, then navigate('/bot/new'). */
-  onLoadBacktestIntoForm: (backtest: DCABacktestingResultHistory) => void;
+  onLoadBacktestIntoForm: (backtest: TResult) => void;
 }
 
-export type BotWorkbenchProps = BotWorkbenchCreateProps | BotWorkbenchEditProps;
+export type BotWorkbenchProps<
+  TResult extends BacktestRowBase = DCABacktestingResultHistory,
+> = {
+  /** Per-type page contract; TradingBot{New,Edit} pass dcaPageDescriptor. */
+  descriptor: BotPageDescriptor<TResult>;
+} & (BotWorkbenchCreateProps<TResult> | BotWorkbenchEditProps<TResult>);
 
-export function BotWorkbench(props: BotWorkbenchProps) {
+export function BotWorkbench<
+  TResult extends BacktestRowBase = DCABacktestingResultHistory,
+>(props: BotWorkbenchProps<TResult>) {
+  const { descriptor } = props;
   const mode = props.mode;
   // Route bot id (edit only). undefined on create so the chart data builder
   // and the layout key template skip the edit-specific botId seeding.
   const editBotId = props.mode === 'edit' ? props.botId : undefined;
 
-  useBotPageRedirect('/bot');
-  const isLoading = useBotPageLoading(INITIAL_LOADING_DELAY_MS[mode]);
+  useBotPageRedirect(descriptor.basePath);
+  const isLoading = useBotPageLoading(descriptor.loadingDelayMs[mode]);
 
   // Shared across BotBacktestPanel, the loading-state BotPanelInsights, and the
   // mobile top-level tabs, so it must be owned here (above BotBacktestPanel).
   const [activeInsightsTab, setActiveInsightsTab] = useState('backtests');
 
-  // Chart state block — identical on both sides.
+  // Chart state block — identical on both sides. Hooks stay unconditional
+  // (Rules-of-Hooks); descriptor.hasChart only gates whether the built chart
+  // panel is passed to BotPanelLayout. DCA has hasChart=true so nothing changes.
   const [chartMenu, handleChartMenuChange] = usePanelMenuBridge();
   const [chartData, setChartData] = useState<BotChartData>({});
   const tvRef = useRef<TradingViewChartRef | null>(null);
@@ -116,7 +119,7 @@ export function BotWorkbench(props: BotWorkbenchProps) {
       content: (
         <>
           <BotChartPanel
-            widgetId={mode === 'edit' ? 'edit-bot-chart' : 'bot-chart'}
+            widgetId={descriptor.chartWidgetId[mode]}
             className="h-full"
             data={data}
             onPanelMenuChange={handleChartMenuChange}
@@ -150,6 +153,7 @@ export function BotWorkbench(props: BotWorkbenchProps) {
     activePickerField,
     onActiveChanged,
     setCoordinates,
+    descriptor.chartWidgetId,
   ]);
 
   const loadingChartPanel = useMemo<PanelContentConfig>(() => {
@@ -252,15 +256,14 @@ export function BotWorkbench(props: BotWorkbenchProps) {
 
   if (props.mode === 'edit') {
     const { botId, hasBotId, notFound, onLoadBacktestIntoForm } = props;
-    const layoutKey = `dca-${botId || 'edit'}`;
+    const layoutKey = `${descriptor.layoutType}-${botId || 'edit'}`;
 
     return (
       <BotBacktestPanel
+        descriptor={descriptor.backtests}
         mode="edit"
-        tableId="dca-backtests-table"
-        pinnedInitTableId="dca-backtests-table-edit"
         backtestsEnabled={hasBotId}
-        summaryMessages={{ loadingSubtitle: 'Loading linked backtests' }}
+        summaryMessages={descriptor.backtests.summaryMessages}
         activeInsightsTab={activeInsightsTab}
         onActiveInsightsTabChange={setActiveInsightsTab}
         onLoadBacktestIntoForm={onLoadBacktestIntoForm}
@@ -269,11 +272,11 @@ export function BotWorkbench(props: BotWorkbenchProps) {
           const formPanel: PanelContentConfig = {
             content: (
               <BotFormPanel
-                widgetId="edit-bot"
+                widgetId={descriptor.formWidgetId.edit}
                 mode="edit"
                 onFormDataChange={handleFormDataChange}
                 botId={botId}
-                botType={BotTypesEnum.dca}
+                botType={descriptor.botType}
                 terminal={false}
                 // On mobile, BotPanelLayout provides the top-level tabs (Settings/Chart/Backtests),
                 // but the form should still show its internal section navigation (Entry, DCA, etc.)
@@ -288,8 +291,8 @@ export function BotWorkbench(props: BotWorkbenchProps) {
 
           return (
             <MainLayout
-              pageTitle="Trading Bot - Edit"
-              activePage="/bot/edit"
+              pageTitle={descriptor.titles.edit}
+              activePage={descriptor.activePage.edit}
               fullyScrollable
               navigationBack
             >
@@ -301,31 +304,31 @@ export function BotWorkbench(props: BotWorkbenchProps) {
                 </div>
               ) : notFound ? (
                 <BotNotFoundNotice
-                  backTo="/bot"
-                  backLabel="bots"
+                  backTo={descriptor.basePath}
+                  backLabel={descriptor.listLabel}
                   botId={botId}
                 />
               ) : (
                 <div className="flex flex-col gap-md">
                   {isLoading ? (
                     <BotPanelLayout
-                      chart={loadingChartPanel}
+                      chart={descriptor.hasChart ? loadingChartPanel : undefined}
                       form={loadingFormPanel}
                       insights={loadingInsights}
                       className="flex-1"
                       key={layoutKey}
-                      botType="dca"
+                      botType={descriptor.layoutType}
                       mobileFullscreen
                       scrollable
                     />
                   ) : (
                     <BotPanelLayout
-                      chart={chartPanel}
+                      chart={descriptor.hasChart ? chartPanel : undefined}
                       form={formPanel}
                       insights={insights}
                       className="flex-1"
                       key={layoutKey}
-                      botType="dca"
+                      botType={descriptor.layoutType}
                       mobileFullscreen
                       scrollable
                     />
@@ -344,8 +347,8 @@ export function BotWorkbench(props: BotWorkbenchProps) {
 
   return (
     <BotBacktestPanel
+      descriptor={descriptor.backtests}
       mode="create"
-      tableId="dca-backtests-table-new"
       activeInsightsTab={activeInsightsTab}
       onActiveInsightsTabChange={setActiveInsightsTab}
       onLoadBacktestIntoForm={onLoadBacktestIntoForm}
@@ -358,7 +361,10 @@ export function BotWorkbench(props: BotWorkbenchProps) {
         // stays minimal.
         if (isShareMode) {
           return (
-            <MainLayout pageTitle="Shared backtest" activePage="/bot/backtests">
+            <MainLayout
+              pageTitle={descriptor.titles.share}
+              activePage={descriptor.activePage.share}
+            >
               {shareContent}
             </MainLayout>
           );
@@ -386,11 +392,11 @@ export function BotWorkbench(props: BotWorkbenchProps) {
           formPanel = {
             content: (
               <BotFormPanel
-                key={`dca-create-form-${formReloadKey}`}
-                widgetId="create-bot"
+                key={`${descriptor.layoutType}-create-form-${formReloadKey}`}
+                widgetId={descriptor.formWidgetId.create}
                 mode="create"
                 onFormDataChange={handleFormDataChange}
-                botType={BotTypesEnum.dca}
+                botType={descriptor.botType}
                 terminal={false}
                 initialFormData={initialFormData}
                 // On mobile, BotPanelLayout provides the top-level tabs (Settings/Chart/Backtests),
@@ -406,8 +412,8 @@ export function BotWorkbench(props: BotWorkbenchProps) {
 
         return (
           <MainLayout
-            pageTitle="Trading Bot - New"
-            activePage="/bot/new"
+            pageTitle={descriptor.titles.create}
+            activePage={descriptor.activePage.create}
             fullyScrollable
             navigationBack
           >
@@ -415,23 +421,23 @@ export function BotWorkbench(props: BotWorkbenchProps) {
             <WidgetContainer layout="flex">
               {isLoading ? (
                 <BotPanelLayout
-                  chart={loadingChartPanel}
+                  chart={descriptor.hasChart ? loadingChartPanel : undefined}
                   form={loadingFormPanel}
                   insights={loadingInsights}
                   className="flex-1"
-                  botType="dca"
-                  key={`dca-new`}
+                  botType={descriptor.layoutType}
+                  key={`${descriptor.layoutType}-new`}
                   mobileFullscreen
                   scrollable
                 />
               ) : (
                 <BotPanelLayout
-                  chart={chartPanel}
+                  chart={descriptor.hasChart ? chartPanel : undefined}
                   form={formPanel}
                   insights={insights}
                   className="flex-1"
-                  botType="dca"
-                  key={`dca-new`}
+                  botType={descriptor.layoutType}
+                  key={`${descriptor.layoutType}-new`}
                   mobileFullscreen
                   scrollable
                 />

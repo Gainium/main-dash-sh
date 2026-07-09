@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
+import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { GraphQLClient } from '@/lib/api';
@@ -141,6 +142,7 @@ const TradingBotNewWidget = () => {
 
   return (
     <BotWorkbench
+      descriptor={dcaPageDescriptor}
       mode="create"
       initialFormData={initialFormData}
       formReloadKey={formReloadKey}

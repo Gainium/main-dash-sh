@@ -4,21 +4,16 @@ import {
   BotPanelInsights,
   type BotPanelInsightsTab,
 } from '@/components/bots/panels';
+import type {
+  BacktestRowBase,
+  BotBacktestDescriptor,
+} from '@/components/bots/workbench/descriptors/types';
 import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { ProfitLossPercChip, StrategyChip } from '@/components/ui/chip';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   DataTable,
   type BulkAction,
 } from '@/components/ui/data-table/data-table';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import {
   Tabs,
   TabsContent,
@@ -29,12 +24,10 @@ import {
   BacktestAnalysisTab,
   BacktestDealsTab,
   BacktestOverviewTab,
-  BacktestPermanentCheckbox,
   BacktestStatsTab,
   ShareBacktestButton,
 } from '@/components/widgets/bots/backtest';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
-import CoinPair from '@/components/widgets/shared/CoinPair';
 import {
   useDeleteBacktests,
   useExportBacktests,
@@ -44,32 +37,18 @@ import {
 } from '@/hooks/useBacktestDataManagement';
 import { useBacktests } from '@/hooks/useBacktests';
 import { useBacktestsSummary } from '@/hooks/useBacktestsSummary';
-import { useDcaBacktests } from '@/hooks/useDcaBacktests';
 import { useSetBacktestNote } from '@/hooks/useSetBacktestNote';
 import { useShareContext } from '@/hooks/useShareContext';
 import { GraphQLClient } from '@/lib/api';
-import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { buildBacktestShareUrl } from '@/lib/shareLinks';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
-import {
-  BotTypesEnum,
-  type DCABacktestingResultHistory,
-  type DCABotSettings,
-} from '@/types';
+import type { DCABacktestingResultHistory } from '@/types';
 import { removePaperPrefix } from '@/utils/exchangeUtils';
 import type { ColumnDef } from '@tanstack/react-table';
-import {
-  Database,
-  Download,
-  FileUp,
-  MoreVertical,
-  Share2,
-  Trash2,
-  Upload,
-} from 'lucide-react';
+import { Download, Trash2 } from 'lucide-react';
 
 export interface BotBacktestPanelApi {
   /**
@@ -80,7 +59,8 @@ export interface BotBacktestPanelApi {
   insights: ReactNode;
   /**
    * Wire into <BotFormPanel onBacktestComplete={...} /> in the page's form
-   * slot. Sets pendingBacktestId + switches activeInsightsTab to 'backtests'.
+   * slot. Sets pendingBacktestId + switches activeInsightsTab to the type's
+   * backtests tab.
    */
   onBacktestComplete: (backtestId: string) => void;
   /**
@@ -95,7 +75,15 @@ export interface BotBacktestPanelApi {
   shareContent: ReactNode;
 }
 
-export interface BotBacktestPanelProps {
+export interface BotBacktestPanelProps<TResult extends BacktestRowBase> {
+  /**
+   * Per-type backtest composition slice (list hook, columns, mutation kinds,
+   * table ids, share plumbing, results-modal strategy). One stable module
+   * constant per mounted page, so calling descriptor.useList() unconditionally
+   * is Rules-of-Hooks-safe.
+   */
+  descriptor: BotBacktestDescriptor<TResult>;
+
   /**
    * Drives the create/edit divergences preserved byte-for-byte:
    *  - 'create': handleLoadBacktestDetails ends with
@@ -105,17 +93,6 @@ export interface BotBacktestPanelProps {
    *     header actions are the subtitle span only.
    */
   mode: 'create' | 'edit';
-
-  /** DataTable persistence id. New: 'dca-backtests-table-new'. Edit: 'dca-backtests-table'. */
-  tableId: string;
-
-  /**
-   * tableId used by the one-shot "pin actions right" init effect. Defaults
-   * to `tableId`. Edit MUST pass 'dca-backtests-table-edit' to preserve the
-   * pre-existing mismatch (its DataTable uses 'dca-backtests-table', so the
-   * pinned-init write targets a different key and is effectively a no-op).
-   */
-  pinnedInitTableId?: string;
 
   /**
    * Controlled insights tab value, OWNED BY THE PAGE (shared with
@@ -135,7 +112,7 @@ export interface BotBacktestPanelProps {
    * "Load in settings" row/menu action. Panel calls this; impl differs and
    * STAYS in the page.
    */
-  onLoadBacktestIntoForm: (backtest: DCABacktestingResultHistory) => void;
+  onLoadBacktestIntoForm: (backtest: TResult) => void;
 
   /** Render the ?backtestShare= public viewer path (New only). */
   enableShareViewer?: boolean;
@@ -152,10 +129,9 @@ export interface BotBacktestPanelProps {
   children: (api: BotBacktestPanelApi) => ReactNode;
 }
 
-export function BotBacktestPanel({
+export function BotBacktestPanel<TResult extends BacktestRowBase>({
+  descriptor,
   mode,
-  tableId,
-  pinnedInitTableId,
   activeInsightsTab,
   onActiveInsightsTabChange,
   backtestsEnabled,
@@ -164,9 +140,16 @@ export function BotBacktestPanel({
   enableShareViewer,
   showShareSelectedButton,
   children,
-}: BotBacktestPanelProps) {
-  const [selectedBacktest, setSelectedBacktest] =
-    useState<DCABacktestingResultHistory | null>(null);
+}: BotBacktestPanelProps<TResult>) {
+  // DataTable persistence id + the one-shot "pin actions right" init id are
+  // per-mode, sourced from the descriptor. pinnedInitTableId falls back to
+  // tableId per mode when absent.
+  const tableId = descriptor.tableId[mode];
+  const pinnedInitTableId = descriptor.pinnedInitTableId?.[mode];
+
+  const [selectedBacktest, setSelectedBacktest] = useState<TResult | null>(
+    null
+  );
   // Clicking a backtest row opens the redesigned full-screen results modal
   // instead of rendering Overview/Stats/Deals/Analysis inline in the widget.
   const [resultsModalOpen, setResultsModalOpen] = useState(false);
@@ -216,17 +199,18 @@ export function BotBacktestPanel({
     ...(summaryMessages ? { messages: summaryMessages } : {}),
   });
 
-  // Fetch DCA backtests for the table
+  // Per-type backtest list for the table. Descriptor is a stable module
+  // constant per page, so calling descriptor.useList() here is hooks-safe.
   const {
-    backtests: dcaBacktests,
-    isLoading: dcaBacktestsLoading,
-    error: dcaBacktestsError,
-  } = useDcaBacktests();
+    backtests: rows,
+    isLoading: rowsLoading,
+    error: rowsError,
+  } = descriptor.useList();
 
   // Auto-select a newly completed backtest when it appears in the list
   useEffect(() => {
     if (!pendingBacktestId) return;
-    const found = dcaBacktests.find((b) => b._id === pendingBacktestId);
+    const found = rows.find((b) => b._id === pendingBacktestId);
     if (found) {
       setSelectedBacktest(found);
       setResultsModalOpen(true);
@@ -235,7 +219,7 @@ export function BotBacktestPanel({
         id: pendingBacktestId,
       });
     }
-  }, [dcaBacktests, pendingBacktestId]);
+  }, [rows, pendingBacktestId]);
 
   // Public share viewer: when the URL carries `?backtestShare=<id>` we
   // fetch the shared backtest by share id and hydrate it as the active
@@ -249,7 +233,7 @@ export function BotBacktestPanel({
 
     // First, try the already-loaded list — owner refreshing their own
     // link shouldn't pay for a second round-trip.
-    const local = dcaBacktests.find((b) => b.shareId === backtestShareId);
+    const local = rows.find((b) => b.shareId === backtestShareId);
     if (local) {
       setSelectedBacktest(local);
       onActiveInsightsTabChange('bt-overview');
@@ -265,20 +249,19 @@ export function BotBacktestPanel({
       undefined,
       backtestShareId
     );
-    const { query, variables } = botQueries.getBacktestByShareId({
+    const { query, variables } = descriptor.getByShareId({
       shareId: backtestShareId,
     });
 
     client
-      .request<{
-        getBacktestByShareId: {
-          status: string;
-          reason?: string;
-          data?: DCABacktestingResultHistory;
-        };
-      }>(query, variables)
+      .request<
+        Record<string, { status: string; reason?: string; data?: TResult }>
+      >(query, variables)
       .then((response) => {
-        const payload = response.getBacktestByShareId;
+        // The response is keyed by the per-type query name
+        // (getBacktestByShareId / getGridBacktestByShareId / …); read the
+        // single payload without hardcoding the DCA key.
+        const payload = Object.values(response)[0];
         if (payload?.status === 'OK' && payload.data) {
           setSelectedBacktest(payload.data);
           onActiveInsightsTabChange('bt-overview');
@@ -300,9 +283,10 @@ export function BotBacktestPanel({
   }, [
     enableShareViewer,
     backtestShareId,
-    dcaBacktests,
+    rows,
     shareLookupAttempted,
     onActiveInsightsTabChange,
+    descriptor,
   ]);
 
   // Callback fired by BotForm when a local backtest finishes and is persisted
@@ -312,26 +296,26 @@ export function BotBacktestPanel({
         backtestId,
       });
       setPendingBacktestId(backtestId);
-      onActiveInsightsTabChange('backtests');
+      onActiveInsightsTabChange(descriptor.tabKey);
     },
-    [onActiveInsightsTabChange]
+    [onActiveInsightsTabChange, descriptor.tabKey]
   );
 
   // Badge for backtests tab
   const backtestsBadge = useMemo<ReactNode>(() => {
-    if (dcaBacktestsLoading) {
+    if (rowsLoading) {
       return <Badge variant="secondary">Loading...</Badge>;
     }
-    if (dcaBacktestsError) {
+    if (rowsError) {
       return <Badge variant="destructive">Error</Badge>;
     }
-    const count = dcaBacktests.length;
+    const count = rows.length;
     return count > 0 ? (
       <Badge variant="default">{count}</Badge>
     ) : (
       <Badge variant="outline">0</Badge>
     );
-  }, [dcaBacktests.length, dcaBacktestsLoading, dcaBacktestsError]);
+  }, [rows.length, rowsLoading, rowsError]);
 
   // Handle export single or multiple backtests
   const handleExportBacktests = useCallback(
@@ -368,20 +352,20 @@ export function BotBacktestPanel({
   const buildShareUrl = useCallback(
     (shareId: string) =>
       buildBacktestShareUrl({
-        path: '/bot/backtests',
+        path: descriptor.sharePath,
         shareId,
-        subKind: 'dca',
+        subKind: descriptor.shareSubKind,
       }),
-    []
+    [descriptor.sharePath, descriptor.shareSubKind]
   );
 
   const handleShareBacktest = useCallback(
-    async (backtest: DCABacktestingResultHistory) => {
+    async (backtest: TResult) => {
       try {
         const result = await shareBacktestMutation.mutateAsync({
           id: backtest._id,
           shareId: backtest.shareId,
-          backtestType: 'dca',
+          backtestType: descriptor.kind,
         });
         const url = buildShareUrl(result.shareId);
         await navigator.clipboard.writeText(url);
@@ -392,11 +376,11 @@ export function BotBacktestPanel({
         );
       }
     },
-    [buildShareUrl, shareBacktestMutation]
+    [buildShareUrl, shareBacktestMutation, descriptor.kind]
   );
 
   const handleLoadBacktestDetails = useCallback(
-    async (backtest: DCABacktestingResultHistory) => {
+    async (backtest: TResult) => {
       try {
         await loadBacktestDetailsMutation.mutateAsync({ id: backtest._id });
       } catch (error) {
@@ -419,12 +403,12 @@ export function BotBacktestPanel({
   );
 
   const handleImportAsPaper = useCallback(
-    async (backtest: DCABacktestingResultHistory, trades = false) => {
+    async (backtest: TResult, trades = false) => {
       try {
         const exchange = removePaperPrefix(backtest.exchange);
         const result = await importAsPaperMutation.mutateAsync({
           id: backtest._id,
-          backtestType: 'dca',
+          backtestType: descriptor.kind,
           exchange,
           from: backtest.duration?.firstDataTime
             ? new Date(backtest.duration.firstDataTime).getTime()
@@ -443,7 +427,7 @@ export function BotBacktestPanel({
         );
       }
     },
-    [importAsPaperMutation]
+    [importAsPaperMutation, descriptor.kind]
   );
 
   // Confirm delete
@@ -488,7 +472,7 @@ export function BotBacktestPanel({
     (backtestId: string, next: string, prev: string) => {
       setBacktestNoteOverrides((o) => ({ ...o, [backtestId]: next }));
       setBacktestNoteMutation.mutate(
-        { id: backtestId, note: next, type: BotTypesEnum.dca },
+        { id: backtestId, note: next, type: descriptor.noteType },
         {
           onError: () => {
             setBacktestNoteOverrides((o) => ({ ...o, [backtestId]: prev }));
@@ -496,427 +480,39 @@ export function BotBacktestPanel({
         }
       );
     },
-    [setBacktestNoteMutation]
+    [setBacktestNoteMutation, descriptor.noteType]
   );
 
-  // Define columns for the backtest data table
-  const backtestColumns = useMemo<ColumnDef<DCABacktestingResultHistory>[]>(
-    () => [
-      {
-        accessorKey: 'symbol',
-        header: 'Pair',
-        cell: ({ row }) => {
-          const baseAsset = row.original.baseAsset;
-          const quoteAsset = row.original.quoteAsset;
-
-          if (!baseAsset || !quoteAsset) {
-            return <span className="text-muted-foreground">N/A</span>;
-          }
-
-          return (
-            <CoinPair
-              baseAsset={baseAsset}
-              quoteAsset={quoteAsset}
-              iconSize="sm"
-              showText={true}
-            />
-          );
-        },
-      },
-      {
-        accessorKey: 'serverSide',
-        header: 'Server Side',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.serverSide === null
-              ? 'no'
-              : row.original.serverSide
-                ? 'yes'
-                : 'no'}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'savePermanent',
-        header: 'Save Permanently',
-        cell: ({ row }) => (
-          <BacktestPermanentCheckbox
-            id={row.original._id ?? ''}
-            type={BotTypesEnum.dca}
-            checked={!!row.original.savePermanent}
-          />
-        ),
-      },
-      {
-        accessorKey: 'settings.name',
-        header: 'Name',
-        cell: ({ row }) => {
-          const hasLocalData = (row.original.deals?.length ?? 0) > 0;
-          return (
-            <div className="font-medium inline-flex items-center gap-1">
-              <span>{row.original.settings?.name || ''}</span>
-              {hasLocalData ? (
-                <span title="Local backtest details available">
-                  <Database
-                    className="h-3.5 w-3.5 text-primary"
-                    aria-label="Local backtest details available"
-                  />
-                </span>
-              ) : null}
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'settings.startCondition',
-        header: 'Start Condition',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.settings?.startCondition || 'N/A'}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'settings.strategy',
-        header: 'Strategy',
-        cell: ({ row }) => {
-          const strategy = row.original.settings?.strategy || 'LONG';
-          return <StrategyChip strategy={strategy} size="sm" />;
-        },
-      },
-      {
-        accessorKey: 'time',
-        header: 'Created Time',
-        cell: ({ row }) => {
-          const date = row.original.time
-            ? new Date(row.original.time).toLocaleString()
-            : 'N/A';
-          return <div className="text-sm text-muted-foreground">{date}</div>;
-        },
-      },
-      {
-        accessorKey: 'financial.avgNetDailyPerc',
-        header: 'Avg. Net Daily',
-        cell: ({ row }) => {
-          const value = row.original.financial?.avgNetDailyPerc || 0;
-          return <ProfitLossPercChip value={value} size="sm" />;
-        },
-      },
-      {
-        accessorKey: 'financial.annualizedReturn',
-        header: 'Annualized Return',
-        cell: ({ row }) => {
-          const value = row.original.financial?.annualizedReturn;
-          if (value === null || value === undefined)
-            return <span className="text-muted-foreground">-</span>;
-          return <ProfitLossPercChip value={value} size="sm" />;
-        },
-      },
-      {
-        accessorKey: 'financial.maxDrawDownPerc',
-        header: '% Max. Draw Down',
-        cell: ({ row }) => {
-          const value = row.original.financial?.maxDrawDownPerc || 0;
-          // Drawdown is always shown as negative
-          return <ProfitLossPercChip value={-Math.abs(value)} size="sm" />;
-        },
-      },
-      {
-        accessorKey: 'financial.maxDrawDownEquityPerc',
-        header: '% Max. Equity Draw Down',
-        cell: ({ row }) => {
-          const value = row.original.financial?.maxDrawDownEquityPerc;
-          if (value === null || value === undefined)
-            return <span className="text-muted-foreground">-</span>;
-          // Drawdown is always shown as negative
-          return <ProfitLossPercChip value={-Math.abs(value)} size="sm" />;
-        },
-      },
-      {
-        accessorKey: 'financial.netProfitTotalPerc',
-        header: '% Net Profit',
-        cell: ({ row }) => {
-          const value = row.original.financial?.netProfitTotalPerc || 0;
-          return <ProfitLossPercChip value={value} size="sm" showSign={true} />;
-        },
-      },
-      {
-        accessorKey: 'financial.unrealizedPnL',
-        header: 'Unrealized Profit',
-        cell: ({ row }) => {
-          const value = row.original.financial?.unrealizedPnL || 0;
-          const isPositive = value >= 0;
-          return (
-            <span
-              className={`text-sm font-medium ${isPositive ? 'text-profit' : 'text-loss'}`}
-            >
-              {isPositive ? '+' : ''}
-              {value.toFixed(8)}
-            </span>
-          );
-        },
-      },
-      {
-        accessorKey: 'duration.botWorkingTimeNumber',
-        header: 'Bot Working Time',
-        cell: ({ row }) => {
-          const workingTime = row.original.duration?.botWorkingTime;
-          if (!workingTime) return <div className="text-sm">N/A</div>;
-          const d = workingTime.d || 0;
-          const h = workingTime.h || 0;
-          const min = workingTime.min || 0;
-          return (
-            <div className="text-sm text-muted-foreground">
-              {d}d {h}h {min}m
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'duration.firstDataTime',
-        header: 'Start Date',
-        cell: ({ row }) => {
-          const date = row.original.duration?.firstDataTime
-            ? new Date(row.original.duration.firstDataTime).toLocaleString()
-            : 'N/A';
-          return <div className="text-sm text-muted-foreground">{date}</div>;
-        },
-      },
-      {
-        accessorKey: 'duration.lastDataTime',
-        header: 'End Date',
-        cell: ({ row }) => {
-          const date = row.original.duration?.lastDataTime
-            ? new Date(row.original.duration.lastDataTime).toLocaleString()
-            : 'N/A';
-          return <div className="text-sm text-muted-foreground">{date}</div>;
-        },
-      },
-      {
-        accessorKey: 'duration.periodName',
-        header: 'Testing Period Name',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.duration?.periodName || 'N/A'}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'duration.maxDealDuration',
-        header: 'Max Deal Duration',
-        cell: ({ row }) => {
-          const maxDuration = row.original.duration?.maxDealDuration;
-          if (!maxDuration) return <div className="text-sm">N/A</div>;
-          const d = maxDuration.d || 0;
-          const h = maxDuration.h || 0;
-          const min = maxDuration.min || 0;
-          return (
-            <div className="text-sm text-muted-foreground">
-              {d}d {h}h {min}m
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'interval',
-        header: 'Interval',
-        cell: ({ row }) => (
-          <div className="text-sm">{row.original.interval || 'N/A'}</div>
-        ),
-      },
-      {
-        accessorKey: 'numerical.actualPriceDeviation',
-        header: 'Actual Price Deviation',
-        cell: ({ row }) => {
-          const value = row.original.numerical?.actualPriceDeviation;
-          return (
-            <div className="text-sm">{value !== undefined ? value : 'N/A'}</div>
-          );
-        },
-      },
-      {
-        accessorKey: 'numerical.all',
-        header: 'Deals',
-        cell: ({ row }) => (
-          <div className="text-sm font-medium">
-            {row.original.numerical?.all || 0}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'numerical.avgDCATriggered',
-        header: 'Avg DCA Orders Triggered',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.numerical?.avgDCATriggered || 0}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'numerical.dealsPerDay',
-        header: 'Deals Per Day',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.numerical?.dealsPerDay?.toFixed(1) || '0.0'}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'usage.avgRealUsage',
-        header: 'Avg Real Usage',
-        cell: ({ row }) => (
-          <div className="text-sm">
-            {row.original.usage?.avgRealUsage?.toFixed(3) || '0.000'}
-          </div>
-        ),
-      },
-      {
-        accessorKey: 'ratios.buyAndHold.perc',
-        header: 'Buy and Hold Return',
-        cell: ({ row }) => {
-          const value = row.original.ratios?.buyAndHold?.perc;
-          if (value === null || value === undefined)
-            return <div className="text-sm">-</div>;
-          const isPositive = value >= 0;
-          return (
-            <div
-              className={`text-sm ${isPositive ? 'text-green-600' : 'text-red-600'}`}
-            >
-              {isPositive ? '+' : ''}
-              {value.toFixed(2)}%
-            </div>
-          );
-        },
-      },
-      {
-        accessorKey: 'ratios.profitFactor',
-        header: 'Profit Factor',
-        cell: ({ row }) => {
-          const value = row.original.ratios?.profitFactor;
-          if (value === null || value === undefined)
-            return <div className="text-sm">∞</div>;
-          return <div className="text-sm">{value.toFixed(2)}</div>;
-        },
-      },
-      {
-        accessorKey: 'ratios.sharpe',
-        header: 'Sharpe Ratio',
-        cell: ({ row }) => {
-          const value = row.original.ratios?.sharpe;
-          if (value === null || value === undefined)
-            return <div className="text-sm">-</div>;
-          return <div className="text-sm">{value.toFixed(3)}</div>;
-        },
-      },
-      {
-        accessorKey: 'ratios.sortino',
-        header: 'Sortino Ratio',
-        cell: ({ row }) => {
-          const value = row.original.ratios?.sortino;
-          if (value === null || value === undefined)
-            return <div className="text-sm">-</div>;
-          return <div className="text-sm">{value.toFixed(3)}</div>;
-        },
-      },
-      {
-        accessorKey: 'ratios.cwr',
-        header: 'CWR',
-        cell: ({ row }) => {
-          const value = row.original.ratios?.cwr;
-          if (value === null || value === undefined)
-            return <div className="text-sm">-</div>;
-          return <div className="text-sm">{value.toFixed(4)}</div>;
-        },
-      },
-      {
-        accessorKey: 'note',
-        header: 'Notes',
-        size: 200,
-        cell: ({ row }) => {
-          const backtestId = row.original._id ?? '';
-          const currentNote =
-            backtestNoteOverrides[backtestId] ?? row.original.note ?? '';
-          return (
-            <InlineNoteCell
-              id={backtestId}
-              note={currentNote}
-              onSave={handleSaveBacktestNote}
-            />
-          );
-        },
-      },
-      {
-        id: 'actions',
-        header: 'Actions',
-        meta: {
-          pinned: 'right',
-        },
-        cell: ({ row }) => {
-          const backtest = row.original;
-          return (
-            <div className="flex items-center justify-end">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    onClick={() => handleShareBacktest(backtest)}
-                  >
-                    <Share2 className="mr-2 h-4 w-4" />
-                    Share
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => onLoadBacktestIntoForm(backtest)}
-                  >
-                    <Upload className="mr-2 h-4 w-4" />
-                    Load in settings
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => void handleLoadBacktestDetails(backtest)}
-                  >
-                    <FileUp className="mr-2 h-4 w-4" />
-                    Load details
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    onClick={() => handleDeleteBacktests([backtest._id])}
-                    className="text-destructive focus:text-destructive"
-                  >
-                    <Trash2 className="mr-2 h-4 w-4" />
-                    Delete
-                  </DropdownMenuItem>
-                  {user?.importAsPaper && (
-                    <DropdownMenuItem
-                      onClick={() => void handleImportAsPaper(backtest)}
-                    >
-                      <Upload className="mr-2 h-4 w-4" />
-                      Import as paper bot
-                    </DropdownMenuItem>
-                  )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          );
-        },
-      },
-    ],
+  // Per-type column set — the shared panel never imports a column module
+  // directly, it only calls descriptor.buildColumns(ctx).
+  const backtestColumns = useMemo<ColumnDef<TResult>[]>(
+    () =>
+      descriptor.buildColumns({
+        user,
+        backtestNoteOverrides,
+        onSaveNote: handleSaveBacktestNote,
+        onShare: handleShareBacktest,
+        onLoadIntoForm: onLoadBacktestIntoForm,
+        onLoadDetails: handleLoadBacktestDetails,
+        onDelete: handleDeleteBacktests,
+        onImportAsPaper: handleImportAsPaper,
+      }),
     [
+      descriptor,
+      user,
       backtestNoteOverrides,
-      handleDeleteBacktests,
-      handleImportAsPaper,
-      onLoadBacktestIntoForm,
-      handleLoadBacktestDetails,
       handleSaveBacktestNote,
       handleShareBacktest,
-      user?.importAsPaper,
+      onLoadBacktestIntoForm,
+      handleLoadBacktestDetails,
+      handleDeleteBacktests,
+      handleImportAsPaper,
     ]
   );
 
   // Handle row click to select a backtest and open the full-screen results modal
   const handleBacktestSelect = useCallback(
-    (backtest: DCABacktestingResultHistory) => {
+    (backtest: TResult) => {
       setSelectedBacktest(backtest);
       // Open the full-screen results modal (deals hydrate below, the modal's
       // view model rebuilds reactively once they arrive).
@@ -940,7 +536,7 @@ export function BotBacktestPanel({
     if (!selectedBacktest) return;
     if ((selectedBacktest.deals?.length ?? 0) > 0) return;
 
-    const hydratedBacktest = dcaBacktests.find(
+    const hydratedBacktest = rows.find(
       (backtest) =>
         backtest._id === selectedBacktest._id &&
         (backtest.deals?.length ?? 0) > 0
@@ -949,11 +545,11 @@ export function BotBacktestPanel({
     if (hydratedBacktest) {
       setSelectedBacktest(hydratedBacktest);
     }
-  }, [dcaBacktests, selectedBacktest]);
+  }, [rows, selectedBacktest]);
 
   const insightsTabs = useMemo<BotPanelInsightsTab[]>(() => {
     // Define bulk actions for the backtest table
-    const bulkActions: BulkAction<DCABacktestingResultHistory>[] = [
+    const bulkActions: BulkAction<TResult>[] = [
       {
         id: 'export-json',
         label: 'Export as JSON',
@@ -986,15 +582,15 @@ export function BotBacktestPanel({
 
     const tabs: BotPanelInsightsTab[] = [
       {
-        key: 'backtests',
-        title: 'Backtests',
+        key: descriptor.tabKey,
+        title: descriptor.tabTitle,
         badge: backtestsBadge,
         bodyClassName: 'p-0',
-        content: dcaBacktestsLoading ? (
+        content: rowsLoading ? (
           <div className="flex items-center justify-center h-full">
             <div className="h-32 w-full animate-pulse rounded bg-muted" />
           </div>
-        ) : dcaBacktestsError ? (
+        ) : rowsError ? (
           <div className="flex items-center justify-center h-full text-destructive">
             Error loading backtests
           </div>
@@ -1002,7 +598,7 @@ export function BotBacktestPanel({
           <DataTable
             tableId={tableId}
             columns={backtestColumns}
-            data={dcaBacktests}
+            data={rows}
             enableGlobalFilter={true}
             enableSorting={true}
             enableColumnVisibility={true}
@@ -1014,6 +610,7 @@ export function BotBacktestPanel({
             onRowClick={handleBacktestSelect}
             bulkActions={bulkActions}
             defaultPinnedColumns={{ left: [], right: ['actions'] }}
+            defaultColumnVisibility={descriptor.defaultColumnVisibility}
           />
         ),
         // Results (Overview/Stats/Deals/Analysis) now open in the
@@ -1025,13 +622,16 @@ export function BotBacktestPanel({
   }, [
     backtestsBadge,
     tableId,
-    dcaBacktests,
-    dcaBacktestsLoading,
-    dcaBacktestsError,
+    rows,
+    rowsLoading,
+    rowsError,
     backtestColumns,
     handleBacktestSelect,
     handleExportBacktests,
     handleDeleteBacktests,
+    descriptor.tabKey,
+    descriptor.tabTitle,
+    descriptor.defaultColumnVisibility,
   ]);
 
   const canShareSelected =
@@ -1039,33 +639,38 @@ export function BotBacktestPanel({
     !!user?.id &&
     (selectedBacktest as { userId?: string }).userId === user.id;
 
+  // Linked-summary subtitle is dca/combo only (useLinkedSummary). For grid
+  // (false) the descriptor opts out and no linked subtitle is shown; the
+  // list-hook loading state is surfaced via the tab badge instead.
+  const summarySubtitle = descriptor.useLinkedSummary
+    ? backtestsSummary.subtitle
+    : undefined;
+
   const insightsActions = useMemo<ReactNode>(() => {
     if (showShareSelectedButton) {
       return (
         <div className="flex items-center gap-xs">
-          {backtestsSummary.subtitle ? (
-            <span>{backtestsSummary.subtitle}</span>
-          ) : null}
+          {summarySubtitle ? <span>{summarySubtitle}</span> : null}
           {selectedBacktest && (
             <ShareBacktestButton
               backtestId={selectedBacktest._id}
               existingShareId={selectedBacktest.shareId}
-              backtestType="dca"
-              sharePath="/bot/backtests"
+              backtestType={descriptor.shareSubKind}
+              sharePath={descriptor.sharePath}
               canShare={canShareSelected}
             />
           )}
         </div>
       );
     }
-    return backtestsSummary.subtitle ? (
-      <span>{backtestsSummary.subtitle}</span>
-    ) : undefined;
+    return summarySubtitle ? <span>{summarySubtitle}</span> : undefined;
   }, [
     showShareSelectedButton,
-    backtestsSummary.subtitle,
+    summarySubtitle,
     selectedBacktest,
     canShareSelected,
+    descriptor.shareSubKind,
+    descriptor.sharePath,
   ]);
 
   const insights = (
@@ -1088,9 +693,15 @@ export function BotBacktestPanel({
       !!selectedBacktest &&
       ((selectedBacktest.deals?.length ?? 0) > 0 ||
         (selectedBacktest.periodicStats?.length ?? 0) > 0);
+    // The share-viewer tabs (Overview/Stats/Deals/Analysis) are DCA/combo
+    // typed (both use DCABacktestingResultHistory). Grid's share viewer, if it
+    // ever needs different tabs, is a grid-migration concern; cast here so the
+    // shared panel stays generic over TResult.
+    const shareBacktest =
+      selectedBacktest as unknown as DCABacktestingResultHistory | null;
     return (
       <div className="flex flex-col gap-md p-md">
-        {selectedBacktest ? (
+        {shareBacktest ? (
           <Tabs defaultValue="bt-overview" className="w-full">
             <TabsList>
               <TabsTrigger value="bt-overview">Overview</TabsTrigger>
@@ -1101,17 +712,17 @@ export function BotBacktestPanel({
               </TabsTrigger>
             </TabsList>
             <TabsContent value="bt-overview" className="mt-md">
-              <BacktestOverviewTab backtest={selectedBacktest} />
+              <BacktestOverviewTab backtest={shareBacktest} />
             </TabsContent>
             <TabsContent value="bt-stats" className="mt-md">
-              <BacktestStatsTab backtest={selectedBacktest} />
+              <BacktestStatsTab backtest={shareBacktest} />
             </TabsContent>
             <TabsContent value="bt-deals" className="mt-md">
-              <BacktestDealsTab backtest={selectedBacktest} />
+              <BacktestDealsTab backtest={shareBacktest} />
             </TabsContent>
             <TabsContent value="bt-analysis" className="mt-md">
               {hasAnalysis ? (
-                <BacktestAnalysisTab backtest={selectedBacktest} />
+                <BacktestAnalysisTab backtest={shareBacktest} />
               ) : (
                 <div className="text-sm text-muted-foreground">
                   No analysis data available for this backtest.
@@ -1158,8 +769,8 @@ export function BotBacktestPanel({
               open={resultsModalOpen}
               onOpenChange={setResultsModalOpen}
               result={selectedBacktest}
-              strategy="DCA"
-              settings={(selectedBacktest.settings ?? {}) as DCABotSettings}
+              strategy={descriptor.resultStrategy}
+              settings={descriptor.getModalSettings?.(selectedBacktest)}
               meta={{
                 symbol: selectedBacktest.symbol,
                 exchange: selectedBacktest.exchange,

@@ -25,6 +25,10 @@ import {
   type BotType,
 } from '@/stores/botPanelLayoutStore';
 
+// Re-export so page descriptors (components/bots/workbench/descriptors) can
+// source the layout bot-type union from the layout component they feed.
+export type { BotType } from '@/stores/botPanelLayoutStore';
+
 import type {
   BotPanelInsightsSubtab,
   BotPanelInsightsTab,
