@@ -117,6 +117,15 @@ export interface HedgeBotFormApi {
   activeLegExchangeUUID: string | null;
   setActiveLegExchangeUUID: (uuid: string | null) => void;
 
+  /** Active leg's persisted bot `_id` (edit mode), pushed from the layout
+   *  — which alone knows the active tab and each leg's loaded bot record.
+   *  The chart panel passes this as `data.botId` so `BotChart` subscribes
+   *  to the Risk:Reward position the leg's `RiskRewardSettings` writes
+   *  keyed on that same id. Undefined in create mode, where both the RR
+   *  writer and the chart fall back to the global key. */
+  activeLegBotId: string | undefined;
+  setActiveLegBotId: (id: string | undefined) => void;
+
   /** Ref the active leg's publisher fills with a writer that updates the
    *  leg's `formData.pair`. The chart panel calls this when the user picks
    *  a new symbol via the TradingView widget so the change lands on the
@@ -179,6 +188,9 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
   const [activeLegExchangeUUID, setActiveLegExchangeUUID] = useState<
     string | null
   >(null);
+  const [activeLegBotId, setActiveLegBotId] = useState<string | undefined>(
+    undefined
+  );
   const chartSymbolWriterRef = useRef<((pair: string) => void) | null>(null);
   // Tracks the load we've already seeded `hedgeName` from, so a post-save
   // refetch (same hedge id, new leg data) doesn't clobber the user's
@@ -369,6 +381,8 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       setActiveLegPair,
       activeLegExchangeUUID,
       setActiveLegExchangeUUID,
+      activeLegBotId,
+      setActiveLegBotId,
       chartSymbolWriterRef,
       hedgeBot,
       longInitialFormData,
@@ -387,6 +401,7 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       longLegPair,
       activeLegPair,
       activeLegExchangeUUID,
+      activeLegBotId,
       hedgeBot,
       longInitialFormData,
       shortInitialFormData,

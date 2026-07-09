@@ -214,6 +214,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     loadError,
     hedgeBot,
     refetchHedgeBot,
+    setActiveLegBotId,
   } = useHedgeBotForm();
 
   const navigate = useNavigate();
@@ -400,6 +401,25 @@ export const HedgeBotEditLayout: React.FC = () => {
     () => findLegBot(hedgeBot?.bots, StrategyEnum.short) ?? null,
     [hedgeBot?.bots]
   );
+
+  // Publish the active leg's persisted bot `_id` to the hedge context so
+  // the chart panel can pass it to BotChart as `data.botId`, enabling the
+  // edit-mode Risk:Reward overlay (RiskRewardSettings writes the position
+  // keyed on this same id). Quick mode is long-only; Manual mirrors the
+  // active tab. Create mode has no `_id`, so this is undefined and both
+  // the RR writer and the chart fall back to the global key.
+  const activeLegBotId = useMemo(
+    () =>
+      hedgeMode === 'quick'
+        ? longLegBot?._id
+        : activeTab === 'short'
+          ? shortLegBot?._id
+          : longLegBot?._id,
+    [hedgeMode, activeTab, longLegBot, shortLegBot]
+  );
+  useEffect(() => {
+    setActiveLegBotId(activeLegBotId);
+  }, [activeLegBotId, setActiveLegBotId]);
 
   const handleSave = useCallback(async () => {
     if (saving) return;
