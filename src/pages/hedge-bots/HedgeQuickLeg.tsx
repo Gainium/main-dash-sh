@@ -90,6 +90,9 @@ const QuickLegChartPublisher: React.FC = () => {
 
   useEffect(() => {
     hedge?.setActiveLegPair(firstPair || null);
+    // QuickLegChartPublisher is long-only, so the long-leg pair the
+    // auto-name hook reads is published here too.
+    hedge?.setLongLegPair(firstPair || null);
   }, [firstPair, hedge]);
 
   useEffect(() => {

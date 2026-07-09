@@ -82,7 +82,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
 
   useDcaTradingContext(formData);
 
-  const { alerts, setActiveChartPair } = useBotFormState();
+  const { alerts, setActiveChartPair, isNestedLeg } = useBotFormState();
 
   // Clicking a pair chip (in create or locked edit mode) switches the
   // form chart to that pair. The chart effect keys off `formData.pair`,
@@ -152,7 +152,10 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
           1024: 3,
         }}
       >
-        {!hideName && <NameInput />}
+        {/* Nested hedge legs share a single Bot Name on the Hedge tab, so
+            the per-leg name input is hidden (isNestedLeg). Regular bots
+            (isNestedLeg === false) are unaffected. */}
+        {!hideName && !isNestedLeg && <NameInput />}
 
         <div data-tour="botForm.exchange">
           <ExchangeSelector

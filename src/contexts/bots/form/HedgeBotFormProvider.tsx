@@ -86,6 +86,24 @@ export interface HedgeBotFormApi {
     value: HedgeBotSettings[K]
   ) => void;
 
+  /** Shared bot name for the hedge. Both legs are saved under this single
+   *  name (the backend imposes no long/short naming rule; legs are already
+   *  distinguished by `strategy`). Lives on the outer provider so it
+   *  survives every leg remount, tab switch, and Quick↔Manual toggle. It
+   *  is deliberately NOT part of `sharedSettings` — that object mirrors the
+   *  backend `sharedSettings` contract, which has no `name`. */
+  hedgeName: string;
+  setHedgeName: (next: string) => void;
+
+  /** The long leg's currently-selected pair, published ONLY by the long
+   *  leg (Manual: HedgeLegActiveChartPublisher when leg === 'long'; Quick:
+   *  QuickLegChartPublisher, which is long-only). The auto-name hook reads
+   *  this so the hedge is named after the long pair regardless of which leg
+   *  tab is active — `activeLegPair` flips to the short pair on the short
+   *  tab and can't be used for naming. */
+  longLegPair: string | null;
+  setLongLegPair: (pair: string | null) => void;
+
   /** Active leg's currently-selected pair (e.g. "BTCUSDT"), lifted from
    *  whichever leg is mounted. The chart panel reads this to render the
    *  active leg's market. Each leg owns its own pair — they aren't kept
@@ -155,11 +173,17 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       ...initialSharedSettings,
     })
   );
+  const [hedgeName, setHedgeName] = useState<string>('');
+  const [longLegPair, setLongLegPair] = useState<string | null>(null);
   const [activeLegPair, setActiveLegPair] = useState<string | null>(null);
   const [activeLegExchangeUUID, setActiveLegExchangeUUID] = useState<
     string | null
   >(null);
   const chartSymbolWriterRef = useRef<((pair: string) => void) | null>(null);
+  // Tracks the load we've already seeded `hedgeName` from, so a post-save
+  // refetch (same hedge id, new leg data) doesn't clobber the user's
+  // confirmed name. Keyed on the loaded hedge id (or botId for clone).
+  const seededNameForRef = useRef<string | null>(null);
 
   const legBotType: BotTypesEnum.dca | BotTypesEnum.combo =
     botType === BotTypesEnum.hedgeCombo
@@ -298,6 +322,28 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
     }
   }, [hedgeBot?.bots, legBotType, isCloneFromTemplate]);
 
+  // Seed the shared hedge name from the loaded legs (edit / clone). Both
+  // longInitialFormData and shortInitialFormData carry the persisted `name`
+  // (and the " (copy)" suffix in clone mode). Seed once per distinct load so
+  // a post-save refetch — which keeps the same hedge id but re-maps the legs
+  // — doesn't overwrite the name the user just confirmed. `useAutoHedgeName`
+  // then protects further edits.
+  useEffect(() => {
+    const loadKey = hedgeBot?._id ?? (botId || null);
+    if (!loadKey) return;
+    if (seededNameForRef.current === loadKey) return;
+    const seed = longInitialFormData?.name ?? shortInitialFormData?.name;
+    // Legs not mapped yet — wait for the load to resolve.
+    if (seed === undefined) return;
+    seededNameForRef.current = loadKey;
+    setHedgeName(seed ?? '');
+  }, [
+    hedgeBot?._id,
+    botId,
+    longInitialFormData?.name,
+    shortInitialFormData?.name,
+  ]);
+
   const refetchHedgeBot = useMemo(
     () => () => {
       void queryResult.refetch();
@@ -315,6 +361,10 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       setSharedSettings,
       updateSharedSetting: (key, value) =>
         setSharedSettings((prev) => ({ ...prev, [key]: value })),
+      hedgeName,
+      setHedgeName,
+      longLegPair,
+      setLongLegPair,
       activeLegPair,
       setActiveLegPair,
       activeLegExchangeUUID,
@@ -333,6 +383,8 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
       botId,
       legBotType,
       sharedSettings,
+      hedgeName,
+      longLegPair,
       activeLegPair,
       activeLegExchangeUUID,
       hedgeBot,

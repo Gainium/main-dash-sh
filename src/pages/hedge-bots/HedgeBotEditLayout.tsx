@@ -114,7 +114,9 @@ import {
   type HedgeBotSettings,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+import { useAutoHedgeName } from '@/hooks/bots/hedge/useAutoHedgeName';
 import HedgeChartPanel from './HedgeChartPanel';
+import { HedgeNameInput } from './HedgeNameInput';
 import HedgeQuickLeg, {
   HedgeFooterShell,
   HedgeQuickFooter,
@@ -136,8 +138,12 @@ import HedgeQuickLeg, {
  * `strategy` per leg; this ensures the in-form state matches.
  */
 const HedgeLegActiveChartPublisher: React.FC<{ leg: HedgeLeg }> = ({ leg }) => {
-  const { setActiveLegPair, setActiveLegExchangeUUID, chartSymbolWriterRef } =
-    useHedgeBotForm();
+  const {
+    setActiveLegPair,
+    setActiveLegExchangeUUID,
+    chartSymbolWriterRef,
+    setLongLegPair,
+  } = useHedgeBotForm();
   const { formData, updateFormData } = useBotFormState();
 
   const firstPair = Array.isArray(formData.pair)
@@ -154,6 +160,15 @@ const HedgeLegActiveChartPublisher: React.FC<{ leg: HedgeLeg }> = ({ leg }) => {
   useEffect(() => {
     setActiveLegPair(firstPair || null);
   }, [firstPair, setActiveLegPair]);
+
+  // Publish the long leg's pair to hedge context for the auto-name hook.
+  // Only the long leg does this — `activeLegPair` flips to the short pair
+  // on the short tab, so the auto-name can't rely on it.
+  useEffect(() => {
+    if (leg === 'long') {
+      setLongLegPair(firstPair || null);
+    }
+  }, [leg, firstPair, setLongLegPair]);
 
   useEffect(() => {
     setActiveLegExchangeUUID(formData.exchangeUUID ?? null);
@@ -192,6 +207,9 @@ export const HedgeBotEditLayout: React.FC = () => {
     sharedSettings,
     setSharedSettings,
     updateSharedSetting,
+    hedgeName,
+    setHedgeName,
+    longLegPair,
     longInitialFormData,
     shortInitialFormData,
     isLoadingHedgeBot,
@@ -305,6 +323,31 @@ export const HedgeBotEditLayout: React.FC = () => {
   );
   const [quickSeedSeq, setQuickSeedSeq] = useState(0);
 
+  // Auto-generate the shared hedge name from the long leg's pair + the
+  // active preset (Quick) or bot type (Manual) + today's date, mirroring
+  // regular bots. Sources everything from hedge context so it works with
+  // no leg mounted (e.g. the Hedge tab). Only overwrites blank / default /
+  // previously auto-generated names.
+  const hedgeBotTypeLabel =
+    botType === BotTypesEnum.hedgeCombo ? 'Hedge Combo' : 'Hedge DCA';
+  const activeHedgePreset = useMemo(
+    () => HEDGE_QUICK_PRESETS.find((p) => p.id === selectedHedgePreset) ?? null,
+    [selectedHedgePreset]
+  );
+  const hedgePresetLabels = useMemo(
+    () => HEDGE_QUICK_PRESETS.map((p) => p.label),
+    []
+  );
+  useAutoHedgeName({
+    mode,
+    longLegPair,
+    activePreset: activeHedgePreset,
+    presetLabels: hedgePresetLabels,
+    botTypeLabel: hedgeBotTypeLabel,
+    hedgeName,
+    setHedgeName,
+  });
+
   // In Quick mode the legs mount bare BotFormProviders (not the full BotForm
   // widget), so nothing hydrates the per-asset balance store the investment
   // sliders read. Both legs can also sit on different exchanges, and the store
@@ -395,6 +438,16 @@ export const HedgeBotEditLayout: React.FC = () => {
       toast.error('Both legs must finish loading before saving.');
       return;
     }
+
+    // Fan the single shared hedge name out to both legs before mapping, so
+    // create (mapper defaults a blank name) and edit (computeLegDelta emits
+    // `name` when it differs from the leg's loaded settings) both flow
+    // through the existing mapper uniformly. Same base name on both legs —
+    // the backend imposes no long/short naming rule and legs are already
+    // distinguished by `strategy`. Blank is tolerated (mapper defaults it).
+    const resolvedName = hedgeName;
+    longData = { ...longData, name: resolvedName };
+    shortData = { ...shortData, name: resolvedName };
 
     setSaving(true);
     try {
@@ -687,6 +740,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     botId,
     hedgeBot,
     sharedSettings,
+    hedgeName,
     exchanges,
     refetchHedgeBot,
     activeTab,
@@ -1057,6 +1111,10 @@ export const HedgeBotEditLayout: React.FC = () => {
   // switches via the seedRefs snapshot in handleTabChange.
   const hedgeSharedContent = (
     <div className="space-y-md">
+      {/* Single shared Bot Name for the whole hedge (per-leg name inputs
+          are hidden on nested legs). Binds to hedge context. */}
+      <HedgeNameInput />
+
       <SettingsRow
         name="Take Profit (hedge)"
         tooltip="Each leg has its own TP/SL unless this is activated. When on, the hedge controller closes both legs together when this percentage is reached."
@@ -1257,12 +1315,15 @@ export const HedgeBotEditLayout: React.FC = () => {
     const envelope = {
       schemaVersion: 'hedge-1',
       type: botType,
+      // Top-level for readability; the leg BotFormData objects also carry
+      // `name` (readLegData), and import reseeds hedgeName from the long leg.
+      name: hedgeName,
       sharedSettings,
       long: readLegData('long'),
       short: readLegData('short'),
     };
     return JSON.stringify(envelope, null, 2);
-  }, [botType, sharedSettings, readLegData]);
+  }, [botType, hedgeName, sharedSettings, readLegData]);
 
   const openImportExport = useCallback(() => {
     setImportExportInitial(buildExportJson());
@@ -1341,6 +1402,10 @@ export const HedgeBotEditLayout: React.FC = () => {
       longSeedRef.current = withStrategy(longForm, StrategyEnum.long);
       shortSeedRef.current = withStrategy(shortForm, StrategyEnum.short);
 
+      // handleSave overrides each leg's name with hedgeName, so seed the
+      // shared name from the imported long leg or it would be wiped on save.
+      setHedgeName((longForm.name as string) ?? '');
+
       // Force Manual so the full imported config is visible/editable, then
       // remount both leg widgets (the widgetIds include quickSeedSeq) so
       // they pick up the new seeds — same mechanism Quick presets use.
@@ -1348,7 +1413,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       setActiveTab('long');
       setQuickSeedSeq((n) => n + 1);
     },
-    [botType, sharedSettings, setSharedSettings]
+    [botType, sharedSettings, setSharedSettings, setHedgeName]
   );
 
   // ── Templates (save / load / hotkeys) ───────────────────────────────
@@ -1389,13 +1454,16 @@ export const HedgeBotEditLayout: React.FC = () => {
         ...SHARED_SETTINGS_DEFAULTS,
         ...template.hedge.sharedSettings,
       });
+      // Seed the shared name from the template's long leg (else handleSave's
+      // name override would wipe it).
+      setHedgeName((template.hedge.long?.name as string) ?? '');
       setHedgeMode('manual');
       setActiveTab('long');
       setQuickSeedSeq((n) => n + 1);
       setShowLoadTemplate(false);
       toast.success(`Template "${template.name}" loaded`);
     },
-    [setSharedSettings]
+    [setSharedSettings, setHedgeName]
   );
 
   // Global template hotkeys dispatch `bot-template-load` with the template
@@ -1426,11 +1494,12 @@ export const HedgeBotEditLayout: React.FC = () => {
     longFormDataRef.current = null;
     shortFormDataRef.current = null;
     setSharedSettings({ ...SHARED_SETTINGS_DEFAULTS });
+    setHedgeName('');
     setSelectedHedgePreset(null);
     setActiveTab('long');
     setQuickSeedSeq((n) => n + 1);
     toast.success('Settings reset to defaults');
-  }, [setSharedSettings]);
+  }, [setSharedSettings, setHedgeName]);
 
   // Footer overflow (⋮) menu — hedge-level actions replacing the leg's own
   // leg-scoped menu. Mirrors the standalone bot footer (Import/Export,
@@ -1505,6 +1574,10 @@ export const HedgeBotEditLayout: React.FC = () => {
           {/* Short leg's investment (base), inside the short leg's context. */}
           <HedgeQuickInvestment />
         </HedgeQuickLeg>
+
+        {/* Shared Bot Name for the hedge. Rendered by the layout (binds to
+            hedge context) even though it sits inside the long leg's tree. */}
+        <HedgeNameInput />
 
         <div className="rounded-lg bg-muted/40 p-md space-y-sm">
           <div>
