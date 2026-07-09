@@ -19,7 +19,14 @@ import { type TradingPair } from '@/hooks/useTradingPairs';
 import { GraphQLClient, GraphQlQuery } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
-import { indicatorStore } from '@/stores/indicatorStore';
+import {
+  createIndicatorStore,
+  indicatorStore as sharedIndicatorStore,
+} from '@/stores/indicatorStore';
+import {
+  ExampleOrdersStoreContext,
+  IndicatorStoreContext,
+} from '@/contexts/bots/form/formStoreContexts';
 import { useUIStore } from '@/stores/uiStore';
 import {
   BotStartTypeEnum,
@@ -41,7 +48,10 @@ import type {
   BotFormErrors,
   PairPrecisionInfo,
 } from '@/types/bots/form';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import {
+  createExampleOrdersStore,
+  exampleOrdersStore as sharedExampleOrdersStore,
+} from '@/utils/bots/dca/example-orders';
 import {
   handleSettingsUpdate,
   type HandleSettingsUpdateResult,
@@ -177,6 +187,15 @@ interface BotFormProviderProps {
    * default to Manual.
    */
   isNestedLeg?: boolean;
+  /**
+   * When true, this provider creates its OWN instances of the example-orders
+   * and indicator side-effect stores and supplies them to descendants via
+   * context, instead of sharing the module singletons. Set for hedge legs so
+   * two co-mounted leg forms don't clobber each other's order-estimation /
+   * indicator pipelines. Regular bots (one form) leave this off and keep the
+   * shared globals — byte-identical to the historical behaviour.
+   */
+  isolateStores?: boolean;
 }
 
 const createDefaultFormState = (
@@ -238,8 +257,25 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     botType,
     terminal,
     isNestedLeg,
+    isolateStores,
   } = props;
   const { botExperience } = useBotFormRegistryContext();
+
+  // Instance-scoped side-effect stores. Hedge legs isolate so co-mounted leg
+  // forms don't fight over the shared globals; everyone else keeps the module
+  // singletons (identical to legacy behaviour). Instances are stable for the
+  // life of the provider, so descendants reading them via
+  // ExampleOrdersStoreContext / IndicatorStoreContext stay bound to the same
+  // store this provider writes to.
+  const exampleOrdersStore = useMemo(
+    () =>
+      isolateStores ? createExampleOrdersStore() : sharedExampleOrdersStore,
+    [isolateStores]
+  );
+  const indicatorStore = useMemo(
+    () => (isolateStores ? createIndicatorStore() : sharedIndicatorStore),
+    [isolateStores]
+  );
 
   const [activeTab, setActiveTab] = useState<BotFormTabId>(
     defaultTab ?? 'basic'
@@ -272,7 +308,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
         return nextValue;
       });
     },
-    []
+    [indicatorStore]
   );
   const resetFormData = useCallback(() => {
     setFormData(defaultStateFn(props, true));
@@ -544,6 +580,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     useRiskRewardIndicators,
     isComboBot,
     formData.combo.strategy,
+    indicatorStore,
   ]);
   const isDealEdit = useMemo(
     () => mode === 'deal-edit' || mode === 'deal-mass-edit',
@@ -560,7 +597,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   useEffect(() => {
     if (isSkipExampleOrders) return;
     exampleOrdersStore.setContext({ botType });
-  }, [botType, isSkipExampleOrders]);
+  }, [botType, isSkipExampleOrders, exampleOrdersStore]);
 
   useEffect(() => {
     if (isSkipExampleOrders) {
@@ -851,6 +888,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     formData.grid.useOrderInAdvance,
     formData.grid.feeOrder,
     isSkipExampleOrders,
+    exampleOrdersStore,
   ]);
 
   useEffect(() => {
@@ -860,7 +898,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     exampleOrdersStore.setContext({
       errors,
     });
-  }, [errors, isSkipExampleOrders]);
+  }, [errors, isSkipExampleOrders, exampleOrdersStore]);
 
   useEffect(() => {
     if (isSkipExampleOrders) {
@@ -869,7 +907,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     exampleOrdersStore.setContext({
       botVars,
     });
-  }, [botVars, isSkipExampleOrders]);
+  }, [botVars, isSkipExampleOrders, exampleOrdersStore]);
 
   useEffect(() => {
     if (isSkipExampleOrders) {
@@ -878,7 +916,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     exampleOrdersStore.setContext({
       userFee: formData.userFee?.makerCommission,
     });
-  }, [isSkipExampleOrders, formData.userFee?.makerCommission]);
+  }, [isSkipExampleOrders, formData.userFee?.makerCommission, exampleOrdersStore]);
 
   const updateFormData = useCallback(
     (field: Fields, value: BotFormUpdateValue) => {
@@ -960,7 +998,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
         return rest;
       });
     },
-    [botType, setFormData]
+    [botType, setFormData, exampleOrdersStore]
   );
   useEffect(() => {
     let newErrors: BotFormErrors = {};
@@ -1708,9 +1746,13 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   );
 
   return (
-    <BotFormStateContext.Provider value={value}>
-      {children}
-    </BotFormStateContext.Provider>
+    <ExampleOrdersStoreContext.Provider value={exampleOrdersStore}>
+      <IndicatorStoreContext.Provider value={indicatorStore}>
+        <BotFormStateContext.Provider value={value}>
+          {children}
+        </BotFormStateContext.Provider>
+      </IndicatorStoreContext.Provider>
+    </ExampleOrdersStoreContext.Provider>
   );
 };
 

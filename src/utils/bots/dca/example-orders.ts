@@ -21,7 +21,7 @@ type ExampleOrdersListener = (
   avgPrices: AvgPrice[]
 ) => void;
 
-class ExampleOrdersStore {
+export class ExampleOrdersStore {
   private context: ExampleOrdersStoreContext = defaultContext;
   private orders: DCAGrid[] = [];
   private transactions: TransactionChart[] = [];
@@ -130,4 +130,16 @@ class ExampleOrdersStore {
   }
 }
 
-export const exampleOrdersStore = new ExampleOrdersStore();
+/**
+ * Factory for an isolated example-orders store. Regular bots use the shared
+ * module singleton below; hedge legs (which co-mount two forms under one
+ * workbench) each create their own instance via BotFormProvider so their
+ * order-estimation pipelines don't clobber each other. See
+ * ExampleOrdersStoreContext.
+ */
+export function createExampleOrdersStore(): ExampleOrdersStore {
+  return new ExampleOrdersStore();
+}
+
+/** Default shared instance — the historical module global. */
+export const exampleOrdersStore = createExampleOrdersStore();

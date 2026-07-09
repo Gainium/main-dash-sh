@@ -134,7 +134,7 @@ import {
 import type { BotFormData } from '@/types/bots/form';
 import type { ComboBot } from '@/types/comboBot';
 import type { GridBot } from '@/types/gridBot';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
 import { validateGridFormData } from '@/utils/bots/grid/validation';
@@ -481,6 +481,10 @@ const BotForm: React.FC<BotFormProps> = ({
   tabDescriptorsFilter,
   onBacktestComplete,
 }) => {
+  // Active example-orders store — the shared global for regular bots, or this
+  // form's isolated instance when rendered inside an isolateStores
+  // BotFormProvider (hedge leg).
+  const exampleOrdersStore = useExampleOrdersStore();
   // Register template shortcuts and remove stale ones
   useBotTemplateShortcuts();
   const dataMode = data?.['mode'] as BotFormMode | undefined;
@@ -2230,7 +2234,7 @@ const BotForm: React.FC<BotFormProps> = ({
       onDrag: (price, type, index, meta) =>
         dragHandlerRef.current?.(price, type, index, meta),
     });
-  }, []);
+  }, [exampleOrdersStore]);
 
   useEffect(() => {
     // The chart follows the first pair by default, but a clicked pair chip
@@ -2295,6 +2299,7 @@ const BotForm: React.FC<BotFormProps> = ({
     onFormDataChange,
     formData.pairMetadata,
     currentExchange,
+    exampleOrdersStore,
   ]);
 
   const handleStatusToggle = useCallback(

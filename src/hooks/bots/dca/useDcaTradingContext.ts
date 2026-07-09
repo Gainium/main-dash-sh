@@ -31,7 +31,7 @@ import {
   type Prices,
 } from '@/types';
 import { normalizePairKey } from '@/utils/bots/dca/basic-settings';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import { normalizeBalanceAsset } from '@/utils/exchangeUtils';
 
 interface BalanceSnapshot {
@@ -248,6 +248,9 @@ export const useDcaTradingContext = (
   formData: BotFormData,
   options?: UseDcaTradingContextOptions
 ): DcaTradingContext => {
+  // Shared global for regular bots; the leg's isolated instance under an
+  // isolateStores BotFormProvider (hedge leg).
+  const exampleOrdersStore = useExampleOrdersStore();
   const balances = useBalanceStore((state) => state.balances);
   const botSettings = options?.bot?.settings;
   const selectedPairs = React.useMemo(() => {
@@ -382,7 +385,7 @@ export const useDcaTradingContext = (
         locked: `${data.locked}`,
       })),
     });
-  }, [balanceMap, isSkipExampleOrders]);
+  }, [balanceMap, isSkipExampleOrders, exampleOrdersStore]);
 
   const aggregatedBalances = React.useMemo(() => {
     const baseSymbols = new Set<string>();
@@ -501,14 +504,14 @@ export const useDcaTradingContext = (
       return;
     }
     exampleOrdersStore.setContext({ inputLatestPrice: latestPrice });
-  }, [latestPrice, isSkipExampleOrders]);
+  }, [latestPrice, isSkipExampleOrders, exampleOrdersStore]);
 
   useEffect(() => {
     if (isSkipExampleOrders) {
       return;
     }
     exampleOrdersStore.setContext({ usdPrice: usdPrice });
-  }, [usdPrice, isSkipExampleOrders]);
+  }, [usdPrice, isSkipExampleOrders, exampleOrdersStore]);
 
   const startOrderType = useBotFormSelector('startOrderType');
   const futuresFlag = useBotFormSelector('futures');

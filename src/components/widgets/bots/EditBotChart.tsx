@@ -1,5 +1,5 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
-import { indicatorStore } from '@/stores/indicatorStore';
+import { useIndicatorStore } from '@/contexts/bots/form/formStoreContexts';
 import { riskRewardPositionStore } from '@/stores/riskRewardPositionStore';
 import type { ChartIndicatorsConfig, PositionChart } from '@/types';
 import type { DcaBot } from '@/types/dcaBot';
@@ -477,12 +477,16 @@ const EditBotChart: React.FC<EditBotChartProps> = ({
   );
   const [riskPosition, setRiskPosition] = useState<PositionChart | null>(null);
 
+  // Shared global for regular bots; the leg's isolated instance under an
+  // isolateStores BotFormProvider (hedge leg).
+  const indicatorStore = useIndicatorStore();
+
   useEffect(() => {
     const unsubscribe = indicatorStore.subscribe((chartIndicators) => {
       setStoreIndicators(chartIndicators);
     });
     return unsubscribe;
-  }, []);
+  }, [indicatorStore]);
 
   useEffect(() => {
     const resolvedBotId = actualBotId?.trim() ?? '';

@@ -1,7 +1,10 @@
 import type { PanelMenuConfig } from '@/components/bots/panels/PanelContainer';
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
 import { riskRewardRuntimeStore } from '@/contexts/bots/dca/RiskRewardRuntimeContext';
-import { indicatorStore } from '@/stores/indicatorStore';
+import {
+  useExampleOrdersStore,
+  useIndicatorStore,
+} from '@/contexts/bots/form/formStoreContexts';
 import { riskRewardPositionStore } from '@/stores/riskRewardPositionStore';
 import { IndicatorEnum } from '@/types';
 import React, {
@@ -36,7 +39,6 @@ import {
   useBotChartDisplayOptions,
   type BotChartDisplayOptionsResult,
 } from './hooks/useBotChartDisplayOptions';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import { isTokenizedStockPair } from '@/utils/pairs';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
@@ -350,6 +352,11 @@ const BotChart: React.FC<BotChartProps> = ({
   const [exampleOrders, setExampleOrders] = useState<DCAGrid[]>([]);
   const [riskPosition, setRiskPosition] = useState<PositionChart | null>(null);
 
+  // Shared globals for regular bots; the leg's isolated instances when this
+  // chart is mounted inside an isolateStores BotFormProvider (hedge leg).
+  const indicatorStore = useIndicatorStore();
+  const exampleOrdersStore = useExampleOrdersStore();
+
   useEffect(() => {
     const unsubscribe = indicatorStore.subscribe((incoming) => {
       setIndicatorPayload(incoming);
@@ -358,14 +365,14 @@ const BotChart: React.FC<BotChartProps> = ({
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [indicatorStore]);
 
   // Keep the indicator store's chartInterval in sync with the chart's interval
   useEffect(() => {
     if (interval) {
       indicatorStore.setChartIndicatorsContext({ chartInterval: interval });
     }
-  }, [interval]);
+  }, [interval, indicatorStore]);
 
   useEffect(() => {
     const unsubscribe = exampleOrdersStore.subscribe((incoming) => {
@@ -375,7 +382,7 @@ const BotChart: React.FC<BotChartProps> = ({
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [exampleOrdersStore]);
   const resolvedBotId = useMemo(() => {
     const candidates = [
       getString(data?.['botId']),
@@ -596,7 +603,7 @@ const BotChart: React.FC<BotChartProps> = ({
         chartInterval: nextInterval,
       });
     },
-    [interval, setInterval]
+    [interval, setInterval, indicatorStore]
   );
 
   const intervalLabel = formatIntervalLabel(interval);
@@ -647,7 +654,7 @@ const BotChart: React.FC<BotChartProps> = ({
         }
       }
     },
-    [indicatorPayload]
+    [indicatorPayload, exampleOrdersStore]
   );
   const chartShell = (
     <div className={containerClassName}>

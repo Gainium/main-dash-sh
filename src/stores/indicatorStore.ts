@@ -20,8 +20,11 @@ const defaultContext: ChartIndicatorsContext = {
   useRiskRewardIndicators: false,
 };
 
-// Global store for indicators that can be accessed by chart widgets
-class IndicatorStore {
+// Store for indicators that can be accessed by chart widgets. Regular bots
+// share the module singleton below; hedge legs each get an isolated instance
+// via BotFormProvider so co-mounted leg forms don't clobber each other's
+// indicator config. See IndicatorStoreContext.
+export class IndicatorStore {
   private _indicators: IndicatorConfig[] = [];
   private listeners: Array<(indicators: ChartIndicatorsConfig) => void> = [];
   private notifyScheduled = false;
@@ -95,5 +98,10 @@ class IndicatorStore {
   }
 }
 
-// Global instance
-export const indicatorStore = new IndicatorStore();
+/** Factory for an isolated indicator store (see IndicatorStore doc comment). */
+export function createIndicatorStore(): IndicatorStore {
+  return new IndicatorStore();
+}
+
+/** Default shared instance — the historical module global. */
+export const indicatorStore = createIndicatorStore();
