@@ -189,7 +189,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
       page: 0,
       pageSize: 25,
     },
-    enabled: backtestsEnabled ?? true,
+    // Only dca/combo consume the linked-summary query; grid opts out
+    // (useLinkedSummary=false) and never fired this round-trip in its old page.
+    enabled: descriptor.useLinkedSummary && (backtestsEnabled ?? true),
   });
 
   const backtestsSummary = useBacktestsSummary({
@@ -437,7 +439,10 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         ids: backtestsToDelete,
         prefix: 'BACKTEST_DELETE',
       });
-      await deleteBacktestsMutation.mutateAsync({ ids: backtestsToDelete });
+      await deleteBacktestsMutation.mutateAsync({
+        ids: backtestsToDelete,
+        backtestType: descriptor.kind,
+      });
       toast.success(
         `Deleted ${backtestsToDelete.length} backtest${backtestsToDelete.length > 1 ? 's' : ''} successfully`
       );
@@ -460,7 +465,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         error instanceof Error ? error.message : 'Failed to delete backtests'
       );
     }
-  }, [backtestsToDelete, deleteBacktestsMutation, selectedBacktest]);
+  }, [backtestsToDelete, deleteBacktestsMutation, selectedBacktest, descriptor.kind]);
 
   // Inline note editing for the backtest table
   const setBacktestNoteMutation = useSetBacktestNote();
@@ -487,18 +492,22 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   // directly, it only calls descriptor.buildColumns(ctx).
   const backtestColumns = useMemo<ColumnDef<TResult>[]>(
     () =>
-      descriptor.buildColumns({
-        user,
-        backtestNoteOverrides,
-        onSaveNote: handleSaveBacktestNote,
-        onShare: handleShareBacktest,
-        onLoadIntoForm: onLoadBacktestIntoForm,
-        onLoadDetails: handleLoadBacktestDetails,
-        onDelete: handleDeleteBacktests,
-        onImportAsPaper: handleImportAsPaper,
-      }),
+      descriptor.buildColumns(
+        {
+          user,
+          backtestNoteOverrides,
+          onSaveNote: handleSaveBacktestNote,
+          onShare: handleShareBacktest,
+          onLoadIntoForm: onLoadBacktestIntoForm,
+          onLoadDetails: handleLoadBacktestDetails,
+          onDelete: handleDeleteBacktests,
+          onImportAsPaper: handleImportAsPaper,
+        },
+        mode
+      ),
     [
       descriptor,
+      mode,
       user,
       backtestNoteOverrides,
       handleSaveBacktestNote,
@@ -689,6 +698,21 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   // its own MainLayout(pageTitle="Shared backtest").
   const shareContent = useMemo<ReactNode>(() => {
     if (!isShareMode) return null;
+    // Per-type share viewer (grid supplies Overview/Transactions/Equity/Stats);
+    // dca/combo omit it and fall through to the DCA tab block below.
+    if (descriptor.renderShareContent) {
+      return (
+        <div className="flex flex-col gap-md p-md">
+          {selectedBacktest ? (
+            descriptor.renderShareContent(selectedBacktest)
+          ) : (
+            <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
+              Loading shared backtest…
+            </div>
+          )}
+        </div>
+      );
+    }
     const hasAnalysis =
       !!selectedBacktest &&
       ((selectedBacktest.deals?.length ?? 0) > 0 ||
@@ -737,7 +761,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         )}
       </div>
     );
-  }, [isShareMode, selectedBacktest]);
+  }, [isShareMode, selectedBacktest, descriptor]);
 
   const api: BotBacktestPanelApi = {
     insights,

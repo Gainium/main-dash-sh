@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
 import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
 import {
@@ -53,6 +53,12 @@ interface BotWorkbenchEditProps<TResult extends BacktestRowBase> {
   notFound: boolean;
   /** Stage settings in sessionStorage.botConfig, then navigate('/bot/new'). */
   onLoadBacktestIntoForm: (backtest: TResult) => void;
+  /**
+   * Optional wrapper around the panel-layout region (both loading and
+   * resolved). Grid-Edit uses it to mount <GridPageProvider>. Defaults to
+   * identity when absent.
+   */
+  contentWrapper?: (node: ReactNode) => ReactNode;
 }
 
 export type BotWorkbenchProps<
@@ -76,7 +82,11 @@ export function BotWorkbench<
 
   // Shared across BotBacktestPanel, the loading-state BotPanelInsights, and the
   // mobile top-level tabs, so it must be owned here (above BotBacktestPanel).
-  const [activeInsightsTab, setActiveInsightsTab] = useState('backtests');
+  // Seeded from the descriptor so combo starts on 'history', dca/grid on
+  // 'backtests'.
+  const [activeInsightsTab, setActiveInsightsTab] = useState(
+    descriptor.backtests.tabKey
+  );
 
   // Chart state block — identical on both sides. Hooks stay unconditional
   // (Rules-of-Hooks); descriptor.hasChart only gates whether the built chart
@@ -221,8 +231,8 @@ export function BotWorkbench<
 
   const loadingInsightsTabs = useMemo<BotPanelInsightsTab[]>(() => {
     const backtestsTab: BotPanelInsightsTab = {
-      key: 'backtests',
-      title: 'Backtests',
+      key: descriptor.backtests.tabKey,
+      title: descriptor.backtests.tabTitle,
       badge: <Badge variant="secondary">...</Badge>,
       content: (
         <div className="flex h-full flex-col gap-sm">
@@ -232,7 +242,9 @@ export function BotWorkbench<
         </div>
       ),
     };
-    if (mode === 'edit') {
+    // dca/combo edit show a disabled Stats tab during load; grid does not
+    // (loadingHasStatsTab=false). Defaults to true when the flag is absent.
+    if (mode === 'edit' && (descriptor.loadingHasStatsTab ?? true)) {
       return [
         backtestsTab,
         {
@@ -244,7 +256,12 @@ export function BotWorkbench<
       ];
     }
     return [backtestsTab];
-  }, [mode]);
+  }, [
+    mode,
+    descriptor.backtests.tabKey,
+    descriptor.backtests.tabTitle,
+    descriptor.loadingHasStatsTab,
+  ]);
 
   const loadingInsights = (
     <BotPanelInsights
@@ -255,15 +272,17 @@ export function BotWorkbench<
   );
 
   if (props.mode === 'edit') {
-    const { botId, hasBotId, notFound, onLoadBacktestIntoForm } = props;
+    const { botId, hasBotId, notFound, onLoadBacktestIntoForm, contentWrapper } =
+      props;
     const layoutKey = `${descriptor.layoutType}-${botId || 'edit'}`;
+    const wrapContent = contentWrapper ?? ((node: ReactNode) => node);
 
     return (
       <BotBacktestPanel
         descriptor={descriptor.backtests}
         mode="edit"
         backtestsEnabled={hasBotId}
-        summaryMessages={descriptor.backtests.summaryMessages}
+        summaryMessages={descriptor.backtests.summaryMessages?.edit}
         activeInsightsTab={activeInsightsTab}
         onActiveInsightsTabChange={setActiveInsightsTab}
         onLoadBacktestIntoForm={onLoadBacktestIntoForm}
@@ -309,31 +328,35 @@ export function BotWorkbench<
                   botId={botId}
                 />
               ) : (
-                <div className="flex flex-col gap-md">
-                  {isLoading ? (
-                    <BotPanelLayout
-                      chart={descriptor.hasChart ? loadingChartPanel : undefined}
-                      form={loadingFormPanel}
-                      insights={loadingInsights}
-                      className="flex-1"
-                      key={layoutKey}
-                      botType={descriptor.layoutType}
-                      mobileFullscreen
-                      scrollable
-                    />
-                  ) : (
-                    <BotPanelLayout
-                      chart={descriptor.hasChart ? chartPanel : undefined}
-                      form={formPanel}
-                      insights={insights}
-                      className="flex-1"
-                      key={layoutKey}
-                      botType={descriptor.layoutType}
-                      mobileFullscreen
-                      scrollable
-                    />
-                  )}
-                </div>
+                wrapContent(
+                  <div className="flex flex-col gap-md">
+                    {isLoading ? (
+                      <BotPanelLayout
+                        chart={
+                          descriptor.hasChart ? loadingChartPanel : undefined
+                        }
+                        form={loadingFormPanel}
+                        insights={loadingInsights}
+                        className="flex-1"
+                        key={layoutKey}
+                        botType={descriptor.layoutType}
+                        mobileFullscreen
+                        scrollable
+                      />
+                    ) : (
+                      <BotPanelLayout
+                        chart={descriptor.hasChart ? chartPanel : undefined}
+                        form={formPanel}
+                        insights={insights}
+                        className="flex-1"
+                        key={layoutKey}
+                        botType={descriptor.layoutType}
+                        mobileFullscreen
+                        scrollable
+                      />
+                    )}
+                  </div>
+                )
               )}
             </MainLayout>
           );
@@ -349,6 +372,7 @@ export function BotWorkbench<
     <BotBacktestPanel
       descriptor={descriptor.backtests}
       mode="create"
+      summaryMessages={descriptor.backtests.summaryMessages?.create}
       activeInsightsTab={activeInsightsTab}
       onActiveInsightsTabChange={setActiveInsightsTab}
       onLoadBacktestIntoForm={onLoadBacktestIntoForm}

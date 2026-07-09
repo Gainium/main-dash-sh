@@ -1,4 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
+import type { ReactNode } from 'react';
 
 import type { BotType } from '@/components/bots/panels/BotPanelLayout'; // 'dca'|'combo'|'grid'|'hedge-dca'|…
 import {
@@ -89,9 +90,22 @@ export interface BotBacktestDescriptor<TResult extends BacktestRowBase> {
    * does not.
    */
   useLinkedSummary: boolean;
-  summaryMessages?: { loadingSubtitle?: string };
-  /** Per-type module, referenced not inlined. */
-  buildColumns: (ctx: BacktestColumnContext<TResult>) => ColumnDef<TResult>[];
+  /**
+   * Per-mode linked-summary loading subtitle. dca forwards on edit only;
+   * combo forwards on both. The workbench extracts summaryMessages[mode].
+   */
+  summaryMessages?: {
+    create?: { loadingSubtitle?: string };
+    edit?: { loadingSubtitle?: string };
+  };
+  /**
+   * Per-type column module, referenced not inlined. `mode` lets combo diverge
+   * (14 columns on create vs the full DCA-style set on edit); dca/grid ignore it.
+   */
+  buildColumns: (
+    ctx: BacktestColumnContext<TResult>,
+    mode: 'create' | 'edit'
+  ) => ColumnDef<TResult>[];
   /** grid ships a big map; dca omits. */
   defaultColumnVisibility?: Record<string, boolean>;
   /** dca/grid 'backtests'; combo 'history'. */
@@ -111,6 +125,12 @@ export interface BotBacktestDescriptor<TResult extends BacktestRowBase> {
   };
   /** dca/combo cast settings; grid omits. */
   getModalSettings?: (bt: TResult) => DCABotSettings | undefined;
+  /**
+   * Optional per-type override for the inline `?backtestShare=` viewer. Grid
+   * supplies its Overview/Transactions/Equity/Stats block; dca/combo omit it
+   * and fall back to the shared DCA Overview/Stats/Deals/Analysis tabs.
+   */
+  renderShareContent?: (bt: TResult) => ReactNode;
 }
 
 /**
@@ -141,6 +161,11 @@ export interface BotPageDescriptor<
   /** useBotPageLoading window (create 1200 / edit 1000). */
   loadingDelayMs: { create: number; edit: number };
   backtests: BotBacktestDescriptor<TResult>;
+  /**
+   * Whether the EDIT loading skeleton includes a disabled "Stats" tab
+   * (dca/combo do; grid does not). Defaults to true when absent.
+   */
+  loadingHasStatsTab?: boolean;
 }
 
 // Layout key derivation (done in BotWorkbench, NOT stored on the descriptor):

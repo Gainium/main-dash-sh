@@ -37,7 +37,7 @@ export const dcaPageDescriptor: BotPageDescriptor<DCABacktestingResultHistory> =
       useLinkedSummary: true,
       // NOTE: only the EDIT branch passes this today (create passes nothing).
       // The workbench keeps that per-mode wiring so create stays byte-for-byte.
-      summaryMessages: { loadingSubtitle: 'Loading linked backtests' },
+      summaryMessages: { edit: { loadingSubtitle: 'Loading linked backtests' } },
       buildColumns: buildDcaBacktestColumns,
       tabKey: 'backtests',
       tabTitle: 'Backtests',
