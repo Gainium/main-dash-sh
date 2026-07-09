@@ -14,6 +14,7 @@ import {
 import { useGridBacktests } from '@/hooks/useGridBacktests';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
+import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 import type { BotPageDescriptor } from './types';
 
@@ -77,6 +78,10 @@ export const gridPageDescriptor: BotPageDescriptor<GRIDBacktestingResultHistory>
     loadingDelayMs: { create: 1200, edit: 1000 },
     // Grid's edit loading state shows only the Backtests tab (no disabled Stats).
     loadingHasStatsTab: false,
+    // Grid resets only example orders on unmount (no indicators).
+    resetStores: [exampleOrdersStore],
+    // Read-only (demo) users can't edit grid bots — bounce back to the list.
+    editReadOnlyRedirect: '/grid',
     backtests: {
       kind: 'grid',
       noteType: BotTypesEnum.grid,

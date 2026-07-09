@@ -1,11 +1,13 @@
 import { buildDcaBacktestColumns } from '@/components/bots/panels/contents/insights/columns/dca-backtest-columns';
 import { useDcaBacktests } from '@/hooks/useDcaBacktests';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { indicatorStore } from '@/stores/indicatorStore';
 import {
   BotTypesEnum,
   type DCABacktestingResultHistory,
   type DCABotSettings,
 } from '@/types';
+import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 import type { BotPageDescriptor } from './types';
 
@@ -29,6 +31,8 @@ export const dcaPageDescriptor: BotPageDescriptor<DCABacktestingResultHistory> =
     chartWidgetId: { create: 'bot-chart', edit: 'edit-bot-chart' },
     formWidgetId: { create: 'create-bot', edit: 'edit-bot' },
     loadingDelayMs: { create: 1200, edit: 1000 },
+    // dca resets both indicator + example-orders stores on page unmount.
+    resetStores: [indicatorStore, exampleOrdersStore],
     backtests: {
       kind: 'dca',
       noteType: BotTypesEnum.dca,

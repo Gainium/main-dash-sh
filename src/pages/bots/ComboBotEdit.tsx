@@ -1,18 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { comboPageDescriptor } from '@/components/bots/workbench/descriptors';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
-import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
-import { indicatorStore } from '@/stores/indicatorStore';
-import {
-  BotTypesEnum,
-  type DCABacktestingResultHistory,
-} from '@/types';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { BotTypesEnum, type DCABacktestingResultHistory } from '@/types';
 
 const ComboBotEditWidget = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,19 +14,6 @@ const ComboBotEditWidget = () => {
 
   const hasBotId = Boolean(id);
   const safeBotId = id ?? '';
-
-  // Keep this bot's real paper/live mode authoritative over the global toggle
-  // so a refresh doesn't flip it. Thread 4872.
-  const modeGuard = useBotModeGuard(safeBotId, BotTypesEnum.combo, {
-    enabled: hasBotId,
-  });
-
-  useEffect(() => {
-    return () => {
-      indicatorStore.reset();
-      exampleOrdersStore.reset();
-    };
-  }, []);
 
   const handleLoadBacktest = useCallback(
     (backtest: DCABacktestingResultHistory) => {
@@ -66,18 +47,15 @@ const ComboBotEditWidget = () => {
       mode="edit"
       botId={safeBotId}
       hasBotId={hasBotId}
-      notFound={modeGuard.notFound}
       onLoadBacktestIntoForm={handleLoadBacktest}
     />
   );
 };
 
-const ComboBotEdit = () => {
-  return (
-    <TradingTerminalUtilsProvider>
-      <ComboBotEditWidget />
-    </TradingTerminalUtilsProvider>
-  );
-};
+const ComboBotEdit = () => (
+  <BotPageBoundary descriptor={comboPageDescriptor} mode="edit">
+    <ComboBotEditWidget />
+  </BotPageBoundary>
+);
 
 export default ComboBotEdit;

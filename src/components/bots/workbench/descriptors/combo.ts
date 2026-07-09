@@ -1,11 +1,13 @@
 import { buildComboBacktestColumns } from '@/components/bots/panels/contents/insights/columns/combo-backtest-columns';
 import { useComboBacktests } from '@/hooks/useComboBacktests';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { indicatorStore } from '@/stores/indicatorStore';
 import {
   BotTypesEnum,
   type DCABacktestingResultHistory,
   type DCABotSettings,
 } from '@/types';
+import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 import type { BotPageDescriptor } from './types';
 
@@ -29,6 +31,8 @@ export const comboPageDescriptor: BotPageDescriptor<DCABacktestingResultHistory>
     chartWidgetId: { create: 'combo-bot-chart', edit: 'combo-edit-bot-chart' },
     formWidgetId: { create: 'combo-create-bot', edit: 'combo-edit-bot' },
     loadingDelayMs: { create: 1200, edit: 1000 },
+    // combo resets both indicator + example-orders stores on page unmount.
+    resetStores: [indicatorStore, exampleOrdersStore],
     backtests: {
       kind: 'combo',
       noteType: BotTypesEnum.combo,

@@ -1,16 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { comboPageDescriptor } from '@/components/bots/workbench/descriptors';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
-import { indicatorStore } from '@/stores/indicatorStore';
 import {
   BotTypesEnum,
   type ComboBot,
@@ -18,7 +17,6 @@ import {
   type DCABot,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 const ComboBotNewWidget = () => {
   // Preloaded form seed from sessionStorage.botConfig plus URL hints.
@@ -89,13 +87,6 @@ const ComboBotNewWidget = () => {
 
   const isLoadingClone = Boolean(loadFromBotId) && !loadHandled;
 
-  useEffect(() => {
-    return () => {
-      indicatorStore.reset();
-      exampleOrdersStore.reset();
-    };
-  }, []);
-
   // "Load in settings" — in-place form reload with the backtest's settings.
   const handleLoadBacktest = useCallback(
     (backtest: DCABacktestingResultHistory) => {
@@ -135,12 +126,10 @@ const ComboBotNewWidget = () => {
   );
 };
 
-const ComboBotNew = () => {
-  return (
-    <TradingTerminalUtilsProvider>
-      <ComboBotNewWidget />
-    </TradingTerminalUtilsProvider>
-  );
-};
+const ComboBotNew = () => (
+  <BotPageBoundary descriptor={comboPageDescriptor} mode="create">
+    <ComboBotNewWidget />
+  </BotPageBoundary>
+);
 
 export default ComboBotNew;

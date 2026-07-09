@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { GraphQLClient } from '@/lib/api';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
@@ -10,7 +10,6 @@ import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { useAuthStore } from '@/stores/authStore';
-import { indicatorStore } from '@/stores/indicatorStore';
 import {
   BotTypesEnum,
   type DCABacktestingResultHistory,
@@ -18,7 +17,6 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import { useSearchParams } from 'react-router-dom';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 const TradingBotNewWidget = () => {
   // Preloaded form seed from sessionStorage.botConfig (set by the
@@ -105,13 +103,6 @@ const TradingBotNewWidget = () => {
 
   const [formReloadKey, setFormReloadKey] = useState(0);
 
-  useEffect(() => {
-    return () => {
-      indicatorStore.reset();
-      exampleOrdersStore.reset();
-    };
-  }, []);
-
   // "Load in settings" — in-place form reload with the backtest's settings.
   const handleLoadBacktest = useCallback(
     (backtest: DCABacktestingResultHistory) => {
@@ -152,12 +143,10 @@ const TradingBotNewWidget = () => {
   );
 };
 
-const TradingBotNew = () => {
-  return (
-    <TradingTerminalUtilsProvider>
-      <TradingBotNewWidget />
-    </TradingTerminalUtilsProvider>
-  );
-};
+const TradingBotNew = () => (
+  <BotPageBoundary descriptor={dcaPageDescriptor} mode="create">
+    <TradingBotNewWidget />
+  </BotPageBoundary>
+);
 
 export default TradingBotNew;

@@ -166,6 +166,37 @@ export interface BotPageDescriptor<
    * (dca/combo do; grid does not). Defaults to true when absent.
    */
   loadingHasStatsTab?: boolean;
+  /**
+   * Premium gate. Absent → no gate (regular dca/grid/combo). When present and
+   * `useLicense().isPremium === false`, BotPageBoundary renders
+   * MainLayout + PremiumUpgrade in place of the page. Hedge descriptors will
+   * set this.
+   */
+  premium?: {
+    /** PremiumUpgrade `feature`. */
+    feature: string;
+    /** PremiumUpgrade `description`. */
+    description?: string;
+    ctaHref?: string;
+    ctaLabel?: string;
+  };
+  /**
+   * Zustand-style singletons reset on page unmount. dca/combo =
+   * [indicatorStore, exampleOrdersStore]; grid = [exampleOrdersStore].
+   * Absent → nothing reset.
+   */
+  resetStores?: ReadonlyArray<{ reset: () => void }>;
+  /**
+   * Run useBotModeGuard in EDIT and honor its notFound short-circuit.
+   * Defaults to true. The guard already returns notFound:false when disabled,
+   * so this single flag governs both guard + notFound.
+   */
+  guardEnabled?: boolean;
+  /**
+   * EDIT-only: if the user isReadOnly (demo), replace-navigate here.
+   * grid = '/grid'. Absent → no redirect. Ignored in create mode.
+   */
+  editReadOnlyRedirect?: string;
 }
 
 // Layout key derivation (done in BotWorkbench, NOT stored on the descriptor):

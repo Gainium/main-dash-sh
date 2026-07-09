@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { gridPageDescriptor } from '@/components/bots/workbench/descriptors';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
@@ -12,7 +12,6 @@ import { toast } from '@/lib/toast';
 import { mapGridBotSettingsToFormData } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import { type Bot } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 
 const GridBotNewWidget = () => {
   // Preloaded form seed from sessionStorage.botConfig (curated-presets widget,
@@ -76,13 +75,6 @@ const GridBotNewWidget = () => {
   const isLoadingClone =
     Boolean(loadFromBotId) && loadQuery.isLoading && !loadErrorHandled;
 
-  // Grid resets only example orders on unmount (no indicators).
-  useEffect(() => {
-    return () => {
-      exampleOrdersStore.reset();
-    };
-  }, []);
-
   const initialFormData = clonedInitialFormData ?? preload?.initialFormData;
 
   return (
@@ -98,12 +90,10 @@ const GridBotNewWidget = () => {
   );
 };
 
-const GridBotNew = () => {
-  return (
-    <TradingTerminalUtilsProvider>
-      <GridBotNewWidget />
-    </TradingTerminalUtilsProvider>
-  );
-};
+const GridBotNew = () => (
+  <BotPageBoundary descriptor={gridPageDescriptor} mode="create">
+    <GridBotNewWidget />
+  </BotPageBoundary>
+);
 
 export default GridBotNew;

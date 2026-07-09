@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useRef, useState, type ReactNode } from 'react';
 
-import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
 import {
   BotPanelInsights,
   BotPanelLayout,
@@ -49,8 +48,6 @@ interface BotWorkbenchEditProps<TResult extends BacktestRowBase> {
   botId: string;
   /** Boolean(id) — drives the no-botId notice AND backtestsEnabled. */
   hasBotId: boolean;
-  /** modeGuard.notFound — drives the BotNotFoundNotice short-circuit. */
-  notFound: boolean;
   /** Stage settings in sessionStorage.botConfig, then navigate('/bot/new'). */
   onLoadBacktestIntoForm: (backtest: TResult) => void;
   /**
@@ -272,8 +269,7 @@ export function BotWorkbench<
   );
 
   if (props.mode === 'edit') {
-    const { botId, hasBotId, notFound, onLoadBacktestIntoForm, contentWrapper } =
-      props;
+    const { botId, hasBotId, onLoadBacktestIntoForm, contentWrapper } = props;
     const layoutKey = `${descriptor.layoutType}-${botId || 'edit'}`;
     const wrapContent = contentWrapper ?? ((node: ReactNode) => node);
 
@@ -321,12 +317,6 @@ export function BotWorkbench<
                     No bot ID provided.
                   </div>
                 </div>
-              ) : notFound ? (
-                <BotNotFoundNotice
-                  backTo={descriptor.basePath}
-                  backLabel={descriptor.listLabel}
-                  botId={botId}
-                />
               ) : (
                 wrapContent(
                   <div className="flex flex-col gap-md">

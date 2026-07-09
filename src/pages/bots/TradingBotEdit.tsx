@@ -1,18 +1,12 @@
-import { useCallback, useEffect } from 'react';
+import { useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
-import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
-import { indicatorStore } from '@/stores/indicatorStore';
-import {
-  BotTypesEnum,
-  type DCABacktestingResultHistory,
-} from '@/types';
-import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { BotTypesEnum, type DCABacktestingResultHistory } from '@/types';
 
 const TradingBotEditWidget = () => {
   const { id } = useParams<{ id: string }>();
@@ -20,20 +14,6 @@ const TradingBotEditWidget = () => {
 
   const hasBotId = Boolean(id);
   const safeBotId = id ?? '';
-
-  // Keep this bot's real paper/live mode authoritative over the global
-  // toggle so a refresh doesn't flip it (and surface a clear error when the
-  // bot exists in neither mode instead of "Unknown exchange"). Thread 4872.
-  const modeGuard = useBotModeGuard(safeBotId, BotTypesEnum.dca, {
-    enabled: hasBotId,
-  });
-
-  useEffect(() => {
-    return () => {
-      indicatorStore.reset();
-      exampleOrdersStore.reset();
-    };
-  }, []);
 
   const handleLoadBacktest = useCallback(
     (backtest: DCABacktestingResultHistory) => {
@@ -67,18 +47,15 @@ const TradingBotEditWidget = () => {
       mode="edit"
       botId={safeBotId}
       hasBotId={hasBotId}
-      notFound={modeGuard.notFound}
       onLoadBacktestIntoForm={handleLoadBacktest}
     />
   );
 };
 
-const TradingBotEdit = () => {
-  return (
-    <TradingTerminalUtilsProvider>
-      <TradingBotEditWidget />
-    </TradingTerminalUtilsProvider>
-  );
-};
+const TradingBotEdit = () => (
+  <BotPageBoundary descriptor={dcaPageDescriptor} mode="edit">
+    <TradingBotEditWidget />
+  </BotPageBoundary>
+);
 
 export default TradingBotEdit;
