@@ -2960,7 +2960,7 @@ const BotForm: React.FC<BotFormProps> = ({
             const gridSettings = {
               ...formData.grid,
               pair: primaryPair,
-              name: formData.name || 'Grid Bot',
+              name: formData.name || 'New Bot',
               // Legacy forces this flag true at backtest time (gridbot
               // `{ ...settings, updatedBudget: true }`). The form mapper
               // defaults it to `false` for edited/cloned bots (the stored
@@ -4070,9 +4070,15 @@ const BotForm: React.FC<BotFormProps> = ({
             onSubmit={footerOverride?.onSubmit ?? handleSubmit}
             backtestPending={footerOverride?.backtestPending ?? backtestPending}
             onBacktest={footerOverride?.onBacktest ?? onBacktestClick}
-            onRunBacktestDirect={onRunBacktest}
-            backtestProgress={backtestProgress}
-            onCancelBacktest={cancelLocalBacktest}
+            onRunBacktestDirect={
+              footerOverride?.onRunBacktestDirect ?? onRunBacktest
+            }
+            backtestProgress={
+              footerOverride?.backtestProgress ?? backtestProgress
+            }
+            onCancelBacktest={
+              footerOverride?.onCancelBacktest ?? cancelLocalBacktest
+            }
             backtestSummary={
               footerOverride?.backtestSummary ?? backtestSummary
             }

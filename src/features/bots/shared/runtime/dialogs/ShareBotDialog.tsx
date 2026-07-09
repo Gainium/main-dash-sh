@@ -59,7 +59,7 @@ const buildShareUrl = (
       subKind = 'hedge-dca';
       break;
     case BotTypesEnum.hedgeCombo:
-      basePath = '/hedge/bot';
+      basePath = '/hedge/combo';
       subKind = 'hedge-combo';
       break;
     default:

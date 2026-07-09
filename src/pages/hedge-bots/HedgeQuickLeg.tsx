@@ -126,12 +126,13 @@ export const HedgeQuickFooter: React.FC<{
 }> = ({ footerOverride, modeOverride }) => {
   const { formData, errors, mode } = useBotFormState();
   const { currentExchange } = useBotFormQuery();
+  const hedge = useHedgeBotFormOptional();
   return (
     <BotFormFooter
       mode={modeOverride ?? mode}
       errors={errors}
       formData={formData}
-      botType={BotTypesEnum.dca}
+      botType={hedge?.legBotType ?? BotTypesEnum.dca}
       currentExchange={currentExchange}
       submitLabel={footerOverride.submitLabel ?? 'Save'}
       submitDisabled={!!footerOverride.submitDisabled}

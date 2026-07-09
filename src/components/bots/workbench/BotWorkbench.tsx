@@ -91,21 +91,12 @@ export function BotWorkbench<
   const [chartMenu, handleChartMenuChange] = usePanelMenuBridge();
   const [chartData, setChartData] = useState<BotChartData>({});
   const tvRef = useRef<TradingViewChartRef | null>(null);
-  const [activePickerField, setActivePickerField] = useState<string | false>(
-    false
-  );
-
-  const onActiveChanged = useCallback((isActive: boolean) => {
-    if (!isActive) {
-      setActivePickerField(false);
-    }
-  }, []);
-
   const handleFormDataChange = useCallback((data: BotChartData) => {
     setChartData(data);
   }, []);
 
-  const { setCoordinates } = useTradingTerminalUtils();
+  const { activePickerField, handleChartPick, onActiveChanged } =
+    useTradingTerminalUtils();
 
   const chartPanel = useMemo<PanelContentConfig>(() => {
     const data =
@@ -137,7 +128,7 @@ export function BotWorkbench<
           <TVChartPicker
             chartRef={tvRef}
             isActive={Boolean(activePickerField)}
-            onPick={setCoordinates}
+            onPick={handleChartPick}
             onActiveChange={onActiveChanged}
           />
         </>
@@ -158,8 +149,8 @@ export function BotWorkbench<
     handleChartMenuChange,
     chartData,
     activePickerField,
+    handleChartPick,
     onActiveChanged,
-    setCoordinates,
     descriptor.chartWidgetId,
   ]);
 
