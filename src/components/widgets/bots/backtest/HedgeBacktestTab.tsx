@@ -18,6 +18,10 @@
  * so deals/charts render locally even without re-running.
  */
 import {
+  buildHedgeBacktestColumns,
+  defaultHedgeBacktestColumnVisibility,
+} from '@/components/bots/panels/contents/insights/columns/hedge-backtest-columns';
+import {
   DataTable,
   type BulkAction,
 } from '@/components/ui/data-table/data-table';
@@ -29,7 +33,6 @@ import {
 } from '@/components/ui/tabs';
 import {
   BacktestAnalysisTab,
-  BacktestPermanentCheckbox,
   BacktestStatsTab,
 } from '@/components/widgets/bots/backtest';
 import {
@@ -37,6 +40,7 @@ import {
   RedesignDealsTab,
   buildBacktestViewModel,
 } from '@/components/widgets/bots/backtest/redesign';
+import { useSetBacktestNote } from '@/hooks/useSetBacktestNote';
 import type {
   DCABacktestingResultHistory,
   DCABotSettings,
@@ -46,9 +50,8 @@ import type {
   HedgeBacktestHistoryItem,
   UseHedgeBacktestRunnerApi,
 } from '@/hooks/bots/hedge/useHedgeBacktestRunner';
-import { type ColumnDef } from '@tanstack/react-table';
-import { Download, Loader2, Trash2 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import { Loader2, Trash2 } from 'lucide-react';
+import React, { useCallback, useMemo, useState } from 'react';
 
 // ─── Shared helpers ────────────────────────────────────────────────
 
@@ -275,8 +278,12 @@ export const HedgeBacktestActiveView: React.FC<
 
 export interface HedgeBacktestListViewProps {
   runner: UseHedgeBacktestRunnerApi;
-  /** Called when the user clicks a row. Layout loads + switches tab. */
+  /** Called when the user clicks a row (or picks "Load details"). Layout
+   *  loads the full payload + opens the results modal. */
   onSelect: (item: HedgeBacktestHistoryItem) => void;
+  /** "Load in settings" row action — reseed both legs' form from a saved
+   *  backtest. Omitted where the host can't reseed (defensive). */
+  onLoadIntoForm?: (item: HedgeBacktestHistoryItem) => void;
   /** True while `loadById` is in flight after a selection. */
   activating?: boolean;
 }
@@ -284,6 +291,7 @@ export interface HedgeBacktestListViewProps {
 export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
   runner,
   onSelect,
+  onLoadIntoForm,
   activating,
 }) => {
   const {
@@ -294,87 +302,62 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
     patchHistorySavePermanent,
   } = runner;
 
-  const columns = useMemo<ColumnDef<HedgeBacktestHistoryItem>[]>(
-    () => [
-      {
-        accessorKey: 'time',
-        header: 'Date',
-        cell: ({ row }) => (
-          <span className="text-muted-foreground text-xs whitespace-nowrap">
-            {new Date(row.original.time).toLocaleString()}
-          </span>
-        ),
-      },
-      {
-        accessorKey: 'savePermanent',
-        header: 'Save Permanently',
-        cell: ({ row }) => (
-          <BacktestPermanentCheckbox
-            id={row.original._id ?? ''}
-            type={hedgeBotType}
-            checked={!!row.original.savePermanent}
-            onToggled={(next) =>
-              patchHistorySavePermanent(row.original._id ?? '', next)
-            }
-          />
-        ),
-      },
-      {
-        id: 'pairs',
-        header: 'Pairs',
-        cell: ({ row }) => (
-          <div className="flex flex-col">
-            <span className="font-medium text-sm">
-              {row.original.long.symbol}
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {row.original.short.symbol}
-            </span>
-          </div>
-        ),
-      },
-      {
-        id: 'netProfitPerc',
-        header: 'Net %',
-        accessorFn: (row) => row.hedgeResult.financial?.netProfitTotalPerc ?? 0,
-        cell: ({ getValue }) => {
-          const v = (getValue() as number) ?? 0;
-          return (
-            <span
-              className={
-                v > 0
-                  ? 'text-profit'
-                  : v < 0
-                    ? 'text-loss'
-                    : 'text-muted-foreground'
-              }
-            >
-              {v > 0 ? '+' : ''}
-              {v.toFixed(2)}%
-            </span>
-          );
-        },
-      },
-      {
-        id: 'deals',
-        header: 'Deals',
-        accessorFn: (row) => row.hedgeResult.numerical?.all ?? 0,
-      },
-      {
-        id: 'maxDrawdown',
-        header: 'Max DD',
-        accessorFn: (row) => row.hedgeResult.financial?.maxDrawDownPerc ?? 0,
-        cell: ({ getValue }) => {
-          const v = (getValue() as number) ?? 0;
-          return <span className="text-loss">{v.toFixed(2)}%</span>;
-        },
-      },
-    ],
-    [hedgeBotType, patchHistorySavePermanent]
+  // Inline note editing — optimistic local override + persist via the shared
+  // setBacktestTextFields mutation (same pattern as BotBacktestPanel). The
+  // hedge history list is populated by the runner (not react-query), so the
+  // override map is what drives the displayed value.
+  const setBacktestNoteMutation = useSetBacktestNote();
+  const [backtestNoteOverrides, setBacktestNoteOverrides] = useState<
+    Record<string, string>
+  >({});
+
+  const handleSaveNote = useCallback(
+    (id: string, next: string, prev: string) => {
+      setBacktestNoteOverrides((o) => ({ ...o, [id]: next }));
+      setBacktestNoteMutation.mutate(
+        { id, note: next, type: hedgeBotType },
+        {
+          onError: () => {
+            setBacktestNoteOverrides((o) => ({ ...o, [id]: prev }));
+          },
+        }
+      );
+    },
+    [setBacktestNoteMutation, hedgeBotType]
   );
 
-  // DataTable bulk actions — mirrors DCA's quick-actions toolbar.
-  // Per-row delete also flows through here as a single-row select.
+  const columns = useMemo(
+    () =>
+      buildHedgeBacktestColumns({
+        hedgeBotType,
+        backtestNoteOverrides,
+        onSaveNote: handleSaveNote,
+        onToggleSavePermanent: patchHistorySavePermanent,
+        // No-op-safe fallback when the host doesn't provide a reseed handler.
+        onLoadIntoForm: onLoadIntoForm ?? (() => {}),
+        onLoadDetails: onSelect,
+        onDelete: (ids) => {
+          void (async () => {
+            for (const id of ids) {
+              await deleteById(id);
+            }
+          })();
+        },
+      }),
+    [
+      hedgeBotType,
+      backtestNoteOverrides,
+      handleSaveNote,
+      patchHistorySavePermanent,
+      onLoadIntoForm,
+      onSelect,
+      deleteById,
+    ]
+  );
+
+  // DataTable bulk actions — Delete only. Share / Export-JSON / Import-as-paper
+  // are backend-blocked for hedge (no hedge endpoints), so they're omitted
+  // rather than surfaced as no-op stubs.
   const bulkActions = useMemo<BulkAction<HedgeBacktestHistoryItem>[]>(
     () => [
       {
@@ -388,18 +371,6 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
           for (const row of selectedRows) {
             await deleteById(row._id);
           }
-        },
-      },
-      // Export-as-JSON parity placeholder — backend doesn't have a
-      // dedicated `exportHedgeBacktests` mutation yet (`deleteBacktests`
-      // is shared), so we surface a no-op stub the user can wire up
-      // later without restructuring the toolbar.
-      {
-        id: 'export-json',
-        label: 'Export as JSON',
-        icon: Download,
-        onAction: () => {
-          // No-op until a hedge export endpoint lands.
         },
       },
     ],
@@ -446,6 +417,8 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
       showPagination
       initialPageSize={10}
       bulkActions={bulkActions}
+      defaultColumnVisibility={defaultHedgeBacktestColumnVisibility}
+      defaultPinnedColumns={{ left: [], right: ['actions'] }}
       className="h-full"
       emptyMessage="No hedge backtests yet."
     />

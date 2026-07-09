@@ -91,6 +91,7 @@ import {
   BOT_LIST_QUERY_KEYS_BY_TYPE,
 } from '@/lib/queryCacheUtils';
 import { toast } from '@/lib/toast';
+import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -1062,6 +1063,48 @@ export const HedgeBotEditLayout: React.FC = () => {
     }
   }, [backtestRunner.result, backtestRunner.resultId]);
 
+  // "Load in settings" row action (B9) — reseed both legs' form from a saved
+  // backtest's stored leg settings. Mirrors DCA's handleLoadBacktest (which
+  // maps a single backtest's settings→formData) but runs the mapper per leg,
+  // then reseeds through the same remount mechanism as applyHedgeTemplate /
+  // applyHedgeImport. The backtest doesn't carry hedge sharedSettings, so
+  // those are left untouched (the legs are the substantive part).
+  const handleLoadBacktestIntoForm = useCallback(
+    (item: HedgeBacktestHistoryItem) => {
+      try {
+        const { formData: longForm } = mapBotSettingsToFormData(legBotType, {
+          settings: item.long.settings,
+          exchangeUUID: item.long.exchangeUUID,
+        });
+        const { formData: shortForm } = mapBotSettingsToFormData(legBotType, {
+          settings: item.short.settings,
+          exchangeUUID: item.short.exchangeUUID,
+        });
+        // Keep the current shared hedge name — handleSave fans it back onto
+        // both legs on save, and the loaded per-leg names are identical.
+        longSeedRef.current = {
+          ...longForm,
+          strategy: StrategyEnum.long,
+        } as Partial<BotFormData>;
+        shortSeedRef.current = {
+          ...shortForm,
+          strategy: StrategyEnum.short,
+        } as Partial<BotFormData>;
+        setHedgeMode('manual');
+        setActiveTab('long');
+        setQuickSeedSeq((n) => n + 1);
+        toast.success('Backtest settings loaded into form');
+      } catch (error) {
+        logger.error('[HedgeBotEditLayout] Load backtest into form failed', {
+          id: item._id,
+          error: error instanceof Error ? error.message : String(error),
+        });
+        toast.error('Failed to load backtest settings into form');
+      }
+    },
+    [legBotType]
+  );
+
   const footerOverride = useMemo(
     () => ({
       onSubmit: handleSave,
@@ -1795,6 +1838,7 @@ export const HedgeBotEditLayout: React.FC = () => {
         <HedgeBacktestListView
           runner={backtestRunner}
           onSelect={handleSelectBacktest}
+          onLoadIntoForm={handleLoadBacktestIntoForm}
           activating={activatingBacktest}
         />
       ),
