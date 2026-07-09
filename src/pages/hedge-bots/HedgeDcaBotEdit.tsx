@@ -1,96 +1,54 @@
 /**
  * Hedge DCA bot — edit page.
  *
- * Step B.1 (current): skeleton scaffold to validate routing + provider mount.
- * Step B.2 will mount two BotFormProvider trees (long + short legs) inside
- * HedgeBotFormProvider, plus a shared-settings panel.
+ * The cross-cutting concerns (premium gate, mode-guard + notFound chrome,
+ * TradingTerminalUtilsProvider) are declared once by hedgeDcaPageDescriptor
+ * and hoisted into BotPageBoundary. This page keeps only its happy-path body:
+ * MainLayout + HedgeBotFormProvider + HedgeBotEditLayout, untouched.
+ *
+ * NOTE: the happy-path title/activePage below are duplicated in the descriptor
+ * (which the boundary uses for its premium/notFound branches). Keep them in
+ * sync with hedgeDcaPageDescriptor.
  *
  * Routes: `/hedge/bot/edit/:id` (mirrors legacy convention).
  */
 import { useParams } from 'react-router-dom';
 
-import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
-import { PremiumUpgrade } from '@/components/license/PremiumUpgrade';
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
+import { hedgeDcaPageDescriptor } from '@/components/bots/workbench/descriptors';
 import MainLayout from '@/components/layout/MainLayout';
 import { HedgeBotFormProvider } from '@/contexts/bots/form/HedgeBotFormProvider';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
-import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
-import { useLicense } from '@/lib/license';
 import { BotTypesEnum } from '@/types';
 import HedgeBotEditLayout from './HedgeBotEditLayout';
 
-const HedgeDcaBotEditWidget = () => {
-  // Premium gate via the license adapter.
-  const { isPremium } = useLicense();
+const HedgeDcaBotEdit = () => {
   const { id } = useParams<{ id: string }>();
-  const hasBotId = !!id;
-
-  // Keep this hedge bot's real paper/live mode authoritative over the global
-  // toggle so opening/refreshing it in the wrong mode doesn't query an empty
-  // collection and silently render a blank form with no exchange detected
-  // (community thread 4893 — the hedge-bot instance of thread 4872). Regular
-  // combo/grid/dca edit pages already do this; hedge was the last gap.
-  const modeGuard = useBotModeGuard(id ?? '', BotTypesEnum.hedgeDca, {
-    enabled: hasBotId,
-  });
-
-  if (!isPremium) {
-    return (
-      <MainLayout pageTitle="Hedge DCA Bot — Edit" activePage="/hedge/bot/edit" navigationBack>
-        <PremiumUpgrade
-          feature="Hedge DCA bots"
-          description="Editing hedge bots requires a premium license."
-        />
-      </MainLayout>
-    );
-  }
-
-  if (modeGuard.notFound) {
-    return (
+  return (
+    <BotPageBoundary descriptor={hedgeDcaPageDescriptor} mode="edit">
       <MainLayout
         pageTitle="Hedge DCA Bot — Edit"
         activePage="/hedge/bot/edit"
+        fullyScrollable
         navigationBack
       >
-        <BotNotFoundNotice
-          backTo="/hedge/bot"
-          backLabel="hedge DCA bots"
-          botId={id}
-        />
-      </MainLayout>
-    );
-  }
-
-  return (
-    <MainLayout
-      pageTitle="Hedge DCA Bot — Edit"
-      activePage="/hedge/bot/edit"
-      fullyScrollable
-      navigationBack
-    >
-      {!hasBotId ? (
-        <div className="p-lg">
-          <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-md py-md text-amber-900">
-            No hedge bot ID provided.
+        {!id ? (
+          <div className="p-lg">
+            <div className="mx-auto max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-md py-md text-amber-900">
+              No hedge bot ID provided.
+            </div>
           </div>
-        </div>
-      ) : (
-        <HedgeBotFormProvider
-          mode="edit"
-          botType={BotTypesEnum.hedgeDca}
-          botId={id}
-        >
-          <HedgeBotEditLayout />
-        </HedgeBotFormProvider>
-      )}
-    </MainLayout>
+        ) : (
+          <HedgeBotFormProvider
+            mode="edit"
+            botType={BotTypesEnum.hedgeDca}
+            botId={id}
+          >
+            <HedgeBotEditLayout />
+          </HedgeBotFormProvider>
+        )}
+      </MainLayout>
+    </BotPageBoundary>
   );
 };
-
-const HedgeDcaBotEdit = () => (
-  <TradingTerminalUtilsProvider>
-    <HedgeDcaBotEditWidget />
-  </TradingTerminalUtilsProvider>
-);
 
 export default HedgeDcaBotEdit;

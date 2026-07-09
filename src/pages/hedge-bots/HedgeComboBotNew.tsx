@@ -1,65 +1,47 @@
 /**
  * Hedge Combo bot — new (create) page.
  *
- * Step B.1 (current): skeleton scaffold to validate routing + provider mount.
- * Step B.2 will mount two BotFormProvider trees (combo legs) and the
- * shared-settings panel, with optional load-from-template.
+ * The cross-cutting concerns (premium gate, TradingTerminalUtilsProvider) are
+ * declared once by hedgeComboPageDescriptor and hoisted into BotPageBoundary.
+ * Create mode runs no guard (inert). This page keeps only its happy-path body:
+ * MainLayout + HedgeBotFormProvider + HedgeBotEditLayout, untouched.
+ *
+ * NOTE: the happy-path title/activePage below are duplicated in the descriptor
+ * (which the boundary uses for its premium branch). Keep them in sync with
+ * hedgeComboPageDescriptor.
  *
  * Routes: `/hedge/combo/new` (mirrors legacy convention).
  */
 import { useSearchParams } from 'react-router-dom';
 
-import { PremiumUpgrade } from '@/components/license/PremiumUpgrade';
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
+import { hedgeComboPageDescriptor } from '@/components/bots/workbench/descriptors';
 import MainLayout from '@/components/layout/MainLayout';
 import { HedgeBotFormProvider } from '@/contexts/bots/form/HedgeBotFormProvider';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
-import { useLicense } from '@/lib/license';
 import { BotTypesEnum } from '@/types';
 import HedgeBotEditLayout from './HedgeBotEditLayout';
 
-const HedgeComboBotNewWidget = () => {
-  // Premium gate via the license adapter.
-  const { isPremium } = useLicense();
+const HedgeComboBotNew = () => {
   const [searchParams] = useSearchParams();
   const loadFromBotId = searchParams.get('load') ?? undefined;
-
-  if (!isPremium) {
-    return (
+  return (
+    <BotPageBoundary descriptor={hedgeComboPageDescriptor} mode="create">
       <MainLayout
         pageTitle="Hedge Combo Bot — New"
         activePage="/hedge/combo/new"
+        fullyScrollable
         navigationBack
       >
-        <PremiumUpgrade
-          feature="Hedge combo bots"
-          description="Creating hedge bots requires a premium license."
-        />
+        <HedgeBotFormProvider
+          mode="create"
+          botType={BotTypesEnum.hedgeCombo}
+          {...(loadFromBotId ? { botId: loadFromBotId } : {})}
+        >
+          <HedgeBotEditLayout />
+        </HedgeBotFormProvider>
       </MainLayout>
-    );
-  }
-
-  return (
-    <MainLayout
-      pageTitle="Hedge Combo Bot — New"
-      activePage="/hedge/combo/new"
-      fullyScrollable
-      navigationBack
-    >
-      <HedgeBotFormProvider
-        mode="create"
-        botType={BotTypesEnum.hedgeCombo}
-        {...(loadFromBotId ? { botId: loadFromBotId } : {})}
-      >
-        <HedgeBotEditLayout />
-      </HedgeBotFormProvider>
-    </MainLayout>
+    </BotPageBoundary>
   );
 };
-
-const HedgeComboBotNew = () => (
-  <TradingTerminalUtilsProvider>
-    <HedgeComboBotNewWidget />
-  </TradingTerminalUtilsProvider>
-);
 
 export default HedgeComboBotNew;

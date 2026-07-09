@@ -1,63 +1,49 @@
 /**
  * Hedge DCA bot — new (create) page.
  *
- * Step B.1 (current): skeleton scaffold to validate routing + provider mount.
- * Step B.2 will mount two BotFormProvider trees and the shared-settings
- * panel, with optional load-from-template via getHedgeDCABotSettings.
+ * The cross-cutting concerns (premium gate, TradingTerminalUtilsProvider) are
+ * declared once by hedgeDcaPageDescriptor and hoisted into BotPageBoundary.
+ * Create mode runs no guard (inert). This page keeps only its happy-path body:
+ * MainLayout + HedgeBotFormProvider + HedgeBotEditLayout, untouched.
+ *
+ * NOTE: the happy-path title/activePage below are duplicated in the descriptor
+ * (which the boundary uses for its premium branch). Keep them in sync with
+ * hedgeDcaPageDescriptor.
  *
  * Routes: `/hedge/bot/new` (mirrors legacy convention).
  */
 import { useSearchParams } from 'react-router-dom';
 
-import { PremiumUpgrade } from '@/components/license/PremiumUpgrade';
+import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
+import { hedgeDcaPageDescriptor } from '@/components/bots/workbench/descriptors';
 import MainLayout from '@/components/layout/MainLayout';
 import { HedgeBotFormProvider } from '@/contexts/bots/form/HedgeBotFormProvider';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
-import { useLicense } from '@/lib/license';
 import { BotTypesEnum } from '@/types';
 import HedgeBotEditLayout from './HedgeBotEditLayout';
 
-const HedgeDcaBotNewWidget = () => {
-  // Premium gate via the license adapter.
-  const { isPremium } = useLicense();
+const HedgeDcaBotNew = () => {
   const [searchParams] = useSearchParams();
   // The legacy "load from template" flow used `?load=<botId>` to seed defaults.
   // We honor the same shape so existing share/template links keep working.
   const loadFromBotId = searchParams.get('load') ?? undefined;
-
-  if (!isPremium) {
-    return (
-      <MainLayout pageTitle="Hedge DCA Bot — New" activePage="/hedge/bot/new" navigationBack>
-        <PremiumUpgrade
-          feature="Hedge DCA bots"
-          description="Creating hedge bots requires a premium license."
-        />
-      </MainLayout>
-    );
-  }
-
   return (
-    <MainLayout
-      pageTitle="Hedge DCA Bot — New"
-      activePage="/hedge/bot/new"
-      fullyScrollable
-      navigationBack
-    >
-      <HedgeBotFormProvider
-        mode="create"
-        botType={BotTypesEnum.hedgeDca}
-        {...(loadFromBotId ? { botId: loadFromBotId } : {})}
+    <BotPageBoundary descriptor={hedgeDcaPageDescriptor} mode="create">
+      <MainLayout
+        pageTitle="Hedge DCA Bot — New"
+        activePage="/hedge/bot/new"
+        fullyScrollable
+        navigationBack
       >
-        <HedgeBotEditLayout />
-      </HedgeBotFormProvider>
-    </MainLayout>
+        <HedgeBotFormProvider
+          mode="create"
+          botType={BotTypesEnum.hedgeDca}
+          {...(loadFromBotId ? { botId: loadFromBotId } : {})}
+        >
+          <HedgeBotEditLayout />
+        </HedgeBotFormProvider>
+      </MainLayout>
+    </BotPageBoundary>
   );
 };
-
-const HedgeDcaBotNew = () => (
-  <TradingTerminalUtilsProvider>
-    <HedgeDcaBotNewWidget />
-  </TradingTerminalUtilsProvider>
-);
 
 export default HedgeDcaBotNew;

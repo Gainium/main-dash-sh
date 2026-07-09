@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.14] - 2026-07-09
+
+### Changed
+
+- Hedge bot create/edit pages (`/hedge/bot/new`, `/hedge/bot/edit`, `/hedge/combo/new`, `/hedge/combo/edit`): route the premium gate, edit-mode paper/live guard, and not-found handling through the shared bot-page boundary instead of duplicating them inline on each page. Behavior is unchanged except the premium upgrade card now reads "Hedge bots require a premium license." in both create and edit (previously "Creating…"/"Editing…").
+
 ## [2.30.13] - 2026-07-09
 
 ### Fixed

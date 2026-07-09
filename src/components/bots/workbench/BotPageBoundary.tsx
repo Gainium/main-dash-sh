@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 
 import BotNotFoundNotice from '@/components/bots/BotNotFoundNotice';
 import { BotPageContextProvider } from '@/components/bots/workbench/BotPageContext';
-import type { BotPageDescriptor } from '@/components/bots/workbench/descriptors/types';
+import type { BotPageBoundaryDescriptor } from '@/components/bots/workbench/descriptors/types';
 import MainLayout from '@/components/layout/MainLayout';
 import { PremiumUpgrade } from '@/components/license/PremiumUpgrade';
 import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
@@ -12,8 +12,8 @@ import { useIsReadOnly } from '@/lib/demoMode';
 import { useLicense } from '@/lib/license';
 
 interface BotPageBoundaryProps {
-  /** Per-type page contract; TResult is irrelevant to the boundary. */
-  descriptor: BotPageDescriptor<any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+  /** The boundary slice of a page contract (full BotPageDescriptor is assignable). */
+  descriptor: BotPageBoundaryDescriptor;
   mode: 'create' | 'edit';
   /** The page widget → <BotWorkbench …/>. */
   children: ReactNode;
@@ -91,9 +91,11 @@ export function BotPageBoundary({
       >
         <PremiumUpgrade
           feature={descriptor.premium.feature}
-          {...(descriptor.premium.description
-            ? { description: descriptor.premium.description }
-            : {})}
+          {...(() => {
+            const d = descriptor.premium.description;
+            const resolved = typeof d === 'string' ? d : d?.[mode];
+            return resolved ? { description: resolved } : {};
+          })()}
           {...(descriptor.premium.ctaHref
             ? { ctaHref: descriptor.premium.ctaHref }
             : {})}

@@ -1,7 +1,7 @@
 {
   "name": "@gainium/main-dash-sh",
   "private": false,
-  "version": "2.30.13",
+  "version": "2.30.14",
   "description": "Gainium self-hosted dashboard. React + TS UI with feature flags and a license-key gate for premium features.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {

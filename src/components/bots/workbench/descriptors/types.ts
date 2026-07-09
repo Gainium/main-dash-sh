@@ -134,25 +134,61 @@ export interface BotBacktestDescriptor<TResult extends BacktestRowBase> {
 }
 
 /**
+ * The slice of a bot page contract that BotPageBoundary + BotPageContext
+ * consume: premium gate, mode-guard, not-found chrome, store resets, the
+ * demo redirect, and the MainLayout title/activePage for the boundary's own
+ * (premium / notFound) branches. Deliberately excludes every workbench/
+ * backtest field — pages whose body is NOT BotWorkbench (hedge) implement
+ * only this. The full BotPageDescriptor extends it for regular bots.
+ */
+export interface BotPageBoundaryDescriptor {
+  /** getBot dispatch (guard) + BotPageContext.botType. */
+  botType: BotTypesEnum;
+  /** BotNotFoundNotice backTo. */
+  basePath: string;
+  /** BotNotFoundNotice backLabel. */
+  listLabel: string;
+  /** MainLayout pageTitle for the boundary's premium/notFound branches. */
+  titles: { create: string; edit: string };
+  /** MainLayout activePage for the boundary's premium/notFound branches. */
+  activePage: { create: string; edit: string };
+  /** Premium gate. Absent → no gate. */
+  premium?: {
+    feature: string;
+    /**
+     * Upgrade-card body copy. A single string shows in both modes; a
+     * `{ create, edit }` object lets the copy vary by mode (hedge pages
+     * historically said "Creating…" vs "Editing… hedge bots requires a
+     * premium license").
+     */
+    description?: string | { create: string; edit: string };
+    ctaHref?: string;
+    ctaLabel?: string;
+  };
+  /** Store singletons reset on unmount. Absent → nothing reset. */
+  resetStores?: ReadonlyArray<{ reset: () => void }>;
+  /** Run useBotModeGuard in EDIT + honor notFound. Defaults to true. */
+  guardEnabled?: boolean;
+  /** EDIT-only demo redirect. Absent → none. */
+  editReadOnlyRedirect?: string;
+}
+
+/**
  * The whole page contract. Generic over the backtest result type; defaults to
- * DCA so the dca entry needs no explicit type arg.
+ * DCA so the dca entry needs no explicit type arg. Extends the boundary slice;
+ * the boundary-only members (botType, basePath, listLabel, premium,
+ * resetStores, guardEnabled, editReadOnlyRedirect) are inherited unchanged.
  */
 export interface BotPageDescriptor<
   TResult extends BacktestRowBase = DCABacktestingResultHistory,
-> {
-  /** BotFormPanel botType + mapper dispatch. */
-  botType: BotTypesEnum;
+> extends BotPageBoundaryDescriptor {
   /** BotPanelLayout botType string + layout-key/storage prefix. */
   layoutType: BotType;
-  /** useBotPageRedirect('/bot') + BotNotFoundNotice backTo. */
-  basePath: string;
-  /** BotNotFoundNotice backLabel ('bots'). */
-  listLabel: string;
   /** render chart panel + TradingView picker? */
   hasChart: boolean;
-  /** MainLayout pageTitle. */
+  /** MainLayout pageTitle. Widens the base's {create;edit} with the workbench's share slot. */
   titles: { create: string; edit: string; share: string };
-  /** MainLayout activePage. */
+  /** MainLayout activePage. Widens the base's {create;edit} with the workbench's share slot. */
   activePage: { create: string; edit: string; share: string };
   /** BotChartPanel widgetId (DCA unprefixed: bot-chart/edit-bot-chart). */
   chartWidgetId: { create: string; edit: string };
@@ -166,37 +202,6 @@ export interface BotPageDescriptor<
    * (dca/combo do; grid does not). Defaults to true when absent.
    */
   loadingHasStatsTab?: boolean;
-  /**
-   * Premium gate. Absent → no gate (regular dca/grid/combo). When present and
-   * `useLicense().isPremium === false`, BotPageBoundary renders
-   * MainLayout + PremiumUpgrade in place of the page. Hedge descriptors will
-   * set this.
-   */
-  premium?: {
-    /** PremiumUpgrade `feature`. */
-    feature: string;
-    /** PremiumUpgrade `description`. */
-    description?: string;
-    ctaHref?: string;
-    ctaLabel?: string;
-  };
-  /**
-   * Zustand-style singletons reset on page unmount. dca/combo =
-   * [indicatorStore, exampleOrdersStore]; grid = [exampleOrdersStore].
-   * Absent → nothing reset.
-   */
-  resetStores?: ReadonlyArray<{ reset: () => void }>;
-  /**
-   * Run useBotModeGuard in EDIT and honor its notFound short-circuit.
-   * Defaults to true. The guard already returns notFound:false when disabled,
-   * so this single flag governs both guard + notFound.
-   */
-  guardEnabled?: boolean;
-  /**
-   * EDIT-only: if the user isReadOnly (demo), replace-navigate here.
-   * grid = '/grid'. Absent → no redirect. Ignored in create mode.
-   */
-  editReadOnlyRedirect?: string;
 }
 
 // Layout key derivation (done in BotWorkbench, NOT stored on the descriptor):
