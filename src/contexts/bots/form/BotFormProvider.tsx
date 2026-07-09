@@ -278,7 +278,13 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     setFormData(defaultStateFn(props, true));
   }, [props, setFormData]);
   const [botVars, setBotVars] = useState<BotVars | null>(null);
-  const [isEditLocked, setIsEditLocked] = useState<boolean>(mode === 'edit');
+  // The bot edit page opens directly in an editable state — reaching
+  // `/x/edit/:id` (from the sidebar, a bot card, the drawer's Edit action,
+  // etc.) always expresses intent to edit. The read-only surface is the
+  // drawer (`/x/view/:id`); the footer's EDIT/CANCEL toggle still locks the
+  // form on demand. Certain fields stay immutable on existing bots via their
+  // own per-field locks, independent of this overall edit lock.
+  const [isEditLocked, setIsEditLocked] = useState<boolean>(false);
   const [quickSetupMode, setQuickSetupMode] = useState<'quick' | 'manual'>(
     // Hedge legs mount BotFormWidget with `isNestedLeg` — they're not
     // standalone DCA bots, so they shouldn't get the Quick/Manual mode
@@ -302,7 +308,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   const [activeChartPair, setActiveChartPair] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsEditLocked(mode === 'edit');
+    // Keep in sync with the initial state above: edit mode opens unlocked.
+    setIsEditLocked(false);
   }, [mode]);
 
   const enableEditing = useCallback(() => setIsEditLocked(false), []);

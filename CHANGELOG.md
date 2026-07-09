@@ -5,21 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.30.15] - 2026-07-09
-
-### Changed
-
-- Bot routes (`/bot`, `/combo`, `/grid`, `/hedge/bot`, `/hedge/combo` and their `new`/`edit`/`view`/`backtests`/legacy-`:id` variants) are now generated from a single shared descriptor table instead of being hand-maintained. No change to which page renders at any path.
-
-### Removed
-
-- Deleted the unused legacy bot detail pages (`TradingBotDetails`, `ComboBotDetails`, `GridBotDetails`) and the unreferenced `pages/bots` barrel; these were superseded by the drawer view routes and were no longer reachable.
-
 ## [2.30.14] - 2026-07-09
 
 ### Changed
 
-- Hedge bot create/edit pages (`/hedge/bot/new`, `/hedge/bot/edit`, `/hedge/combo/new`, `/hedge/combo/edit`): route the premium gate, edit-mode paper/live guard, and not-found handling through the shared bot-page boundary instead of duplicating them inline on each page. Behavior is unchanged except the premium upgrade card now reads "Hedge bots require a premium license." in both create and edit (previously "Creating…"/"Editing…").
+- Bot edit pages (`/bot/edit`, `/combo/edit`, `/grid/edit`, `/hedge/bot/edit`, `/hedge/combo/edit`) now open ready to edit instead of starting locked behind a "Press Edit" step — reaching an edit page from the sidebar, a bot card, or the drawer always expresses intent to edit. The drawer view routes (`/…/view/:id`) remain the read-only surface, and the footer EDIT/CANCEL toggle still locks the form on demand.
+- Unified the DCA, grid, combo, and hedge bot **new & edit** pages onto a shared workbench, page-descriptor, and route table. Cross-cutting concerns — the paper/live mode guard, premium gate, not-found handling, store resets, and the backtests panel — are now declared once per bot type instead of copy-pasted per page, so a bot type can no longer silently miss one. No change to which page renders at any path or to how bots behave.
+
+### Removed
+
+- Deleted the unused legacy bot detail pages (`TradingBotDetails`, `ComboBotDetails`, `GridBotDetails`) and the unreferenced `pages/bots` barrel; these were superseded by the drawer view routes and were no longer reachable.
 
 ## [2.30.13] - 2026-07-09
 
