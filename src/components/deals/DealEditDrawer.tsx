@@ -520,7 +520,12 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
           settings: localSettings,
         });
       }
-    }, [trade, formData, isAnySettingChanged, editMutation]);
+      // Depend on the stable `mutate` fn, not the whole react-query mutation
+      // object (which is a fresh reference every render and would rebuild this
+      // callback — and therefore the button-config array — on every parent
+      // re-render, re-rendering ResponsiveButtonRow under live data).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trade, formData, isAnySettingChanged, editMutation.mutate]);
     const handleCancel = useCallback(() => {
       onClose();
     }, [onClose]);
@@ -546,7 +551,9 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
           originalSettings: localSettings,
         });
       }
-    }, [trade, formData, resetMutation]);
+      // Stable `.mutate` dep, not the whole mutation object (see handleSubmit).
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [trade, formData, resetMutation.mutate]);
     const submitLabel = useMemo(() => 'Save Changes', []);
     const cancelLabel = useMemo(() => 'Cancel', []);
     const resetLabel = useMemo(() => 'Reset to Global Settings', []);

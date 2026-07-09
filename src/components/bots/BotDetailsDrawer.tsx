@@ -731,14 +731,17 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const actionBotId = parentBotId ?? bot._id;
 
     // Event handlers
-    const handleEdit = () => {
+    // useCallback so the memoised footer button-config array below stays stable
+    // across the ~26x/s re-renders driven by live `bot` updates (the bot object
+    // is replaced on every socket stats/deal tick).
+    const handleEdit = useCallback(() => {
       const editPath = buildBotEditRoute(type, actionBotId);
       if (onEdit) {
         onEdit(actionBotId);
       } else {
         navigate(editPath);
       }
-    };
+    }, [type, actionBotId, onEdit, navigate]);
 
     const handleClone = () => {
       if (onClone) {
@@ -768,9 +771,9 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       }
     };
 
-    const handleStatusToggle = () => {
+    const handleStatusToggle = useCallback(() => {
       setStatusModalOpen(true);
-    };
+    }, []);
 
     const handleConfirmStatusChange = (
       closeType?: string,
@@ -811,7 +814,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       setDeleteModalOpen(true);
     };
 
-    const handleRestart = () => {
+    const handleRestart = useCallback(() => {
       restartMutation.mutate(
         {
           id: actionBotId,
@@ -826,7 +829,10 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           },
         }
       );
-    };
+      // Stable `.mutate`, not the whole react-query mutation object (fresh every
+      // render), so this callback — and the footer button array — stays stable.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [restartMutation.mutate, actionBotId, type]);
 
     const handleConfirmDelete = async () => {
       try {
@@ -1270,19 +1276,25 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     );
 
     // Bottom action bar (mirrors the edit/new bot form footer, minus the
-    // backtest row). Shown for every bot type in the main "bot" view. Built
-    // fresh each render; ResponsiveButtonRow keys off a content signature, not
-    // array identity, so re-creating it here is cheap and loop-safe.
+    // backtest row). Shown for every bot type in the main "bot" view.
+    // Memoised: `bot` is replaced on every socket stats/deal tick (~26x/s), so
+    // building this array unconditionally each render fed the memoised
+    // ResponsiveButtonRow a fresh `buttons` reference every tick and re-rendered
+    // it (RenderLoopTripwire on /bot/view, /combo/view, /hedge/combo/view). It
+    // now depends only on the status-derived primitives + stable handlers, so it
+    // recomputes only when the bot's status/pending state actually changes.
     const footerReadOnly = isReadOnly() || viewOnly;
     const canToggle = canToggleBotStatus(bot.status);
     const canRestart = isBotRestartable(bot.status);
     const statusTogglePending = statusToggleMutation.isPending;
     const restartPending = restartMutation.isPending;
     const toggleLabel = getActionText(bot.status);
-    const footerActionButtons: ResponsiveButtonConfig[] = [];
+    const botStatus = bot.status;
+    const footerActionButtons = useMemo<ResponsiveButtonConfig[]>(() => {
+      const configs: ResponsiveButtonConfig[] = [];
 
-    if (canToggle) {
-      footerActionButtons.push({
+      if (canToggle) {
+        configs.push({
         id: 'toggle',
         // Lowest priority → renders leftmost (Stop/Start).
         priority: 1,
@@ -1298,7 +1310,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
             {statusTogglePending ? (
               <>
                 <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="truncate">{getActionPresent(bot.status)}…</span>
+                <span className="truncate">{getActionPresent(botStatus)}…</span>
               </>
             ) : isActive ? (
               <>
@@ -1333,7 +1345,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           </Button>
         ),
         menuLabel: statusTogglePending
-          ? `${getActionPresent(bot.status)}…`
+          ? `${getActionPresent(botStatus)}…`
           : toggleLabel,
         menuIcon: isActive ? Square : Play,
         onMenuClick: () => handleStatusToggle(),
@@ -1341,7 +1353,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       });
     }
 
-    footerActionButtons.push({
+      configs.push({
       id: 'edit',
       // Highest priority → with `highestPriorityFullWidth` it becomes the
       // full-width primary button, anchored to the right of the row.
@@ -1379,7 +1391,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     });
 
     if (canRestart) {
-      footerActionButtons.push({
+        configs.push({
         id: 'restart',
         // Middle priority → sits between Stop (left) and the full-width Edit.
         priority: 2,
@@ -1418,7 +1430,22 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
         onMenuClick: () => handleRestart(),
         disabled: restartPending || footerReadOnly,
       });
-    }
+      }
+
+      return configs;
+    }, [
+      canToggle,
+      canRestart,
+      statusTogglePending,
+      restartPending,
+      toggleLabel,
+      footerReadOnly,
+      isActive,
+      botStatus,
+      handleStatusToggle,
+      handleEdit,
+      handleRestart,
+    ]);
 
     return (
       <DetailDrawer open={actualOpen} onOpenChange={handleDrawerOpenChange}>

@@ -593,53 +593,77 @@ export const useDcaTradingContext = (
     return marketPrice;
   }, [shouldUseLimitPrice, primaryLimitPrice, marketPrice]);
 
-  const context: DcaTradingContext = {
+  // Memoize the assembled context so it only changes reference when one of its
+  // constituent (already-memoized) fields actually changes. Returning a fresh
+  // object literal every render made every consumer's downstream memos rebuild
+  // on each live-price tick — e.g. the bot form footer's button-config array,
+  // which re-rendered the memoised ResponsiveButtonRow ~26x/s (RenderLoopTripwire
+  // on /bot/new, /combo/new, /grid/edit, …).
+  const context = useMemo<DcaTradingContext>(() => {
+    const ctx: DcaTradingContext = {
+      selectedPairs,
+      aggregatedBalances,
+      ranges,
+      shouldUseLimitPrice,
+    };
+
+    if (activePair) {
+      ctx.activePair = activePair;
+    }
+    if (baseAsset) {
+      ctx.baseAsset = baseAsset;
+    }
+    if (quoteAsset) {
+      ctx.quoteAsset = quoteAsset;
+    }
+
+    // latestPrice is the effective reference price used across the form
+    if (typeof referencePrice === 'number') {
+      ctx.latestPrice = referencePrice;
+    }
+
+    // Expose raw market price separately for components that need it
+    if (typeof marketPrice === 'number') {
+      ctx.marketPrice = marketPrice;
+    }
+
+    if (typeof primaryLimitPrice === 'number') {
+      ctx.limitPrice = primaryLimitPrice;
+    }
+    if (typeof secondaryLimitPrice === 'number') {
+      ctx.fallbackLimitPrice = secondaryLimitPrice;
+    }
+
+    if (typeof usdPrice === 'number') {
+      ctx.usdPrice = usdPrice;
+    }
+    if (typeof activePair?.quoteAsset?.minAmount === 'number') {
+      ctx.quoteMinAmount = activePair.quoteAsset.minAmount;
+    }
+    if (typeof activePair?.baseAsset?.minAmount === 'number') {
+      ctx.baseMinAmount = activePair.baseAsset.minAmount;
+    }
+    if (activePair?.exchange) {
+      ctx.provider = activePair.exchange;
+    }
+    ctx.fee = fee;
+
+    return ctx;
+  }, [
     selectedPairs,
     aggregatedBalances,
     ranges,
     shouldUseLimitPrice,
-  };
-
-  if (activePair) {
-    context.activePair = activePair;
-  }
-  if (baseAsset) {
-    context.baseAsset = baseAsset;
-  }
-  if (quoteAsset) {
-    context.quoteAsset = quoteAsset;
-  }
-
-  // latestPrice is the effective reference price used across the form
-  if (typeof referencePrice === 'number') {
-    context.latestPrice = referencePrice;
-  }
-
-  // Expose raw market price separately for components that need it
-  if (typeof marketPrice === 'number') {
-    context.marketPrice = marketPrice;
-  }
-
-  if (typeof primaryLimitPrice === 'number') {
-    context.limitPrice = primaryLimitPrice;
-  }
-  if (typeof secondaryLimitPrice === 'number') {
-    context.fallbackLimitPrice = secondaryLimitPrice;
-  }
-
-  if (typeof usdPrice === 'number') {
-    context.usdPrice = usdPrice;
-  }
-  if (typeof activePair?.quoteAsset?.minAmount === 'number') {
-    context.quoteMinAmount = activePair.quoteAsset.minAmount;
-  }
-  if (typeof activePair?.baseAsset?.minAmount === 'number') {
-    context.baseMinAmount = activePair.baseAsset.minAmount;
-  }
-  if (activePair?.exchange) {
-    context.provider = activePair.exchange;
-  }
-  context.fee = fee;
+    activePair,
+    baseAsset,
+    quoteAsset,
+    referencePrice,
+    marketPrice,
+    primaryLimitPrice,
+    secondaryLimitPrice,
+    usdPrice,
+    fee,
+  ]);
 
   return context;
 };
