@@ -62,6 +62,7 @@ import { useShareContext } from '@/hooks/useShareContext';
 import { useSharedBot } from '@/hooks/useSharedBot';
 import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
+import { useIsReadOnly } from '@/lib/demoMode';
 
 const HEDGE_BOTS_WIDGET_MOTION = {
   initial: { opacity: 0, y: 20 },
@@ -127,11 +128,17 @@ const HedgeDcaBotCardWrapper = ({
 }: {
   item: EnrichedHedgeBot;
   index: number;
-}) => (
+}) => {
+  // Subscribe to privacyMode directly rather than closing over the page's
+  // value — the wrapper's module-level identity stays stable (so cards don't
+  // remount on price ticks) while still reacting when privacy is toggled.
+  const privacyMode = useUIStore((s) => s.privacyMode);
+  return (
   <HedgeBotCard
     item={item}
     index={index}
     botType={BotTypesEnum.hedgeDca}
+    privacyMode={privacyMode}
     unPnl={item.__unPnl}
     unPnlPerc={item.__unPnlPerc}
     totalProfitUsd={item.__totalProfitUsd}
@@ -146,7 +153,8 @@ const HedgeDcaBotCardWrapper = ({
     {...(item.__legUnPnl ? { legUnPnl: item.__legUnPnl } : {})}
     {...(item.__legUnPnlPerc ? { legUnPnlPerc: item.__legUnPnlPerc } : {})}
   />
-);
+  );
+};
 
 const HedgeDcaBots = () => {
   // Hedge bots are a premium-only feature.
@@ -171,6 +179,9 @@ const HedgeDcaBots = () => {
   const { bots, isLoading } = useHedgeDcaBots();
   const unPnlMap = useHedgeUnPnlMap(bots, false);
   const privacyMode = useUIStore((s) => s.privacyMode);
+  // Demo/read-only sessions can't create bots — gate the "New" button the
+  // same way the regular bot lists do.
+  const readOnly = useIsReadOnly();
 
   /** Unified KPI stats for the bot-list header. Sums per-leg fields up to
    * the hedge wrapper because the backend leaves `profit/dealsInBot`
@@ -530,7 +541,7 @@ const HedgeDcaBots = () => {
           <ProfitAndPerc
             value={getValue() as number}
             percentage={0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             hidePercentage
             size="sm"
           />
@@ -547,7 +558,7 @@ const HedgeDcaBots = () => {
           <ProfitAndPerc
             value={row.original.__unPnl ?? 0}
             percentage={row.original.__unPnlPerc ?? 0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             size="sm"
           />
         ),
@@ -561,7 +572,7 @@ const HedgeDcaBots = () => {
           <ProfitAndPerc
             value={row.original.__avgDaily ?? 0}
             percentage={row.original.__avgDailyPerc ?? 0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             size="sm"
           />
         ),
@@ -612,9 +623,9 @@ const HedgeDcaBots = () => {
       },
     ],
     // Column defs read each row's already-enriched bot, not unPnlMap directly
-    // (the unrealized values are baked into `enrichedBots`), so the table
-    // structure has no reactive deps.
-    []
+    // (the unrealized values are baked into `enrichedBots`). The only reactive
+    // dep is privacyMode, which the profit/PnL cells honor by masking values.
+    [privacyMode]
   );
 
   if (!isPremium) {
@@ -642,7 +653,7 @@ const HedgeDcaBots = () => {
             parentBotId={selectedHedgeBot._id}
             hedge={hedgeDrawerContext}
             open
-            privacyMode={false}
+            privacyMode={privacyMode}
             onClose={handleCloseDrawer}
             viewOnly
             ownerUserId={sharedOwnerId}
@@ -692,13 +703,22 @@ const HedgeDcaBots = () => {
                         <TabsTrigger value="bots">Bots</TabsTrigger>
                         <TabsTrigger value="deals">Deals</TabsTrigger>
                       </TabsList>
-                      <MotionButton
-                        variant="default"
-                        onClick={() => navigate('/hedge/bot/new')}
-                      >
-                        <Plus className="mr-xs h-4 w-4" />
-                        New
-                      </MotionButton>
+                      {readOnly ? (
+                        <span title="Creating bots is not available in demo mode">
+                          <MotionButton variant="default" disabled={true}>
+                            <Plus className="mr-xs h-4 w-4" />
+                            New
+                          </MotionButton>
+                        </span>
+                      ) : (
+                        <MotionButton
+                          variant="default"
+                          onClick={() => navigate('/hedge/bot/new')}
+                        >
+                          <Plus className="mr-xs h-4 w-4" />
+                          New
+                        </MotionButton>
+                      )}
                     </div>
                   </div>
                   <div className="w-full sm:hidden mt-2">
@@ -725,13 +745,22 @@ const HedgeDcaBots = () => {
                         <TabsTrigger value="bots">Bots</TabsTrigger>
                         <TabsTrigger value="deals">Deals</TabsTrigger>
                       </TabsList>
-                      <MotionButton
-                        variant="default"
-                        onClick={() => navigate('/hedge/bot/new')}
-                      >
-                        <Plus className="mr-xs h-4 w-4" />
-                        New
-                      </MotionButton>
+                      {readOnly ? (
+                        <span title="Creating bots is not available in demo mode">
+                          <MotionButton variant="default" disabled={true}>
+                            <Plus className="mr-xs h-4 w-4" />
+                            New
+                          </MotionButton>
+                        </span>
+                      ) : (
+                        <MotionButton
+                          variant="default"
+                          onClick={() => navigate('/hedge/bot/new')}
+                        >
+                          <Plus className="mr-xs h-4 w-4" />
+                          New
+                        </MotionButton>
+                      )}
                     </div>
                   </div>
                 </motion.div>
@@ -818,7 +847,7 @@ const HedgeDcaBots = () => {
                 parentBotId={selectedHedgeBot._id}
                 hedge={hedgeDrawerContext}
                 open
-                privacyMode={false}
+                privacyMode={privacyMode}
                 onClose={handleCloseDrawer}
                 viewOnly={viewOnly}
                 ownerUserId={sharedOwnerId}

@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.17] - 2026-07-09
+
+### Added
+
+- Hedge Quick chart now draws BOTH legs' base, safety (DCA), and take-profit orders together, instead of flickering between the long or short leg's orders.
+- Hedge bot form now has a header validation-alerts button, and Quick mode shows an order-minimum "Min to run" hint plus per-leg below-minimum warnings.
+- Hedge footer shows a "Backtest complete · View results" summary chip after a run.
+
+### Fixed
+
+- Hedge Quick risk profiles (Conservative / Balanced / Aggressive) now actually reconfigure both legs when selected — previously only the card highlight changed.
+- Selecting a hedge risk profile no longer resets the form's scroll position.
+- Hedge Quick now auto-selects the Balanced profile for a new bot.
+- Saving a hedge bot now validates each leg's required fields and the shared take-profit / stop-loss, routing to the offending leg and field instead of a raw error toast.
+- The hedge bot lists now honor Privacy Mode and disable the "New" button in demo / read-only sessions.
+- The risk-profile cards wrap responsively instead of clipping their labels on narrow panels.
+
+### Changed
+
+- Hedge form loading now shows shaped skeletons, and the Quick / Manual toggle collapses to icons when the panel is narrow.
+
 ## [2.30.16] - 2026-07-09
 
 ### Fixed

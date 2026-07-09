@@ -6,21 +6,31 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import SettingsAlert from '@/components/ui/SettingsAlert';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
 import { navigateToSetting } from '@/hooks/bots/useSettingsNavigation';
 import { logger } from '@/lib/loggerInstance';
-import type { BotFormAlert } from '@/types/bots/form';
+import type { BotFormAlert, BotFormAlerts } from '@/types/bots/form';
 import { TriangleAlert } from 'lucide-react';
 import { useMemo } from 'react';
 
 export interface BotFormAlertButtonProps {
   className?: string;
+  /**
+   * Optional alerts to render instead of reading the surrounding
+   * BotFormProvider's alerts. Hedge bots use this to surface a leg's
+   * alerts from a header that sits OUTSIDE the leg's provider tree
+   * (the alerts are bridged up via an event bus). When omitted, the
+   * component reads the ambient form context as before.
+   */
+  alerts?: BotFormAlerts;
 }
 
 export const BotFormAlertButton: React.FC<BotFormAlertButtonProps> = ({
   className,
+  alerts: alertsProp,
 }) => {
-  const { alerts } = useBotFormState();
+  const ctx = useOptionalBotFormState();
+  const alerts = alertsProp ?? ctx?.alerts;
 
   const alertsList = useMemo((): BotFormAlert[] => {
     if (!alerts) return [];

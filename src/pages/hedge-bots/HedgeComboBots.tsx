@@ -52,6 +52,7 @@ import { useShareContext } from '@/hooks/useShareContext';
 import { useSharedBot } from '@/hooks/useSharedBot';
 import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
+import { useIsReadOnly } from '@/lib/demoMode';
 
 const HEDGE_BOTS_WIDGET_MOTION = {
   initial: { opacity: 0, y: 20 },
@@ -114,11 +115,16 @@ const HedgeComboBotCardWrapper = ({
 }: {
   item: EnrichedHedgeBot;
   index: number;
-}) => (
+}) => {
+  // Subscribe to privacyMode directly (see HedgeDcaBots) so cards react to the
+  // privacy toggle without the wrapper closing over the page's value.
+  const privacyMode = useUIStore((s) => s.privacyMode);
+  return (
   <HedgeBotCard
     item={item}
     index={index}
     botType={BotTypesEnum.hedgeCombo}
+    privacyMode={privacyMode}
     unPnl={item.__unPnl}
     unPnlPerc={item.__unPnlPerc}
     totalProfitUsd={item.__totalProfitUsd}
@@ -133,7 +139,8 @@ const HedgeComboBotCardWrapper = ({
     {...(item.__legUnPnl ? { legUnPnl: item.__legUnPnl } : {})}
     {...(item.__legUnPnlPerc ? { legUnPnlPerc: item.__legUnPnlPerc } : {})}
   />
-);
+  );
+};
 
 const HedgeComboBots = () => {
   // Premium gate via the license adapter.
@@ -154,6 +161,9 @@ const HedgeComboBots = () => {
 
   const { bots, isLoading } = useHedgeComboBots();
   const privacyMode = useUIStore((s) => s.privacyMode);
+  // Demo/read-only sessions can't create bots — gate "New" like the regular
+  // bot lists do.
+  const readOnly = useIsReadOnly();
 
   const unPnlMap = useHedgeUnPnlMap(bots, true);
 
@@ -456,7 +466,7 @@ const HedgeComboBots = () => {
           <ProfitAndPerc
             value={getValue() as number}
             percentage={0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             hidePercentage
             size="sm"
           />
@@ -473,7 +483,7 @@ const HedgeComboBots = () => {
           <ProfitAndPerc
             value={row.original.__unPnl ?? 0}
             percentage={row.original.__unPnlPerc ?? 0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             size="sm"
           />
         ),
@@ -487,7 +497,7 @@ const HedgeComboBots = () => {
           <ProfitAndPerc
             value={row.original.__avgDaily ?? 0}
             percentage={row.original.__avgDailyPerc ?? 0}
-            privacyMode={false}
+            privacyMode={privacyMode}
             size="sm"
           />
         ),
@@ -538,9 +548,9 @@ const HedgeComboBots = () => {
       },
     ],
     // Column defs read each row's already-enriched bot, not unPnlMap directly
-    // (the unrealized values are baked into `enrichedBots`), so the table
-    // structure has no reactive deps.
-    []
+    // (the unrealized values are baked into `enrichedBots`). The only reactive
+    // dep is privacyMode, which the profit/PnL cells honor by masking values.
+    [privacyMode]
   );
 
   if (!isPremium) {
@@ -568,7 +578,7 @@ const HedgeComboBots = () => {
             parentBotId={selectedHedgeBot._id}
             hedge={hedgeDrawerContext}
             open
-            privacyMode={false}
+            privacyMode={privacyMode}
             onClose={handleCloseDrawer}
             viewOnly
             ownerUserId={sharedOwnerId}
@@ -608,13 +618,22 @@ const HedgeComboBots = () => {
                 >
                   <div className="flex items-center justify-between gap-xs sm:hidden">
                     <h2 className="text-xl font-semibold">Hedge Combo Bots</h2>
-                    <MotionButton
-                      variant="default"
-                      onClick={() => navigate('/hedge/combo/new')}
-                    >
-                      <Plus className="mr-xs h-4 w-4" />
-                      New
-                    </MotionButton>
+                    {readOnly ? (
+                      <span title="Creating bots is not available in demo mode">
+                        <MotionButton variant="default" disabled={true}>
+                          <Plus className="mr-xs h-4 w-4" />
+                          New
+                        </MotionButton>
+                      </span>
+                    ) : (
+                      <MotionButton
+                        variant="default"
+                        onClick={() => navigate('/hedge/combo/new')}
+                      >
+                        <Plus className="mr-xs h-4 w-4" />
+                        New
+                      </MotionButton>
+                    )}
                   </div>
                   <div className="w-full sm:hidden mt-2">
                     <BotListStatsBoxes
@@ -634,13 +653,22 @@ const HedgeComboBots = () => {
                         isLoading={isLoading}
                       />
                     </div>
-                    <MotionButton
-                      variant="default"
-                      onClick={() => navigate('/hedge/combo/new')}
-                    >
-                      <Plus className="mr-xs h-4 w-4" />
-                      New
-                    </MotionButton>
+                    {readOnly ? (
+                      <span title="Creating bots is not available in demo mode">
+                        <MotionButton variant="default" disabled={true}>
+                          <Plus className="mr-xs h-4 w-4" />
+                          New
+                        </MotionButton>
+                      </span>
+                    ) : (
+                      <MotionButton
+                        variant="default"
+                        onClick={() => navigate('/hedge/combo/new')}
+                      >
+                        <Plus className="mr-xs h-4 w-4" />
+                        New
+                      </MotionButton>
+                    )}
                   </div>
                 </motion.div>
 
@@ -706,7 +734,7 @@ const HedgeComboBots = () => {
                 parentBotId={selectedHedgeBot._id}
                 hedge={hedgeDrawerContext}
                 open
-                privacyMode={false}
+                privacyMode={privacyMode}
                 onClose={handleCloseDrawer}
                 viewOnly={viewOnly}
                 ownerUserId={sharedOwnerId}

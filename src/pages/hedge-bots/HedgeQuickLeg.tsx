@@ -24,6 +24,7 @@ import {
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvider';
+import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { BasicSettings } from '@/features/bots/bot-types/dca/form/sections/BasicSettings';
 import { tryGetBotExperience } from '@/features/bots/catalog/BotExperienceCatalog';
@@ -36,8 +37,13 @@ import {
   BotFormQueryProvider,
   useBotFormQuery,
 } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
-import { computeStepDecimals } from '@/features/bots/shared/utils/order-guard';
 import {
+  aggregatePrecisionConstraints,
+  computeStepDecimals,
+  createOrderGuard,
+} from '@/features/bots/shared/utils/order-guard';
+import {
+  computeInvestmentDivisor,
   computeInvestmentFromDca,
   distributeInvestmentToDca,
 } from '@/features/bots/widgets/BotForm/components/quickSetupPresets';
@@ -46,8 +52,14 @@ import {
   useDcaTradingContext,
 } from '@/hooks/bots/dca/useDcaTradingContext';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
-import { BotTypesEnum, OrderSizeTypeEnum, StrategyEnum } from '@/types';
-import type { BotFormData } from '@/types/bots/form';
+import {
+  BotTypesEnum,
+  OrderSizeTypeEnum,
+  StrategyEnum,
+  type DCAGrid,
+} from '@/types';
+import type { BotFormAlert, BotFormData } from '@/types/bots/form';
+import { dispatchHedgeLegAlerts } from './hedgeLegAlerts';
 
 const LegPublisher: React.FC<{
   targetRef: MutableRefObject<BotFormData | null>;
@@ -56,6 +68,77 @@ const LegPublisher: React.FC<{
   useEffect(() => {
     targetRef.current = formData;
   }, [formData, targetRef]);
+  return null;
+};
+
+/**
+ * Mirrors this leg's computed example orders up to the hedge layout so the
+ * shared chart can draw BOTH legs' base/safety/TP lines at once (legacy
+ * `chartView === 'both'` parity). Requires the leg to isolate its stores
+ * (`isolateStores`) so the two co-mounted Quick legs don't clobber a shared
+ * global — each writes its own store, and this publisher forwards each leg's
+ * orders separately to the layout, which merges them into one chart store.
+ */
+const LegChartOrdersPublisher: React.FC<{
+  leg: 'long' | 'short';
+  onOrders: (leg: 'long' | 'short', orders: DCAGrid[]) => void;
+}> = ({ leg, onOrders }) => {
+  const store = useExampleOrdersStore();
+  const { formData } = useBotFormState();
+
+  // The Quick leg only mounts BasicSettings, so — unlike the full form
+  // (BotForm/index.tsx) — nothing feeds the store's `symbol` context. The DCA
+  // safety-order ladder is gated on `symbol` being present (createDCAOrders:
+  // `if (settings.useDca && symbol)`), so without this the isolated store
+  // computes only the base order + TP, never the averaging orders. Mirror the
+  // full form's symbol effect here so both legs draw their full ladder.
+  const firstPair = Array.isArray(formData.pair)
+    ? formData.pair[0]
+    : formData.pair;
+  useEffect(() => {
+    if (!firstPair) return;
+    const realPair =
+      formData.pairMetadata?.[firstPair] ??
+      Object.values(formData.pairMetadata ?? {}).find(
+        (p) => p.pair === firstPair
+      );
+    if (realPair) {
+      store.setContext({ symbol: { ...realPair, maxOrders: 200 } });
+    }
+  }, [store, firstPair, formData.pairMetadata]);
+
+  useEffect(() => {
+    const unsubscribe = store.subscribe((orders) => {
+      onOrders(leg, orders);
+    });
+    return () => {
+      unsubscribe();
+      // Clear this leg's contribution when it unmounts (e.g. leaving Quick
+      // mode) so the chart doesn't keep drawing a stale leg.
+      onOrders(leg, []);
+    };
+  }, [store, leg, onOrders]);
+  return null;
+};
+
+/**
+ * Mounts inside a leg's BotFormProvider and mirrors that leg's live alerts
+ * up to the hedge header via the `hedge-leg-alerts` event bus. Clears the
+ * leg's alerts on unmount so a tab switch doesn't leave stale entries in the
+ * header.
+ */
+export const HedgeLegAlertPublisher: React.FC<{ leg: 'long' | 'short' }> = ({
+  leg,
+}) => {
+  const { alerts } = useBotFormState();
+  useEffect(() => {
+    dispatchHedgeLegAlerts({ leg, alerts });
+  }, [leg, alerts]);
+  useEffect(() => {
+    return () => {
+      dispatchHedgeLegAlerts({ leg, alerts: {} });
+    };
+  }, [leg]);
   return null;
 };
 
@@ -69,6 +152,50 @@ const LegStrategyPinner: React.FC<{ strategy: StrategyEnum }> = ({
       updateFormData('strategy' as Fields, strategy);
     }
   }, [current, strategy, updateFormData]);
+  return null;
+};
+
+/**
+ * Registers a live "apply preset DCA" function for this leg into the ref the
+ * hedge layout holds. The risk-profile buttons live OUTSIDE the leg providers,
+ * so they can't call this leg's `setFormData` directly. Applying the preset
+ * live (rather than reseeding + remounting) mirrors the regular Quick form's
+ * `PresetsPicker.applyPreset` — it avoids the full remount that would reset the
+ * scroll position and flash the form. The leg's total investment is preserved
+ * (redistributed over the preset's new orders ladder), and its pinned
+ * strategy / order-size denomination survive.
+ */
+const LegPresetApplier: React.FC<{
+  targetRef: MutableRefObject<((nextDca: BotFormData['dca']) => void) | null>;
+}> = ({ targetRef }) => {
+  const { setFormData } = useBotFormState();
+  useEffect(() => {
+    targetRef.current = (nextDca: BotFormData['dca']) => {
+      setFormData((prev) => {
+        const prevDca = prev.dca;
+        const currentInvestment = computeInvestmentFromDca(prevDca);
+        const precision =
+          prevDca.orderSizeType === OrderSizeTypeEnum.base ? 8 : 2;
+        const merged = {
+          ...nextDca,
+          strategy: prevDca.strategy,
+          orderSizeType: prevDca.orderSizeType,
+        } as BotFormData['dca'];
+        const { baseOrderSize, orderSize } = distributeInvestmentToDca(
+          currentInvestment,
+          merged,
+          precision
+        );
+        return {
+          ...prev,
+          dca: { ...merged, baseOrderSize, orderSize },
+        };
+      });
+    };
+    return () => {
+      targetRef.current = null;
+    };
+  }, [setFormData, targetRef]);
   return null;
 };
 
@@ -156,6 +283,15 @@ export const HedgeQuickFooter: React.FC<{
       backtestPending={!!footerOverride.backtestPending}
       {...(footerOverride.backtestProgress !== undefined
         ? { backtestProgress: footerOverride.backtestProgress }
+        : {})}
+      {...(footerOverride.backtestSummary !== undefined
+        ? { backtestSummary: footerOverride.backtestSummary }
+        : {})}
+      {...(footerOverride.onViewResults
+        ? { onViewResults: footerOverride.onViewResults }
+        : {})}
+      {...(footerOverride.onDismissResults
+        ? { onDismissResults: footerOverride.onDismissResults }
         : {})}
       {...(footerOverride.onCancelBacktest
         ? { onCancelBacktest: footerOverride.onCancelBacktest }
@@ -319,6 +455,104 @@ export const HedgeQuickInvestment: React.FC = () => {
 
   const investment = computeInvestmentFromDca(formData.dca);
 
+  // Exchange per-order minimum for this leg's pair(s), in the leg's unit.
+  // Reuses the same order-guard the standalone Quick form uses so the
+  // "below minimum" alerts + "Min to run" figure reconcile with it.
+  const pairList = Array.isArray(formData.pair)
+    ? formData.pair.filter((p): p is string => !!p)
+    : formData.pair
+      ? [formData.pair]
+      : [];
+  const pairListKey = pairList.join(',');
+  const orderGuard = useMemo(
+    () =>
+      createOrderGuard(
+        unit,
+        aggregatePrecisionConstraints(pairList, formData.pairPrecisionMap ?? {}),
+        {
+          base: tradingContext.baseAsset || undefined,
+          quote: tradingContext.quoteAsset || undefined,
+        }
+      ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [
+      unit,
+      pairListKey,
+      formData.pairPrecisionMap,
+      tradingContext.baseAsset,
+      tradingContext.quoteAsset,
+    ]
+  );
+  const orderMinimum =
+    typeof orderGuard?.min === 'number' && orderGuard.min > 0
+      ? orderGuard.min
+      : null;
+  const orderMinUnit = orderGuard?.unit ?? currencyLabel ?? '';
+
+  const baseOrderNum = Number(formData.dca.baseOrderSize ?? 0);
+  const orderSizeNum = Number(formData.dca.orderSize ?? 0);
+  const baseOrderBelowMin =
+    orderMinimum !== null && baseOrderNum > 0 && baseOrderNum < orderMinimum;
+  const safetyOrderBelowMin =
+    orderMinimum !== null && orderSizeNum > 0 && orderSizeNum < orderMinimum;
+
+  // Below-minimum alerts, matching the standalone Quick form's format so the
+  // Investment row surfaces a chip + tooltip via BotFormAlertSummary.
+  const investmentAlerts = useMemo<BotFormAlert[]>(() => {
+    if (orderMinimum === null) return [];
+    const alerts: BotFormAlert[] = [];
+    const fmt = (n: number) => n.toFixed(precision);
+    const minLabel = `${orderMinimum}${orderMinUnit ? ` ${orderMinUnit}` : ''}`;
+    const navId = `hedge-investment-${strategy}`;
+    if (baseOrderBelowMin) {
+      alerts.push({
+        variant: 'error',
+        title: 'Base order below minimum',
+        message: 'Base order below minimum',
+        description: `Base order is ${fmt(baseOrderNum)} but the exchange minimum is ${minLabel}. Increase this leg's investment or reduce its safety-order count.`,
+        navId,
+      });
+    }
+    if (safetyOrderBelowMin) {
+      alerts.push({
+        variant: 'error',
+        title: 'Safety orders below minimum',
+        message: 'Safety orders below minimum',
+        description: `Each safety order is ${fmt(orderSizeNum)} but the exchange minimum is ${minLabel}. Increase this leg's investment or reduce its safety-order count.`,
+        navId,
+      });
+    }
+    return alerts;
+  }, [
+    orderMinimum,
+    orderMinUnit,
+    baseOrderBelowMin,
+    safetyOrderBelowMin,
+    baseOrderNum,
+    orderSizeNum,
+    precision,
+    strategy,
+  ]);
+
+  // Minimum investment so the base order + every safety order clears the
+  // exchange per-order minimum (base = orderSize = investment / divisor, so
+  // the floor is `orderMinimum × divisor`, rounded up to display precision).
+  const minInvestment = useMemo(() => {
+    if (orderMinimum === null) return null;
+    const divisor = computeInvestmentDivisor(
+      formData.dca.ordersCount,
+      formData.dca.volumeScale
+    );
+    const factor = Math.pow(10, precision);
+    const min = Math.ceil(orderMinimum * divisor * factor) / factor;
+    return min > 0 ? min : null;
+  }, [
+    orderMinimum,
+    formData.dca.ordersCount,
+    formData.dca.volumeScale,
+    precision,
+  ]);
+
   const setInvestment = (raw: number) => {
     const safe = Number.isFinite(raw) && raw >= 0 ? raw : 0;
     const factor = Math.pow(10, precision);
@@ -342,6 +576,7 @@ export const HedgeQuickInvestment: React.FC = () => {
       name="Investment"
       tooltip={`Total funds this leg deploys across all orders, in ${currencyLabel}.`}
       navId={`hedge-investment-${strategy}`}
+      alerts={investmentAlerts}
     >
       <div className="space-y-xs">
         <Input
@@ -370,6 +605,12 @@ export const HedgeQuickInvestment: React.FC = () => {
           onChange={(v) => setInvestment(v)}
           aria-label="Investment amount"
         />
+        {minInvestment !== null && (
+          <p className="text-xs text-muted-foreground">
+            Min to run: {minInvestment.toFixed(precision)}
+            {orderMinUnit ? ` ${orderMinUnit}` : ''}
+          </p>
+        )}
         {availableBalance > 0 && (
           <p className="text-xs text-muted-foreground">
             Available:{' '}
@@ -422,6 +663,21 @@ export interface HedgeQuickLegProps {
   initialFormData?: Partial<BotFormData> | undefined;
   formDataRef: MutableRefObject<BotFormData | null>;
   /**
+   * Ref the hedge layout uses to live-apply a risk-profile preset's DCA to
+   * this leg without remounting it (avoids scroll reset / flash). Registered
+   * by LegPresetApplier once the leg's provider is mounted.
+   */
+  presetApplyRef?: MutableRefObject<
+    ((nextDca: BotFormData['dca']) => void) | null
+  >;
+  /**
+   * When set, this leg isolates its side-effect stores (example orders /
+   * indicators) so two co-mounted Quick legs don't clobber the shared globals,
+   * and its computed example orders are forwarded via `onChartOrders` so the
+   * hedge chart can draw both legs together.
+   */
+  onChartOrders?: (leg: 'long' | 'short', orders: DCAGrid[]) => void;
+  /**
    * Optional children rendered AFTER the leg's exchange/pair fields
    * but inside the leg's BotFormProvider. Used so the long leg can
    * wrap the rest of the Quick view (short leg, investment, risk
@@ -442,6 +698,8 @@ export const HedgeQuickLeg: React.FC<HedgeQuickLegProps> = ({
   widgetId,
   initialFormData,
   formDataRef,
+  presetApplyRef,
+  onChartOrders,
   children,
   footerSlot,
 }) => {
@@ -458,10 +716,19 @@ export const HedgeQuickLeg: React.FC<HedgeQuickLegProps> = ({
         mode="create"
         botType={BotTypesEnum.dca}
         isNestedLeg
+        // Both Quick legs mount at once; isolate their example-order /
+        // indicator stores so they don't clobber each other (and so each leg's
+        // orders can be forwarded separately for the both-legs chart).
+        isolateStores={!!onChartOrders}
         {...(initialFormData ? { initialFormData } : {})}
       >
         <LegPublisher targetRef={formDataRef} />
         <LegStrategyPinner strategy={strategy} />
+        <HedgeLegAlertPublisher leg={legId} />
+        {presetApplyRef ? <LegPresetApplier targetRef={presetApplyRef} /> : null}
+        {onChartOrders ? (
+          <LegChartOrdersPublisher leg={legId} onOrders={onChartOrders} />
+        ) : null}
         {legId === 'long' && <QuickLegChartPublisher />}
         <BotFormQueryProvider mode="create">
           {footerSlot ? (

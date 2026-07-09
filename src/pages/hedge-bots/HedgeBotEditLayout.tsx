@@ -109,18 +109,33 @@ import {
   StrategyEnum,
   type ComboBot,
   type DCABot,
+  type DCAGrid,
   type HedgeBot,
   type HedgeBotSettings,
 } from '@/types';
-import type { BotFormData } from '@/types/bots/form';
+import type { BotFormAlerts, BotFormData } from '@/types/bots/form';
+import {
+  createMergedExampleOrdersStore,
+  type ExampleOrdersStore,
+} from '@/utils/bots/dca/example-orders';
 import { useAutoHedgeName } from '@/hooks/bots/hedge/useAutoHedgeName';
+import { useContainerWidth } from '@/hooks/useContainerWidth';
+import { BotFormAlertButton } from '@/features/bots/widgets/BotForm/components/BotFormAlertButton';
+import { navigateToSetting } from '@/hooks/bots/useSettingsNavigation';
+import { validateDcaFormData } from '@/utils/bots/dca/validation';
 import HedgeChartPanel from './HedgeChartPanel';
 import { HedgeNameInput } from './HedgeNameInput';
 import HedgeQuickLeg, {
   HedgeFooterShell,
+  HedgeLegAlertPublisher,
   HedgeQuickFooter,
   HedgeQuickInvestment,
 } from './HedgeQuickLeg';
+import {
+  dispatchHedgeLegAlerts,
+  HEDGE_LEG_ALERTS_EVENT,
+  type HedgeLegAlertsDetail,
+} from './hedgeLegAlerts';
 
 /**
  * Publishes the active leg's current pair + exchangeUUID up to the outer
@@ -204,6 +219,37 @@ const findLegBot = (
 ): DCABot | ComboBot | undefined =>
   bots?.find((b) => b.settings?.strategy === strategy);
 
+/**
+ * Hedge-level alert button for the form header (F8). The header sits outside
+ * the leg BotFormProviders, so it can't read a leg's alerts through context.
+ * Instead each mounted leg (and save-time validation) publishes its alerts on
+ * the `HEDGE_LEG_ALERTS_EVENT` bus; this button keeps the latest per-context
+ * alerts and shows the one for the active context (the visible leg, or the
+ * Hedge tab's shared-settings alerts). Isolated in its own component so alert
+ * churn re-renders only the button, not the whole layout.
+ */
+const HedgeHeaderAlertButton: React.FC<{
+  activeContext: 'long' | 'short' | 'hedge';
+}> = ({ activeContext }) => {
+  const [alertMap, setAlertMap] = useState<
+    Partial<Record<HedgeLegAlertsDetail['leg'], BotFormAlerts>>
+  >({});
+  useEffect(() => {
+    const handler = (ev: Event) => {
+      const detail = (ev as CustomEvent<HedgeLegAlertsDetail>).detail;
+      if (!detail?.leg) return;
+      setAlertMap((prev) => ({ ...prev, [detail.leg]: detail.alerts }));
+    };
+    window.addEventListener(HEDGE_LEG_ALERTS_EVENT, handler as EventListener);
+    return () =>
+      window.removeEventListener(
+        HEDGE_LEG_ALERTS_EVENT,
+        handler as EventListener
+      );
+  }, []);
+  return <BotFormAlertButton alerts={alertMap[activeContext] ?? {}} />;
+};
+
 export const HedgeBotEditLayout: React.FC = () => {
   const {
     mode,
@@ -219,7 +265,6 @@ export const HedgeBotEditLayout: React.FC = () => {
     longLegPairCount,
     longInitialFormData,
     shortInitialFormData,
-    isLoadingHedgeBot,
     loadError,
     hedgeBot,
     refetchHedgeBot,
@@ -272,6 +317,16 @@ export const HedgeBotEditLayout: React.FC = () => {
   // Results open in the shared full-screen modal (BacktestResultsFullModal,
   // hedge kind) rather than an inline insights tab.
   const [backtestModalOpen, setBacktestModalOpen] = useState(false);
+  // Tracks a dismissed "Backtest complete" footer chip (T1). We key the
+  // dismissal on the current result id so a fresh run re-surfaces the chip.
+  const [dismissedResultId, setDismissedResultId] = useState<string | null>(
+    null
+  );
+
+  // Header width drives the compact Quick/Manual toggle (F6), mirroring the
+  // regular BotForm header. Below 280px the toggle drops its text labels.
+  const [headerRef, headerWidth] = useContainerWidth();
+  const compactToggle = headerWidth > 0 && headerWidth < 280;
 
   // Refs each leg's BotFormWidget keeps synced with its current formData.
   // Read at save time only — no re-render storm from per-keystroke changes.
@@ -379,6 +434,50 @@ export const HedgeBotEditLayout: React.FC = () => {
   // is its publisher, kept in sync on every formData change.
   const longQuickRef = useRef<BotFormData | null>(null);
   const shortQuickRef = useRef<BotFormData | null>(null);
+  // Live "apply preset DCA" hooks each Quick leg registers (LegPresetApplier).
+  // Applying a risk profile calls these to mutate the mounted legs' formData in
+  // place — no remount, so the scroll position is preserved and the form
+  // doesn't flash. Mirrors the regular Quick form's in-provider applyPreset.
+  const longPresetApplyRef = useRef<
+    ((nextDca: BotFormData['dca']) => void) | null
+  >(null);
+  const shortPresetApplyRef = useRef<
+    ((nextDca: BotFormData['dca']) => void) | null
+  >(null);
+
+  // Both-legs chart orders (legacy `chartView === 'both'` parity). In Quick
+  // mode both legs mount and isolate their example-order stores; each forwards
+  // its computed orders here, and we merge long + short into one store the
+  // hedge chart subscribes to — so the chart draws both legs' base/safety/TP
+  // lines at once instead of whichever leg last wrote the shared global.
+  const mergedOrdersStoreRef = useRef<ExampleOrdersStore | null>(null);
+  if (!mergedOrdersStoreRef.current) {
+    mergedOrdersStoreRef.current = createMergedExampleOrdersStore();
+  }
+  const legChartOrdersRef = useRef<{ long: DCAGrid[]; short: DCAGrid[] }>({
+    long: [],
+    short: [],
+  });
+  const handleLegChartOrders = useCallback(
+    (leg: 'long' | 'short', orders: DCAGrid[]) => {
+      legChartOrdersRef.current[leg] = orders;
+      // Prefix each line's label with its leg so the two overlapping ladders
+      // are distinguishable, and force them non-draggable (a drag can't be
+      // routed back to a specific leg from the merged store).
+      const withLeg = (list: DCAGrid[], prefix: string): DCAGrid[] =>
+        list.map((o) => ({
+          ...o,
+          draggable: false,
+          label: o.label ? `${prefix} ${o.label}` : o.label,
+        }));
+      const merged = [
+        ...withLeg(legChartOrdersRef.current.long, 'Long'),
+        ...withLeg(legChartOrdersRef.current.short, 'Short'),
+      ];
+      mergedOrdersStoreRef.current?.setOrders(merged);
+    },
+    []
+  );
   // Investment is per-leg (HedgeQuickInvestment): a long leg deploys quote,
   // a short leg deploys base, each capped at that leg's available balance.
   // The value lives in each leg's own formData (baseOrderSize/orderSize),
@@ -477,6 +576,131 @@ export const HedgeBotEditLayout: React.FC = () => {
     const resolvedName = hedgeName;
     longData = { ...longData, name: resolvedName };
     shortData = { ...shortData, name: resolvedName };
+
+    // ── Save-time validation (V1 + V7) ──────────────────────────────────
+    // Run the same required-field/logic validation the regular save uses on
+    // each leg, plus validate the shared hedge TP/SL. Field-level alerts
+    // (with navId) are surfaced in the hedge header alert button and the user
+    // is routed to the failing leg/field — instead of a raw multiline toast.
+    // Cross-leg aggregation (one combined chip + submit-gate seeing both legs)
+    // is deliberately NOT done here — that's the separate Phase 3 merge.
+    type SaveFailure = {
+      context: 'long' | 'short' | 'hedge';
+      alerts: BotFormAlerts;
+      firstMessage: string;
+      firstNavId: string | undefined;
+    };
+    const firstAlert = (
+      alerts: BotFormAlerts
+    ): { message: string; navId: string | undefined } | null => {
+      for (const list of Object.values(alerts)) {
+        if (Array.isArray(list) && list[0]) {
+          return { message: list[0].message, navId: list[0].navId };
+        }
+      }
+      return null;
+    };
+    const validateLeg = (
+      context: 'long' | 'short',
+      data: BotFormData
+    ): SaveFailure | null => {
+      const { errors, alerts } = validateDcaFormData(data);
+      const legAlerts: BotFormAlerts = { ...(alerts ?? {}) };
+      // Hedge tolerates a blank name (auto-named on mount / defaulted by the
+      // mapper), so don't block save on the regular "name required" rule.
+      delete (errors as Record<string, unknown>)['name'];
+      delete (legAlerts as Record<string, unknown>)['name'];
+      if (Object.keys(errors).length === 0) return null;
+      const first = firstAlert(legAlerts);
+      return {
+        context,
+        alerts: legAlerts,
+        firstMessage:
+          first?.message ??
+          String(Object.values(errors)[0] ?? 'Invalid leg settings.'),
+        firstNavId: first?.navId,
+      };
+    };
+    const validateShared = (): SaveFailure | null => {
+      const alerts: BotFormAlerts = {};
+      const toNum = (v: unknown): number | null => {
+        const n = parseFloat(String(v));
+        return Number.isFinite(n) ? n : null;
+      };
+      if (sharedSettings.useTp) {
+        const tp = toNum(sharedSettings.tpPerc);
+        if (tp === null || tp <= 0) {
+          alerts.tpPerc = [
+            {
+              variant: 'error',
+              message: 'Hedge take profit % must be greater than 0.',
+              navId: 'hedge-tp',
+            },
+          ];
+        }
+      }
+      if (sharedSettings.useSl) {
+        const sl = toNum(sharedSettings.slPerc);
+        if (sl === null || sl <= 0) {
+          alerts.slPerc = [
+            {
+              variant: 'error',
+              message: 'Hedge stop loss % must be greater than 0.',
+              navId: 'hedge-sl',
+            },
+          ];
+        }
+      }
+      const first = firstAlert(alerts);
+      if (!first) return null;
+      return {
+        context: 'hedge',
+        alerts,
+        firstMessage: first.message,
+        firstNavId: first.navId,
+      };
+    };
+
+    const longFailure = validateLeg('long', longData);
+    const shortFailure = validateLeg('short', shortData);
+    const sharedFailure = validateShared();
+    const primaryFailure = longFailure ?? shortFailure ?? sharedFailure;
+
+    if (primaryFailure) {
+      // Publish each context's alerts to the header button; empty clears a
+      // context that now validates.
+      const publishAlerts = () => {
+        dispatchHedgeLegAlerts({ leg: 'long', alerts: longFailure?.alerts ?? {} });
+        dispatchHedgeLegAlerts({
+          leg: 'short',
+          alerts: shortFailure?.alerts ?? {},
+        });
+        dispatchHedgeLegAlerts({
+          leg: 'hedge',
+          alerts: sharedFailure?.alerts ?? {},
+        });
+      };
+      publishAlerts();
+      // Route to the failing context so the field is reachable.
+      setHedgeMode('manual');
+      setActiveTab(primaryFailure.context);
+      const label =
+        primaryFailure.context === 'hedge'
+          ? 'Hedge settings'
+          : primaryFailure.context === 'long'
+            ? 'Long leg'
+            : 'Short leg';
+      toast.error(`${label}: ${primaryFailure.firstMessage}`);
+      // Re-publish + scroll after the tab switch settles (a cross-tab switch
+      // remounts the leg, whose mount-time publish would otherwise clear the
+      // save-time alerts we just set).
+      const navId = primaryFailure.firstNavId;
+      window.setTimeout(() => {
+        publishAlerts();
+        if (navId) navigateToSetting(navId);
+      }, 200);
+      return;
+    }
 
     setSaving(true);
     try {
@@ -1105,6 +1329,26 @@ export const HedgeBotEditLayout: React.FC = () => {
     [legBotType]
   );
 
+  // Footer "Backtest complete · View results →" chip (T1). Derived from the
+  // combined `hedgeResult` so the headline net %/win/deals reconcile with the
+  // Combined tab in the results modal (same fields the redesign viewModel
+  // reads). Cleared once the user dismisses it, until the next run mints a
+  // fresh resultId.
+  const backtestSummary = useMemo(() => {
+    const result = backtestRunner.result;
+    const id = backtestRunner.resultId;
+    if (!result || !id || id === dismissedResultId) return null;
+    const h = result.hedgeResult;
+    const wins = Number(h?.numerical?.profit ?? 0);
+    const losses = Number(h?.numerical?.loss ?? 0);
+    const winRate = wins + losses > 0 ? (wins / (wins + losses)) * 100 : 0;
+    return {
+      netPerc: Number(h?.financial?.netProfitTotalPerc ?? 0),
+      winRate,
+      deals: Number(h?.numerical?.all ?? 0),
+    };
+  }, [backtestRunner.result, backtestRunner.resultId, dismissedResultId]);
+
   const footerOverride = useMemo(
     () => ({
       onSubmit: handleSave,
@@ -1112,6 +1356,10 @@ export const HedgeBotEditLayout: React.FC = () => {
       submitDisabled: saving || !seedReady,
       submitIsPending: saving,
       backtestPending: backtestRunner.running,
+      // "Backtest complete" summary chip + its click handlers (T1).
+      backtestSummary,
+      onViewResults: () => setBacktestModalOpen(true),
+      onDismissResults: () => setDismissedResultId(backtestRunner.resultId),
       // Live progress for the footer's inline progress bar — matches
       // the DCA/Combo UX where the big Backtest button renders an
       // inline progress bar instead of opening the dialog.
@@ -1173,6 +1421,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       hedgeBot?.status,
       totalActiveDeals,
       backtestRunner,
+      backtestSummary,
       getBacktestSnapshot,
     ]
   );
@@ -1319,18 +1568,48 @@ export const HedgeBotEditLayout: React.FC = () => {
     []
   );
 
-  // Apply a Quick-mode preset: writes both leg seeds and mirrors the
-  // preset's shared TP/SL into sharedSettings.
+  // Apply a Quick-mode preset. Live-applies the preset's DCA to both mounted
+  // legs (LegPresetApplier, via the refs) instead of reseeding + remounting —
+  // so switching risk profiles actually reconfigures the legs (ordersCount /
+  // volumeScale / TP ladder) while preserving each leg's investment, without
+  // resetting the scroll or flashing the form. Also mirrors the preset's
+  // shared TP/SL into sharedSettings. The live edits flow into longQuickRef /
+  // shortQuickRef via LegPublisher, so save + the Quick→Manual carry-over
+  // (writeSeeds(null) on mode switch) both pick them up with no extra seeding.
   const applyHedgePreset = useCallback(
     (preset: HedgeQuickPreset) => {
-      writeSeeds(preset);
+      const nextDca = getHedgeLegDcaState(preset);
+      longPresetApplyRef.current?.(nextDca);
+      shortPresetApplyRef.current?.(nextDca);
       Object.entries(preset.shared).forEach(([key, value]) => {
         updateSharedSetting(key as keyof typeof preset.shared, value as never);
       });
       setSelectedHedgePreset(preset.id);
     },
-    [writeSeeds, updateSharedSetting]
+    [updateSharedSetting]
   );
+
+  // Auto-pick the balanced preset on first mount of a fresh Quick create,
+  // mirroring the regular Quick form defaulting to mid-term (P2). Only fires
+  // for a blank create in Quick mode with no explicit selection yet; the ref
+  // guards against re-applying after the user picks or edits away.
+  const didAutoPickPresetRef = useRef(false);
+  useEffect(() => {
+    if (didAutoPickPresetRef.current) return;
+    if (mode !== 'create' || botId) return;
+    if (hedgeMode !== 'quick') return;
+    if (selectedHedgePreset !== null) {
+      didAutoPickPresetRef.current = true;
+      return;
+    }
+    const balanced =
+      HEDGE_QUICK_PRESETS.find((p) => p.id === 'balanced') ??
+      HEDGE_QUICK_PRESETS[0];
+    if (!balanced) return;
+    didAutoPickPresetRef.current = true;
+    applyHedgePreset(balanced);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mode, botId, hedgeMode, selectedHedgePreset]);
 
   // Wrap onSubmit so any Quick-mode edits (per-leg exchange/pair from
   // the live refs, investment from local state) are folded into the
@@ -1634,6 +1913,8 @@ export const HedgeBotEditLayout: React.FC = () => {
           ? { initialFormData: longSeedRef.current }
           : {})}
         formDataRef={longQuickRef}
+        presetApplyRef={longPresetApplyRef}
+        onChartOrders={handleLegChartOrders}
         footerSlot={
           <HedgeQuickFooter footerOverride={quickFooterOverrideWithMenu} />
         }
@@ -1648,6 +1929,8 @@ export const HedgeBotEditLayout: React.FC = () => {
             ? { initialFormData: shortSeedRef.current }
             : {})}
           formDataRef={shortQuickRef}
+          presetApplyRef={shortPresetApplyRef}
+          onChartOrders={handleLegChartOrders}
         >
           {/* Short leg's investment (base), inside the short leg's context. */}
           <HedgeQuickInvestment />
@@ -1664,7 +1947,11 @@ export const HedgeBotEditLayout: React.FC = () => {
           <div
             role="radiogroup"
             aria-label="Hedge risk profile"
-            className="grid grid-cols-3 gap-xs"
+            // Auto-fit so the three cards sit side-by-side when the form panel
+            // is wide but wrap to two / one column when it's narrow (the panel
+            // width is independent of the viewport, so viewport breakpoints
+            // don't help here). Keeps the labels from being clipped.
+            className="grid gap-xs grid-cols-[repeat(auto-fit,minmax(8.5rem,1fr))]"
           >
             {HEDGE_QUICK_PRESETS.map((preset) => {
               const isSelected = preset.id === selectedHedgePreset;
@@ -1705,14 +1992,19 @@ export const HedgeBotEditLayout: React.FC = () => {
     <div className="flex h-full flex-col p-1">
       {/* Floating header matches the DCA bot form header style. */}
       <div className="mb-3 mx-1 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="flex items-center gap-2">
+        <div ref={headerRef} className="flex items-center gap-2">
           <div className="flex flex-1 min-w-0 items-center gap-1 px-1">
             <h2 className="text-sm font-semibold">
               {hedgeMode === 'quick' ? 'Quick Setup' : 'Hedge bot'}
             </h2>
+            {/* Hedge-level validation alerts for the active context (F8). */}
+            <HedgeHeaderAlertButton
+              activeContext={hedgeMode === 'quick' ? 'long' : activeTab}
+            />
           </div>
           <QuickModeToggle
             value={hedgeMode}
+            compact={compactToggle}
             onChange={(next) => {
               // When leaving Quick mode, fold any local edits (exchange,
               // pair, investment) into the seed refs so the legs mount
@@ -1755,13 +2047,21 @@ export const HedgeBotEditLayout: React.FC = () => {
                 {hedgeSharedContent}
               </HedgeFooterShell>
             ) : !seedReady ? (
-              <div className="px-md py-lg text-sm text-muted-foreground">
-                {loadError
-                  ? `Failed to load hedge bot: ${loadError.message}`
-                  : isLoadingHedgeBot
-                    ? 'Loading hedge bot…'
-                    : 'Preparing form…'}
-              </div>
+              loadError ? (
+                <div className="px-md py-lg text-sm text-muted-foreground">
+                  {`Failed to load hedge bot: ${loadError.message}`}
+                </div>
+              ) : (
+                // Shaped loading skeleton (F2) — mirrors the regular
+                // BotWorkbench's seed-pending placeholder so the panel
+                // doesn't flash a bare text line while the leg seed loads.
+                <div className="flex h-full flex-col gap-md px-md py-lg">
+                  <div className="h-4 w-28 animate-pulse rounded bg-muted" />
+                  <div className="h-11 w-full animate-pulse rounded bg-muted" />
+                  <div className="h-11 w-full animate-pulse rounded bg-muted" />
+                  <div className="h-24 w-full animate-pulse rounded bg-muted" />
+                </div>
+              )
             ) : activeTab === 'long' ? (
               <BotFormWidget
                 key={longWidgetId}
@@ -1775,7 +2075,12 @@ export const HedgeBotEditLayout: React.FC = () => {
                 isNestedLeg
                 footerOverride={footerOverrideWithMenu}
                 initialBot={longLegBot}
-                innerSlot={<HedgeLegActiveChartPublisher leg="long" />}
+                innerSlot={
+                  <>
+                    <HedgeLegActiveChartPublisher leg="long" />
+                    <HedgeLegAlertPublisher leg="long" />
+                  </>
+                }
                 {...(longSeedRef.current
                   ? { initialFormData: longSeedRef.current }
                   : {})}
@@ -1793,7 +2098,12 @@ export const HedgeBotEditLayout: React.FC = () => {
                 isNestedLeg
                 footerOverride={footerOverrideWithMenu}
                 initialBot={shortLegBot}
-                innerSlot={<HedgeLegActiveChartPublisher leg="short" />}
+                innerSlot={
+                  <>
+                    <HedgeLegActiveChartPublisher leg="short" />
+                    <HedgeLegAlertPublisher leg="short" />
+                  </>
+                }
                 {...(shortSeedRef.current
                   ? { initialFormData: shortSeedRef.current }
                   : {})}
@@ -1812,7 +2122,16 @@ export const HedgeBotEditLayout: React.FC = () => {
   };
 
   const chartPanel: PanelContentConfig = {
-    content: <HedgeChartPanel />,
+    // Quick mode co-mounts both legs → feed the merged store so the chart
+    // draws both legs' orders. Manual mode mounts one leg → let BotChart read
+    // the shared singleton the active leg writes (existing behaviour).
+    content: (
+      <HedgeChartPanel
+        {...(hedgeMode === 'quick'
+          ? { ordersStore: mergedOrdersStoreRef.current ?? undefined }
+          : {})}
+      />
+    ),
     contentClassName: 'flex h-full flex-col',
     containerClassName: 'min-h-[360px]',
   };

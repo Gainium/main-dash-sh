@@ -25,9 +25,23 @@ import {
   useTradingPairsFromContext,
 } from '@/contexts/ExchangeDataContext';
 import { useHedgeBotForm } from '@/contexts/bots/form/HedgeBotFormProvider';
+import { ExampleOrdersStoreContext } from '@/contexts/bots/form/formStoreContexts';
+import type { ExampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import type { Symbols } from '@/types';
 
-export const HedgeChartPanel: React.FC = () => {
+export interface HedgeChartPanelProps {
+  /**
+   * A merged example-orders store fed by BOTH Quick legs (long + short). When
+   * provided, the chart draws both legs' base/safety/TP lines together (legacy
+   * `chartView === 'both'`). Omitted in Manual mode, where only the active leg
+   * is mounted and the shared singleton already reflects it.
+   */
+  ordersStore?: ExampleOrdersStore | undefined;
+}
+
+export const HedgeChartPanel: React.FC<HedgeChartPanelProps> = ({
+  ordersStore,
+}) => {
   const {
     botType,
     activeLegPair,
@@ -72,7 +86,7 @@ export const HedgeChartPanel: React.FC = () => {
   // unambiguously (it also derives `fallbackExchange` from `data.exchange`).
   const symbol = `${activeLegPair}@${exchange}`;
 
-  return (
+  const chart = (
     <BotChartPanel
       // Mode-stable, exchange-independent id so interval + display-options
       // persist across leg switches (mirrors regular bots' shared chart
@@ -92,6 +106,17 @@ export const HedgeChartPanel: React.FC = () => {
       availableSymbols={exchangeSymbols}
       onSymbolChange={(pair) => chartSymbolWriterRef.current?.(pair)}
     />
+  );
+
+  // In Quick mode, route BotChart's example-orders subscription to the merged
+  // store so it draws BOTH legs' orders. In Manual mode (no merged store),
+  // BotChart reads the shared singleton the active leg writes, as before.
+  return ordersStore ? (
+    <ExampleOrdersStoreContext.Provider value={ordersStore}>
+      {chart}
+    </ExampleOrdersStoreContext.Provider>
+  ) : (
+    chart
   );
 };
 

@@ -141,5 +141,24 @@ export function createExampleOrdersStore(): ExampleOrdersStore {
   return new ExampleOrdersStore();
 }
 
+/**
+ * A read-only "merged" store for the hedge chart. Its orders are pushed in
+ * from BOTH leg stores via `setOrders()` (so the chart draws long + short
+ * orders together, like legacy `chartView === 'both'`). It must NEVER
+ * recompute from its own context — BotChart still calls `setContext()` on the
+ * active store for the drag handler / latest price, which would otherwise
+ * clobber the merged set with an empty recompute. Overriding `updateOrders`
+ * to a no-op keeps the merged orders authoritative.
+ */
+class MergedExampleOrdersStore extends ExampleOrdersStore {
+  override async updateOrders(): Promise<void> {
+    /* no-op: merged orders come from setOrders(), never from context */
+  }
+}
+
+export function createMergedExampleOrdersStore(): ExampleOrdersStore {
+  return new MergedExampleOrdersStore();
+}
+
 /** Default shared instance — the historical module global. */
 export const exampleOrdersStore = createExampleOrdersStore();
