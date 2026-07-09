@@ -5,7 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.30.11] - 2026-07-09
+## [2.30.12] - 2026-07-09
+
+### Fixed
+
+- Data tables (e.g. the Trading page's bot/trade toolbar): the toolbar button row no longer re-renders on every live price/stats update. The table-preferences state was being rebuilt on every render (fresh default column-visibility/pinned-column objects fed in from the props normalizer), which churned the toolbar's button configs and re-rendered the responsive button row ~26×/second under live data — wasteful work that could push slower devices toward an out-of-memory crash. Default column-visibility and pinned-column inputs are now stable, the bulk-action list depends on a stable handler, and the column dropdown reads a stable table reference, so the toolbar stays idle while data streams.
+
+
 
 ### Fixed
 

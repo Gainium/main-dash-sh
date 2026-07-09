@@ -1206,6 +1206,29 @@ function ToolbarButtonRow<TData>({
   onResetTable,
   onLayoutMetrics,
 }: ToolbarButtonRowProps<TData>) {
+  // Defensive: don't let `table` identity drive the buttonConfigs memo. The
+  // selectedRows memo below documents that react-table can hand back a fresh
+  // `table` object across renders (it caused a React #185 loop there); listing
+  // `table` as a buttonConfigs dep would rebuild the whole button array whenever
+  // that happens, feeding ResponsiveButtonRow (memoised) a new `buttons`
+  // reference and re-rendering the toolbar on parent churn. Same fix as
+  // selectedRows: read `table` via a ref, and depend only on a stable signature
+  // of what the column dropdown actually renders (column id / visibility /
+  // hideability), so the array recomputes only when the columns or their
+  // visibility genuinely change.
+  const tableRef = useRef(table);
+  tableRef.current = table;
+  const columnMenuSignature =
+    enableColumnVisibility && viewMode === 'table'
+      ? table
+          .getAllColumns()
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          .map((c: any) =>
+            `${c.id}:${c.getIsVisible() ? 1 : 0}:${c.getCanHide() ? 1 : 0}`
+          )
+          .join('|')
+      : '';
+
   // Build button configs for ResponsiveButtonRow
   const buttonConfigs = useMemo((): ResponsiveButtonConfig[] => {
     const configs: ResponsiveButtonConfig[] = [];
@@ -1361,7 +1384,7 @@ function ToolbarButtonRow<TData>({
               align="end"
               className="w-[150px] max-h-[400px] overflow-y-auto"
             >
-              {table
+              {tableRef.current
                 .getAllColumns()
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .filter((column: any) => column.getCanHide())
@@ -1408,7 +1431,7 @@ function ToolbarButtonRow<TData>({
               align="end"
               className="w-[150px] max-h-[400px] overflow-y-auto"
             >
-              {table
+              {tableRef.current
                 .getAllColumns()
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 .filter((column: any) => column.getCanHide())
@@ -1688,6 +1711,11 @@ function ToolbarButtonRow<TData>({
     }
 
     return configs;
+    // `columnMenuSignature` stands in for the fresh-every-render `table` object:
+    // it is not read in the body (the dropdown reads `tableRef.current`) but is
+    // listed so the memo recomputes exactly when the column set / visibility
+    // changes. exhaustive-deps would otherwise flag it as an unnecessary dep.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     enableColumnFilters,
     enableColumnResizing,
@@ -1703,7 +1731,7 @@ function ToolbarButtonRow<TData>({
     setColumnFilters,
     onShowQuickFiltersChange,
     setViewMode,
-    table,
+    columnMenuSignature,
     firstToolbarActions,
     firstToolbarActionsCompact,
     firstToolbarActionsOverflow,
@@ -2004,6 +2032,34 @@ function DataTableComponent<TData, TValue>(
 
   // Use the provided defaultColumnVisibility prop
 
+  // The props-normalization memo above lists `[props]` as its only dependency,
+  // and `props` is a fresh object every render — so `defaultColumnVisibility`
+  // and `defaultPinnedColumns` are rebuilt as new `{}` / `{ left, right }`
+  // literals on every render. Passed straight into useTablePreferences, those
+  // fresh objects made its entire `result` (every persisted value AND setter)
+  // recompute each render, which churned the toolbar's button-config array and
+  // re-rendered the memoised ResponsiveButtonRow ~26x/s under live bot-stats
+  // updates (RenderLoopTripwire on /trading — worst on mobile, where the
+  // `isMobile` branch below also allocates a fresh object). Pin both args to
+  // their content so the preferences result stays referentially stable across
+  // parent churn.
+  const defaultColumnVisibilityKey = JSON.stringify(
+    defaultColumnVisibility ?? {}
+  );
+  const stableDefaultColumnVisibility = useMemo(
+    () => defaultColumnVisibility ?? {},
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [defaultColumnVisibilityKey]
+  );
+  const pinnedColumnsArg = useMemo(
+    () =>
+      isMobile
+        ? { left: [], right: [] }
+        : (defaultPinnedColumns ?? { left: [], right: [] }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [isMobile, JSON.stringify(defaultPinnedColumns ?? { left: [], right: [] })]
+  );
+
   // Get persisted preferences from Zustand store
   const {
     columnOrder,
@@ -2028,10 +2084,10 @@ function DataTableComponent<TData, TValue>(
   } = useTablePreferences(
     tableId,
     defaultColumnOrder,
-    defaultColumnVisibility,
+    stableDefaultColumnVisibility,
     initialPageSize,
     defaultView,
-    isMobile ? { left: [], right: [] } : defaultPinnedColumns
+    pinnedColumnsArg
   );
 
   // On mobile, never pin any columns regardless of persisted preferences
