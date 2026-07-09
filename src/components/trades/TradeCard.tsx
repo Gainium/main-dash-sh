@@ -948,22 +948,26 @@ const EnhancedCard = React.memo(
               'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover/card:pointer-events-auto sm:group-hover/card:opacity-100 sm:group-hover/card:translate-x-0 sm:group-focus-within/card:pointer-events-auto sm:group-focus-within/card:opacity-100 sm:group-focus-within/card:translate-x-0'
             )}
           >
-            {trade.botId && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  window.open(
-                    buildBotViewRoute(botTypeForChip, trade.botId),
-                    '_blank'
-                  );
-                }}
-                aria-label="Open bot in new tab"
-                className="shrink-0 p-1 rounded hover:bg-muted/60"
-                title="Open bot in new tab"
-              >
-                <ExternalLink className="w-4 h-4 text-muted-foreground" />
-              </button>
-            )}
+            {/* Terminal deals live in the terminal — they have no bot page
+                to link to (the route would resolve to a broken DCA view). */}
+            {trade.botId &&
+              botTypeForChip !== BotTypesEnum.terminal &&
+              !trade.terminal && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.open(
+                      buildBotViewRoute(botTypeForChip, trade.botId),
+                      '_blank'
+                    );
+                  }}
+                  aria-label="Open bot in new tab"
+                  className="shrink-0 p-1 rounded hover:bg-muted/60"
+                  title="Open bot in new tab"
+                >
+                  <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                </button>
+              )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
@@ -1569,21 +1573,25 @@ const SimpleCard = React.memo(
             {trade.botName && (
               <div className="flex items-center gap-xs text-sm font-medium text-muted-foreground truncate">
                 {trade.botName}
-                {trade.botId && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      window.open(
-                        buildBotViewRoute(botTypeForChip, trade.botId),
-                        '_blank'
-                      );
-                    }}
-                    className="p-1 rounded hover:bg-muted/30"
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="w-4 h-4 text-muted-foreground" />
-                  </button>
-                )}
+                {/* No bot-page link for terminal deals — they stay in the
+                    terminal. */}
+                {trade.botId &&
+                  botTypeForChip !== BotTypesEnum.terminal &&
+                  !trade.terminal && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        window.open(
+                          buildBotViewRoute(botTypeForChip, trade.botId),
+                          '_blank'
+                        );
+                      }}
+                      className="p-1 rounded hover:bg-muted/30"
+                      title="Open in new tab"
+                    >
+                      <ExternalLink className="w-4 h-4 text-muted-foreground" />
+                    </button>
+                  )}
               </div>
             )}
           </div>

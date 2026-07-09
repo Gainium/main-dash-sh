@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.16] - 2026-07-09
+
+### Fixed
+
+- Terminal deals no longer show an "open bot" link. Terminal deals live in the terminal and have no bot page, so the external-link buttons on their cards and rows (and the edit-in-bot navigation) have been removed for them.
+
 ## [2.30.15] - 2026-07-09
 
 ### Changed

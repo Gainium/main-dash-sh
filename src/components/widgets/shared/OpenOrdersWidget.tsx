@@ -204,6 +204,8 @@ export interface OpenTrade {
   dealId?: string;
   active: boolean;
   type: 'DCA' | 'Combo' | 'Hedge DCA' | 'Hedge Combo' | 'Grid' | 'Terminal';
+  /** True for terminal deals — they have no bot page, so bot links are hidden */
+  terminal?: boolean;
   symbol: string;
   baseAsset: string;
   quoteAsset: string;
@@ -1168,6 +1170,17 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         return;
       }
 
+      // Terminal deals stay in the terminal — never send the user to a bot
+      // page for them (the route would resolve to a broken DCA view).
+      if (
+        trade.terminal ||
+        mapOpenTradeTypeToBotType(trade.type, botTypeOverride) ===
+          BotTypesEnum.terminal
+      ) {
+        toast.error('Terminal deals have no bot page');
+        return;
+      }
+
       const botTypeForRoute = mapOpenTradeTypeToBotType(
         trade.type,
         botTypeOverride
@@ -1423,6 +1436,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         id: deal._id,
         botId: deal.botId, // Add explicit botId
         type: botTypeOverride || getBotType(deal.strategy),
+        // This transform only runs on the widget's internal fetch, which is
+        // always `terminal: true` — so every deal here is a terminal deal.
+        terminal: true,
         symbol,
         strategy: deal.strategy,
         status: deal.status,
@@ -2095,7 +2111,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               >
                 {botName}
               </div>
-              {botId && (
+              {/* Terminal deals stay in the terminal — no bot page to open */}
+              {botId && !row.original.terminal && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();

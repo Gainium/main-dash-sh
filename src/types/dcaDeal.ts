@@ -30,6 +30,8 @@ export type TransformedTrade = {
   active: boolean;
   id: string;
   type: 'DCA' | 'Combo' | 'Hedge DCA' | 'Hedge Combo' | 'Grid' | 'Terminal';
+  /** True for terminal deals — they have no bot page, so bot links are hidden */
+  terminal?: boolean;
   symbol:
     | string
     | {
@@ -382,6 +384,7 @@ export const transformDealToTrade = (
     id: deal._id,
     active: isActiveDeal,
     type: dealType,
+    terminal: dealType === 'Terminal',
     symbol: deal.symbol,
     strategy: deal.strategy || '',
     status: String(deal.status),
