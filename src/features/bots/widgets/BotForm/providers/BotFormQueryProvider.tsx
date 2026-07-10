@@ -25,7 +25,11 @@ import type { Asset, CoinListItem, ExchangeInUser } from '@/types';
 import { OKXSource } from '@/types/exchange.types';
 
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
-import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import {
+  getDefaultSeedPair,
+  isCoinmExchange,
+  isFuturesExchange,
+} from '@/utils/exchangeUtils';
 
 export interface BotFormQueryProviderProps {
   mode: BotFormMode;
@@ -234,6 +238,37 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     }
     setShouldCheckPairs(true);
   }, [pairMetadata, updateFormData, formData.pairMetadata]);
+
+  // Before the aggregate pairs list loads, seed an exchange-appropriate default
+  // pair so the chart never starts on the generic `BTCUSDT` when that pair is
+  // invalid for the current exchange (e.g. Kraken futures → BTC/USD only). This
+  // closes the blank-chart window that opens when `getAllPairs` is slow: the
+  // filter/correction below can't run while `pairMetadata.byPair` is empty, so
+  // without this the form would ask the chart for `BTC-USDT` on Kraken (which
+  // the candle API rejects) until the query lands. Only touches an untouched
+  // generic default in create mode; the correction below still refines it once
+  // the real pair list arrives.
+  const seededProviderRef = useRef<string | null>(null);
+  useEffect(() => {
+    const provider = currentExchange?.provider;
+    if (!provider || mode !== 'create') return;
+    // Once the real pair list is available the correction below is authoritative.
+    if (Object.keys(pairMetadata.byPair).length > 0) return;
+    const currentPairs = [formData.pair].flat().filter(Boolean);
+    // Never override a real selection — only the untouched generic seed.
+    if (currentPairs.length !== 1 || currentPairs[0] !== 'BTCUSDT') return;
+    const seed = getDefaultSeedPair(provider);
+    if (seed === 'BTCUSDT') return;
+    if (seededProviderRef.current === provider) return;
+    seededProviderRef.current = provider;
+    updateFormData('pair', [seed]);
+  }, [
+    currentExchange?.provider,
+    mode,
+    pairMetadata.byPair,
+    formData.pair,
+    updateFormData,
+  ]);
 
   useEffect(() => {
     if (shouldCheckPairs && Object.keys(pairMetadata.byPair).length > 0) {

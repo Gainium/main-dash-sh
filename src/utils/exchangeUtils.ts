@@ -79,6 +79,34 @@ export const isCoinmExchange = (
   return normalized.includes('coinm') || normalized.includes('inverse');
 };
 
+// The generic bot-form seed pair is `BTCUSDT` (SHARED_FORM_DEFAULTS), which is
+// invalid on exchanges that don't quote BTC in USDT. On such an exchange a
+// freshly-opened form would ask the chart for an unsupported pair — e.g.
+// `toExchangeCandleSymbol` turns `BTCUSDT` into `BTC-USDT` on Kraken futures,
+// which the candle API rejects (`NOTOK`) — leaving the chart blank until the
+// aggregate `getAllPairs` query lands and the pair auto-corrects. That window
+// can be long (or never close) when the pairs fetch is slow. Return an
+// exchange-appropriate BTC default so the chart never starts on an invalid
+// pair; the reactive pair-metadata correction still refines it once the real
+// pair list loads, so an imperfect guess is at worst prior behavior.
+//   • Kraken futures (usdm/linear) is USD-margined → `BTCUSD`
+//   • Hyperliquid (spot + linear) quotes in USDC   → `BTCUSDC`
+//   • Everyone else keeps the USDT default (Binance/Bybit/OKX-linear/…).
+export const getDefaultSeedPair = (
+  exchange?: ExchangeEnum | string | null
+): string => {
+  const normalized = normalizeExchangeId(exchange);
+  if (!normalized) return 'BTCUSDT';
+  if (normalized.includes('hyperliquid')) return 'BTCUSDC';
+  if (
+    normalized.includes('kraken') &&
+    (normalized.includes('usdm') || normalized.includes('linear'))
+  ) {
+    return 'BTCUSD';
+  }
+  return 'BTCUSDT';
+};
+
 // Hyperliquid spot bridges a few assets under synthetic / Unit symbols that
 // differ from the symbol the app shows in the trading pair. The clearest case:
 // the BTC spot market trades as the "BTC-USDC" pair, but the wallet holds the

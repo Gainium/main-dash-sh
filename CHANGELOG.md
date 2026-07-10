@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.25] - 2026-07-10
+
+### Fixed
+
+- Bot-creation charts on USD/USDC-quoted exchanges (Kraken futures, Hyperliquid) now render historical candles immediately instead of staying blank when the trading-pairs list is slow to load. The bot form seeds an exchange-appropriate default pair up front (BTC/USD for Kraken futures, BTC/USDC for Hyperliquid) rather than the generic BTC/USDT, which those exchanges don't list, so the chart no longer requests an unsupported pair while pairs load.
+
 ## [2.30.24] - 2026-07-10
 
 ### Fixed
