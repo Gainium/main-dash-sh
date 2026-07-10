@@ -179,6 +179,11 @@ export const transformDealToTrade = (
     `${deal.settings.coinm}` !== 'null'
       ? deal.settings.coinm
       : isCoinmExchange(deal.exchange ?? ExchangeEnum.binance);
+  // Leverage/marginType drive the notional-vs-cost split for futures deals;
+  // getLeverage() falls back to 1x (collapsing Notional onto Cost) unless both
+  // are supplied. Applies to every futures bot type (DCA, Combo, Hedge Combo).
+  const leverage = deal.settings.leverage;
+  const marginType = deal.settings.marginType;
   // Usage is tracked on the quote side for LONG spot / USD-M futures and on the
   // BASE side for SHORT spot / COIN-M futures. Reading only the quote side made
   // short combos (and coin-m deals) report 0% usage.
@@ -440,6 +445,8 @@ export const transformDealToTrade = (
       },
       futures,
       coinm,
+      leverage,
+      marginType,
     }),
     value: calculateDealValue({
       strategy: deal.strategy,
@@ -453,6 +460,8 @@ export const transformDealToTrade = (
       },
       futures,
       coinm,
+      leverage,
+      marginType,
     }),
     size: calculateDealSize({
       strategy: deal.strategy,
@@ -468,6 +477,8 @@ export const transformDealToTrade = (
       initialBalances: deal.initialBalances,
       futures,
       coinm,
+      leverage,
+      marginType,
     }),
     usagePercentage,
     outerGaugePercent: usagePercentage,

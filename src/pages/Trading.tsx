@@ -1084,6 +1084,8 @@ const Trading: React.FC = () => {
       initialBalances: trade.initialBalance,
       futures: trade.futures,
       coinm: trade.coinm,
+      leverage: trade.settings?.leverage,
+      marginType: trade.settings?.marginType,
     };
 
     const cost = calculateDealCost(metricsInput);

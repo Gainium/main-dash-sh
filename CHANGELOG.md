@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.19] - 2026-07-10
+
+### Fixed
+
+- Notional Value on leveraged futures deals now shows Cost × leverage instead of collapsing onto the Cost figure. Affected the open-orders table, deal cards, and the Trading page for every futures bot type (DCA, Combo, and Hedge Combo).
+
 ## [2.30.18] - 2026-07-10
 
 ### Changed

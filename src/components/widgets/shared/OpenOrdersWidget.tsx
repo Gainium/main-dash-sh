@@ -1357,6 +1357,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         initialBalances: deal.initialBalances,
         futures: isFutures,
         coinm: isCoinm,
+        leverage: deal.settings?.leverage,
+        marginType: deal.settings?.marginType,
       };
 
       const cost = calculateDealCost(metricsInput);
