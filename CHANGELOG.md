@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.24] - 2026-07-10
+
+### Fixed
+
+- Hedge bots (Quick mode): the Investment field now shows a cleanly rounded amount instead of a long floating-point tail (e.g. `600.07828125`).
+- Hedge Combo bots (Quick mode): the Investment field is editable again — it previously read the DCA leg's value while writes went to the combo leg, so it appeared frozen.
+
 ## [2.30.23] - 2026-07-10
 
 ### Fixed

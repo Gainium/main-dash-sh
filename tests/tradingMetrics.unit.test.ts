@@ -2,7 +2,6 @@ import { test, expect } from '@playwright/test';
 
 import {
   calculateDealCost,
-  calculateDealSize,
   calculateDealValue,
   type DealMetricsInput,
 } from '@/lib/utils/tradingMetrics';

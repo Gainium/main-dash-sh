@@ -384,6 +384,14 @@ export const HedgeQuickInvestment: React.FC = () => {
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
 
+  // A Hedge DCA leg stores its order sizing under `formData.dca`; a Hedge
+  // Combo leg stores it under `formData.combo` (COMBO_FORM_DEFAULTS spreads the
+  // same DCA fields). Read from whichever the leg actually uses so the figure
+  // isn't stale/frozen — updateFormData already routes writes to the right
+  // sub-object by botType.
+  const dcaState =
+    formData.type === BotTypesEnum.combo ? formData.combo : formData.dca;
+
   // Match resolveBaseOrderContext's denomination rules so the icon, unit
   // label, stored orderSizeType, and balance check all agree:
   //  - COIN-M futures settle in base (e.g. BTC)
@@ -400,10 +408,10 @@ export const HedgeQuickInvestment: React.FC = () => {
   // Keep the leg denominated in its natural side even if the user never
   // touches the field (so the saved bot + balance check use the right wallet).
   useEffect(() => {
-    if (formData.dca.orderSizeType !== unit) {
+    if (dcaState.orderSizeType !== unit) {
       updateFormData('orderSizeType' as Fields, unit);
     }
-  }, [formData.dca.orderSizeType, unit, updateFormData]);
+  }, [dcaState.orderSizeType, unit, updateFormData]);
 
   const tradingContext = useDcaTradingContext(formData);
   const { availableBalance, currencyLabel } = useMemo(() => {
@@ -453,7 +461,14 @@ export const HedgeQuickInvestment: React.FC = () => {
     return Math.min(8, Math.max(2, baseDec ?? 6));
   }, [unit, firstPair, formData.pairPrecisionMap]);
 
-  const investment = computeInvestmentFromDca(formData.dca);
+  const investment = computeInvestmentFromDca(dcaState);
+  // Distributing a total into per-order sizes rounds each order to `precision`,
+  // so recomputing the total reintroduces float residue (e.g. 600.07828125).
+  // Round the displayed figure to the same precision the field accepts.
+  const displayInvestment = useMemo(() => {
+    const factor = Math.pow(10, precision);
+    return Math.round(investment * factor) / factor;
+  }, [investment, precision]);
 
   // Exchange per-order minimum for this leg's pair(s), in the leg's unit.
   // Reuses the same order-guard the standalone Quick form uses so the
@@ -489,8 +504,8 @@ export const HedgeQuickInvestment: React.FC = () => {
       : null;
   const orderMinUnit = orderGuard?.unit ?? currencyLabel ?? '';
 
-  const baseOrderNum = Number(formData.dca.baseOrderSize ?? 0);
-  const orderSizeNum = Number(formData.dca.orderSize ?? 0);
+  const baseOrderNum = Number(dcaState.baseOrderSize ?? 0);
+  const orderSizeNum = Number(dcaState.orderSize ?? 0);
   const baseOrderBelowMin =
     orderMinimum !== null && baseOrderNum > 0 && baseOrderNum < orderMinimum;
   const safetyOrderBelowMin =
@@ -540,16 +555,16 @@ export const HedgeQuickInvestment: React.FC = () => {
   const minInvestment = useMemo(() => {
     if (orderMinimum === null) return null;
     const divisor = computeInvestmentDivisor(
-      formData.dca.ordersCount,
-      formData.dca.volumeScale
+      dcaState.ordersCount,
+      dcaState.volumeScale
     );
     const factor = Math.pow(10, precision);
     const min = Math.ceil(orderMinimum * divisor * factor) / factor;
     return min > 0 ? min : null;
   }, [
     orderMinimum,
-    formData.dca.ordersCount,
-    formData.dca.volumeScale,
+    dcaState.ordersCount,
+    dcaState.volumeScale,
     precision,
   ]);
 
@@ -559,7 +574,7 @@ export const HedgeQuickInvestment: React.FC = () => {
     const rounded = Math.round(safe * factor) / factor;
     const { baseOrderSize, orderSize } = distributeInvestmentToDca(
       rounded,
-      formData.dca,
+      dcaState,
       precision
     );
     updateFormData('baseOrderSize' as Fields, baseOrderSize);
@@ -569,7 +584,9 @@ export const HedgeQuickInvestment: React.FC = () => {
   // Cap the slider at the leg's available balance when we know it; before a
   // pair (and therefore balance) resolves, fall back to a usable range.
   const sliderMax =
-    availableBalance > 0 ? availableBalance : Math.max(100, investment);
+    availableBalance > 0
+      ? availableBalance
+      : Math.max(100, displayInvestment);
 
   return (
     <SettingsRow
@@ -584,7 +601,7 @@ export const HedgeQuickInvestment: React.FC = () => {
           inputMode="decimal"
           min={0}
           step={Math.pow(10, -precision)}
-          value={investment}
+          value={displayInvestment}
           onChange={(e) => setInvestment(Number(e.target.value))}
           placeholder="0.00"
           className="pl-[4.5rem]"
@@ -598,7 +615,7 @@ export const HedgeQuickInvestment: React.FC = () => {
           }
         />
         <Slider
-          value={Math.min(Math.max(0, investment), sliderMax)}
+          value={Math.min(Math.max(0, displayInvestment), sliderMax)}
           min={0}
           max={sliderMax}
           step={sliderMax > 0 ? sliderMax / 100 : 1}
