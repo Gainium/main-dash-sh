@@ -14,6 +14,7 @@ import {
 import { extractPairAssets, isTokenizedStockPair } from '@/utils/pairs';
 import { maybePrefetchHistory } from '@/utils/tradingView/historyPrefetcher';
 import {
+  abortActiveCandleFetch,
   setAvailableSymbols,
   setCurrentSymbol,
 } from '@/utils/tradingViewDatafeed';
@@ -654,6 +655,22 @@ const TradingViewChartComponent = forwardRef<
     }),
     [isChartReady]
   );
+
+  // Abort any in-flight shared-datafeed candle load the moment the requested
+  // symbol changes — BEFORE (and independently of) the chart-ready gate below.
+  // TradingView pins the chart to the current symbol until its pending getBars
+  // settles, so a hung request (notably Hyperliquid, whose candle endpoint can
+  // stall for the full 30s timeout) freezes an exchange/pair switch until it
+  // times out. The abort-on-next-getBars guard in the datafeed can't fire on
+  // its own because TV won't issue the next getBars while one is pending. This
+  // runs even when the widget is still on its initial "Loading chart…" state
+  // (isChartReady false), which is exactly when the first hung load happens.
+  // Custom datafeeds manage their own fetching, so leave them untouched.
+  useEffect(() => {
+    if (datafeed) return;
+    if (!symbol || typeof symbol !== 'string' || symbol.trim() === '') return;
+    abortActiveCandleFetch();
+  }, [symbol, datafeed]);
 
   // Effect to handle symbol changes
   useEffect(() => {

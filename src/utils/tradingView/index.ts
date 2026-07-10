@@ -3,6 +3,7 @@ export {
   createDatafeed,
   setAvailableSymbols,
   setCurrentSymbol,
+  abortActiveCandleFetch,
 } from './factory';
 export { ExchangeEnum } from '@/types';
 export type {

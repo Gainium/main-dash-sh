@@ -3,6 +3,7 @@ export {
   createDatafeed,
   setAvailableSymbols,
   setCurrentSymbol,
+  abortActiveCandleFetch,
   ExchangeEnum,
 } from './tradingView';
 

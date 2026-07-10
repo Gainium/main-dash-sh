@@ -24,6 +24,9 @@ type GetCandlesInput = {
   index?: number | undefined;
   total?: number | undefined;
   handleErrorByCandles?: ((msg: string) => void) | undefined;
+  // Aborted when the user switches exchange/pair while a slow load is still
+  // in flight, so we stop paginating and cancel the pending fetch.
+  signal?: AbortSignal | undefined;
 };
 
 class Candles {
@@ -201,6 +204,7 @@ class Candles {
     index,
     total,
     handleErrorByCandles,
+    signal,
   }: GetCandlesInput): Promise<Bar[]> {
     try {
       const local = await this.getLocal(symbol, interval);
@@ -319,6 +323,9 @@ class Candles {
       // would be noise. Errors are logged at the caller.
 
       for (const int of missed) {
+        if (this._stop || signal?.aborted) {
+          return [];
+        }
         const result = await this.getCandlesFromExchange({
           symbol,
           period: {
@@ -332,6 +339,7 @@ class Candles {
           index,
           total,
           handleErrorByCandles,
+          ...(signal ? { signal } : {}),
         });
         for (const d of result) {
           if (!requiredIndex.has(d.time)) {
@@ -340,7 +348,7 @@ class Candles {
             requiredIndex.add(d.time);
           }
         }
-        if (this._stop) {
+        if (this._stop || signal?.aborted) {
           return [];
         }
       }
@@ -398,6 +406,7 @@ class Candles {
     index,
     total,
     handleErrorByCandles,
+    signal,
   }: Omit<GetCandlesInput, 'baseAsset' | 'quoteAsset'>): Promise<Bar[]> {
     try {
       const requestStep =
@@ -444,6 +453,10 @@ class Candles {
         if (this._stop) {
           return [];
         }
+        // Selection changed mid-load — stop and hand back what we have.
+        if (signal?.aborted) {
+          return data;
+        }
 
         actualIterations++;
         if (actualIterations > maxIterations) {
@@ -482,6 +495,7 @@ class Candles {
             type: interval, // Use raw interval value (e.g., '1h') instead of display string (e.g., '1 hour')
             exchange: this.exchangeName,
             limit: requestStep,
+            ...(signal ? { signal } : {}),
           });
 
           // Convert CandleResponse[] to Bar[]

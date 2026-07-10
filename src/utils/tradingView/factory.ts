@@ -174,6 +174,35 @@ export const mapStringToExchange = (
 let availableSymbols: Symbol[] = [];
 let currentSymbol: Symbol | undefined;
 
+// In-flight candle-load cancellation. TradingView keeps the chart on the
+// current symbol until its pending getBars settles, so a hung request (e.g.
+// Hyperliquid, whose candle endpoint can hang for the full 30s timeout on
+// some pairs) freezes the chart even after the user picks another exchange.
+// When a getBars arrives for a different symbol we abort the previous load so
+// it settles immediately and the newly-selected chart can render.
+let activeFetchKey: string | null = null;
+let activeFetchController: AbortController | null = null;
+
+// Collapse TradingView's own symbol normalization (case, and `:` ↔ `_` for
+// HIP-3 builder-perp tickers) so re-resolving the SAME selection doesn't look
+// like a change and abort a legitimate in-flight load.
+const fetchKeyForSymbol = (symbolInfo: LibrarySymbolInfo): string =>
+  `${symbolInfo.name}@${symbolInfo.exchange}`.replace(/:/g, '_').toLowerCase();
+
+// Proactively abort any in-flight shared-datafeed candle load. Called when the
+// chart symbol changes at the React level (exchange/pair switch) so a hung
+// request — notably Hyperliquid, whose candle endpoint can hang for the full
+// 30s timeout — doesn't keep the chart frozen on the old symbol. TradingView
+// won't issue getBars for the newly-selected symbol until the pending one
+// settles, so the abort-on-next-getBars guard in getBars() can never fire on
+// its own; the React layer has to kick the abort here.
+export const abortActiveCandleFetch = (): void => {
+  if (activeFetchController && !activeFetchController.signal.aborted) {
+    activeFetchController.abort();
+  }
+  activeFetchKey = null;
+};
+
 // Export functions to set up the datafeed
 export const setAvailableSymbols = (symbols: Symbol[]): void => {
   availableSymbols = symbols;
@@ -573,13 +602,39 @@ export const createDatafeed = (): IBasicDataFeed => ({
         return;
       }
 
+      // Cancel any in-flight load for a different symbol/exchange. Requests
+      // for the SAME selection (initial load + scroll-back history) share the
+      // controller and don't abort each other.
+      const fetchKey = fetchKeyForSymbol(symbolInfo);
+      if (activeFetchKey !== null && activeFetchKey !== fetchKey) {
+        activeFetchController?.abort();
+      }
+      if (
+        !activeFetchController ||
+        activeFetchController.signal.aborted ||
+        activeFetchKey !== fetchKey
+      ) {
+        activeFetchController = new AbortController();
+      }
+      activeFetchKey = fetchKey;
+      const signal = activeFetchController.signal;
+
       const handler = await getExchangeHandler(exchange);
       const bars = await getCandles(
         symbolInfo,
         resolution,
         periodParams,
-        handler
+        handler,
+        signal
       );
+
+      // Selection changed while we were loading — drop this stale result so
+      // TradingView doesn't cache a no-data/partial response for the old
+      // symbol (it already discarded this request's callback on the switch).
+      if (signal.aborted) {
+        onError('aborted');
+        return;
+      }
 
       logger.info('[ScrollLoadBars] getBars result (Exchange)', {
         barsCount: bars.length,

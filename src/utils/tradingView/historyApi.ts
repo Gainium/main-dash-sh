@@ -83,6 +83,7 @@ export const requestCandles = async ({
   type,
   exchange,
   limit,
+  signal,
 }: {
   symbol: string;
   endAt: string;
@@ -90,7 +91,12 @@ export const requestCandles = async ({
   type: string;
   exchange: ExchangeEnum;
   limit?: number;
+  signal?: AbortSignal | undefined;
 }): Promise<CandleResponse[]> => {
+  // Selection already changed before this request even started — don't fire.
+  if (signal?.aborted) {
+    return [];
+  }
   try {
     const effectiveExchange = exchange;
     const url = new URL(`${import.meta.env.VITE_API_ENDPOINT}/candles`);
@@ -117,6 +123,16 @@ export const requestCandles = async ({
     // Create an AbortController for timeout
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+
+    // Bridge the caller's abort signal (fired when the user switches
+    // exchange/pair) onto our controller so a slow, still-pending request —
+    // notably Hyperliquid, whose candle endpoint can hang for the full 30s
+    // on some pairs — is cancelled the instant the selection changes,
+    // instead of freezing the chart until the timeout fires.
+    const onExternalAbort = () => controller.abort();
+    if (signal) {
+      signal.addEventListener('abort', onExternalAbort, { once: true });
+    }
 
     try {
       const response = await fetch(url.toString(), {
@@ -158,6 +174,15 @@ export const requestCandles = async ({
       clearTimeout(timeoutId);
 
       if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        // Caller-initiated cancellation (selection changed) vs. the 30s
+        // timeout. The former is expected and quiet; the latter is an error.
+        if (signal?.aborted) {
+          logger.debugCategory(
+            'tradingview:api:request',
+            '[RequestCandles] Aborted — selection changed before response'
+          );
+          return [];
+        }
         logger.errorCategory(
           'tradingview',
           'Error fetching candles: Request timeout after 30 seconds'
@@ -166,6 +191,10 @@ export const requestCandles = async ({
       }
 
       throw fetchError;
+    } finally {
+      if (signal) {
+        signal.removeEventListener('abort', onExternalAbort);
+      }
     }
   } catch (error) {
     logger.errorCategory(
@@ -251,8 +280,12 @@ export const getCandles = async (
   symbolInfo: LibrarySymbolInfo,
   resolution: ResolutionString,
   periodParams: PeriodParams,
-  exchangeHandler: ExchangeHandler
+  exchangeHandler: ExchangeHandler,
+  signal?: AbortSignal
 ): Promise<Bar[]> => {
+  if (signal?.aborted) {
+    return [];
+  }
   const { config, paginationLogic } = exchangeHandler;
   const exchange =
     mapStringToExchange(symbolInfo?.exchange.toLowerCase()) ||
@@ -422,6 +455,7 @@ export const getCandles = async (
           period: periodParams,
           baseAsset: baseAsset || symbolInfo.name,
           quoteAsset: quoteAsset || 'USDT',
+          ...(signal ? { signal } : {}),
         });
 
         // Ensure TradingView only sees contiguous data on the initial load.
@@ -480,6 +514,7 @@ export const getCandles = async (
     endAt: (currentParams.to * 1000).toString(),
     exchange: cleanExchange,
     limit: config.maxLimit,
+    ...(signal ? { signal } : {}),
   });
 
   if (initialCandles.length === 0) {
@@ -500,6 +535,9 @@ export const getCandles = async (
     allBars.length < config.maxLimit &&
     paginationLogic.shouldFetchMore(allBars, periodParams, limit)
   ) {
+    if (signal?.aborted) {
+      break; // Selection changed — stop paginating.
+    }
     i = i + 1;
     limit = config.maxLimit * i;
     const nextParams = paginationLogic.getNextParams(allBars, currentParams);
@@ -515,6 +553,7 @@ export const getCandles = async (
       endAt: (nextParams.to * 1000).toString(),
       exchange: cleanExchange,
       limit: config.maxLimit,
+      ...(signal ? { signal } : {}),
     });
 
     if (nextCandles.length === 0) {
