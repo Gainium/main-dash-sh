@@ -31,6 +31,13 @@ export interface LibrarySymbolInfo {
   has_weekly_and_monthly: boolean;
   data_status: string;
   format: string;
+  // Exchange-native symbol identifiers threaded from the resolved `Symbol`
+  // (see `Symbol.code` / `Symbol.wsCode`). The WS streamers need these for
+  // markets whose realtime feed keys on a non-`pair` id — Kraken spot's
+  // `BASE/QUOTE`, Kraken/Hyperliquid futures' `PI_*`/`PF_*` product ids.
+  // `resolveSymbol` copies them across; absent for dynamically-built symbols.
+  code?: string;
+  wsCode?: string;
 }
 
 export interface DatafeedConfiguration {

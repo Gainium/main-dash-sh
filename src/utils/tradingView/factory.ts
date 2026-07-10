@@ -562,6 +562,12 @@ export const createDatafeed = (): IBasicDataFeed => ({
           has_weekly_and_monthly: true,
           data_status: 'streaming',
           format: 'price',
+          // Thread the exchange-native ids so the WS streamers can key their
+          // realtime feed on a non-`pair` form. Kraken/Hyperliquid futures
+          // need `code` (the `PI_*`/`PF_*` product id) — without it the
+          // futures streamer no-ops and logs "product id missing".
+          ...(symbol.code ? { code: symbol.code } : {}),
+          ...(symbol.wsCode ? { wsCode: symbol.wsCode } : {}),
         };
 
         setTimeout(() => onResolve(symbolInfo), 0);
@@ -647,12 +653,6 @@ export const createDatafeed = (): IBasicDataFeed => ({
             : null,
       });
 
-      console.warn('[DEBUG_GETBARS] getBars result', JSON.stringify({
-        barsCount: bars.length,
-        noData: bars.length === 0,
-        oldestBar: bars.length > 0 ? new Date(bars[0].time).toISOString() : null,
-        newestBar: bars.length > 0 ? new Date(bars[bars.length - 1].time).toISOString() : null,
-      }));
       onResult(bars, { noData: bars.length === 0 });
     } catch (error) {
       console.error('Error in getBars:', error);

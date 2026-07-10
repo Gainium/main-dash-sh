@@ -125,10 +125,11 @@ const isFuturesExchange = (exchange: string): boolean =>
 // the caller will skip the subscribe in that case (rather than fire a
 // malformed request).
 const buildSpotSymbol = (symbolInfo: LibrarySymbolInfo): string | null => {
-  // LibrarySymbolInfo is a TV-shaped object that doesn't carry our
-  // `wsCode` field. The factory adds it onto a parallel `Symbol`
-  // structure — but here all we have is the resolved symbolInfo, so
-  // re-derive from `name` (the pair string).
+  // Prefer the backend-provided `wsCode` (already `BASE/QUOTE`), which
+  // `resolveSymbol` now threads onto `symbolInfo`. Fall back to deriving
+  // from `name` (the pair string) for symbols that lack it (e.g. the
+  // dynamically-built ones).
+  if (symbolInfo.wsCode?.includes('/')) return symbolInfo.wsCode;
   const pair = symbolInfo.name;
   if (pair.includes('/')) return pair;
   const { baseAsset, quoteAsset } = extractPairAssets(pair);
@@ -281,12 +282,10 @@ const subscribeFutures = async (
   listenerGuid: string
 ): Promise<void> => {
   // Futures needs the Kraken-native product id (PI_*, PF_*, FI_*).
-  // The factory copies `code` from the GraphQL `Symbol` onto
-  // `LibrarySymbolInfo` only if available — here we look on the info
-  // object's `name` as a last resort (better to no-op than to subscribe
-  // to the wrong product). If the user reports missing futures data
-  // this is the first place to thread a `productId` through.
-  const productId = (symbolInfo as { code?: string }).code ?? null;
+  // `resolveSymbol` copies `code` from the GraphQL `Symbol` onto
+  // `LibrarySymbolInfo`. If it's still missing the backend didn't populate
+  // `code` for this pair — no-op rather than subscribe to the wrong product.
+  const productId = symbolInfo.code ?? null;
   if (!productId) {
     console.error(
       '[Kraken] Futures product id missing for symbol; backend must populate `code`:',

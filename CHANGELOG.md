@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.23] - 2026-07-10
+
+### Fixed
+
+- Kraken and Hyperliquid futures charts now receive live candle updates again — the exchange-native product id (`code`/`wsCode`) is threaded from the resolved symbol to the realtime streamer, which previously logged "product id missing" and never subscribed.
+
 ## [2.30.22] - 2026-07-10
 
 ### Fixed
