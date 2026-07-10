@@ -133,6 +133,24 @@ const DASHED_CANDLE_SYMBOL_ENUM_SET = new Set<ExchangeEnum>([
   ExchangeEnum.paperKrakenSpot,
   ExchangeEnum.paperKrakenAll,
   ExchangeEnum.paperKrakenUsdm,
+  // OKX (spot + linear/inverse perps) and Coinbase also identify pairs with a
+  // dash ("BTC-USDT", "BTC-USD") — the candle API rejects the concatenated
+  // "BTCUSDT" form ("Instrument ID ... doesn't exist" / "ProductID is
+  // invalid"). Their absence here left the chart blank whenever a flow passed
+  // the concatenated pair (e.g. Hedge Combo create). Paper variants included
+  // for the same un-stripped-exchange reason as above.
+  ExchangeEnum.okx,
+  ExchangeEnum.okxLinear,
+  ExchangeEnum.okxInverse,
+  ExchangeEnum.okxSpot,
+  ExchangeEnum.okxAll,
+  ExchangeEnum.paperOkx,
+  ExchangeEnum.paperOkxLinear,
+  ExchangeEnum.paperOkxInverse,
+  ExchangeEnum.paperOkxSpot,
+  ExchangeEnum.paperOkxAll,
+  ExchangeEnum.coinbase,
+  ExchangeEnum.paperCoinbase,
 ]);
 
 /**

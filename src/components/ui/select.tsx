@@ -61,8 +61,11 @@ function SelectContent({
       <SelectPrimitive.Content
         data-slot="select-content"
         className={cn(
-          // Consistent styling with dropdown menus - force translucent background
-          'glass-surface z-70 min-w-32 overflow-hidden rounded-xl p-1 shadow-2xl ring-1 ring-border/60 text-foreground',
+          // Consistent styling with dropdown menus - force translucent background.
+          // Clamp to the space Radix measures (--radix-select-content-available-height)
+          // and scroll vertically so long option lists (e.g. the exchange picker)
+          // don't grow past the viewport and become unscrollable.
+          'glass-surface z-70 min-w-32 max-h-(--radix-select-content-available-height) overflow-x-hidden overflow-y-auto rounded-xl p-1 shadow-2xl ring-1 ring-border/60 text-foreground',
           // Animation classes
           'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
           // Direction-based slide animations
