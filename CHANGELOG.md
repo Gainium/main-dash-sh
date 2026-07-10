@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.20] - 2026-07-10
+
+### Fixed
+
+- Base Order Size now recalculates when you switch its denomination (e.g. quote/USD ↔ base token). Previously the raw number was kept and only re-labelled, so a $10 order became "10 tokens" (~10× price in notional). Affects the DCA, Combo, and Hedge bot forms, which share the base-order control.
+
 ## [2.30.19] - 2026-07-10
 
 ### Fixed

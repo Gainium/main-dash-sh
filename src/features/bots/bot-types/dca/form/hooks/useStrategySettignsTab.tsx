@@ -515,19 +515,6 @@ export const useStrategySettingsTab = ({
 
   const showMarginControls = futuresEnabled;
 
-  const handleCurrencyReferenceChange = useCallback(
-    (value: OrderSizeTypeEnum) => {
-      if (orderSizeType !== value) {
-        updateFormData('orderSizeType', value);
-      }
-
-      if (orderSizeType !== value) {
-        updateFormData('orderSizeType', value);
-      }
-    },
-    [orderSizeType, updateFormData]
-  );
-
   const handleBaseOrderTypeChange = useCallback(
     (value: OrderTypeEnum) => {
       if (startOrderType === value) {
@@ -1215,6 +1202,51 @@ export const useStrategySettingsTab = ({
       updateFormData('orderSizeType', OrderSizeTypeEnum.quote);
     }
   }, [orderSizeType, totalInQuote, updateFormData]);
+
+  // Base-order currency dropdown (bot form). Unlike the terminal's dual
+  // amount/total fields (handleAmountFocus/handleTotalFocus above), the bot
+  // form exposes a single base-order field with a denomination dropdown.
+  // Switching the denomination must RE-EXPRESS the stored notional
+  // `baseOrderSize` in the new unit — otherwise a $10 quote order becomes a
+  // raw "10 base" order (≈10×price in notional), which is the reported symptom
+  // in forum #4896 / bug #41 ("$10 shows as 100 tokens; edits don't help").
+  // Reuses the exact amountInBase/totalInQuote derivations the focus handlers
+  // rely on. Percent modes are a different semantic (a % of balance, not an
+  // absolute), so those transitions keep the prior flag-only behavior.
+  const handleCurrencyReferenceChange = useCallback(
+    (value: OrderSizeTypeEnum) => {
+      if (orderSizeType === value) {
+        return;
+      }
+
+      const percentTypes = [
+        OrderSizeTypeEnum.percFree,
+        OrderSizeTypeEnum.percTotal,
+      ];
+      const fromPercent = percentTypes.includes(orderSizeType);
+      const toPercent = percentTypes.includes(value);
+
+      // Only convert between absolute denominations (base ↔ quote/usd), and
+      // only when a price is available to convert with.
+      if (!fromPercent && !toPercent && effectivePrice > 0) {
+        const toBase = value === OrderSizeTypeEnum.base;
+        const fromBase = orderSizeType === OrderSizeTypeEnum.base;
+
+        if (toBase && !fromBase) {
+          // quote/usd notional -> base amount
+          updateFormData('baseOrderSize', String(amountInBase));
+        } else if (!toBase && fromBase) {
+          // base amount -> quote/usd notional
+          updateFormData('baseOrderSize', String(totalInQuote));
+        }
+        // quote <-> usd keeps the same figure (quote is a USD-pegged stable on
+        // the pairs this toggle applies to); no price conversion needed.
+      }
+
+      updateFormData('orderSizeType', value);
+    },
+    [orderSizeType, effectivePrice, amountInBase, totalInQuote, updateFormData]
+  );
 
   // legacy blur handlers (1062, 1202): write baseOrderSize in the focused
   // field's unit (orderSizeType already flipped on focus). Reuse
