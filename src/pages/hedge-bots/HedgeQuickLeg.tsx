@@ -703,7 +703,15 @@ export const HedgeQuickLeg: React.FC<HedgeQuickLegProps> = ({
   children,
   footerSlot,
 }) => {
-  const experience = tryGetBotExperience(BotTypesEnum.dca);
+  // Each leg is a DCA bot in a Hedge DCA, but a COMBO bot in a Hedge Combo.
+  // Mount the leg's form/example-orders pipeline with the hedge's actual leg
+  // type so the chart draws the combo grid ladder (not just the DCA safety
+  // orders) in Quick mode — matching Manual mode, which mounts BotFormWidget
+  // with `legBotType`. Without this the merged both-legs chart renders a
+  // plain DCA ladder for a combo hedge.
+  const hedge = useHedgeBotFormOptional();
+  const legBotType = hedge?.legBotType ?? BotTypesEnum.dca;
+  const experience = tryGetBotExperience(legBotType);
   if (!experience) return null;
 
   const strategy = legId === 'long' ? StrategyEnum.long : StrategyEnum.short;
@@ -714,7 +722,7 @@ export const HedgeQuickLeg: React.FC<HedgeQuickLegProps> = ({
     >
       <BotFormProvider
         mode="create"
-        botType={BotTypesEnum.dca}
+        botType={legBotType}
         isNestedLeg
         // Both Quick legs mount at once; isolate their example-order /
         // indicator stores so they don't clobber each other (and so each leg's
