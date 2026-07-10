@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.21] - 2026-07-10
+
+### Fixed
+
+- Switching to another exchange or trading pair no longer freezes the price chart while the previous one is still loading candles — the in-flight request is cancelled immediately instead of blocking the chart until it times out (notably slow endpoints such as Hyperliquid).
+
+### Changed
+
+- During a scheduled maintenance window, tabs running an older build now pick up the new version sooner (still only while you're idle, never mid-interaction), so the maintenance notice and post-deploy code load in time.
+
 ## [2.30.20] - 2026-07-10
 
 ### Fixed

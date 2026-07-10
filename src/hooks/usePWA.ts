@@ -1,5 +1,16 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  getPwaUpdateUrgentIdleMs,
+  subscribePwaUpdateUrgency,
+} from '@/lib/pwaUpdateUrgency';
+
+// A pending bundle update is auto-applied at the next SAFE moment instead of an
+// immediate reload: the tab going hidden, or the user being input-idle (no
+// keyboard/pointer/scroll) for this long while the tab is visible. Never
+// interrupts active use. Maintenance (cloud) lowers this via the urgency store.
+const DEFAULT_IDLE_MS = 60_000;
+const IDLE_CHECK_INTERVAL_MS = 5_000;
 
 interface PWAUpdateState {
   updateAvailable: boolean;
@@ -23,8 +34,22 @@ interface NetworkState {
 export function usePWAUpdate(): PWAUpdateState {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [updateInstalled, setUpdateInstalled] = useState(false);
-  const [registration, setRegistration] =
-    useState<ServiceWorkerRegistration | null>(null);
+  // Held in a ref (not state) so the idle auto-apply effect can reach the
+  // current registration without re-arming, and nothing re-renders on it.
+  const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+
+  // Maintenance (cloud) can lower the idle threshold via this external store so
+  // stale clients refresh promptly before a scheduled outage. Null = default.
+  const [urgentIdleMs, setUrgentIdleMs] = useState<number | null>(
+    getPwaUpdateUrgentIdleMs
+  );
+  useEffect(
+    () =>
+      subscribePwaUpdateUrgency(() =>
+        setUrgentIdleMs(getPwaUpdateUrgentIdleMs())
+      ),
+    []
+  );
 
   // Don't show update prompts in development mode - Vite HMR causes false positives
   const isDev = import.meta.env.DEV;
@@ -54,7 +79,7 @@ export function usePWAUpdate(): PWAUpdateState {
           });
         }
 
-        setRegistration(reg);
+        registrationRef.current = reg;
 
         if (reg.waiting) {
           setUpdateAvailable(true);
@@ -103,17 +128,71 @@ export function usePWAUpdate(): PWAUpdateState {
     });
   }, [isDev]);
 
-  const updateServiceWorker = () => {
-    if (registration?.waiting) {
-      registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+  const applyWaitingUpdate = useCallback(() => {
+    const reg = registrationRef.current;
+    if (reg?.waiting) {
+      reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       setUpdateAvailable(false);
     }
-  };
+  }, []);
+
+  // Auto-apply a pending update at the next SAFE moment rather than forcing an
+  // immediate reload that could interrupt a bot-create or any in-progress form.
+  // "Safe" = the tab is hidden (user switched away) OR the user has been
+  // input-idle for `idleMs`. `applyWaitingUpdate` posts SKIP_WAITING; the SW's
+  // controllerchange handler above then reloads onto the fresh bundle. The
+  // manual "update now" button (PWAStatus) still applies immediately.
+  useEffect(() => {
+    if (isDev || !updateAvailable) return;
+
+    const idleMs = urgentIdleMs ?? DEFAULT_IDLE_MS;
+    let lastActivityMs = Date.now();
+    const markActive = () => {
+      lastActivityMs = Date.now();
+    };
+    const activityEvents = [
+      'keydown',
+      'pointerdown',
+      'touchstart',
+      'wheel',
+      'mousemove',
+      'scroll',
+    ];
+    activityEvents.forEach((e) =>
+      window.addEventListener(e, markActive, { passive: true })
+    );
+
+    const check = () => {
+      if (
+        document.visibilityState === 'hidden' ||
+        Date.now() - lastActivityMs >= idleMs
+      ) {
+        cleanup();
+        applyWaitingUpdate();
+      }
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'hidden') check();
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    const intervalId = setInterval(check, IDLE_CHECK_INTERVAL_MS);
+
+    function cleanup() {
+      clearInterval(intervalId);
+      activityEvents.forEach((e) => window.removeEventListener(e, markActive));
+      document.removeEventListener('visibilitychange', onVisibility);
+    }
+
+    // If the tab is already hidden when the update lands, apply right away.
+    if (document.visibilityState === 'hidden') check();
+
+    return cleanup;
+  }, [updateAvailable, urgentIdleMs, isDev, applyWaitingUpdate]);
 
   return {
     updateAvailable,
     updateInstalled,
-    updateServiceWorker,
+    updateServiceWorker: applyWaitingUpdate,
   };
 }
 
