@@ -223,7 +223,10 @@ export const resolveMaxAllowedPairs = (
   if (input.planName !== undefined) {
     return getPlanLimits(input.planName).maxAllowedPairs;
   }
-  return getPlanLimits(input.isFreePlan ? 'free' : null).maxAllowedPairs;
+  // `'paid'` (not null) for the non-free legacy path: the resolver treats an
+  // empty/null name as free-tier, which would cap paying users at the free
+  // pair limit. Any non-free sentinel resolves to the paid cap.
+  return getPlanLimits(input.isFreePlan ? 'free' : 'paid').maxAllowedPairs;
 };
 
 export type ExchangeLockReason = 'explicit-lock' | 'edit-mode' | null;

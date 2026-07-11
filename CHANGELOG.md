@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.31] - 2026-07-11
+
+### Fixed
+
+- DCA / Combo / Futures bots: Risk:Reward settings can be saved again. Enabling Risk:Reward and picking a stop-loss indicator failed with "At least one indicator is required when Risk:Reward is enabled" (and silently dropped every risk setting on edit), because the indicator lookup collected a single match but then required an array. It now collects all matching indicators, so the whole Risk:Reward configuration round-trips correctly on create and edit.
+- DCA / Combo bots: paying subscribers get the full multi-pair limit again. In multi-pair mode the pair selector was capping paid users at the free-tier maximum (50) instead of the paid maximum (500), because the plan lookup fell back to a free-tier default when only the free/paid flag (not a plan name) was available.
+
 ## [2.30.30] - 2026-07-11
 
 ### Fixed

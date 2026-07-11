@@ -2593,7 +2593,7 @@ export const mapRiskRewardFields = (
     }
 
     // Risk indicators mapping
-    const riskRewardIndicators = indicators.find(
+    const riskRewardIndicators = indicators.filter(
       (i) => i.indicatorAction === IndicatorAction.riskReward
     );
     if (
