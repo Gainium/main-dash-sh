@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.27] - 2026-07-11
+
+### Fixed
+
+- Hedge Combo & Hedge DCA bots: the combined Stop Loss now accepts a negative percentage (a loss threshold on the hedge's combined PnL), matching the engine and the DCA/combo/grid convention. It previously required a value greater than 0, so a normal stop such as `-25%` could not be saved — and any positive value the form did accept was already satisfied the moment a deal opened, closing the position instantly.
+
 ## [2.30.26] - 2026-07-11
 
 ### Fixed

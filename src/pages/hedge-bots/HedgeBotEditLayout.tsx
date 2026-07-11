@@ -641,11 +641,20 @@ export const HedgeBotEditLayout: React.FC = () => {
       }
       if (sharedSettings.useSl) {
         const sl = toNum(sharedSettings.slPerc);
-        if (sl === null || sl <= 0) {
+        // The combined stop loss is a LOSS threshold on the hedge's combined
+        // PnL%, so it must sit below the current 0% baseline — i.e. a negative
+        // percentage. This mirrors both the value the engine stores/expects
+        // (slPerc is negative) and the DCA/combo forms' convention
+        // (dca/validation.ts requires slPerc < -MIN_DCA_TP at config time). A
+        // positive value is already satisfied at deal open and would close the
+        // position instantly, which is exactly the bug users hit when the old
+        // check wrongly required `> 0`.
+        if (sl === null || sl >= 0) {
           alerts.slPerc = [
             {
               variant: 'error',
-              message: 'Hedge stop loss % must be greater than 0.',
+              message:
+                'Hedge stop loss % must be a negative value (a loss below 0%).',
               navId: 'hedge-sl',
             },
           ];
