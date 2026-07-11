@@ -172,6 +172,23 @@ export function initializeSocketIntegration() {
         },
         event.data['status'] === 'FILLED' ? 'filled' : 'new'
       );
+
+      // A filled order must not linger in the 'new' bucket. The order store
+      // keeps separate 'new'/'filled' buckets and getOrders() merges both, so
+      // a stale 'new' copy keeps satisfying the chart's status:'NEW' filter and
+      // its (mini)grid order line stays drawn after the order executed
+      // (combo minigrid "sell line still on chart"). Mirror legacy main-dash,
+      // which re-filters its order list to NEW/PARTIALLY_FILLED on every socket
+      // update, by dropping the now-filled order from the 'new' bucket.
+      if (event.data['status'] === 'FILLED') {
+        useOrderStore
+          .getState()
+          .removeOrder(
+            event.botId,
+            event.data['clientOrderId'] as string,
+            'new'
+          );
+      }
     },
   });
 
