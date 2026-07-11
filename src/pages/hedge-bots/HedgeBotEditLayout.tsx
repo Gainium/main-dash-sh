@@ -1450,7 +1450,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
       <SettingsRow
         name="Take Profit (hedge)"
-        tooltip="Each leg has its own TP/SL unless this is activated. When on, the hedge controller closes both legs together when this percentage is reached."
+        tooltip="A take profit on the hedge's combined PnL. When on, the controller closes both legs together once their combined profit reaches this percentage. It runs in addition to each leg's own take profit — whichever triggers first closes."
         navId="hedge-tp"
         trailing={
           <Switch
@@ -1472,7 +1472,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
       <SettingsRow
         name="Stop Loss (hedge)"
-        tooltip="Each leg has its own TP/SL unless this is activated. When on, the hedge controller closes both legs together when this loss percentage is reached."
+        tooltip="A stop loss on the hedge's combined PnL — enter a negative percentage (a loss). When on, the controller closes both legs together once their combined loss reaches this level. It runs in addition to each leg's own stop loss — whichever triggers first closes."
         navId="hedge-sl"
         trailing={
           <Switch

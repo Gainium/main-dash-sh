@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.28] - 2026-07-11
+
+### Fixed
+
+- Hedge Combo & Hedge DCA bots: corrected the combined Take Profit / Stop Loss tooltips. The combined TP/SL is a portfolio-level close on the hedge's combined PnL that runs *in addition to* each leg's own TP/SL (whichever triggers first closes); it does not replace the per-leg TP/SL as the previous wording implied. Also clarifies that the combined Stop Loss takes a negative percentage.
+
 ## [2.30.27] - 2026-07-11
 
 ### Fixed
