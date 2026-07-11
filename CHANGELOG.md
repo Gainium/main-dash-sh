@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.32] - 2026-07-11
+
+### Fixed
+
+- Bots on dash-separated exchanges (Coinbase, Kraken, OKX, KuCoin) with a non-USD quote asset (e.g. a SOL/EUR grid) no longer show a Current Funds value of $0.00 and a wildly wrong Total P&L. The USD-rate lookup only matched concatenated ticker symbols (`EURUSDT`), so it never found a USD bridge for exchanges whose symbols use a separator (`USDT-EUR`), returning a rate of 0. It now matches all separator forms, so current-funds value, Total P&L, and unrealized PnL are correct. Also fixes the USDT→USD leg for every exchange.
+
 ## [2.30.31] - 2026-07-11
 
 ### Fixed

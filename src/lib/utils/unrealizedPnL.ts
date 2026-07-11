@@ -48,27 +48,47 @@ export const isActiveDeal = (deal: DCADeals): boolean => {
 };
 
 /**
- * Find rate for asset pair conversion
+ * Match a price entry for a base/quote pair across every symbol separator
+ * exchanges use: concatenated (`BTCUSDT`), dash (`BTC-USDT`), slash
+ * (`BTC/USDT`), and the `Z` form used by the synthetic `USDTZUSD` USD rate.
+ * Dated-futures symbols (`BTCUSDT_240628`) are reduced to their spot form.
+ *
+ * The previous implementation only matched the concatenated form with an
+ * exact `===`, so dash-separated exchanges (Coinbase, Kraken, OKX, KuCoin)
+ * never resolved a bridge — `findUSDRate` returned 0 for any non-USD quote
+ * asset (e.g. a SOL-EUR grid), zeroing out current-funds value / unrealized
+ * PnL. This mirrors legacy main-dash `findAsset`.
+ */
+const matchesPair =
+  (base: string, quote: string) =>
+  (p: PriceData): boolean => {
+    if (!p || !p.symbol) return false;
+    const sym = p.symbol.split('_')[0];
+    return (
+      sym === `${base}${quote}` ||
+      sym === `${base}-${quote}` ||
+      sym === `${base}/${quote}` ||
+      sym === `${base}Z${quote}`
+    );
+  };
+
+/**
+ * Find rate for asset pair conversion. Tries the direct pair first, then the
+ * inverse pair (returning its reciprocal), across all symbol separators.
  */
 export const findRate = (
   fromAsset: string,
   toAsset: string,
-  prices: PriceData[]
+  prices: PriceData[],
+  reverse = false
 ): number | null => {
-  // Direct rate (e.g., BTC/USDT)
-  const directSymbol = `${fromAsset}${toAsset}`;
-  const directPrice = prices.find((p) => p.symbol === directSymbol);
-  if (directPrice) {
-    return directPrice.price;
+  const match = prices.find(matchesPair(fromAsset, toAsset));
+  if (match && match.price > 0) {
+    return reverse ? 1 / match.price : match.price;
   }
-
-  // Inverse rate (e.g., USDT/BTC)
-  const inverseSymbol = `${toAsset}${fromAsset}`;
-  const inversePrice = prices.find((p) => p.symbol === inverseSymbol);
-  if (inversePrice && inversePrice.price > 0) {
-    return 1 / inversePrice.price;
+  if (!reverse) {
+    return findRate(toAsset, fromAsset, prices, true);
   }
-
   return null;
 };
 

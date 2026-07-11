@@ -1,4 +1,5 @@
 import { StrategyEnum, type Bot, type DCABot, type Prices } from '../types';
+import { findUSDRate } from '../lib/utils/unrealizedPnL';
 
 // Define helper functions inline since they're specific to this calculation
 const sumBalances = (
@@ -33,78 +34,9 @@ const sumPureBalances = (
   }, 0);
 };
 
-const findUSDRate = (
-  asset: string,
-  _prices: Prices,
-  exchange?: string
-): number => {
-  const prices = _prices.filter((p) =>
-    exchange ? [exchange, 'all'].includes(p.exchange ?? '') : true
-  );
-  asset = asset
-    .replace('SBTC', 'BTC')
-    .replace('SUSD', 'USD')
-    .replace('SUSDT', 'USDT');
-  if (asset === 'USD') {
-    return 1;
-  }
-  let usdRate = Number(asset === 'USDT');
-  let usdtRate = Number(asset === 'USDT');
-  if (asset !== 'USDT') {
-    const findUsdtRate = findRate(asset, 'USDT', prices);
-    if (findUsdtRate) {
-      usdtRate = findUsdtRate;
-      usdRate = usdtRate;
-    } else {
-      const _findUsdRate = findRate(asset, 'USD', prices);
-      if (_findUsdRate) {
-        return _findUsdRate;
-      }
-      const findBtcRate = findRate(asset, 'BTC', prices);
-      if (findBtcRate) {
-        const findBtcUsdtRate = findRate('BTC', 'USDT', prices);
-        if (findBtcUsdtRate) {
-          usdtRate = findBtcRate * findBtcUsdtRate;
-          usdRate = usdtRate;
-        }
-      }
-    }
-  }
-  const findUsdtUsdRate = findRate('USDT', 'USD', prices);
-  if (findUsdtUsdRate) {
-    usdRate = usdtRate * findUsdtUsdRate;
-  }
-  return usdRate;
-};
-
-const findAsset = (base: string, quote: string) => (p: Prices[number]) => {
-  if (!p || !p.symbol) {
-    return false;
-  }
-  const pr = p.symbol.split('_')[0];
-  return (
-    pr === `${base}${quote}` ||
-    pr === `${base}-${quote}` ||
-    pr === `${base}/${quote}` ||
-    pr === `${base}Z${quote}`
-  );
-};
-
-const findRate = (
-  base: string,
-  quote: string,
-  prices: Prices,
-  reverse = false
-): number | undefined => {
-  const rate = prices.find(findAsset(base, quote));
-  if (rate) {
-    return reverse ? 1 / rate.price : rate.price;
-  }
-  if (!reverse) {
-    return findRate(quote, base, prices, true);
-  }
-  return undefined;
-};
+// `findUSDRate` (and its underlying `findRate`) is the canonical, separator-
+// aware implementation in `lib/utils/unrealizedPnL`. It used to be duplicated
+// here; consolidated so both call sites share one bridge-resolution path.
 
 /**
  * Math helper class for consistent calculations
