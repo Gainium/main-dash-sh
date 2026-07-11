@@ -748,9 +748,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       }
     }
   }, [isTimerValueBound]);
-  const minTpGuardLocked = isEditMode && !isMinTpBound;
-  const shouldRenderMinTpGuard =
-    minTpGuardAvailable && (!minTpGuardLocked || useMinTP || isMinTpBound);
+  const shouldRenderMinTpGuard = minTpGuardAvailable;
   const minTpGuardEnabled =
     shouldRenderMinTpGuard && (useMinTP || isMinTpBound);
   const minTpGuardContext = useMemo(
@@ -2957,24 +2955,14 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                         id="use-min-tp"
                         checked={Boolean(useMinTP)}
                         onCheckedChange={(checked) => {
-                          if (minTpGuardLocked) {
-                            return;
-                          }
                           updateFormData('useMinTP', checked);
                         }}
-                        disabled={minTpGuardLocked}
                         aria-label="Toggle minimum take profit"
                       />
                     }
                     className={interactionDisabledClass}
                     contentClassName="space-y-xs"
                   >
-                    {minTpGuardLocked && !isMinTpBound ? (
-                      <p className="text-xs text-muted-foreground">
-                        Minimum take profit guard is locked for existing bots.
-                        Update the binding to modify this setting.
-                      </p>
-                    ) : null}
                     {useMinTP || isMinTpBound ? (
                       <SettingsRowSurface
                         tone="faint"
@@ -2985,7 +2973,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                           path="minTp"
                           varType="float"
                           tooltip="Bind minimum take profit"
-                          disabled={takeProfitLocked || minTpGuardLocked}
+                          disabled={takeProfitLocked}
                           variant="inline"
                           contentClassName="w-full max-w-[160px]"
                           onVariableSelected={(variable) =>
@@ -3008,7 +2996,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                             precision={2}
                             showControls={false}
                             className="w-full"
-                            disabled={isMinTpBound || minTpGuardLocked}
+                            disabled={isMinTpBound}
                             endAdornment={unitAdornment('%')}
                           />
                         </FieldVariableBinding>

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.29] - 2026-07-11
+
+### Fixed
+
+- DCA bots: the Minimum take profit filter (shown for Indicator/Webhook close conditions) can again be edited when editing an existing bot. Its toggle and percentage field were incorrectly locked — and the whole row hidden when the filter was off — on existing bots; they now behave the same as when creating a bot.
+
 ## [2.30.28] - 2026-07-11
 
 ### Fixed
