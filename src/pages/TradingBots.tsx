@@ -81,6 +81,7 @@ import {
   isBotActive,
   isBotDeletable,
 } from '@/utils/botStatusUtils';
+import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import {
   Tabs,
   TabsContent,
@@ -92,6 +93,7 @@ import { useDcaDeals } from '../hooks/useDcaDeals';
 /* import { toDrawerBot } from '../adapters/bots/drawer'; */
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import {
+  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
@@ -189,6 +191,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     type: 'clone' | 'delete';
     newItemId?: string;
@@ -286,12 +289,25 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = useCallback(() => {
     const isArchived = bot.status.toLowerCase() === 'archived';
+    // Archiving becomes read-only / one-way once the cold-store UX is live.
+    if (!isArchived && isColdStoreArchiveUx()) {
+      setArchiveModalOpen(true);
+      return;
+    }
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
       type: BotTypesEnum.dca,
     });
   }, [archiveMutation, bot.id, bot.status]);
+
+  const confirmArchive = useCallback(() => {
+    archiveMutation.mutate({
+      id: bot.id,
+      archive: true,
+      type: BotTypesEnum.dca,
+    });
+  }, [archiveMutation, bot.id]);
 
   const handleViewClosedTrades = useCallback(() => {
     navigate(`/trades?botId=${bot.id}`);
@@ -340,8 +356,9 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
       name: bot.name,
       type: bot.type as BotTypeId,
       status: bot.status as BotStatusType,
+      coldArchived: bot.coldArchived,
     }),
-    [bot.id, bot.name, bot.type, bot.status]
+    [bot.id, bot.name, bot.type, bot.status, bot.coldArchived]
   );
 
   const botActionsPending = useMemo(
@@ -454,6 +471,14 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         additionalInfo={deleteAdditionalInfo}
         isLoading={deleteMutation.isPending}
         requireConfirmation={false}
+      />
+
+      <ArchiveWarningDialog
+        open={archiveModalOpen}
+        onOpenChange={setArchiveModalOpen}
+        onConfirm={confirmArchive}
+        botName={bot.name}
+        isLoading={archiveMutation.isPending}
       />
 
       <SuccessFeedbackModal

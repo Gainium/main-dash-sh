@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.31.0] - 2026-07-11
+
+### Added
+
+- Archiving a bot now warns that archived bots become read-only (a new confirmation on the Grid/DCA/Combo bot menus): the trade history is preserved but the bot can't be started again — clone it to reuse. Cold-store (read-only) archived bots also hide their un-archive action. Ships behind `VITE_COLD_STORE_ENABLED` (off by default) in lock-step with the backend cold-store rollout.
+
 ## [2.30.32] - 2026-07-11
 
 ### Fixed

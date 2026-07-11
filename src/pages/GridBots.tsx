@@ -10,6 +10,7 @@ import {
   type ExchangeInUser,
 } from '@/types';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
+import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import {
   areAllBotsDeletable,
   filterDeletableBots,
@@ -58,6 +59,7 @@ import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
 import {
+  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
@@ -122,6 +124,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     type: 'clone' | 'delete';
     newItemId?: string;
@@ -217,9 +220,23 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = () => {
     const isArchived = bot.status.toLowerCase() === 'archived';
+    // Archiving becomes read-only / one-way once the cold-store UX is live —
+    // confirm first. Un-archiving and the pre-rollout (flag-off) path stay direct.
+    if (!isArchived && isColdStoreArchiveUx()) {
+      setArchiveModalOpen(true);
+      return;
+    }
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
+      type: BotTypesEnum.grid,
+    });
+  };
+
+  const confirmArchive = () => {
+    archiveMutation.mutate({
+      id: bot.id,
+      archive: true,
       type: BotTypesEnum.grid,
     });
   };
@@ -245,6 +262,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
             name: bot.name,
             type: bot.type as BotTypeId,
             status: bot.status as BotStatusType,
+            coldArchived: bot.coldArchived,
           }}
           pending={{
             statusToggle: statusToggleMutation.isPending,
@@ -288,6 +306,14 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         itemType="bot"
         itemName={bot.name}
         requireConfirmation={false}
+      />
+
+      <ArchiveWarningDialog
+        open={archiveModalOpen}
+        onOpenChange={setArchiveModalOpen}
+        onConfirm={confirmArchive}
+        botName={bot.name}
+        isLoading={archiveMutation.isPending}
       />
 
       <BotStatusConfirmationModal

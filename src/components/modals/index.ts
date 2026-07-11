@@ -20,6 +20,8 @@ export { default as BacktestRunnerModal } from './BacktestRunnerModal';
 // Bot Action Modals
 export { default as BotStatusConfirmationModal } from './BotStatusConfirmationModal';
 export type { BotStatusConfirmationModalProps } from './BotStatusConfirmationModal';
+export { default as ArchiveWarningDialog } from './ArchiveWarningDialog';
+export type { ArchiveWarningDialogProps } from './ArchiveWarningDialog';
 
 // Shortcut Manager
 export { ShortcutManager } from './ShortcutManager';

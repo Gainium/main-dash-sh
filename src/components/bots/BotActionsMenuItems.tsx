@@ -1,5 +1,6 @@
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { isReadOnly } from '@/lib/demoMode';
+import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
   canToggleBotStatus,
@@ -39,6 +40,13 @@ export interface BotMenuContext {
   name: string;
   type: BotTypeId;
   status: BotStatusType;
+  /**
+   * True when this bot's history has moved to cold storage — it is read-only /
+   * one-way and cannot be un-archived (clone to reuse). Comes from the bot
+   * GraphQL query; absent = grandfathered (still reversible). Only enforced in
+   * the UI when the cold-store UX is live (`isColdStoreArchiveUx()`).
+   */
+  coldArchived?: boolean;
 }
 
 export interface BotActionsMenuItemsProps {
@@ -106,6 +114,13 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   const deleteBlockedReason = getDeleteBlockedReason(bot.status);
   const canArchive = isBotArchivable(bot.status);
   const archiveBlockedReason = getArchiveBlockedReason(bot.status);
+  // A cold-archived bot is read-only / one-way: block its un-archive action
+  // (clone to reuse). Only enforced once the cold-store UX is live; grandfathered
+  // archived bots (coldArchived absent) stay reversible.
+  const isArchivedStatus =
+    bot.status === 'archived' || bot.status === 'archive';
+  const isColdArchived =
+    isColdStoreArchiveUx() && !!bot.coldArchived && isArchivedStatus;
   // Either the global demo-mode flag OR the per-view viewOnly flag
   // (share visitor / non-owner) is enough to lock mutating actions.
   const readOnly = isReadOnly() || viewOnly;
@@ -230,12 +245,18 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
 
       {/* Archive Action */}
       <DropdownMenuItem
-        onClick={readOnly || !canArchive ? undefined : onArchive}
-        disabled={!!pending?.archive || readOnly || !canArchive}
+        onClick={
+          readOnly || !canArchive || isColdArchived ? undefined : onArchive
+        }
+        disabled={
+          !!pending?.archive || readOnly || !canArchive || isColdArchived
+        }
         title={
           readOnly
             ? 'Not available in demo mode'
-            : archiveBlockedReason /* undefined when archivable */
+            : isColdArchived
+              ? 'Archived bots are read-only — clone the bot to reuse it'
+              : archiveBlockedReason /* undefined when archivable */
         }
       >
         {pending?.archive ? (

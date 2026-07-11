@@ -1,3 +1,10 @@
+import { isColdStoreArchiveUx } from '@/utils/coldStore';
+
+// Cold-store adds `coldArchived` to the bot GraphQL types. Only REQUEST it once
+// the cold-store UX is live (flag on) — a backend that predates the field would
+// otherwise 400 the whole bot query. Ships dark: empty selection by default.
+const COLD_ARCHIVED_SELECTION = isColdStoreArchiveUx() ? 'coldArchived' : '';
+
 const botSettings = `
     name
     pair
@@ -96,6 +103,7 @@ cost
 userId
 status
 statusReason
+${COLD_ARCHIVED_SELECTION}
 showErrorWarning
 settings {
     ${botSettings}
@@ -1429,6 +1437,7 @@ const dcaBotFragment = `
             userId
             status
             statusReason
+            ${COLD_ARCHIVED_SELECTION}
             showErrorWarning
             uuid
             settings {
@@ -1532,6 +1541,7 @@ const comboBotFragment = `
             userId
             status
             statusReason
+            ${COLD_ARCHIVED_SELECTION}
             showErrorWarning
             uuid
             settings {
@@ -1778,6 +1788,7 @@ const dcaMultiBotFragment = `
             userId
             status
             statusReason
+            ${COLD_ARCHIVED_SELECTION}
             showErrorWarning
             uuid
             settings {
