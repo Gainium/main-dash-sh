@@ -47,10 +47,17 @@ export const resolveBaseOrderContext = (
     terminalDealType,
   } = params;
 
-  const normalizedReference = futures
-    ? coinm
-      ? 'base'
-      : 'quote'
+  // The reference unit is what the ORDER SIZE is denominated in (what the user
+  // picked in the dropdown) — it is independent of the margin/deposit side.
+  // COIN-M futures are the one case the size is intrinsically base-denominated
+  // (contracts settle in base), so force base there. For everything else —
+  // including linear (USDT-M) futures — honor the user's selection. Previously
+  // linear futures was coerced to 'quote', so a base-referenced order size (e.g.
+  // "357 AI") was validated against the raw quote balance (39 USDT) and wrongly
+  // flagged as exceeding the balance (forum #4903); the deposit-side handling
+  // below (`depositIsBase`, `availableInReference`) already converts correctly.
+  const normalizedReference = coinm
+    ? 'base'
     : (currencyReference ?? 'quote');
   const normalizedDirection = strategy ?? StrategyEnum.long;
 
