@@ -549,7 +549,12 @@ export const useStrategySettingsTab = ({
   );
 
   const isEditMode = mode === 'edit';
-  const activeDealsCount = bot?.dealsInBot?.active ?? 0;
+  // A clone opens in create mode seeded from a source bot that may still
+  // have active deals — but those deals belong to the original, not the
+  // clone. Only honor deal-based locks (leverage/margin, direction, risk
+  // reduction, reinvest…) when actually editing a live bot, otherwise a
+  // cloned bot is wrongly reported as having open deals.
+  const activeDealsCount = isEditMode ? (bot?.dealsInBot?.active ?? 0) : 0;
   const isExistingBot = isEditMode && Boolean(bot);
 
   const marginControlsLocked = useMemo(

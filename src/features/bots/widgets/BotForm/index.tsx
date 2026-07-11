@@ -530,7 +530,6 @@ const BotForm: React.FC<BotFormProps> = ({
     activeTab,
     setActiveTab,
     isLoading,
-    setIsLoading,
     errors,
     setErrors,
     setAlerts,
@@ -660,60 +659,50 @@ const BotForm: React.FC<BotFormProps> = ({
     botType: formData.type,
   });
 
-  useEffect(() => {
-    if (mode !== 'edit' && bot?._id) {
-      setIsLoading(false);
-      return;
-    }
-
-    if (bot?.exchangeUUID) {
-      getBalances(bot.exchangeUUID).catch((error: unknown) => {
-        console.error('❌ [BotFormShell] Failed to load balances', error);
-      });
-      return;
-    }
-
-    // In create/new mode the bot prop is null; once the form picks an
-    // exchange (e.g. right after onboarding creates one), refetch
-    // balances for that specific exchange so the manual tab's balance
-    // store hydrates. Without this, balances stay at whatever the
-    // initial "all" fetch returned — which won't include an exchange
-    // created mid-session.
+  // The exchange whose balances the form should hydrate. In edit mode the
+  // exchange is locked to the persisted bot. In create/clone mode the user's
+  // live selection (`formData.exchangeUUID`) is authoritative — a bot cloned
+  // from a source on another exchange must NOT keep reading the source's
+  // balances, which left the base order showing $0 for the picked exchange.
+  const effectiveBalanceExchangeUUID = useMemo(() => {
     const formExchangeUUID =
       typeof formData.exchangeUUID === 'string' &&
       formData.exchangeUUID.trim().length > 0
-        ? formData.exchangeUUID
+        ? formData.exchangeUUID.trim()
         : undefined;
 
-    if (formExchangeUUID) {
-      getBalances(formExchangeUUID).catch((error: unknown) => {
+    return mode === 'edit'
+      ? (bot?.exchangeUUID ?? formExchangeUUID)
+      : (formExchangeUUID ?? bot?.exchangeUUID);
+  }, [mode, bot?.exchangeUUID, formData.exchangeUUID]);
+
+  useEffect(() => {
+    // Load balances for the currently-selected exchange. A clone seeds a
+    // non-null `bot` while in create mode, so we must NOT early-out on
+    // `bot?._id` here (that skipped balance loading entirely and left the
+    // base-order balance stuck at $0). `isLoading` already defaults to false
+    // in create mode, so nothing else needs clearing.
+    if (effectiveBalanceExchangeUUID) {
+      getBalances(effectiveBalanceExchangeUUID).catch((error: unknown) => {
         console.error('❌ [BotFormShell] Failed to load balances', error);
       });
       return;
     }
 
+    // No specific exchange yet (fresh create before a pick) — fetch all.
     if (!bot?._id) {
       getBalances(undefined, true).catch((error: unknown) => {
         console.error('❌ [BotFormShell] Failed to load balances', error);
       });
     }
-  }, [
-    mode,
-    bot?._id,
-    bot?.exchangeUUID,
-    formData.exchangeUUID,
-    getBalances,
-    setIsLoading,
-  ]);
+  }, [effectiveBalanceExchangeUUID, bot?._id, getBalances]);
 
   const handleUpdateBalances =
     useCallback(async (): Promise<RefreshBalancesResult> => {
-      const targetExchangeUUID =
-        bot?.exchangeUUID ??
-        (typeof formData.exchangeUUID === 'string' &&
-        formData.exchangeUUID.trim().length > 0
-          ? formData.exchangeUUID
-          : undefined);
+      // Refresh the exchange the user is actually configuring — in clone mode
+      // that's the picked exchange, not the source bot's (which made the
+      // "Update balance" button refresh the wrong account and stay at $0).
+      const targetExchangeUUID = effectiveBalanceExchangeUUID;
 
       if (!targetExchangeUUID) {
         if (debugEnabled) {
@@ -743,12 +732,7 @@ const BotForm: React.FC<BotFormProps> = ({
         toast.warning(outcome.reason);
       }
       return outcome;
-    }, [
-      bot?.exchangeUUID,
-      debugEnabled,
-      formData.exchangeUUID,
-      updateBalances,
-    ]);
+    }, [effectiveBalanceExchangeUUID, debugEnabled, updateBalances]);
 
   const handleCreateSuccess = useCallback(
     (created: unknown) => {

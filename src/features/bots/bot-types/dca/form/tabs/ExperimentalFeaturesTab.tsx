@@ -66,7 +66,9 @@ export const ExperimentalFeaturesTab: React.FC<BotFormTabComponentProps> = ({
     return null;
   }, [bot]);
 
-  const activeDealCount = dcaBot?.dealsInBot?.active ?? 0;
+  // Clone/create mode seeds from a source bot whose deals belong to the
+  // original — only apply deal-based locks when editing a live bot.
+  const activeDealCount = mode === 'edit' ? (dcaBot?.dealsInBot?.active ?? 0) : 0;
   const hasActiveDeals = activeDealCount > 0;
 
   const exchangeProvider = useMemo(() => {

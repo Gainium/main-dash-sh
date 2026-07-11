@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.30.26] - 2026-07-11
+
+### Fixed
+
+- Cloning a hedge combo bot no longer inherits the source bot's state. Previously, cloning a bot that had open deals wrongly reported the clone as having "active deals" and locked leverage, margin and other settings, and the base-order balance stayed at $0 (with "value exceeds the available balance") when a different exchange was picked — the "Update balance" button couldn't fix it. A clone is now treated as a brand-new bot: deal-based locks only apply when actually editing a live bot, and the base-order balance follows the exchange you select in the form.
+
 ## [2.30.25] - 2026-07-10
 
 ### Fixed
