@@ -108,6 +108,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import DrawerWidgetRenderer from '../widgets/bots/drawer/DrawerWidgetRenderer';
 import OpenOrdersWidget from '../widgets/shared/OpenOrdersWidget';
 import StaleIndicator from '../widgets/shared/StaleIndicator';
+import { BotErrorWarningAlert } from './BotErrorWarningAlert';
 import { getDrawerWidgetsForBot } from './drawerWidgetConfig';
 import { UnfoldingChartPanel } from './panels/contents';
 import HedgeOverviewPanel from './panels/HedgeOverviewPanel';
@@ -334,6 +335,54 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const handleTabChange = useCallback((_tab: string) => {
       // No manual URL update needed - Tabs component handles it
     }, []);
+
+    // Runtime error/warning banner (backend `showErrorWarning` flag). For hedge
+    // bots, surface if either leg is flagged and clear both legs on dismiss.
+    const errorWarning = useMemo<{
+      severity: 'error' | 'warning';
+      targets: { id: string; type: BotTypesEnum }[];
+    } | null>(() => {
+      const flags: (DrawerBot['showErrorWarning'] | undefined)[] = [];
+      const targets: { id: string; type: BotTypesEnum }[] = [];
+      if (isHedge && hedge) {
+        const legType = hedge.isCombo ? BotTypesEnum.combo : BotTypesEnum.dca;
+        for (const leg of [hedge.longBot, hedge.shortBot]) {
+          if (!leg) continue;
+          flags.push(leg.showErrorWarning);
+          if (
+            leg.showErrorWarning === 'error' ||
+            leg.showErrorWarning === 'warning'
+          ) {
+            targets.push({ id: leg._id, type: legType });
+          }
+        }
+      } else {
+        flags.push(bot.showErrorWarning);
+        if (
+          bot.showErrorWarning === 'error' ||
+          bot.showErrorWarning === 'warning'
+        ) {
+          targets.push({ id: bot._id, type });
+        }
+      }
+      if (!targets.length) return null;
+      return {
+        severity: flags.includes('error') ? 'error' : 'warning',
+        targets,
+      };
+    }, [isHedge, hedge, bot, type]);
+
+    // Deep-link the alert's "review events" action to the Events tab.
+    const goToEvents = useCallback(() => {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          next.set('tab', 'events');
+          return next;
+        },
+        { replace: false }
+      );
+    }, [setSearchParams]);
 
     // Combined hedge deals (both legs of THIS hedge bot). Fetched only while
     // the Deals tab is active, via the dedicated hedge query that keeps its
@@ -1640,6 +1689,16 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
               </DetailDrawerHeader>
 
               <DetailDrawerBody className="px-4 py-5 sm:px-6 sm:py-6">
+                {errorWarning && (
+                  <BotErrorWarningAlert
+                    severity={errorWarning.severity}
+                    targets={errorWarning.targets}
+                    onReviewEvents={
+                      activeTab === 'events' ? undefined : goToEvents
+                    }
+                    className="mb-md"
+                  />
+                )}
                 <TabsContent
                   value="deals"
                   className="mt-0 flex-1 overflow-hidden"

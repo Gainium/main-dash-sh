@@ -407,6 +407,67 @@ export function useBotRestart() {
   });
 }
 
+export interface ResetShowErrorParams {
+  data: { id: string; type: BotTypesEnum }[];
+}
+
+/**
+ * Hook for clearing a bot's runtime error/warning flag (`showErrorWarning`).
+ *
+ * The backend sets `showErrorWarning` to 'error' | 'warning' on a bot document
+ * when the running bot logs error/warning-level events (order failures,
+ * exchange errors). The dashboard surfaces that flag as a dismissible alert;
+ * dismissing it calls this mutation to clear the flag server-side so it does
+ * not reappear on the next fetch. Hedge bots pass both legs in `data`.
+ */
+export function useResetShowError() {
+  const { tokens } = useAuthStore();
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  return useMutation({
+    mutationFn: async ({ data }: ResetShowErrorParams) => {
+      if (!tokens?.accessToken) {
+        throw new Error('Authentication required');
+      }
+      if (!data.length) return null;
+
+      const endpoint =
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+      const paperContext = !isLiveTrading;
+      const client = new GraphQLClient(
+        endpoint,
+        tokens.accessToken,
+        paperContext
+      );
+
+      const { query, variables } = GraphQlQuery.resetShowError({ data });
+      const result = await client.request<{
+        resetShowError: { status: string; reason?: string };
+      }>(query, variables);
+
+      if (result.resetShowError.status !== 'OK') {
+        throw new Error(
+          result.resetShowError.reason || 'Failed to clear bot error flag'
+        );
+      }
+      return result.resetShowError;
+    },
+    onSuccess: (_result, { data }) => {
+      // Clear the flag in the persisted list caches so the alert doesn't flash
+      // back on the next mount, then refetch to confirm with the backend.
+      for (const { id, type } of data) {
+        const keys = botListKeysFor(type);
+        patchBotInListCaches(id, { showErrorWarning: 'none' }, keys);
+        invalidateListCaches(keys);
+      }
+    },
+    onError: (err: Error) => {
+      logger.error('[BotMutations] resetShowError failed:', err);
+      toast.error(`Failed to clear bot errors: ${err.message}`);
+    },
+  });
+}
+
 /**
  * Hedge parent Start/Stop via cascading leg toggles
  * Falls back to toggling child legs (DCA or Combo) when no parent-level API exists.
