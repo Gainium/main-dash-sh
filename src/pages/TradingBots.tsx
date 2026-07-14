@@ -2479,15 +2479,36 @@ const TradingBots: React.FC = () => {
                             <EmptyState
                               size="page"
                               icon={<Bot className="w-6 h-6" />}
-                              title="No DCA bots yet"
-                              description="DCA bots dollar-cost-average into a position and take profit at your defined targets. Create one to start trading."
+                              title={
+                                showArchived
+                                  ? 'No archived DCA bots'
+                                  : 'No DCA bots yet'
+                              }
+                              description={
+                                showArchived
+                                  ? 'Bots you archive move here. Un-archive one to bring it back to your active list.'
+                                  : 'DCA bots dollar-cost-average into a position and take profit at your defined targets. Create one to start trading.'
+                              }
                               action={
-                                readOnly
+                                showArchived
+                                  ? {
+                                      label: 'Back to active bots',
+                                      onClick: toggleArchived,
+                                    }
+                                  : readOnly
+                                    ? undefined
+                                    : {
+                                        label: 'Create DCA bot',
+                                        onClick: handleCreateBot,
+                                        icon: <Plus className="w-5 h-5" />,
+                                      }
+                              }
+                              secondaryAction={
+                                showArchived
                                   ? undefined
                                   : {
-                                      label: 'Create DCA bot',
-                                      onClick: handleCreateBot,
-                                      icon: <Plus className="w-5 h-5" />,
+                                      label: 'View archived bots',
+                                      onClick: toggleArchived,
                                     }
                               }
                             />

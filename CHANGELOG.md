@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.7] - 2026-07-14
+
+### Fixed
+
+- Un-archiving a bot now makes it reappear in the bots list immediately. Archiving records a client-side tombstone (to block stale replays); un-archive now clears that tombstone, so the returning bot is no longer filtered out — previously the list could show empty after un-archiving your only bot.
+
+### Changed
+
+- The bots-list empty state is now archive-aware and never a dead end: with archived bots hidden it offers a "View archived bots" link, and the archived view shows "No archived bots" with a "Back to active bots" action. Applies to Trading/Grid/Combo lists.
+
 ## [2.32.6] - 2026-07-14
 
 ### Fixed

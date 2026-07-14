@@ -11,6 +11,13 @@ export interface EmptyStateProps {
     onClick: () => void;
     icon?: React.ReactNode;
   };
+  /** Optional lower-emphasis action rendered as a link below the primary one
+   *  (e.g. "View archived bots" so an all-archived list isn't a dead end). */
+  secondaryAction?: {
+    label: string;
+    onClick: () => void;
+    icon?: React.ReactNode;
+  };
   /** `page` fills the parent at full size; `widget` is the compact in-card variant. */
   size?: 'page' | 'widget';
   className?: string;
@@ -21,6 +28,7 @@ const EmptyState: React.FC<EmptyStateProps> = ({
   title,
   description,
   action,
+  secondaryAction,
   size = 'widget',
   className,
 }) => {
@@ -70,6 +78,21 @@ const EmptyState: React.FC<EmptyStateProps> = ({
           >
             {action.icon && <span className="mr-2">{action.icon}</span>}
             {action.label}
+          </Button>
+        </div>
+      )}
+      {secondaryAction && (
+        <div className={isPage ? 'mt-1' : 'mt-0.5'}>
+          <Button
+            onClick={secondaryAction.onClick}
+            variant="ghost"
+            size={isPage ? 'default' : 'sm'}
+            className="text-muted-foreground"
+          >
+            {secondaryAction.icon && (
+              <span className="mr-2">{secondaryAction.icon}</span>
+            )}
+            {secondaryAction.label}
           </Button>
         </div>
       )}

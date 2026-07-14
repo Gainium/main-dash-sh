@@ -18,7 +18,10 @@ import {
 } from '@/stores/live';
 import { useHedgeDcaBotsStore } from '@/stores/live/hedgeDcaBotsStore';
 import { useHedgeComboBotsStore } from '@/stores/live/hedgeComboBotsStore';
-import { recordBotTombstone } from '@/stores/live/staleWriteGuard';
+import {
+  recordBotTombstone,
+  clearBotTombstone,
+} from '@/stores/live/staleWriteGuard';
 import {
   removeBotFromListCaches,
   patchBotInListCaches,
@@ -1343,6 +1346,10 @@ export function useBotArchive() {
         removeBotFromListCaches(id, botListKeysFor(type));
         invalidateListCaches(botListKeysFor(type));
       } else {
+        // Un-archive: the bot legitimately returns to the lists. Drop the
+        // archive-time tombstone so the refetched list isn't filtered to hide
+        // it (the timestamp auto-clear can miss on equal/unparseable `updated`).
+        clearBotTombstone(id);
         invalidateListCaches(botListKeysFor(type));
       }
 

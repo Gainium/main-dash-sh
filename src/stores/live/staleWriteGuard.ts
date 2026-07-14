@@ -141,6 +141,19 @@ export function consultBotTombstone(
   return 'reject';
 }
 
+/**
+ * Drop the tombstone for a single bot. Used when a bot legitimately returns to
+ * the lists (un-archive) so it is not blocked by the archive-time tombstone —
+ * the timestamp-based auto-clear in `consultBotTombstone` can miss when the
+ * recorded/incoming `updated` ms are equal or unparseable (0).
+ */
+export function clearBotTombstone(botId: string): void {
+  load();
+  if (botTombstones.delete(botId)) {
+    persist();
+  }
+}
+
 export function clearAllTombstones(): void {
   dealTombstones = new Map();
   botTombstones = new Map();

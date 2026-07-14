@@ -1588,15 +1588,36 @@ const GridBots: React.FC = () => {
                     <EmptyState
                       size="page"
                       icon={<Grid3x3 className="w-6 h-6" />}
-                      title="No grid bots yet"
-                      description="Grid bots place a ladder of buy and sell orders to profit from price oscillations in a range. Set up your first grid to get started."
+                      title={
+                        showArchived
+                          ? 'No archived grid bots'
+                          : 'No grid bots yet'
+                      }
+                      description={
+                        showArchived
+                          ? 'Bots you archive move here. Un-archive one to bring it back to your active list.'
+                          : 'Grid bots place a ladder of buy and sell orders to profit from price oscillations in a range. Set up your first grid to get started.'
+                      }
                       action={
-                        readOnly
+                        showArchived
+                          ? {
+                              label: 'Back to active bots',
+                              onClick: () => setShowArchived((prev) => !prev),
+                            }
+                          : readOnly
+                            ? undefined
+                            : {
+                                label: 'Create grid bot',
+                                onClick: () => navigate('/grid/new'),
+                                icon: <Plus className="w-5 h-5" />,
+                              }
+                      }
+                      secondaryAction={
+                        showArchived
                           ? undefined
                           : {
-                              label: 'Create grid bot',
-                              onClick: () => navigate('/grid/new'),
-                              icon: <Plus className="w-5 h-5" />,
+                              label: 'View archived bots',
+                              onClick: () => setShowArchived((prev) => !prev),
                             }
                       }
                     />

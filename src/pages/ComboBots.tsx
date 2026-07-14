@@ -1904,15 +1904,38 @@ const ComboBots: React.FC = () => {
                         <EmptyState
                           size="page"
                           icon={<Boxes className="w-6 h-6" />}
-                          title="No combo bots yet"
-                          description="Combo bots blend DCA and grid strategies under one configuration. Set one up to start trading multiple pairs at once."
+                          title={
+                            showArchived
+                              ? 'No archived combo bots'
+                              : 'No combo bots yet'
+                          }
+                          description={
+                            showArchived
+                              ? 'Bots you archive move here. Un-archive one to bring it back to your active list.'
+                              : 'Combo bots blend DCA and grid strategies under one configuration. Set one up to start trading multiple pairs at once.'
+                          }
                           action={
-                            readOnly
+                            showArchived
+                              ? {
+                                  label: 'Back to active bots',
+                                  onClick: () =>
+                                    setShowArchived((prev) => !prev),
+                                }
+                              : readOnly
+                                ? undefined
+                                : {
+                                    label: 'Create combo bot',
+                                    onClick: () => navigate('/combo/new'),
+                                    icon: <Plus className="w-5 h-5" />,
+                                  }
+                          }
+                          secondaryAction={
+                            showArchived
                               ? undefined
                               : {
-                                  label: 'Create combo bot',
-                                  onClick: () => navigate('/combo/new'),
-                                  icon: <Plus className="w-5 h-5" />,
+                                  label: 'View archived bots',
+                                  onClick: () =>
+                                    setShowArchived((prev) => !prev),
                                 }
                           }
                         />
