@@ -161,7 +161,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         {isStarred(bot.id) ? 'Unstar' : 'Star'}
       </DropdownMenuItem>
 
-      {!hideLifecycleActions && canToggle && (
+      {!hideLifecycleActions && canToggle && !isArchivedStatus && (
         <DropdownMenuItem
           onClick={readOnly ? undefined : onToggleStatus}
           disabled={!!pending?.statusToggle || readOnly}
@@ -186,7 +186,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         </DropdownMenuItem>
       )}
 
-      {!hideLifecycleActions && canRestart && onRestart && (
+      {!hideLifecycleActions && canRestart && onRestart && !isArchivedStatus && (
         <DropdownMenuItem
           onClick={readOnly ? undefined : onRestart}
           disabled={!!pending?.restart || readOnly}
@@ -206,7 +206,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         </DropdownMenuItem>
       )}
 
-      {!hideLifecycleActions && (
+      {!hideLifecycleActions && !isArchivedStatus && (
         <DropdownMenuItem
           onClick={readOnly ? undefined : onEdit}
           disabled={readOnly}
@@ -276,7 +276,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
         ) : (
           <>
             <Archive className="w-4 h-4 mr-2" />
-            {bot.status === 'archived' ? 'Unarchive' : 'Archive'}
+            {isArchivedStatus ? 'Unarchive' : 'Archive'}
           </>
         )}
       </DropdownMenuItem>
