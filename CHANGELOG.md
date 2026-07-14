@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.8] - 2026-07-14
+
+### Fixed
+
+- Un-archiving from a bot's detail drawer (and the list row menus) now actually un-archives. The archive toggle checked `status === 'archived'`, but the real status is `archive`, so on an archived bot it computed "not archived" and re-archived instead of un-archiving. Now matches both spellings (drawer + Trading/Grid/Combo pages).
+- Archived bots no longer show Start / Restart / Edit in the detail drawer's footer (they can't be started or edited until un-archived — use Unarchive in the ⋯ menu). The footer bar is hidden entirely when it would be empty.
+
 ## [2.32.7] - 2026-07-14
 
 ### Fixed

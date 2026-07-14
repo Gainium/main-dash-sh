@@ -866,7 +866,10 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     };
 
     const handleArchive = () => {
-      const isArchived = bot.status.toLowerCase() === 'archived';
+      // Backend status for an archived bot is 'archive' (not 'archived'), so
+      // match both — otherwise un-archive would send archive:true and re-archive.
+      const s = bot.status.toLowerCase();
+      const isArchived = s === 'archive' || s === 'archived';
       archiveMutation.mutate({ id: actionBotId, archive: !isArchived, type });
     };
 
@@ -1340,6 +1343,9 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     // now depends only on the status-derived primitives + stable handlers, so it
     // recomputes only when the bot's status/pending state actually changes.
     const footerReadOnly = isReadOnly() || viewOnly;
+    const footerStatus = bot.status.toLowerCase();
+    const isArchivedBot =
+      footerStatus === 'archive' || footerStatus === 'archived';
     const canToggle = canToggleBotStatus(bot.status);
     const canRestart = isBotRestartable(bot.status);
     const statusTogglePending = statusToggleMutation.isPending;
@@ -1348,6 +1354,10 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const botStatus = bot.status;
     const footerActionButtons = useMemo<ResponsiveButtonConfig[]>(() => {
       const configs: ResponsiveButtonConfig[] = [];
+
+      // Archived bots can't be started, restarted or edited — un-archive first
+      // (via the ⋯ menu). So the lifecycle footer is empty for them.
+      if (isArchivedBot) return configs;
 
       if (canToggle) {
         configs.push({
@@ -1490,6 +1500,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
 
       return configs;
     }, [
+      isArchivedBot,
       canToggle,
       canRestart,
       statusTogglePending,
@@ -2006,7 +2017,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   actions are intentionally NOT duplicated in the header ⋮
                   menu (see hideLifecycleActions above). Hidden for share-link
                   / non-owner viewers. */}
-              {!viewOnly && (
+              {!viewOnly && footerActionButtons.length > 0 && (
                 <div className="shrink-0 border-t border-border px-3 py-2 sm:px-4">
                   <ResponsiveButtonRow
                     buttons={footerActionButtons}

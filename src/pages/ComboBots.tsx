@@ -232,7 +232,8 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   };
 
   const handleArchive = () => {
-    const isArchived = bot.status.toLowerCase() === 'archived';
+    const s = bot.status.toLowerCase();
+    const isArchived = s === 'archive' || s === 'archived';
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
