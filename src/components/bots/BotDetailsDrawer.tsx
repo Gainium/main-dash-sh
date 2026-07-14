@@ -67,6 +67,7 @@ import { TradeDetailContent } from '../../components/trades/TradeDetailContent';
 import { ShareBotDialog } from '../../features/bots/shared/runtime/dialogs/ShareBotDialog';
 import { useBotViewTracking } from '../../hooks/useBotAnalytics';
 import {
+  useBotArchive,
   useBotClone,
   useBotDelete,
   useBotRestart,
@@ -85,10 +86,12 @@ import {
 } from '../bots/BotActionsMenuItems';
 import { DealEditDrawer } from '../deals/DealEditDrawer';
 import {
+  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
 } from '../modals';
+import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import { Button } from '../ui/button';
 import {
   ResponsiveButtonRow,
@@ -517,6 +520,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [successModalOpen, setSuccessModalOpen] = useState(false);
     const [statusModalOpen, setStatusModalOpen] = useState(false);
+    const [archiveModalOpen, setArchiveModalOpen] = useState(false);
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
     const [successData, setSuccessData] = useState<{
       type: 'clone' | 'delete';
@@ -538,6 +542,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     // Mutations
     const deleteMutation = useBotDelete();
     const cloneMutation = useBotClone();
+    const archiveMutation = useBotArchive();
     const restartMutation = useBotRestart();
 
     const statusToggleMutation = useBotStatusToggle(type);
@@ -861,6 +866,21 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
 
     const handleDelete = () => {
       setDeleteModalOpen(true);
+    };
+
+    const handleArchive = () => {
+      const isArchived = bot.status.toLowerCase() === 'archived';
+      // Archiving becomes read-only / one-way once the cold-store UX is live —
+      // confirm first. Un-archive + the flag-off path stay direct.
+      if (!isArchived && isColdStoreArchiveUx()) {
+        setArchiveModalOpen(true);
+        return;
+      }
+      archiveMutation.mutate({ id: actionBotId, archive: !isArchived, type });
+    };
+
+    const confirmArchive = () => {
+      archiveMutation.mutate({ id: actionBotId, archive: true, type });
     };
 
     const handleRestart = useCallback(() => {
@@ -1592,12 +1612,15 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                             name: bot.settings.name,
                             type: type as BotTypeId,
                             status: bot.status as BotStatusType,
+                            coldArchived: (bot as { coldArchived?: boolean })
+                              .coldArchived,
                           }}
                           pending={{
                             statusToggle: statusToggleMutation.isPending,
                             restart: restartMutation.isPending,
                             clone: cloneMutation.isPending,
                             delete: deleteMutation.isPending,
+                            archive: archiveMutation.isPending,
                           }}
                           onToggleStatus={() => handleStatusToggle()}
                           onRestart={() => handleRestart()}
@@ -1644,6 +1667,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                               toast.error('Failed to stage configuration');
                             }
                           }}
+                          onArchive={() => handleArchive()}
                           onDelete={() => handleDelete()}
                         />
                       </DropdownMenu>
@@ -2241,6 +2265,14 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           }}
           isLoading={deleteMutation.isPending}
           requireConfirmation={false}
+        />
+
+        <ArchiveWarningDialog
+          open={archiveModalOpen}
+          onOpenChange={setArchiveModalOpen}
+          onConfirm={confirmArchive}
+          botName={bot.settings.name}
+          isLoading={archiveMutation.isPending}
         />
 
         <SuccessFeedbackModal

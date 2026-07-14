@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.3] - 2026-07-14
+
+### Fixed
+
+- Archiving a bot from the bot detail/view page (`/…/view/:id`) now works. The view-page action menu never wired its Archive action, so clicking Archive there did nothing; it now archives (and shows the read-only warning when the cold-store UX is enabled), matching the bot-list menus.
+
 ## [2.32.2] - 2026-07-14
 
 ### Fixed
