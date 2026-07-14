@@ -222,10 +222,22 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       [trade]
     );
     const { getBalances } = useBotFormMutations(useBotFromMutationOptions);
+    // Tracks which deal(s) the form is currently seeded from. The effect
+    // below re-runs on every render where `onClose`/`trade` identity changes
+    // — and realtime socket traffic (`bot deal update`, `data update`) churns
+    // the parent on every incoming notification. Without this guard, each
+    // notification would re-seed the form from server state and wipe the
+    // user's in-progress edits. We only re-seed when the identity of the
+    // deal(s) being edited actually changes.
+    const seededDealKeyRef = useRef<string | null>(null);
     useEffect(() => {
       if (!trade || trade.some((t) => !isActiveDeal(t))) {
+        seededDealKeyRef.current = null;
         onClose();
       } else {
+        const dealKey = trade.map((t) => t._id).join('|');
+        if (seededDealKeyRef.current === dealKey) return;
+        seededDealKeyRef.current = dealKey;
         const isSingle = trade.length === 1;
         const combinedSettings = isSingle
           ? {

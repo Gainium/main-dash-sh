@@ -715,8 +715,10 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       [setSearchParams]
     );
 
-    // Handler to go back to bot view
-    const handleBackToBot = () => {
+    // Handler to go back to bot view. Memoized so realtime socket updates
+    // (which re-render this drawer via the deal/order stores) don't hand a
+    // fresh `onClose` identity to child drawers on every notification.
+    const handleBackToBot = useCallback(() => {
       setViewMode('bot');
       setSelectedTrade(null);
       setEditingTrade(null);
@@ -729,7 +731,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
         },
         { replace: true }
       );
-    };
+    }, [setSearchParams]);
 
     // Handler for when edit deal is clicked in the deals table
     const handleEditDeal = useCallback((deal: DCADeals[]) => {
