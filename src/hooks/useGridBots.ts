@@ -65,6 +65,14 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
     [filter?.status]
   );
 
+  // The archived list must NOT share the global active-bots store (see the same
+  // note in useDcaBots): updateBots REPLACES the store and every active-bot
+  // caller (drawer widgets, stats) would clobber the archived list, flipping it
+  // to active bots while showArchived stays true. React Query keys by `status`,
+  // so the archived query reads/writes its OWN result and stays out of the store.
+  const isArchivedQuery =
+    !!filter?.status?.length && filter.status.includes('archive');
+
   // Share-mode visitors must not fetch the visitor's grid bot list.
   const { isDemo } = useShareContext();
 
@@ -78,8 +86,10 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
     }
   );
 
-  // Update store when query succeeds (React Query v5 pattern)
+  // Update store when query succeeds (React Query v5 pattern). Skip for the
+  // archived query so it never clobbers / is clobbered by the active store.
   useEffect(() => {
+    if (isArchivedQuery) return;
     if (queryResult.data?.status === 'OK' && queryResult.data.data) {
       const bots = Array.isArray(queryResult.data.data)
         ? queryResult.data.data
@@ -93,7 +103,7 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
       }));
       useGridBotsStore.getState().updateBots(normalizedBots);
     }
-  }, [currentPaperContext, queryResult.data]);
+  }, [currentPaperContext, queryResult.data, isArchivedQuery]);
 
   // Apply client-side filtering if needed
   const filteredBots = useMemo(
@@ -104,6 +114,22 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
     [botsFromStore, currentPaperContext]
   );
 
+  // Archived list: derive bots from THIS query's own result (isolated).
+  const archivedBots = useMemo(() => {
+    if (!isArchivedQuery) return null;
+    const data = queryResult.data?.data;
+    const arr = Array.isArray(data) ? data : [];
+    return arr
+      .map((bot) => ({
+        ...bot,
+        paperContext:
+          typeof bot.paperContext === 'boolean'
+            ? bot.paperContext
+            : currentPaperContext,
+      }))
+      .filter((bot: GridBot) => bot.paperContext === currentPaperContext);
+  }, [isArchivedQuery, queryResult.data, currentPaperContext]);
+
   // 3. Only show loading on initial load (when store is empty) OR while IDB
   // is still rehydrating — otherwise the table flashes empty on hard refresh
   // / HMR before cached bots arrive from IndexedDB.
@@ -113,8 +139,20 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   // 4. Return store data (real-time via WebSocket). In share mode, force
   //    an empty result so cached bots from a prior logged-in session
   //    never leak into share-URL renders.
-  const result = useMemo(
-    () => ({
+  const result = useMemo(() => {
+    if (isArchivedQuery && !isDemo) {
+      const bots = archivedBots ?? [];
+      return {
+        ...queryResult,
+        data: queryResult.data?.data || null,
+        bots,
+        total: queryResult.data?.total || bots.length,
+        isLoading: queryResult.isLoading && !bots.length,
+        isError: queryResult.isError,
+        error: queryResult.error,
+      };
+    }
+    return {
       ...queryResult,
       data: isDemo ? null : queryResult.data?.data || null,
       bots: isDemo ? [] : filteredBots,
@@ -122,9 +160,8 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
       isLoading: isDemo ? false : isInitialLoad,
       isError: isDemo ? false : queryResult.isError,
       error: isDemo ? null : queryResult.error,
-    }),
-    [isDemo, queryResult, filteredBots, isInitialLoad]
-  );
+    };
+  }, [isArchivedQuery, archivedBots, isDemo, queryResult, filteredBots, isInitialLoad]);
   return result;
 }
 

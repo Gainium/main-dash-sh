@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.12] - 2026-07-14
+
+### Fixed
+
+- Viewing an archived bot's Closed deals no longer flips the background bot list back to your active bots. The archived list (Trading / Grid / Combo) is now isolated from the shared live-bots store, so when the detail drawer's widgets refetch active bots they can't overwrite what the archived list shows. The "Show Archived" toggle stays on and the list keeps showing your archived bots throughout.
+
 ## [2.32.11] - 2026-07-14
 
 ### Fixed
