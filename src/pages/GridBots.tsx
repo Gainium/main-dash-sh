@@ -103,7 +103,7 @@ import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import { transformGridBotToBot, type GridBot } from '../types/gridBot';
 import { useShareContext } from '../hooks/useShareContext';
-import { useSharedBot } from '../hooks/useSharedBot';
+import { useDrawerBot } from '../hooks/useDrawerBot';
 import { useAuthStore } from '../stores/authStore';
 
 const GRID_BOT_TYPE_ID = 'grid';
@@ -401,28 +401,6 @@ const GridBots: React.FC = () => {
   // Share-link path: see TradingBots.tsx
   const currentUser = useAuthStore((s) => s.user);
   const { shareId } = useShareContext();
-  const sharedBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.grid,
-    shareId,
-  });
-
-  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
-  // default list, so opening it would otherwise fail to resolve and the drawer
-  // would render nothing. When a selected bot isn't in the loaded list, fetch it
-  // by id via the shared hook (authenticated, no shareId) so it stays viewable.
-  const selectedInList = useMemo(
-    () => !!selectedBot && gridBots.some((b) => b._id === selectedBot),
-    [selectedBot, gridBots]
-  );
-  const needBotFallback =
-    !shareId && !!selectedBot && !botsLoading && !selectedInList;
-  const fallbackBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.grid,
-    shareId: null,
-    enabled: needBotFallback,
-  });
 
   const deleteMutation = useBotDelete();
   const archiveMutation = useBotArchive();
@@ -694,6 +672,17 @@ const GridBots: React.FC = () => {
 
     return transformed;
   }, [gridBots, stableDependencies.prices, stableDependencies.exchanges]);
+
+  // Shared drawer-bot resolution: list lookup + by-id fallback (archived/share
+  // bots) + sticky-through-refetch, all in one place for every bot page.
+  const drawerBot = useDrawerBot({
+    selectedBotId: selectedBot,
+    listBots: transformedBots,
+    type: BotTypesEnum.grid,
+    shareId,
+    listLoading: botsLoading,
+    transformRaw: (raw) => transformGridBotToBot(raw as unknown as Bot, [], []),
+  });
 
   const handleSelectBot = useCallback(
     (botId: string | null) => {
@@ -1424,22 +1413,9 @@ const GridBots: React.FC = () => {
   // no stats, no create button). MainLayout short-circuits to
   // SharedPageLayout when isDemo, so chrome is minimal.
   if (shareId) {
-    let sharedBotForDrawer:
-      | ReturnType<typeof transformGridBotToBot>
-      | undefined;
-    if (selectedBot && sharedBotResult.bot) {
-      try {
-        sharedBotForDrawer = transformGridBotToBot(
-          sharedBotResult.bot as unknown as Bot,
-          [],
-          []
-        );
-      } catch (e) {
-        logger.warn('[GridBots] failed to transform shared bot', { error: e });
-      }
-    }
+    const sharedBotForDrawer = drawerBot.bot;
     const sharedOwnerId =
-      (sharedBotResult.bot as { userId?: string } | null)?.userId;
+      (drawerBot.rawBot as { userId?: string } | null)?.userId;
     return (
       <MainLayout pageTitle="Shared grid bot" activePage="/grid-bots">
         {sharedBotForDrawer ? (
@@ -1456,7 +1432,7 @@ const GridBots: React.FC = () => {
           </BotDetailsDrawer>
         ) : (
           <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
-            {sharedBotResult.isLoading
+            {drawerBot.isLoading
               ? 'Loading shared bot…'
               : 'Shared bot is not available.'}
           </div>
@@ -1870,27 +1846,11 @@ const GridBots: React.FC = () => {
         {/* Bot Details Drawer - OPTIMIZED: Single shared drawer instead of one per bot */}
         {selectedBot &&
           (() => {
-            let selectedBotData = transformedBots.find(
-              (bot) => bot.id === selectedBot
-            );
-            if (!selectedBotData) {
-              const raw = (
-                shareId ? sharedBotResult.bot : fallbackBotResult.bot
-              ) as unknown as Bot | null;
-              if (raw) {
-                try {
-                  selectedBotData = transformGridBotToBot(raw, [], []);
-                } catch (e) {
-                  logger.warn('[GridBots] failed to transform shared bot', {
-                    error: e,
-                  });
-                }
-              }
-            }
+            const selectedBotData = drawerBot.bot;
             if (!selectedBotData) return null;
 
             const sharedOwnerId =
-              (sharedBotResult.bot as { userId?: string } | null)?.userId;
+              (drawerBot.rawBot as { userId?: string } | null)?.userId;
             const viewOnly =
               !!shareId ||
               (!!currentUser && !!sharedOwnerId && sharedOwnerId !== currentUser.id);

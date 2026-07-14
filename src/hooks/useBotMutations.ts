@@ -272,26 +272,47 @@ export function useBotStatusToggle(type: BotTypesEnum) {
       const targetStatus = status === 'open' ? 'open' : 'closed';
       let previousStatus: string | undefined;
 
+      // Optimistically flip the badge in whichever live store holds this bot
+      // type. Hedge wrappers live in their own stores, so a hedge toggle gets
+      // the same instant feedback as DCA/combo/grid — this is what lets hedge
+      // surfaces share this hook instead of re-implementing changeStatus
+      // inline. (Kept as explicit per-store branches because each store's
+      // `updateBot` is typed to its own bot shape.)
+      const nextStatus = targetStatus as BotStatus;
       if (type === BotTypesEnum.dca) {
         const store = useDcaBotsStore.getState();
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
-          store.updateBot({ ...bot, status: targetStatus as BotStatus });
+          store.updateBot({ ...bot, status: nextStatus });
         }
       } else if (type === BotTypesEnum.combo) {
         const store = useComboBotsStore.getState();
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
-          store.updateBot({ ...bot, status: targetStatus as BotStatus });
+          store.updateBot({ ...bot, status: nextStatus });
+        }
+      } else if (type === BotTypesEnum.hedgeDca) {
+        const store = useHedgeDcaBotsStore.getState();
+        const bot = store.bots[id];
+        if (bot) {
+          previousStatus = bot.status;
+          store.updateBot({ ...bot, status: nextStatus });
+        }
+      } else if (type === BotTypesEnum.hedgeCombo) {
+        const store = useHedgeComboBotsStore.getState();
+        const bot = store.bots[id];
+        if (bot) {
+          previousStatus = bot.status;
+          store.updateBot({ ...bot, status: nextStatus });
         }
       } else {
         const store = useGridBotsStore.getState();
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
-          store.updateBot({ ...bot, status: targetStatus as BotStatus });
+          store.updateBot({ ...bot, status: nextStatus });
         }
       }
 
@@ -318,6 +339,14 @@ export function useBotStatusToggle(type: BotTypesEnum) {
           if (bot) store.updateBot({ ...bot, status: rollbackStatus });
         } else if (type === BotTypesEnum.combo) {
           const store = useComboBotsStore.getState();
+          const bot = store.bots[id];
+          if (bot) store.updateBot({ ...bot, status: rollbackStatus });
+        } else if (type === BotTypesEnum.hedgeDca) {
+          const store = useHedgeDcaBotsStore.getState();
+          const bot = store.bots[id];
+          if (bot) store.updateBot({ ...bot, status: rollbackStatus });
+        } else if (type === BotTypesEnum.hedgeCombo) {
+          const store = useHedgeComboBotsStore.getState();
           const bot = store.bots[id];
           if (bot) store.updateBot({ ...bot, status: rollbackStatus });
         } else {
@@ -467,106 +496,6 @@ export function useResetShowError() {
     onError: (err: Error) => {
       logger.error('[BotMutations] resetShowError failed:', err);
       toast.error(`Failed to clear bot errors: ${err.message}`);
-    },
-  });
-}
-
-/**
- * Hedge parent Start/Stop via cascading leg toggles
- * Falls back to toggling child legs (DCA or Combo) when no parent-level API exists.
- */
-export interface HedgeStatusUpdateLeg {
-  id: string;
-  type: 'dca' | 'combo';
-  strategy?: 'LONG' | 'Short' | string;
-}
-
-export interface HedgeStatusUpdateParams {
-  parentId: string;
-  hedgeType: 'hedgeDca' | 'hedgeCombo';
-  targetStatus: 'active' | 'stopped';
-  legs: HedgeStatusUpdateLeg[];
-  closeType?: 'leave' | 'cancel' | 'closeByMarket' | 'closeByLimit';
-}
-
-export function useHedgeStatusToggle() {
-  const { tokens } = useAuthStore();
-  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
-
-  return useMutation({
-    mutationFn: async ({
-      targetStatus,
-      legs,
-      closeType,
-    }: HedgeStatusUpdateParams) => {
-      if (!tokens?.accessToken) {
-        throw new Error('Authentication required');
-      }
-
-      const endpoint =
-        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
-      const paperContext = !isLiveTrading;
-      const client = new GraphQLClient(
-        endpoint,
-        tokens.accessToken,
-        paperContext
-      );
-
-      const mutation = `mutation changeStatus($input: changeStatusInput!) {
-        changeStatus(input: $input) {
-          status
-          reason
-          data { _id status }
-        }
-      }`;
-
-      const mapToBackendStatus = (frontendStatus: 'active' | 'stopped') =>
-        frontendStatus === 'active' ? 'open' : 'closed';
-
-      const backendStatus = mapToBackendStatus(targetStatus);
-      const resolvedCloseType =
-        targetStatus === 'active' ? undefined : (closeType ?? 'leave');
-
-      // Execution order: start => arbitrary; stop => short first if known
-      const legsOrdered = [...legs].sort((a, b) => {
-        const aS = String(a.strategy || '').toLowerCase();
-        const bS = String(b.strategy || '').toLowerCase();
-        // Put SHORT first when stopping, otherwise keep order
-        if (backendStatus === 'closed') {
-          if (aS === 'short' && bS !== 'short') return -1;
-          if (aS !== 'short' && bS === 'short') return 1;
-        }
-        return 0;
-      });
-
-      for (const leg of legsOrdered) {
-        const variables = {
-          input: {
-            id: `${leg.id}`,
-            status: backendStatus,
-            ...(resolvedCloseType ? { closeType: resolvedCloseType } : {}),
-            type: leg.type,
-          },
-        };
-
-        const result = await client.request<{
-          changeStatus: ReturnResult<{ _id: string; status: string }>;
-        }>(mutation, variables);
-
-        if (result.changeStatus.status !== 'OK') {
-          throw new Error(
-            result.changeStatus.reason || 'Failed to change leg status'
-          );
-        }
-      }
-
-      return true;
-    },
-    onSuccess: () => {
-      // No need to invalidate - WebSocket provides live updates
-      logger.debug(
-        '[BotMutations] Hedge status update successful - WebSocket will update stores'
-      );
     },
   });
 }

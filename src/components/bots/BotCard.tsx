@@ -3,7 +3,6 @@ import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
   BotTypesEnum,
-  CloseDCATypeEnum,
   /*  DCADealStatusEnum, */
   type AdditionalBotData,
   type Bot,
@@ -12,12 +11,7 @@ import {
   type ComboBot,
   type DCABot,
 } from '@/types';
-import { buildBotEditRoute, buildBotViewRoute } from '@/utils/bots/navigation';
-import {
-  getActionPastTense,
-  getTargetStatus,
-  isBotActive,
-} from '@/utils/botStatusUtils';
+import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { motion } from 'framer-motion';
 import { ExternalLink, MoreVertical } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
@@ -30,19 +24,10 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  useBotClone,
-  useBotDelete,
-  useBotRestart,
-  useBotStatusToggle,
-} from '../../hooks/useBotMutations';
+import { useBotActions } from '../../hooks/useBotActions';
 import { useChartColors } from '../../hooks/useChartColors';
 import logger from '../../lib/loggerInstance';
-import {
-  BotStatusConfirmationModal,
-  DeleteConfirmationModal,
-  SuccessFeedbackModal,
-} from '../modals';
+import { BotActionsModals } from './BotActionsModals';
 import { Button } from '../ui/button';
 // Use a plain container for the bot card to avoid nested Card components
 // Avoid using the shared Card here to prevent nested cards; use a plain div instead
@@ -244,36 +229,49 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
     return [];
   }, [statsChart /* , botDeals */]);
 
-  // Modal state
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [successData, setSuccessData] = useState<{
-    type: 'clone' | 'delete';
-    newItemId?: string;
-    botTypeId?: string;
-  } | null>(null);
-
-  // Bot mutations
-  const _botTypeEnum = (() => {
-    const t = bot.type as string;
-    switch (t) {
-      case 'combo':
-        return BotTypesEnum.combo;
-      case 'grid':
-        return BotTypesEnum.grid;
-      case 'hedgeCombo':
-        return BotTypesEnum.hedgeCombo;
-      case 'hedgeDca':
-        return BotTypesEnum.hedgeDca;
-      default:
-        return BotTypesEnum.dca;
-    }
-  })();
-  const statusToggleMutation = useBotStatusToggle(_botTypeEnum);
-  const restartMutation = useBotRestart();
-  const cloneMutation = useBotClone();
-  const deleteMutation = useBotDelete();
+  // Shared bot-action orchestration (clone/status/restart/delete + their
+  // modals). Clone opens the pre-filled create page; status/delete go through
+  // the confirmation modals rendered by <BotActionsModals> below.
+  const botActions = useBotActions({
+    botId: bot.id,
+    botType: type,
+    botName: bot.name,
+    status: bot.status,
+    activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
+    totalValue: bot?.usage?.current?.quote || 0,
+    currency: Array.isArray(bot.symbol)
+      ? bot.symbol[0]?.value?.quoteAsset || ''
+      : bot.symbol?.quoteAsset || '',
+    lastActivity: bot?.created || 'Unknown',
+    botData: bot,
+    // Hedge-aware / page-level status override (list pages pass this in).
+    ...(onToggleStatus
+      ? {
+          onToggleStatus: (
+            targetStatus: BotStatus,
+            closeType?: string
+          ) => onToggleStatus(bot, targetStatus, closeType),
+          statusTogglePending: !!isTogglingStatus,
+        }
+      : {}),
+    // "Duplicate to live/paper" stages the config and opens a fresh create form.
+    onCopyToLive: () => {
+      const base = {
+        name: `${bot.settings?.name || bot.name} (Live)`,
+        type: bot.type,
+        exchange: bot.exchange,
+        symbol: bot.pair,
+        settings: bot.settings || {},
+      };
+      try {
+        sessionStorage.setItem('botConfig', JSON.stringify(base));
+        navigate('/bot/new');
+      } catch (err) {
+        logger.error('Failed to stage config for live trading:', err);
+        toast.error('Failed to stage configuration');
+      }
+    },
+  });
 
   // Helper function to determine gauge color based on percentage
   const getGaugeColor = (percentage: number): string => {
@@ -372,148 +370,6 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
     }
     if (onClick) {
       onClick(bot);
-    }
-  };
-
-  // Real bot actions
-  const handleEdit = () => {
-    navigate(buildBotEditRoute(type, bot.id));
-  };
-
-  const handleClone = () => {
-    logger.info('[BotCard] Clone clicked:', {
-      botId: bot.id,
-      botName: bot.name,
-      mutationLoading: cloneMutation.isPending,
-    });
-
-    // Parity with legacy: clone opens an unsaved, pre-filled create form so
-    // the exchange (and everything else) is still editable before saving.
-    // Landing on the edit page instead locks the exchange (`isExchangeLocked
-    // = !!id`), which is the regression users hit when cloning combo/grid.
-    if (type === BotTypesEnum.dca) {
-      navigate(`/bot/new?load=${bot.id}`);
-      return;
-    }
-    if (type === BotTypesEnum.combo) {
-      navigate(`/combo/new?load=${bot.id}`);
-      return;
-    }
-    if (type === BotTypesEnum.grid) {
-      navigate(`/grid/new?load=${bot.id}`);
-      return;
-    }
-
-    cloneMutation.mutate(
-      {
-        id: bot.id,
-        name: `${bot.name} (Clone)`,
-        botData: bot as DCABot,
-        type,
-      },
-      {
-        onSuccess: (data) => {
-          logger.info('[BotCard] Clone success:', data);
-          setSuccessData({
-            type: 'clone',
-            newItemId: data?._id || `clone_${Date.now()}`,
-            botTypeId: bot.type,
-          });
-          setSuccessModalOpen(true);
-        },
-        onError: (error) => {
-          console.error('[BotCard] Clone error:', error);
-        },
-      }
-    );
-  };
-
-  const handleStatusToggle = () => {
-    setStatusModalOpen(true);
-  };
-
-  const handleConfirmStatusChange = (closeType?: string) => {
-    // Check if bot is currently active (using centralized utility)
-    const isActive = isBotActive(bot.status);
-    const newStatus = getTargetStatus(bot.status);
-
-    logger.info('[BotCard] Status toggle confirmed:', {
-      botId: bot.id,
-      currentStatus: bot.status,
-      isActive,
-      newStatus,
-      closeType,
-      mutationLoading: statusToggleMutation.isPending,
-    });
-
-    if (onToggleStatus) {
-      Promise.resolve(onToggleStatus(bot, newStatus, closeType))
-        .then(() => {
-          setStatusModalOpen(false);
-          toast.success(
-            `Bot "${bot.name}" ${getActionPastTense(bot.status)} successfully`
-          );
-        })
-        .catch((error) => {
-          console.error('[BotCard] Status toggle failed (override):', error);
-          toast.error(
-            `Failed to ${isActive ? 'stop' : 'start'} bot "${bot.name}"`
-          );
-        });
-      return;
-    }
-
-    statusToggleMutation.mutate(
-      {
-        id: bot.id,
-        status: newStatus,
-        closeType: closeType as CloseDCATypeEnum | undefined,
-      },
-      {
-        onSuccess: () => {
-          setStatusModalOpen(false);
-          toast.success(
-            `Bot "${bot.name}" ${getActionPastTense(bot.status)} successfully`
-          );
-        },
-        onError: (error) => {
-          console.error('[BotCard] Status toggle failed:', error);
-          toast.error(
-            `Failed to ${newStatus === 'open' ? 'start' : 'stop'} bot "${bot.name}"`
-          );
-        },
-      }
-    );
-  };
-
-  const handleDelete = () => {
-    setDeleteModalOpen(true);
-  };
-
-  const handleRestart = () => {
-    restartMutation.mutate(
-      {
-        id: bot.id,
-        type,
-      },
-      {
-        onSuccess: () => {
-          toast.success(`Bot "${bot.name}" restarted successfully`);
-        },
-        onError: () => {
-          toast.error(`Failed to restart bot "${bot.name}"`);
-        },
-      }
-    );
-  };
-
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteMutation.mutateAsync({ id: bot.id, type });
-      setSuccessData({ type: 'delete' });
-      setSuccessModalOpen(true);
-    } catch (error) {
-      console.error('Failed to delete bot:', error);
     }
   };
 
@@ -654,53 +510,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     type: type,
                     status: bot.status,
                   }}
-                  pending={{
-                    statusToggle: onToggleStatus
-                      ? !!isTogglingStatus
-                      : statusToggleMutation.isPending,
-                    restart: restartMutation.isPending,
-                    clone: cloneMutation.isPending,
-                    delete: deleteMutation.isPending,
-                  }}
-                  onToggleStatus={() => {
-                    handleStatusToggle();
-                  }}
-                  onRestart={() => handleRestart()}
-                  onEdit={() => handleEdit()}
-                  onClone={() => handleClone()}
-                  onViewClosedTrades={() => navigate(`/trades?botId=${bot.id}`)}
-                  onShareConfig={async () => {
-                    try {
-                      const source = bot ?? bot;
-                      await navigator.clipboard.writeText(
-                        JSON.stringify(source, null, 2)
-                      );
-                      toast.success('Configuration copied to clipboard');
-                    } catch (err) {
-                      console.error('Failed to copy configuration:', err);
-                      toast.error('Failed to copy configuration');
-                    }
-                  }}
-                  onCopyToLive={() => {
-                    const base = {
-                      name: `${bot.settings?.name || bot.name} (Live)`,
-                      type: bot.type,
-                      exchange: bot.exchange,
-                      symbol: bot.pair,
-                      settings: bot.settings || {},
-                    };
-                    try {
-                      sessionStorage.setItem('botConfig', JSON.stringify(base));
-                      navigate('/bot/new');
-                    } catch (err) {
-                      console.error(
-                        'Failed to stage config for live trading:',
-                        err
-                      );
-                      toast.error('Failed to stage configuration');
-                    }
-                  }}
-                  onDelete={() => handleDelete()}
+                  {...botActions.menuProps}
                 />
               </DropdownMenu>
             </div>
@@ -1068,55 +878,8 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
         </div>
       </motion.div>
 
-      {/* Modals */}
-      <DeleteConfirmationModal
-        open={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
-        onConfirm={handleConfirmDelete}
-        title="Delete Bot"
-        description="Are you sure you want to delete this bot? This action cannot be undone."
-        itemName={bot.name}
-        itemType="bot"
-        additionalInfo={{
-          activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
-          totalValue: bot?.usage?.current?.quote || 0,
-          currency: Array.isArray(bot.symbol)
-            ? bot.symbol[0].value.quoteAsset
-            : bot.symbol.quoteAsset,
-          lastActivity: bot?.created || 'Unknown',
-        }}
-        isLoading={deleteMutation.isPending}
-        requireConfirmation={false}
-      />
-
-      <SuccessFeedbackModal
-        open={successModalOpen}
-        onOpenChange={setSuccessModalOpen}
-        type={successData?.type || 'clone'}
-        itemName={bot.name}
-        itemType="bot"
-        newItemId={successData?.newItemId || undefined}
-        details={
-          successData?.type === 'clone'
-            ? {
-                originalName: bot.name,
-                newName: `${bot.name} (Clone)`,
-                botTypeId: successData?.botTypeId ?? bot.type,
-              }
-            : undefined
-        }
-      />
-
-      <BotStatusConfirmationModal
-        open={statusModalOpen}
-        onOpenChange={setStatusModalOpen}
-        onConfirm={handleConfirmStatusChange}
-        botName={bot.name}
-        currentStatus={bot.status}
-        targetStatus={getTargetStatus(bot.status)}
-        hasActiveDeals={((bot as DCABot)?.dealsInBot?.active || 0) > 0}
-        isLoading={statusToggleMutation.isPending}
-      />
+      {/* Shared status / delete / success modals, driven by useBotActions. */}
+      <BotActionsModals {...botActions.modalProps} />
     </div>
   );
 };

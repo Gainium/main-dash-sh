@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.10] - 2026-07-14
+
+### Changed
+
+- All bot list pages (Trading / Grid / Combo / Hedge Combo / Hedge DCA) now resolve the detail-drawer bot through one shared `useDrawerBot` hook instead of each page hand-rolling its own logic. The hook owns list lookup, the by-id fallback that keeps archived (and shared) bots viewable, the sticky-through-refetch behavior that prevents the drawer flickering/remounting when the list refetches in the background, and the not-found redirect signal — so this behavior is fixed once for every bot type. Also gives hedge bot pages the by-id fallback they previously lacked.
+
 ## [2.32.9] - 2026-07-14
 
 ### Fixed

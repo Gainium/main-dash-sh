@@ -49,7 +49,7 @@ import {
 } from '@/types';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '@/hooks/useShareContext';
-import { useSharedBot } from '@/hooks/useSharedBot';
+import { useDrawerBot } from '@/hooks/useDrawerBot';
 import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
 import { useIsReadOnly } from '@/lib/demoMode';
@@ -253,20 +253,20 @@ const HedgeComboBots = () => {
 
   const currentUser = useAuthStore((s) => s.user);
   const { shareId } = useShareContext();
-  const sharedBotResult = useSharedBot({
-    botId: selectedBotId ?? '',
+
+  // Shared drawer-bot resolution: list lookup + by-id fallback (archived/share
+  // bots) + sticky-through-refetch. Resolves the raw hedge wrapper; the drawer
+  // context (legs/longBot/shortBot) is derived from it below.
+  const drawerBot = useDrawerBot({
+    selectedBotId,
+    listBots: bots,
     type: BotTypesEnum.hedgeCombo,
     shareId,
+    listLoading: isLoading,
+    getId: (b) => b._id,
+    transformRaw: (raw) => raw as unknown as (typeof bots)[number],
   });
-
-  const selectedHedgeBot = useMemo(() => {
-    const fromList = bots.find((b) => b._id === selectedBotId) ?? null;
-    if (fromList) return fromList;
-    if (shareId && sharedBotResult.bot) {
-      return sharedBotResult.bot as unknown as (typeof bots)[number];
-    }
-    return null;
-  }, [bots, selectedBotId, shareId, sharedBotResult.bot]);
+  const selectedHedgeBot = drawerBot.bot ?? null;
 
   // Both legs transformed (combo formula) for the combined drawer view.
   const { longBot, shortBot } = useMemo(() => {
@@ -588,7 +588,7 @@ const HedgeComboBots = () => {
           </BotDetailsDrawer>
         ) : (
           <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
-            {sharedBotResult.isLoading
+            {drawerBot.isLoading
               ? 'Loading shared bot…'
               : 'Shared bot is not available.'}
           </div>

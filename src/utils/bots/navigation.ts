@@ -98,3 +98,41 @@ export function buildBotEditRoute(
   const builder = botTypeId ? EDIT_ROUTE_BUILDERS[botTypeId] : undefined;
   return (builder ?? DEFAULT_EDIT_ROUTE)(botId);
 }
+
+// Cloning opens the matching *create* page pre-loaded with the source bot's
+// settings (`?load=<id>`) rather than immediately creating a copy. This keeps
+// the pair/exchange editable before saving — the create form treats `?load=`
+// as an unsaved template, so `isExchangeLocked = !!editId` stays false. Every
+// bot type routes through here so "Clone" behaves identically everywhere
+// (the combo/grid immediate-copy path was the inconsistency this replaces).
+const DEFAULT_CLONE_ROUTE = (id: string) => `/bot/new?load=${id}`;
+
+const CLONE_ROUTE_BUILDERS: Record<string, (id: string) => string> = {
+  [GRID_BOT_TYPE_ID]: (id: string) => `/grid/new?load=${id}`,
+  [COMBO_BOT_TYPE_ID]: (id: string) => `/combo/new?load=${id}`,
+  [HEDGE_BOT_TYPE_ID]: (id: string) => `/hedge/bot/new?load=${id}`,
+  [HEDGE_DCA_BOT_TYPE_ID]: (id: string) => `/hedge/bot/new?load=${id}`,
+  [HEDGE_COMBO_BOT_TYPE_ID]: (id: string) => `/hedge/combo/new?load=${id}`,
+  hedgeDca: (id: string) => `/hedge/bot/new?load=${id}`,
+  hedgeCombo: (id: string) => `/hedge/combo/new?load=${id}`,
+};
+
+/**
+ * Build the clone route for a bot based on its type ID. Navigating here opens
+ * the create page with the source bot's settings loaded but unsaved, so the
+ * user can change the pair/exchange before creating the copy.
+ * @param botTypeId - The type ID of the bot ('dca', 'grid', 'combo', 'hedgeDca', …)
+ * @param botId - The unique ID of the source bot to clone
+ * @returns The pre-filled create route (e.g. '/combo/new?load=123')
+ */
+export function buildBotCloneRoute(
+  botTypeId: string | null | undefined,
+  botId: string | null | undefined
+): string {
+  if (!botId) {
+    return '/bot';
+  }
+
+  const builder = botTypeId ? CLONE_ROUTE_BUILDERS[botTypeId] : undefined;
+  return (builder ?? DEFAULT_CLONE_ROUTE)(botId);
+}

@@ -119,7 +119,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useBotStatsStore } from '@/stores/live';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
-import { useSharedBot } from '../hooks/useSharedBot';
+import { useDrawerBot } from '../hooks/useDrawerBot';
 import { buildBotEditRoute } from '@/utils/bots/navigation';
 import { useComboDeals } from '../hooks/useComboDeals';
 
@@ -638,28 +638,6 @@ const ComboBots: React.FC = () => {
   // Share-link path: see TradingBots.tsx — single-bot fetch when `?share=…`
   // is present on a combo URL, used to hydrate the drawer for non-owners.
   const { shareId } = useShareContext();
-  const sharedBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.combo,
-    shareId,
-  });
-
-  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
-  // default list, so opening it would otherwise fail to resolve and the drawer
-  // would render nothing. When a selected bot isn't in the loaded list, fetch it
-  // by id via the shared hook (authenticated, no shareId) so it stays viewable.
-  const selectedInList = useMemo(
-    () => !!selectedBot && comboBots.some((b) => b._id === selectedBot),
-    [selectedBot, comboBots]
-  );
-  const needBotFallback =
-    !shareId && !!selectedBot && !botsLoading && !selectedInList;
-  const fallbackBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.combo,
-    shareId: null,
-    enabled: needBotFallback,
-  });
 
   useEffect(() => {
     if (botSymbolsMap.size === 0) {
@@ -821,6 +799,18 @@ const ComboBots: React.FC = () => {
 
     return transformed;
   }, [comboBots, stableDependencies, liveBotStats]);
+
+  // Shared drawer-bot resolution: list lookup + by-id fallback (archived/share
+  // bots) + sticky-through-refetch, all in one place for every bot page.
+  const drawerBot = useDrawerBot({
+    selectedBotId: selectedBot,
+    listBots: transformedBots,
+    type: BotTypesEnum.combo,
+    shareId,
+    listLoading: botsLoading,
+    transformRaw: (raw) =>
+      transformDcaBotToBot(raw as ComboBot, [], [], true, [], undefined),
+  });
 
   // Register cache status to show stale indicator and auto revalidation
   // Use the same variables as the query so the cache key matches the real query
@@ -1725,25 +1715,9 @@ const ComboBots: React.FC = () => {
   // no create button). MainLayout short-circuits to SharedPageLayout so
   // the outer chrome is already minimal.
   if (shareId) {
-    let sharedBotForDrawer:
-      | ReturnType<typeof transformDcaBotToBot>
-      | undefined;
-    if (selectedBot && sharedBotResult.bot) {
-      try {
-        sharedBotForDrawer = transformDcaBotToBot(
-          sharedBotResult.bot as ComboBot,
-          [],
-          [],
-          true,
-          [],
-          undefined
-        );
-      } catch (e) {
-        logger.warn('[ComboBots] failed to transform shared bot', { error: e });
-      }
-    }
+    const sharedBotForDrawer = drawerBot.bot;
     const sharedOwnerId =
-      (sharedBotResult.bot as { userId?: string } | null)?.userId;
+      (drawerBot.rawBot as { userId?: string } | null)?.userId;
     return (
       <MainLayout pageTitle="Shared combo bot" activePage="/combo-bots">
         {sharedBotForDrawer ? (
@@ -1760,7 +1734,7 @@ const ComboBots: React.FC = () => {
           </BotDetailsDrawer>
         ) : (
           <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
-            {sharedBotResult.isLoading
+            {drawerBot.isLoading
               ? 'Loading shared bot…'
               : 'Shared bot is not available.'}
           </div>
@@ -2219,34 +2193,11 @@ const ComboBots: React.FC = () => {
         {/* Bot Details Drawer - OPTIMIZED: Single shared drawer instead of one per bot */}
         {selectedBot &&
           (() => {
-            let selectedBotData = transformedBots.find(
-              (bot) => bot.id === selectedBot
-            );
-            if (!selectedBotData) {
-              const raw = (
-                shareId ? sharedBotResult.bot : fallbackBotResult.bot
-              ) as ComboBot | null;
-              if (raw) {
-                try {
-                  selectedBotData = transformDcaBotToBot(
-                    raw,
-                    [],
-                    [],
-                    true,
-                    [],
-                    undefined
-                  );
-                } catch (e) {
-                  logger.warn('[ComboBots] failed to transform shared bot', {
-                    error: e,
-                  });
-                }
-              }
-            }
+            const selectedBotData = drawerBot.bot;
             if (!selectedBotData) return null;
 
             const sharedOwnerId =
-              (sharedBotResult.bot as { userId?: string } | null)?.userId;
+              (drawerBot.rawBot as { userId?: string } | null)?.userId;
             const viewOnly =
               !!shareId ||
               (!!currentUser && !!sharedOwnerId && sharedOwnerId !== currentUser.id);

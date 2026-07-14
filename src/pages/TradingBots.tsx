@@ -123,7 +123,7 @@ import { useTradingBotStore } from '../stores/botWidgetsStoreFactory';
 import { useBotStatsStore } from '../stores/live/botStatsStore';
 import { transformDcaBotToBot } from '../types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
-import { useSharedBot } from '../hooks/useSharedBot';
+import { useDrawerBot } from '../hooks/useDrawerBot';
 
 // Bot table actions component for mobile accessibility
 interface BotTableActionsProps {
@@ -685,11 +685,6 @@ const TradingBots: React.FC = () => {
   // via its share id. When `shareId` is set, the list query is bypassed
   // and the drawer is hydrated from the single shared bot record.
   const { shareId } = useShareContext();
-  const sharedBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.dca,
-    shareId,
-  });
 
   // Bot mutations
   const statusToggleMutation = useBotStatusToggle(BotTypesEnum.dca);
@@ -760,24 +755,6 @@ const TradingBots: React.FC = () => {
     isError: botsError,
     data: _rawBotData,
   } = useDcaBots(useDcaBotsOptions);
-
-  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
-  // default list (`status: []`), so opening it would otherwise fail to resolve
-  // and redirect to /bot. When a selected bot isn't in the loaded list, fetch it
-  // by id via the shared hook so it stays viewable; its deals load from cold
-  // storage through the normal backend routing (same drawer surface, no nav).
-  const selectedInList = useMemo(
-    () => !!selectedBot && dcaBots.some((b) => b._id === selectedBot),
-    [selectedBot, dcaBots]
-  );
-  const needBotFallback =
-    !shareId && !!selectedBot && !botsLoading && !selectedInList;
-  const fallbackBotResult = useSharedBot({
-    botId: selectedBot ?? '',
-    type: BotTypesEnum.dca,
-    shareId: null,
-    enabled: needBotFallback,
-  });
 
   /* const { deals: allDeals } = useDcaDeals({});
 
@@ -1003,31 +980,8 @@ const TradingBots: React.FC = () => {
   // Skip this entirely in share mode — the visitor's bot list is empty
   // by design (see useDcaBots gating), and we'd otherwise kick a
   // share-link visitor off the URL they were sent.
-  useEffect(() => {
-    if (shareId) return;
-    if (selectedBot && dcaBots.length > 0) {
-      const exists = dcaBots.some((bot) => bot._id === selectedBot);
-      // Don't redirect while the by-id fallback is still resolving, or if it
-      // found the bot — archived bots legitimately live outside the default list.
-      if (
-        !exists &&
-        !fallbackBotResult.isLoading &&
-        !fallbackBotResult.bot
-      ) {
-        logger.warn(
-          `[TradingBots] Bot ${selectedBot} not found, navigating back`
-        );
-        navigate('/bot', { replace: true });
-      }
-    }
-  }, [
-    shareId,
-    selectedBot,
-    dcaBots,
-    navigate,
-    fallbackBotResult.isLoading,
-    fallbackBotResult.bot,
-  ]);
+  // Redirect only when the bot is genuinely not found (drawerBot.notFound below
+  // accounts for the by-id fallback). See the effect after `drawerBot`.
 
   // Register cache status so stale indicator can show and revalidate as needed
   const dcaCacheKey = useCacheKey('dcaBotList', { input: { all: true } });
@@ -1931,58 +1885,27 @@ const TradingBots: React.FC = () => {
     ]
   );
 
-  const lastResolvedBotRef = useRef<{
-    id: string;
-    bot: ReturnType<typeof transformDcaBotToBot>;
-  } | null>(null);
-  const selectedBotData = useMemo(() => {
-    const resolve = () => {
-      const fromList = transformedBots.find((bot) => bot.id === selectedBot);
-      if (fromList) return fromList;
-      // By-id path: share-link visitor (shareId) OR an archived bot not in the
-      // list (fallback). Synthesize a drawer bot from the single-bot fetch.
-      const raw = (shareId ? sharedBotResult.bot : fallbackBotResult.bot) as
-        | DCABot
-        | null;
-      if (raw && selectedBot) {
-        try {
-          return transformDcaBotToBot(
-            raw,
-            [], // no fees needed for read-only render
-            [], // no prices — value will be filled in by widget hooks later
-            false,
-            [],
-            undefined
-          );
-        } catch (e) {
-          logger.warn('[TradingBots] failed to transform fallback bot', {
-            error: e,
-          });
-          return undefined;
-        }
-      }
-      return undefined;
-    };
-    const resolved = resolve();
-    // Sticky: the bot list momentarily empties during background (websocket-
-    // driven) refetches, which would briefly make this `undefined` and unmount
-    // the drawer — remounting it flashes the list and resets the deals sub-tab.
-    // Keep the last resolved bot for THIS selection so the drawer stays mounted.
-    if (resolved && selectedBot) {
-      lastResolvedBotRef.current = { id: selectedBot, bot: resolved };
-      return resolved;
-    }
-    if (selectedBot && lastResolvedBotRef.current?.id === selectedBot) {
-      return lastResolvedBotRef.current.bot;
-    }
-    return undefined;
-  }, [
-    selectedBot,
-    transformedBots,
+  // Shared drawer-bot resolution: list lookup + by-id fallback (archived/share
+  // bots) + sticky-through-refetch, all in one place for every bot page.
+  const drawerBot = useDrawerBot({
+    selectedBotId: selectedBot,
+    listBots: transformedBots,
+    type: BotTypesEnum.dca,
     shareId,
-    sharedBotResult.bot,
-    fallbackBotResult.bot,
-  ]);
+    listLoading: botsLoading,
+    transformRaw: (raw) =>
+      transformDcaBotToBot(raw as DCABot, [], [], false, [], undefined),
+  });
+  const selectedBotData = drawerBot.bot;
+
+  // Redirect to the list only when the bot is genuinely not found (already
+  // accounts for the by-id fallback + share mode).
+  useEffect(() => {
+    if (!shareId && drawerBot.notFound) {
+      logger.warn(`[TradingBots] Bot ${selectedBot} not found, navigating back`);
+      navigate('/bot', { replace: true });
+    }
+  }, [shareId, drawerBot.notFound, selectedBot, navigate]);
 
   // viewOnly mirrors main-dash useDCAPage.ts:1031 — true for any share-
   // link visitor, true for a logged-in user looking at someone else's
@@ -1990,10 +1913,10 @@ const TradingBots: React.FC = () => {
   const viewOnly = useMemo(() => {
     if (shareId) return true;
     if (!selectedBotData || !currentUser) return false;
-    const ownerId = (sharedBotResult.bot as { userId?: string } | null)?.userId;
+    const ownerId = (drawerBot.rawBot as { userId?: string } | null)?.userId;
     if (!ownerId) return false;
     return ownerId !== currentUser.id;
-  }, [shareId, selectedBotData, currentUser, sharedBotResult.bot]);
+  }, [shareId, selectedBotData, currentUser, drawerBot.rawBot]);
   const onClone = useCallback(
     (botId: string) => {
       if (!selectedBotData) {
@@ -2355,7 +2278,7 @@ const TradingBots: React.FC = () => {
             onClose={() => navigate('/bot')}
             viewOnly={true}
             ownerUserId={
-              (sharedBotResult.bot as { userId?: string } | null)?.userId
+              (drawerBot.rawBot as { userId?: string } | null)?.userId
             }
             fullWidth={true}
           >
@@ -2363,7 +2286,7 @@ const TradingBots: React.FC = () => {
           </BotDetailsDrawer>
         ) : (
           <div className="flex h-[60vh] items-center justify-center text-muted-foreground">
-            {sharedBotResult.isLoading
+            {drawerBot.isLoading
               ? 'Loading shared bot…'
               : 'Shared bot is not available.'}
           </div>
@@ -2640,7 +2563,7 @@ const TradingBots: React.FC = () => {
               onClose={onCloseBot}
               viewOnly={viewOnly}
               ownerUserId={
-                (sharedBotResult.bot as { userId?: string } | null)?.userId
+                (drawerBot.rawBot as { userId?: string } | null)?.userId
               }
             >
               {/* Empty trigger - drawer is controlled by URL parameters */}
