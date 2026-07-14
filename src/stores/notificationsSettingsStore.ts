@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
 
 export type NotificationType =
   | 'dailyProfit'
@@ -75,6 +76,12 @@ interface NotificationsSettingsState {
     setting: Partial<SoundSetting>
   ) => void;
   getSoundSetting: (type: NotificationType) => SoundSetting | undefined;
+  /**
+   * Turn on the default per-type sounds when none are enabled yet. Called when
+   * the user flips the global "Enable sounds" master on — otherwise that switch
+   * has nothing to play, since every per-type sound defaults to off.
+   */
+  enableDefaultSoundsIfNone: () => void;
   resetToDefaults: () => void;
 }
 
@@ -131,7 +138,7 @@ export const useNotificationsSettingsStore =
             return state.settings[type]?.[channel] ?? false;
           },
 
-          setSoundSetting: (type, setting) =>
+          setSoundSetting: (type, setting) => {
             set(
               (state) => ({
                 soundSettings: {
@@ -144,12 +151,46 @@ export const useNotificationsSettingsStore =
               }),
               false,
               'notifications-settings/setSoundSetting'
-            ),
+            );
+            // Per-type sound is configured on the Settings page, but playback is
+            // also gated by the global `soundEnabled` flag (the navbar mute), which
+            // defaults off. Turning on a sound here would otherwise stay silent with
+            // no hint why — so un-mute globally whenever a type's sound is enabled.
+            if (setting.enabled) {
+              useVisualSettingsStore.getState().setSoundEnabled(true);
+            }
+          },
 
           getSoundSetting: (type) => {
             const state = get();
             return state.soundSettings[type];
           },
+
+          enableDefaultSoundsIfNone: () =>
+            set(
+              (state) => {
+                const anyEnabled = SOUND_ENABLED_TYPES.some(
+                  (type) => state.soundSettings[type]?.enabled
+                );
+                // Preserve any existing per-type choices; only seed when the
+                // user has never enabled a sound.
+                if (anyEnabled) return {};
+                const soundSettings: SoundSettings = { ...state.soundSettings };
+                for (const type of SOUND_ENABLED_TYPES) {
+                  const base =
+                    soundSettings[type] ??
+                    DEFAULT_SOUND_SETTINGS[type] ?? {
+                      enabled: false,
+                      soundFile: 'ping',
+                      extension: 'mp3',
+                    };
+                  soundSettings[type] = { ...base, enabled: true };
+                }
+                return { soundSettings };
+              },
+              false,
+              'notifications-settings/enableDefaultSoundsIfNone'
+            ),
 
           resetToDefaults: () =>
             set(

@@ -23,6 +23,7 @@ import {
 } from '@/stores/multiDashboardStore';
 import { useNotificationsStore } from '@/stores/notificationsStore';
 import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
+import { useNotificationsSettingsStore } from '@/stores/notificationsSettingsStore';
 import {
   Activity,
   ArrowLeftRight,
@@ -90,6 +91,9 @@ const Navbar: React.FC<NavbarProps> = ({
   const location = useLocation();
   const soundEnabled = useVisualSettingsStore((s) => s.soundEnabled);
   const setSoundEnabled = useVisualSettingsStore((s) => s.setSoundEnabled);
+  const enableDefaultSoundsIfNone = useNotificationsSettingsStore(
+    (s) => s.enableDefaultSoundsIfNone
+  );
   const { isNavbarFavoritesVisible } = useFavoritesStore();
   // previous direct useUIStore() call was removed to avoid full-store subscription
   const { toggleTradingMode, isLiveTrading, tradingMode, setLiveTrading } =
@@ -889,7 +893,13 @@ const Navbar: React.FC<NavbarProps> = ({
                       </div>
                       <Switch
                         checked={soundEnabled}
-                        onCheckedChange={(checked) => setSoundEnabled(checked)}
+                        onCheckedChange={(checked) => {
+                          setSoundEnabled(checked);
+                          // "Enable sounds" should actually produce sound: if the
+                          // user hasn't picked any per-type sounds yet, turn the
+                          // defaults on so the switch isn't silently a no-op.
+                          if (checked) enableDefaultSoundsIfNone();
+                        }}
                       />
                     </div>
                   </DropdownMenuItem>

@@ -26,6 +26,7 @@ import {
   Trash2,
   User,
   Volume2,
+  VolumeX,
   X,
 } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
@@ -90,6 +91,7 @@ import {
   useNotificationsSettingsStore,
 } from '../stores/notificationsSettingsStore';
 import { playNotificationSound } from '../utils/soundUtils';
+import { useVisualSettingsStore } from '../stores/visualSettingsStore';
 import { useShortcutStore } from '../stores/shortcutStore';
 import { useUIStore } from '../stores/uiStore';
 // Note: Using logger.info for now - toast can be added later if needed
@@ -400,6 +402,16 @@ const Settings: React.FC = () => {
   );
   const setSoundSetting = useNotificationsSettingsStore(
     (state) => state.setSoundSetting
+  );
+  // Global sound gate (also toggleable from the navbar). Surfaced here so the
+  // on/off state is visible where per-type sounds are configured — otherwise an
+  // enabled sound could stay silent with no hint the master switch is off.
+  const soundEnabled = useVisualSettingsStore((state) => state.soundEnabled);
+  const setSoundEnabled = useVisualSettingsStore(
+    (state) => state.setSoundEnabled
+  );
+  const enableDefaultSoundsIfNone = useNotificationsSettingsStore(
+    (state) => state.enableDefaultSoundsIfNone
   );
 
   // Local user settings store (for invoice address)
@@ -1942,6 +1954,29 @@ const Settings: React.FC = () => {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-md">
+            <div className="flex items-center justify-between gap-md rounded-lg bg-surface-1 px-md py-sm">
+              <div className="flex items-center gap-sm">
+                {soundEnabled ? (
+                  <Volume2 className="h-4 w-4 text-primary" />
+                ) : (
+                  <VolumeX className="h-4 w-4 text-muted-foreground" />
+                )}
+                <div>
+                  <p className="text-sm font-medium">Notification sounds</p>
+                  <p className="text-xs text-muted-foreground">
+                    Master switch for the per-type sounds below. Also available
+                    from the account menu.
+                  </p>
+                </div>
+              </div>
+              <Switch
+                checked={soundEnabled}
+                onCheckedChange={(checked) => {
+                  setSoundEnabled(checked);
+                  if (checked) enableDefaultSoundsIfNone();
+                }}
+              />
+            </div>
             <div>
               <Label className="text-muted-foreground uppercase text-xs tracking-wider">
                 Type
