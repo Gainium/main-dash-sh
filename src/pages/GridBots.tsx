@@ -10,7 +10,6 @@ import {
   type ExchangeInUser,
 } from '@/types';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
-import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import {
   areAllBotsDeletable,
   filterDeletableBots,
@@ -59,7 +58,6 @@ import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
 import {
-  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
@@ -124,7 +122,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     type: 'clone' | 'delete';
     newItemId?: string;
@@ -220,24 +217,9 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = () => {
     const isArchived = bot.status.toLowerCase() === 'archived';
-    // Archiving moves the bot's history to cold storage once the cold-store UX
-    // is live — confirm first (reversible via un-archive). Un-archiving and the
-    // pre-rollout (flag-off) path stay direct.
-    if (!isArchived && isColdStoreArchiveUx()) {
-      setArchiveModalOpen(true);
-      return;
-    }
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
-      type: BotTypesEnum.grid,
-    });
-  };
-
-  const confirmArchive = () => {
-    archiveMutation.mutate({
-      id: bot.id,
-      archive: true,
       type: BotTypesEnum.grid,
     });
   };
@@ -307,14 +289,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         itemType="bot"
         itemName={bot.name}
         requireConfirmation={false}
-      />
-
-      <ArchiveWarningDialog
-        open={archiveModalOpen}
-        onOpenChange={setArchiveModalOpen}
-        onConfirm={confirmArchive}
-        botName={bot.name}
-        isLoading={archiveMutation.isPending}
       />
 
       <BotStatusConfirmationModal
@@ -430,6 +404,23 @@ const GridBots: React.FC = () => {
     botId: selectedBot ?? '',
     type: BotTypesEnum.grid,
     shareId,
+  });
+
+  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
+  // default list, so opening it would otherwise fail to resolve and the drawer
+  // would render nothing. When a selected bot isn't in the loaded list, fetch it
+  // by id via the shared hook (authenticated, no shareId) so it stays viewable.
+  const selectedInList = useMemo(
+    () => !!selectedBot && gridBots.some((b) => b._id === selectedBot),
+    [selectedBot, gridBots]
+  );
+  const needBotFallback =
+    !shareId && !!selectedBot && !botsLoading && !selectedInList;
+  const fallbackBotResult = useSharedBot({
+    botId: selectedBot ?? '',
+    type: BotTypesEnum.grid,
+    shareId: null,
+    enabled: needBotFallback,
   });
 
   const deleteMutation = useBotDelete();
@@ -1860,17 +1851,18 @@ const GridBots: React.FC = () => {
             let selectedBotData = transformedBots.find(
               (bot) => bot.id === selectedBot
             );
-            if (!selectedBotData && shareId && sharedBotResult.bot) {
-              try {
-                selectedBotData = transformGridBotToBot(
-                  sharedBotResult.bot as unknown as Bot,
-                  [],
-                  []
-                );
-              } catch (e) {
-                logger.warn('[GridBots] failed to transform shared bot', {
-                  error: e,
-                });
+            if (!selectedBotData) {
+              const raw = (
+                shareId ? sharedBotResult.bot : fallbackBotResult.bot
+              ) as unknown as Bot | null;
+              if (raw) {
+                try {
+                  selectedBotData = transformGridBotToBot(raw, [], []);
+                } catch (e) {
+                  logger.warn('[GridBots] failed to transform shared bot', {
+                    error: e,
+                  });
+                }
               }
             }
             if (!selectedBotData) return null;

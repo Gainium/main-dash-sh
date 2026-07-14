@@ -22,7 +22,6 @@ import {
   isBotActive,
   isBotDeletable,
 } from '@/utils/botStatusUtils';
-import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
 import {
@@ -59,7 +58,6 @@ import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
 import {
-  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
@@ -141,7 +139,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     type: 'clone' | 'delete';
     newItemId?: string;
@@ -236,23 +233,9 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = () => {
     const isArchived = bot.status.toLowerCase() === 'archived';
-    // Archiving moves the bot's history to cold storage once the cold-store UX
-    // is live — reversible via un-archive.
-    if (!isArchived && isColdStoreArchiveUx()) {
-      setArchiveModalOpen(true);
-      return;
-    }
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
-      type: BotTypesEnum.combo,
-    });
-  };
-
-  const confirmArchive = () => {
-    archiveMutation.mutate({
-      id: bot.id,
-      archive: true,
       type: BotTypesEnum.combo,
     });
   };
@@ -322,14 +305,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         itemType="bot"
         itemName={bot.name}
         requireConfirmation={false}
-      />
-
-      <ArchiveWarningDialog
-        open={archiveModalOpen}
-        onOpenChange={setArchiveModalOpen}
-        onConfirm={confirmArchive}
-        botName={bot.name}
-        isLoading={archiveMutation.isPending}
       />
 
       <BotStatusConfirmationModal
@@ -666,6 +641,23 @@ const ComboBots: React.FC = () => {
     botId: selectedBot ?? '',
     type: BotTypesEnum.combo,
     shareId,
+  });
+
+  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
+  // default list, so opening it would otherwise fail to resolve and the drawer
+  // would render nothing. When a selected bot isn't in the loaded list, fetch it
+  // by id via the shared hook (authenticated, no shareId) so it stays viewable.
+  const selectedInList = useMemo(
+    () => !!selectedBot && comboBots.some((b) => b._id === selectedBot),
+    [selectedBot, comboBots]
+  );
+  const needBotFallback =
+    !shareId && !!selectedBot && !botsLoading && !selectedInList;
+  const fallbackBotResult = useSharedBot({
+    botId: selectedBot ?? '',
+    type: BotTypesEnum.combo,
+    shareId: null,
+    enabled: needBotFallback,
   });
 
   useEffect(() => {
@@ -2206,20 +2198,25 @@ const ComboBots: React.FC = () => {
             let selectedBotData = transformedBots.find(
               (bot) => bot.id === selectedBot
             );
-            if (!selectedBotData && shareId && sharedBotResult.bot) {
-              try {
-                selectedBotData = transformDcaBotToBot(
-                  sharedBotResult.bot as ComboBot,
-                  [],
-                  [],
-                  true,
-                  [],
-                  undefined
-                );
-              } catch (e) {
-                logger.warn('[ComboBots] failed to transform shared bot', {
-                  error: e,
-                });
+            if (!selectedBotData) {
+              const raw = (
+                shareId ? sharedBotResult.bot : fallbackBotResult.bot
+              ) as ComboBot | null;
+              if (raw) {
+                try {
+                  selectedBotData = transformDcaBotToBot(
+                    raw,
+                    [],
+                    [],
+                    true,
+                    [],
+                    undefined
+                  );
+                } catch (e) {
+                  logger.warn('[ComboBots] failed to transform shared bot', {
+                    error: e,
+                  });
+                }
               }
             }
             if (!selectedBotData) return null;

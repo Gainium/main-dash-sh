@@ -1,4 +1,6 @@
 import { usePaperContext } from '@/hooks/usePaperContext';
+import { useBotArchive } from '@/hooks/useBotMutations';
+import { BotTypesEnum } from '@/types';
 import { isReadOnly } from '@/lib/demoMode';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -121,6 +123,25 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   const { isPaperTrading } = usePaperContext();
   const { toggleStarred, isStarred } = useStarredBotsStore();
 
+  // Archive is owned centrally here so every surface (bot cards, list rows, the
+  // detail drawer) behaves identically without each one re-wiring it. Callers may
+  // still pass `onArchive` to override (e.g. to run extra UI after); otherwise we
+  // archive/un-archive directly via the shared mutation. Archiving is reversible
+  // (un-archive rehydrates cold-stored history), so there is no confirmation step.
+  const archiveMutation = useBotArchive();
+  const isArchivedStatus =
+    bot.status?.toLowerCase() === 'archived' ||
+    bot.status?.toLowerCase() === 'archive';
+  const handleArchive =
+    onArchive ??
+    (() =>
+      archiveMutation.mutate({
+        id: bot.id,
+        archive: !isArchivedStatus,
+        type: (bot.type as BotTypesEnum) || BotTypesEnum.dca,
+      }));
+  const archivePending = !!pending?.archive || archiveMutation.isPending;
+
   return (
     <DropdownMenuContent
       align={align}
@@ -239,18 +260,18 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
 
       {/* Archive Action */}
       <DropdownMenuItem
-        onClick={readOnly || !canArchive ? undefined : onArchive}
-        disabled={!!pending?.archive || readOnly || !canArchive}
+        onClick={readOnly || !canArchive ? undefined : handleArchive}
+        disabled={archivePending || readOnly || !canArchive}
         title={
           readOnly
             ? 'Not available in demo mode'
             : archiveBlockedReason /* undefined when archivable */
         }
       >
-        {pending?.archive ? (
+        {archivePending ? (
           <>
             <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
-            {bot.status === 'archived' ? 'Unarchiving…' : 'Archiving…'}
+            {isArchivedStatus ? 'Unarchiving…' : 'Archiving…'}
           </>
         ) : (
           <>

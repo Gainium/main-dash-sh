@@ -81,7 +81,7 @@ import {
   isBotActive,
   isBotDeletable,
 } from '@/utils/botStatusUtils';
-import { isColdStoreArchiveUx } from '@/utils/coldStore';
+import { buildBotViewRoute } from '@/utils/bots/navigation';
 import {
   Tabs,
   TabsContent,
@@ -93,7 +93,6 @@ import { useDcaDeals } from '../hooks/useDcaDeals';
 /* import { toDrawerBot } from '../adapters/bots/drawer'; */
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import {
-  ArchiveWarningDialog,
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
   SuccessFeedbackModal,
@@ -191,7 +190,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [archiveModalOpen, setArchiveModalOpen] = useState(false);
   const [successData, setSuccessData] = useState<{
     type: 'clone' | 'delete';
     newItemId?: string;
@@ -289,12 +287,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = useCallback(() => {
     const isArchived = bot.status.toLowerCase() === 'archived';
-    // Archiving moves the bot's history to cold storage once the cold-store UX
-    // is live — reversible via un-archive.
-    if (!isArchived && isColdStoreArchiveUx()) {
-      setArchiveModalOpen(true);
-      return;
-    }
     archiveMutation.mutate({
       id: bot.id,
       archive: !isArchived,
@@ -302,16 +294,8 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
     });
   }, [archiveMutation, bot.id, bot.status]);
 
-  const confirmArchive = useCallback(() => {
-    archiveMutation.mutate({
-      id: bot.id,
-      archive: true,
-      type: BotTypesEnum.dca,
-    });
-  }, [archiveMutation, bot.id]);
-
   const handleViewClosedTrades = useCallback(() => {
-    navigate(`/trades?botId=${bot.id}`);
+    navigate(`${buildBotViewRoute(BotTypesEnum.dca, bot.id)}?tab=deals&dealTab=closed`);
   }, [bot.id, navigate]);
 
   const handleShareConfig = useCallback(async () => {
@@ -472,14 +456,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         additionalInfo={deleteAdditionalInfo}
         isLoading={deleteMutation.isPending}
         requireConfirmation={false}
-      />
-
-      <ArchiveWarningDialog
-        open={archiveModalOpen}
-        onOpenChange={setArchiveModalOpen}
-        onConfirm={confirmArchive}
-        botName={bot.name}
-        isLoading={archiveMutation.isPending}
       />
 
       <SuccessFeedbackModal
@@ -784,6 +760,24 @@ const TradingBots: React.FC = () => {
     data: _rawBotData,
   } = useDcaBots(useDcaBotsOptions);
 
+  // By-id drawer fallback: an archived (cold-stored) bot is filtered out of the
+  // default list (`status: []`), so opening it would otherwise fail to resolve
+  // and redirect to /bot. When a selected bot isn't in the loaded list, fetch it
+  // by id via the shared hook so it stays viewable; its deals load from cold
+  // storage through the normal backend routing (same drawer surface, no nav).
+  const selectedInList = useMemo(
+    () => !!selectedBot && dcaBots.some((b) => b._id === selectedBot),
+    [selectedBot, dcaBots]
+  );
+  const needBotFallback =
+    !shareId && !!selectedBot && !botsLoading && !selectedInList;
+  const fallbackBotResult = useSharedBot({
+    botId: selectedBot ?? '',
+    type: BotTypesEnum.dca,
+    shareId: null,
+    enabled: needBotFallback,
+  });
+
   /* const { deals: allDeals } = useDcaDeals({});
 
   const dealsByBotId = useMemo(() => {
@@ -1012,14 +1006,27 @@ const TradingBots: React.FC = () => {
     if (shareId) return;
     if (selectedBot && dcaBots.length > 0) {
       const exists = dcaBots.some((bot) => bot._id === selectedBot);
-      if (!exists) {
+      // Don't redirect while the by-id fallback is still resolving, or if it
+      // found the bot — archived bots legitimately live outside the default list.
+      if (
+        !exists &&
+        !fallbackBotResult.isLoading &&
+        !fallbackBotResult.bot
+      ) {
         logger.warn(
           `[TradingBots] Bot ${selectedBot} not found, navigating back`
         );
         navigate('/bot', { replace: true });
       }
     }
-  }, [shareId, selectedBot, dcaBots, navigate]);
+  }, [
+    shareId,
+    selectedBot,
+    dcaBots,
+    navigate,
+    fallbackBotResult.isLoading,
+    fallbackBotResult.bot,
+  ]);
 
   // Register cache status so stale indicator can show and revalidate as needed
   const dcaCacheKey = useCacheKey('dcaBotList', { input: { all: true } });
@@ -1926,11 +1933,15 @@ const TradingBots: React.FC = () => {
   const selectedBotData = useMemo(() => {
     const fromList = transformedBots.find((bot) => bot.id === selectedBot);
     if (fromList) return fromList;
-    // Share-link path: synthesize a drawer bot from the single bot fetch.
-    if (shareId && sharedBotResult.bot && selectedBot) {
+    // By-id path: share-link visitor (shareId) OR an archived bot not in the
+    // list (fallback). Synthesize a drawer bot from the single-bot fetch.
+    const raw = (shareId ? sharedBotResult.bot : fallbackBotResult.bot) as
+      | DCABot
+      | null;
+    if (raw && selectedBot) {
       try {
         return transformDcaBotToBot(
-          sharedBotResult.bot as DCABot,
+          raw,
           [], // no fees needed for read-only render
           [], // no prices — value will be filled in by widget hooks later
           false,
@@ -1938,14 +1949,20 @@ const TradingBots: React.FC = () => {
           undefined
         );
       } catch (e) {
-        logger.warn('[TradingBots] failed to transform shared bot', {
+        logger.warn('[TradingBots] failed to transform fallback bot', {
           error: e,
         });
         return undefined;
       }
     }
     return undefined;
-  }, [selectedBot, transformedBots, shareId, sharedBotResult.bot]);
+  }, [
+    selectedBot,
+    transformedBots,
+    shareId,
+    sharedBotResult.bot,
+    fallbackBotResult.bot,
+  ]);
 
   // viewOnly mirrors main-dash useDCAPage.ts:1031 — true for any share-
   // link visitor, true for a logged-in user looking at someone else's

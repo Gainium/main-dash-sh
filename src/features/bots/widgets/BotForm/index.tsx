@@ -23,7 +23,6 @@ import { mapWidgetMenuItemsToPanelMenu } from '@/components/bots/panels/menuUtil
 import { Celebration } from '@/components/onboarding/Celebration';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
-import { isColdStoreArchiveUx } from '@/utils/coldStore';
 // Dialog and input/label components are not used here; render logic moved to footer menu
 import { Button } from '@/components/ui/button';
 import {
@@ -1908,7 +1907,6 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const [showRestartDialog, setShowRestartDialog] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showArchiveWarn, setShowArchiveWarn] = useState(false);
   /* const [showSmartOrderMergeDialog, setShowSmartOrderMergeDialog] =
     useState(false);
   const [smartOrderMergeDefaults, setSmartOrderMergeDefaults] = useState<
@@ -2590,13 +2588,6 @@ const BotForm: React.FC<BotFormProps> = ({
             label: isBotArchived ? 'Unarchive bot' : 'Archive bot',
             icon: isBotArchived ? ArchiveRestore : Archive,
             onSelect: () => {
-              // Archiving moves the bot's history to cold storage once the
-              // cold-store UX is live — confirm first (it's reversible via
-              // un-archive). Un-archive + flag-off path stay direct.
-              if (!isBotArchived && isColdStoreArchiveUx()) {
-                setShowArchiveWarn(true);
-                return;
-              }
               void handleArchiveToggle(!isBotArchived);
             },
             disabled: archivePending || !botId,
@@ -3725,16 +3716,6 @@ const BotForm: React.FC<BotFormProps> = ({
           toast.success('Settings reset to defaults');
         }}
       />
-      <ConfirmationDialog
-        open={showArchiveWarn}
-        onOpenChange={setShowArchiveWarn}
-        title="Archive bot?"
-        description="Archived bots become read-only — the trade history is preserved but the bot can't be started again. Clone it to reuse. This can't be undone."
-        confirmText="Archive"
-        onConfirm={() => {
-          void handleArchiveToggle(true);
-        }}
-      />
       <BotSettingsImportExportDialog
         open={showImportExportDialog}
         onOpenChange={setShowImportExportDialog}
@@ -4153,16 +4134,6 @@ const BotForm: React.FC<BotFormProps> = ({
         onConfirm={() => {
           setFormData(createDefaultFormState(mode, isTerminal));
           toast.success('Settings reset to defaults');
-        }}
-      />
-      <ConfirmationDialog
-        open={showArchiveWarn}
-        onOpenChange={setShowArchiveWarn}
-        title="Archive bot?"
-        description="Archived bots become read-only — the trade history is preserved but the bot can't be started again. Clone it to reuse. This can't be undone."
-        confirmText="Archive"
-        onConfirm={() => {
-          void handleArchiveToggle(true);
         }}
       />
       <BotSettingsImportExportDialog

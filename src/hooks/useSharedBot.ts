@@ -20,6 +20,14 @@ export interface UseSharedBotOptions {
   botId: string;
   type: BotTypesEnum;
   shareId: string | null | undefined;
+  /**
+   * Override for when the query runs. Defaults to share-link behaviour
+   * (`!!shareId && !!botId`). Pass an explicit value to reuse this as an
+   * AUTHENTICATED by-id fetch — e.g. the detail drawer's fallback for a bot that
+   * is not in the current list (an archived / cold-stored bot filtered out of the
+   * default list). With `shareId` null the query uses the user's auth token.
+   */
+  enabled?: boolean;
 }
 
 export interface UseSharedBotResult {
@@ -73,10 +81,13 @@ export function useSharedBot({
   botId,
   type,
   shareId,
+  enabled: enabledOverride,
 }: UseSharedBotOptions): UseSharedBotResult {
   const enabled = useMemo(
-    () => !!shareId && !!botId && botId.trim().length > 0,
-    [shareId, botId]
+    () =>
+      enabledOverride ??
+      (!!shareId && !!botId && botId.trim().length > 0),
+    [enabledOverride, shareId, botId]
   );
 
   const builder = pickQuery(type);

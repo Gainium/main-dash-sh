@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.5] - 2026-07-14
+
+### Fixed
+
+- Archiving a bot no longer shows a confirmation dialog — it archives directly (archiving is reversible via un-archive). Archive is now handled centrally in the shared bot actions menu (`BotActionsMenuItems`), so the Archive action works from every surface, including bot cards where it previously did nothing.
+- Opening an **archived** bot's detail/deals no longer redirects to the bots list. Archived bots are filtered out of the default list, so the drawer couldn't resolve them; it now fetches the selected bot by id (shared `useSharedBot` fallback) and its trades load from cold storage in the drawer's existing open/closed deals tabs — no navigation.
+
+### Changed
+
+- Removed the per-page archive confirmation dialog and its duplicated wiring across the bot pages (Trading/Grid/Combo/BotForm/BotDetailsDrawer); the shared menu owns the archive action.
+
 ## [2.32.4] - 2026-07-14
 
 ### Changed
