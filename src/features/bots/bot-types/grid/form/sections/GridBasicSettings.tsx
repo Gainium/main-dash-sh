@@ -125,6 +125,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
     formState: { formData, updateFormData, errors, isFieldLocked, setErrors },
     baseAsset,
     quoteAsset,
+    latestPrice,
   } = useGridForm();
   const [isBalanceLoading, setIsBalanceLoading] = React.useState(
     useBalanceStore.getState().loading
@@ -309,6 +310,10 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
 
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
+  const topPriceValue = useBotFormSelector('topPrice');
+  const lowPriceValue = useBotFormSelector('lowPrice');
+  const levels = useBotFormSelector('levels');
+  const gridType = useBotFormSelector('gridType');
 
   const selectTargetAsset = React.useCallback(
     (
@@ -399,6 +404,101 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       updateFormData('pairPrecisionMap', precisionMap);
     }
   }, [precisionMap, updateFormData]);
+
+  // Re-center the grid price range when the user switches to a different pair.
+  //
+  // A cloned or edited grid keeps the source pair's price range. Without this,
+  // switching the pair (e.g. cloning a BTC/USDT grid and changing it to
+  // ADA/USDT) leaves the range on the old asset's scale — BTC's ~50k bounds on
+  // an ADA pair whose price is ~0.16. The engine then builds a nonsensical
+  // ladder, produces sell orders at out-of-scale prices, and fails on start
+  // with "Not enough balance" because the required base is wildly inflated.
+  //
+  // Mirrors the legacy dashboard, which defaults the range to ±10% of the new
+  // pair's price on a pair change (main-dash/components/gridbot/index.tsx).
+  const pricePrecision = React.useMemo(() => {
+    const primary = pairs[0];
+    if (!primary) return undefined;
+    const normalized = primary.replace(/[\s\-/]/g, '').toUpperCase();
+    const precision =
+      formData.pairPrecisionMap?.[normalized]?.pricePrecision ??
+      formData.pairPrecisionMap?.[primary]?.pricePrecision;
+    return typeof precision === 'number' && precision >= 0
+      ? precision
+      : undefined;
+  }, [pairs, formData.pairPrecisionMap]);
+
+  const prevPairRef = React.useRef<string | null>(null);
+  const pendingRecenterPairRef = React.useRef<string | null>(null);
+
+  // Detect a genuine user-initiated pair switch. The first assignment (prev is
+  // null) is the form hydrating from a loaded/cloned bot, not a change — so we
+  // never re-center on load, which would clobber a running bot's saved range.
+  React.useEffect(() => {
+    const current = pairs[0] ? pairs[0].toUpperCase() : null;
+    const prev = prevPairRef.current;
+    prevPairRef.current = current;
+    if (prev && current && prev !== current) {
+      pendingRecenterPairRef.current = current;
+    }
+  }, [pairs]);
+
+  // Apply the re-center once the new pair's live price is available. Only rewrite
+  // the range when the current bounds don't bracket the new price — a still-valid
+  // range (e.g. switching between two similarly-priced pairs) is left untouched.
+  React.useEffect(() => {
+    const target = pendingRecenterPairRef.current;
+    if (!target) return;
+    const current = pairs[0] ? pairs[0].toUpperCase() : null;
+    if (current !== target) {
+      pendingRecenterPairRef.current = null;
+      return;
+    }
+    if (typeof latestPrice !== 'number' || !(latestPrice > 0)) {
+      return; // wait for the new pair's price to arrive
+    }
+    const currentTop = Number(topPriceValue);
+    const currentLow = Number(lowPriceValue);
+    const rangeBracketsPrice =
+      Number.isFinite(currentTop) &&
+      Number.isFinite(currentLow) &&
+      currentLow > 0 &&
+      currentTop > currentLow &&
+      latestPrice >= currentLow &&
+      latestPrice <= currentTop;
+    if (rangeBracketsPrice) {
+      pendingRecenterPairRef.current = null;
+      return;
+    }
+    const factor = Math.pow(10, pricePrecision ?? 8);
+    const nextTop = Math.ceil(latestPrice * 1.1 * factor) / factor;
+    const nextLow = Math.floor(latestPrice * 0.9 * factor) / factor;
+    if (nextLow > 0 && nextTop > nextLow) {
+      updateFormData('topPrice', `${nextTop}`);
+      updateFormData('lowPrice', `${nextLow}`);
+      // Keep geometric spacing consistent with the new range + level count.
+      // Arithmetic grids don't use gridStep, so leave it alone there.
+      if (gridType === 'geometric') {
+        const levelsNum = Number(levels) || 0;
+        if (levelsNum > 0) {
+          const step = (Math.pow(nextTop / nextLow, 1 / levelsNum) - 1) * 100;
+          if (Number.isFinite(step) && step > 0) {
+            updateFormData('gridStep', step.toFixed(4));
+          }
+        }
+      }
+    }
+    pendingRecenterPairRef.current = null;
+  }, [
+    pairs,
+    latestPrice,
+    topPriceValue,
+    lowPriceValue,
+    pricePrecision,
+    gridType,
+    levels,
+    updateFormData,
+  ]);
 
   const pasteDependencies = React.useMemo<ProcessPairsPasteDependencies>(
     () => ({
