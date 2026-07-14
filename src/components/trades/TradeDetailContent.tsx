@@ -11,6 +11,7 @@ import { extractPairAssets } from '@/utils/pairs';
 import { Activity, Clock, DollarSign, Layers } from 'lucide-react';
 import React from 'react';
 import { formatCurrency, formatPercentage } from '../../lib/utils';
+import { formatPriceWithPrecision } from '@/utils/formatters';
 import { formatNumber } from '../../utils/numberFormatter';
 import { Card } from '../ui/card';
 import {
@@ -376,7 +377,7 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
             <div className="space-y-xs">
               <div className="text-sm text-muted-foreground">Average Price</div>
               <div className="text-2xl font-bold">
-                {formatCurrency(trade.avgPrice, 2)} {quoteAsset}
+                {formatPriceWithPrecision(trade.avgPrice)} {quoteAsset}
               </div>
             </div>
           </Card>

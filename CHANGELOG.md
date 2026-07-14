@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.2] - 2026-07-14
+
+### Fixed
+
+- Notification sounds now actually play when you turn on "Enable sounds". Previously that master switch was a no-op unless you had also enabled a per-type sound on the Settings page (all off by default), so it looked broken. Turning it on now seeds the default deal/order sounds, and enabling any per-type sound automatically un-mutes the master. Added a matching "Notification sounds" master switch to Settings → Notification Preferences so its state is visible where sounds are configured.
+
+## [2.32.1] - 2026-07-14
+
+### Fixed
+
+- Order/deal price displays now show adaptive decimal precision for sub-$1 "penny" coins. Prices like DOGE render `$0.07120` (and smaller coins get more significant digits) instead of collapsing to `$0.07`, in the deal orders list, bot drawer orders table, and trade detail. Prices ≥ 1 are unchanged.
+
 ## [2.32.0] - 2026-07-12
 
 ### Added

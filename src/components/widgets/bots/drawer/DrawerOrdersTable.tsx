@@ -36,6 +36,7 @@ import { getOrderTypeLabel, mapOrderName } from '@/utils/mapOrderName';
 import { useCancelOrder } from '../../../../hooks/useOrderActions';
 import logger from '../../../../lib/loggerInstance';
 import { cn, formatCurrency } from '../../../../lib/utils';
+import { formatPriceWithPrecision } from '@/utils/formatters';
 import {
   BotOrderSideEnum,
   BotTypesEnum,
@@ -792,11 +793,11 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
                   {order.amount.toFixed(4)}
                 </span>
                 <span className="text-xs text-muted-foreground">
-                  @ {formatCurrency(order.price)}
+                  @ {formatPriceWithPrecision(order.price)}
                 </span>
                 {order.executedPrice && order.executedPrice !== order.price && (
                   <span className="text-xs text-muted-foreground">
-                    Exec: {formatCurrency(order.executedPrice)}
+                    Exec: {formatPriceWithPrecision(order.executedPrice)}
                   </span>
                 )}
               </div>
@@ -985,13 +986,13 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
               <div className="grid grid-cols-2 md:grid-cols-4 gap-sm">
                 <MetricCard
                   label="Order Price"
-                  value={formatCurrency(order.price)}
+                  value={formatPriceWithPrecision(order.price)}
                 />
 
                 {order.executedPrice && order.executedPrice !== order.price && (
                   <MetricCard
                     label="Executed Price"
-                    value={formatCurrency(order.executedPrice)}
+                    value={formatPriceWithPrecision(order.executedPrice)}
                   />
                 )}
 

@@ -22,6 +22,7 @@ import React, {
 } from 'react';
 import logger from '../../lib/loggerInstance';
 import { formatCurrency } from '../../lib/utils';
+import { formatPriceWithPrecision } from '@/utils/formatters';
 import { toast } from '@/lib/toast';
 import {
   StrategyEnum,
@@ -221,7 +222,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
           {/* Center: Price & Amount */}
           <div className="hidden md:flex flex-col items-end">
             <span className="text-sm font-medium">
-              {formatCurrency(order.price)}
+              {formatPriceWithPrecision(order.price)}
             </span>
             <span className="text-xs text-muted-foreground">
               {order.amount.toFixed(6)}
@@ -281,7 +282,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                     Order Price
                   </span>
                   <span className="text-sm font-medium">
-                    {formatCurrency(order.price)}
+                    {formatPriceWithPrecision(order.price)}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -323,7 +324,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                         Avg. Executed Price
                       </span>
                       <span className="text-sm font-medium">
-                        {formatCurrency(order.executedPrice)}
+                        {formatPriceWithPrecision(order.executedPrice)}
                       </span>
                     </div>
                   )}
@@ -602,7 +603,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         sortingFn: 'basic',
         cell: ({ getValue }) => (
           <span className="text-sm tabular-nums">
-            {formatCurrency(getValue() as number)}
+            {formatPriceWithPrecision(getValue() as number)}
           </span>
         ),
       },
@@ -785,7 +786,9 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           cancelTarget
             ? `Cancel this ${
                 cancelTarget.type === 'buy' ? 'buy' : 'sell'
-              } order for ${cancelTarget.amount.toFixed(6)} @ ${formatCurrency(
+              } order for ${cancelTarget.amount.toFixed(
+                6
+              )} @ ${formatPriceWithPrecision(
                 cancelTarget.price
               )}? This action cannot be undone.`
             : ''
