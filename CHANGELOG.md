@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.4] - 2026-07-14
+
+### Changed
+
+- Cold-store archive UX now reflects that archiving is **reversible**. The archive confirmation dialog says archiving moves the bot's history to cold storage and can be undone by un-archiving (was "read-only / clone to reuse / can't be undone"). Cold-archived bots no longer disable their Unarchive action — un-archiving restores the history. Still gated on `VITE_COLD_STORE_ENABLED` (dark until rollout).
+
 ## [2.32.3] - 2026-07-14
 
 ### Fixed

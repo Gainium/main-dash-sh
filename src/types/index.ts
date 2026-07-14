@@ -1332,9 +1332,10 @@ export interface MainBot<T = BaseSettings> {
   userId: string;
   status: BotStatus;
   statusReason?: string;
-  /** Cold-store flag: true once the bot's history moved to ClickHouse and the
-   *  bot became read-only / one-way (design phase 3). Only fetched when the
-   *  cold-store UX is live (see COLD_ARCHIVED_SELECTION in the bot fragments). */
+  /** Cold-store flag: true once the bot's history moved to ClickHouse (design
+   *  phase 3). Informational only — archiving is reversible (un-archive
+   *  rehydrates). Only fetched when the cold-store UX is live (see
+   *  COLD_ARCHIVED_SELECTION in the bot fragments). */
   coldArchived?: boolean;
   showErrorWarning?: 'error' | 'warning' | 'none';
   exchange: ExchangeEnum;

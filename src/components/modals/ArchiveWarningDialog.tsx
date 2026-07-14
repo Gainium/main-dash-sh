@@ -1,4 +1,4 @@
-import { Archive, AlertTriangle } from 'lucide-react';
+import { Archive } from 'lucide-react';
 import React, { useState } from 'react';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -21,14 +21,14 @@ export interface ArchiveWarningDialogProps {
 
 /**
  * Confirmation shown before archiving a bot once the cold-store rollout is
- * live. Archiving becomes READ-ONLY / one-way: the bot's order + transaction
- * history is moved to cold storage and the bot can no longer be started —
- * the user must clone it to reuse the configuration.
+ * live. Archiving moves the bot's order + transaction history to cold storage
+ * (freeing hot storage) and stops the bot — but it is REVERSIBLE: un-archiving
+ * restores the history and the bot can be used again.
  *
  * Gated by the caller on `VITE_COLD_STORE_ENABLED` (see `isColdStoreArchiveUx`
  * in `utils/coldStore`), so it ships dark and only appears in lock-step with
  * the backend flag flip. When the flag is off, callers archive directly with
- * no dialog (today's reversible behaviour).
+ * no dialog (today's behaviour).
  */
 export const ArchiveWarningDialog: React.FC<ArchiveWarningDialogProps> = ({
   open,
@@ -60,17 +60,17 @@ export const ArchiveWarningDialog: React.FC<ArchiveWarningDialogProps> = ({
             Archive {botName ? `"${botName}"` : 'bot'}?
           </DialogTitle>
           <DialogDescription>
-            Archived bots become read-only.
+            Archiving moves this bot's history to cold storage.
           </DialogDescription>
         </DialogHeader>
 
         <Alert>
-          <AlertTriangle className="w-4 h-4" />
+          <Archive className="w-4 h-4" />
           <AlertDescription>
-            The bot's full trade history is preserved and stays viewable, but an
-            archived bot <strong>can no longer be started</strong>. To use this
-            configuration again, <strong>clone the bot</strong>. This can't be
-            undone.
+            The bot's order &amp; transaction history is moved to cold storage to
+            free up space, and the bot stops. Its full history stays viewable,
+            and you can <strong>un-archive it any time</strong> to restore the
+            history and use the bot again.
           </AlertDescription>
         </Alert>
 

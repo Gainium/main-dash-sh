@@ -2590,8 +2590,9 @@ const BotForm: React.FC<BotFormProps> = ({
             label: isBotArchived ? 'Unarchive bot' : 'Archive bot',
             icon: isBotArchived ? ArchiveRestore : Archive,
             onSelect: () => {
-              // Archiving becomes read-only / one-way once the cold-store UX is
-              // live — confirm first. Un-archive + flag-off path stay direct.
+              // Archiving moves the bot's history to cold storage once the
+              // cold-store UX is live — confirm first (it's reversible via
+              // un-archive). Un-archive + flag-off path stay direct.
               if (!isBotArchived && isColdStoreArchiveUx()) {
                 setShowArchiveWarn(true);
                 return;

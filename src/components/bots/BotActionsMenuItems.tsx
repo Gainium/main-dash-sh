@@ -1,6 +1,5 @@
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { isReadOnly } from '@/lib/demoMode';
-import { isColdStoreArchiveUx } from '@/utils/coldStore';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
   canToggleBotStatus,
@@ -41,10 +40,9 @@ export interface BotMenuContext {
   type: BotTypeId;
   status: BotStatusType;
   /**
-   * True when this bot's history has moved to cold storage — it is read-only /
-   * one-way and cannot be un-archived (clone to reuse). Comes from the bot
-   * GraphQL query; absent = grandfathered (still reversible). Only enforced in
-   * the UI when the cold-store UX is live (`isColdStoreArchiveUx()`).
+   * True when this bot's history has moved to cold storage (ClickHouse). Comes
+   * from the bot GraphQL query. Informational only — archiving is REVERSIBLE
+   * (un-archive rehydrates the history), so this no longer gates any action.
    */
   coldArchived?: boolean;
 }
@@ -114,13 +112,9 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   const deleteBlockedReason = getDeleteBlockedReason(bot.status);
   const canArchive = isBotArchivable(bot.status);
   const archiveBlockedReason = getArchiveBlockedReason(bot.status);
-  // A cold-archived bot is read-only / one-way: block its un-archive action
-  // (clone to reuse). Only enforced once the cold-store UX is live; grandfathered
-  // archived bots (coldArchived absent) stay reversible.
-  const isArchivedStatus =
-    bot.status === 'archived' || bot.status === 'archive';
-  const isColdArchived =
-    isColdStoreArchiveUx() && !!bot.coldArchived && isArchivedStatus;
+  // Cold-archived bots are REVERSIBLE (PART 2): un-archive rehydrates their
+  // history from cold storage, so the Unarchive action stays enabled just like a
+  // grandfathered archived bot. No cold-store-specific gating here anymore.
   // Either the global demo-mode flag OR the per-view viewOnly flag
   // (share visitor / non-owner) is enough to lock mutating actions.
   const readOnly = isReadOnly() || viewOnly;
@@ -245,18 +239,12 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
 
       {/* Archive Action */}
       <DropdownMenuItem
-        onClick={
-          readOnly || !canArchive || isColdArchived ? undefined : onArchive
-        }
-        disabled={
-          !!pending?.archive || readOnly || !canArchive || isColdArchived
-        }
+        onClick={readOnly || !canArchive ? undefined : onArchive}
+        disabled={!!pending?.archive || readOnly || !canArchive}
         title={
           readOnly
             ? 'Not available in demo mode'
-            : isColdArchived
-              ? 'Archived bots are read-only — clone the bot to reuse it'
-              : archiveBlockedReason /* undefined when archivable */
+            : archiveBlockedReason /* undefined when archivable */
         }
       >
         {pending?.archive ? (

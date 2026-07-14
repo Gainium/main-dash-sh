@@ -289,7 +289,8 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
 
   const handleArchive = useCallback(() => {
     const isArchived = bot.status.toLowerCase() === 'archived';
-    // Archiving becomes read-only / one-way once the cold-store UX is live.
+    // Archiving moves the bot's history to cold storage once the cold-store UX
+    // is live — reversible via un-archive.
     if (!isArchived && isColdStoreArchiveUx()) {
       setArchiveModalOpen(true);
       return;
