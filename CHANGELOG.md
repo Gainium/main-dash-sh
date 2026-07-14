@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.9] - 2026-07-14
+
+### Fixed
+
+- Opening a bot's detail drawer no longer flickers/remounts (which reset the Deals sub-tab back to Open and briefly flashed the bots list) when the bots list refetches in the background. The drawer resolves its bot from the live list, which momentarily empties during a websocket-driven refetch; the resolved bot is now "sticky" for the current selection so the drawer stays mounted. Most visible when viewing an archived bot's closed deals.
+
 ## [2.32.8] - 2026-07-14
 
 ### Fixed

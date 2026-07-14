@@ -1931,30 +1931,49 @@ const TradingBots: React.FC = () => {
     ]
   );
 
+  const lastResolvedBotRef = useRef<{
+    id: string;
+    bot: ReturnType<typeof transformDcaBotToBot>;
+  } | null>(null);
   const selectedBotData = useMemo(() => {
-    const fromList = transformedBots.find((bot) => bot.id === selectedBot);
-    if (fromList) return fromList;
-    // By-id path: share-link visitor (shareId) OR an archived bot not in the
-    // list (fallback). Synthesize a drawer bot from the single-bot fetch.
-    const raw = (shareId ? sharedBotResult.bot : fallbackBotResult.bot) as
-      | DCABot
-      | null;
-    if (raw && selectedBot) {
-      try {
-        return transformDcaBotToBot(
-          raw,
-          [], // no fees needed for read-only render
-          [], // no prices — value will be filled in by widget hooks later
-          false,
-          [],
-          undefined
-        );
-      } catch (e) {
-        logger.warn('[TradingBots] failed to transform fallback bot', {
-          error: e,
-        });
-        return undefined;
+    const resolve = () => {
+      const fromList = transformedBots.find((bot) => bot.id === selectedBot);
+      if (fromList) return fromList;
+      // By-id path: share-link visitor (shareId) OR an archived bot not in the
+      // list (fallback). Synthesize a drawer bot from the single-bot fetch.
+      const raw = (shareId ? sharedBotResult.bot : fallbackBotResult.bot) as
+        | DCABot
+        | null;
+      if (raw && selectedBot) {
+        try {
+          return transformDcaBotToBot(
+            raw,
+            [], // no fees needed for read-only render
+            [], // no prices — value will be filled in by widget hooks later
+            false,
+            [],
+            undefined
+          );
+        } catch (e) {
+          logger.warn('[TradingBots] failed to transform fallback bot', {
+            error: e,
+          });
+          return undefined;
+        }
       }
+      return undefined;
+    };
+    const resolved = resolve();
+    // Sticky: the bot list momentarily empties during background (websocket-
+    // driven) refetches, which would briefly make this `undefined` and unmount
+    // the drawer — remounting it flashes the list and resets the deals sub-tab.
+    // Keep the last resolved bot for THIS selection so the drawer stays mounted.
+    if (resolved && selectedBot) {
+      lastResolvedBotRef.current = { id: selectedBot, bot: resolved };
+      return resolved;
+    }
+    if (selectedBot && lastResolvedBotRef.current?.id === selectedBot) {
+      return lastResolvedBotRef.current.bot;
     }
     return undefined;
   }, [
