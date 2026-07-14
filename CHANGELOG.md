@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.11] - 2026-07-14
+
+### Fixed
+
+- Cloning a combo or grid bot from its detail drawer now opens the create form pre-filled with the bot's settings (so you can change the pair/exchange before saving), matching how cloning a trading bot already worked. Previously combo/grid clone from the drawer immediately created a copy without opening it, leaving the pair unchangeable.
+- Cloning a paper trading bot no longer fails with "Bot not found" — the new-bot page now fetches the source bot in the same paper/live context it lives in (it previously always looked in live).
+- Cloning a bot now opens the create form in Manual mode, so the cloned strategy is shown as-is instead of being overwritten by a Quick-mode risk profile. Applies to every bot type.
+
+### Changed
+
+- Bot actions (start/stop, restart, clone, delete, plus their confirmation and success modals) are now driven by one shared `useBotActions` hook + `BotActionsModals` component instead of each surface hand-rolling its own handlers and modals. Every bot surface — the trading/grid/hedge cards, the detail drawer, and the Trading/Combo/Grid/Hedge list-row menus — routes through it, so an action behaves identically everywhere. Hedge start/stop now goes through the same status-toggle path as every other bot type (retiring a duplicated inline implementation).
+
 ## [2.32.10] - 2026-07-14
 
 ### Changed

@@ -4,12 +4,11 @@ import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
-import { GraphQLClient } from '@/lib/api';
+import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
-import { useAuthStore } from '@/stores/authStore';
 import {
   BotTypesEnum,
   type DCABacktestingResultHistory,
@@ -25,83 +24,74 @@ const TradingBotNewWidget = () => {
   const preload = useBotConfigPreload();
 
   // Clone-from-bot via `?load=<id>`: fetch the source DCA bot, map its
-  // settings to form data, append "(Clone)" to the name, and seed the
-  // form. Mirrors the hedge clone flow in HedgeBotFormProvider.
+  // settings to form data, append "(Clone)" to the name, and seed the form.
+  // Uses the shared `useGraphQL` hook (same as the combo/grid new pages) so
+  // the fetch runs in the correct paper/live trading context — a raw
+  // GraphQLClient would default to live and return "Bot not found" when
+  // cloning a paper bot.
   const [searchParams] = useSearchParams();
   const loadFromBotId = searchParams.get('load');
-  const [loadedFormData, setLoadedFormData] = useState<
-    Partial<BotFormData> | null
-  >(null);
-  const [loadFromBotPending, setLoadFromBotPending] = useState(
-    Boolean(loadFromBotId)
+  const loadQuery = useGraphQL<DCABot>(
+    'getDCABot',
+    botQueries.getDCABot({ id: loadFromBotId ?? '' }),
+    { enabled: Boolean(loadFromBotId) }
   );
 
-  useEffect(() => {
-    if (!loadFromBotId) return;
-    let cancelled = false;
-    setLoadFromBotPending(true);
-
-    const endpoint =
-      import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
-    const token = useAuthStore.getState().tokens?.accessToken;
-    const client = new GraphQLClient(endpoint, token ?? 'demo');
-    const { query, variables } = botQueries.getDCABot({ id: loadFromBotId });
-
-    client
-      .request<{
-        getDCABot: { status: string; reason?: string; data?: DCABot };
-      }>(query, variables)
-      .then((response) => {
-        if (cancelled) return;
-        const payload = response.getDCABot;
-        if (payload?.status === 'OK' && payload.data) {
-          try {
-            const bot = payload.data;
-            const { formData } = mapBotSettingsToFormData(
-              BotTypesEnum.dca,
-              bot.settings,
-              { bot }
-            );
-            const base = formData.name?.trim();
-            setLoadedFormData({
-              ...formData,
-              name: base ? `${base} (Clone)` : 'Bot (Clone)',
-            });
-          } catch (err) {
-            logger.error('[TradingBotNew] Failed to map loaded bot settings', {
-              error: err instanceof Error ? err.message : String(err),
-              id: loadFromBotId,
-            });
-            toast.error('Failed to load bot settings');
-            setLoadedFormData(null);
-          }
-        } else {
-          toast.error(payload?.reason || 'Could not load bot to clone');
-          setLoadedFormData(null);
-        }
-      })
-      .catch((err) => {
-        if (cancelled) return;
-        logger.error('[TradingBotNew] getDCABot for clone failed', {
-          error: err instanceof Error ? err.message : String(err),
-          id: loadFromBotId,
-        });
-        toast.error(
-          err instanceof Error ? err.message : 'Failed to load bot to clone'
-        );
-        setLoadedFormData(null);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoadFromBotPending(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [loadFromBotId]);
-
+  const [loadedFormData, setLoadedFormData] = useState<
+    Partial<BotFormData> | undefined
+  >(undefined);
+  const [loadHandled, setLoadHandled] = useState(false);
   const [formReloadKey, setFormReloadKey] = useState(0);
+
+  useEffect(() => {
+    if (!loadFromBotId || loadHandled) return;
+    if (loadQuery.isLoading) return;
+
+    if (loadQuery.error) {
+      toast.error('Failed to load bot to clone');
+      setLoadHandled(true);
+      return;
+    }
+
+    const payload = loadQuery.data;
+    if (!payload) return;
+
+    if (payload.status !== 'OK' || !payload.data) {
+      toast.error(payload.reason || 'Could not load bot to clone');
+      setLoadHandled(true);
+      return;
+    }
+
+    try {
+      const bot = payload.data;
+      const { formData } = mapBotSettingsToFormData(
+        BotTypesEnum.dca,
+        bot.settings,
+        { bot }
+      );
+      const base = formData.name?.trim();
+      setLoadedFormData({
+        ...formData,
+        name: base ? `${base} (Clone)` : 'Bot (Clone)',
+      });
+    } catch (err) {
+      logger.error('[TradingBotNew] Failed to map loaded bot settings', {
+        error: err instanceof Error ? err.message : String(err),
+        id: loadFromBotId,
+      });
+      toast.error('Failed to load bot settings');
+    } finally {
+      setLoadHandled(true);
+    }
+  }, [
+    loadFromBotId,
+    loadHandled,
+    loadQuery.isLoading,
+    loadQuery.error,
+    loadQuery.data,
+  ]);
+
+  const isLoadingClone = Boolean(loadFromBotId) && !loadHandled;
 
   // "Load in settings" — in-place form reload with the backtest's settings.
   const handleLoadBacktest = useCallback(
@@ -129,7 +119,6 @@ const TradingBotNewWidget = () => {
   );
 
   const initialFormData = loadedFormData ?? preload?.initialFormData;
-  const isSeedPending = Boolean(loadFromBotId) && loadFromBotPending;
 
   return (
     <BotWorkbench
@@ -137,7 +126,7 @@ const TradingBotNewWidget = () => {
       mode="create"
       initialFormData={initialFormData}
       formReloadKey={formReloadKey}
-      isSeedPending={isSeedPending}
+      isSeedPending={isLoadingClone}
       onLoadBacktestIntoForm={handleLoadBacktest}
     />
   );

@@ -3,8 +3,6 @@ import {
   BotStartTypeEnum,
   BotTypesEnum,
   CloseConditionEnum,
-  CloseDCATypeEnum,
-  CloseGRIDTypeEnum,
   DCAConditionEnum,
   DCAOrderTypeEnum,
   ScaleDcaTypeEnum,
@@ -27,13 +25,10 @@ import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
-import { buildBotEditRoute } from '@/utils/bots/navigation';
 import {
   canToggleBotStatus,
-  getActionPastTense,
   getActionPresent,
   getActionText,
-  getTargetStatus,
   isBotActive,
   isBotRestartable,
 } from '@/utils/botStatusUtils';
@@ -66,13 +61,7 @@ import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { TradeDetailContent } from '../../components/trades/TradeDetailContent';
 import { ShareBotDialog } from '../../features/bots/shared/runtime/dialogs/ShareBotDialog';
 import { useBotViewTracking } from '../../hooks/useBotAnalytics';
-import {
-  useBotArchive,
-  useBotClone,
-  useBotDelete,
-  useBotRestart,
-  useBotStatusToggle,
-} from '../../hooks/useBotMutations';
+import { useBotActions } from '../../hooks/useBotActions';
 import { useAuthStore } from '../../stores/authStore';
 /* import { useCacheKey } from '../../hooks/useCacheKey'; */
 /* import { useCacheStatus } from '../../hooks/useCacheStatus'; */
@@ -85,11 +74,7 @@ import {
   type BotTypeId,
 } from '../bots/BotActionsMenuItems';
 import { DealEditDrawer } from '../deals/DealEditDrawer';
-import {
-  BotStatusConfirmationModal,
-  DeleteConfirmationModal,
-  SuccessFeedbackModal,
-} from '../modals';
+import { BotActionsModals } from './BotActionsModals';
 import { Button } from '../ui/button';
 import {
   ResponsiveButtonRow,
@@ -514,16 +499,9 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       [hedge, bot]
     );
 
-    // Modal state
-    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-    const [successModalOpen, setSuccessModalOpen] = useState(false);
-    const [statusModalOpen, setStatusModalOpen] = useState(false);
+    // Modal state — the status/delete/success modals are owned by
+    // useBotActions now; only the Share dialog stays local to the drawer.
     const [shareDialogOpen, setShareDialogOpen] = useState(false);
-    const [successData, setSuccessData] = useState<{
-      type: 'clone' | 'delete';
-      newItemId?: string;
-      botTypeId?: string;
-    } | null>(null);
 
     // Owner-only Share entry point. We resolve the owner via the
     // `ownerUserId` prop (which the list page derives from either the
@@ -535,14 +513,6 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       ownerUserId ?? (bot as DCABot & { userId?: string }).userId ?? null;
     const isOwner =
       !viewOnly && !!currentUserId && resolvedOwnerId === currentUserId;
-
-    // Mutations
-    const deleteMutation = useBotDelete();
-    const cloneMutation = useBotClone();
-    const archiveMutation = useBotArchive();
-    const restartMutation = useBotRestart();
-
-    const statusToggleMutation = useBotStatusToggle(type);
 
     // Track bot pageview when drawer opens
     const location = useLocation();
@@ -781,128 +751,59 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     // (`hedgeDca` / `hedgeCombo`) for hedge bots.
     const actionBotId = parentBotId ?? bot._id;
 
-    // Event handlers
-    // useCallback so the memoised footer button-config array below stays stable
-    // across the ~26x/s re-renders driven by live `bot` updates (the bot object
-    // is replaced on every socket stats/deal tick).
-    const handleEdit = useCallback(() => {
-      const editPath = buildBotEditRoute(type, actionBotId);
-      if (onEdit) {
-        onEdit(actionBotId);
-      } else {
-        navigate(editPath);
-      }
-    }, [type, actionBotId, onEdit, navigate]);
-
-    const handleClone = () => {
-      if (onClone) {
-        onClone(actionBotId);
-      } else if (type === BotTypesEnum.dca) {
-        navigate(`/bot/new?load=${actionBotId}`);
-      } else {
-        cloneMutation.mutate(
-          {
-            id: actionBotId,
-            name: `${bot.settings.name} (Clone)`,
-            type,
-            // Note: No botData provided - will use query cache fallback
-          },
-          {
-            onSuccess: (data) => {
-              // Show success modal with clone feedback
-              setSuccessData({
-                type: 'clone',
-                newItemId: data?._id || `clone_${Date.now()}`,
-                botTypeId: type,
-              });
-              setSuccessModalOpen(true);
-            },
+    // Shared bot-action orchestration: clone (opens the pre-filled create
+    // page — this is what fixes the old combo/grid "immediate copy" that
+    // locked the pair), start/stop + delete (confirmation modals rendered by
+    // <BotActionsModals> below), restart. Overrides preserve the drawer's
+    // caller-supplied onEdit/onClone hooks (used by hedge/list pages) and its
+    // bespoke "Duplicate to live/paper" staging. Archive is intentionally not
+    // passed — BotActionsMenuItems owns it.
+    const botActions = useBotActions({
+      botId: actionBotId,
+      botType: type,
+      botName: bot.settings.name,
+      status: bot.status,
+      activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
+      totalValue: (bot as DCABot)?.usage?.current?.quote || 0,
+      currency: Array.isArray((bot as DCABot)?.symbol)
+        ? (bot as DCABot).symbol[0]?.value?.quoteAsset || 'USDT'
+        : 'USDT',
+      lastActivity: bot.created || 'Unknown',
+      botData: bot,
+      ...(isGrid
+        ? {
+            gridFutures: isFuturesExchange(bot.exchange),
+            gridHasOpenPosition: ((bot as GridBot).position?.price ?? 0) !== 0,
+            gridIsShort:
+              (bot as GridBot).position?.side === PositionSide.SHORT,
           }
-        );
-      }
-    };
-
-    const handleStatusToggle = useCallback(() => {
-      setStatusModalOpen(true);
-    }, []);
-
-    const handleConfirmStatusChange = (
-      closeType?: string,
-      cancelPartiallyFilled?: boolean
-    ) => {
-      const newStatus = getTargetStatus(bot.status);
-
-      // Use the mutation directly with callbacks for modal close and toast.
-      // Grid bots route the close decision through `closeGridType`
-      // (+ cancelPartiallyFilled); DCA/combo use `closeType`.
-      statusToggleMutation.mutate(
-        {
-          id: actionBotId,
-          status: newStatus,
-          ...(isGrid
-            ? {
-                closeGridType: closeType as CloseGRIDTypeEnum | undefined,
-                cancelPartiallyFilled,
-              }
-            : { closeType: closeType as CloseDCATypeEnum | undefined }),
-        },
-        {
-          onSuccess: () => {
-            setStatusModalOpen(false);
-            toast.success(`Bot ${getActionPastTense(bot.status)} successfully`);
-            // Note: Don't call onToggleStatus here as it would trigger another mutation
-            // The parent will receive updates through React Query cache invalidation
-          },
-          onError: (error) => {
-            console.error('Failed to change bot status:', error);
-            toast.error(`Failed to ${isActive ? 'stop' : 'start'} bot`);
-          },
-        }
-      );
-    };
-
-    const handleDelete = () => {
-      setDeleteModalOpen(true);
-    };
-
-    const handleArchive = () => {
-      // Backend status for an archived bot is 'archive' (not 'archived'), so
-      // match both — otherwise un-archive would send archive:true and re-archive.
-      const s = bot.status.toLowerCase();
-      const isArchived = s === 'archive' || s === 'archived';
-      archiveMutation.mutate({ id: actionBotId, archive: !isArchived, type });
-    };
-
-    const handleRestart = useCallback(() => {
-      restartMutation.mutate(
-        {
-          id: actionBotId,
+        : {}),
+      ...(onEdit ? { onEdit: () => onEdit(actionBotId) } : {}),
+      ...(onClone ? { onClone: () => onClone(actionBotId) } : {}),
+      // "Duplicate to live/paper" stages the config and opens a fresh create form.
+      onCopyToLive: () => {
+        const botConfig = {
+          name: `${bot.settings.name} (Live)`,
           type,
-        },
-        {
-          onSuccess: () => {
-            toast.success('Bot restarted successfully');
-          },
-          onError: () => {
-            toast.error('Failed to restart bot');
-          },
+          exchange: bot.exchange,
+          symbol: bot.symbol,
+          settings: bot.settings,
+        };
+        try {
+          sessionStorage.setItem('botConfig', JSON.stringify(botConfig));
+          navigate('/bot/new');
+        } catch (error) {
+          console.error('Failed to stage config for live trading:', error);
+          toast.error('Failed to stage configuration');
         }
-      );
-      // Stable `.mutate`, not the whole react-query mutation object (fresh every
-      // render), so this callback — and the footer button array — stays stable.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [restartMutation.mutate, actionBotId, type]);
+      },
+    });
 
-    const handleConfirmDelete = async () => {
-      try {
-        await deleteMutation.mutateAsync({ id: actionBotId, type });
-        setSuccessData({ type: 'delete' });
-        setSuccessModalOpen(true);
-      } catch (error) {
-        console.error('Failed to delete bot:', error);
-        // Error handling is done by the mutation
-      }
-    };
+    // Thin aliases so the footer button-config array and the actions menu keep
+    // their existing call sites — the behaviour now lives in useBotActions.
+    const handleEdit = botActions.edit;
+    const handleStatusToggle = botActions.openStatusModal;
+    const handleRestart = botActions.restart;
 
     const handleDrawerClose = () => {
       handleDrawerOpenChange(false);
@@ -1348,8 +1249,8 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       footerStatus === 'archive' || footerStatus === 'archived';
     const canToggle = canToggleBotStatus(bot.status);
     const canRestart = isBotRestartable(bot.status);
-    const statusTogglePending = statusToggleMutation.isPending;
-    const restartPending = restartMutation.isPending;
+    const statusTogglePending = botActions.pending.statusToggle;
+    const restartPending = botActions.pending.restart;
     const toggleLabel = getActionText(bot.status);
     const botStatus = bot.status;
     const footerActionButtons = useMemo<ResponsiveButtonConfig[]>(() => {
@@ -1613,60 +1514,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                             coldArchived: (bot as { coldArchived?: boolean })
                               .coldArchived,
                           }}
-                          pending={{
-                            statusToggle: statusToggleMutation.isPending,
-                            restart: restartMutation.isPending,
-                            clone: cloneMutation.isPending,
-                            delete: deleteMutation.isPending,
-                            archive: archiveMutation.isPending,
-                          }}
-                          onToggleStatus={() => handleStatusToggle()}
-                          onRestart={() => handleRestart()}
-                          onEdit={() => handleEdit()}
-                          onClone={() => handleClone()}
-                          onViewClosedTrades={() =>
-                            navigate(`/trades?botId=${bot._id}`)
-                          }
-                          onShareConfig={async () => {
-                            try {
-                              await navigator.clipboard.writeText(
-                                JSON.stringify(bot, null, 2)
-                              );
-                              toast.success(
-                                'Configuration copied to clipboard'
-                              );
-                            } catch (error) {
-                              console.error(
-                                'Failed to copy configuration:',
-                                error
-                              );
-                              toast.error('Failed to copy configuration');
-                            }
-                          }}
-                          onCopyToLive={() => {
-                            const botConfig = {
-                              name: `${bot.settings.name} (Live)`,
-                              type: type,
-                              exchange: bot.exchange,
-                              symbol: bot.symbol,
-                              settings: bot.settings,
-                            };
-                            try {
-                              sessionStorage.setItem(
-                                'botConfig',
-                                JSON.stringify(botConfig)
-                              );
-                              navigate('/bot/new');
-                            } catch (error) {
-                              console.error(
-                                'Failed to stage config for live trading:',
-                                error
-                              );
-                              toast.error('Failed to stage configuration');
-                            }
-                          }}
-                          onArchive={() => handleArchive()}
-                          onDelete={() => handleDelete()}
+                          {...botActions.menuProps}
                         />
                       </DropdownMenu>
                       <Button
@@ -2223,65 +2071,8 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           {/* Footer removed - all actions moved to header 3-dot menu */}
         </DetailDrawerContent>
 
-        {/* Modals */}
-        <BotStatusConfirmationModal
-          open={statusModalOpen}
-          onOpenChange={setStatusModalOpen}
-          onConfirm={handleConfirmStatusChange}
-          botName={bot.settings.name}
-          currentStatus={bot.status}
-          targetStatus={getTargetStatus(bot.status)}
-          hasActiveDeals={((bot as DCABot)?.dealsInBot?.active || 0) > 0}
-          botType={isGrid ? BotTypesEnum.grid : undefined}
-          gridFutures={isGrid ? isFuturesExchange(bot.exchange) : undefined}
-          gridHasOpenPosition={
-            isGrid ? ((bot as GridBot).position?.price ?? 0) !== 0 : undefined
-          }
-          gridIsShort={
-            isGrid
-              ? (bot as GridBot).position?.side === PositionSide.SHORT
-              : undefined
-          }
-          isLoading={statusToggleMutation.isPending}
-        />
-
-        <DeleteConfirmationModal
-          open={deleteModalOpen}
-          onOpenChange={setDeleteModalOpen}
-          onConfirm={handleConfirmDelete}
-          title="Delete Bot"
-          description="Are you sure you want to delete this bot? This action cannot be undone."
-          itemName={bot.settings.name}
-          itemType="bot"
-          additionalInfo={{
-            activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
-            totalValue: (bot as DCABot)?.usage?.current?.quote || 0,
-            currency: Array.isArray((bot as DCABot)?.symbol)
-              ? (bot as DCABot).symbol[0]?.value?.quoteAsset || 'USDT'
-              : 'USDT',
-            lastActivity: bot.created || 'Unknown',
-          }}
-          isLoading={deleteMutation.isPending}
-          requireConfirmation={false}
-        />
-
-        <SuccessFeedbackModal
-          open={successModalOpen}
-          onOpenChange={setSuccessModalOpen}
-          type={successData?.type || 'clone'}
-          itemName={bot.settings.name}
-          itemType="bot"
-          newItemId={successData?.newItemId || undefined}
-          details={
-            successData?.type === 'clone'
-              ? {
-                  originalName: bot.settings.name,
-                  newName: `${bot.settings.name} (Clone)`,
-                  botTypeId: successData?.botTypeId ?? type,
-                }
-              : undefined
-          }
-        />
+        {/* Shared status / delete / success modals, driven by useBotActions. */}
+        <BotActionsModals {...botActions.modalProps} />
 
         {/* Share dialog — only mounted for the bot's owner.
             ShareBotDialog handles the toggle mutation + URL build. */}

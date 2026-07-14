@@ -12,6 +12,7 @@ import {
   type ReactNode,
   type SetStateAction,
 } from 'react';
+import { useSearchParams } from 'react-router-dom';
 
 import type { PrecisionGuard } from '@/features/bots/shared/utils/order-guard';
 import { useBotFormRegistryContext } from '@/features/bots/widgets/BotForm/context';
@@ -321,6 +322,13 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   // form on demand. Certain fields stay immutable on existing bots via their
   // own per-field locks, independent of this overall edit lock.
   const [isEditLocked, setIsEditLocked] = useState<boolean>(false);
+  // A create page opened via `?load=<id>` is a CLONE: the form is seeded from
+  // an existing bot's settings. Those must be shown/edited as-is, so a clone
+  // opens in Manual — Quick mode would apply a risk-profile preset on top and
+  // clobber the cloned strategy. `?load=` is the universal clone signal across
+  // every bot type's new page.
+  const [searchParams] = useSearchParams();
+  const isCloneSeed = Boolean(searchParams.get('load'));
   const [quickSetupMode, setQuickSetupMode] = useState<'quick' | 'manual'>(
     // Hedge legs mount BotFormWidget with `isNestedLeg` — they're not
     // standalone DCA bots, so they shouldn't get the Quick/Manual mode
@@ -336,7 +344,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
         botType === BotTypesEnum.combo ||
         botType === BotTypesEnum.grid) &&
       !terminal &&
-      !isNestedLeg
+      !isNestedLeg &&
+      !isCloneSeed
       ? 'quick'
       : 'manual'
   );

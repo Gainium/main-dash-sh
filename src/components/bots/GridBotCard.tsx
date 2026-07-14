@@ -1,15 +1,8 @@
 import { logger } from '@/lib/loggerInstance';
-import { toast } from '@/lib/toast';
-import {
-  BotTypesEnum,
-  CloseGRIDTypeEnum,
-  PositionSide,
-  type BotSettings,
-} from '@/types';
+import { BotTypesEnum, PositionSide, type BotSettings } from '@/types';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
-import { buildBotEditRoute } from '@/utils/bots/navigation';
 import { extractPairAssets } from '@/utils/pairs';
 import {
   Copy,
@@ -22,17 +15,9 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import {
-  useBotDelete,
-  useBotStatusToggle,
-} from '../../hooks/useBotMutations';
-import {
-  BotStatusConfirmationModal,
-  DeleteConfirmationModal,
-  SuccessFeedbackModal,
-} from '../modals';
+import React from 'react';
+import { useBotActions } from '../../hooks/useBotActions';
+import { BotActionsModals } from './BotActionsModals';
 import { Button } from '../ui/button';
 import { Card } from '../ui/card';
 import {
@@ -58,23 +43,26 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
   onClick,
   isSelected = false,
 }) => {
-  const navigate = useNavigate();
   const resolvePairAsset = useResolvePairAsset();
 
-  // Modal state
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [successData, setSuccessData] = useState<{
-    type: 'clone' | 'delete';
-    newItemId?: string;
-    botTypeId?: string;
-  } | null>(null);
+  // Shared bot-action orchestration (status/delete + their modals). Clone
+  // opens the pre-filled create page. This card keeps its own bespoke menu,
+  // but the handlers/modals now come from the shared hook.
+  const botActions = useBotActions({
+    botId: bot.id,
+    botType: BotTypesEnum.grid,
+    botName: bot.name,
+    status: bot.status,
+    activeDeals: 0, // grid bots don't have deals in the same way
+    totalValue: bot.budget || 0,
+    currency: extractPairAssets(bot.pair).quoteAsset || 'USD',
+    lastActivity: 'Unknown',
+    botData: bot,
+    gridFutures: isFuturesExchange(bot.exchange),
+    gridHasOpenPosition: ((bot as GridBot).position?.price ?? 0) !== 0,
+    gridIsShort: (bot as GridBot).position?.side === PositionSide.SHORT,
+  });
 
-  // Bot mutations
-  const _botTypeEnum = BotTypesEnum.grid;
-  const statusToggleMutation = useBotStatusToggle(_botTypeEnum);
-  const deleteMutation = useBotDelete();
   // Helper function to get exchange data and trading type
   const getExchangeData = (exchangeId: string) => {
     let baseExchangeId = exchangeId.toLowerCase();
@@ -130,59 +118,12 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
     }).format(value / 100);
   };
 
-  // Bot action handlers
-  const handleEdit = () => {
-    navigate(buildBotEditRoute(bot.type, bot.id));
-  };
-
-  const handleClone = () => {
-    navigate(`/grid/new?load=${bot.id}`);
-  };
-
-  const handleStatusToggle = () => {
-    setStatusModalOpen(true);
-  };
-
-  const handleConfirmStatusChange = (
-    closeType?: string,
-    cancelPartiallyFilled?: boolean
-  ) => {
-    const isActive = bot.isActive;
-    const newStatus = isActive ? 'closed' : 'open'; // Use 'paused' for grid bots
-
-    statusToggleMutation.mutate(
-      {
-        id: bot.id,
-        status: newStatus,
-        closeGridType: closeType as CloseGRIDTypeEnum | undefined,
-        cancelPartiallyFilled,
-      },
-      {
-        onSuccess: () => {
-          setStatusModalOpen(false);
-          toast.success(`Bot ${isActive ? 'stopped' : 'started'} successfully`);
-        },
-        onError: (error) => {
-          console.error('Failed to change bot status:', error);
-          toast.error(`Failed to ${isActive ? 'stop' : 'start'} bot`);
-        },
-      }
-    );
-  };
-
-  const handleDelete = () => {
-    setDeleteModalOpen(true);
-  };
-
-  const handleConfirmDelete = async () => {
-    try {
-      await deleteMutation.mutateAsync({ id: bot.id, type: BotTypesEnum.grid });
-      setSuccessData({ type: 'delete' });
-      setSuccessModalOpen(true);
-    } catch (error) {
-      console.error('Failed to delete bot:', error);
-    }
-  };
+  // Bot action handlers — thin aliases over the shared orchestration so the
+  // bespoke menu below keeps its existing call sites.
+  const handleEdit = botActions.edit;
+  const handleClone = botActions.clone;
+  const handleStatusToggle = botActions.openStatusModal;
+  const handleDelete = botActions.openDeleteModal;
 
   const { baseAsset, quoteAsset } = extractPairAssets(bot.pair);
   // Resolve asset class + venue so tokenized-stock pairs show their real logo.
@@ -237,7 +178,7 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
                   e.stopPropagation();
                   handleStatusToggle();
                 }}
-                disabled={statusToggleMutation.isPending}
+                disabled={botActions.pending.statusToggle}
               >
                 {bot.isActive ? (
                   <>
@@ -284,7 +225,7 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
                   handleDelete();
                 }}
                 className="text-destructive focus:text-destructive"
-                disabled={deleteMutation.isPending}
+                disabled={botActions.pending.delete}
               >
                 <Trash2 className="w-4 h-4 mr-2" />
                 Delete
@@ -428,57 +369,8 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
         </div>
       </div>
 
-      {/* Modals */}
-      <BotStatusConfirmationModal
-        open={statusModalOpen}
-        onOpenChange={setStatusModalOpen}
-        onConfirm={handleConfirmStatusChange}
-        botName={bot.name}
-        currentStatus={bot.status}
-        targetStatus={bot.isActive ? 'closed' : 'open'}
-        hasActiveDeals={false} // Grid bots don't have deals in the same way
-        botType={BotTypesEnum.grid}
-        gridFutures={isFuturesExchange(bot.exchange)}
-        gridHasOpenPosition={((bot as GridBot).position?.price ?? 0) !== 0}
-        gridIsShort={(bot as GridBot).position?.side === PositionSide.SHORT}
-        isLoading={statusToggleMutation.isPending}
-      />
-
-      <DeleteConfirmationModal
-        open={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
-        onConfirm={handleConfirmDelete}
-        title="Delete Bot"
-        description="Are you sure you want to delete this bot? This action cannot be undone."
-        itemName={bot.name}
-        itemType="bot"
-        additionalInfo={{
-          activeDeals: 0, // Grid bots don't have deals in the same way
-          totalValue: bot.budget || 0,
-          currency: quoteAsset || 'USD',
-          lastActivity: 'Unknown',
-        }}
-        isLoading={deleteMutation.isPending}
-        requireConfirmation={false}
-      />
-
-      <SuccessFeedbackModal
-        open={successModalOpen}
-        onOpenChange={setSuccessModalOpen}
-        type={successData?.type || 'clone'}
-        itemName={bot.name}
-        itemType="bot"
-        newItemId={successData?.newItemId || undefined}
-        details={
-          successData?.type === 'clone'
-            ? {
-                originalName: bot.name,
-                newName: `${bot.name} (Clone)`,
-                botTypeId: successData?.botTypeId ?? bot.type,
-              }
-            : undefined
-        }
-      />
+      {/* Shared status / delete / success modals, driven by useBotActions. */}
+      <BotActionsModals {...botActions.modalProps} />
     </Card>
   );
 };

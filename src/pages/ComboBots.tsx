@@ -17,10 +17,6 @@ import {
   filterRestartableBots,
   filterStartableBots,
   filterStoppableBots,
-  getActionPastTense,
-  getTargetStatus,
-  isBotActive,
-  isBotDeletable,
 } from '@/utils/botStatusUtils';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
@@ -60,7 +56,6 @@ import WidgetContainer from '../components/layout/WidgetContainer';
 import {
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
-  SuccessFeedbackModal,
 } from '../components/modals';
 import { Badge } from '../components/ui/badge';
 import BotsSkeleton from '../components/ui/BotsPageSkeleton';
@@ -97,6 +92,8 @@ import {
   useBotRestart,
   useBotStatusToggle,
 } from '../hooks/useBotMutations';
+import { useBotActions } from '../hooks/useBotActions';
+import { BotActionsModals } from '../components/bots/BotActionsModals';
 import { useBotModeGuard } from '../hooks/bots/base/useBotModeGuard';
 import { useCacheKey } from '../hooks/useCacheKey';
 import { useCacheStatus } from '../hooks/useCacheStatus';
@@ -120,7 +117,6 @@ import { useBotStatsStore } from '@/stores/live';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
-import { buildBotEditRoute } from '@/utils/bots/navigation';
 import { useComboDeals } from '../hooks/useComboDeals';
 
 const COMBO_BOT_TYPE_ID = 'combo';
@@ -135,111 +131,22 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   bot,
   originalBotData,
 }) => {
-  const navigate = useNavigate();
-  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
-  const [successModalOpen, setSuccessModalOpen] = useState(false);
-  const [statusModalOpen, setStatusModalOpen] = useState(false);
-  const [successData, setSuccessData] = useState<{
-    type: 'clone' | 'delete';
-    newItemId?: string;
-  } | null>(null);
-
-  const statusToggleMutation = useBotStatusToggle(BotTypesEnum.combo);
-  const restartMutation = useBotRestart();
-  const deleteMutation = useBotDelete();
-  const archiveMutation = useBotArchive();
-
-  const handleEdit = () => {
-    navigate(buildBotEditRoute(BotTypesEnum.combo, bot.id));
-  };
-
-  const handleClone = () => {
-    navigate(`/combo/new?load=${bot.id}`);
-  };
-
-  const handleStatusToggle = () => {
-    setStatusModalOpen(true);
-  };
-
-  const handleConfirmStatusChange = (closeType?: string) => {
-    const isActive = isBotActive(bot.status);
-    const newStatus = getTargetStatus(bot.status);
-
-    statusToggleMutation.mutate(
-      {
-        id: bot.id,
-        status: newStatus,
-        closeType: closeType as CloseDCATypeEnum | undefined,
-      },
-      {
-        onSuccess: () => {
-          setStatusModalOpen(false);
-          toast.success(`Bot ${getActionPastTense(bot.status)} successfully`);
-        },
-        onError: (error) => {
-          console.error('Failed to change bot status:', error);
-          toast.error(`Failed to ${isActive ? 'stop' : 'start'} bot`);
-        },
-      }
-    );
-  };
-
-  const handleDelete = () => {
-    if (!isBotDeletable(bot.status)) {
-      toast.info(
-        'Only closed or archived bots can be deleted. Stop the bot first.'
-      );
-      return;
-    }
-    setDeleteModalOpen(true);
-  };
-
-  const handleRestart = () => {
-    restartMutation.mutate(
-      {
-        id: bot.id,
-        type: BotTypesEnum.combo,
-      },
-      {
-        onSuccess: () => {
-          toast.success('Bot restarted successfully');
-        },
-        onError: () => {
-          toast.error('Failed to restart bot');
-        },
-      }
-    );
-  };
-
-  const handleConfirmDelete = async () => {
-    if (!isBotDeletable(bot.status)) {
-      toast.info(
-        'Only closed or archived bots can be deleted. Stop the bot first.'
-      );
-      return;
-    }
-
-    try {
-      await deleteMutation.mutateAsync({
-        id: bot.id,
-        type: BotTypesEnum.combo,
-      });
-      setSuccessData({ type: 'delete' });
-      setSuccessModalOpen(true);
-    } catch (error) {
-      console.error('Failed to delete bot:', error);
-    }
-  };
-
-  const handleArchive = () => {
-    const s = bot.status.toLowerCase();
-    const isArchived = s === 'archive' || s === 'archived';
-    archiveMutation.mutate({
-      id: bot.id,
-      archive: !isArchived,
-      type: BotTypesEnum.combo,
-    });
-  };
+  // Shared bot-action orchestration (clone opens the pre-filled create page;
+  // status/delete via the confirmation modals rendered by <BotActionsModals>).
+  const botActions = useBotActions({
+    botId: bot.id,
+    botType: BotTypesEnum.combo,
+    botName: bot.name,
+    status: bot.status,
+    activeDeals: originalBotData?.dealsInBot?.active || 0,
+    totalValue: originalBotData?.usage?.current?.quote || 0,
+    currency: originalBotData?.symbol?.[0]?.value?.quoteAsset || 'USD',
+    lastActivity: originalBotData?.created || 'Unknown',
+    botData: originalBotData ?? bot,
+    onCopyToLive: () => {
+      toast.info('Copy to live not yet implemented for combo bots');
+    },
+  });
 
   return (
     <>
@@ -264,82 +171,12 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
             status: bot.status as BotStatusType,
             coldArchived: bot.coldArchived,
           }}
-          pending={{
-            statusToggle: statusToggleMutation.isPending,
-            restart: restartMutation.isPending,
-            clone: false,
-            delete: deleteMutation.isPending,
-            archive: archiveMutation.isPending,
-          }}
-          onToggleStatus={() => handleStatusToggle()}
-          onRestart={() => handleRestart()}
-          onEdit={() => handleEdit()}
-          onClone={() => handleClone()}
-          onViewClosedTrades={() => navigate(`/trades?botId=${bot.id}`)}
-          onShareConfig={async () => {
-            try {
-              const source =
-                originalBotData ?? (bot as unknown as Record<string, unknown>);
-              await navigator.clipboard.writeText(
-                JSON.stringify(source, null, 2)
-              );
-              toast.success('Configuration copied to clipboard');
-            } catch (err) {
-              console.error('Failed to copy configuration:', err);
-              toast.error('Failed to copy configuration');
-            }
-          }}
-          onCopyToLive={() => {
-            toast.info('Copy to live not yet implemented for combo bots');
-          }}
-          onDelete={() => handleDelete()}
-          onArchive={() => handleArchive()}
+          {...botActions.menuProps}
         />
       </DropdownMenu>
 
-      <DeleteConfirmationModal
-        open={deleteModalOpen}
-        onOpenChange={setDeleteModalOpen}
-        onConfirm={handleConfirmDelete}
-        title="Delete Bot"
-        description="Are you sure you want to delete this bot? This action cannot be undone."
-        itemType="bot"
-        itemName={bot.name}
-        requireConfirmation={false}
-      />
-
-      <BotStatusConfirmationModal
-        open={statusModalOpen}
-        onOpenChange={setStatusModalOpen}
-        onConfirm={handleConfirmStatusChange}
-        botName={bot.name}
-        currentStatus={bot.status}
-        targetStatus={getTargetStatus(bot.status)}
-        hasActiveDeals={(originalBotData?.dealsInBot?.active || 0) > 0}
-        isLoading={statusToggleMutation.isPending}
-      />
-
-      <SuccessFeedbackModal
-        open={successModalOpen}
-        onOpenChange={(open) => {
-          setSuccessModalOpen(open);
-          if (!open) {
-            setSuccessData(null);
-          }
-        }}
-        type={successData?.type || 'clone'}
-        itemName={bot.name}
-        itemType="bot"
-        newItemId={successData?.newItemId}
-        details={
-          successData?.type === 'clone'
-            ? {
-                originalName: bot.name,
-                newName: `${bot.name} (Clone)`,
-              }
-            : undefined
-        }
-      />
+      {/* Shared status / delete / success modals, driven by useBotActions. */}
+      <BotActionsModals {...botActions.modalProps} />
     </>
   );
 };
