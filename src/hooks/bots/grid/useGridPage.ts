@@ -16,6 +16,8 @@ import {
 } from '@/hooks/useBotProfitChartData';
 /* import { useBotAvgPriceLines } from '@/hooks/useBotAvgPriceLines'; */
 import type { GridBot } from '@/types/gridBot';
+import { useGridBotsStore } from '@/stores/live/gridBotsStore';
+import type { Bot } from '@/types';
 import { buildFundsSnapshot } from '@/utils/bots/grid/funds';
 import { calcDuration } from '@/utils/bots/grid/math';
 import type {
@@ -313,6 +315,20 @@ export const useGridPage = (options: GridPageOptions = {}): GridPageApi => {
     botQuery.data?.status === 'NOTOK'
       ? (botQuery.data.reason ?? 'Failed to load bot')
       : undefined;
+
+  // Seed the live socket store with the fetched bot so websocket updates —
+  // notably the order-placement `progress` field on `bot sends settings` —
+  // are applied to it. The store's websocket merge skips bots it doesn't
+  // already hold, so a deep-linked grid page (e.g. right after create → start)
+  // would otherwise drop early progress events. Only seed when absent so we
+  // never clobber a fresher live snapshot already in the store.
+  useEffect(() => {
+    if (!botData?._id) return;
+    const store = useGridBotsStore.getState();
+    if (!store.getBot(botData._id)) {
+      store.addBot(botData as unknown as Bot);
+    }
+  }, [botData]);
 
   useEffect(() => {
     if (botData && !preferencesFromStorageRef.current) {

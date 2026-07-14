@@ -56,6 +56,8 @@ import { gridTabDescriptors } from '@/features/bots/bot-types/grid/form/tabs';
   HEDGE_DCA_BOT_TYPE_ID,
 } from '@/features/bots/modules/hedgeModule'; */
 import SettingsAlert from '@/components/ui/SettingsAlert';
+import { BotPlacementProgress } from '@/features/bots/widgets/BotForm/BotPlacementProgress';
+import { useGridBotsStore } from '@/stores/live/gridBotsStore';
 import { GRID_BOT_TYPE_ID } from '@/features/bots/registry/entries/grid';
 import {
   AddFundsDialog,
@@ -1917,6 +1919,22 @@ const BotForm: React.FC<BotFormProps> = ({
   >(null);
 
   const botId = bot?._id ?? null;
+
+  // Live order-placement progress (grid). The engine streams a `progress`
+  // field ({ stage, total, text, isAllowedToCancel }) into the grid socket
+  // store while it places the grid ladder. While placement is in flight we
+  // replace the settings body with a blocking progress panel and gate the
+  // footer, matching the legacy dashboard.
+  const gridPlacementProgress = useGridBotsStore((s) =>
+    isGridBot && botId ? (s.getBot(botId)?.progress ?? null) : null
+  );
+  const isPlacingOrders =
+    !!gridPlacementProgress &&
+    typeof gridPlacementProgress.stage === 'number' &&
+    typeof gridPlacementProgress.total === 'number' &&
+    gridPlacementProgress.total > 0 &&
+    gridPlacementProgress.stage !== gridPlacementProgress.total;
+
   const botForOperations = useMemo(() => {
     if (isDcaBotEntity(bot)) {
       return bot as DCABot;
@@ -3465,6 +3483,10 @@ const BotForm: React.FC<BotFormProps> = ({
                 ref={scrollContainerRef}
                 className="custom-scrollbar h-full overflow-y-auto px-2"
               >
+                {isPlacingOrders && gridPlacementProgress ? (
+                  <BotPlacementProgress progress={gridPlacementProgress} />
+                ) : (
+                  <>
                 {isContentReadOnly && (
                   <div className="mb-4 flex items-center gap-xs rounded-md border border-border/60 bg-muted/50 px-3 py-2 text-sm text-muted-foreground">
                     <Lock className="h-4 w-4" />
@@ -3586,6 +3608,8 @@ const BotForm: React.FC<BotFormProps> = ({
                     );
                   })}
                 </fieldset>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -3621,7 +3645,8 @@ const BotForm: React.FC<BotFormProps> = ({
                 errors={errors}
                 submitLabel={footerOverride?.submitLabel ?? submitLabel}
                 submitDisabled={
-                  footerOverride?.submitDisabled ?? submitDisabled
+                  footerOverride?.submitDisabled ??
+                  (submitDisabled || isPlacingOrders)
                 }
                 submitIsPending={
                   footerOverride?.submitIsPending ?? submitIsPending
@@ -3664,7 +3689,10 @@ const BotForm: React.FC<BotFormProps> = ({
                 }
                 toggleDisabled={
                   footerOverride?.toggleDisabled ??
-                  (statusToggleMutation.isPending || !botId)
+                  (statusToggleMutation.isPending ||
+                    !botId ||
+                    (isPlacingOrders &&
+                      !gridPlacementProgress?.isAllowedToCancel))
                 }
                 togglePending={
                   footerOverride?.togglePending ??

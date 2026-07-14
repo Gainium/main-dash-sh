@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.14] - 2026-07-14
+
+### Added
+
+- Grid bots now show live order-placement progress. While the bot places its grid ladder the settings form is replaced by a progress bar (current stage / total), and the orders appear on the chart one-by-one as they are placed. The form stays locked until every order is placed. Restores the behavior from the legacy dashboard.
+
+### Fixed
+
+- Changing a grid bot's pair (for example after cloning one) now recomputes the price range to ±10% of the new pair's current price. Previously the range kept the source pair's values — e.g. a BTC bot's ~50,000 bounds carried onto an ADA pair trading near 0.16 — producing an out-of-scale grid that failed on start with repeated "not enough balance" errors on the sell orders.
+
 ## [2.32.13] - 2026-07-14
 
 ### Fixed

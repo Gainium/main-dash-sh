@@ -40,6 +40,7 @@ import {
   type BotChartDisplayOptionsResult,
 } from './hooks/useBotChartDisplayOptions';
 import { isTokenizedStockPair } from '@/utils/pairs';
+import { useOrderStore } from '@/stores/live';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
 const DEFAULT_EXCHANGE = 'binance';
@@ -519,6 +520,41 @@ const BotChart: React.FC<BotChartProps> = ({
   const contextBotId =
     gridPageContext?.state.bot?._id ?? gridPageContext?.state.botId ?? null;
 
+  // Live open orders for this grid bot, straight from the socket-fed order
+  // store (the `new` bucket holds NEW/PARTIALLY_FILLED orders). As the engine
+  // places the grid ladder, each `data update` event adds one order here, so
+  // overlaying these on the predicted grid makes real orders appear one-by-one
+  // on the chart — matching the legacy dashboard. Scoped to grid pages so other
+  // chart consumers (terminal, DCA/combo) are unaffected.
+  const liveOrdersBotId = resolvedBotId || contextBotId || '';
+  const liveOpenOrdersRecord = useOrderStore((s) =>
+    gridPageContext && liveOrdersBotId
+      ? s.orders.new[liveOrdersBotId]
+      : undefined
+  );
+  const liveOrderLines: ChartOrderLine[] = useMemo(() => {
+    if (!liveOpenOrdersRecord) return EMPTY_CHART_ORDER_LINES;
+    const lines: ChartOrderLine[] = [];
+    for (const order of Object.values(liveOpenOrdersRecord)) {
+      const price = parseFloat(String(order.price));
+      const qty = parseFloat(String(order.origQty));
+      const side = String(order.side).toLowerCase();
+      if (!Number.isFinite(price) || price <= 0 || !Number.isFinite(qty)) {
+        continue;
+      }
+      lines.push({
+        price,
+        side,
+        qty,
+        label: side === 'buy' ? 'Buy' : 'Sell',
+        noLabel: false,
+        isDraggable: false,
+        lineStyle: 'solid',
+      });
+    }
+    return lines;
+  }, [liveOpenOrdersRecord]);
+
   const contextAvgPriceLines =
     gridPageContext?.state.overlays.avgPrice.lines ?? EMPTY_AVG_PRICE_LINES;
 
@@ -549,8 +585,13 @@ const BotChart: React.FC<BotChartProps> = ({
   const position = riskPosition ?? dataPosition ?? null;
 
   const orders = useMemo(
-    () => (showOrders ? rawOrders : EMPTY_CHART_ORDER_LINES),
-    [rawOrders, showOrders]
+    () =>
+      showOrders
+        ? liveOrderLines.length
+          ? [...rawOrders, ...liveOrderLines]
+          : rawOrders
+        : EMPTY_CHART_ORDER_LINES,
+    [rawOrders, liveOrderLines, showOrders]
   );
 
   const orderDrawings = useMemo(
