@@ -978,37 +978,30 @@ export const BotStatus: React.FC<BotStatsProps> = ({
     ]
   );
 
-  const wrapperProps = useMemo(
-    () => ({
-      metadata,
-      isEditable,
-      isCollapsible,
-      onDropdownChange: (value: string) =>
-        setSelectedBotType(value as BotType),
-      ...(onRemove && { onRemove }),
-      ...(onSettings && { onSettings }),
-      ...(onCollapse && { onCollapse }),
-      ...(onTabMove && { onTabMove }),
-      ...(menuActions && {
-        menuActions: {
-          ...menuActions,
-        },
-      }),
-      cacheQueries,
-    }),
-    [
-      metadata,
-      isEditable,
-      isCollapsible,
-      setSelectedBotType,
-      onRemove,
-      onSettings,
-      onCollapse,
-      onTabMove,
-      menuActions,
-      cacheQueries,
-    ]
+  const onDropdownChange = useCallback(
+    (value: string) => setSelectedBotType(value as BotType),
+    [setSelectedBotType]
   );
+
+  // Plain literal (not a memo): every value here is already reference-stable —
+  // `metadata`/`cacheQueries` are memoized above, `onDropdownChange` is a
+  // `useCallback`, the remaining callbacks come from props, and `menuActions`
+  // is passed through directly (the wrapper only reads it). `WidgetWrapper` is
+  // `React.memo`'d and receives these spread as individual props, so a container
+  // memo bought nothing over per-key stability while adding a hand-maintained
+  // dep-array to keep in sync.
+  const wrapperProps = {
+    metadata,
+    isEditable,
+    isCollapsible,
+    onDropdownChange,
+    ...(onRemove && { onRemove }),
+    ...(onSettings && { onSettings }),
+    ...(onCollapse && { onCollapse }),
+    ...(onTabMove && { onTabMove }),
+    ...(menuActions && { menuActions }),
+    cacheQueries,
+  };
 
   return <WidgetWrapper {...wrapperProps}>{content}</WidgetWrapper>;
 };

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.21] - 2026-07-15
+
+### Changed
+
+- Live-update context: hoisted the store-selector groups to module scope, dropping 28 render-time selector subscriptions and shrinking the context-value dependency list. Live bot stats, orders, balances, deals, and messages update exactly as before — this only removes redundant subscription bookkeeping per provider mount.
+- Dashboard Bot Status and Latest Orders widgets: collapsed the redundant wrapper-props container memos now that the widget wrapper is memoized. No visible change; the wrapper's re-render behavior is unchanged.
+
 ## [2.32.20] - 2026-07-15
 
 ### Fixed

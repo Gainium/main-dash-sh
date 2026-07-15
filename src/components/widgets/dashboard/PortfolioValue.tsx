@@ -1170,6 +1170,11 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [portfolioQuery]
   );
 
+  // Keep this as a memo (do NOT collapse to a plain literal): it stabilizes
+  // inline-created values — the `style` object, the `menuActions` object with its
+  // inline `onOptions` handler, and `onCloseOptionsDialog`. `WidgetWrapper` is
+  // `React.memo`'d, so recreating these every render would defeat its memo and
+  // re-render the wrapper on every parent render.
   const wrapperProps = useMemo(
     () => ({
       metadata,

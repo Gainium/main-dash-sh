@@ -211,6 +211,65 @@ const messageActions: LiveUpdateContextType['messageActions'] = {
     useMessageStore.getState().clearBotMessages(botId),
 };
 
+// Selector groups, like the action groups above, only wrap `getState()` reads
+// and close over nothing render-scoped. They were previously created inside the
+// provider via `useXStore((s) => s.method)` — but each selects a store-method
+// reference that is stable for the store's lifetime, so those subscriptions
+// never fired and only served to pad the `contextValue` memo's dep list. Hoisted
+// to module level, they have a stable identity and drop out of the deps entirely.
+const botStatsSelectors: LiveUpdateContextType['botStatsSelectors'] = {
+  getBotStats: (botId: string) =>
+    useBotStatsStore.getState().getBotStats(botId),
+  getAllBotStats: () => useBotStatsStore.getState().getAllBotStats(),
+  isBotStatsLoading: (botId: string) =>
+    useBotStatsStore.getState().isBotStatsLoading(botId),
+  getBotStatsError: (botId: string) =>
+    useBotStatsStore.getState().getBotStatsError(botId),
+};
+
+const orderSelectors: LiveUpdateContextType['orderSelectors'] = {
+  getOrders: (botId: string) => useOrderStore.getState().getOrders(botId),
+  getAllOrders: () => useOrderStore.getState().getAllOrders(),
+  getOrder: (botId: string, orderId: string) =>
+    useOrderStore.getState().getOrder(botId, orderId),
+  isOrderLoading: (botId: string) =>
+    useOrderStore.getState().isOrderLoading(botId),
+  getOrderError: (botId: string) =>
+    useOrderStore.getState().getOrderError(botId),
+};
+
+const balanceSelectors: LiveUpdateContextType['balanceSelectors'] = {
+  getBalances: () => useBalanceStore.getState().getBalances(),
+  getBalance: (asset: string) => useBalanceStore.getState().getBalance(asset),
+  getTotalUsdValue: () => useBalanceStore.getState().getTotalUsdValue(),
+  isBalanceLoading: () => useBalanceStore.getState().isBalanceLoading(),
+  getBalanceError: () => useBalanceStore.getState().getBalanceError(),
+};
+
+const dealSelectors: LiveUpdateContextType['dealSelectors'] = {
+  getDeals: (botId: string) => useDealStore.getState().getDeals(botId),
+  getAllDeals: () => useDealStore.getState().getAllDeals(),
+  getDeal: (botId: string, dealId: string) =>
+    useDealStore.getState().getDeal(botId, dealId),
+  getActiveDeals: (botId: string) =>
+    useDealStore.getState().getActiveDeals(botId),
+  getClosedDeals: (botId: string) =>
+    useDealStore.getState().getClosedDeals(botId),
+  isDealLoading: (botId: string) =>
+    useDealStore.getState().isDealLoading(botId),
+  getDealError: (botId: string) => useDealStore.getState().getDealError(botId),
+};
+
+const messageSelectors: LiveUpdateContextType['messageSelectors'] = {
+  getMessages: () => useMessageStore.getState().getMessages(),
+  getActiveMessages: () => useMessageStore.getState().getActiveMessages(),
+  getBotMessages: (botId: string) =>
+    useMessageStore.getState().getBotMessages(botId),
+  getMessageById: (messageId: string) =>
+    useMessageStore.getState().getMessageById(messageId),
+  getUnreadCount: () => useMessageStore.getState().getUnreadCount(),
+};
+
 interface LiveUpdateProviderProps {
   children: ReactNode;
 }
@@ -430,46 +489,10 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
     };
   }, []);
 
-  // Selector groups are `useXStore((s) => s.method)` subscriptions. Each
-  // selects a stable store-method reference, so the hook returns the same
-  // identity on every render and never triggers a re-render — pulling them
-  // to named consts lets the memoized `contextValue` list them as deps
-  // without churning. Kept as hook calls (not `getState()`) to preserve the
-  // exact subscription behavior of the original.
-  const getBotStats = useBotStatsStore((state) => state.getBotStats);
-  const getAllBotStats = useBotStatsStore((state) => state.getAllBotStats);
-  const isBotStatsLoading = useBotStatsStore((state) => state.isBotStatsLoading);
-  const getBotStatsError = useBotStatsStore((state) => state.getBotStatsError);
-
-  const getOrders = useOrderStore((state) => state.getOrders);
-  const getAllOrders = useOrderStore((state) => state.getAllOrders);
-  const getOrder = useOrderStore((state) => state.getOrder);
-  const isOrderLoading = useOrderStore((state) => state.isOrderLoading);
-  const getOrderError = useOrderStore((state) => state.getOrderError);
-
-  const getBalances = useBalanceStore((state) => state.getBalances);
-  const getBalance = useBalanceStore((state) => state.getBalance);
-  const getTotalUsdValue = useBalanceStore((state) => state.getTotalUsdValue);
-  const isBalanceLoading = useBalanceStore((state) => state.isBalanceLoading);
-  const getBalanceError = useBalanceStore((state) => state.getBalanceError);
-
-  const getDeals = useDealStore((state) => state.getDeals);
-  const getAllDeals = useDealStore((state) => state.getAllDeals);
-  const getDeal = useDealStore((state) => state.getDeal);
-  const getActiveDeals = useDealStore((state) => state.getActiveDeals);
-  const getClosedDeals = useDealStore((state) => state.getClosedDeals);
-  const isDealLoading = useDealStore((state) => state.isDealLoading);
-  const getDealError = useDealStore((state) => state.getDealError);
-
-  const getMessages = useMessageStore((state) => state.getMessages);
-  const getActiveMessages = useMessageStore((state) => state.getActiveMessages);
-  const getBotMessages = useMessageStore((state) => state.getBotMessages);
-  const getMessageById = useMessageStore((state) => state.getMessageById);
-  const getUnreadCount = useMessageStore((state) => state.getUnreadCount);
-
   // `contextValue` identity must stay stable unless connection state genuinely
-  // changes; action groups are module-level and the selectors above are stable
-  // refs, so this memo only recomputes when isConnected/connectionError flip.
+  // changes. Every action and selector group is now module-level with a stable
+  // identity, so this memo only recomputes when isConnected/connectionError flip
+  // or `reconnect` changes.
   const contextValue = useMemo<LiveUpdateContextType>(
     () => ({
       isConnected,
@@ -482,78 +505,13 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
       dealActions,
       messageActions,
 
-      botStatsSelectors: {
-        getBotStats,
-        getAllBotStats,
-        isBotStatsLoading,
-        getBotStatsError,
-      },
-
-      orderSelectors: {
-        getOrders,
-        getAllOrders,
-        getOrder,
-        isOrderLoading,
-        getOrderError,
-      },
-
-      balanceSelectors: {
-        getBalances,
-        getBalance,
-        getTotalUsdValue,
-        isBalanceLoading,
-        getBalanceError,
-      },
-
-      dealSelectors: {
-        getDeals,
-        getAllDeals,
-        getDeal,
-        getActiveDeals,
-        getClosedDeals,
-        isDealLoading,
-        getDealError,
-      },
-
-      messageSelectors: {
-        getMessages,
-        getActiveMessages,
-        getBotMessages,
-        getMessageById,
-        getUnreadCount,
-      },
+      botStatsSelectors,
+      orderSelectors,
+      balanceSelectors,
+      dealSelectors,
+      messageSelectors,
     }),
-    [
-      isConnected,
-      connectionError,
-      reconnect,
-      getBotStats,
-      getAllBotStats,
-      isBotStatsLoading,
-      getBotStatsError,
-      getOrders,
-      getAllOrders,
-      getOrder,
-      isOrderLoading,
-      getOrderError,
-      getBalances,
-      getBalance,
-      getTotalUsdValue,
-      isBalanceLoading,
-      getBalanceError,
-      getDeals,
-      getAllDeals,
-      getDeal,
-      getActiveDeals,
-      getClosedDeals,
-      isDealLoading,
-      getDealError,
-      getMessages,
-      getActiveMessages,
-      getBotMessages,
-      getMessageById,
-      getUnreadCount,
-    ]
+    [isConnected, connectionError, reconnect]
   );
 
   return (
