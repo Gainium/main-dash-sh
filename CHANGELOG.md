@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.0] - 2026-07-15
+
+### Added
+
+- Hedge DCA and Hedge Combo bot pages now have a "Show Archived" toggle and an archived-bots view, matching the Trading/Grid/Combo pages. Archive a stopped hedge bot from its row/card menu, view your archived hedge bots via the toggle, and un-archive to bring one back to the active list. The archived list is isolated from the live-bots store, so opening an archived bot's deals no longer flips the background list to your active bots.
+
+### Fixed
+
+- Hedge bot lists (`useHedgeDcaBots`/`useHedgeComboBots`) no longer let a live/active refetch clobber the archived view. The archived query now reads and writes its own isolated result instead of the shared bot store — same isolation already applied to the DCA/Grid/Combo lists.
+
 ## [2.32.21] - 2026-07-15
 
 ### Changed

@@ -12,7 +12,7 @@
  */
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
-import { Bot, Plus } from 'lucide-react';
+import { Archive, Bot, Plus } from 'lucide-react';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
 
@@ -34,6 +34,7 @@ import {
 import { DataTable } from '@/components/ui/data-table/data-table';
 import EmptyState from '@/components/ui/empty-state';
 import { HedgeBotActionsCell } from './HedgeBotActionsCell';
+import { Button } from '@/components/ui/button';
 import { MotionButton } from '@/components/ui/MotionWrapper';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import Widget from '@/components/ui/widget';
@@ -176,7 +177,18 @@ const HedgeDcaBots = () => {
     enabled: !!selectedBotId,
   });
 
-  const { bots, isLoading } = useHedgeDcaBots();
+  // Archived view: the "Show Archived" toggle swaps the list query between the
+  // active statuses (default) and `['archive']`. The archived query is isolated
+  // from the shared Zustand store inside useHedgeDcaBots (isArchivedQuery), so
+  // an active refetch can't flip this background list back to active bots.
+  const [showArchived, setShowArchived] = useState(false);
+  const hedgeBotsFilter = useMemo(
+    () => ({ status: showArchived ? (['archive'] as const) : [] }),
+    [showArchived]
+  );
+  const { bots, isLoading } = useHedgeDcaBots(
+    hedgeBotsFilter as Parameters<typeof useHedgeDcaBots>[0]
+  );
   const unPnlMap = useHedgeUnPnlMap(bots, false);
   const privacyMode = useUIStore((s) => s.privacyMode);
   // Demo/read-only sessions can't create bots — gate the "New" button the
@@ -789,6 +801,42 @@ const HedgeDcaBots = () => {
                       showPagination
                       defaultPinnedColumns={{ left: [], right: ['actions'] }}
                       className="h-full min-h-[400px]"
+                      customToolbarActions={
+                        <Button
+                          variant={showArchived ? 'default' : 'ghost'}
+                          size="sm"
+                          onClick={() => setShowArchived((prev) => !prev)}
+                          className="h-9 gap-2 px-3"
+                          title={
+                            showArchived
+                              ? 'Show Active Bots'
+                              : 'Show Archived Bots'
+                          }
+                        >
+                          <Archive className="h-4 w-4" />
+                          <span>Archived</span>
+                        </Button>
+                      }
+                      customToolbarActionsCompact={
+                        <Button
+                          variant={showArchived ? 'default' : 'ghost'}
+                          size="icon"
+                          onClick={() => setShowArchived((prev) => !prev)}
+                          className="h-9 w-9"
+                          title={
+                            showArchived
+                              ? 'Show Active Bots'
+                              : 'Show Archived Bots'
+                          }
+                          aria-label={
+                            showArchived
+                              ? 'Show active bots'
+                              : 'Show archived bots'
+                          }
+                        >
+                          <Archive className="h-4 w-4" />
+                        </Button>
+                      }
                       emptyMessage={
                         isLoading
                           ? 'Loading hedge bots…'
@@ -798,14 +846,45 @@ const HedgeDcaBots = () => {
                         isLoading ? undefined : (
                           <EmptyState
                             size="page"
-                            icon={<Bot className="w-6 h-6" />}
-                            title="No hedge DCA bots yet"
-                            description="Hedge DCA bots pair a long and short DCA position to profit from volatility while staying market-neutral. Create one to get started."
-                            action={{
-                              label: 'Create hedge DCA bot',
-                              onClick: () => navigate('/hedge/bot/new'),
-                              icon: <Plus className="w-5 h-5" />,
-                            }}
+                            icon={
+                              showArchived ? (
+                                <Archive className="w-6 h-6" />
+                              ) : (
+                                <Bot className="w-6 h-6" />
+                              )
+                            }
+                            title={
+                              showArchived
+                                ? 'No archived hedge DCA bots'
+                                : 'No hedge DCA bots yet'
+                            }
+                            description={
+                              showArchived
+                                ? 'Bots you archive move here. Un-archive one to bring it back to your active list.'
+                                : 'Hedge DCA bots pair a long and short DCA position to profit from volatility while staying market-neutral. Create one to get started.'
+                            }
+                            action={
+                              showArchived
+                                ? {
+                                    label: 'Back to active bots',
+                                    onClick: () =>
+                                      setShowArchived((prev) => !prev),
+                                  }
+                                : {
+                                    label: 'Create hedge DCA bot',
+                                    onClick: () => navigate('/hedge/bot/new'),
+                                    icon: <Plus className="w-5 h-5" />,
+                                  }
+                            }
+                            secondaryAction={
+                              showArchived
+                                ? undefined
+                                : {
+                                    label: 'View archived bots',
+                                    onClick: () =>
+                                      setShowArchived((prev) => !prev),
+                                  }
+                            }
                           />
                         )
                       }
