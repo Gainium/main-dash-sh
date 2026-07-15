@@ -2197,8 +2197,30 @@ const TradingBots: React.FC = () => {
                       {...TRADING_BOTS_TABLE_MOTION}
                     >
                       <TradingBotsCardContext.Provider value={cardContextValue}>
-                        {dcaBots.length === 0 ? (
-                          <div className="h-full w-full flex items-center justify-center">
+                        <DataTable
+                          tableId="trading-bots"
+                          columns={columns}
+                          data={orderedFilteredData}
+                          enableGlobalFilter={true}
+                          enableColumnFilters={true}
+                          enableSorting={true}
+                          enableColumnVisibility={true}
+                          defaultColumnVisibility={
+                            TRADING_BOTS_DEFAULT_COLUMN_VISIBILITY
+                          }
+                          enableGrouping={true}
+                          enableCardView={true}
+                          defaultView="cards"
+                          defaultPinnedColumns={
+                            TRADING_BOTS_DEFAULT_PINNED_COLUMNS
+                          }
+                          showPagination={true}
+                          cardComponent={BotCardWrapper}
+                          cardViewBreakpoints={
+                            TRADING_BOTS_CARD_VIEW_BREAKPOINTS
+                          }
+                          cardViewGap={16}
+                          emptyContent={
                             <EmptyState
                               size="page"
                               icon={<Bot className="w-6 h-6" />}
@@ -2235,32 +2257,7 @@ const TradingBots: React.FC = () => {
                                     }
                               }
                             />
-                          </div>
-                        ) : (
-                        <DataTable
-                          tableId="trading-bots"
-                          columns={columns}
-                          data={orderedFilteredData}
-                          enableGlobalFilter={true}
-                          enableColumnFilters={true}
-                          enableSorting={true}
-                          enableColumnVisibility={true}
-                          defaultColumnVisibility={
-                            TRADING_BOTS_DEFAULT_COLUMN_VISIBILITY
                           }
-                          enableGrouping={true}
-                          enableCardView={true}
-                          defaultView="cards"
-                          defaultPinnedColumns={
-                            TRADING_BOTS_DEFAULT_PINNED_COLUMNS
-                          }
-                          showPagination={true}
-                          cardComponent={BotCardWrapper}
-                          cardViewBreakpoints={
-                            TRADING_BOTS_CARD_VIEW_BREAKPOINTS
-                          }
-                          cardViewGap={16}
-                          emptyMessage="No trading bots found"
                           className="h-full min-h-[400px]"
                           onViewModeChange={setCurrentViewMode}
                           enableQuickFilterBar={true}
@@ -2279,7 +2276,6 @@ const TradingBots: React.FC = () => {
                           }
                           // New button moved to widget header - remove DataTable overflow entry
                         />
-                        )}
 
                         {/* Bulk delete modal */}
                         <DeleteConfirmationModal

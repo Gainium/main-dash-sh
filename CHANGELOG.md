@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.19] - 2026-07-15
+
+### Fixed
+
+- Bot list pages (DCA, Grid, Combo, Hedge DCA, Hedge Combo): the empty-state message now renders inside the table area instead of replacing the whole table, so the toolbar — including the Archived toggle — stays visible when you have no active bots. Previously, an account with zero active bots hid the Archived switch, making archived bots unreachable.
+
 ## [2.32.18] - 2026-07-15
 
 ### Fixed

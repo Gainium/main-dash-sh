@@ -1711,8 +1711,28 @@ const ComboBots: React.FC = () => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.6 }}
                   >
-                    {comboBots.length === 0 ? (
-                      <div className="h-full w-full flex items-center justify-center">
+                    <DataTable
+                      tableId="combo-bots"
+                      columns={columns}
+                      data={orderedFilteredData}
+                      enableGlobalFilter={true}
+                      enableColumnFilters={true}
+                      enableSorting={true}
+                      enableColumnVisibility={true}
+                      defaultColumnVisibility={{
+                        netPnl: false,
+                        netPnlPercentage: false,
+                        botId: false,
+                      }}
+                      enableGrouping={true}
+                      enableCardView={true}
+                      defaultView="cards"
+                      defaultPinnedColumns={{ left: [], right: ['actions'] }}
+                      showPagination={true}
+                      cardComponent={BotCardWrapper}
+                      cardViewBreakpoints={CARD_VIEW_COLUMNS}
+                      cardViewGap={16}
+                      emptyContent={
                         <EmptyState
                           size="page"
                           icon={<Boxes className="w-6 h-6" />}
@@ -1751,30 +1771,7 @@ const ComboBots: React.FC = () => {
                                 }
                           }
                         />
-                      </div>
-                    ) : (
-                    <DataTable
-                      tableId="combo-bots"
-                      columns={columns}
-                      data={orderedFilteredData}
-                      enableGlobalFilter={true}
-                      enableColumnFilters={true}
-                      enableSorting={true}
-                      enableColumnVisibility={true}
-                      defaultColumnVisibility={{
-                        netPnl: false,
-                        netPnlPercentage: false,
-                        botId: false,
-                      }}
-                      enableGrouping={true}
-                      enableCardView={true}
-                      defaultView="cards"
-                      defaultPinnedColumns={{ left: [], right: ['actions'] }}
-                      showPagination={true}
-                      cardComponent={BotCardWrapper}
-                      cardViewBreakpoints={CARD_VIEW_COLUMNS}
-                      cardViewGap={16}
-                      emptyMessage="No combo bots found"
+                      }
                       className="h-full min-h-[400px]"
                       onViewModeChange={setCurrentViewMode}
                       onColumnFiltersVisibilityChange={setShowFilters}
@@ -1959,7 +1956,7 @@ const ComboBots: React.FC = () => {
                       }
                       // New button moved to widget header
                     />
-                    )}
+
 
                     {/* Bulk delete modal */}
                     <DeleteConfirmationModal

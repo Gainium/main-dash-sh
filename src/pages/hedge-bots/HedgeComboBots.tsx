@@ -676,21 +676,6 @@ const HedgeComboBots = () => {
                   className="flex-1 min-h-[400px] overflow-hidden"
                   {...HEDGE_BOTS_TABLE_MOTION}
                 >
-                  {!isLoading && bots.length === 0 ? (
-                    <div className="h-full w-full flex items-center justify-center">
-                      <EmptyState
-                        size="page"
-                        icon={<Boxes className="w-6 h-6" />}
-                        title="No hedge combo bots yet"
-                        description="Hedge combo bots pair long and short combo configurations to stay market-neutral while trading multiple pairs. Create one to get started."
-                        action={{
-                          label: 'Create hedge combo bot',
-                          onClick: () => navigate('/hedge/combo/new'),
-                          icon: <Plus className="w-5 h-5" />,
-                        }}
-                      />
-                    </div>
-                  ) : (
                     <DataTable
                       tableId="hedge-combo-bots"
                       columns={columns}
@@ -713,9 +698,23 @@ const HedgeComboBots = () => {
                           ? 'Loading hedge combo bots…'
                           : 'No hedge combo bots match your filters.'
                       }
+                      emptyContent={
+                        isLoading ? undefined : (
+                          <EmptyState
+                            size="page"
+                            icon={<Boxes className="w-6 h-6" />}
+                            title="No hedge combo bots yet"
+                            description="Hedge combo bots pair long and short combo configurations to stay market-neutral while trading multiple pairs. Create one to get started."
+                            action={{
+                              label: 'Create hedge combo bot',
+                              onClick: () => navigate('/hedge/combo/new'),
+                              icon: <Plus className="w-5 h-5" />,
+                            }}
+                          />
+                        )
+                      }
                       onRowClick={(row) => handleSelectBot(row._id)}
                     />
-                  )}
                 </motion.div>
               </div>
             </Widget>

@@ -772,21 +772,6 @@ const HedgeDcaBots = () => {
                   className="flex-1 min-h-[400px] overflow-hidden"
                   {...HEDGE_BOTS_TABLE_MOTION}
                 >
-                  {!isLoading && bots.length === 0 ? (
-                    <div className="h-full w-full flex items-center justify-center">
-                      <EmptyState
-                        size="page"
-                        icon={<Bot className="w-6 h-6" />}
-                        title="No hedge DCA bots yet"
-                        description="Hedge DCA bots pair a long and short DCA position to profit from volatility while staying market-neutral. Create one to get started."
-                        action={{
-                          label: 'Create hedge DCA bot',
-                          onClick: () => navigate('/hedge/bot/new'),
-                          icon: <Plus className="w-5 h-5" />,
-                        }}
-                      />
-                    </div>
-                  ) : (
                     <DataTable
                       tableId="hedge-dca-bots"
                       columns={columns}
@@ -809,9 +794,23 @@ const HedgeDcaBots = () => {
                           ? 'Loading hedge bots…'
                           : 'No hedge DCA bots match your filters.'
                       }
+                      emptyContent={
+                        isLoading ? undefined : (
+                          <EmptyState
+                            size="page"
+                            icon={<Bot className="w-6 h-6" />}
+                            title="No hedge DCA bots yet"
+                            description="Hedge DCA bots pair a long and short DCA position to profit from volatility while staying market-neutral. Create one to get started."
+                            action={{
+                              label: 'Create hedge DCA bot',
+                              onClick: () => navigate('/hedge/bot/new'),
+                              icon: <Plus className="w-5 h-5" />,
+                            }}
+                          />
+                        )
+                      }
                       onRowClick={(row) => handleSelectBot(row._id)}
                     />
-                  )}
                 </motion.div>
                 </TabsContent>
 

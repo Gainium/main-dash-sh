@@ -1395,8 +1395,24 @@ const GridBots: React.FC = () => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.4, delay: 0.6 }}
               >
-                {gridBots.length === 0 ? (
-                  <div className="h-full w-full flex items-center justify-center">
+                <DataTable
+                  tableId="grid-bots"
+                  columns={columns}
+                  data={orderedFilteredData}
+                  enableGlobalFilter={true}
+                  enableColumnFilters={true}
+                  enableSorting={true}
+                  enableColumnVisibility={true}
+                  defaultColumnVisibility={{ botId: false }}
+                  enableGrouping={true}
+                  enableCardView={true}
+                  defaultView="cards"
+                  defaultPinnedColumns={{ left: [], right: ['actions'] }}
+                  showPagination={true}
+                  cardComponent={BotCardWrapper}
+                  cardViewBreakpoints={CARD_VIEW_COLUMNS}
+                  cardViewGap={16}
+                  emptyContent={
                     <EmptyState
                       size="page"
                       icon={<Grid3x3 className="w-6 h-6" />}
@@ -1433,26 +1449,7 @@ const GridBots: React.FC = () => {
                             }
                       }
                     />
-                  </div>
-                ) : (
-                <DataTable
-                  tableId="grid-bots"
-                  columns={columns}
-                  data={orderedFilteredData}
-                  enableGlobalFilter={true}
-                  enableColumnFilters={true}
-                  enableSorting={true}
-                  enableColumnVisibility={true}
-                  defaultColumnVisibility={{ botId: false }}
-                  enableGrouping={true}
-                  enableCardView={true}
-                  defaultView="cards"
-                  defaultPinnedColumns={{ left: [], right: ['actions'] }}
-                  showPagination={true}
-                  cardComponent={BotCardWrapper}
-                  cardViewBreakpoints={CARD_VIEW_COLUMNS}
-                  cardViewGap={16}
-                  emptyMessage="No grid bots found"
+                  }
                   className="h-full min-h-[400px]"
                   onViewModeChange={setCurrentViewMode}
                   onColumnFiltersVisibilityChange={setShowFilters}
@@ -1621,7 +1618,6 @@ const GridBots: React.FC = () => {
                   }
                   // New button moved to widget header
                 />
-                )}
 
                 {/* Bulk delete modal */}
                 <DeleteConfirmationModal
