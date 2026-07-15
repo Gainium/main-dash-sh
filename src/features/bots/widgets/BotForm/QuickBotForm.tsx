@@ -94,7 +94,6 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   currentExchange,
   exchangesData,
   exchangesLoading,
-  errors,
   slice = 'dca',
 }) => {
   const { formData, updateFormData, isFieldLocked, selectedPreset, mode } =
@@ -451,11 +450,9 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
     <div className="space-y-md">
       <BasicSettings
         currentExchange={currentExchange}
-        formData={formData}
         updateFormData={
           updateFormData as (field: Fields, value: BotFormUpdateValue) => void
         }
-        errors={errors}
         {...(exchangesData !== undefined ? { exchangesData } : {})}
         {...(exchangesLoading !== undefined ? { exchangesLoading } : {})}
         mode={mode}

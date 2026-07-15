@@ -35,7 +35,9 @@ interface QuickSelectOption {
 }
 
 export const useBasicSettingsTab = (
-  props: Omit<BasicSettingsProps, 'errors' | 'exchangesData'>
+  props: Omit<BasicSettingsProps, 'errors' | 'exchangesData'> & {
+    formData: BotFormData;
+  }
 ) => {
   const { currentExchange, formData, updateFormData, mode, isFieldLocked } =
     props;

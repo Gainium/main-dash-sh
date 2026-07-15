@@ -14,13 +14,16 @@ import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import { useRiskRewardRuntime } from '@/contexts/bots/dca/RiskRewardRuntimeContext';
 import {
+  useBotFormActions,
+  useBotFormAlerts,
+  useBotFormErrors,
   useBotFormSelector,
-  useBotFormState,
+  useBotFormTopLevelSelector,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
-import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
+import { useBotFormDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import { useRiskReward as useRiskReward_hook } from '@/hooks/bots/dca/useRiskReward';
 import useBotVarBinding from '@/hooks/bots/global-variables/useBotVarBinding';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
@@ -36,11 +39,7 @@ import {
   RRSlTypeEnum,
   StrategyEnum,
 } from '@/types';
-import type {
-  BotFormData,
-  BotFormErrors,
-  ExchangeBotForm,
-} from '@/types/bots/form';
+import type { BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 import { type IndicatorConfig } from '@/types/indicators';
 import {
@@ -56,16 +55,6 @@ import {
 import { Crosshair } from 'lucide-react';
 import React, { useEffect, useMemo } from 'react';
 import { IndicatorActionsToolbar } from '../../../../shared/components/IndicatorActionsToolbar';
-
-interface RiskRewardSettingsProps {
-  currentExchange: ExchangeBotForm | null;
-  formData: BotFormData;
-  updateFormData: (
-    field: Fields,
-    value: string | boolean | number | string[] | IndicatorConfig[]
-  ) => void;
-  errors: BotFormErrors;
-}
 
 type RiskRewardBindableField =
   | 'riskSlAmountPerc'
@@ -90,11 +79,13 @@ const createRiskIndicatorId = (): string => {
   return `risk-indicator-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 };
 
-export const RiskRewardSettings: React.FC<RiskRewardSettingsProps> = ({
-  formData,
-  updateFormData,
-  errors,
-}) => {
+export const RiskRewardSettings: React.FC = () => {
+  const { updateFormData } = useBotFormActions();
+  const errors = useBotFormErrors();
+  const formTerminal = useBotFormTopLevelSelector('terminal');
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const formType = useBotFormTopLevelSelector('type');
   const {
     coordinates,
     activePickerField,
@@ -102,12 +93,12 @@ export const RiskRewardSettings: React.FC<RiskRewardSettingsProps> = ({
     setCoordinates,
   } = useTradingTerminalUtils();
   // Use the risk/reward hook for live calculations
-  const riskRewardData = useRiskReward_hook(formData);
+  const riskRewardData = useRiskReward_hook();
   const { resetRuntime, updateRuntime } = useRiskRewardRuntime();
   const { botId: contextBotId, bot, currentExchange } = useBotFormQuery();
   const { openSelector, selector } = useIndicatorSelector();
-  const isTerminal = useMemo(() => !!formData.terminal, [formData.terminal]);
-  const { alerts } = useBotFormState();
+  const isTerminal = useMemo(() => !!formTerminal, [formTerminal]);
+  const alerts = useBotFormAlerts();
 
   const resolvedErrors = React.useMemo<BotFormErrors>(
     () => errors ?? {},
@@ -151,7 +142,7 @@ export const RiskRewardSettings: React.FC<RiskRewardSettingsProps> = ({
     isIndicatorMutating,
   } = useFavoriteIndicators();
 
-  const { latestPrice } = useDcaTradingContext(formData);
+  const { latestPrice } = useBotFormDcaTradingContext();
 
   useEffect(() => {
     if (
@@ -968,11 +959,11 @@ export const RiskRewardSettings: React.FC<RiskRewardSettingsProps> = ({
                     <span className="inline-flex items-center gap-2">
                       {unitAdornment(
                         (() => {
-                          const pairKey = Array.isArray(formData.pair)
-                            ? formData.pair[0]
-                            : formData.pair;
+                          const pairKey = Array.isArray(formPair)
+                            ? formPair[0]
+                            : formPair;
                           const pairMeta = pairKey
-                            ? formData.pairMetadata?.[pairKey]
+                            ? formPairMetadata?.[pairKey]
                             : undefined;
                           const base =
                             pairMeta?.baseAsset?.name ??
@@ -1324,7 +1315,7 @@ export const RiskRewardSettings: React.FC<RiskRewardSettingsProps> = ({
           </SettingsRow>
         )}
 
-        {formData.type === BotTypesEnum.dca && (
+        {formType === BotTypesEnum.dca && (
           <SettingsRow
             name="Position size limits"
             tooltip="Restrict the automation to a position size range for each deal."

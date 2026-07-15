@@ -1904,6 +1904,21 @@ export const useBotFormMode = (): BotFormMode => {
 };
 
 /**
+ * Read whether this provider is one leg of a hedge bot, without subscribing to
+ * the hot store. `isNestedLeg` is a provider prop and never changes for a given
+ * form.
+ */
+export const useBotFormIsNestedLeg = (): boolean => {
+  const context = useContext(BotFormStateContext);
+  if (!context) {
+    throw new Error(
+      'useBotFormIsNestedLeg must be used within a BotFormProvider'
+    );
+  }
+  return context.isNestedLeg;
+};
+
+/**
  * Read `botVars` (global-variable bindings) without subscribing to the hot
  * store. `botVars` is ordinary React state on the provider that changes only on
  * an explicit variable edit, never on a keystroke.
@@ -1931,6 +1946,29 @@ export const useBotFormErrors = (): BotFormErrors => {
     throw new Error('useBotFormErrors must be used within a BotFormProvider');
   }
   return errors;
+};
+
+/**
+ * Narrow subscription to the MERGED form alerts (hot-validation `alerts` +
+ * imperatively-registered `componentErrors`). Both slices change only on the
+ * debounced validation pass / a component (un)mounting an error — never on the
+ * synchronous keystroke — so this does NOT re-render the consumer per keystroke
+ * (unlike the broad `useBotFormState()`). Merged identity is kept stable across
+ * keystrokes via its own memo.
+ */
+export const useBotFormAlerts = (): BotFormAlerts => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const alerts = useStore(store, (s) => s.alerts);
+  const componentErrors = useStore(store, (s) => s.componentErrors);
+  const merged = useMemo(
+    () => mergeBotFormAlerts(alerts, componentErrors),
+    [alerts, componentErrors]
+  );
+  if (!context) {
+    throw new Error('useBotFormAlerts must be used within a BotFormProvider');
+  }
+  return merged;
 };
 
 /**

@@ -16,7 +16,11 @@ import type { AggregatedBalanceSnapshot } from '@/utils/bots/dca/base-order-cont
 export { resolveBaseOrderContext } from '@/utils/bots/dca/base-order-context';
 export type { AggregatedBalanceSnapshot } from '@/utils/bots/dca/base-order-context';
 
-import { useBotFormSelector, type BotFormMode } from '@/features/bots';
+import {
+  useBotFormSelector,
+  useBotFormTopLevelSelector,
+  type BotFormMode,
+} from '@/features/bots';
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import {
   MAX_DCA_ORDERS,
@@ -669,4 +673,67 @@ export const useDcaTradingContext = (
   ]);
 
   return context;
+};
+
+/**
+ * Store-reading variant of `useDcaTradingContext` for bot-form sections. Reads
+ * exactly the fields the context (and `resolveDcaRanges`) consume from the
+ * surrounding `BotFormProvider` via narrow selectors, instead of taking the
+ * whole `formData` as a prop. This lets a section drop its `formData` prop (and
+ * the per-keystroke re-render that came with it) while keeping identical output:
+ * none of these fields change on a numeric keystroke into an unrelated field, so
+ * the derived context stays referentially stable. The nested settings slice is
+ * placed under both `dca` and `combo` because `useBotFormSelector` already
+ * returns the active bot type's value and `resolveDcaRanges` reads whichever the
+ * type selects.
+ */
+export const useBotFormDcaTradingContext = (
+  options?: UseDcaTradingContextOptions
+): DcaTradingContext => {
+  const type = useBotFormTopLevelSelector('type');
+  const pair = useBotFormTopLevelSelector('pair');
+  const pairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const exchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
+  const userFee = useBotFormTopLevelSelector('userFee');
+  const useMulti = useBotFormSelector('useMulti');
+  const useSmartOrders = useBotFormSelector('useSmartOrders');
+  const maxDealsPerPair = useBotFormSelector('maxDealsPerPair');
+  const maxNumberOfOpenDeals = useBotFormSelector('maxNumberOfOpenDeals');
+  const dcaCondition = useBotFormSelector('dcaCondition');
+  const dcaCustom = useBotFormSelector('dcaCustom');
+  const ordersCount = useBotFormSelector('ordersCount');
+  const rangeSettings = React.useMemo(
+    () => ({
+      useMulti,
+      useSmartOrders,
+      maxDealsPerPair,
+      maxNumberOfOpenDeals,
+      dcaCondition,
+      dcaCustom,
+      ordersCount,
+    }),
+    [
+      useMulti,
+      useSmartOrders,
+      maxDealsPerPair,
+      maxNumberOfOpenDeals,
+      dcaCondition,
+      dcaCustom,
+      ordersCount,
+    ]
+  );
+  const formData = React.useMemo(
+    () =>
+      ({
+        type,
+        pair,
+        pairMetadata,
+        exchangeUUID,
+        userFee,
+        dca: rangeSettings,
+        combo: rangeSettings,
+      }) as unknown as BotFormData,
+    [type, pair, pairMetadata, exchangeUUID, userFee, rangeSettings]
+  );
+  return useDcaTradingContext(formData, options);
 };

@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import type { BotFormData, PairPrecisionInfo } from '@/types/bots/form';
-import { useDcaTradingContext } from './useDcaTradingContext';
+import { useBotFormDcaTradingContext } from './useDcaTradingContext';
 import { useRiskRewardRuntime } from '@/contexts/bots/dca/RiskRewardRuntimeContext';
 import {
   calculateRiskReward,
@@ -9,7 +9,10 @@ import {
   type RiskRewardCalculations,
 } from './riskRewardEngine';
 import { BotMarginTypeEnum, IndicatorAction, RRSlTypeEnum } from '@/types';
-import { useBotFormSelector } from '@/features/bots';
+import {
+  useBotFormSelector,
+  useBotFormTopLevelSelector,
+} from '@/features/bots';
 
 const resolvePrecision = (
   precisionMap: BotFormData['pairPrecisionMap'],
@@ -32,17 +35,19 @@ interface UseRiskRewardOptions {
   useAtrForSl?: boolean;
 }
 export const useRiskReward = (
-  formData: BotFormData,
   options: UseRiskRewardOptions = {}
 ): RiskRewardCalculations => {
-  const tradingContext = useDcaTradingContext(formData);
+  const tradingContext = useBotFormDcaTradingContext();
+  const formPairPrecisionMap = useBotFormTopLevelSelector('pairPrecisionMap');
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formTerminal = useBotFormTopLevelSelector('terminal');
   const { runtime } = useRiskRewardRuntime();
 
   const precisionInfo = useMemo(() => {
     const activePairKey = tradingContext.activePair?.pair;
     if (activePairKey) {
       const resolved = resolvePrecision(
-        formData.pairPrecisionMap,
+        formPairPrecisionMap,
         activePairKey
       );
       if (resolved) {
@@ -50,13 +55,13 @@ export const useRiskReward = (
       }
     }
 
-    const fallbackPair = Array.isArray(formData.pair)
-      ? formData.pair[0]
+    const fallbackPair = Array.isArray(formPair)
+      ? formPair[0]
       : undefined;
-    return resolvePrecision(formData.pairPrecisionMap, fallbackPair);
+    return resolvePrecision(formPairPrecisionMap, fallbackPair);
   }, [
-    formData.pairPrecisionMap,
-    formData.pair,
+    formPairPrecisionMap,
+    formPair,
     tradingContext.activePair?.pair,
   ]);
 
@@ -165,7 +170,7 @@ export const useRiskReward = (
       effectiveOptions,
       rrSlType: rrSlType || RRSlTypeEnum.indicator,
       rrSlFixedValue: rrSlFixedValue || '2',
-      terminal: !!formData.terminal,
+      terminal: !!formTerminal,
     });
   }, [
     tradingContext.latestPrice,
@@ -196,7 +201,7 @@ export const useRiskReward = (
     effectiveOptions,
     rrSlType,
     rrSlFixedValue,
-    formData.terminal,
+    formTerminal,
   ]);
 
   return calculations;

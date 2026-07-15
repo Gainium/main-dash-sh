@@ -643,8 +643,7 @@ export const HedgeQuickInvestment: React.FC = () => {
 };
 
 const LegFields: React.FC<{ legId: 'long' | 'short' }> = ({ legId }) => {
-  const { formData, updateFormData, isFieldLocked, mode, errors } =
-    useBotFormState();
+  const { updateFormData, isFieldLocked, mode } = useBotFormState();
   const { currentExchange } = useBotFormQuery();
   // BotFormQueryProvider only resolves `currentExchange` from formData;
   // the dropdown's full options list comes from ExchangeDataContext.
@@ -659,11 +658,9 @@ const LegFields: React.FC<{ legId: 'long' | 'short' }> = ({ legId }) => {
       </h3>
       <BasicSettings
         currentExchange={currentExchange}
-        formData={formData}
         updateFormData={
           updateFormData as (field: Fields, value: BotFormUpdateValue) => void
         }
-        errors={errors}
         mode={mode}
         isFieldLocked={isFieldLocked}
         exchangesData={exchangesData}

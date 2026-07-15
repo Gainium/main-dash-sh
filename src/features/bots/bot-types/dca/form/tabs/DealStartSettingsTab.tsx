@@ -1,23 +1,20 @@
 import React from 'react';
 
 import { DealStartSettings } from '@/features/bots/bot-types/dca/form/sections';
+import { tabPropsEqualIgnoringHot } from '@/features/bots/widgets/BotForm/tabPropsEqual';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const DealStartSettingsTab = React.memo<BotFormTabComponentProps>(({
-  currentExchange,
-  formData,
-  updateFormData,
-  errors,
-}) => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
-    <DealStartSettings
-      currentExchange={currentExchange}
-      formData={formData}
-      updateFormData={updateFormData}
-      errors={errors}
-    />
-  </div>
-));
+// DealStartSettings reads formData/errors/alerts/currentExchange from the form
+// store/query hooks, so this tab no longer forwards them and its memo bails on
+// keystrokes via the shared comparator.
+export const DealStartSettingsTab = React.memo<BotFormTabComponentProps>(
+  () => (
+    <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+      <DealStartSettings />
+    </div>
+  ),
+  tabPropsEqualIgnoringHot
+);
 DealStartSettingsTab.displayName = 'DealStartSettingsTab';
 
 export default DealStartSettingsTab;

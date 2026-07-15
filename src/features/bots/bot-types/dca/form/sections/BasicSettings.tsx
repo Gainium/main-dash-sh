@@ -5,25 +5,26 @@ import CoinPair from '@/components/widgets/shared/CoinPair';
 import { CoinFilter } from '@/components/widgets/shared/CoinSelect';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
+  useBotFormActions,
+  useBotFormAlerts,
+  useBotFormIsNestedLeg,
   useBotFormSelector,
-  useBotFormState,
+  useBotFormTopLevelSelector,
   type BotFormMode,
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { NameInput } from '@/features/bots/shared/components/NameInput';
-import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
+import { useBotFormDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import { BotTypesEnum, type ExchangeInUser } from '@/types';
-import type { BotFormData, BotFormErrors } from '@/types/bots/form';
+import type { BotFormData } from '@/types/bots/form';
 import React, { useCallback, useMemo, useState } from 'react';
 import ExchangeSelector from '../components/exchangeSelector';
 import { useBasicSettingsTab } from '../hooks/useBasicSettingsTab';
 
 export interface BasicSettingsProps {
   currentExchange: ExchangeInUser | null;
-  formData: BotFormData;
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
-  errors: BotFormErrors;
   exchangesData?: ExchangeInUser[] | undefined;
   exchangesLoading?: boolean;
   onUpdateBalances?: () => void;
@@ -39,15 +40,30 @@ export interface BasicSettingsProps {
 
 export const BasicSettings: React.FC<BasicSettingsProps> = ({
   currentExchange,
-  formData,
   updateFormData,
-  //errors,
   exchangesData,
   exchangesLoading,
   mode,
   isFieldLocked,
   hideName = false,
 }) => {
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const formType = useBotFormTopLevelSelector('type');
+  const formExchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
+  // Minimal slice consumed by useBasicSettingsTab (pair/pairMetadata/type) and
+  // the ExchangeSelector child (exchangeUUID). Built from narrow selectors so a
+  // keystroke into an unrelated field doesn't re-render this section.
+  const basicTabFormData = useMemo(
+    () =>
+      ({
+        pair: formPair,
+        pairMetadata: formPairMetadata,
+        type: formType,
+        exchangeUUID: formExchangeUUID,
+      }) as unknown as BotFormData,
+    [formPair, formPairMetadata, formType, formExchangeUUID]
+  );
   const {
     pairError,
     exchangeProvider,
@@ -73,16 +89,18 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
     selectedPairSymbols,
   } = useBasicSettingsTab({
     currentExchange,
-    formData,
+    formData: basicTabFormData,
     updateFormData,
     exchangesLoading,
     mode,
     isFieldLocked,
   });
 
-  useDcaTradingContext(formData);
+  useBotFormDcaTradingContext();
 
-  const { alerts, setActiveChartPair, isNestedLeg } = useBotFormState();
+  const alerts = useBotFormAlerts();
+  const { setActiveChartPair } = useBotFormActions();
+  const isNestedLeg = useBotFormIsNestedLeg();
 
   // Clicking a pair chip (in create or locked edit mode) switches the
   // form chart to that pair. The chart effect keys off `formData.pair`,
@@ -135,8 +153,8 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
   ];
 
   const isComboBot = useMemo(
-    () => formData.type === BotTypesEnum.combo,
-    [formData.type]
+    () => formType === BotTypesEnum.combo,
+    [formType]
   );
 
   const PAIRS_PREVIEW_LIMIT = 10;
@@ -161,7 +179,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
           <ExchangeSelector
             isExchangeLocked={isExchangeLocked}
             currentExchange={currentExchange}
-            formData={formData}
+            formData={basicTabFormData}
             updateFormData={updateFormData}
             exchangesLoading={exchangesLoading}
             exchangesData={exchangesData}

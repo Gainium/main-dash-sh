@@ -26,7 +26,10 @@ import {
 } from '@/components/ui/tabs';
 import { Tooltip } from '@/components/ui/tooltip';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
-import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormSelector,
+  useBotFormTopLevelSelector,
+} from '@/contexts/bots/form/BotFormProvider';
 import type {
   WebhookPayloadEntry,
   WebhookPayloadGroup,
@@ -38,7 +41,6 @@ import {
 } from '@/hooks/useBotWebhooks';
 import { copyToClipboard, generateWebhookUrl } from '@/lib/webhookUtils';
 import { useUIStore } from '@/stores/uiStore';
-import type { BotFormData } from '@/types/bots';
 import {
   BotWebhookOptionMethodEnum,
   BotWebhookOptionTriggerEnum,
@@ -75,14 +77,10 @@ const DEFAULT_OUTGOING_PAYLOAD = JSON.stringify(
 
 const MAX_OUTGOING_PAYLOAD = 500;
 
-interface BotWebhookSettingsProps {
-  formData: BotFormData; // using existing typing from other sections is optional
-}
-
-export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
-  formData,
-}) => {
+export const BotWebhookSettings: React.FC = () => {
   const { botId, bot } = useBotFormQuery();
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
   const copyTimeoutRef = React.useRef<number | null>(null);
   const isPaper = !useUIStore((s) => s.isLiveTrading);
@@ -114,15 +112,15 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
   const missingBotId = !botId && !bot?._id;
 
   const [sampleBase, sampleQuote] = React.useMemo(() => {
-    const firstPair = Array.isArray(formData.pair)
-      ? formData.pair[0]
-      : formData.pair;
-    const metadata = formData.pairMetadata?.[firstPair];
+    const firstPair = Array.isArray(formPair)
+      ? formPair[0]
+      : formPair;
+    const metadata = formPairMetadata?.[firstPair];
     if (metadata?.baseAsset?.name && metadata?.quoteAsset?.name) {
       return [metadata.baseAsset.name, metadata.quoteAsset.name];
     }
     return ['BTC', 'USDT'];
-  }, [formData.pair, formData.pairMetadata]);
+  }, [formPair, formPairMetadata]);
 
   const sampleSymbol = React.useMemo(
     () => `${sampleBase}_${sampleQuote}`,
