@@ -1813,3 +1813,148 @@ export const useBotFormSelector = <
 
   return selected;
 };
+
+/**
+ * Stable dispatch/action callbacks + rarely-changing flags from the bot form
+ * context, read WITHOUT subscribing to the hot store. A component that only
+ * DISPATCHES (updateFormData/setFormData/setBotVars/registerComponentError/…)
+ * should read from here instead of `useBotFormState()` so it does NOT re-render
+ * on every keystroke — the context identity is stable across keystrokes, so a
+ * consumer re-renders only on a rare context change (tab switch, botVars edit),
+ * never per keystroke. Every returned callback is itself referentially stable.
+ */
+export const useBotFormActions = () => {
+  const context = useContext(BotFormStateContext);
+  if (!context) {
+    throw new Error('useBotFormActions must be used within a BotFormProvider');
+  }
+  const {
+    updateFormData,
+    setFormData,
+    setBotVars,
+    setErrors,
+    setAlerts,
+    setIsDirty,
+    setIsLoading,
+    setActiveTab,
+    registerComponentError,
+    resetFormData,
+    enableEditing,
+    disableEditing,
+    toggleEditing,
+    isFieldLocked,
+    setQuickSetupMode,
+    setSelectedPreset,
+    setActiveChartPair,
+  } = context;
+  // Memoize on the (stable) callbacks so the returned object keeps identity even
+  // across the rare context changes that don't touch a callback (e.g. botVars).
+  return useMemo(
+    () => ({
+      updateFormData,
+      setFormData,
+      setBotVars,
+      setErrors,
+      setAlerts,
+      setIsDirty,
+      setIsLoading,
+      setActiveTab,
+      registerComponentError,
+      resetFormData,
+      enableEditing,
+      disableEditing,
+      toggleEditing,
+      isFieldLocked,
+      setQuickSetupMode,
+      setSelectedPreset,
+      setActiveChartPair,
+    }),
+    [
+      updateFormData,
+      setFormData,
+      setBotVars,
+      setErrors,
+      setAlerts,
+      setIsDirty,
+      setIsLoading,
+      setActiveTab,
+      registerComponentError,
+      resetFormData,
+      enableEditing,
+      disableEditing,
+      toggleEditing,
+      isFieldLocked,
+      setQuickSetupMode,
+      setSelectedPreset,
+      setActiveChartPair,
+    ]
+  );
+};
+
+/**
+ * Read the bot form `mode` without subscribing to the hot store. `mode` is a
+ * provider prop and never changes for a given form, so this is maximally cheap.
+ */
+export const useBotFormMode = (): BotFormMode => {
+  const context = useContext(BotFormStateContext);
+  if (!context) {
+    throw new Error('useBotFormMode must be used within a BotFormProvider');
+  }
+  return context.mode;
+};
+
+/**
+ * Read `botVars` (global-variable bindings) without subscribing to the hot
+ * store. `botVars` is ordinary React state on the provider that changes only on
+ * an explicit variable edit, never on a keystroke.
+ */
+export const useBotFormBotVars = (): BotVars | null => {
+  const context = useContext(BotFormStateContext);
+  if (!context) {
+    throw new Error('useBotFormBotVars must be used within a BotFormProvider');
+  }
+  return context.botVars;
+};
+
+/**
+ * Narrow subscription to the form `errors` object. `errors` is rewritten only
+ * by the DEBOUNCED validation pass (~120ms), not by the synchronous keystroke,
+ * so subscribing here does NOT re-render the consumer on each keystroke — unlike
+ * the broad `useBotFormState()`. Prefer this in sections that render error
+ * state but otherwise read fields via `useBotFormSelector`.
+ */
+export const useBotFormErrors = (): BotFormErrors => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const errors = useStore(store, (s) => s.errors);
+  if (!context) {
+    throw new Error('useBotFormErrors must be used within a BotFormProvider');
+  }
+  return errors;
+};
+
+/**
+ * Narrow read of a TOP-LEVEL bot-form field — the ones stored on `formData`
+ * directly (`pair`, `pairMetadata`, `exchangeUUID`, `userFee`, `terminal`,
+ * `name`, `favoriteIndicators`, …) rather than inside the dca/combo/grid
+ * settings sub-object. `useBotFormSelector` reaches ONLY the nested settings;
+ * this is its top-level sibling. Subscribes to just that one field so the
+ * consumer re-renders only when it changes (Object.is) — top-level fields are
+ * stable across a numeric keystroke into a settings field.
+ */
+export const useBotFormTopLevelSelector = <
+  K extends keyof BotFormData,
+  V = BotFormData[K],
+>(
+  key: K
+): V => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const selected = useStore(store, (s): V => s.formData[key] as unknown as V);
+  if (!context) {
+    throw new Error(
+      'useBotFormTopLevelSelector must be used within a BotFormProvider'
+    );
+  }
+  return selected;
+};

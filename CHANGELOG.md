@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.2] - 2026-07-15
+
+### Changed
+
+- Bot creation/editing forms: typing in a field (bot name, take-profit %, etc.) is smoother. The form no longer re-renders unrelated sections or re-runs the pair/exchange lookup on every keystroke — a chunk of per-keystroke work has been removed from the Take Profit section and the shared form data layer. Applies to DCA, Grid, Combo and Hedge forms.
+
 ## [2.33.1] - 2026-07-15
 
 ### Fixed

@@ -25,10 +25,12 @@ import SettingsRow, {
 } from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import {
+    useBotFormActions,
+    useBotFormBotVars,
+    useBotFormErrors,
+    useBotFormMode,
     useBotFormSelector,
-    useBotFormState,
-    type BotFormUpdateValue,
-    type Fields,
+    useBotFormTopLevelSelector,
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
@@ -60,11 +62,7 @@ import {
     TerminalDealTypeEnum,
     type MultiTP,
 } from '@/types';
-import type {
-    BotFormData,
-    BotFormErrors,
-    ExchangeBotForm,
-} from '@/types/bots/form';
+import type { BotFormData } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 import { type IndicatorConfig, type IndicatorGroup } from '@/types/indicators';
 import { getIndicatorDefaultParams } from '@/types/indicators/indicatorLogic';
@@ -242,24 +240,26 @@ const normalizeCloseCondition = (value: unknown): CloseConditionEnum => {
   return CloseConditionEnum.tp;
 };
 
-interface TakeProfitSettingsProps {
-  currentExchange: ExchangeBotForm | null;
-  formData: BotFormData;
-  updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
-  errors: BotFormErrors;
-}
-
-export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
-  formData,
-  updateFormData,
-  errors: _errors,
-}) => {
-  const {
-    mode,
-    errors: formStateErrors,
-    setBotVars,
-    botVars = { list: [], paths: [] },
-  } = useBotFormState();
+export const TakeProfitSettings: React.FC = () => {
+  const mode = useBotFormMode();
+  // `errors` is rewritten only by the debounced validation pass, not by the
+  // synchronous keystroke, so this narrow subscription doesn't re-render the
+  // section per keystroke (unlike the old broad `useBotFormState()`). The old
+  // `{...formStateErrors, ..._errors}` merge was a no-op — the `errors` prop was
+  // the same store object this reads — so the raw store errors are equivalent.
+  const mergedErrors = useBotFormErrors();
+  const { updateFormData, setBotVars } = useBotFormActions();
+  const botVars = useBotFormBotVars() ?? { list: [], paths: [] };
+  // Top-level form fields (stored on `formData` directly, not inside the dca/
+  // combo/grid settings sub-object — `useBotFormSelector` can't reach these).
+  // Read narrowly so a numeric keystroke into a settings field never re-renders
+  // this section.
+  const formType = useBotFormTopLevelSelector('type');
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const formExchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
+  const formUserFee = useBotFormTopLevelSelector('userFee');
+  const formTerminal = useBotFormTopLevelSelector('terminal');
   const { coordinates, setCoordinates } = useTradingTerminalUtils();
   const { currentExchange } = useBotFormQuery();
   const startOrderType = useBotFormSelector('startOrderType');
@@ -290,6 +290,17 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
   const closeOrderType = useBotFormSelector('closeOrderType');
   const closeDealType = useBotFormSelector('closeDealType');
   const comboTpLimit = useBotFormSelector('comboTpLimit');
+  // Settings consumed by useDcaTradingContext -> resolveDcaRanges. Selected
+  // individually so this section stays reactive to exactly these (matching the
+  // pre-refactor whole-formData behaviour) instead of subscribing to the entire
+  // formData object.
+  const rangeUseMulti = useBotFormSelector('useMulti');
+  const rangeUseSmartOrders = useBotFormSelector('useSmartOrders');
+  const rangeMaxDealsPerPair = useBotFormSelector('maxDealsPerPair');
+  const rangeMaxNumberOfOpenDeals = useBotFormSelector('maxNumberOfOpenDeals');
+  const rangeDcaCondition = useBotFormSelector('dcaCondition');
+  const rangeDcaCustom = useBotFormSelector('dcaCustom');
+  const rangeOrdersCount = useBotFormSelector('ordersCount');
   const applyUpdates = useCallback(
     (updates: FormUpdateInstruction[]) => {
       updates.forEach(([field, value]) => {
@@ -298,16 +309,61 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     },
     [updateFormData]
   );
-  const mergedErrors = useMemo(
-    () => ({ ...formStateErrors, ..._errors }),
-    [formStateErrors, _errors]
-  );
   const isEditMode = useMemo(() => mode === 'edit', [mode]);
   const isDealEdit = useMemo(
     () => mode === 'deal-edit' || mode === 'deal-mass-edit',
     [mode]
   );
-  const tradingContext = useDcaTradingContext(formData, { bot: null });
+  // Feed `useDcaTradingContext` (and the webhook eligibility check, which only
+  // reads `type`) the exact slice they consume — the top-level pair/fee fields
+  // plus the settings `resolveDcaRanges` reads — built from narrow selectors.
+  // Previously the whole `formData` was passed, minting a new identity every
+  // keystroke and re-running these hooks needlessly; now the derived context is
+  // stable unless one of these specific fields changes. The same slice is placed
+  // under both `dca` and `combo` because `useBotFormSelector` already returns the
+  // active bot type's value, and `resolveDcaRanges` reads whichever the type
+  // selects.
+  const dcaRangeSettings = useMemo(
+    () => ({
+      useMulti: rangeUseMulti,
+      useSmartOrders: rangeUseSmartOrders,
+      maxDealsPerPair: rangeMaxDealsPerPair,
+      maxNumberOfOpenDeals: rangeMaxNumberOfOpenDeals,
+      dcaCondition: rangeDcaCondition,
+      dcaCustom: rangeDcaCustom,
+      ordersCount: rangeOrdersCount,
+    }),
+    [
+      rangeUseMulti,
+      rangeUseSmartOrders,
+      rangeMaxDealsPerPair,
+      rangeMaxNumberOfOpenDeals,
+      rangeDcaCondition,
+      rangeDcaCustom,
+      rangeOrdersCount,
+    ]
+  );
+  const dcaContextFormData = useMemo(
+    () =>
+      ({
+        type: formType,
+        pair: formPair,
+        pairMetadata: formPairMetadata,
+        exchangeUUID: formExchangeUUID,
+        userFee: formUserFee,
+        dca: dcaRangeSettings,
+        combo: dcaRangeSettings,
+      }) as unknown as BotFormData,
+    [
+      formType,
+      formPair,
+      formPairMetadata,
+      formExchangeUUID,
+      formUserFee,
+      dcaRangeSettings,
+    ]
+  );
+  const tradingContext = useDcaTradingContext(dcaContextFormData, { bot: null });
   const {
     latestPrice,
     limitPrice: contextLimitPrice,
@@ -385,7 +441,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
   const isShort = strategy === StrategyEnum.short;
   const closeCondition = normalizeCloseCondition(dealCloseCondition);
   const webhookEligibility = useWebhookEligibility({
-    formData,
+    formData: dcaContextFormData,
     isEditMode,
     context: 'take-profit',
   });
@@ -511,9 +567,8 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     ]
   );
 
-  const isComboBot = formData.type === 'combo';
-  const isHedgeBot =
-    formData.type === 'hedgeCombo' || formData.type === 'hedgeDca';
+  const isComboBot = formType === 'combo';
+  const isHedgeBot = formType === 'hedgeCombo' || formType === 'hedgeDca';
   const closeConditionIsTp = closeCondition === CloseConditionEnum.tp;
   const closeDealTypeOptions = useMemo<
     Array<{
@@ -1150,7 +1205,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
         }
 
         // For terminal bots, recalculate fixed price from percentage
-        if (formData.terminal && currentPrice > 0) {
+        if (formTerminal && currentPrice > 0) {
           const computedFixed = calculateValueFromPercent(
             isShort,
             formattedPercentage,
@@ -1180,7 +1235,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       // When there's only one target, sync with legacy single target value
       if (clamped.length === 1 && clamped[0]) {
         updateFormData('tpPerc', clamped[0].target);
-        if (formData.terminal) {
+        if (formTerminal) {
           updateFormData('useFixedTPPrices', true);
           updateFormData('fixedTpPrice', clamped[0].fixed || '');
         }
@@ -1189,7 +1244,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     [
       boundPercentagePaths,
       currentPrice,
-      formData.terminal,
+      formTerminal,
       isShort,
       minTpToUse,
       multiTargets,
@@ -1237,7 +1292,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
       }
 
       // For terminal bots only
-      if (!formData.terminal) {
+      if (!formTerminal) {
         return;
       }
 
@@ -1284,7 +1339,7 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
     },
     [
       currentPrice,
-      formData.terminal,
+      formTerminal,
       isShort,
       minTpToUse,
       multiTargets,
@@ -2650,18 +2705,18 @@ export const TakeProfitSettings: React.FC<TakeProfitSettingsProps> = ({
                             minSlToUse={minTpToUse}
                             totalTargets={multiTargets.length}
                             previousTargetValue={previousTargetValue}
-                            isTerminal={formData.terminal}
+                            isTerminal={formTerminal}
                             currentPrice={currentPrice}
                             handleTargetFixedChange={handleTargetFixedChange}
                             isTargetFixedBound={isTargetFixedBound}
                             fixedPath={fixedPath}
                             // Display price unit (quote for longs, base for shorts)
                             priceUnit={(() => {
-                              const pairKey = Array.isArray(formData.pair)
-                                ? formData.pair[0]
-                                : formData.pair;
+                              const pairKey = Array.isArray(formPair)
+                                ? formPair[0]
+                                : formPair;
                               const pairMeta = pairKey
-                                ? formData.pairMetadata?.[pairKey]
+                                ? formPairMetadata?.[pairKey]
                                 : undefined;
                               const base =
                                 pairMeta?.baseAsset?.name ??

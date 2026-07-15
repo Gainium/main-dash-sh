@@ -12,7 +12,8 @@ import {
 
 import type { CoinFilterPairMetadata } from '@/components/widgets/shared/CoinSelect';
 import {
-  useBotFormState,
+  useBotFormActions,
+  useBotFormTopLevelSelector,
   type BotFormMode,
 } from '@/contexts/bots/form/BotFormProvider';
 import {
@@ -52,7 +53,7 @@ export const BotFormQueryContext = createContext<
 
 /**
  * Pick a sensible default pair from the exchange's pair metadata. The
- * canonical key returned matches what `formData.pair` expects (the
+ * canonical key returned matches what `formPair` expects (the
  * `byPair` map key — base+quote concatenated, e.g. `BTCUSDT`).
  *
  * Preference order: BTC/USDT > BTC/USDC > any BTC pair > ETH/USDT >
@@ -102,18 +103,25 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
   });
 
   const { exchanges } = queryResult; // Added to inspect exchanges if needed
-  const { formData, updateFormData } = useBotFormState();
+  // Narrow reads: this provider only needs the top-level pair/exchange fields.
+  // The old broad `useBotFormState()` re-rendered the provider (and rebuilt its
+  // context value) on EVERY keystroke, which re-rendered every section that
+  // consumes `useBotFormQuery`. These selectors bail unless the field changes.
+  const formExchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const { updateFormData } = useBotFormActions();
 
   const currentExchange = useMemo(() => {
-    if (!formData.exchangeUUID || exchanges.length === 0) {
+    if (!formExchangeUUID || exchanges.length === 0) {
       logger.error(
         '[BotFormQueryProvider] No exchangeUUID in formData or exchanges list is empty — returning null for currentExchange',
-        { exchangeUUID: formData.exchangeUUID, exchanges }
+        { exchangeUUID: formExchangeUUID, exchanges }
       );
       return null;
     }
-    return exchanges.find((ex) => ex.uuid === formData.exchangeUUID) || null;
-  }, [formData.exchangeUUID, exchanges]);
+    return exchanges.find((ex) => ex.uuid === formExchangeUUID) || null;
+  }, [formExchangeUUID, exchanges]);
 
   const { pairsByExchange } = useTradingPairsFromContext();
 
@@ -225,19 +233,19 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     const metadataPayload = pairMetadata.byPair;
     // Don't clobber an already-populated pairMetadata with an empty
     // payload while the exchange / pairs queries are still loading on
-    // remount. If we do, the leg's `formData.pair` survives but the
+    // remount. If we do, the leg's `formPair` survives but the
     // BotForm `setContext({ symbol })` lookup misses (pairMetadata is
     // briefly empty), and the example-orders chart preview appears blank
     // until the queries return. Only write when we either have data, or
     // the existing metadata is also empty (initial mount path).
     const incomingHasEntries = Object.keys(metadataPayload).length > 0;
     const existingHasEntries =
-      Object.keys(formData.pairMetadata ?? {}).length > 0;
+      Object.keys(formPairMetadata ?? {}).length > 0;
     if (incomingHasEntries || !existingHasEntries) {
       updateFormData('pairMetadata', metadataPayload);
     }
     setShouldCheckPairs(true);
-  }, [pairMetadata, updateFormData, formData.pairMetadata]);
+  }, [pairMetadata, updateFormData, formPairMetadata]);
 
   // Before the aggregate pairs list loads, seed an exchange-appropriate default
   // pair so the chart never starts on the generic `BTCUSDT` when that pair is
@@ -254,7 +262,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     if (!provider || mode !== 'create') return;
     // Once the real pair list is available the correction below is authoritative.
     if (Object.keys(pairMetadata.byPair).length > 0) return;
-    const currentPairs = [formData.pair].flat().filter(Boolean);
+    const currentPairs = [formPair].flat().filter(Boolean);
     // Never override a real selection — only the untouched generic seed.
     if (currentPairs.length !== 1 || currentPairs[0] !== 'BTCUSDT') return;
     const seed = getDefaultSeedPair(provider);
@@ -266,7 +274,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     currentExchange?.provider,
     mode,
     pairMetadata.byPair,
-    formData.pair,
+    formPair,
     updateFormData,
   ]);
 
@@ -276,7 +284,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
         ...Object.keys(pairMetadata.byPair),
         ...Object.values(pairMetadata.byPair).map((p) => p.pair),
       ]);
-      const currentPairs = [formData.pair].flat().filter(Boolean);
+      const currentPairs = [formPair].flat().filter(Boolean);
       const filteredPairs = currentPairs.filter((p) => validPairKeys.has(p));
 
       // When filtering empties the list, pick a sensible default so the
@@ -297,7 +305,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       // Only write when the result actually differs from current. Without
       // this guard the write produces a NEW array reference even when
       // the contents are identical, which retriggers every effect that
-      // depends on `formData.pair` — and, for pairs whose canonical key
+      // depends on `formPair` — and, for pairs whose canonical key
       // doesn't appear in `validPairKeys` (e.g. HIP-3 selection symbols
       // like `FLX:GOLD-USDH` while byPair is keyed by `FLX:GOLDUSDH`),
       // we'd be re-emitting an already-empty filter on every render.
@@ -309,7 +317,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       }
       setShouldCheckPairs(false);
     }
-  }, [shouldCheckPairs, formData.pair, pairMetadata, updateFormData]);
+  }, [shouldCheckPairs, formPair, pairMetadata, updateFormData]);
 
   const futuresSetRef = useRef<boolean | null>(null);
   const coinmSetRef = useRef<boolean | null>(null);
@@ -367,8 +375,8 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
         ? currentExchange?.uuid.trim()
         : '';
     const pair =
-      Array.isArray(formData.pair) && formData.pair.length > 0
-        ? formData.pair[0]
+      Array.isArray(formPair) && formPair.length > 0
+        ? formPair[0]
         : '';
     // Normalize the pair to match pairMetadata keys (e.g., "BTC-USDT" -> "BTCUSDT")
     const normalizedPair = pair.replace(/-/g, '').toUpperCase();
@@ -405,7 +413,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       }
     });
   }, [
-    formData.pair,
+    formPair,
     pairMetadata,
     currentExchange?.uuid,
     currentExchange?.provider,

@@ -14,6 +14,12 @@ import type { DCABot } from '@/types/dcaBot'; */
 import type { GridBot } from '@/types/gridBot';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 
+// Stable module-level empties so this hook's result keeps a constant identity
+// when a value is absent — a fresh `[]` literal per render would otherwise mint
+// a new result object every render and churn every downstream consumer.
+const EMPTY_HEDGE_BOTS: HedgeBot[] = [];
+const EMPTY_EXCHANGES: ExchangeInUser[] = [];
+
 export interface UseBotFormDataQueryOptions {
   botId?: string;
   mode: BotFormMode;
@@ -72,8 +78,8 @@ export const useBotFormDataQuery = (
   /*   const { bots: hedgeDcaBots } = useHedgeDcaBots({ all: true });
   const { bots: hedgeComboBots } = useHedgeComboBots({ all: true }); */
 
-  const hedgeDcaBots: HedgeBot[] = [];
-  const hedgeComboBots: HedgeBot[] = [];
+  const hedgeDcaBots = EMPTY_HEDGE_BOTS;
+  const hedgeComboBots = EMPTY_HEDGE_BOTS;
 
   const bots = useMemo(() => {
     // Aggregate only DCA, Grid, and Combo bots for the standard BotForm context
@@ -110,19 +116,47 @@ export const useBotFormDataQuery = (
 
   const { data, loading, refresh } = useExchangesFromContext();
 
-  return {
-    dcaBots,
-    gridBots,
-    comboBots,
-    hedgeDcaBots,
-    hedgeComboBots,
-    bots,
-    botsLoading: dcaBotsLoading || gridBotsLoading || comboBotsLoading,
-    bot,
-    botSettings,
-    botSettingsLoading,
-    exchanges: data.data.exchanges || [],
-    exchangesLoading: loading,
-    refetchExchanges: refresh,
-  };
+  const exchanges = useMemo(
+    () => data.data.exchanges || EMPTY_EXCHANGES,
+    [data.data.exchanges]
+  );
+  const botsLoading = dcaBotsLoading || gridBotsLoading || comboBotsLoading;
+
+  // Memoize the result so its identity is stable across renders where nothing
+  // it carries changed. BotFormQueryProvider spreads this into its context
+  // value; without this, every keystroke (which re-renders the provider via its
+  // form-state read) minted a fresh result → fresh context value → re-rendered
+  // every section that consumes `useBotFormQuery`.
+  return useMemo(
+    () => ({
+      dcaBots,
+      gridBots,
+      comboBots,
+      hedgeDcaBots,
+      hedgeComboBots,
+      bots,
+      botsLoading,
+      bot,
+      botSettings,
+      botSettingsLoading,
+      exchanges,
+      exchangesLoading: loading,
+      refetchExchanges: refresh,
+    }),
+    [
+      dcaBots,
+      gridBots,
+      comboBots,
+      hedgeDcaBots,
+      hedgeComboBots,
+      bots,
+      botsLoading,
+      bot,
+      botSettings,
+      botSettingsLoading,
+      exchanges,
+      loading,
+      refresh,
+    ]
+  );
 };

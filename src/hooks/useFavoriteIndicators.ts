@@ -1,4 +1,7 @@
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormActions,
+  useBotFormTopLevelSelector,
+} from '@/contexts/bots/form/BotFormProvider';
 import { GraphQLClient, GraphQlQuery } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -93,13 +96,16 @@ const formatMutationError = (reason?: string | null): string => {
 };
 
 export const useFavoriteIndicators = () => {
-  const { formData, updateFormData } = useBotFormState();
+  // Narrow reads: only the top-level `favoriteIndicators` field + the stable
+  // dispatch. Previously this used the broad `useBotFormState()`, which
+  // re-rendered every consumer of this shared hook on EVERY keystroke.
+  const favoriteIndicators = useBotFormTopLevelSelector('favoriteIndicators');
+  const { updateFormData } = useBotFormActions();
   const { tokens } = useAuthStore();
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
   const favorites = useMemo(
-    () =>
-      (formData.favoriteIndicators || []).filter(Boolean) as IndicatorEnum[],
-    [formData.favoriteIndicators]
+    () => (favoriteIndicators || []).filter(Boolean) as IndicatorEnum[],
+    [favoriteIndicators]
   );
   const favoritesRef = useRef<IndicatorEnum[]>(favorites);
   useEffect(() => {
