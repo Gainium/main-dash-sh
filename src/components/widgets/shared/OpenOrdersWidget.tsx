@@ -728,15 +728,15 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
             <BookOpen className="w-4 h-4 mr-2" />
             Add to Journal
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleAddFunds}>
+          <DropdownMenuItem onClick={handleAddFunds} disabled={!isDealOpen}>
             <PlusCircle className="w-4 h-4 mr-2" />
             Add Funds
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleReduceFunds}>
+          <DropdownMenuItem onClick={handleReduceFunds} disabled={!isDealOpen}>
             <MinusCircle className="w-4 h-4 mr-2" />
             Reduce Funds
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleEdit}>
+          <DropdownMenuItem onClick={handleEdit} disabled={!isDealOpen}>
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </DropdownMenuItem>
@@ -764,13 +764,14 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
               Move to Bot
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={handleCancelClick}>
+          <DropdownMenuItem onClick={handleCancelClick} disabled={!isDealOpen}>
             <X className="w-4 h-4 mr-2" />
             Cancel
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={handleCloseClick}
             className="text-destructive"
+            disabled={!isDealOpen}
           >
             <XCircle className="w-4 h-4 mr-2" />
             Close

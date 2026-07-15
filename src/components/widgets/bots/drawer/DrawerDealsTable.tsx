@@ -542,17 +542,23 @@ const DealActionsMenu: React.FC<{
           </DropdownMenuItem>
           {botType !== BotTypesEnum.combo && (
             <>
-              <DropdownMenuItem onClick={handleAddFunds}>
+              <DropdownMenuItem
+                onClick={handleAddFunds}
+                disabled={!isDealOpen}
+              >
                 <PlusCircle className="w-4 h-4 mr-2" />
                 Add Funds
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleReduceFunds}>
+              <DropdownMenuItem
+                onClick={handleReduceFunds}
+                disabled={!isDealOpen}
+              >
                 <MinusCircle className="w-4 h-4 mr-2" />
                 Reduce Funds
               </DropdownMenuItem>
             </>
           )}
-          <DropdownMenuItem onClick={handleEdit}>
+          <DropdownMenuItem onClick={handleEdit} disabled={!isDealOpen}>
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </DropdownMenuItem>
@@ -574,13 +580,17 @@ const DealActionsMenu: React.FC<{
               Move to Terminal
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem onClick={() => setCancelDialogOpen(true)}>
+          <DropdownMenuItem
+            onClick={() => setCancelDialogOpen(true)}
+            disabled={!isDealOpen}
+          >
             <X className="w-4 h-4 mr-2" />
             Cancel
           </DropdownMenuItem>
           <DropdownMenuItem
             onClick={() => setCloseDialogOpen(true)}
             className="text-destructive"
+            disabled={!isDealOpen}
           >
             <XCircle className="w-4 h-4 mr-2" />
             Close

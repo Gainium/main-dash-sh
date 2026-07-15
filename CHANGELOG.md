@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.5] - 2026-07-16
+
+### Fixed
+
+- Deal action menu: for deals that are no longer open (cancelled, closed), Add Funds, Reduce Funds, Edit, Cancel and Close are now greyed out — matching how Change DCA levels and Move to Terminal already behaved. Applies to the trade cards, the bot drawer deals table and the open-orders widget.
+
 ## [2.33.4] - 2026-07-16
 
 ### Changed
