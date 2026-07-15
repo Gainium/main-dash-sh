@@ -26,10 +26,10 @@ import {
   Filter,
   Grid3x3,
   MoreHorizontal,
-  Pause,
   Play,
   Plus,
   RefreshCw,
+  Square,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -1476,7 +1476,7 @@ const GridBots: React.FC = () => {
                           {
                             id: 'stop',
                             label: 'Stop',
-                            icon: Pause,
+                            icon: Square,
                             onAction: (bots) => {
                               handleOpenBulkStatusChange(bots, 'stop');
                             },

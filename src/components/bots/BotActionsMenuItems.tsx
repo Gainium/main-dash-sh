@@ -19,10 +19,10 @@ import {
   Copy,
   Edit,
   /* History, */
-  Pause,
   Play,
   RefreshCw,
   Share,
+  Square,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -174,7 +174,7 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
             </>
           ) : isActive ? (
             <>
-              <Pause className="w-4 h-4 mr-2" />
+              <Square className="w-4 h-4 mr-2" />
               {getActionText(bot.status)}
             </>
           ) : (

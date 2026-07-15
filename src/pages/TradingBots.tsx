@@ -7,10 +7,10 @@ import {
   Edit,
   ExternalLink,
   MoreHorizontal,
-  Pause,
   Play,
   Plus,
   RefreshCw,
+  Square,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -1877,7 +1877,7 @@ const TradingBots: React.FC = () => {
       {
         id: 'stop',
         label: 'Stop',
-        icon: Pause,
+        icon: Square,
         onAction: handleBulkStop,
         shouldShow: shouldShowStop,
       },

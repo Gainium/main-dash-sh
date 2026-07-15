@@ -2,7 +2,7 @@
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import { Activity, ExternalLink, Loader2, Pause, Play } from 'lucide-react';
+import { Activity, ExternalLink, Loader2, Play, Square } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import React, {
   useCallback,
@@ -1832,7 +1832,7 @@ const Trading: React.FC = () => {
       {
         id: 'stop',
         label: 'Stop',
-        icon: Pause,
+        icon: Square,
         destructive: true,
         disabled: readOnly,
         onAction: (selected) => {

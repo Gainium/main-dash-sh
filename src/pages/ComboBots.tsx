@@ -27,10 +27,10 @@ import {
   ExternalLink,
   Filter,
   MoreHorizontal,
-  Pause,
   Play,
   Plus,
   RefreshCw,
+  Square,
   Star,
   Trash2,
 } from 'lucide-react';
@@ -1798,7 +1798,7 @@ const ComboBots: React.FC = () => {
                               {
                                 id: 'stop',
                                 label: 'Stop',
-                                icon: Pause,
+                                icon: Square,
                                 onAction: (bots) => {
                                   handleOpenBulkStatusChange(bots, 'stop');
                                 },
