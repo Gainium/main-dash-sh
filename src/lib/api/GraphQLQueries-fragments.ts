@@ -1535,6 +1535,22 @@ const dcaBotFragment = `
             liveStats {${liveStatsFragment}}
 `;
 
+// List-context slim fragment for `dcaBotList`. The Trading Bots list renders
+// hundreds of DCA bots at once; the full `dcaBotFragment` ships per-bot
+// time-series arrays (`stats.numerical.{profit,loss}.series`,
+// `loss.seriesEquity`, the `stats.chart` block) and a per-symbol `symbolStats`
+// object — none of which the list/card/table/summary actually read. Cards, the
+// table and the drawer all source their stats + equity mini-chart from the live
+// `bot stats update` websocket stream (`botStatsStore`, consumed via
+// `liveBotStats`/`useLiveBotMetrics`), and the single-bot drawer path uses
+// `getDCABot` (which keeps the full `dcaBotFragment`). So dropping `stats` and
+// `symbolStats` here is behavior-neutral while cutting the list response by
+// roughly an order of magnitude. `liveStats` is kept: the value/uPnL transforms
+// in `dcaBot.ts` read it from the list bot.
+const dcaBotListFragment = dcaBotFragment
+  .replace(`stats ${statsFragment}`, '')
+  .replace(`symbolStats ${symbolsStatsFragment}`, '');
+
 const comboBotFragment = `
             _id
             cost
@@ -2525,6 +2541,7 @@ export {
   comboDealFragment,
   credits,
   dcaBotFragment,
+  dcaBotListFragment,
   dcaBotSettingsFragment,
   dcaDealFragment,
   dcaMultiBotFragment,

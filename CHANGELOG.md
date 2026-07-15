@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.16] - 2026-07-15
+
+### Fixed
+
+- Trading Bots list loads much faster for accounts with many bots: the list query no longer ships per-bot time-series arrays and per-symbol stats that nothing in the list reads (cards, table and drawer stream live stats via websocket; the single-bot drawer query still fetches everything), roughly halving the response for large accounts.
+- The bot list no longer fetches twice on a cold start: the paper-to-live trading-mode settle used to re-fire the heavy list query under both contexts back to back; it now waits until the mode matches the profile and fires exactly once.
+
 ## [2.32.15] - 2026-07-15
 
 ### Fixed

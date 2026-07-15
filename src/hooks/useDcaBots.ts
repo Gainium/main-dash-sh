@@ -1,4 +1,5 @@
-import { dcaBotFragment } from '@/lib/api/GraphQLQueries-fragments';
+import { dcaBotListFragment } from '@/lib/api/GraphQLQueries-fragments';
+import { useAuthStore } from '@/stores/authStore';
 import { useDcaBotsStore } from '@/stores/live';
 import { useUIStore } from '@/stores/uiStore';
 import { isBotActive } from '@/utils/botStatusUtils';
@@ -107,6 +108,8 @@ export function useDcaBots(
   enabled?: boolean
 ): UseDcaBotsResult {
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+  const tradingMode = useUIStore((s) => s.tradingMode);
+  const userPaperContext = useAuthStore((s) => s.user?.paperContext);
   const currentPaperContext = useMemo(
     () =>
       typeof filter?.paperContext === 'boolean'
@@ -146,6 +149,24 @@ export function useDcaBots(
   // read/write that directly and stay out of the shared store entirely.
   const isArchivedQuery = !!filter?.status?.length && filter.status.includes('archive');
 
+  // The paper/live trading context is baked into this query's cache key AND the
+  // `paper-context` request header. On cold start `isLiveTrading` defaults to
+  // paper and `usePaperContext()` flips it to the profile's real value a tick
+  // later; because the query is enabled the moment a token exists, React Query
+  // would otherwise fire this heavy list once under `paper` and again under
+  // `live` (the POST bodies are byte-identical — only the header differs),
+  // doubling the ~5 MB network + parse cost. Hold the query until the store's
+  // mode matches the profile so it fires exactly once under the correct
+  // context. Only relevant when the context is derived from the global mode:
+  // callers passing an explicit `paperContext` have a fixed key unaffected by
+  // the flip, and demo/returning users (persisted mode already matches) settle
+  // immediately, so this is a no-op for them.
+  const tradingModeSettled =
+    typeof filter?.paperContext === 'boolean' ||
+    tradingMode === 'demo' ||
+    userPaperContext === undefined ||
+    !userPaperContext === isLiveTrading;
+
   // Share-mode visitors must never trigger the visitor's bot list query —
   // the share URL renders ONLY the shared bot. AND it into `enabled` so
   // the gating composes with whatever the caller already passed.
@@ -156,15 +177,15 @@ export function useDcaBots(
         typeof filter?.paperContext === 'boolean'
           ? filter.paperContext
           : undefined,
-      enabled: isDemo ? false : enabled,
+      enabled: isDemo ? false : (enabled ?? true) && tradingModeSettled,
     }),
-    [filter?.paperContext, enabled, isDemo]
+    [filter?.paperContext, enabled, isDemo, tradingModeSettled]
   );
 
   // 2. Keep React Query for background sync
   const queryResult = useGraphQL<DcaBotListResponse>(
     'dcaBotList',
-    botQueries.dcaBotList(input, dcaBotFragment),
+    botQueries.dcaBotList(input, dcaBotListFragment),
     options
   );
 
