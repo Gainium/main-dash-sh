@@ -880,6 +880,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     isLoading: dealsLoading,
     isError: dealsError,
     data: _dealsData,
+    total: dealsServerTotal,
+    fetchAllDeals,
   } = useBotSpecificDeals(useDealsInput);
 
   // Handler for confirming deal opening with selected pair (defined after activeDealsData)
@@ -1239,6 +1241,59 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     transformDealToTradeWrapper,
     comboClosedStatuses,
     comboActiveStatuses,
+  ]);
+
+  // Server-complete export: fetch EVERY page of the current tab's deals.
+  // The table's own data is capped by useBotSpecificDeals' display
+  // auto-loader (maxPages), so exporting the loaded rows silently truncates
+  // large bots (forum: beta thread post #129 — 9 of 311 exported). Status
+  // filter + sort mirror the activeDealsRaw / closedDeals memos above.
+  const getExportData = useCallback(async (): Promise<
+    TransformedTrade[] | null
+  > => {
+    try {
+      toast.info('Preparing export — fetching all deals…');
+      const raw = await fetchAllDeals();
+      const wanted = raw.filter((deal: DCADeals | ComboDeal) => {
+        const status = String(deal.status).toLowerCase();
+        if (selectedTab === 'active') {
+          return isComboLike
+            ? comboActiveStatuses.has(status)
+            : status === DCADealStatusEnum.open ||
+                status === DCADealStatusEnum.start ||
+                status === DCADealStatusEnum.error;
+        }
+        const dcaClosed =
+          status === DCADealStatusEnum.closed ||
+          status === DCADealStatusEnum.canceled;
+        return isComboLike
+          ? comboClosedStatuses.has(status) || !comboActiveStatuses.has(status)
+          : dcaClosed;
+      });
+      const getCreateTime = (d: DCADeals | ComboDeal): number =>
+        typeof (d as ComboDeal).createTime === 'string'
+          ? new Date((d as ComboDeal).createTime).getTime()
+          : (d as unknown as { createTime: number }).createTime;
+      wanted.sort((a, b) => getCreateTime(b) - getCreateTime(a));
+      return wanted.map(transformDealToTradeWrapper);
+    } catch (error) {
+      logger.error(`${LOG_PREFIX}: Failed to fetch all deals for export`, {
+        botId,
+        error,
+      });
+      toast.error(
+        'Could not fetch all deals — the export will only include the loaded ones'
+      );
+      return null; // DataTable falls back to the loaded rows
+    }
+  }, [
+    fetchAllDeals,
+    selectedTab,
+    isComboLike,
+    comboActiveStatuses,
+    comboClosedStatuses,
+    transformDealToTradeWrapper,
+    botId,
   ]);
 
   useEffect(() => {
@@ -2950,6 +3005,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
             getRowId={getRowId}
             firstToolbarActions={firstToolbarAction}
             firstToolbarActionsCompact={firstToolbarActionCompact}
+            getExportData={getExportData}
+            serverTotalRows={dealsServerTotal}
+            exportFilename={`${selectedTab === 'active' ? 'open' : 'closed'}-deals`}
           />
         ) : (
           <div className="flex flex-col">

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.15] - 2026-07-15
+
+### Fixed
+
+- Deals table export (CSV/JSON) in the bot details drawer now downloads every deal by fetching the complete set from the server. Previously it silently exported only the rows the table had loaded — bots with many closed deals (or a partially-loaded table) exported a small subset.
+- The deals table pagination footer now shows "loaded of total" (e.g. "1-10 (400 of 970)") when the table holds only part of a larger closed-deals set, instead of implying the loaded rows are everything.
+
 ## [2.32.14] - 2026-07-14
 
 ### Added

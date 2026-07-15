@@ -1,5 +1,8 @@
 import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
+import { useAuthStore } from '@/stores/authStore';
+import { useUIStore } from '@/stores/uiStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { GraphQLClient, getGraphQLConfig } from '../lib/api';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
 import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
@@ -43,7 +46,15 @@ export interface UseBotSpecificDealsResult {
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<unknown>;
+  /** Imperatively fetch EVERY page of this bot's deals for the requested
+   *  status (not capped by the display auto-loader's `maxPages`). Used by the
+   *  deals table's export so large bots don't silently export a subset. */
+  fetchAllDeals: () => Promise<DCADeals[]>;
 }
+
+/** Hard ceiling for the export fetch loop: 200 pages × pageSize 100 = 20k
+ *  deals — far above any real bot, purely a runaway-loop backstop. */
+const FETCH_ALL_MAX_PAGES = 200;
 
 // The status group this hook actually requests from the backend. NOTE: it puts
 // `error` in the CLOSED group, which differs from dealStatusFilter.ts's
@@ -356,6 +367,77 @@ export function useBotSpecificDeals(
     [hasHydrated, queryResult.isLoading, mergedDeals.length]
   );
 
+  // Imperative full fetch for exports. Mirrors useGraphQL's client
+  // construction (token / paper-context / share-mode) but loops through ALL
+  // pages until the server-reported total is reached — the reactive display
+  // path above deliberately stops at `maxPages` to keep the store small, so
+  // it must never be the source for an "export all" operation.
+  const fetchAllDeals = useCallback(async (): Promise<DCADeals[]> => {
+    const endpoint =
+      import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+    const { tokens } = useAuthStore.getState();
+    const { isLiveTrading, tradingMode } = useUIStore.getState();
+    const config = getGraphQLConfig(tokens, isLiveTrading);
+    // Demo mode always reads the demo user's paper account (same rule as
+    // useGraphQL); share-mode sends the 'demo' sentinel token + shareId.
+    const paperContext =
+      tradingMode === 'demo' ? true : config.paperContext;
+    const effectiveToken = effectiveShareId ? 'demo' : config.token;
+    const client = new GraphQLClient(
+      endpoint,
+      effectiveToken,
+      paperContext,
+      effectiveShareId
+    );
+
+    const pageSize = filter.pageSize || 100;
+    const byId = new Map<string, DCADeals>();
+    let total = Infinity;
+    for (
+      let page = 0;
+      page * pageSize < total && page < FETCH_ALL_MAX_PAGES;
+      page++
+    ) {
+      const { query, variables } = q({
+        id: filter.botId,
+        status: filter.status,
+        page,
+        pageSize,
+        sortModel: filter.sortModel || [],
+        filterModel: filter.filterModel || { items: [] },
+        ...(effectiveShareId && { shareId: effectiveShareId }),
+      });
+      const result = await client.request<
+        Record<string, GetBotDealsResponse>
+      >(query, variables);
+      const payload = result[key];
+      if (!payload || payload.status !== 'OK') {
+        throw new Error(
+          payload?.reason || 'Failed to fetch deals for export'
+        );
+      }
+      const deals = payload.data?.deals || [];
+      total = payload.data?.total ?? deals.length;
+      deals.forEach((d) => {
+        if (d._id) byId.set(d._id, d);
+      });
+      if (deals.length < pageSize) break; // short page — server has no more
+    }
+    logger.info(
+      `[useBotSpecificDeals] fetchAllDeals: ${byId.size} ${filter.status} deals for bot ${filter.botId}`
+    );
+    return Array.from(byId.values());
+  }, [
+    filter.botId,
+    filter.status,
+    filter.pageSize,
+    filter.sortModel,
+    filter.filterModel,
+    effectiveShareId,
+    q,
+    key,
+  ]);
+
   return {
     data: queryResult.data as ReturnResult<GetBotDealsResponse> | null,
     deals: mergedDeals,
@@ -364,5 +446,6 @@ export function useBotSpecificDeals(
     isError: queryResult.isError,
     error: queryResult.error,
     refetch: queryResult.refetch,
+    fetchAllDeals,
   };
 }

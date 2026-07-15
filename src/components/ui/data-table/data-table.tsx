@@ -18,6 +18,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import { rankItem } from '@tanstack/match-sorter-utils';
 import {
+  createTable,
   flexRender,
   getCoreRowModel,
   getExpandedRowModel,
@@ -960,6 +961,22 @@ interface DataTableProps<TData, TValue> {
   // Export props
   enableExport?: boolean;
   exportFilename?: string;
+  /**
+   * Optional async provider of the COMPLETE dataset for exports. When set,
+   * "Export as CSV/JSON" serialize the returned data (all server pages)
+   * instead of only the client-loaded rows — tables that partially load
+   * (e.g. a bot's closed deals, capped by the display auto-loader) would
+   * otherwise silently export a subset. Falls back to the loaded rows when
+   * the fetch fails or returns nothing.
+   */
+  getExportData?: () => Promise<TData[] | null>;
+  /**
+   * Server-side total row count when the table's data is a partial window of
+   * a larger server dataset. Rendered in the pagination footer as
+   * "start-end (loaded of total)" so a partially-loaded table doesn't read
+   * as complete.
+   */
+  serverTotalRows?: number;
   // Row interaction props
   onRowClick?: (row: TData) => void;
   getRowIsSelected?: (row: TData) => boolean;
@@ -1912,6 +1929,8 @@ function DataTableComponent<TData, TValue>(
     // Export props
     enableExport,
     exportFilename,
+    getExportData,
+    serverTotalRows,
     // Row interaction props
     onRowClick,
     getRowIsSelected,
@@ -1979,6 +1998,8 @@ function DataTableComponent<TData, TValue>(
       cardViewGap: props.cardViewGap ?? 16,
       enableExport: props.enableExport ?? true,
       exportFilename: props.exportFilename ?? 'data-export',
+      getExportData: props.getExportData,
+      serverTotalRows: props.serverTotalRows,
       onRowClick: props.onRowClick,
       getRowIsSelected: props.getRowIsSelected,
       finalToolbarActions: props.finalToolbarActions,
@@ -3441,22 +3462,64 @@ function DataTableComponent<TData, TValue>(
   );
 
   // Export functions
-  const handleExportToCsv = useCallback(() => {
+  //
+  // When `getExportData` is provided the export serializes the COMPLETE
+  // dataset fetched from the server, not just the client-loaded subset. The
+  // fetched data is run through a detached table instance built from the
+  // live table's resolved options, so column visibility and active filters
+  // apply to the export exactly as they do on screen.
+  const buildExportRows = useCallback(
+    (fullData: TData[]): Row<TData>[] => {
+      const exportTable = createTable<TData>({
+        ...table.options,
+        data: fullData,
+        state: {
+          ...table.getState(),
+          pagination: {
+            pageIndex: 0,
+            pageSize: Math.max(fullData.length, 1),
+          },
+        },
+        onStateChange: () => {},
+      });
+      return exportTable.getFilteredRowModel().rows;
+    },
+    [table]
+  );
+
+  const resolveExportRows = useCallback(async (): Promise<Row<TData>[]> => {
+    if (getExportData) {
+      try {
+        const fullData = await getExportData();
+        if (fullData && fullData.length > 0) {
+          return buildExportRows(fullData);
+        }
+      } catch (e) {
+        logger.error(
+          '[DataTable] Full-data export fetch failed; falling back to loaded rows',
+          e
+        );
+      }
+    }
+    return table.getFilteredRowModel().rows; // Use filtered data
+  }, [getExportData, buildExportRows, table]);
+
+  const handleExportToCsv = useCallback(async () => {
     const headers = table
       .getHeaderGroups()
       .map((x) => x.headers)
       .flat();
 
-    const rows = table.getFilteredRowModel().rows; // Use filtered data
+    const rows = await resolveExportRows();
 
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `${exportFilename}-${timestamp}`;
 
     exportToCsv(filename, headers, rows);
-  }, [table, exportFilename]);
+  }, [table, exportFilename, resolveExportRows]);
 
-  const handleExportToJson = useCallback(() => {
-    const data = table.getFilteredRowModel().rows.map((row) => row.original);
+  const handleExportToJson = useCallback(async () => {
+    const data = (await resolveExportRows()).map((row) => row.original);
     const jsonStr = JSON.stringify(data, null, 2);
     const blob = new Blob([jsonStr], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -3471,7 +3534,7 @@ function DataTableComponent<TData, TValue>(
     link.click();
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
-  }, [table, exportFilename]);
+  }, [resolveExportRows, exportFilename]);
   const tableState = useMemo(() => table.getState(), [table]);
   const tableFilter = useMemo(() => table.getFilteredRowModel(), [table]);
   const { pageIndex, pageSize } = useMemo(
@@ -3490,13 +3553,16 @@ function DataTableComponent<TData, TValue>(
     () => Math.min(pageIndex * pageSize + pageSize, totalRows),
     [pageIndex, pageSize, totalRows]
   );
-  const pageRangeLabel = useMemo(
-    () =>
-      totalRows === 0
-        ? '0-0 (0)'
-        : `${paginationStart.toLocaleString()}-${paginationEnd.toLocaleString()} (${totalRows.toLocaleString()})`,
-    [paginationStart, paginationEnd, totalRows]
-  );
+  const pageRangeLabel = useMemo(() => {
+    if (totalRows === 0) return '0-0 (0)';
+    const range = `${paginationStart.toLocaleString()}-${paginationEnd.toLocaleString()}`;
+    // When the table only holds a window of a larger server dataset, say so
+    // — "(400 of 970)" — instead of implying the loaded rows are everything.
+    if (serverTotalRows && serverTotalRows > totalRows) {
+      return `${range} (${totalRows.toLocaleString()} of ${serverTotalRows.toLocaleString()})`;
+    }
+    return `${range} (${totalRows.toLocaleString()})`;
+  }, [paginationStart, paginationEnd, totalRows, serverTotalRows]);
   const totalPages = useMemo(
     () => Math.ceil(totalRows / pageSize),
     [totalRows, pageSize]
