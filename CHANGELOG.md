@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.20] - 2026-07-15
+
+### Fixed
+
+- Bot list pages (DCA and Combo): a live-stats update for one bot no longer re-renders every card in the list. Each card now keeps its data unless that specific bot changed, so the grid stays smooth while stats stream in on accounts with many bots.
+
 ## [2.32.19] - 2026-07-15
 
 ### Fixed

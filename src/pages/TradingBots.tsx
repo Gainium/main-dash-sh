@@ -120,6 +120,8 @@ import { useBotStatsStore } from '../stores/live/botStatsStore';
 import { transformDcaBotToBot } from '../types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
+import { useStableBotTransforms } from '../hooks/useStableBotTransforms';
+import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 
 // Bot table actions component for mobile accessibility
 interface BotTableActionsProps {
@@ -975,20 +977,24 @@ const TradingBots: React.FC = () => {
     stableDependencies.fees,
     stableDependencies.exchanges,
   ]);
-  const transformedBots = useMemo(() => {
-    const transformed = dcaBots.map((dcaBot: DCABot) => {
+  // Transform each bot with a per-bot memo: a bot keeps its previous output
+  // object when its raw record, its own live-stats slice, and the shared deps
+  // are all referentially unchanged. A live-stats tick bumps the whole
+  // `liveBotStats` object reference, but only the ticking bot's slice actually
+  // changes — so only that bot's card gets a fresh `item` and re-renders,
+  // instead of the entire grid. See useStableBotTransforms.
+  const transformBot = useCallback(
+    (dcaBot: DCABot, slice: CalculatedBotStats | undefined) => {
       try {
         // Use stable references to prevent constant recalculations
-        const result = transformDcaBotToBot(
+        return transformDcaBotToBot(
           dcaBot,
           stableDependencies.fees,
           stableDependencies.prices,
           false,
           stableDependencies.exchanges,
-          liveBotStats[dcaBot._id]
+          slice
         );
-
-        return result;
       } catch (error) {
         logger.error('[TradingBots] Error transforming bot:', {
           botId: dcaBot._id,
@@ -996,17 +1002,27 @@ const TradingBots: React.FC = () => {
         });
         throw error;
       }
-    });
+    },
+    [stableDependencies]
+  );
 
-    // Sort bots by creation date (newest first) by default
-    const sortedBots = transformed.sort((a, b) => {
+  const stableTransformedBots = useStableBotTransforms(
+    dcaBots,
+    (dcaBot) => dcaBot._id,
+    (id) => liveBotStats[id],
+    stableDependencies,
+    transformBot
+  );
+
+  const transformedBots = useMemo(() => {
+    // Sort bots by creation date (newest first) by default. Copy first so the
+    // per-bot cache's element references stay intact for the card memos.
+    return [...stableTransformedBots].sort((a, b) => {
       const aCreated = a.createdAt ?? new Date(a.created || 0).getTime();
       const bCreated = b.createdAt ?? new Date(b.created || 0).getTime();
       return bCreated - aCreated;
     });
-
-    return sortedBots;
-  }, [dcaBots, stableDependencies, liveBotStats]);
+  }, [stableTransformedBots]);
 
   // Create a lookup map for original bot data to avoid repeated finds
   const botDataMap = useMemo(() => {

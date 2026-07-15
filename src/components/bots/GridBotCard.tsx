@@ -38,7 +38,7 @@ interface GridBotCardProps {
   isSelected?: boolean;
 }
 
-export const GridBotCard: React.FC<GridBotCardProps> = ({
+const GridBotCardComponent: React.FC<GridBotCardProps> = ({
   item: bot,
   onClick,
   isSelected = false,
@@ -374,3 +374,8 @@ export const GridBotCard: React.FC<GridBotCardProps> = ({
     </Card>
   );
 };
+
+// Memoized to match BotCard / HedgeBotCard: a re-render of the parent list
+// shouldn't re-render a grid card whose props are referentially unchanged.
+export const GridBotCard = React.memo(GridBotCardComponent);
+GridBotCard.displayName = 'GridBotCard';

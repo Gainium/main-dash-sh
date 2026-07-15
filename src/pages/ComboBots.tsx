@@ -117,6 +117,8 @@ import { useBotStatsStore } from '@/stores/live';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
+import { useStableBotTransforms } from '../hooks/useStableBotTransforms';
+import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 import { useComboDeals } from '../hooks/useComboDeals';
 
 const COMBO_BOT_TYPE_ID = 'combo';
@@ -596,26 +598,22 @@ const ComboBots: React.FC = () => {
 
   const liveBotStats = useBotStatsStore((state) => state.botStats);
 
-  // Transform Combo bots to the format expected by the UI
-  const transformedBots = useMemo(() => {
-    if (import.meta.env.DEV) {
-      logger.debug('[ComboBots] Combo bots received:', {
-        count: comboBots.length,
-        sample: comboBots.slice(0, 3),
-      });
-    }
-
-    const transformed = comboBots.map((comboBot: ComboBot) => {
+  // Transform each combo bot with a per-bot memo so a live-stats tick for one
+  // bot doesn't produce fresh `item` objects for the whole grid (which would
+  // defeat the card React.memo and re-render every card). Only the ticking
+  // bot's slice changes, so only that card gets a new object.
+  // See useStableBotTransforms.
+  const transformComboBot = useCallback(
+    (comboBot: ComboBot, slice: CalculatedBotStats | undefined) => {
       try {
-        const result = transformDcaBotToBot(
+        return transformDcaBotToBot(
           comboBot,
           stableDependencies.fees,
           stableDependencies.prices,
           true,
           stableDependencies.exchanges,
-          liveBotStats[comboBot._id]
+          slice
         );
-        return result;
       } catch (error) {
         if (import.meta.env.DEV) {
           logger.error('[ComboBots] Error transforming bot:', {
@@ -625,17 +623,17 @@ const ComboBots: React.FC = () => {
         }
         throw error;
       }
-    });
+    },
+    [stableDependencies]
+  );
 
-    if (import.meta.env.DEV) {
-      logger.debug('[ComboBots] Final transformed bots:', {
-        count: transformed.length,
-        bots: transformed,
-      });
-    }
-
-    return transformed;
-  }, [comboBots, stableDependencies, liveBotStats]);
+  const transformedBots = useStableBotTransforms(
+    comboBots,
+    (comboBot) => comboBot._id,
+    (id) => liveBotStats[id],
+    stableDependencies,
+    transformComboBot
+  );
 
   // Shared drawer-bot resolution: list lookup + by-id fallback (archived/share
   // bots) + sticky-through-refetch, all in one place for every bot page.
