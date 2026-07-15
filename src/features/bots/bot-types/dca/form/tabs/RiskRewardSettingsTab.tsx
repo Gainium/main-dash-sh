@@ -4,7 +4,7 @@ import { RiskRewardRuntimeProvider } from '@/contexts/bots/dca/RiskRewardRuntime
 import { RiskRewardSettings } from '@/features/bots/bot-types/dca/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const RiskRewardSettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const RiskRewardSettingsTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -20,6 +20,7 @@ export const RiskRewardSettingsTab: React.FC<BotFormTabComponentProps> = ({
       />
     </div>
   </RiskRewardRuntimeProvider>
-);
+));
+RiskRewardSettingsTab.displayName = 'RiskRewardSettingsTab';
 
 export default RiskRewardSettingsTab;

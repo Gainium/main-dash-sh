@@ -56,6 +56,10 @@ const METRIC_OPTIONS: { value: TopDealsMetric; label: string }[] = [
 
 const ACTIVE_STATUSES = new Set(['open', 'start', 'error']);
 
+// Stable row-id accessor. Hoisted to module scope so its identity never
+// changes — an inline `(row) => row.id` would defeat DataTable's React.memo.
+const getTradeRowId = (row: TransformedTrade) => row.id;
+
 const metricValue = (t: TransformedTrade, metric: TopDealsMetric): number => {
   const cost = t.cost ?? 0;
   switch (metric) {
@@ -264,68 +268,105 @@ const TopDeals: React.FC<TopDealsProps> = ({
 
   // The ranking selector lives in the DataTable toolbar (rendered before the
   // search/view-toggle controls), so the widget body is just the table.
-  const renderMetricSelect = (triggerClassName: string) => (
-    <Select
-      value={metric}
-      onValueChange={(v) => setMetric(v as TopDealsMetric)}
-    >
-      <SelectTrigger className={triggerClassName} aria-label="Rank deals by">
-        <SelectValue />
-      </SelectTrigger>
-      <SelectContent>
-        {METRIC_OPTIONS.map((o) => (
-          <SelectItem key={o.value} value={o.value}>
-            Top by {o.label}
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
+  const renderMetricSelect = useCallback(
+    (triggerClassName: string) => (
+      <Select
+        value={metric}
+        onValueChange={(v) => setMetric(v as TopDealsMetric)}
+      >
+        <SelectTrigger className={triggerClassName} aria-label="Rank deals by">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          {METRIC_OPTIONS.map((o) => (
+            <SelectItem key={o.value} value={o.value}>
+              Top by {o.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+    ),
+    [metric, setMetric]
   );
 
-  const content = isLoading ? (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {Array.from({ length: pageSize }).map((_, i) => (
-        <div
-          key={`top-deals-skel-${i}`}
-          className="h-64 animate-pulse rounded-xl bg-muted/40"
+  // Memoize the toolbar elements + empty state so DataTable's React.memo
+  // isn't defeated by fresh element identities every render.
+  const metricSelectFull = useMemo(
+    () => renderMetricSelect('h-9 w-44'),
+    [renderMetricSelect]
+  );
+  const metricSelectCompact = useMemo(
+    () => renderMetricSelect('h-9 w-28'),
+    [renderMetricSelect]
+  );
+  const emptyContent = useMemo(
+    () => (
+      <EmptyState
+        size="widget"
+        title="No active deals"
+        description="Your top deals will appear here once your bots open positions."
+      />
+    ),
+    []
+  );
+
+  const content = useMemo(
+    () =>
+      isLoading ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {Array.from({ length: pageSize }).map((_, i) => (
+            <div
+              key={`top-deals-skel-${i}`}
+              className="h-64 animate-pulse rounded-xl bg-muted/40"
+            />
+          ))}
+        </div>
+      ) : (
+        <DataTable
+          tableId={`top-deals-${widgetId}`}
+          columns={columns}
+          data={rankedDeals}
+          enableCardView
+          defaultView="cards"
+          cardComponent={TopDealCard}
+          cardViewBreakpoints={CARD_VIEW_COLUMNS}
+          cardViewGap={16}
+          enableSorting
+          initialPageSize={pageSize}
+          getRowId={getTradeRowId}
+          className="h-full"
+          firstToolbarActions={metricSelectFull}
+          firstToolbarActionsCompact={metricSelectCompact}
+          emptyContent={emptyContent}
         />
-      ))}
-    </div>
-  ) : (
-    <DataTable
-      tableId={`top-deals-${widgetId}`}
-      columns={columns}
-      data={rankedDeals}
-      enableCardView
-      defaultView="cards"
-      cardComponent={TopDealCard}
-      cardViewBreakpoints={CARD_VIEW_COLUMNS}
-      cardViewGap={16}
-      enableSorting
-      initialPageSize={pageSize}
-      getRowId={(row) => row.id}
-      className="h-full"
-      firstToolbarActions={renderMetricSelect('h-9 w-44')}
-      firstToolbarActionsCompact={renderMetricSelect('h-9 w-28')}
-      emptyContent={
-        <EmptyState
-          size="widget"
-          title="No active deals"
-          description="Your top deals will appear here once your bots open positions."
-        />
-      }
-    />
+      ),
+    [
+      isLoading,
+      pageSize,
+      widgetId,
+      columns,
+      rankedDeals,
+      TopDealCard,
+      metricSelectFull,
+      metricSelectCompact,
+      emptyContent,
+    ]
+  );
+
+  const metadata = useMemo(
+    () => ({
+      id: widgetId,
+      type: 'top-deals',
+      title: 'Top Deals',
+      header: true,
+      hasOptions: false,
+    }),
+    [widgetId]
   );
 
   return (
     <WidgetWrapper
-      metadata={{
-        id: widgetId,
-        type: 'top-deals',
-        title: 'Top Deals',
-        header: true,
-        hasOptions: false,
-      }}
+      metadata={metadata}
       isEditable={isEditable ?? false}
       isCollapsible={isCollapsible}
     >
@@ -334,4 +375,5 @@ const TopDeals: React.FC<TopDealsProps> = ({
   );
 };
 
-export default TopDeals;
+export default React.memo(TopDeals);
+

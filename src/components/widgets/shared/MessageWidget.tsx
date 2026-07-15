@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { useLiveUpdate } from '../../../contexts/LiveUpdateContext';
+import { useMessageStore } from '@/stores/live';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -25,10 +26,17 @@ const MessageWidget: React.FC<MessageWidgetProps> = ({
   title = 'Messages',
   maxHeight = 400,
 }) => {
-  const { messageSelectors, messageActions } = useLiveUpdate();
+  const { messageActions } = useLiveUpdate();
 
-  const activeMessages = messageSelectors.getActiveMessages();
-  const unreadCount = messageSelectors.getUnreadCount();
+  // Subscribe to the raw messages slice so store writes re-render this widget;
+  // the memoized LiveUpdateContext no longer re-renders on writes, so the
+  // render-time getActiveMessages/getUnreadCount getters would stay frozen.
+  const messages = useMessageStore((s) => s.messages);
+  const activeMessages = useMemo(
+    () => messages.filter((msg) => !msg.dismissed),
+    [messages]
+  );
+  const unreadCount = activeMessages.length;
 
   const formatTimeAgo = (timestamp: number) => {
     const now = Date.now();

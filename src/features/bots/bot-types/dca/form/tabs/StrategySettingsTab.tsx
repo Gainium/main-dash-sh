@@ -4,7 +4,7 @@ import { StrategySettings } from '@/features/bots/bot-types/dca/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 import type { DcaBot } from '@/types/dcaBot';
 
-export const StrategySettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const StrategySettingsTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -24,6 +24,7 @@ export const StrategySettingsTab: React.FC<BotFormTabComponentProps> = ({
         : {})}
     />
   </div>
-);
+));
+StrategySettingsTab.displayName = 'StrategySettingsTab';
 
 export default StrategySettingsTab;

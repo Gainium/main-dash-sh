@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { BotTypesEnum, type LeverageBracket, type Transaction } from '@/types';
+import {
+  BotTypesEnum,
+  type Bot,
+  type LeverageBracket,
+  type Transaction,
+} from '@/types';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import {
@@ -17,7 +22,6 @@ import {
 /* import { useBotAvgPriceLines } from '@/hooks/useBotAvgPriceLines'; */
 import type { GridBot } from '@/types/gridBot';
 import { useGridBotsStore } from '@/stores/live/gridBotsStore';
-import type { Bot } from '@/types';
 import { buildFundsSnapshot } from '@/utils/bots/grid/funds';
 import { calcDuration } from '@/utils/bots/grid/math';
 import type {

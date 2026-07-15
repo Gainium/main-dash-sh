@@ -1,7 +1,9 @@
+import { memo } from 'react';
+
 import { GridBasicSettings } from '@/features/bots/bot-types/grid/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const GridBasicSettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const GridBasicSettingsTab = memo<BotFormTabComponentProps>(({
   currentExchange,
   exchangesLoading,
   handleUpdateBalances,
@@ -23,6 +25,7 @@ export const GridBasicSettingsTab: React.FC<BotFormTabComponentProps> = ({
       exchangesData={exchangesData}
     />
   </div>
-);
+));
+GridBasicSettingsTab.displayName = 'GridBasicSettingsTab';
 
 export default GridBasicSettingsTab;

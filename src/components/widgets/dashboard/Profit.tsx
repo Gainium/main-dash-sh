@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useNowTick } from '@/hooks/useNowTick';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
 import logger from '@/lib/loggerInstance';
@@ -6,7 +7,7 @@ import EmptyState from '@/components/ui/empty-state';
 import { Skeleton } from '@/components/ui/skeleton';
 import type { ProfitQuery, Profit as ProfitResultItem } from '@/types';
 import { BarChart3 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -133,10 +134,17 @@ export const Profit: React.FC<ProfitProps> = ({
     };
   }, [widgetId]);
 
-  // Helper function to convert GraphQL response to our ProfitData format
-  const processGraphQLData = (
-    response: ReturnResult<ProfitData_API> | undefined
-  ): ProfitData => {
+  // Coarse minute-bucketed clock so the "today" boundary below rolls over at
+  // midnight even when `profitResponse` stays referentially stable (react-query
+  // structural sharing) — otherwise the captured `new Date()` would freeze and
+  // the Daily chart's 30-day window would never advance to the new day.
+  const nowTick = useNowTick();
+
+  // Helper function to convert GraphQL response to our ProfitData format.
+  // Memoized so the (heavy) transform below can run only when its inputs
+  // change, not on every render.
+  const processGraphQLData = useCallback(
+    (response: ReturnResult<ProfitData_API> | undefined): ProfitData => {
     // TIMEZONE FIX: Backend returns ISO dates at midnight in user's timezone
     // e.g., for Europe/Kyiv (UTC+2), midnight is returned as "2024-01-15T22:00:00.000Z"
     // (which is 22:00 on Jan 14 in UTC, representing midnight Jan 15 in Kyiv)
@@ -298,7 +306,9 @@ export const Profit: React.FC<ProfitProps> = ({
       date: string | number;
       value: number;
     }> => {
-      const today = new Date();
+      // `nowTick` (minute-bucketed) makes this recompute across midnight so the
+      // day window rolls over even when the response reference is unchanged.
+      const today = new Date(nowTick);
       const timeSeries: Array<{ date: string | number; value: number }> = [];
 
       if (timeframe === 0) {
@@ -528,13 +538,18 @@ export const Profit: React.FC<ProfitProps> = ({
       avgDaily,
       chartData,
     };
-  };
+    },
+    [userTimezone, timeframe, nowTick]
+  );
 
   // Helper: legacy Total tab averages are derived from cumulative total profit.
-  const computeTotalAverages = (
-    response: ReturnResult<ProfitData_API> | undefined,
-    precision = 2
-  ): { daily: number; weekly: number; monthly: number } => {
+  // `nowTick` (minute-bucketed) is the only reactive dep — it keeps the
+  // day/week/month denominators sliding while the widget stays mounted.
+  const computeTotalAverages = useCallback(
+    (
+      response: ReturnResult<ProfitData_API> | undefined,
+      precision = 2
+    ): { daily: number; weekly: number; monthly: number } => {
     if (!response || response.status !== 'OK' || !response.data?.result)
       return { daily: 0, weekly: 0, monthly: 0 };
 
@@ -550,7 +565,7 @@ export const Profit: React.FC<ProfitProps> = ({
       return { daily: 0, weekly: 0, monthly: 0 };
     }
 
-    const now = new Date();
+    const now = new Date(nowTick);
     const days = Math.max(
       1,
       Math.ceil((now.getTime() - startTime) / (1000 * 3600 * 24))
@@ -568,10 +583,16 @@ export const Profit: React.FC<ProfitProps> = ({
       weekly: round(value / weeks),
       monthly: round((months ? value / months : value) || 0),
     };
-  };
+    },
+    [nowTick]
+  );
 
-  // Process the GraphQL data
-  const realProfitData = processGraphQLData(profitResponse);
+  // Process the GraphQL data (memoized: only recompute when the response or
+  // the transform's inputs change).
+  const realProfitData = useMemo(
+    () => processGraphQLData(profitResponse),
+    [processGraphQLData, profitResponse]
+  );
 
   // Update timeframe when time filter changes
   useEffect(() => {
@@ -588,14 +609,6 @@ export const Profit: React.FC<ProfitProps> = ({
     }
   }, [timeFilter, timeframe]);
 
-  // Use centralized profit data with exchange multipliers
-  const getProfitDataForExchanges = () => {
-    // Start with real data instead of mock data
-    const baseData = realProfitData;
-    return baseData;
-  };
-
-  const currentProfitData = getProfitDataForExchanges();
   // Create stats data array for the WidgetStats component
   const createStatsData = useMemo(() => {
     const stats = [];
@@ -610,7 +623,7 @@ export const Profit: React.FC<ProfitProps> = ({
             : timeFilter === 'Weekly'
               ? 'This Week'
               : 'Today',
-      value: privacyMode ? 0 : currentProfitData.today,
+      value: privacyMode ? 0 : realProfitData.today,
       ...(privacyMode && { textValue: '***' }),
     });
 
@@ -643,17 +656,17 @@ export const Profit: React.FC<ProfitProps> = ({
             : timeFilter === 'Weekly'
               ? 'Last Week'
               : 'Yesterday',
-        value: privacyMode ? 0 : currentProfitData.yesterday,
+        value: privacyMode ? 0 : realProfitData.yesterday,
         ...(privacyMode && { textValue: '***' }),
       });
 
       // Third stat - Change
       stats.push({
         label: 'Change',
-        value: privacyMode ? 0 : currentProfitData.difference,
+        value: privacyMode ? 0 : realProfitData.difference,
         ...(privacyMode && { textValue: '***' }),
         badge: {
-          value: privacyMode ? 0 : currentProfitData.differencePercent,
+          value: privacyMode ? 0 : realProfitData.differencePercent,
           ...(privacyMode && { textValue: '***' }),
         },
       });
@@ -666,23 +679,32 @@ export const Profit: React.FC<ProfitProps> = ({
             : timeFilter === 'Weekly'
               ? 'Avg weekly'
               : 'Avg daily',
-        value: privacyMode ? 0 : currentProfitData.avgDaily,
+        value: privacyMode ? 0 : realProfitData.avgDaily,
         ...(privacyMode && { textValue: '***' }),
       });
     }
 
     return stats;
-  }, [currentProfitData, timeFilter, privacyMode, profitResponse]);
+  }, [
+    realProfitData,
+    timeFilter,
+    privacyMode,
+    profitResponse,
+    computeTotalAverages,
+  ]);
 
   // Distinguish initial load from "loaded but no profit history yet."
   const isInitialLoad = profitLoading && !profitResponse;
   const hasNoProfitData =
     !!profitResponse &&
-    (currentProfitData.chartData.length === 0 ||
-      currentProfitData.chartData.every((d) => d.value === 0));
+    (realProfitData.chartData.length === 0 ||
+      realProfitData.chartData.every((d) => d.value === 0));
 
-  if (isInitialLoad) {
-    const skeletonContent = (
+  // Initial-load skeleton. Fully static, so memoize once. Rendered by the
+  // conditional return at the very bottom (after all hooks) to keep
+  // rules-of-hooks intact.
+  const skeletonContent = useMemo(
+    () => (
       <div
         className="flex flex-col h-full p-md bg-card @container"
         aria-busy="true"
@@ -713,33 +735,12 @@ export const Profit: React.FC<ProfitProps> = ({
           ))}
         </div>
       </div>
-    );
+    ),
+    []
+  );
 
-    return (
-      <WidgetWrapper
-        metadata={{
-          ...getWidgetMetadata('profit'),
-          id: widgetId,
-          title: customName || 'Profit over time',
-          displayName: customName || 'Profit over time',
-        }}
-        isEditable={isEditable}
-        isCollapsible={isCollapsible}
-        style={
-          allowResize
-            ? {}
-            : {
-                height: typeof height === 'number' ? `${height}px` : height,
-                minHeight: typeof height === 'number' ? `${height}px` : height,
-              }
-        }
-      >
-        {skeletonContent}
-      </WidgetWrapper>
-    );
-  }
-
-  const content = (
+  const content = useMemo(
+    () => (
     <div className="flex flex-col h-full p-md bg-card @container">
       {/* Stats Section */}
       <WidgetStats stats={createStatsData} className="mb-6" />
@@ -762,7 +763,7 @@ export const Profit: React.FC<ProfitProps> = ({
         <div className="absolute inset-0">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
-              data={currentProfitData.chartData}
+              data={realProfitData.chartData}
               margin={{
                 top: 5,
                 right: 5,
@@ -835,7 +836,7 @@ export const Profit: React.FC<ProfitProps> = ({
               />
               <Bar
                 isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]}>
-                {currentProfitData.chartData.map((entry, index) => (
+                {realProfitData.chartData.map((entry, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={
@@ -867,39 +868,46 @@ export const Profit: React.FC<ProfitProps> = ({
 
       {/* Options handled by WidgetWrapper portal */}
     </div>
+    ),
+    [
+      createStatsData,
+      hasNoProfitData,
+      realProfitData,
+      privacyMode,
+      timeFilter,
+      setTimeFilter,
+      widgetId,
+    ]
   );
 
   // Calculate profit value for header
-  const profitValue = {
-    primary: privacyMode ? '***' : Math.abs(currentProfitData.today),
-    secondary: 'USD',
-    change: {
-      value: privacyMode ? '***' : Math.abs(currentProfitData.difference),
-      percentage: privacyMode ? '***' : currentProfitData.differencePercent,
-      isPositive: currentProfitData.difference >= 0,
-    },
-  };
+  const profitValue = useMemo(
+    () => ({
+      primary: privacyMode ? '***' : Math.abs(realProfitData.today),
+      secondary: 'USD',
+      change: {
+        value: privacyMode ? '***' : Math.abs(realProfitData.difference),
+        percentage: privacyMode ? '***' : realProfitData.differencePercent,
+        isPositive: realProfitData.difference >= 0,
+      },
+    }),
+    [privacyMode, realProfitData]
+  );
 
-  const wrapperProps = {
-    metadata: {
+  const metadata = useMemo(
+    () => ({
       ...getWidgetMetadata('profit'),
       id: widgetId,
       title: customName || 'Profit over time',
       displayName: customName || 'Profit over time',
       ...(hideHeaderValue ? {} : { value: profitValue }),
       hasOptions: true,
-    },
-    isEditable,
-    isCollapsible,
-    menuActions: {
-      ...menuActions,
-      onOptions: () => setShowOptionsDialog(true),
-    },
-    // Centralized options modal props
-    showOptionsDialog,
-    onCloseOptionsDialog: () => setShowOptionsDialog(false),
-    optionsTitle: 'Widget Options',
-    renderOptionsContent: () => (
+    }),
+    [widgetId, customName, hideHeaderValue, profitValue]
+  );
+
+  const renderOptionsContent = useCallback(
+    () => (
       <div className="space-y-md">
         {/* Widget Name */}
         <div>
@@ -919,26 +927,89 @@ export const Profit: React.FC<ProfitProps> = ({
         </div>
       </div>
     ),
-    ...(onRemove && { onRemove }),
-    ...(onSettings && { onSettings }),
-    ...(onCollapse && { onCollapse }),
-    ...(onTabMove && { onTabMove }),
-    // Track GraphQL query for stale-while-revalidate indicator
-    cacheQueries: [
+    [customName, setCustomName]
+  );
+
+  const cacheQueries = useMemo(
+    () => [
       {
         queryKey: 'getProfitByUser',
         variables: profitQuery.variables as Record<string, unknown>,
       },
     ],
-    style: allowResize
-      ? {}
-      : {
-          height: typeof height === 'number' ? `${height}px` : height,
-          minHeight: typeof height === 'number' ? `${height}px` : height,
-        },
-  };
+    [profitQuery]
+  );
+
+  const wrapperProps = useMemo(
+    () => ({
+      metadata,
+      isEditable,
+      isCollapsible,
+      menuActions: {
+        ...menuActions,
+        onOptions: () => setShowOptionsDialog(true),
+      },
+      // Centralized options modal props
+      showOptionsDialog,
+      onCloseOptionsDialog: () => setShowOptionsDialog(false),
+      optionsTitle: 'Widget Options',
+      renderOptionsContent,
+      ...(onRemove && { onRemove }),
+      ...(onSettings && { onSettings }),
+      ...(onCollapse && { onCollapse }),
+      ...(onTabMove && { onTabMove }),
+      // Track GraphQL query for stale-while-revalidate indicator
+      cacheQueries,
+      style: allowResize
+        ? {}
+        : {
+            height: typeof height === 'number' ? `${height}px` : height,
+            minHeight: typeof height === 'number' ? `${height}px` : height,
+          },
+    }),
+    [
+      metadata,
+      isEditable,
+      isCollapsible,
+      menuActions,
+      showOptionsDialog,
+      renderOptionsContent,
+      onRemove,
+      onSettings,
+      onCollapse,
+      onTabMove,
+      cacheQueries,
+      allowResize,
+      height,
+    ]
+  );
+
+  if (isInitialLoad) {
+    return (
+      <WidgetWrapper
+        metadata={{
+          ...getWidgetMetadata('profit'),
+          id: widgetId,
+          title: customName || 'Profit over time',
+          displayName: customName || 'Profit over time',
+        }}
+        isEditable={isEditable}
+        isCollapsible={isCollapsible}
+        style={
+          allowResize
+            ? {}
+            : {
+                height: typeof height === 'number' ? `${height}px` : height,
+                minHeight: typeof height === 'number' ? `${height}px` : height,
+              }
+        }
+      >
+        {skeletonContent}
+      </WidgetWrapper>
+    );
+  }
 
   return <WidgetWrapper {...wrapperProps}>{content}</WidgetWrapper>;
 };
 
-export default Profit;
+export default React.memo(Profit);

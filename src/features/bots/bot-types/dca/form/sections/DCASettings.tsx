@@ -760,6 +760,27 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     [clampOrdersCount, updateFormData]
   );
 
+  const handleOrdersCountChange = useCallback(
+    (value: string | number) => {
+      const parsedValue =
+        typeof value === 'string'
+          ? Number.parseInt(value, 10)
+          : Number(value);
+      const clamped = clampOrdersCount(parsedValue);
+      updateFormData('ordersCount', clamped);
+    },
+    [clampOrdersCount, updateFormData]
+  );
+
+  const handleGridLevelChange = useCallback(
+    (value: string | number) =>
+      updateFormData(
+        'gridLevel',
+        typeof value === 'number' ? value.toString() : String(value ?? '1')
+      ),
+    [updateFormData]
+  );
+
   const { isBound: isStepVarBound } = useBotVarBinding('step');
   const applyStepVariable = useCallback(
     (variable: GlobalVariable | null) => {
@@ -1117,14 +1138,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
               <NumberInput
                 id="dca-orders"
                 value={ordersCount}
-                onChange={(value) => {
-                  const parsedValue =
-                    typeof value === 'string'
-                      ? Number.parseInt(value, 10)
-                      : Number(value);
-                  const clamped = clampOrdersCount(parsedValue);
-                  updateFormData('ordersCount', clamped);
-                }}
+                onChange={handleOrdersCountChange}
                 min={ordersRangeMin}
                 {...(typeof ordersRangeMax === 'number' &&
                 Number.isFinite(ordersRangeMax)
@@ -1385,14 +1399,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                         value={
                           Number.parseInt(String(gridLevel ?? '1'), 10) || 1
                         }
-                        onChange={(value) =>
-                          updateFormData(
-                            'gridLevel',
-                            typeof value === 'number'
-                              ? value.toString()
-                              : String(value ?? '1')
-                          )
-                        }
+                        onChange={handleGridLevelChange}
                         min={1}
                         max={200}
                         step={1}
@@ -2631,7 +2638,7 @@ interface CustomDcaOrderRowProps {
   mode: BotFormMode;
 }
 
-const CustomDcaOrderRow: React.FC<CustomDcaOrderRowProps> = ({
+const CustomDcaOrderRow = React.memo<CustomDcaOrderRowProps>(({
   order,
   index,
   formData,
@@ -2955,7 +2962,8 @@ const CustomDcaOrderRow: React.FC<CustomDcaOrderRowProps> = ({
       </div>
     </Card>
   );
-};
+});
+CustomDcaOrderRow.displayName = 'CustomDcaOrderRow';
 
 interface TechnicalIndicatorCardProps {
   indicator: IndicatorConfig;
@@ -3605,12 +3613,15 @@ const CustomDCA: React.FC<DCASectionProps> = ({
     updateFormData('dcaCustom', updatedCustom);
   };
 
-  const removeCustomOrder = (id: string) => {
-    const updatedCustom = (dcaCustom || []).filter(
-      (order) => order.uuid !== id
-    );
-    updateFormData('dcaCustom', updatedCustom);
-  };
+  const removeCustomOrder = useCallback(
+    (id: string) => {
+      const updatedCustom = (dcaCustom || []).filter(
+        (order) => order.uuid !== id
+      );
+      updateFormData('dcaCustom', updatedCustom);
+    },
+    [dcaCustom, updateFormData]
+  );
 
   return (
     <>

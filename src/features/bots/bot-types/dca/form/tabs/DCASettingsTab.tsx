@@ -3,7 +3,7 @@ import React from 'react';
 import { DCASettings } from '@/features/bots/bot-types/dca/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const DCASettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const DCASettingsTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -21,6 +21,7 @@ export const DCASettingsTab: React.FC<BotFormTabComponentProps> = ({
         : {})}
     />
   </div>
-);
+));
+DCASettingsTab.displayName = 'DCASettingsTab';
 
 export default DCASettingsTab;

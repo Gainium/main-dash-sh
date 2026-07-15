@@ -19,7 +19,8 @@ interface NumberInputProps extends Omit<
   startAdornmentOnClick?: (e: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
+const NumberInput = React.memo(
+  React.forwardRef<HTMLInputElement, NumberInputProps>(
   (
     {
       className,
@@ -239,6 +240,7 @@ const NumberInput = React.forwardRef<HTMLInputElement, NumberInputProps>(
       />
     );
   }
+  )
 );
 
 NumberInput.displayName = 'NumberInput';

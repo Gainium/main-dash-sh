@@ -1,12 +1,19 @@
 import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
 import { useEffect } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 
 /**
  * Hook to apply visual settings to the document
  * This handles font size, spacing, and visual effects globally
  */
 export const useApplyVisualSettings = () => {
-  const { fontSize, spacing, visualEffects } = useVisualSettingsStore();
+  const { fontSize, spacing, visualEffects } = useVisualSettingsStore(
+    useShallow((s) => ({
+      fontSize: s.fontSize,
+      spacing: s.spacing,
+      visualEffects: s.visualEffects,
+    }))
+  );
 
   useEffect(() => {
     // Apply base font size as CSS custom property
@@ -57,7 +64,7 @@ export const useApplyVisualSettings = () => {
  * Utility hook to get visual effect classes conditionally
  */
 export const useVisualEffectClasses = () => {
-  const { visualEffects } = useVisualSettingsStore();
+  const visualEffects = useVisualSettingsStore((s) => s.visualEffects);
 
   return {
     blur: visualEffects ? 'backdrop-blur-sm' : '',

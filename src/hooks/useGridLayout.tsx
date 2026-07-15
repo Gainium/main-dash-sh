@@ -52,6 +52,12 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
   // Extract store values
   const widgets = useMemo(() => selectedStore.widgets, [selectedStore.widgets]);
 
+  // Always-latest widgets, read at call time by stable handlers that must not
+  // list `widgets` as a dep (otherwise they'd churn on every add/remove and
+  // bust the per-widget menuActions cache below).
+  const widgetsRef = useRef(widgets);
+  widgetsRef.current = widgets;
+
   const isGridLayoutLocked = selectedStore.isGridLayoutLocked;
 
   const updateLayout = useMemo(
@@ -366,7 +372,9 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
 
   const handleDuplicateWidget = useCallback(
     (widgetId: string) => {
-      const widget = widgets.find((w: GridWidgetConfig) => w.id === widgetId);
+      const widget = widgetsRef.current.find(
+        (w: GridWidgetConfig) => w.id === widgetId
+      );
       if (widget) {
         const newId = `${widget.type}-${Date.now()}`;
 
@@ -409,21 +417,33 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
         )(newWidget);
       }
     },
-    [widgets, addWidget, getWidgetOriginalHeight]
+    [addWidget, getWidgetOriginalHeight]
   );
 
-  // Create menu actions for a specific widget
-  const createMenuActions = useCallback(
-    (widget: GridWidgetConfig): WidgetMenuActions => ({
-      onDelete: () => handleDeleteWidget(widget.id),
-      onDuplicate: () => handleDuplicateWidget(widget.id),
-      onOptions: () => {
-        // Trigger the widget's options handler if it has one
-        // This will be handled by the individual widget components
-      },
-    }),
-    [handleDeleteWidget, handleDuplicateWidget]
-  );
+  // Create menu actions for a specific widget. Returns a STABLE object per
+  // widget.id: `createMenuActions(widget)` used to mint a fresh object on every
+  // render, which defeated every downstream widget's React.memo (and its
+  // wrapperProps memo). The factory caches per id in a Map that is rebuilt only
+  // when the underlying handlers change identity (both are now stable), so the
+  // same widget gets the same menuActions reference across renders.
+  const createMenuActions = useMemo(() => {
+    const cache = new Map<string, WidgetMenuActions>();
+    return (widget: GridWidgetConfig): WidgetMenuActions => {
+      let actions = cache.get(widget.id);
+      if (!actions) {
+        actions = {
+          onDelete: () => handleDeleteWidget(widget.id),
+          onDuplicate: () => handleDuplicateWidget(widget.id),
+          onOptions: () => {
+            // Trigger the widget's options handler if it has one
+            // This will be handled by the individual widget components
+          },
+        };
+        cache.set(widget.id, actions);
+      }
+      return actions;
+    };
+  }, [handleDeleteWidget, handleDuplicateWidget]);
 
   // Simplified resize handlers - no aggressive scroll blocking
   const handleResizeStart = useCallback(() => {

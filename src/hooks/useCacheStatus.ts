@@ -2,7 +2,7 @@
 import logger from '@/lib/loggerInstance';
 import { FIVE_MINUTES, queryClient } from '@/lib/queryClient';
 import { useCacheStatusStore } from '@/stores/cacheStatusStore';
-import { useIsFetching } from '@tanstack/react-query';
+import { partialMatchKey, useIsFetching } from '@tanstack/react-query';
 import { useEffect, useMemo, useRef } from 'react';
 
 const AUTO_REVALIDATE_COOLDOWN = 30 * 1000; // 30 seconds
@@ -20,7 +20,9 @@ export function useCacheStatus(
   cacheKeys: unknown[][],
   queryNames: string[]
 ) {
-  const { updateCacheStatus } = useCacheStatusStore();
+  // Select the stable action only — subscribing to the whole store would
+  // re-render this hook (and its WidgetWrapper) on every other widget's write.
+  const updateCacheStatus = useCacheStatusStore((s) => s.updateCacheStatus);
 
   // Create stable string representation to avoid infinite loops
   const cacheKeysStr = useMemo(() => JSON.stringify(cacheKeys), [cacheKeys]);
@@ -28,8 +30,29 @@ export function useCacheStatus(
   const queryNamesStr = useMemo(() => queryNames.join(','), [queryNames]);
   const stableQueryNames = useMemo(() => queryNames, [queryNamesStr]);
 
-  // Track fetching state for each query
-  const isFetching = useIsFetching();
+  // Cheap pre-filter: the set of our queries' root keys (names). A partial
+  // match requires the query's root key to equal one of our cacheKeys' root
+  // keys, so testing this Set first lets us skip the recursive partialMatchKey
+  // deep-compare for the vast majority of unrelated cached queries.
+  const namesSet = useMemo(
+    () => new Set(stableCacheKeys.map((k) => String(k[0]))),
+    [stableCacheKeys]
+  );
+
+  // Track fetching state for ONLY this widget's own queries. A bare
+  // useIsFetching() re-renders on any app-wide fetch transition; filtering by
+  // our cacheKeys means the count (and thus a re-render) only changes when one
+  // of OUR queries starts/stops fetching.
+  const isFetching = useIsFetching({
+    predicate: (query) => {
+      // Root-key (name) mismatch can never partial-match, so bail before the
+      // recursive deep-compare below.
+      if (!namesSet.has(String(query.queryKey[0]))) return false;
+      return stableCacheKeys.some((cacheKey) =>
+        partialMatchKey(query.queryKey, cacheKey)
+      );
+    },
+  });
   const isRevalidating = useMemo(() => {
     // Check if any of our queries are currently fetching
     const result = stableCacheKeys.some((cacheKey) => {
@@ -49,8 +72,9 @@ export function useCacheStatus(
 
   // Get oldest cache timestamp from all queries
   // Update whenever isFetching changes to catch state updates
+  const oldestTimestampRef = useRef<number>(Date.now());
   const oldestTimestamp = useMemo(() => {
-    let oldest = Date.now();
+    let oldest: number | null = null;
 
     stableCacheKeys.forEach((cacheKey) => {
       const queries = queryClient
@@ -58,39 +82,65 @@ export function useCacheStatus(
         .findAll({ queryKey: cacheKey });
 
       queries.forEach((query) => {
-        if (query.state.dataUpdatedAt && query.state.dataUpdatedAt < oldest) {
+        if (
+          query.state.dataUpdatedAt &&
+          (oldest === null || query.state.dataUpdatedAt < oldest)
+        ) {
           oldest = query.state.dataUpdatedAt;
         }
       });
     });
 
-    return oldest;
+    // When no query has data yet, keep the last stable value instead of
+    // minting a fresh Date.now() on every recompute — a moving timestamp
+    // would rewrite the store each pass and thrash every StaleIndicator.
+    const resolved = oldest ?? oldestTimestampRef.current;
+    oldestTimestampRef.current = resolved;
+    return resolved;
   }, [stableCacheKeys, cacheKeysStr, isFetching]);
 
-  // Use ref to track if we've done initial update
-  const hasInitialized = useRef(false);
   const lastAutoRevalidateRef = useRef(0);
 
-  // Update cache status in store only when values actually change
+  // Update cache status in store only when the values we'd write genuinely
+  // differ from what we last sent. This is the primary guard against the
+  // StaleIndicator feedback loop; the store also bails on no-change writes.
+  const lastSentRef = useRef<{
+    id: string;
+    ts: number;
+    rev: boolean;
+    names: string;
+  } | null>(null);
   useEffect(() => {
-    const shouldUpdate =
-      !hasInitialized.current || updateCacheStatus.length > 0; // This always passes but prevents warning
-
-    if (shouldUpdate) {
-      logger.debug(`[CacheStatus] Updating store for ${componentId}`, {
-        isRevalidating,
-        oldestTimestamp,
-        age: Date.now() - oldestTimestamp,
-        queryNames: stableQueryNames,
-      });
-      updateCacheStatus(
-        componentId,
-        stableQueryNames,
-        oldestTimestamp,
-        isRevalidating
-      );
-      hasInitialized.current = true;
+    const prev = lastSentRef.current;
+    if (
+      prev &&
+      prev.id === componentId &&
+      prev.ts === oldestTimestamp &&
+      prev.rev === isRevalidating &&
+      prev.names === queryNamesStr
+    ) {
+      return;
     }
+
+    lastSentRef.current = {
+      id: componentId,
+      ts: oldestTimestamp,
+      rev: isRevalidating,
+      names: queryNamesStr,
+    };
+
+    logger.debug(`[CacheStatus] Updating store for ${componentId}`, {
+      isRevalidating,
+      oldestTimestamp,
+      age: Date.now() - oldestTimestamp,
+      queryNames: stableQueryNames,
+    });
+    updateCacheStatus(
+      componentId,
+      stableQueryNames,
+      oldestTimestamp,
+      isRevalidating
+    );
   }, [
     componentId,
     cacheKeysStr,

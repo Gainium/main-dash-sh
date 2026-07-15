@@ -94,12 +94,17 @@ const Navbar: React.FC<NavbarProps> = ({
   const enableDefaultSoundsIfNone = useNotificationsSettingsStore(
     (s) => s.enableDefaultSoundsIfNone
   );
-  const { isNavbarFavoritesVisible } = useFavoritesStore();
+  const isNavbarFavoritesVisible = useFavoritesStore(
+    (s) => s.isNavbarFavoritesVisible
+  );
   // previous direct useUIStore() call was removed to avoid full-store subscription
   const { toggleTradingMode, isLiveTrading, tradingMode, setLiveTrading } =
     usePaperContext();
   const { isSwitching: isTradingModeSwitching } = useTradingModeSwitching();
-  const { unreadCounts, toggleNotificationsPanel } = useNotificationsStore();
+  const unreadCounts = useNotificationsStore((s) => s.unreadCounts);
+  const toggleNotificationsPanel = useNotificationsStore(
+    (s) => s.toggleNotificationsPanel
+  );
   const privacyMode = useUIStore((s) => s.privacyMode);
   const togglePrivacyMode = useUIStore((s) => s.togglePrivacyMode);
   const showTradingModeIcon = useVisualSettingsStore(
@@ -112,11 +117,9 @@ const Navbar: React.FC<NavbarProps> = ({
       : false;
   const showMobileMenuLayout = isMobile || moveButtonsToMenu; // Use same menu layout on mobile and when enabled on desktop
   const [shortcutsManagerOpen, setShortcutsManagerOpen] = React.useState(false);
-  const {
-    isOpen: globalSearchOpen,
-    openSearch,
-    closeSearch,
-  } = useGlobalSearchStore();
+  const globalSearchOpen = useGlobalSearchStore((s) => s.isOpen);
+  const openSearch = useGlobalSearchStore((s) => s.openSearch);
+  const closeSearch = useGlobalSearchStore((s) => s.closeSearch);
   // toggleChat is the single entry point — it closes Max wherever it
   // lives (docked, detached, or minimized pill) and reopens in the
   // user's last-chosen presentation. So one button handles "the Max
@@ -195,7 +198,8 @@ const Navbar: React.FC<NavbarProps> = ({
   const chatButtonRef = React.useRef<HTMLButtonElement>(null);
   const [chatPopupPos, setChatPopupPos] = React.useState({ top: 0, left: 0 });
 
-  const { user, logout } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
   const navigate = useNavigate();
   const userName = user?.name || 'User';
   const userEmail = user?.email || '';

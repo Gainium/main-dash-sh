@@ -77,7 +77,7 @@ export function useCacheKey(
   variables?: Record<string, unknown>,
   paperContext?: boolean
 ): unknown[] {
-  const { user } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
   const tradingMode = useUIStore((s) => s.tradingMode);
 
@@ -145,3 +145,4 @@ export function getInvalidationKeys(userId?: string): string[][] {
     ['user', userId],
   ];
 }
+

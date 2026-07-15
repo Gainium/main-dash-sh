@@ -10,7 +10,6 @@ import { useShareContext } from '../../hooks/useShareContext';
 import { useApplyVisualSettings } from '../../hooks/useVisualSettings';
 import { useChatStore } from '../../stores/chatStore';
 import { useDashboardStore } from '../../stores/dashboardStore';
-import { useNotificationsStore } from '../../stores/notificationsStore';
 import { useUIStore } from '../../stores/uiStore';
 import {
   getCategoryFromPath,
@@ -83,7 +82,6 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
   // Stores kept to ensure side-effects wiring remains available via events
   const toggleChat = useChatStore((s) => s.toggleChat);
   const isChatOpen = useChatStore((s) => s.open);
-  useNotificationsStore();
   const location = useLocation();
 
   // Initialize cloud sync (no-op in sh; cloud registers a PouchDB poller).

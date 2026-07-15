@@ -39,7 +39,7 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
   }
 ) {
   // Get the authentication token from the auth store
-  const { tokens } = useAuthStore();
+  const tokens = useAuthStore((s) => s.tokens);
 
   // Get the paper context from the UI store (live/paper trading mode)
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
@@ -212,3 +212,4 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
     enabled: finalEnabled, // Enforce token + id guards regardless of caller options
   });
 }
+

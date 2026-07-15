@@ -17,44 +17,70 @@ interface StaleIndicatorProps {
  *
  * Automatically tracks cache status via the cacheStatusStore
  */
-export const StaleIndicator: React.FC<StaleIndicatorProps> = ({
+const StaleIndicatorComponent: React.FC<StaleIndicatorProps> = ({
   componentId,
   className = '',
 }) => {
-  const { getCacheStatus } = useCacheStatusStore();
-  const [cacheStatus, setCacheStatus] = useState(getCacheStatus(componentId));
+  // Subscribe to THIS component's cache entry directly. updateCacheStatus
+  // rebuilds the Map but preserves the identity of every unchanged entry, so a
+  // plain selector re-renders only when our own entry changes — an unrelated
+  // widget's write leaves `cacheStatuses.get(componentId)` referentially
+  // identical. This also closes the mount gap and stale-componentId gap the old
+  // manual subscribe + useState mirrors had (an update between the initial seed
+  // and the effect subscription could be missed; componentId changes never
+  // re-seeded).
+  const cacheStatus = useCacheStatusStore((s) =>
+    s.cacheStatuses.get(componentId)
+  );
+  const isRevalidating = cacheStatus?.isRevalidating ?? false;
   const [isHovering, setIsHovering] = useState(false);
-  const [isRevalidating, setIsRevalidating] = useState(false);
 
-  // Subscribe to cache status updates
+  const lastUpdated = cacheStatus?.lastUpdated;
+
+  // Coarse staleness evaluation. The stale icon (Check → AlertCircle) crosses
+  // the 5-minute threshold on its own even with no data update, so we still
+  // need a periodic check — but at a 60s cadence and only re-rendering when the
+  // boolean actually flips, instead of the old 1s unconditional tick.
+  const [isStale, setIsStale] = useState(
+    () =>
+      lastUpdated != null && Date.now() - lastUpdated > FIVE_MINUTES
+  );
   useEffect(() => {
-    const unsubscribe = useCacheStatusStore.subscribe((state) => {
-      const status = state.cacheStatuses.get(componentId);
-      setCacheStatus(status);
-      setIsRevalidating(status?.isRevalidating ?? false);
-    });
+    const compute = () =>
+      lastUpdated != null && Date.now() - lastUpdated > FIVE_MINUTES;
+    setIsStale(compute());
+    const interval = setInterval(() => {
+      setIsStale((prev) => {
+        const nextStale = compute();
+        return prev === nextStale ? prev : nextStale;
+      });
+    }, 60 * 1000);
 
-    return unsubscribe;
-  }, [componentId]);
+    return () => clearInterval(interval);
+  }, [lastUpdated]);
 
-  // Force re-render every second to update relative time in tooltip
+  // Refresh the relative-time string once a second, but ONLY while hovering —
+  // it is visible solely inside the tooltip. A mounted-but-idle indicator
+  // schedules no per-second timer.
   const [, setTick] = useState(0);
   useEffect(() => {
+    if (!isHovering) {
+      return;
+    }
     const interval = setInterval(() => {
       setTick((t) => t + 1);
     }, 1000);
 
     return () => clearInterval(interval);
-  }, []);
+  }, [isHovering]);
 
   if (!cacheStatus) {
     return null;
   }
 
-  const { lastUpdated, queryKeys } = cacheStatus;
-
-  // Check if data is stale (older than 5 minutes)
-  const isStale = Date.now() - lastUpdated > FIVE_MINUTES;
+  // cacheStatus is non-null past the guard, so this is a concrete number.
+  const resolvedLastUpdated = cacheStatus.lastUpdated;
+  const { queryKeys } = cacheStatus;
 
   // Handle revalidation click
   const handleClick = () => {
@@ -121,8 +147,8 @@ export const StaleIndicator: React.FC<StaleIndicatorProps> = ({
     });
   };
 
-  const relativeTime = getRelativeTime(lastUpdated);
-  const absoluteTime = getAbsoluteTime(lastUpdated);
+  const relativeTime = getRelativeTime(resolvedLastUpdated);
+  const absoluteTime = getAbsoluteTime(resolvedLastUpdated);
 
   // Build tooltip content with proper line breaks
   const tooltipLines = [
@@ -162,5 +188,9 @@ export const StaleIndicator: React.FC<StaleIndicatorProps> = ({
     </Tooltip>
   );
 };
+
+// Props are primitives (componentId, className), so memo cuts the parent-driven
+// re-renders that WidgetWrapper's chrome would otherwise push through.
+export const StaleIndicator = React.memo(StaleIndicatorComponent);
 
 export default StaleIndicator;

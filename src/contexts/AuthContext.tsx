@@ -21,7 +21,7 @@ interface AuthProviderProps {
 }
 
 const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const { initializeAuth: storeInitializeAuth } = useAuthStore();
+  const storeInitializeAuth = useAuthStore((s) => s.initializeAuth);
 
   const initializeAuth = useCallback(async () => {
     // Store previous user state to compare after initialization

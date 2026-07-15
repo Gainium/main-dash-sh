@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from 'react';
 import { useLiveUpdate } from '../contexts/LiveUpdateContext';
+import { useBotStatsStore, useOrderStore, useDealStore } from '@/stores/live';
 import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 import type { DCADeals, OrderData } from '@/types';
 
@@ -49,21 +50,44 @@ export function useLiveBotMetrics(
 ): UseLiveBotMetricsReturn {
   const { botId /* enabled = true */ } = options;
   const {
-    botStatsSelectors,
-    orderSelectors,
-    dealSelectors,
     botStatsActions,
     /* webSocketManager, */
   } = useLiveUpdate();
 
-  // Get data from stores
-  const stats = botStatsSelectors.getBotStats(botId);
-  const isLoading = botStatsSelectors.isBotStatsLoading(botId);
-  const error = botStatsSelectors.getBotStatsError(botId);
-  const orders = orderSelectors.getOrders(botId);
-  const deals = dealSelectors.getDeals(botId);
-  const activeDeals = dealSelectors.getActiveDeals(botId);
-  const closedDeals = dealSelectors.getClosedDeals(botId);
+  // Subscribe directly to the per-bot store slices so socket-driven writes
+  // re-render this hook's consumers. The memoized LiveUpdateContext no longer
+  // re-renders on store writes, so reading via its render-time getters would
+  // leave these values frozen. Selecting the raw slice (whose identity changes
+  // only when THIS bot's data changes) and deriving arrays with useMemo keeps
+  // re-renders scoped to relevant writes instead of firing on every store
+  // change (which a fresh-array selector would do).
+  const stats = useBotStatsStore((s) => s.botStats[botId] ?? null);
+  const isLoading = useBotStatsStore((s) => s.loading[botId] ?? false);
+  const error = useBotStatsStore((s) => s.errors[botId] ?? null);
+
+  const newOrdersObj = useOrderStore((s) => s.orders.new[botId]);
+  const filledOrdersObj = useOrderStore((s) => s.orders.filled[botId]);
+  const orders = useMemo<OrderData[]>(
+    () => [
+      ...Object.values(newOrdersObj ?? {}),
+      ...Object.values(filledOrdersObj ?? {}),
+    ],
+    [newOrdersObj, filledOrdersObj]
+  );
+
+  const dealsObj = useDealStore((s) => s.deals[botId]);
+  const deals = useMemo<DCADeals[]>(
+    () => Object.values(dealsObj ?? {}),
+    [dealsObj]
+  );
+  const activeDeals = useMemo<DCADeals[]>(
+    () => deals.filter((d) => d.status === 'open' || d.status === 'start'),
+    [deals]
+  );
+  const closedDeals = useMemo<DCADeals[]>(
+    () => deals.filter((d) => d.status === 'closed'),
+    [deals]
+  );
 
   const clearStats = useCallback(() => {
     if (botId) {

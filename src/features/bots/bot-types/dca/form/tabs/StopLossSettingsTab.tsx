@@ -3,7 +3,7 @@ import React from 'react';
 import { StopLossSettings } from '@/features/bots/bot-types/dca/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const StopLossSettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const StopLossSettingsTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -17,6 +17,7 @@ export const StopLossSettingsTab: React.FC<BotFormTabComponentProps> = ({
       errors={errors}
     />
   </div>
-);
+));
+StopLossSettingsTab.displayName = 'StopLossSettingsTab';
 
 export default StopLossSettingsTab;

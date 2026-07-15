@@ -10,7 +10,7 @@ import type {
   ExperimentalToggleKey,
 } from '@/utils/bots/dca/experimental-toggles';
 
-export const ExperimentalFeaturesTab: React.FC<BotFormTabComponentProps> = ({
+export const ExperimentalFeaturesTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -134,6 +134,7 @@ export const ExperimentalFeaturesTab: React.FC<BotFormTabComponentProps> = ({
       />
     </div>
   );
-};
+});
+ExperimentalFeaturesTab.displayName = 'ExperimentalFeaturesTab';
 
 export default ExperimentalFeaturesTab;

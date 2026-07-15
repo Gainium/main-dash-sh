@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { shallow } from 'zustand/shallow';
 
 /**
  * Cache status for a specific component and its GraphQL queries
@@ -34,6 +35,19 @@ export const useCacheStatusStore = create<CacheStatusState>((set, get) => ({
 
   updateCacheStatus: (componentId, queryKeys, lastUpdated, isRevalidating) => {
     set((state) => {
+      const current = state.cacheStatuses.get(componentId);
+      // Belt-and-braces: bail out (no set) when nothing actually changed, so
+      // that every subscriber (StaleIndicator) is spared a needless re-render
+      // even if a caller forgets to guard on its side.
+      if (
+        current &&
+        current.lastUpdated === lastUpdated &&
+        current.isRevalidating === isRevalidating &&
+        shallow(current.queryKeys, queryKeys)
+      ) {
+        return state;
+      }
+
       const newStatuses = new Map(state.cacheStatuses);
       newStatuses.set(componentId, {
         componentId,
@@ -53,6 +67,8 @@ export const useCacheStatusStore = create<CacheStatusState>((set, get) => ({
     set((state) => {
       const current = state.cacheStatuses.get(componentId);
       if (!current) return state;
+      // No-op when the flag already matches — avoids waking subscribers.
+      if (current.isRevalidating === isRevalidating) return state;
 
       const newStatuses = new Map(state.cacheStatuses);
       newStatuses.set(componentId, {

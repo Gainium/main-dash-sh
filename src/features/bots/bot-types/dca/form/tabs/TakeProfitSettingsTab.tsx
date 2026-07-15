@@ -3,7 +3,7 @@ import React from 'react';
 import { TakeProfitSettings } from '@/features/bots/bot-types/dca/form/sections';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const TakeProfitSettingsTab: React.FC<BotFormTabComponentProps> = ({
+export const TakeProfitSettingsTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
   formData,
   updateFormData,
@@ -17,6 +17,7 @@ export const TakeProfitSettingsTab: React.FC<BotFormTabComponentProps> = ({
       errors={errors}
     />
   </div>
-);
+));
+TakeProfitSettingsTab.displayName = 'TakeProfitSettingsTab';
 
 export default TakeProfitSettingsTab;

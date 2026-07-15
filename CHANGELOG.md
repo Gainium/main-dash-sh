@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.17] - 2026-07-15
+
+### Fixed
+
+- Idle CPU/battery drain: the dashboard re-rendered the entire app about 4 times per second while sitting idle (widget staleness timers plus a provider-chain subscription cascade). Idle render work is now ~99% lower; live data still updates as before.
+- Bot create/edit form input lag: typing in any field re-rendered every form section (~250 ms per keystroke on large forms). Keystrokes now re-render only what changed (~10× fewer render passes, roughly half the input latency), and validation/order-preview updates are debounced without starving during rapid input or stepper holds.
+- Live-data widgets (bot stats, open orders, messages, portfolio balances) now subscribe to their live stores directly, so socket updates keep reaching them; previously they refreshed only as a side effect of unrelated app re-renders.
+- Time-windowed charts keep sliding while the dashboard stays open: the portfolio value window and the daily profit rollover no longer freeze at their initial load time.
+- Widget settings could be saved into the wrong widget's namespace after a widget id changed in place (e.g. workbench mode switch).
+
 ## [2.32.16] - 2026-07-15
 
 ### Fixed

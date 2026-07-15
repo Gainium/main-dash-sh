@@ -11,10 +11,18 @@ import { TimeframeButtons } from '@/components/widgets/shared/TimeframeButtons';
 import { LineChart } from 'lucide-react';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useNowTick } from '@/hooks/useNowTick';
+import { currencies, getCurrencyInfo } from '@/utils/currencyUtils';
 import { GraphQlQuery } from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
-import React, { useContext, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from 'react';
 import {
   Area,
   AreaChart,
@@ -54,6 +62,23 @@ interface PortfolioSnapshotWithExchanges {
   totalUsd: number;
   assets: PortfolioAssetWithExchanges[];
 }
+
+// Currency reference data + lookup live in `@/utils/currencyUtils` (imported
+// above as `currencies` / `getCurrencyInfo`) — do not duplicate them here.
+
+// Color palette for different coins.
+const COIN_COLORS = [
+  '#3b82f6', // blue
+  '#ef4444', // red
+  '#22c55e', // green
+  '#f59e0b', // amber
+  '#8b5cf6', // violet
+  '#ec4899', // pink
+  '#06b6d4', // cyan
+  '#84cc16', // lime
+  '#f97316', // orange
+  '#6366f1', // indigo
+];
 
 export interface PortfolioValueProps {
   widgetId?: string;
@@ -172,9 +197,12 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   }, [fixedTimeframe, timeFilter, setTimeFilter]);
 
   // Handle inline name editing
-  const handleNameChange = (_widgetId: string, newName: string) => {
-    setCustomName(newName);
-  };
+  const handleNameChange = useCallback(
+    (_widgetId: string, newName: string) => {
+      setCustomName(newName);
+    },
+    [setCustomName]
+  );
 
   // Local UI state (not persisted)
   const [showCoinDialog, setShowCoinDialog] = useState(false);
@@ -202,7 +230,8 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   }, [widgetId]);
 
   // Exchange management functions for this specific widget
-  const handleExchangeToggle = (exchangeId: string) => {
+  const handleExchangeToggle = useCallback(
+    (exchangeId: string) => {
     logger.debug('PortfolioValue: Exchange toggle', {
       exchangeId,
       widgetId,
@@ -263,9 +292,12 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         newSelection: updated,
       });
     }
-  };
+    },
+    [selectedExchanges, setSelectedExchanges, portfolioContext, widgetId]
+  );
 
-  const handleRemoveExchange = (exchangeId: string) => {
+  const handleRemoveExchange = useCallback(
+    (exchangeId: string) => {
     // Special handling for "ALL" option
     if (exchangeId === 'ALL' && selectedExchanges.length === 1) {
       return; // Prevent removing ALL if it's the only option
@@ -286,10 +318,13 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         portfolioContext.setSelectedExchanges(newSelectedExchanges);
       }
     }
-  };
+    },
+    [selectedExchanges, setSelectedExchanges, portfolioContext]
+  );
 
   // Coin management functions for this specific widget
-  const handleCoinToggle = (coinSymbol: string) => {
+  const handleCoinToggle = useCallback(
+    (coinSymbol: string) => {
     if (coinSymbol === 'ALL') {
       // If ALL is being toggled off and it's the only selection, don't allow it
       if (selectedCoins.includes('ALL') && selectedCoins.length === 1) {
@@ -308,9 +343,12 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     } else {
       setSelectedCoins([...selectedCoins, coinSymbol]);
     }
-  };
+    },
+    [selectedCoins, setSelectedCoins]
+  );
 
-  const handleRemoveCoin = (coinSymbol: string) => {
+  const handleRemoveCoin = useCallback(
+    (coinSymbol: string) => {
     // Special handling for "ALL" option
     if (coinSymbol === 'ALL' && selectedCoins.length === 1) {
       return; // Prevent removing ALL if it's the only option
@@ -323,102 +361,90 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     } else {
       setSelectedCoins(newSelectedCoins);
     }
-  };
+    },
+    [selectedCoins, setSelectedCoins]
+  );
 
   // Prepare coin data for ListModal
-  const modalItems = [
-    {
-      symbol: 'ALL',
-      name: 'All Coins',
-      icon: '📊',
-      color: '#3b82f6',
-      subtitle: 'Total portfolio value',
-    },
-    ...(snapshots?.[0]?.assets || []).map((asset) => {
-      return {
-        symbol: asset.name.toUpperCase(),
-        name: asset.name.toUpperCase(),
-        icon: '', // CoinIcon component uses symbol prop to construct URL
-        price: asset.amountUsd,
-        color: '',
-        // Don't set baseAsset, quoteAsset, or isExchange so it uses CoinIcon
-      };
-    }),
-  ];
+  const modalItems = useMemo(
+    () => [
+      {
+        symbol: 'ALL',
+        name: 'All Coins',
+        icon: '📊',
+        color: '#3b82f6',
+        subtitle: 'Total portfolio value',
+      },
+      ...(snapshots?.[0]?.assets || []).map((asset) => {
+        return {
+          symbol: asset.name.toUpperCase(),
+          name: asset.name.toUpperCase(),
+          icon: '', // CoinIcon component uses symbol prop to construct URL
+          price: asset.amountUsd,
+          color: '',
+          // Don't set baseAsset, quoteAsset, or isExchange so it uses CoinIcon
+        };
+      }),
+    ],
+    [snapshots]
+  );
 
   // Prepare exchange data for ListModal
-  const exchangeModalItems = [
-    {
-      symbol: 'ALL',
-      name: 'All Exchanges',
-      icon: '🏢',
-      color: '#3b82f6',
-      subtitle: 'Total portfolio value',
-      isExchange: true,
-    },
-    ...exchanges
-      .filter((exchange) => exchange.id !== 'ALL')
-      .map((exchange) => ({
-        symbol: exchange.id, // Use UUID for internal tracking
-        name: exchange.name, // Just the name
-        icon: exchange.icon,
-        color: exchange.color || '#64748b',
-        subtitle: exchange.provider, // Pass raw provider string
-        balance: exchange.balance,
+  const exchangeModalItems = useMemo(
+    () => [
+      {
+        symbol: 'ALL',
+        name: 'All Exchanges',
+        icon: '🏢',
+        color: '#3b82f6',
+        subtitle: 'Total portfolio value',
         isExchange: true,
-      })),
-  ];
-
-  // Available currencies for display
-  const availableCurrencies = [
-    { code: 'USD', name: 'US Dollar', symbol: '$', rate: 1 },
-    { code: 'EUR', name: 'Euro', symbol: '€', rate: 0.85 },
-    { code: 'GBP', name: 'British Pound', symbol: '£', rate: 0.73 },
-    { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rate: 110.0 },
-    { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$', rate: 1.25 },
-    { code: 'AUD', name: 'Australian Dollar', symbol: 'A$', rate: 1.35 },
-    { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF', rate: 0.92 },
-    { code: 'CNY', name: 'Chinese Yuan', symbol: '¥', rate: 6.45 },
-  ];
-
-  // Get currency conversion rate and formatting
-  const getCurrencyInfo = (currencyCode: string) => {
-    const currency = availableCurrencies.find((c) => c.code === currencyCode);
-    return currency || availableCurrencies[0]; // Default to USD
-  };
-
-  // Color palette for different coins
-  const coinColors = [
-    '#3b82f6', // blue
-    '#ef4444', // red
-    '#22c55e', // green
-    '#f59e0b', // amber
-    '#8b5cf6', // violet
-    '#ec4899', // pink
-    '#06b6d4', // cyan
-    '#84cc16', // lime
-    '#f97316', // orange
-    '#6366f1', // indigo
-  ];
+      },
+      ...exchanges
+        .filter((exchange) => exchange.id !== 'ALL')
+        .map((exchange) => ({
+          symbol: exchange.id, // Use UUID for internal tracking
+          name: exchange.name, // Just the name
+          icon: exchange.icon,
+          color: exchange.color || '#64748b',
+          subtitle: exchange.provider, // Pass raw provider string
+          balance: exchange.balance,
+          isExchange: true,
+        })),
+    ],
+    [exchanges]
+  );
 
   // Get color for a specific coin - use consistent mapping based on position in selected coins
-  const getCoinColor = (coinSymbol: string, fallbackIndex: number) => {
-    if (coinSymbol === 'ALL') return '#3b82f6'; // Always blue for ALL
+  const getCoinColor = useCallback(
+    (coinSymbol: string, fallbackIndex: number) => {
+      if (coinSymbol === 'ALL') return '#3b82f6'; // Always blue for ALL
 
-    // Get the list of non-ALL selected coins to determine order
-    const nonAllCoins = selectedCoins.filter((coin) => coin !== 'ALL');
-    const coinIndex = nonAllCoins.indexOf(coinSymbol);
+      // Get the list of non-ALL selected coins to determine order
+      const nonAllCoins = selectedCoins.filter((coin) => coin !== 'ALL');
+      const coinIndex = nonAllCoins.indexOf(coinSymbol);
 
-    // Use the coin's position in the selected list, or fallback index if not found
-    // Start from index 1 to avoid blue (index 0) which is reserved for ALL
-    const colorIndex = coinIndex >= 0 ? coinIndex + 1 : fallbackIndex + 1;
+      // Use the coin's position in the selected list, or fallback index if not found
+      // Start from index 1 to avoid blue (index 0) which is reserved for ALL
+      const colorIndex = coinIndex >= 0 ? coinIndex + 1 : fallbackIndex + 1;
 
-    // Ensure we don't exceed the color array length by using modulo
-    return coinColors[colorIndex % coinColors.length];
-  };
+      // Ensure we don't exceed the color array length by using modulo
+      return COIN_COLORS[colorIndex % COIN_COLORS.length];
+    },
+    [selectedCoins]
+  );
 
-  // Process real portfolio data from GraphQL
-  const getPortfolioDataForExchanges = (exchangeIds: string[]) => {
+  // Coarse minute-bucketed clock so the rolling cutoff window below keeps
+  // sliding. Without it, react-query structural sharing can hold `snapshots`
+  // referentially stable for hours, so this useCallback would never recreate
+  // and the captured `now` (cutoff) would freeze.
+  const nowTick = useNowTick();
+
+  // Process real portfolio data from GraphQL. Memoized: this is the widget's
+  // heaviest computation (O(snapshots × assets × exchanges)), so it must only
+  // run when its inputs change — not on every render.
+  const getPortfolioDataForExchanges = useCallback(
+    (exchangeIds: string[]) => {
     if (!snapshots || snapshots.length === 0) {
       return {
         currentValue: 0,
@@ -429,8 +455,10 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       };
     }
 
-    // Filter snapshots based on time filter
-    const now = Date.now();
+    // Filter snapshots based on time filter. `nowTick` advances once a minute
+    // so the cutoff window slides even when `snapshots` stays referentially
+    // stable (react-query structural sharing).
+    const now = nowTick;
     const timeFilterMs = {
       '30': 30 * 24 * 60 * 60 * 1000,
       '60': 60 * 24 * 60 * 60 * 1000,
@@ -653,27 +681,39 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       timeFilter: timeFilter,
       chartData: finalChartData,
     };
-  };
-
-  const portfolioData = getPortfolioDataForExchanges(selectedExchanges);
-
-  // Calculate portfolio value and change for header
-  const currencyInfo = getCurrencyInfo(selectedCurrency);
-  const portfolioValue = {
-    primary: privacyMode
-      ? '***'
-      : portfolioData.currentValue * currencyInfo.rate,
-    secondary: `${currencyInfo.symbol} ${selectedCurrency}`,
-    change: {
-      value: privacyMode
-        ? '***'
-        : portfolioData.changeValue * currencyInfo.rate,
-      percentage: privacyMode
-        ? '***'
-        : Math.round(portfolioData.changePercent * 100) / 100, // Round to 2 decimal places
-      isPositive: portfolioData.changeValue >= 0,
     },
-  };
+    [snapshots, timeFilter, selectedCoins, nowTick]
+  );
+
+  const portfolioData = useMemo(
+    () => getPortfolioDataForExchanges(selectedExchanges),
+    [getPortfolioDataForExchanges, selectedExchanges]
+  );
+
+  // Calculate portfolio value and change for header. `getCurrencyInfo` is now a
+  // stable module-level import, so it is not a dependency.
+  const currencyInfo = useMemo(
+    () => getCurrencyInfo(selectedCurrency),
+    [selectedCurrency]
+  );
+  const portfolioValue = useMemo(
+    () => ({
+      primary: privacyMode
+        ? '***'
+        : portfolioData.currentValue * currencyInfo.rate,
+      secondary: `${currencyInfo.symbol} ${selectedCurrency}`,
+      change: {
+        value: privacyMode
+          ? '***'
+          : portfolioData.changeValue * currencyInfo.rate,
+        percentage: privacyMode
+          ? '***'
+          : Math.round(portfolioData.changePercent * 100) / 100, // Round to 2 decimal places
+        isPositive: portfolioData.changeValue >= 0,
+      },
+    }),
+    [privacyMode, portfolioData, currencyInfo, selectedCurrency]
+  );
 
   // Check if any filters are active (not default state)
   const filtersActive =
@@ -683,81 +723,103 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     selectedCoins.length > 1;
 
   // Clear all filters to default state
-  const clearAllFilters = () => {
+  const clearAllFilters = useCallback(() => {
     setSelectedExchanges(['ALL']);
     setSelectedCoins(['ALL']);
     if (portfolioContext?.setSelectedExchanges) {
       portfolioContext.setSelectedExchanges(['ALL']);
     }
-  };
+  }, [setSelectedExchanges, setSelectedCoins, portfolioContext]);
 
   // Create exchange filter items for the generic filter system
-  const exchangeFilterItems: FilterItem[] = exchanges
-    .filter((exchange) => exchange.id !== 'ALL') // Exclude ALL since it's handled separately
-    .map((exchange) => ({
-      id: exchange.id, // Use UUID for consistency
-      name: exchange.name,
-      icon: exchange.icon,
-      color: exchange.color || '#64748b',
-      isExchange: true,
-    }));
+  const exchangeFilterItems: FilterItem[] = useMemo(
+    () =>
+      exchanges
+        .filter((exchange) => exchange.id !== 'ALL') // Exclude ALL since it's handled separately
+        .map((exchange) => ({
+          id: exchange.id, // Use UUID for consistency
+          name: exchange.name,
+          icon: exchange.icon,
+          color: exchange.color || '#64748b',
+          isExchange: true,
+        })),
+    [exchanges]
+  );
 
   // Create coin filter items for the generic filter system
-  const coinFilterItems: FilterItem[] = (snapshots?.[0]?.assets || []).map(
-    (coin) => ({
-      id: coin.name,
-      name: coin.name.toUpperCase(),
-      icon: '',
-      color: '',
-      isExchange: false,
-    })
+  const coinFilterItems: FilterItem[] = useMemo(
+    () =>
+      (snapshots?.[0]?.assets || []).map((coin) => ({
+        id: coin.name,
+        name: coin.name.toUpperCase(),
+        icon: '',
+        color: '',
+        isExchange: false,
+      })),
+    [snapshots]
   );
 
   // Create filter content using the generic filter system
-  const filterContent = (
-    <div className="space-y-md">
-      <FilterSection
-        title="Exchanges"
-        selectedItems={selectedExchanges}
-        availableItems={exchangeFilterItems}
-        onItemRemove={handleRemoveExchange}
-        onShowDialog={() => setShowExchangeDialog(true)}
-        addButtonText="Add exchanges"
-        showAllOption={true}
-      />
+  const filterContent = useMemo(
+    () => (
+      <div className="space-y-md">
+        <FilterSection
+          title="Exchanges"
+          selectedItems={selectedExchanges}
+          availableItems={exchangeFilterItems}
+          onItemRemove={handleRemoveExchange}
+          onShowDialog={() => setShowExchangeDialog(true)}
+          addButtonText="Add exchanges"
+          showAllOption={true}
+        />
 
-      <FilterSection
-        title="Coins"
-        selectedItems={selectedCoins}
-        availableItems={coinFilterItems}
-        onItemRemove={handleRemoveCoin}
-        onShowDialog={() => setShowCoinDialog(true)}
-        addButtonText="Add coins"
-        showAllOption={true}
-      />
+        <FilterSection
+          title="Coins"
+          selectedItems={selectedCoins}
+          availableItems={coinFilterItems}
+          onItemRemove={handleRemoveCoin}
+          onShowDialog={() => setShowCoinDialog(true)}
+          addButtonText="Add coins"
+          showAllOption={true}
+        />
 
-      {/* Use ListModal for coin selection with proper icon rendering */}
-      <ListModal
-        isOpen={showCoinDialog}
-        onClose={() => setShowCoinDialog(false)}
-        title="Select Coins"
-        items={modalItems}
-        selectedItems={selectedCoins}
-        onItemToggle={handleCoinToggle}
-        searchPlaceholder="Search coins..."
-      />
+        {/* Use ListModal for coin selection with proper icon rendering */}
+        <ListModal
+          isOpen={showCoinDialog}
+          onClose={() => setShowCoinDialog(false)}
+          title="Select Coins"
+          items={modalItems}
+          selectedItems={selectedCoins}
+          onItemToggle={handleCoinToggle}
+          searchPlaceholder="Search coins..."
+        />
 
-      {/* Use ListModal for exchange selection with proper icon rendering */}
-      <ListModal
-        isOpen={showExchangeDialog}
-        onClose={() => setShowExchangeDialog(false)}
-        title="Select Exchanges"
-        items={exchangeModalItems}
-        selectedItems={selectedExchanges}
-        onItemToggle={handleExchangeToggle}
-        searchPlaceholder="Search exchanges..."
-      />
-    </div>
+        {/* Use ListModal for exchange selection with proper icon rendering */}
+        <ListModal
+          isOpen={showExchangeDialog}
+          onClose={() => setShowExchangeDialog(false)}
+          title="Select Exchanges"
+          items={exchangeModalItems}
+          selectedItems={selectedExchanges}
+          onItemToggle={handleExchangeToggle}
+          searchPlaceholder="Search exchanges..."
+        />
+      </div>
+    ),
+    [
+      selectedExchanges,
+      exchangeFilterItems,
+      handleRemoveExchange,
+      selectedCoins,
+      coinFilterItems,
+      handleRemoveCoin,
+      showCoinDialog,
+      modalItems,
+      handleCoinToggle,
+      showExchangeDialog,
+      exchangeModalItems,
+      handleExchangeToggle,
+    ]
   );
 
   // Distinguish loading from empty. We're in initial load when there's no
@@ -766,7 +828,8 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   const isInitialLoad = portfolioLoading && !p;
   const isEmpty = !!p && (!snapshots || snapshots.length === 0);
 
-  const content = (
+  const content = useMemo(
+    () => (
     <div className="flex flex-col h-full p-xs bg-card">
       {/* Skeleton chart while loading */}
       {isInitialLoad && (
@@ -962,38 +1025,25 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         />
       )}
     </div>
+    ),
+    [
+      isInitialLoad,
+      isEmpty,
+      snapshots,
+      portfolioData,
+      selectedCoins,
+      getCoinColor,
+      timeFilter,
+      privacyMode,
+      selectedCurrency,
+      startYAxisAtZero,
+      setTimeFilter,
+      widgetId,
+    ]
   );
 
-  const wrapperProps = {
-    metadata: {
-      ...getWidgetMetadata('portfolio-value'),
-      id: widgetId,
-      title: 'Portfolio Value', // Keep static base title
-      hasFilters: true,
-      filterContent: filterContent,
-      filtersActive: filtersActive,
-      onClearFilters: clearAllFilters,
-      ...(hideHeaderValue ? {} : { value: portfolioValue }),
-      hasOptions: true,
-    },
-    isEditable,
-    isCollapsible,
-    style: allowResize
-      ? {}
-      : {
-          height: typeof height === 'number' ? `${height}px` : height,
-          minHeight: typeof height === 'number' ? `${height}px` : height,
-        },
-    onNameChange: handleNameChange, // Add inline name editing
-    menuActions: {
-      ...menuActions,
-      onOptions: () => setShowOptionsDialog(true),
-    },
-    // Centralized options modal props
-    showOptionsDialog,
-    onCloseOptionsDialog: () => setShowOptionsDialog(false),
-    optionsTitle: 'Portfolio Value Options',
-    renderOptionsContent: () => (
+  const renderOptionsContent = useCallback(
+    () => (
       <div className="space-y-md">
         {/* Widget Name */}
         <div>
@@ -1025,7 +1075,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {availableCurrencies.map((currency) => (
+              {currencies.map((currency) => (
                 <SelectItem key={currency.code} value={currency.code}>
                   {currency.symbol} {currency.code} - {currency.name}
                 </SelectItem>
@@ -1075,23 +1125,99 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         </div>
       </div>
     ),
-    ...(onRemove && { onRemove }),
-    ...(onSettings && { onSettings }),
-    ...(onCollapse && { onCollapse }),
-    ...(onTabMove && { onTabMove }),
-    registry: 'dashboard' as const, // Add registry for fullscreen functionality
-    // Track GraphQL query for stale-while-revalidate indicator
-    cacheQueries: portfolioQuery.variables
-      ? [
-          {
-            queryKey: 'getPortfolioByUser',
-            variables: portfolioQuery.variables as Record<string, unknown>,
+    [
+      customName,
+      setCustomName,
+      selectedCurrency,
+      setSelectedCurrency,
+      startYAxisAtZero,
+      setStartYAxisAtZero,
+    ]
+  );
+
+  const metadata = useMemo(
+    () => ({
+      ...getWidgetMetadata('portfolio-value'),
+      id: widgetId,
+      title: 'Portfolio Value', // Keep static base title
+      hasFilters: true,
+      filterContent: filterContent,
+      filtersActive: filtersActive,
+      onClearFilters: clearAllFilters,
+      ...(hideHeaderValue ? {} : { value: portfolioValue }),
+      hasOptions: true,
+    }),
+    [
+      widgetId,
+      filterContent,
+      filtersActive,
+      clearAllFilters,
+      hideHeaderValue,
+      portfolioValue,
+    ]
+  );
+
+  const cacheQueries = useMemo(
+    () =>
+      portfolioQuery.variables
+        ? [
+            {
+              queryKey: 'getPortfolioByUser',
+              variables: portfolioQuery.variables as Record<string, unknown>,
+            },
+          ]
+        : [],
+    [portfolioQuery]
+  );
+
+  const wrapperProps = useMemo(
+    () => ({
+      metadata,
+      isEditable,
+      isCollapsible,
+      style: allowResize
+        ? {}
+        : {
+            height: typeof height === 'number' ? `${height}px` : height,
+            minHeight: typeof height === 'number' ? `${height}px` : height,
           },
-        ]
-      : [],
-  };
+      onNameChange: handleNameChange, // Add inline name editing
+      menuActions: {
+        ...menuActions,
+        onOptions: () => setShowOptionsDialog(true),
+      },
+      // Centralized options modal props
+      showOptionsDialog,
+      onCloseOptionsDialog: () => setShowOptionsDialog(false),
+      optionsTitle: 'Portfolio Value Options',
+      renderOptionsContent,
+      ...(onRemove && { onRemove }),
+      ...(onSettings && { onSettings }),
+      ...(onCollapse && { onCollapse }),
+      ...(onTabMove && { onTabMove }),
+      registry: 'dashboard' as const, // Add registry for fullscreen functionality
+      // Track GraphQL query for stale-while-revalidate indicator
+      cacheQueries,
+    }),
+    [
+      metadata,
+      isEditable,
+      isCollapsible,
+      allowResize,
+      height,
+      handleNameChange,
+      menuActions,
+      showOptionsDialog,
+      renderOptionsContent,
+      onRemove,
+      onSettings,
+      onCollapse,
+      onTabMove,
+      cacheQueries,
+    ]
+  );
 
   return <WidgetWrapper {...wrapperProps}>{content}</WidgetWrapper>;
 };
 
-export default PortfolioValue;
+export default React.memo(PortfolioValue);

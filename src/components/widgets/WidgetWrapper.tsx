@@ -711,14 +711,19 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
   // Track cache status - always call the hook unconditionally
   useCacheStatus(metadata.id, cacheKeys, queryNames);
 
-  // Get widget settings store functions
-  const {
-    getWidgetCollapsed,
-    setWidgetCollapsed,
-    getWidgetSetting,
-    setWidgetSetting,
-    resetWidgetSettings,
-  } = useWidgetSettingsStore();
+  // Get widget settings store functions (narrow selectors so the wrapper
+  // doesn't re-render on unrelated widget-settings-store changes)
+  const getWidgetCollapsed = useWidgetSettingsStore(
+    (s) => s.getWidgetCollapsed
+  );
+  const setWidgetCollapsed = useWidgetSettingsStore(
+    (s) => s.setWidgetCollapsed
+  );
+  const getWidgetSetting = useWidgetSettingsStore((s) => s.getWidgetSetting);
+  const setWidgetSetting = useWidgetSettingsStore((s) => s.setWidgetSetting);
+  const resetWidgetSettings = useWidgetSettingsStore(
+    (s) => s.resetWidgetSettings
+  );
 
   // Default reset handler: clears all persisted settings for this widget
   const handleResetToDefault = useCallback(() => {
@@ -2007,4 +2012,13 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
   );
 };
 
-export default WidgetWrapper;
+// Memoize the default export so the wrapperProps/metadata memos that widgets
+// build actually pay off: WidgetWrapper now re-renders only when its own props
+// change, not on every parent re-render. Post-refactor the props widgets pass
+// (menuActions, stable callbacks, primitive flags) are stable enough for memo
+// to hit on non-data re-renders.
+const MemoizedWidgetWrapper = React.memo(WidgetWrapper);
+MemoizedWidgetWrapper.displayName = 'WidgetWrapper';
+
+export default MemoizedWidgetWrapper;
+

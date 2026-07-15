@@ -77,7 +77,7 @@ import React, {
     useState,
 } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useLiveUpdate } from '../../../contexts/LiveUpdateContext';
+import { useOrderStore } from '@/stores/live';
 import { useChartColors } from '../../../hooks/useChartColors';
 import logger from '../../../lib/loggerInstance';
 import { TradeCard } from '../../trades/TradeCard';
@@ -991,13 +991,25 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     exchange: string;
   } | null>(null);
 
-  // Get live order data from the live update context
-  const { orderSelectors } = useLiveUpdate();
+  // Subscribe to the raw orders slice so socket-driven order writes re-render
+  // this widget. The memoized LiveUpdateContext no longer re-renders on store
+  // writes, so a render-time getAllOrders() getter would stay frozen. Selecting
+  // `orders` (whose identity changes only on order writes, not on loading/error
+  // writes) and deriving via the store's getAllOrders keeps liveOrdersData
+  // referentially stable across unrelated renders.
+  const ordersState = useOrderStore((s) => s.orders);
+  const getAllOrders = useOrderStore((s) => s.getAllOrders);
   // Memoize liveOrders so that transformDCADealToOpenTrade (which lists liveOrders
   // as a dependency) is not recreated on every render. Without this, any parent
   // re-render (e.g. from latestPrices updates) would cascade through baseTrades →
   // trades → DataTable → all cards re-render unnecessarily.
-  const liveOrdersData = orderSelectors.getAllOrders();
+  const liveOrdersData = useMemo(
+    () => getAllOrders(),
+    // `ordersState` is the reactive trigger: getAllOrders() reads the store
+    // imperatively, so the memo must recompute when the orders slice changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [ordersState, getAllOrders]
+  );
   const liveOrders = useMemo(
     () =>
       Object.values(liveOrdersData)

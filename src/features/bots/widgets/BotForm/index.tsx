@@ -3355,23 +3355,47 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const isContentReadOnly = mode === 'edit' ? isReadOnly : false;
 
-  const componentProps: BotFormTabComponentProps = {
-    currentExchange,
-    formData,
-    updateFormData:
-      updateFormData as BotFormTabComponentProps['updateFormData'],
-    errors,
-    mode,
-    isFieldLocked,
-    getBalance: getBalanceFn,
-    bot,
-    handleUpdateBalances,
-    exchangesData: exchanges,
-    exchangesLoading,
-    activeTab,
-    onTabChange: handleTabChangeWithScroll,
-    features,
-  };
+  // Memoized so unrelated re-renders of BotFormShell don't hand every
+  // section a fresh props object. Identity still changes when formData
+  // (or any other listed input) changes — that's expected; the win is
+  // for renders that don't touch these values. The functions below
+  // (updateFormData, isFieldLocked, getBalanceFn, handleUpdateBalances,
+  // handleTabChangeWithScroll) are already stable references.
+  const componentProps = useMemo<BotFormTabComponentProps>(
+    () => ({
+      currentExchange,
+      formData,
+      updateFormData:
+        updateFormData as BotFormTabComponentProps['updateFormData'],
+      errors,
+      mode,
+      isFieldLocked,
+      getBalance: getBalanceFn,
+      bot,
+      handleUpdateBalances,
+      exchangesData: exchanges,
+      exchangesLoading,
+      activeTab,
+      onTabChange: handleTabChangeWithScroll,
+      features,
+    }),
+    [
+      currentExchange,
+      formData,
+      updateFormData,
+      errors,
+      mode,
+      isFieldLocked,
+      getBalanceFn,
+      bot,
+      handleUpdateBalances,
+      exchanges,
+      exchangesLoading,
+      activeTab,
+      handleTabChangeWithScroll,
+      features,
+    ]
+  );
 
   // For terminal mode, only hide navigation if it's "simple" mode (only basic tab)
   const hasManualNavigation =

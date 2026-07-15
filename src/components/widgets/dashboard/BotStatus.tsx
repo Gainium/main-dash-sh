@@ -4,7 +4,7 @@ import { logger } from '@/lib/loggerInstance';
 import { BotTypesEnum } from '@/types';
 import { getBotStatusConfig, getBotTypeConfig } from '@/utils/botUtils';
 import { Bot } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
   useWidgetSettings,
@@ -216,6 +216,93 @@ export const BotStatus: React.FC<BotStatsProps> = ({
       ),
     }),
     []
+  );
+
+  // Track all GraphQL queries for stale-while-revalidate indicator.
+  // Depends only on the (memoized) query-def objects, so it's stable.
+  const cacheQueries = useMemo(
+    () => [
+      {
+        queryKey: 'dcaBotDashboardStats',
+        variables: botDashboardQueryDefs.dca.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'gridBotDashboardStats',
+        variables: botDashboardQueryDefs.grid.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'comboBotDashboardStats',
+        variables: botDashboardQueryDefs.combo.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'hedgeBotDashboardStats',
+        variables: botDashboardQueryDefs.hedge.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'dcaDealDashboardStats',
+        variables: dealDashboardQueryDefs.dca.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'comboDealDashboardStats',
+        variables: dealDashboardQueryDefs.combo.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'hedgeDealDashboardStats',
+        variables: dealDashboardQueryDefs.hedge.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'terminalDealDashboardStats',
+        variables: dealDashboardQueryDefs.terminal.variables as Record<
+          string,
+          unknown
+        >,
+      },
+      {
+        queryKey: 'dcaProfitData',
+        variables: profitQueryDefs.dca.variables as Record<string, unknown>,
+      },
+      {
+        queryKey: 'gridProfitData',
+        variables: profitQueryDefs.grid.variables as Record<string, unknown>,
+      },
+      {
+        queryKey: 'comboProfitData',
+        variables: profitQueryDefs.combo.variables as Record<string, unknown>,
+      },
+      {
+        queryKey: 'hedgeComboProfitData',
+        variables: profitQueryDefs.hedge.variables as Record<string, unknown>,
+      },
+      {
+        queryKey: 'terminalProfitData',
+        variables: profitQueryDefs.terminal.variables as Record<
+          string,
+          unknown
+        >,
+      },
+    ],
+    [botDashboardQueryDefs, dealDashboardQueryDefs, profitQueryDefs]
   );
 
   // GraphQL data queries - Using dashboard stats instead of bot lists
@@ -490,50 +577,58 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   const [showBotTypeFilterDialog, setShowBotTypeFilterDialog] = useState(false);
 
   // Convert BOT_TYPES to FilterItem format for the filter area
-  const botTypeFilterItems: FilterItem[] = BOT_TYPES.filter(
-    (bot) => bot.id !== 'all'
-  ).map((bot) => ({
-    id: bot.id,
-    name: bot.name,
-    icon: bot.id,
-    color: bot.color,
-    isBotType: true,
-  }));
+  const botTypeFilterItems: FilterItem[] = useMemo(
+    () =>
+      BOT_TYPES.filter((bot) => bot.id !== 'all').map((bot) => ({
+        id: bot.id,
+        name: bot.name,
+        icon: bot.id,
+        color: bot.color,
+        isBotType: true,
+      })),
+    []
+  );
 
   // Filter handlers
-  const handleBotTypeFilterRemove = (botTypeId: string) => {
-    if (botTypeId === 'ALL') {
-      // If removing ALL, select the first specific bot type
-      setSelectedBotTypes([BOT_TYPES[1].id]);
-    } else {
-      const updated = selectedBotTypes.filter((id) => id !== botTypeId);
-      // If no items left, select ALL
-      if (updated.length === 0) {
+  const handleBotTypeFilterRemove = useCallback(
+    (botTypeId: string) => {
+      if (botTypeId === 'ALL') {
+        // If removing ALL, select the first specific bot type
+        setSelectedBotTypes([BOT_TYPES[1].id]);
+      } else {
+        const updated = selectedBotTypes.filter((id) => id !== botTypeId);
+        // If no items left, select ALL
+        if (updated.length === 0) {
+          setSelectedBotTypes(['ALL']);
+        } else {
+          setSelectedBotTypes(updated);
+        }
+      }
+    },
+    [selectedBotTypes, setSelectedBotTypes]
+  );
+
+  const handleBotTypeFilterToggle = useCallback(
+    (botTypeId: string) => {
+      if (botTypeId === 'ALL') {
         setSelectedBotTypes(['ALL']);
       } else {
-        setSelectedBotTypes(updated);
-      }
-    }
-  };
+        const currentIds = selectedBotTypes.filter((id) => id !== 'ALL');
+        const isSelected = currentIds.includes(botTypeId);
 
-  const handleBotTypeFilterToggle = (botTypeId: string) => {
-    if (botTypeId === 'ALL') {
-      setSelectedBotTypes(['ALL']);
-    } else {
-      const currentIds = selectedBotTypes.filter((id) => id !== 'ALL');
-      const isSelected = currentIds.includes(botTypeId);
-
-      if (isSelected) {
-        const updated = currentIds.filter((id) => id !== botTypeId);
-        setSelectedBotTypes(updated.length === 0 ? ['ALL'] : updated);
-      } else {
-        setSelectedBotTypes([...currentIds, botTypeId]);
+        if (isSelected) {
+          const updated = currentIds.filter((id) => id !== botTypeId);
+          setSelectedBotTypes(updated.length === 0 ? ['ALL'] : updated);
+        } else {
+          setSelectedBotTypes([...currentIds, botTypeId]);
+        }
       }
-    }
-  };
+    },
+    [selectedBotTypes, setSelectedBotTypes]
+  );
 
   // Calculate effective bot data based on filters
-  const getEffectiveBotData = () => {
+  const botData: BotStatus = useMemo(() => {
     if (selectedBotTypes.includes('ALL')) {
       return calculateBotStats['all'];
     }
@@ -568,7 +663,7 @@ export const BotStatus: React.FC<BotStatsProps> = ({
     });
 
     return aggregatedStats;
-  };
+  }, [selectedBotTypes, calculateBotStats]);
 
   const StatusItem = ({
     count,
@@ -592,8 +687,6 @@ export const BotStatus: React.FC<BotStatsProps> = ({
       </div>
     );
   };
-
-  const botData = getEffectiveBotData();
 
   // Initial-load skeleton: show until at least one bot-stats query returns.
   // Once any data lands, the real cards render (a card legitimately showing 0
@@ -625,10 +718,14 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   // Generate dropdown options from bot types
   // Note: We don't include icons in the dropdown labels since they are React components
   // The full dialog shows the proper icons
-  const botTypeDropdownOptions = BOT_TYPES.map((botType) => ({
-    value: botType.id,
-    label: botType.name,
-  }));
+  const botTypeDropdownOptions = useMemo(
+    () =>
+      BOT_TYPES.map((botType) => ({
+        value: botType.id,
+        label: botType.name,
+      })),
+    []
+  );
 
   const content = (
     <div className="flex flex-col h-full p-md @container" aria-busy={showSkeleton}>
@@ -808,8 +905,8 @@ export const BotStatus: React.FC<BotStatsProps> = ({
     </div>
   );
 
-  const wrapperProps = {
-    metadata: {
+  const metadata = useMemo(
+    () => ({
       ...getWidgetMetadata('bot-status'),
       id: widgetId,
       displayName: dynamicDisplayName,
@@ -866,104 +963,54 @@ export const BotStatus: React.FC<BotStatsProps> = ({
         </>
       ),
       onClearFilters: () => setSelectedBotTypes(['ALL']),
-    },
-    isEditable,
-    isCollapsible,
-    onDropdownChange: (value: string) => setSelectedBotType(value as BotType),
-    ...(onRemove && { onRemove }),
-    ...(onSettings && { onSettings }),
-    ...(onCollapse && { onCollapse }),
-    ...(onTabMove && { onTabMove }),
-    ...(menuActions && {
-      menuActions: {
-        ...menuActions,
-      },
     }),
-    // Track all GraphQL queries for stale-while-revalidate indicator
-    cacheQueries: [
-      {
-        queryKey: 'dcaBotDashboardStats',
-        variables: botDashboardQueryDefs.dca.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'gridBotDashboardStats',
-        variables: botDashboardQueryDefs.grid.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'comboBotDashboardStats',
-        variables: botDashboardQueryDefs.combo.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'hedgeBotDashboardStats',
-        variables: botDashboardQueryDefs.hedge.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'dcaDealDashboardStats',
-        variables: dealDashboardQueryDefs.dca.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'comboDealDashboardStats',
-        variables: dealDashboardQueryDefs.combo.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'hedgeDealDashboardStats',
-        variables: dealDashboardQueryDefs.hedge.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'terminalDealDashboardStats',
-        variables: dealDashboardQueryDefs.terminal.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'dcaProfitData',
-        variables: profitQueryDefs.dca.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'gridProfitData',
-        variables: profitQueryDefs.grid.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'comboProfitData',
-        variables: profitQueryDefs.combo.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'hedgeComboProfitData',
-        variables: profitQueryDefs.hedge.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'terminalProfitData',
-        variables: profitQueryDefs.terminal.variables as Record<
-          string,
-          unknown
-        >,
-      },
-    ],
-  };
+    [
+      widgetId,
+      dynamicDisplayName,
+      botTypeDropdownOptions,
+      selectedBotType,
+      selectedBotTypes,
+      botTypeFilterItems,
+      showBotTypeFilterDialog,
+      handleBotTypeFilterRemove,
+      handleBotTypeFilterToggle,
+      setSelectedBotTypes,
+    ]
+  );
+
+  const wrapperProps = useMemo(
+    () => ({
+      metadata,
+      isEditable,
+      isCollapsible,
+      onDropdownChange: (value: string) =>
+        setSelectedBotType(value as BotType),
+      ...(onRemove && { onRemove }),
+      ...(onSettings && { onSettings }),
+      ...(onCollapse && { onCollapse }),
+      ...(onTabMove && { onTabMove }),
+      ...(menuActions && {
+        menuActions: {
+          ...menuActions,
+        },
+      }),
+      cacheQueries,
+    }),
+    [
+      metadata,
+      isEditable,
+      isCollapsible,
+      setSelectedBotType,
+      onRemove,
+      onSettings,
+      onCollapse,
+      onTabMove,
+      menuActions,
+      cacheQueries,
+    ]
+  );
 
   return <WidgetWrapper {...wrapperProps}>{content}</WidgetWrapper>;
 };
 
-export default BotStatus;
+export default React.memo(BotStatus);

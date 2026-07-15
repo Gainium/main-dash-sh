@@ -320,31 +320,55 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
     </div>
   );
 
-  const wrapperProps = {
-    metadata: {
+  const metadata = useMemo(
+    () => ({
       ...getWidgetMetadata('latest-orders'),
       id: widgetId,
-    },
-    isEditable: isEditable ?? false,
-    isCollapsible,
-    ...(onRemove && { onRemove }),
-    ...(onSettings && { onSettings }),
-    ...(onCollapse && { onCollapse }),
-    ...(onTabMove && { onTabMove }),
-    ...(menuActions && {
-      menuActions: {
-        ...menuActions,
-      },
     }),
-    cacheQueries: [
+    [widgetId]
+  );
+
+  const cacheQueries = useMemo(
+    () => [
       {
         queryKey: 'getLatestOrders',
         variables: { page } as Record<string, unknown>,
       },
     ],
-  };
+    [page]
+  );
+
+  const wrapperProps = useMemo(
+    () => ({
+      metadata,
+      isEditable: isEditable ?? false,
+      isCollapsible,
+      ...(onRemove && { onRemove }),
+      ...(onSettings && { onSettings }),
+      ...(onCollapse && { onCollapse }),
+      ...(onTabMove && { onTabMove }),
+      ...(menuActions && {
+        menuActions: {
+          ...menuActions,
+        },
+      }),
+      cacheQueries,
+    }),
+    [
+      metadata,
+      isEditable,
+      isCollapsible,
+      onRemove,
+      onSettings,
+      onCollapse,
+      onTabMove,
+      menuActions,
+      cacheQueries,
+    ]
+  );
 
   return <WidgetWrapper {...wrapperProps}>{content}</WidgetWrapper>;
 };
 
-export default LatestOrders;
+export default React.memo(LatestOrders);
+

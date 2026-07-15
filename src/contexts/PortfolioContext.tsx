@@ -1,5 +1,5 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useState } from 'react';
+import React, { createContext, useMemo, useState } from 'react';
 
 export interface PortfolioContextValue {
   selectedExchanges: string[];
@@ -19,10 +19,13 @@ export const PortfolioProvider: React.FC<PortfolioProviderProps> = ({
 }) => {
   const [selectedExchanges, setSelectedExchanges] = useState<string[]>(['ALL']);
 
-  const value: PortfolioContextValue = {
-    selectedExchanges,
-    setSelectedExchanges,
-  };
+  const value: PortfolioContextValue = useMemo(
+    () => ({
+      selectedExchanges,
+      setSelectedExchanges,
+    }),
+    [selectedExchanges]
+  );
 
   return (
     <PortfolioContext.Provider value={value}>

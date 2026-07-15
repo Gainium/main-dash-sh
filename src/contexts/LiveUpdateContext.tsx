@@ -3,6 +3,7 @@ import React, {
   createContext,
   useContext,
   useEffect,
+  useMemo,
   useRef,
   useState,
   useCallback,
@@ -138,6 +139,78 @@ const LiveUpdateContext = createContext<LiveUpdateContextType | undefined>(
   undefined
 );
 
+// Action groups only wrap `useXStore.getState()...` calls and close over
+// nothing render-scoped, so they're hoisted to module level. Their identity
+// is stable across renders — a prerequisite for the memoized `contextValue`
+// below to stay stable while the provider itself re-renders.
+const botStatsActions: LiveUpdateContextType['botStatsActions'] = {
+  updateBotStats: (botId: string, stats: CalculatedBotStats) =>
+    useBotStatsStore.getState().updateBotStats(botId, stats),
+  updateBotStatsFromWebSocket: (update: BotStatsUpdate) =>
+    useBotStatsStore.getState().updateBotStatsFromWebSocket(update),
+  setBotStatsLoading: (botId: string, loading: boolean) =>
+    useBotStatsStore.getState().setBotStatsLoading(botId, loading),
+  setBotStatsError: (botId: string, error: string | null) =>
+    useBotStatsStore.getState().setBotStatsError(botId, error),
+  clearBotStats: (botId: string) =>
+    useBotStatsStore.getState().clearBotStats(botId),
+  clearAllBotStats: () => useBotStatsStore.getState().clearAllBotStats(),
+};
+
+const orderActions: LiveUpdateContextType['orderActions'] = {
+  updateOrder: (botId: string, order: OrderData, type: OrderType) =>
+    useOrderStore.getState().updateOrder(botId, order, type),
+  updateOrderFromWebSocket: (update: OrderUpdate, type: OrderType) =>
+    useOrderStore.getState().updateOrderFromWebSocket(update, type),
+  removeOrder: (botId: string, orderId: string, type: OrderType) =>
+    useOrderStore.getState().removeOrder(botId, orderId, type),
+  setOrderLoading: (botId: string, loading: boolean) =>
+    useOrderStore.getState().setOrderLoading(botId, loading),
+  setOrderError: (botId: string, error: string | null) =>
+    useOrderStore.getState().setOrderError(botId, error),
+  clearOrders: (botId: string) => useOrderStore.getState().clearOrders(botId),
+  clearAllOrders: () => useOrderStore.getState().clearAllOrders(),
+};
+
+const balanceActions: LiveUpdateContextType['balanceActions'] = {
+  updateBalances: (balances: BalanceData[]) =>
+    useBalanceStore.getState().updateBalances(balances),
+  updateBalanceFromWebSocket: (update: BalanceUpdate) =>
+    useBalanceStore.getState().updateBalanceFromWebSocket(update),
+  updateSingleBalance: (asset: string, balance: Partial<BalanceData>) =>
+    useBalanceStore.getState().updateSingleBalance(asset, balance),
+  setBalanceLoading: (loading: boolean) =>
+    useBalanceStore.getState().setBalanceLoading(loading),
+  setBalanceError: (error: string | null) =>
+    useBalanceStore.getState().setBalanceError(error),
+  clearBalances: () => useBalanceStore.getState().clearBalances(),
+};
+
+const dealActions: LiveUpdateContextType['dealActions'] = {
+  updateDeal: (botId: string, deal: DCADeals, dealType: DealType) =>
+    useDealStore.getState().updateDeal(botId, deal, dealType),
+  updateDealFromWebSocket: (update: DealUpdate, dealType: DealType) =>
+    useDealStore.getState().updateDealFromWebSocket(update, dealType),
+  removeDeal: (botId: string, dealId: string) =>
+    useDealStore.getState().removeDeal(botId, dealId),
+  setDealLoading: (botId: string, loading: boolean) =>
+    useDealStore.getState().setDealLoading(botId, loading),
+  setDealError: (botId: string, error: string | null) =>
+    useDealStore.getState().setDealError(botId, error),
+  clearDeals: (botId: string) => useDealStore.getState().clearDeals(botId),
+  clearAllDeals: () => useDealStore.getState().clearAllDeals(),
+};
+
+const messageActions: LiveUpdateContextType['messageActions'] = {
+  addMessage: (message: Omit<MessageData, 'id' | 'timestamp' | 'dismissed'>) =>
+    useMessageStore.getState().addMessage(message),
+  dismissMessage: (messageId: string) =>
+    useMessageStore.getState().dismissMessage(messageId),
+  clearMessages: () => useMessageStore.getState().clearMessages(),
+  clearBotMessages: (botId: string) =>
+    useMessageStore.getState().clearBotMessages(botId),
+};
+
 interface LiveUpdateProviderProps {
   children: ReactNode;
 }
@@ -148,7 +221,9 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
   const hasInitializedRef = useRef(false);
   const [isConnected, setIsConnected] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const { user, tokens, isAuthenticated } = useAuthStore();
+  const user = useAuthStore((s) => s.user);
+  const tokens = useAuthStore((s) => s.tokens);
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const tradingMode = useUIStore((state) => state.tradingMode);
 
   useEffect(() => {
@@ -355,122 +430,131 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
     };
   }, []);
 
-  const contextValue: LiveUpdateContextType = {
-    isConnected,
-    connectionError,
-    reconnect,
+  // Selector groups are `useXStore((s) => s.method)` subscriptions. Each
+  // selects a stable store-method reference, so the hook returns the same
+  // identity on every render and never triggers a re-render — pulling them
+  // to named consts lets the memoized `contextValue` list them as deps
+  // without churning. Kept as hook calls (not `getState()`) to preserve the
+  // exact subscription behavior of the original.
+  const getBotStats = useBotStatsStore((state) => state.getBotStats);
+  const getAllBotStats = useBotStatsStore((state) => state.getAllBotStats);
+  const isBotStatsLoading = useBotStatsStore((state) => state.isBotStatsLoading);
+  const getBotStatsError = useBotStatsStore((state) => state.getBotStatsError);
 
-    botStatsActions: {
-      updateBotStats: (botId: string, stats: CalculatedBotStats) =>
-        useBotStatsStore.getState().updateBotStats(botId, stats),
-      updateBotStatsFromWebSocket: (update: BotStatsUpdate) =>
-        useBotStatsStore.getState().updateBotStatsFromWebSocket(update),
-      setBotStatsLoading: (botId: string, loading: boolean) =>
-        useBotStatsStore.getState().setBotStatsLoading(botId, loading),
-      setBotStatsError: (botId: string, error: string | null) =>
-        useBotStatsStore.getState().setBotStatsError(botId, error),
-      clearBotStats: (botId: string) =>
-        useBotStatsStore.getState().clearBotStats(botId),
-      clearAllBotStats: () => useBotStatsStore.getState().clearAllBotStats(),
-    },
+  const getOrders = useOrderStore((state) => state.getOrders);
+  const getAllOrders = useOrderStore((state) => state.getAllOrders);
+  const getOrder = useOrderStore((state) => state.getOrder);
+  const isOrderLoading = useOrderStore((state) => state.isOrderLoading);
+  const getOrderError = useOrderStore((state) => state.getOrderError);
 
-    orderActions: {
-      updateOrder: (botId: string, order: OrderData, type: OrderType) =>
-        useOrderStore.getState().updateOrder(botId, order, type),
-      updateOrderFromWebSocket: (update: OrderUpdate, type: OrderType) =>
-        useOrderStore.getState().updateOrderFromWebSocket(update, type),
-      removeOrder: (botId: string, orderId: string, type: OrderType) =>
-        useOrderStore.getState().removeOrder(botId, orderId, type),
-      setOrderLoading: (botId: string, loading: boolean) =>
-        useOrderStore.getState().setOrderLoading(botId, loading),
-      setOrderError: (botId: string, error: string | null) =>
-        useOrderStore.getState().setOrderError(botId, error),
-      clearOrders: (botId: string) =>
-        useOrderStore.getState().clearOrders(botId),
-      clearAllOrders: () => useOrderStore.getState().clearAllOrders(),
-    },
+  const getBalances = useBalanceStore((state) => state.getBalances);
+  const getBalance = useBalanceStore((state) => state.getBalance);
+  const getTotalUsdValue = useBalanceStore((state) => state.getTotalUsdValue);
+  const isBalanceLoading = useBalanceStore((state) => state.isBalanceLoading);
+  const getBalanceError = useBalanceStore((state) => state.getBalanceError);
 
-    balanceActions: {
-      updateBalances: (balances: BalanceData[]) =>
-        useBalanceStore.getState().updateBalances(balances),
-      updateBalanceFromWebSocket: (update: BalanceUpdate) =>
-        useBalanceStore.getState().updateBalanceFromWebSocket(update),
-      updateSingleBalance: (asset: string, balance: Partial<BalanceData>) =>
-        useBalanceStore.getState().updateSingleBalance(asset, balance),
-      setBalanceLoading: (loading: boolean) =>
-        useBalanceStore.getState().setBalanceLoading(loading),
-      setBalanceError: (error: string | null) =>
-        useBalanceStore.getState().setBalanceError(error),
-      clearBalances: () => useBalanceStore.getState().clearBalances(),
-    },
+  const getDeals = useDealStore((state) => state.getDeals);
+  const getAllDeals = useDealStore((state) => state.getAllDeals);
+  const getDeal = useDealStore((state) => state.getDeal);
+  const getActiveDeals = useDealStore((state) => state.getActiveDeals);
+  const getClosedDeals = useDealStore((state) => state.getClosedDeals);
+  const isDealLoading = useDealStore((state) => state.isDealLoading);
+  const getDealError = useDealStore((state) => state.getDealError);
 
-    dealActions: {
-      updateDeal: (botId: string, deal: DCADeals, dealType: DealType) =>
-        useDealStore.getState().updateDeal(botId, deal, dealType),
-      updateDealFromWebSocket: (update: DealUpdate, dealType: DealType) =>
-        useDealStore.getState().updateDealFromWebSocket(update, dealType),
-      removeDeal: (botId: string, dealId: string) =>
-        useDealStore.getState().removeDeal(botId, dealId),
-      setDealLoading: (botId: string, loading: boolean) =>
-        useDealStore.getState().setDealLoading(botId, loading),
-      setDealError: (botId: string, error: string | null) =>
-        useDealStore.getState().setDealError(botId, error),
-      clearDeals: (botId: string) => useDealStore.getState().clearDeals(botId),
-      clearAllDeals: () => useDealStore.getState().clearAllDeals(),
-    },
+  const getMessages = useMessageStore((state) => state.getMessages);
+  const getActiveMessages = useMessageStore((state) => state.getActiveMessages);
+  const getBotMessages = useMessageStore((state) => state.getBotMessages);
+  const getMessageById = useMessageStore((state) => state.getMessageById);
+  const getUnreadCount = useMessageStore((state) => state.getUnreadCount);
 
-    messageActions: {
-      addMessage: (
-        message: Omit<MessageData, 'id' | 'timestamp' | 'dismissed'>
-      ) => useMessageStore.getState().addMessage(message),
-      dismissMessage: (messageId: string) =>
-        useMessageStore.getState().dismissMessage(messageId),
-      clearMessages: () => useMessageStore.getState().clearMessages(),
-      clearBotMessages: (botId: string) =>
-        useMessageStore.getState().clearBotMessages(botId),
-    },
+  // `contextValue` identity must stay stable unless connection state genuinely
+  // changes; action groups are module-level and the selectors above are stable
+  // refs, so this memo only recomputes when isConnected/connectionError flip.
+  const contextValue = useMemo<LiveUpdateContextType>(
+    () => ({
+      isConnected,
+      connectionError,
+      reconnect,
 
-    botStatsSelectors: {
-      getBotStats: useBotStatsStore((state) => state.getBotStats),
-      getAllBotStats: useBotStatsStore((state) => state.getAllBotStats),
-      isBotStatsLoading: useBotStatsStore((state) => state.isBotStatsLoading),
-      getBotStatsError: useBotStatsStore((state) => state.getBotStatsError),
-    },
+      botStatsActions,
+      orderActions,
+      balanceActions,
+      dealActions,
+      messageActions,
 
-    orderSelectors: {
-      getOrders: useOrderStore((state) => state.getOrders),
-      getAllOrders: useOrderStore((state) => state.getAllOrders),
-      getOrder: useOrderStore((state) => state.getOrder),
-      isOrderLoading: useOrderStore((state) => state.isOrderLoading),
-      getOrderError: useOrderStore((state) => state.getOrderError),
-    },
+      botStatsSelectors: {
+        getBotStats,
+        getAllBotStats,
+        isBotStatsLoading,
+        getBotStatsError,
+      },
 
-    balanceSelectors: {
-      getBalances: useBalanceStore((state) => state.getBalances),
-      getBalance: useBalanceStore((state) => state.getBalance),
-      getTotalUsdValue: useBalanceStore((state) => state.getTotalUsdValue),
-      isBalanceLoading: useBalanceStore((state) => state.isBalanceLoading),
-      getBalanceError: useBalanceStore((state) => state.getBalanceError),
-    },
+      orderSelectors: {
+        getOrders,
+        getAllOrders,
+        getOrder,
+        isOrderLoading,
+        getOrderError,
+      },
 
-    dealSelectors: {
-      getDeals: useDealStore((state) => state.getDeals),
-      getAllDeals: useDealStore((state) => state.getAllDeals),
-      getDeal: useDealStore((state) => state.getDeal),
-      getActiveDeals: useDealStore((state) => state.getActiveDeals),
-      getClosedDeals: useDealStore((state) => state.getClosedDeals),
-      isDealLoading: useDealStore((state) => state.isDealLoading),
-      getDealError: useDealStore((state) => state.getDealError),
-    },
+      balanceSelectors: {
+        getBalances,
+        getBalance,
+        getTotalUsdValue,
+        isBalanceLoading,
+        getBalanceError,
+      },
 
-    messageSelectors: {
-      getMessages: useMessageStore((state) => state.getMessages),
-      getActiveMessages: useMessageStore((state) => state.getActiveMessages),
-      getBotMessages: useMessageStore((state) => state.getBotMessages),
-      getMessageById: useMessageStore((state) => state.getMessageById),
-      getUnreadCount: useMessageStore((state) => state.getUnreadCount),
-    },
-  };
+      dealSelectors: {
+        getDeals,
+        getAllDeals,
+        getDeal,
+        getActiveDeals,
+        getClosedDeals,
+        isDealLoading,
+        getDealError,
+      },
+
+      messageSelectors: {
+        getMessages,
+        getActiveMessages,
+        getBotMessages,
+        getMessageById,
+        getUnreadCount,
+      },
+    }),
+    [
+      isConnected,
+      connectionError,
+      reconnect,
+      getBotStats,
+      getAllBotStats,
+      isBotStatsLoading,
+      getBotStatsError,
+      getOrders,
+      getAllOrders,
+      getOrder,
+      isOrderLoading,
+      getOrderError,
+      getBalances,
+      getBalance,
+      getTotalUsdValue,
+      isBalanceLoading,
+      getBalanceError,
+      getDeals,
+      getAllDeals,
+      getDeal,
+      getActiveDeals,
+      getClosedDeals,
+      isDealLoading,
+      getDealError,
+      getMessages,
+      getActiveMessages,
+      getBotMessages,
+      getMessageById,
+      getUnreadCount,
+    ]
+  );
 
   return (
     <LiveUpdateContext.Provider value={contextValue}>

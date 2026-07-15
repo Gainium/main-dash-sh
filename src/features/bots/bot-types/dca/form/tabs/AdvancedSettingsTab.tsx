@@ -2,7 +2,7 @@ import React from 'react';
 
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
-export const AdvancedSettingsTab: React.FC<BotFormTabComponentProps> = () => {
+export const AdvancedSettingsTab = React.memo<BotFormTabComponentProps>(() => {
   return (
     <div className="space-y-lg sm:space-y-xl lg:space-y-10">
       <div className="rounded-lg border border-dashed border-border bg-muted/30 p-lg text-sm text-muted-foreground">
@@ -14,6 +14,7 @@ export const AdvancedSettingsTab: React.FC<BotFormTabComponentProps> = () => {
       </div>
     </div>
   );
-};
+});
+AdvancedSettingsTab.displayName = 'AdvancedSettingsTab';
 
 export default AdvancedSettingsTab;
