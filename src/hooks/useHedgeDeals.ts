@@ -26,7 +26,7 @@
  * concatenate. Most users fetch a single page; only large accounts pay for the
  * extra round-trips.
  */
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { GraphQLClient, getGraphQLConfig, type ReturnResult } from '../lib/api';
@@ -74,6 +74,11 @@ export interface UseHedgeDealsFilter {
 interface HedgeDealsResultBase {
   total: number;
   isLoading: boolean;
+  /** Any fetch in flight (initial OR a background refetch over rehydrated
+   *  cache). `isLoading` alone drops to false once a persisted/stale cache
+   *  entry rehydrates, so a consumer that wants a spinner while the paginated
+   *  fetch is still streaming must use this. */
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<unknown>;
@@ -114,6 +119,16 @@ function useHedgeDealsInternal(
     paperContextOverride
   );
 
+  // Deals accumulated page-by-page during the CURRENT fetch, published as each
+  // page lands so consumers can render incrementally instead of waiting for all
+  // ~N pages of a large bot to finish. `deals` below prefers the completed
+  // react-query result (warm cache = instant) and falls back to this stream
+  // while a cold fetch is still in flight.
+  const [streamedDeals, setStreamedDeals] = useState<
+    DcaDealsResponse['result']
+  >([]);
+  const [streamedTotal, setStreamedTotal] = useState<number | null>(null);
+
   const queryResult = useQuery<ReturnResult<DcaDealsResponse>, Error>({
     queryKey: cacheKey,
     enabled:
@@ -132,6 +147,9 @@ function useHedgeDealsInternal(
       const all: DcaDealsResponse['result'] = [];
       let total = Infinity;
       let page = 0;
+      // Reset the incremental stream for this fresh run.
+      setStreamedDeals([]);
+      setStreamedTotal(null);
       for (; page < HEDGE_DEAL_MAX_PAGES; page += 1) {
         const input = {
           ...baseInput,
@@ -147,6 +165,8 @@ function useHedgeDealsInternal(
         const pageResult =
           (node && 'data' in node ? node.data?.result : undefined) ?? [];
         all.push(...(pageResult as DcaDealsResponse['result']));
+        // Publish progress so the table fills in as pages arrive.
+        setStreamedDeals(all.slice());
         // The backend reports the authoritative count on the operation's own
         // `total` field — its `data.totalResults` is frequently null — so trust
         // `total` to know when the list is drained.
@@ -154,7 +174,10 @@ function useHedgeDealsInternal(
           node && 'total' in node && typeof node.total === 'number'
             ? node.total
             : undefined;
-        if (typeof reported === 'number') total = reported;
+        if (typeof reported === 'number') {
+          total = reported;
+          setStreamedTotal(reported);
+        }
         // Stop on a short page (server has no more rows) or once we've
         // collected everything it claims to hold.
         if (pageResult.length < HEDGE_DEAL_PAGE_SIZE || all.length >= total) {
@@ -182,14 +205,26 @@ function useHedgeDealsInternal(
   });
 
   const deals = useMemo(() => {
+    // Prefer the completed react-query result (warm cache resolves instantly);
+    // fall back to the page-by-page stream while a cold fetch is still in
+    // flight so the table fills incrementally instead of blocking on the full
+    // multi-page fetch. `isFetching` gates the "still loading" indicator.
     const result = queryResult.data?.data?.result;
-    return Array.isArray(result) ? result : [];
-  }, [queryResult.data]);
+    if (Array.isArray(result) && result.length > 0) return result;
+    if (queryResult.isFetching && streamedDeals.length > 0) {
+      return streamedDeals;
+    }
+    return Array.isArray(result) ? result : streamedDeals;
+  }, [queryResult.data, queryResult.isFetching, streamedDeals]);
 
   return {
     deals,
-    total: queryResult.data?.data?.totalResults ?? deals.length,
+    total:
+      queryResult.data?.data?.totalResults ??
+      streamedTotal ??
+      deals.length,
     isLoading: queryResult.isLoading,
+    isFetching: queryResult.isFetching,
     isError: queryResult.isError,
     error: queryResult.error,
     refetch: queryResult.refetch,

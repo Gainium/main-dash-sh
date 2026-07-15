@@ -108,6 +108,7 @@ import {
 import { Skeleton } from '../../../ui/skeleton';
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
+import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 interface TradeCardWrapperProps {
   item: TransformedTrade;
   index: number;
@@ -878,6 +879,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const {
     deals: deals,
     isLoading: dealsLoading,
+    isFetching: dealsFetching,
     isError: dealsError,
     data: _dealsData,
     total: dealsServerTotal,
@@ -2954,18 +2956,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     () => (showTable ? 'cards' : 'table'),
     [showTable]
   );
-  // Loading state
-  if (isLoading) {
-    return (
-      <div className="w-full h-full flex items-center justify-center">
-        <div className="text-center text-muted-foreground py-8">
-          Loading deals...
-        </div>
-      </div>
-    );
-  }
-
-  // Error state
+  // Error state — checked before loading so a failed fetch shows the error
+  // rather than an indefinite spinner.
   if (isError) {
     return (
       <div className="w-full h-full flex items-center justify-center">
@@ -2977,6 +2969,15 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         </div>
       </div>
     );
+  }
+
+  // Loading state. Show the spinner on the initial load AND whenever a fetch is
+  // still in flight for the current tab that has no rows yet — otherwise a bot
+  // whose deals are still streaming in (e.g. multi-page auto-load) briefly
+  // renders the empty "No deals" state instead of a loading indicator. Applies
+  // to both the Open and Closed tabs, all bot types.
+  if (isLoading || (dealsFetching && dealsData.length === 0)) {
+    return <DealsLoadingIndicator />;
   }
 
   return (

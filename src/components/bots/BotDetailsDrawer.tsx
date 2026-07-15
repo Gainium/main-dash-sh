@@ -92,6 +92,7 @@ import {
 import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import DrawerWidgetRenderer from '../widgets/bots/drawer/DrawerWidgetRenderer';
+import { DealsLoadingIndicator } from '../widgets/bots/drawer/DealsLoadingIndicator';
 import OpenOrdersWidget from '../widgets/shared/OpenOrdersWidget';
 import StaleIndicator from '../widgets/shared/StaleIndicator';
 import { BotErrorWarningAlert } from './BotErrorWarningAlert';
@@ -388,7 +389,11 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     // the client-side price calc can't value bots on exchanges missing from
     // the price feed (e.g. Kraken futures) — only the server-computed deal
     // unrealized is reliable there.
-    const { deals: allHedgeDeals } = useHedgeDeals(hedge?.isCombo ?? false, {
+    const {
+      deals: allHedgeDeals,
+      isLoading: hedgeDealsLoading,
+      isFetching: hedgeDealsFetching,
+    } = useHedgeDeals(hedge?.isCombo ?? false, {
       status:
         hedgeDealsStatus === 'closed'
           ? DCADealStatusEnum.closed
@@ -1590,6 +1595,18 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       <OpenOrdersWidget
                         widgetId={`hedge-bot-${hedge?.wrapperId}-deals`}
                         data={{ trades: hedgeDealsAsOpenTrades }}
+                        // Show the loading skeleton only while a fetch is in
+                        // flight AND we have nothing to render yet. Once the
+                        // first page of a large bot streams in, the table takes
+                        // over and keeps filling incrementally — so we never
+                        // block the whole widget on the full multi-page fetch,
+                        // and never flash "No trades found" mid-load. Covers the
+                        // initial load and a refetch over stale/empty cache.
+                        externalLoading={
+                          (hedgeDealsLoading || hedgeDealsFetching) &&
+                          hedgeDealsAsOpenTrades.length === 0
+                        }
+                        loadingIndicator={<DealsLoadingIndicator />}
                         rawDeals={hedgeRawDeals as DCADeals[]}
                         enableStatusToggle={true}
                         onStatusFilterChange={setHedgeDealsStatus}

@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.1] - 2026-07-15
+
+### Fixed
+
+- Bot details drawer: the Deals tab now shows a "Loading deals…" indicator while open/closed deals are being fetched, instead of flashing "No trades found" / an empty table. The same indicator is used for every bot type (DCA, Combo, Grid and Hedge DCA/Combo).
+- Bot details drawer: deals now render incrementally as each page arrives, so large bots (thousands of closed deals) show their first deals within a couple of seconds instead of blocking on the full multi-page fetch. Applies to all bot types.
+- Bot details drawer: the deals table footer count no longer stays stuck at "0-0 (0)" when deals load asynchronously — it now reflects the actual number of loaded and total deals (e.g. "1-10 (15,418)"). This also fixes the row count/pagination label on other data tables that populate after mount.
+
 ## [2.33.0] - 2026-07-15
 
 ### Added

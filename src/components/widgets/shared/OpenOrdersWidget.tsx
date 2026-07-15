@@ -890,6 +890,17 @@ export interface OpenTradesWidgetProps {
    *  fallback just because the widget's internal `useDcaDeals({terminal:true})`
    *  doesn't contain those deals. */
   rawDeals?: DCADeals[];
+  /** When the widget is driven by external `data.trades` (e.g. the hedge bot
+   *  drawer feeding combined-leg deals), the internal GraphQL loading flag is
+   *  bypassed and `isLoading` would be permanently false — so a parent that
+   *  fetches those trades itself must pass its own loading state here to get
+   *  the skeleton while the fetch is in flight. Ignored unless external
+   *  `data.trades` is supplied. */
+  externalLoading?: boolean;
+  /** Optional node rendered in place of the default skeleton while loading.
+   *  The bot drawer passes the shared `DealsLoadingIndicator` so hedge bots
+   *  show the same "Loading deals…" treatment as the single-bot deals table. */
+  loadingIndicator?: React.ReactNode;
 }
 
 // Stable module-level defaults. Using inline `= []` / `= {}` defaults in the
@@ -926,6 +937,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   onStatusFilterChange,
   bulkActions,
   rawDeals,
+  externalLoading,
+  loadingIndicator,
 }) => {
   const navigate = useNavigate();
   const colors = useChartColors();
@@ -1244,7 +1257,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     error: graphqlError,
   } = useGraphQL<GetDCADealsData>(graphQueryKey, graphQuery); */
 
-  const isLoading = useExternalData ? false : graphqlLoading;
+  // In external-data mode the internal GraphQL fetch is bypassed, so honor the
+  // parent's own loading flag (e.g. hedge drawer's paginated hedge-deal fetch)
+  // — otherwise the widget would show its empty state while deals are still
+  // streaming in.
+  const isLoading = useExternalData ? (externalLoading ?? false) : graphqlLoading;
   const error = useExternalData ? null : graphqlError;
 
   // Log GraphQL errors for debugging
@@ -3067,6 +3084,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const closeDealMutation = useDealActions();
 
   if (isLoading) {
+    // A parent (e.g. the bot drawer) can supply a shared indicator so every
+    // bot type's deals loading looks identical; otherwise fall back to the
+    // skeleton used on the Trading page / terminal.
+    if (loadingIndicator) {
+      return <>{loadingIndicator}</>;
+    }
     return (
       <div className="flex flex-col gap-sm p-md" aria-busy="true">
         <div className="flex items-center justify-between">

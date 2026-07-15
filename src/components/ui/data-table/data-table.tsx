@@ -3535,8 +3535,14 @@ function DataTableComponent<TData, TValue>(
     document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }, [resolveExportRows, exportFilename]);
-  const tableState = useMemo(() => table.getState(), [table]);
-  const tableFilter = useMemo(() => table.getFilteredRowModel(), [table]);
+  // Read these live each render rather than memoizing on the (stable) `table`
+  // instance: a `useMemo(..., [table])` captures the getter's result once at
+  // mount — when async/streamed data is still empty — and never recomputes, so
+  // the row count and pagination freeze at their initial (empty) values. The
+  // react-table getters are internally memoized on state, so calling them per
+  // render is cheap and always reflects the current data.
+  const tableState = table.getState();
+  const tableFilter = table.getFilteredRowModel();
   const { pageIndex, pageSize } = useMemo(
     () => tableState.pagination,
     [tableState?.pagination]

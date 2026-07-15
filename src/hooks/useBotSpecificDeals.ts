@@ -43,6 +43,13 @@ export interface UseBotSpecificDealsResult {
   deals: DealWithType[];
   total: number;
   isLoading: boolean;
+  /** True while the FIRST full load cycle for the current (botId, status,
+   *  dealType) is still in flight — covers the multi-page auto-loader, not
+   *  just the initial network request. Unlike `isLoading` it does NOT drop to
+   *  false the moment the first page lands, so the drawer can keep showing a
+   *  loading indicator instead of a premature empty state. Stays false during
+   *  the background 30s re-snapshot so a populated tab doesn't flicker. */
+  isFetching: boolean;
   isError: boolean;
   error: Error | null;
   refetch: () => Promise<unknown>;
@@ -154,6 +161,11 @@ export function useBotSpecificDeals(
 
   const [intermediateDeals, setIntermediateDeals] = useState<DCADeals[]>([]);
   const [isLoadingComplete, setIsLoadingComplete] = useState(false);
+  // Latches true once the first full load cycle (all auto-loader pages) for the
+  // current filter has finished. Reset only when the filter changes — NOT by
+  // the periodic 30s re-snapshot — so background refreshes don't re-show the
+  // loading indicator on an already-populated tab.
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   // Update store when query succeeds and handle sequential auto-loading
   useEffect(() => {
@@ -187,6 +199,7 @@ export function useBotSpecificDeals(
       } else {
         // All pages loaded - mark loading as complete
         setIsLoadingComplete(true);
+        setHasLoadedOnce(true);
       }
     }
   }, [
@@ -284,6 +297,7 @@ export function useBotSpecificDeals(
     setIntermediateDeals([]); // Clear accumulated deals
     setCommittedDeals([]); // Drop the previous status's snapshot
     setIsLoadingComplete(false); // Reset loading completion state
+    setHasLoadedOnce(false); // New filter → first load cycle starts over
   }, [filter.botId, filter.status, filter.dealType, filter.shareId]);
 
   // Periodically re-snapshot so deals that left the requested-status scope on
@@ -339,6 +353,15 @@ export function useBotSpecificDeals(
       Object.values(allDealsRecord[filter.botId] ?? {}).map((d) => d._id)
     );
     const byId = new Map<string, DealWithType>();
+    // Pages fetched so far in the CURRENT (not-yet-committed) auto-load run.
+    // Including them makes the table fill incrementally as each page lands
+    // instead of staying empty until every page is fetched and committed.
+    // committedDeals (below) supersedes these once the run finishes.
+    intermediateDeals.forEach((d) => {
+      if (d._id && !storeIds.has(d._id)) {
+        byId.set(d._id, { ...d, dealType } as DealWithType);
+      }
+    });
     committedDeals.forEach((d) => {
       if (d._id && !storeIds.has(d._id)) {
         byId.set(d._id, { ...d, dealType } as DealWithType);
@@ -351,6 +374,7 @@ export function useBotSpecificDeals(
       (d) => d.dealType === dealType && matchesRequestedStatus(d.status)
     );
   }, [
+    intermediateDeals,
     committedDeals,
     dealsFromStore,
     allDealsRecord,
@@ -365,6 +389,17 @@ export function useBotSpecificDeals(
   const isInitialLoad = useMemo(
     () => !hasHydrated || (mergedDeals.length === 0 && queryResult.isLoading),
     [hasHydrated, queryResult.isLoading, mergedDeals.length]
+  );
+
+  // Actively fetching the first full load cycle for the current filter. Covers
+  // the whole auto-loader run (not just the first page like `isLoading`), and
+  // stays false during the background 30s re-snapshot (`hasLoadedOnce` already
+  // latched). Consumers use this to keep a loading indicator up while a fetch
+  // is genuinely in flight but the current tab has no rows yet.
+  const isFetching = useMemo(
+    () =>
+      !hasLoadedOnce && (queryResult.isLoading || queryResult.isFetching),
+    [hasLoadedOnce, queryResult.isLoading, queryResult.isFetching]
   );
 
   // Imperative full fetch for exports. Mirrors useGraphQL's client
@@ -443,6 +478,7 @@ export function useBotSpecificDeals(
     deals: mergedDeals,
     total: apiTotal || mergedDeals.length,
     isLoading: isInitialLoad,
+    isFetching,
     isError: queryResult.isError,
     error: queryResult.error,
     refetch: queryResult.refetch,
