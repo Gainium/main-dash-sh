@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.32.18] - 2026-07-15
+
+### Fixed
+
+- CSV export from any table (portfolio, trades, deals, etc.) now quotes and escapes every value, so cells containing commas, quotes, or line breaks no longer shift columns or split one row across several lines. Exporting a bot's closed deals previously produced roughly twice as many lines as deals; the file now round-trips cleanly through spreadsheet apps and CSV parsers.
+
 ## [2.32.17] - 2026-07-15
 
 ### Fixed

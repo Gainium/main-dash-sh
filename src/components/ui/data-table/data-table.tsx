@@ -72,8 +72,8 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import exportToCsv from 'tanstack-table-export-to-csv';
 import { DataTableFooter } from './data-table-footer';
+import { downloadCsv } from './exportCsv';
 import { ColumnFilter } from './filter-components';
 import {
   countActiveFilters,
@@ -3515,7 +3515,7 @@ function DataTableComponent<TData, TValue>(
     const timestamp = new Date().toISOString().split('T')[0];
     const filename = `${exportFilename}-${timestamp}`;
 
-    exportToCsv(filename, headers, rows);
+    downloadCsv(filename, headers, rows);
   }, [table, exportFilename, resolveExportRows]);
 
   const handleExportToJson = useCallback(async () => {
