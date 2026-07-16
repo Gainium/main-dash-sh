@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.9] - 2026-07-16
+
+### Fixed
+
+- Portfolio page: the 1M/3M/12M chips were inert (locked to 1M) — the page wrapped the chart with a `fixedTimeframe`, which forced the range back on every click. Removed, so the chips work on the portfolio page too. Chips are now hidden entirely when a fixed timeframe is intentionally set (instead of rendering non-functional).
+- Portfolio Value chart: switching a chip now updates the selected chip **instantly** and shows a loading spinner on the chart while it redraws, instead of the chip appearing frozen until the redraw finishes (`useDeferredValue` splits the urgent chip highlight from the deferred chart render).
+
 ## [2.33.8] - 2026-07-16
 
 ### Fixed

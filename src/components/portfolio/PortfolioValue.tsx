@@ -10,8 +10,9 @@ export interface PortfolioValueProps {
 /**
  * Portfolio-specific PortfolioValue component that wraps the dashboard widget
  * without resizing conflicts. This component is specifically designed for the
- * portfolio page with fixed sizing and no grid layout interference.
- * The timeframe is fixed to 30 days and time filter controls are hidden.
+ * portfolio page with fixed sizing and no grid layout interference. The 1M/3M/12M
+ * time-range chips are functional here (no `fixedTimeframe` — that would lock the
+ * chips to a single range and render them inert).
  */
 const PortfolioValue: React.FC<PortfolioValueProps> = ({
   widgetId = 'portfolio-value-page',
@@ -27,7 +28,6 @@ const PortfolioValue: React.FC<PortfolioValueProps> = ({
         allowResize={false}
         height={height}
         menuActions={{}}
-        fixedTimeframe="1m"
       />
     </div>
   );
