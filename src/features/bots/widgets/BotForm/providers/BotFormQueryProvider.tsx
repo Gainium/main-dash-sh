@@ -237,11 +237,17 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     // BotForm `setContext({ symbol })` lookup misses (pairMetadata is
     // briefly empty), and the example-orders chart preview appears blank
     // until the queries return. Only write when we either have data, or
-    // the existing metadata is also empty (initial mount path).
+    // on the initial mount path (see the null check below).
     const incomingHasEntries = Object.keys(metadataPayload).length > 0;
-    const existingHasEntries =
-      Object.keys(formPairMetadata ?? {}).length > 0;
-    if (incomingHasEntries || !existingHasEntries) {
+    // Only seed on the initial mount path (`formPairMetadata` never written,
+    // i.e. still null/undefined). Using `!existingHasEntries` here instead
+    // meant an already-written *empty* `{}` also passed the guard, so for a
+    // bot with a missing/invalid exchange — where the payload stays empty —
+    // this effect rewrote a fresh empty object every render, re-triggering
+    // itself via the `formPairMetadata` dependency into a React #185 loop
+    // (grid/edit crash). Comparing against null distinguishes "never written"
+    // from "written but empty" and closes the loop.
+    if (incomingHasEntries || formPairMetadata == null) {
       updateFormData('pairMetadata', metadataPayload);
     }
     setShouldCheckPairs(true);

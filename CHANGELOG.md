@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.16] - 2026-07-16
+
+### Fixed
+
+- Editing a grid bot whose exchange is missing or invalid no longer crashes the bot form. The pair-metadata effect could rewrite an empty value on every render, spinning the form into an infinite re-render loop (React error #185) and taking down the edit page. It now seeds pair metadata only on initial mount, so the form loads and recovers instead of crashing.
+
 ## [2.33.15] - 2026-07-16
 
 ### Fixed
