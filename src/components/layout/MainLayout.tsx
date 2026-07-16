@@ -29,7 +29,6 @@ import Navbar from './Navbar';
 import NavigationSidebar from './NavigationSidebar';
 import { NavigationSidebarV2 } from './NavigationSidebarV2';
 import NavigationWidgetsInitializer from './NavigationWidgetsInitializer';
-import QuantRulesBanner from './QuantRulesBanner';
 import SharedPageLayout from './SharedPageLayout';
 import Socket from './Socket';
 
@@ -243,12 +242,6 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
 
       {/* Cloud-only pending-account-delete banner. Sh renders nothing. */}
       <Slot name="layout.pendingDeleteBanner" />
-
-      {/* Shared (cloud + self-hosted) Binance Quantitative Rules (-4400)
-          cooldown banner. Rendered directly (not via a cloud-only slot)
-          because the feature ships to both editions; renders nothing when
-          there are no active cooldowns. */}
-      <QuantRulesBanner />
 
       {/* Cloud-only detached Max chat panel (floating panel + bottom
           sheet + onboarding walkthrough overlay). Sh renders nothing.

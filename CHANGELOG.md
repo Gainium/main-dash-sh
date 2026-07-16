@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.11] - 2026-07-16
+
+### Removed
+
+- Dropped the global Binance Quantitative Rules cooldown banner and its per-page `getQuantRulesStatus` poll. The cooldown is already surfaced once per window as a bot message (notification bell + toast) over the existing live socket, so the dedicated banner and its own polling request were redundant.
+
 ## [2.33.10] - 2026-07-16
 
 ### Fixed
