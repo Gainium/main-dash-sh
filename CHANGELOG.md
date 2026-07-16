@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.4] - 2026-07-16
+
+### Changed
+
+- Auto-archive notices now show as info messages, visually distinct from warnings and errors. The bot error/warning banner renders an `info` severity with a calm blue Info icon and neutral tone instead of the amber warning style.
+
 ## [2.33.3] - 2026-07-15
 
 ### Changed

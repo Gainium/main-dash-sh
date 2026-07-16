@@ -1,4 +1,4 @@
-import { TriangleAlert, X } from 'lucide-react';
+import { Info, TriangleAlert, X } from 'lucide-react';
 import { useCallback, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -12,8 +12,12 @@ export interface BotErrorWarningTarget {
 }
 
 interface BotErrorWarningAlertProps {
-  /** Highest severity across the bot(s): 'error' wins over 'warning'. */
-  severity: 'error' | 'warning';
+  /**
+   * Highest severity across the bot(s): 'error' wins over 'warning'. 'info' is a
+   * calm/informational notice (e.g. an auto-archive notice) and must render in a
+   * neutral/blue tone, never like an error or warning.
+   */
+  severity: 'error' | 'warning' | 'info';
   /**
    * Bot(s) whose `showErrorWarning` flag this alert clears when dismissed.
    * Non-hedge passes a single bot; hedge passes both legs.
@@ -56,7 +60,9 @@ export function BotErrorWarningAlert({
   if (dismissed || !targets.length) return null;
 
   const isError = severity === 'error';
-  const noun = isError ? 'errors' : 'warnings';
+  const isInfo = severity === 'info';
+  const noun = isError ? 'errors' : isInfo ? 'notices' : 'warnings';
+  const Icon = isInfo ? Info : TriangleAlert;
 
   return (
     <div
@@ -65,14 +71,16 @@ export function BotErrorWarningAlert({
         'flex items-start gap-sm rounded-lg border p-sm text-sm md:p-md',
         isError
           ? 'border-destructive/30 bg-destructive/10'
-          : 'border-warning/30 bg-warning/10',
+          : isInfo
+            ? 'border-info/30 bg-info/10'
+            : 'border-warning/30 bg-warning/10',
         className
       )}
     >
-      <TriangleAlert
+      <Icon
         className={cn(
           'mt-0.5 h-4 w-4 shrink-0',
-          isError ? 'text-destructive' : 'text-warning'
+          isError ? 'text-destructive' : isInfo ? 'text-info' : 'text-warning'
         )}
       />
       <div className="flex-1 text-foreground">

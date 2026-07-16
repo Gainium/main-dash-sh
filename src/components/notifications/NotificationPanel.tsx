@@ -9,10 +9,13 @@ import {
 } from '@/stores/notificationsStore';
 import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
 import {
+  AlertCircle,
+  AlertTriangle,
   Bell,
   Bot,
   CheckCheck,
   FileText,
+  Info,
   Loader2,
   Megaphone,
   Search,
@@ -65,6 +68,38 @@ const getNotificationIconNode = (type: NotificationType | string) => {
       return <FileText className="h-5 w-5" />;
     default:
       return <Bell className="h-5 w-5" />;
+  }
+};
+
+// Bot messages carry a severity (error/warning/info). In the rollup we key the
+// icon + timeline accent off that severity, so an auto-archive `info` notice
+// reads calmly and an error stands out — instead of every bot message sharing
+// one neutral icon.
+const getBotSeverityIconNode = (type: string) => {
+  switch (type) {
+    case 'error':
+      return <AlertCircle className="h-5 w-5 text-destructive" />;
+    case 'warning':
+      return <AlertTriangle className="h-5 w-5 text-warning" />;
+    case 'info':
+      return <Info className="h-5 w-5 text-info" />;
+    default:
+      return <Bot className="h-5 w-5" />;
+  }
+};
+
+const timelineVariantForSeverity = (
+  type: string
+): NonNullable<TimelineItem['variant']> => {
+  switch (type) {
+    case 'error':
+      return 'error';
+    case 'warning':
+      return 'warning';
+    case 'info':
+      return 'info';
+    default:
+      return 'default';
   }
 };
 
@@ -447,8 +482,14 @@ const NotificationPanel: React.FC = () => {
           title: notification.title,
           timestamp: formattedTime,
           time: formattedTime,
-          icon: getNotificationIconNode(notificationType),
-          variant: timelineVariantForType(notificationType),
+          icon:
+            notificationType === 'bot'
+              ? getBotSeverityIconNode(notification.type)
+              : getNotificationIconNode(notificationType),
+          variant:
+            notificationType === 'bot'
+              ? timelineVariantForSeverity(notification.type)
+              : timelineVariantForType(notificationType),
           content: (
             <NotificationRichContent notification={unified} clampLines={3} />
           ),
