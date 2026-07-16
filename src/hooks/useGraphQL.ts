@@ -1,4 +1,9 @@
-import { GraphQLClient, getGraphQLConfig, type ReturnResult } from '@/lib/api';
+import {
+  GraphQLClient,
+  getGraphQLConfig,
+  DEFAULT_READ_TIMEOUT_MS,
+  type ReturnResult,
+} from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useQuery, type UseQueryOptions } from '@tanstack/react-query';
@@ -36,6 +41,18 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
      * enabled even without an access token in the auth store.
      */
     shareId?: string | null | undefined;
+    /**
+     * Client-side timeout (ms) for this read. Without a cap a degraded
+     * backend leaves the request pending until the ~5-minute server cutoff,
+     * which the UI shows as an indefinite stale-indicator spinner.
+     * - omitted / `undefined` → DEFAULT_READ_TIMEOUT_MS (interactive default)
+     * - a number → that cap (e.g. LONG_READ_TIMEOUT_MS for heavy reads)
+     * - `null` → uncapped (only for reads that legitimately run for minutes)
+     * Because archived-bot lists reuse the same GraphQL field as active lists
+     * (differing only by a `status: archive` variable), the opt-out is
+     * caller-driven here rather than a field-name denylist.
+     */
+    requestTimeoutMs?: number | null;
   }
 ) {
   // Get the authentication token from the auth store
@@ -46,6 +63,17 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
 
   const shareId = (options as { shareId?: string | null })?.shareId ?? null;
   const isShareMode = !!shareId;
+
+  // Resolve the per-read client timeout: caller override wins; `null` opts out
+  // (uncapped); otherwise the interactive default. Read here (not inside the
+  // queryFn closure) so the value is stable per render.
+  const requestTimeoutMs = (
+    options as { requestTimeoutMs?: number | null }
+  )?.requestTimeoutMs;
+  const resolvedTimeoutMs =
+    requestTimeoutMs === null
+      ? undefined
+      : (requestTimeoutMs ?? DEFAULT_READ_TIMEOUT_MS);
 
   // Generate stable cache key that persists across browser sessions
   const cacheKey = useCacheKey(
@@ -152,7 +180,13 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
       try {
         result = await client.request<{
           [K in string]: ReturnResult<TData>;
-        }>(gql.query, gql.variables);
+        }>(
+          gql.query,
+          gql.variables,
+          resolvedTimeoutMs !== undefined
+            ? { timeoutMs: resolvedTimeoutMs }
+            : undefined
+        );
       } catch (e: unknown) {
         console.error('[useGraphQL] Request error:', {
           key,

@@ -28,7 +28,7 @@ import {
 import type { PrecisionGuard } from '@/features/bots/shared/utils/order-guard';
 import { useBotFormRegistryContext } from '@/features/bots/widgets/BotForm/context';
 import { type TradingPair } from '@/hooks/useTradingPairs';
-import { GraphQLClient, GraphQlQuery } from '@/lib/api';
+import { GraphQLClient, GraphQlQuery, DEFAULT_READ_TIMEOUT_MS } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -1418,7 +1418,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
             reason?: string | null;
             data?: { indicators?: IndicatorEnum[] | null } | null;
           };
-        }>(query);
+        }>(query, undefined, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
         favoriteIndicatorsRequestState.current.inflight = false;
         favoriteIndicatorsRequestState.current.lastToken = accessToken;

@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '../lib/api';
 import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
 import type { DCABacktestingResultHistory } from '../types';
@@ -43,7 +44,8 @@ export function useDcaBacktests(_filter?: BacktestsFilter): UseBacktestsResult {
       query,
       variables,
     },
-    { enabled: !isDemo }
+    // Large backtest-history payload → generous long-read cap.
+    { enabled: !isDemo, requestTimeoutMs: LONG_READ_TIMEOUT_MS }
   );
 
   // If there's an error, log it

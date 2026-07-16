@@ -40,6 +40,25 @@ export interface GraphQLRequestOptions {
   timeoutMs?: number;
 }
 
+// Default client-side timeout for interactive dashboard reads routed through
+// `useGraphQL`. Sits above the p99 of even exchange-fan-out reads
+// (getPortfolioByUser / getBalances aggregate across every connected account,
+// and HeroBalance/BotStatus fire 10+ parallel reads) yet far below the
+// backend's ~5-minute server cutoff, so a degraded backend surfaces a fast,
+// actionable error instead of an indefinite stale-indicator spinner. Also
+// matches the ApiClient REST default (apiClient.ts), keeping the two transports
+// consistent.
+export const DEFAULT_READ_TIMEOUT_MS = 30_000;
+
+// Generous cap for genuinely-heavy but still-bounded reads: full-lifetime bot
+// profit charts, backtest-history list payloads, and archived (cold-store /
+// ClickHouse) bot lists. High enough not to false-timeout a healthy-but-slow
+// aggregation, low enough that a truly-dead backend still eventually errors
+// instead of spinning to the server cutoff. NOTE: backtest *runs*
+// (requestServerSideBacktest) legitimately take minutes and stay fully
+// uncapped — they never use this.
+export const LONG_READ_TIMEOUT_MS = 60_000;
+
 // Global request deduplication system
 const requestMutex = new IdMutex();
 const requestCache = new Map<

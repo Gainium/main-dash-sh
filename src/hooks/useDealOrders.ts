@@ -6,7 +6,11 @@ import { useGraphQL } from './useGraphQL';
 import { useShareContext } from './useShareContext';
 import { logger } from '../lib/loggerInstance';
 import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
-import { GraphQLClient, getGraphQLConfig } from '@/lib/api';
+import {
+  GraphQLClient,
+  getGraphQLConfig,
+  DEFAULT_READ_TIMEOUT_MS,
+} from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 
@@ -77,7 +81,7 @@ export async function fetchDealOrders(
 
     const result = await client.request<{
       [key: string]: ReturnResult<OrderData[]>;
-    }>(gql.query, gql.variables);
+    }>(gql.query, gql.variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
     // Extract operation name or field name from query
     const operationMatch = gql.query.match(/(?:query|mutation)\s+(\w+)/);

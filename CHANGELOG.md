@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.14] - 2026-07-16
+
+### Fixed
+
+- A slow or unreachable backend no longer leaves data widgets spinning indefinitely. Interactive data reads across every main page (Overview, Portfolio, the bot/combo/grid pages, Terminal, and the new bot/grid/combo forms) now fail fast with a clear "request timed out" message after 30 seconds instead of pending until the ~5-minute server cutoff. Genuinely long reads — full-history profit charts, backtest-result lists, and archived (cold-store) bot lists — get a more generous 60-second cap, while backtest runs stay uncapped. Timed-out reads no longer silently retry three times before surfacing the error, and the REST-backed widgets (market screener, curated presets, price tickers) gained the same protection.
+
 ## [2.33.13] - 2026-07-16
 
 ### Fixed

@@ -1,7 +1,12 @@
 import type { GlobalVariable } from '@/types/globalVariables';
 import { useAuthStore } from './authStore';
 import { useUIStore } from './uiStore';
-import { GraphQLClient, GraphQlQuery, type ReturnResult } from '@/lib/api';
+import {
+  GraphQLClient,
+  GraphQlQuery,
+  DEFAULT_READ_TIMEOUT_MS,
+  type ReturnResult,
+} from '@/lib/api';
 
 class GlobalVariablesStore {
   private globalVariables: Map<string, GlobalVariable>;
@@ -34,7 +39,7 @@ class GlobalVariablesStore {
 
     const response = await client.request<{
       getGlobalVariablesByIds: ReturnResult<GlobalVariable[]>;
-    }>(query, variables);
+    }>(query, variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
     if (response.getGlobalVariablesByIds.status !== 'OK') {
       throw new Error(

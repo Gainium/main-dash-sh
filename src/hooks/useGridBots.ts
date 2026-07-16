@@ -1,6 +1,7 @@
 import { botFragment } from '@/lib/api/GraphQLQueries-fragments';
 import { useMemo, useEffect } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '../lib/api';
 import { logger } from '../lib/loggerInstance';
 import type { BotStatus } from '../types';
 import { type GridBot, type GridBotListResponse } from '../types/gridBot';
@@ -83,6 +84,9 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
     {
       paperContext: filter?.paperContext,
       enabled: isDemo ? false : enabled,
+      // Archived lists come from cold store (ClickHouse) → generous long-read
+      // cap; the active variant keeps the interactive default.
+      requestTimeoutMs: isArchivedQuery ? LONG_READ_TIMEOUT_MS : undefined,
     }
   );
 

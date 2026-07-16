@@ -73,6 +73,19 @@ export const queryClient = new QueryClient({
 
       // Retry logic for failed requests
       retry: (failureCount, error) => {
+        // A client-side read timeout is a deliberate fail-fast. Retrying it
+        // just re-hangs against the same degraded backend for another full cap
+        // window — 3 retries would stretch a 30s cap to ~100s before the UI
+        // ever sees the error it needs to render. Surface it immediately.
+        // `GraphQLTimeoutError` is thrown by GraphQLClient's abort;
+        // `TimeoutError` is the DOMException from fetchWithTimeout's abort.
+        // Checked by name to avoid importing the classes (and a module cycle).
+        if (
+          error instanceof Error &&
+          (error.name === 'GraphQLTimeoutError' ||
+            error.name === 'TimeoutError')
+        )
+          return false;
         if (failureCount >= 3) return false;
         if (error && 'status' in error && error.status === 401) return false;
         return true;

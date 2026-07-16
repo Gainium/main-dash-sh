@@ -1,4 +1,9 @@
-import { GraphQLClient, GraphQlQuery, type ReturnResult } from '@/lib/api';
+import {
+  GraphQLClient,
+  GraphQlQuery,
+  DEFAULT_READ_TIMEOUT_MS,
+  type ReturnResult,
+} from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -95,7 +100,7 @@ export function useUsdRateService() {
 
           const resp = await client.request<{
             getUsdRate: ReturnResult<number>;
-          }>(query);
+          }>(query, undefined, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
           if (
             resp?.getUsdRate?.status === 'OK' &&

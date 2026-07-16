@@ -29,7 +29,12 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-import { GraphQLClient, getGraphQLConfig, type ReturnResult } from '../lib/api';
+import {
+  GraphQLClient,
+  getGraphQLConfig,
+  DEFAULT_READ_TIMEOUT_MS,
+  type ReturnResult,
+} from '../lib/api';
 import { dealQueries } from '../lib/api/GraphQLQueries-deal-queries';
 import {
   comboDealFragment,
@@ -160,7 +165,7 @@ function useHedgeDealsInternal(
           : dealQueries.hedgeDcaDealList(input, fields);
         const res = await client.request<{
           [k: string]: ReturnResult<DcaDealsResponse>;
-        }>(built.query, built.variables);
+        }>(built.query, built.variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
         const node = res[operation];
         const pageResult =
           (node && 'data' in node ? node.data?.result : undefined) ?? [];

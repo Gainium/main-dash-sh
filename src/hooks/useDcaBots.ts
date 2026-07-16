@@ -5,6 +5,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { isBotActive } from '@/utils/botStatusUtils';
 import { useEffect, useMemo } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '../lib/api';
 import { logger } from '../lib/loggerInstance';
 import type { BotStatus, DCABot } from '../types';
 import { type DcaBotListResponse } from '../types/dcaBot';
@@ -178,8 +179,12 @@ export function useDcaBots(
           ? filter.paperContext
           : undefined,
       enabled: isDemo ? false : (enabled ?? true) && tradingModeSettled,
+      // Archived lists are served from cold store (ClickHouse) and can be
+      // slower than the active-list read, so give them the generous long-read
+      // cap; the active variant keeps the interactive default.
+      requestTimeoutMs: isArchivedQuery ? LONG_READ_TIMEOUT_MS : undefined,
     }),
-    [filter?.paperContext, enabled, isDemo, tradingModeSettled]
+    [filter?.paperContext, enabled, isDemo, tradingModeSettled, isArchivedQuery]
   );
 
   // 2. Keep React Query for background sync

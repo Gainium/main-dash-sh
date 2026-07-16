@@ -2,7 +2,11 @@ import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { GraphQLClient, getGraphQLConfig } from '../lib/api';
+import {
+  GraphQLClient,
+  getGraphQLConfig,
+  DEFAULT_READ_TIMEOUT_MS,
+} from '../lib/api';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
 import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
@@ -444,7 +448,7 @@ export function useBotSpecificDeals(
       });
       const result = await client.request<
         Record<string, GetBotDealsResponse>
-      >(query, variables);
+      >(query, variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
       const payload = result[key];
       if (!payload || payload.status !== 'OK') {
         throw new Error(

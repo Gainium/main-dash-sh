@@ -1,5 +1,11 @@
 // Re-export GraphQL client and types
-export { GraphQLClient, graphQLClient } from './GraphQLClient';
+export {
+  GraphQLClient,
+  graphQLClient,
+  GraphQLTimeoutError,
+  DEFAULT_READ_TIMEOUT_MS,
+  LONG_READ_TIMEOUT_MS,
+} from './GraphQLClient';
 export type { GraphQLError, GraphQLResponse } from './GraphQLClient';
 
 // Re-export GraphQL helper utilities

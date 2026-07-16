@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 // import { useDcaBots } from '@/hooks/useDcaBots';
 // import { useComboBots } from '@/hooks/useComboBots';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
@@ -174,7 +175,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
     queryFn: async () => {
       const apiEndpoint =
         import.meta.env.VITE_API_ENDPOINT || 'https://api.gainium.io';
-      const resp = await fetch(`${apiEndpoint}/api/screener`, {
+      const resp = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
         method: 'POST',
         body: JSON.stringify({ page: 0, pageSize: 500 }),
         headers: { 'Content-type': 'application/json' },

@@ -1,4 +1,9 @@
-import { GraphQLClient, GraphQlQuery, type ReturnResult } from '@/lib/api';
+import {
+  GraphQLClient,
+  GraphQlQuery,
+  DEFAULT_READ_TIMEOUT_MS,
+  type ReturnResult,
+} from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { waitForUserFeesStoreHydration } from '@/lib/storeUtils';
 import { useAuthStore } from '@/stores/authStore';
@@ -73,7 +78,7 @@ export function useUserFees() {
           multipleUserFees: ReturnResult<
             Array<{ symbol: string; maker: number; taker: number }>
           >;
-        }>(query, variables);
+        }>(query, variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
         if (
           resp?.multipleUserFees?.status === 'OK' &&

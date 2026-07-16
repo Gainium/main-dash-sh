@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type Asset, type ScreenerCoinData } from '@/types';
 import { formatPriceWithPrecision } from '@/utils/formatters';
@@ -149,7 +150,7 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     queryFn: async () => {
       const apiEndpoint =
         import.meta.env.VITE_API_ENDPOINT || 'https://api.gainium.io';
-      const resp = await fetch(`${apiEndpoint}/api/screener`, {
+      const resp = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
         method: 'POST',
         body: JSON.stringify({ page: 0, pageSize: 500 }),
         headers: { 'Content-type': 'application/json' },

@@ -1,6 +1,7 @@
 import { useGraphQL } from './useGraphQL';
 import { useShareContext } from './useShareContext';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '@/lib/api';
 import type { GridFilterItem } from '../types';
 
 export interface BacktestData {
@@ -329,6 +330,9 @@ export function useBacktests(options: UseBacktestsOptions = {}) {
       enabled: effectiveEnabled,
       queryKey: ['backtests', filters],
       staleTime: 5 * 60 * 1000, // 5 minutes
+      // Backtest-history list payloads are large; use the generous long-read
+      // cap, not the interactive default.
+      requestTimeoutMs: LONG_READ_TIMEOUT_MS,
     }
   );
 
@@ -425,6 +429,9 @@ export function useComboBacktests(options: UseBacktestsOptions = {}) {
       enabled: effectiveEnabled,
       queryKey: ['comboBacktests', filters],
       staleTime: 5 * 60 * 1000, // 5 minutes
+      // Backtest-history list payloads are large; use the generous long-read
+      // cap, not the interactive default.
+      requestTimeoutMs: LONG_READ_TIMEOUT_MS,
     }
   );
 
@@ -521,6 +528,9 @@ export function useGridBacktests(options: UseBacktestsOptions = {}) {
       enabled: effectiveEnabled,
       queryKey: ['gridBacktests', filters],
       staleTime: 5 * 60 * 1000, // 5 minutes
+      // Backtest-history list payloads are large; use the generous long-read
+      // cap, not the interactive default.
+      requestTimeoutMs: LONG_READ_TIMEOUT_MS,
     }
   );
 

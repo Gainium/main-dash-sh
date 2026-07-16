@@ -8,7 +8,10 @@ import {
   useBotUpdate,
 } from '@/hooks/useBotMutations';
 import { ACTIVATION_EVENTS, trackActivation } from '@/lib/analytics/events';
-import { GraphQLClient } from '@/lib/api/GraphQLClient';
+import {
+  GraphQLClient,
+  DEFAULT_READ_TIMEOUT_MS,
+} from '@/lib/api/GraphQLClient';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import type {
   CreateDCABotPayload,
@@ -164,7 +167,9 @@ export const useBotFormMutations = (
           shouldSumBalance: false,
         });
 
-        const response = (await client.request(query, variables)) as {
+        const response = (await client.request(query, variables, {
+          timeoutMs: DEFAULT_READ_TIMEOUT_MS,
+        })) as {
           getBalances: {
             status: string;
             reason?: string;

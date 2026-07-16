@@ -1,6 +1,7 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 /* import { type DCADeals } from '@/hooks/useDcaDeals'; */
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
+import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useUsdRate } from '@/hooks/useUsdRate';
 import { GraphQlQuery } from '@/lib/api';
@@ -142,7 +143,7 @@ const useScreenerData = () => {
       const allResults: ApiScreenerCoin[] = [];
 
       do {
-        const response = await fetch(`${apiEndpoint}/api/screener`, {
+        const response = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
           method: 'POST',
           body: JSON.stringify({ page: currentPage, pageSize }),
           headers: { 'Content-type': 'application/json' },

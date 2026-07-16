@@ -1,5 +1,6 @@
 import { useMemo } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '../lib/api';
 import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
 import { useGraphQL } from './useGraphQL';
@@ -44,7 +45,9 @@ export function useBotProfitChartData(
       query,
       variables,
     },
-    { shareId }
+    // Full-lifetime profit series; use the generous long-read cap (see
+    // useBotChartData) rather than the interactive default.
+    { shareId, requestTimeoutMs: LONG_READ_TIMEOUT_MS }
   );
 
   // Process the response data

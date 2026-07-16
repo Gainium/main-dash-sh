@@ -4,6 +4,7 @@ import { useShareContext } from './useShareContext';
 import { useUIStore } from '@/stores/uiStore';
 import { useEffect, useMemo } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
+import { LONG_READ_TIMEOUT_MS } from '../lib/api';
 import { logger } from '../lib/loggerInstance';
 import type { BotStatus, HedgeBot } from '../types';
 import type { HedgeDcaBotListResponse } from '../types/hedgeBot';
@@ -80,8 +81,11 @@ export function useHedgeDcaBots(
           ? filter.paperContext
           : undefined,
       enabled: isDemo ? false : enabled,
+      // Archived lists come from cold store (ClickHouse) → generous long-read
+      // cap; the active variant keeps the interactive default.
+      requestTimeoutMs: isArchivedQuery ? LONG_READ_TIMEOUT_MS : undefined,
     }),
-    [filter?.paperContext, enabled, isDemo]
+    [filter?.paperContext, enabled, isDemo, isArchivedQuery]
   );
 
   const queryResult = useGraphQL<HedgeDcaBotListResponse>(

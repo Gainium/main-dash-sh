@@ -2,7 +2,11 @@ import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import getLatestPrices /* , { setActiveExchanges }  */ from '../helper/price';
 import { dealQueries } from '../lib/api/GraphQLQueries-deal-queries';
-import { GraphQLClient, getGraphQLConfig } from '@/lib/api';
+import {
+  GraphQLClient,
+  getGraphQLConfig,
+  DEFAULT_READ_TIMEOUT_MS,
+} from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useShareContext } from './useShareContext';
 import { useUIStore } from '@/stores/uiStore';
@@ -319,7 +323,7 @@ export function useDcaDeals(
 
         const result = await client.request<{
           dcaDealList: ReturnResult<DcaDealsResponse>;
-        }>(query, variables);
+        }>(query, variables, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
 
         if (
           result.dcaDealList?.status === 'OK' &&
