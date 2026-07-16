@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.15] - 2026-07-16
+
+### Fixed
+
+- Backtests on Bybit (and any exchange whose candle endpoint returns partial history on a cold cache) no longer run on incomplete data. Fine-timeframe candle loading could silently drop the head of each fetched window, leaving large interior gaps — a Bybit run could cover as little as ~25% of the period while the identical Binance run covered 100%, making the same strategy look drastically worse on Bybit. The candle loader now detects residual gaps in the assembled series and refills them, so backtests replay the full period on every exchange. Contiguous series (the common case) are unaffected.
+
 ## [2.33.14] - 2026-07-16
 
 ### Fixed
