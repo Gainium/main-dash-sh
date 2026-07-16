@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.8] - 2026-07-16
+
+### Fixed
+
+- Portfolio Value chart: switching time chips (1M/3M/12M) is now instant. The chart fetches the full 12-month range **once** and the chips filter the loaded series client-side, instead of re-fetching from the backend on every switch (which caused a multi-second loading delay). For the default all-coins/all-exchanges view it also requests a lean `updateTime+totalUsd` payload (no per-day asset breakdown), pulling assets only when a coin/exchange filter is active — so the one initial fetch stays small.
+
 ## [2.33.7] - 2026-07-16
 
 ### Fixed

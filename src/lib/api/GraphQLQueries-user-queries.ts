@@ -438,16 +438,14 @@ export const userQueries = {
     timezone?: string;
     from?: number;
     to?: number;
+    includeAssets?: boolean;
   }) => {
-    const query = `query getPortfolioByUser($input: getPortfolioByUser) {
-                        getPortfolioByUser(input:$input){
-                            status
-                            reason
-                            data{
-                                result{
-                                    updateTime
-                                    totalUsd
-                                    assets {
+    // The line only needs updateTime+totalUsd; per-day assets[] are only for the
+    // coin/exchange filter. Omit them (includeAssets:false) for the common
+    // all-coins/all-exchanges case so the payload stays small over a long range.
+    const includeAssets = input?.includeAssets !== false;
+    const assetsSelection = includeAssets
+      ? `assets {
                                         name
                                         amount
                                         amountUsd
@@ -456,7 +454,17 @@ export const userQueries = {
                                           amount
                                           amountUsd
                                         }
-                                    }
+                                    }`
+      : '';
+    const query = `query getPortfolioByUser($input: getPortfolioByUser) {
+                        getPortfolioByUser(input:$input){
+                            status
+                            reason
+                            data{
+                                result{
+                                    updateTime
+                                    totalUsd
+                                    ${assetsSelection}
                                 }
                             }
                         }

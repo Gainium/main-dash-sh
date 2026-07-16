@@ -133,29 +133,34 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     fixedTimeframe || '1m'
   );
 
-  // Fetch the WHOLE selected range from the backend (ClickHouse-backed, 12-month
-  // retention) so the longer chips actually return more history instead of being
-  // capped at the old hardcoded 30-day window. `from` is floored to the UTC day
-  // so the react-query cache key stays stable across renders within a day.
+  // Persisted filter selections. Declared here (before the fetch) because the
+  // query depends on whether a coin/exchange filter is active.
+  const [selectedExchanges, setSelectedExchanges] = usePersistedState(
+    'selectedExchanges',
+    ['ALL']
+  );
+  const [selectedCoins, setSelectedCoins] = usePersistedState('selectedCoins', [
+    'ALL',
+  ]);
+
+  // A coin/exchange filter is active unless BOTH include 'ALL'. Only then is the
+  // per-day assets[] breakdown needed; the all/all line uses `totalUsd`. Uses the
+  // SAME `.includes('ALL')` predicate as `showAllExchanges`/`showAllCoins` in the
+  // processing below, so the lean-fetch decision can never disagree with the
+  // branch that consumes it (a mismatch would reduce over absent assets).
+  const needsAssets =
+    !selectedCoins.includes('ALL') || !selectedExchanges.includes('ALL');
+
+  // Fetch the WHOLE 12-month range ONCE. The chips filter the already-loaded
+  // series client-side (`timeFilterMs` below), so switching ranges is INSTANT —
+  // no refetch. `assets[]` are requested only when a coin/exchange filter is
+  // active, so the common all/all fetch is a small updateTime+totalUsd payload.
+  // `from` floored to the UTC day keeps the react-query cache key stable.
   const portfolioQuery = useMemo(() => {
     const dayMs = 24 * 60 * 60 * 1000;
-    const rangeDays: Record<string, number> = {
-      '1m': 30,
-      '3m': 90,
-      '12m': 365,
-      // legacy / alternate keys still fetch a sensible window
-      '30': 30,
-      '60': 60,
-      '90': 90,
-      '1w': 7,
-      '3d': 3,
-      '1d': 1,
-      '1y': 365,
-    };
-    const days = rangeDays[timeFilter] ?? 30;
-    const from = Math.floor(Date.now() / dayMs) * dayMs - days * dayMs;
-    return GraphQlQuery.getPortfolioByUser({ from });
-  }, [timeFilter]);
+    const from = Math.floor(Date.now() / dayMs) * dayMs - 365 * dayMs;
+    return GraphQlQuery.getPortfolioByUser({ from, includeAssets: needsAssets });
+  }, [needsAssets]);
   const { data: p, isLoading: portfolioLoading } = useGraphQL<PortfolioQuery>(
     'getPortfolioByUser',
     portfolioQuery
@@ -166,9 +171,11 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       console.error(`Error fetching portfolio data: ${p.reason}`);
     } else {
       setSnapshots(
-        p?.data.result.map((p) => ({
-          ...p,
-          assets: p.assets.map((pa) => ({
+        p?.data.result.map((snap) => ({
+          ...snap,
+          // Lean rows (all coins + all exchanges) carry no assets[]; default to
+          // [] so downstream `.map`/filters never hit null.
+          assets: (snap.assets ?? []).map((pa) => ({
             ...pa,
             name: pa.name === 'looks' ? 'RARE' : pa.name, // Normalize asset names
           })),
@@ -177,14 +184,8 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     }
   }, [p]);
 
-  // Persisted settings for this widget instance
-  const [selectedExchanges, setSelectedExchanges] = usePersistedState(
-    'selectedExchanges',
-    ['ALL']
-  );
-  const [selectedCoins, setSelectedCoins] = usePersistedState('selectedCoins', [
-    'ALL',
-  ]);
+  // Persisted settings for this widget instance (exchange/coin selections are
+  // declared earlier — the fetch depends on them).
   const [selectedCurrency, setSelectedCurrency] = usePersistedState(
     'selectedCurrency',
     'USD'
@@ -525,6 +526,12 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     const processedSnapshots = filteredSnapshots.map((snapshot) => {
       // Cast the snapshot to our extended type
       const extendedSnapshot = snapshot as PortfolioSnapshotWithExchanges;
+
+      // No filter (all coins + all exchanges): use the backend `totalUsd`
+      // directly. Lean rows carry no assets[], so we must not reduce over them.
+      if (showAllExchanges && showAllCoins) {
+        return extendedSnapshot;
+      }
 
       // Filter assets by selected coins first
       let assetsToProcess = extendedSnapshot.assets;
