@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.7] - 2026-07-16
+
+### Fixed
+
+- Portfolio Value chart no longer draws a line up from $0 to the first value. Accounts funded later have a run of $0 snapshots at the start of their history; the chart now trims those leading empty points and starts at the first funded value. Interior/trailing $0 (real drawdowns) are unaffected.
+
 ## [2.33.6] - 2026-07-16
 
 ### Changed

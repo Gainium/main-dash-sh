@@ -668,6 +668,15 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     // Sort by updateTime to ensure chronological order
     chartData.sort((a, b) => a.updateTime - b.updateTime);
 
+    // Trim leading empty points so the line starts at the first funded value.
+    // Accounts funded later have a run of $0 snapshots at the start of their
+    // history (a snapshot is $0 until the account holds a balance); without this
+    // the chart draws a distracting line up from 0 to the first real value —
+    // more visible now that the 12M chip pulls the full history. Interior and
+    // trailing zeros (genuine drawdowns to $0) are kept.
+    const firstFunded = chartData.findIndex((d) => (d.value ?? 0) > 0);
+    if (firstFunded > 0) chartData.splice(0, firstFunded);
+
     // Intelligently thin out data points while preserving chart detail
     let finalChartData = chartData;
     if (timeFilter === '12m' || timeFilter === '1y') {
