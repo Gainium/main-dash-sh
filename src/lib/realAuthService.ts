@@ -1,6 +1,10 @@
 import type { User } from '@/types/auth';
 import { jwtDecode } from 'jwt-decode';
-import { GraphQLClient } from './api/GraphQLClient';
+import {
+  GraphQLClient,
+  GraphQLHttpError,
+  type GraphQLRequestOptions,
+} from './api/GraphQLClient';
 import { GraphQlQuery } from './api';
 // import { logger } from './loggerInstance';
 
@@ -40,6 +44,19 @@ interface GainiumUserResponse {
 interface OTPRequiredError extends Error {
   temporaryToken: string;
 }
+
+/**
+ * Result of a classified token validation (see `validateTokenDetailed`).
+ *
+ * `definitive: true` means the backend RECEIVED the token, evaluated it, and
+ * rejected it (NOTOK user response, or HTTP 401/403) — the session is truly
+ * dead and may be cleared. `definitive: false` means we simply couldn't get
+ * an answer (client timeout, network failure, 5xx, gateway hiccup) — the
+ * token may be perfectly valid, so callers MUST NOT clear the session on it.
+ */
+export type TokenValidationResult =
+  | { ok: true; user: User }
+  | { ok: false; definitive: boolean; reason: string };
 
 /**
  * Real authentication service that connects to Gainium's GraphQL API
@@ -193,14 +210,17 @@ export class RealAuthService {
   /**
    * Get user information using an authenticated token
    */
-  static async getUserInfo(token: string): Promise<User> {
+  static async getUserInfo(
+    token: string,
+    options?: GraphQLRequestOptions
+  ): Promise<User> {
     try {
       // Create authenticated GraphQL client
       const authenticatedClient = new GraphQLClient(GRAPHQL_ENDPOINT, token);
 
       const response = await authenticatedClient.request<{
         user: GainiumUserResponse;
-      }>(GraphQlQuery.user().query);
+      }>(GraphQlQuery.user().query, undefined, options);
 
       if (response.user.status !== 'OK' || !response.user.data) {
         throw new Error(
@@ -275,6 +295,58 @@ export class RealAuthService {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       return null;
+    }
+  }
+
+  /**
+   * Validate a token and CLASSIFY the failure mode instead of collapsing
+   * everything into `null` the way `validateToken` does.
+   *
+   * The distinction matters at boot: `initializeAuth` used to treat any
+   * failure — including a request that timed out because the backend was
+   * slow, or a plain network blip — as "token invalid" and wiped the stored
+   * session, kicking users with perfectly valid tokens to the login page
+   * whenever the API had a bad moment. Only a *definitive* rejection may
+   * clear the session; an unanswered question must keep it.
+   */
+  static async validateTokenDetailed(
+    token: string,
+    options?: GraphQLRequestOptions
+  ): Promise<TokenValidationResult> {
+    try {
+      const authenticatedClient = new GraphQLClient(GRAPHQL_ENDPOINT, token);
+      const response = await authenticatedClient.request<{
+        user: GainiumUserResponse;
+      }>(GraphQlQuery.user().query, undefined, options);
+
+      if (response.user.status !== 'OK' || !response.user.data) {
+        // The backend answered: it saw the token and rejected it (deleted
+        // user, bumped tokenVersion, revoked session…). Definitive.
+        return {
+          ok: false,
+          definitive: true,
+          reason: response.user.reason || 'Invalid session',
+        };
+      }
+
+      const userData = response.user.data;
+      return {
+        ok: true,
+        user: { ...userData, id: userData._id, email: userData.username },
+      };
+    } catch (error) {
+      // HTTP 401/403 is the server explicitly refusing the token. Anything
+      // else — GraphQLTimeoutError (client abort), TypeError (network
+      // failure), 5xx/429 GraphQLHttpError, parse errors — is indeterminate:
+      // we never learned whether the token is valid.
+      const definitive =
+        error instanceof GraphQLHttpError &&
+        (error.details.status === 401 || error.details.status === 403);
+      return {
+        ok: false,
+        definitive,
+        reason: error instanceof Error ? error.message : 'Unknown error',
+      };
     }
   }
 

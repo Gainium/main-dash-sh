@@ -127,8 +127,12 @@ export const useAuthStore = create<AuthStore>()(
                 const decoded = jwtDecode<{ exp: number }>(cookieToken);
                 const expiresAt = decoded.exp * 1000;
 
-                // Get user information from the API
-                const user = await RealAuthService.getUserInfo(cookieToken);
+                // Get user information from the API. Time-capped so a
+                // degraded backend can't hang the boot gate for minutes on
+                // the admin/dev cookie handoff either.
+                const user = await RealAuthService.getUserInfo(cookieToken, {
+                  timeoutMs: 15_000,
+                });
 
                 // Clear all app data to prevent stale-while-revalidate issues
                 queryClient.clear();
@@ -176,38 +180,58 @@ export const useAuthStore = create<AuthStore>()(
                 return;
               }
 
-              // Validate token with server
-              const userData = await RealAuthService.validateToken(
-                tokens.accessToken
-              );
-
-              if (typeof userData === 'object' && userData !== null) {
-                // Token is valid, restore auth state
+              // Optimistically restore the session from persisted state so
+              // the full-screen boot gate (ProtectedRoute's "Loading…")
+              // doesn't block on the network. The server validation below
+              // still runs and a definitive rejection still logs out — but a
+              // slow API no longer means minutes of spinner, and cached
+              // dashboard data renders immediately.
+              const persistedUser = get().user;
+              if (persistedUser) {
                 set({
                   isAuthenticated: true,
                   isLoading: false,
-                  user: userData,
+                  user: persistedUser,
+                });
+                bindAccountScopedStores(persistedUser.id);
+              }
+
+              // Validate token with server. The timeout caps how long boot
+              // validation can hang when the backend is degraded — without
+              // it the request pends for the full ~5-minute server timeout.
+              const validation = await RealAuthService.validateTokenDetailed(
+                tokens.accessToken,
+                { timeoutMs: 15_000 }
+              );
+
+              if (validation.ok) {
+                // Token is valid, restore auth state with fresh user data
+                set({
+                  isAuthenticated: true,
+                  isLoading: false,
+                  user: validation.user,
                 });
 
-                bindAccountScopedStores(userData.id);
+                bindAccountScopedStores(validation.user.id);
 
-                // Re-identify user in Rybbit and PostHog after restoring from storage
-                const { user } = get();
-                if (user) {
-                  // Re-identify user in PostHog
-                  if (user.id) {
-                    analyticsIdentify(user.id, {
-                      email: user.email || '',
-                      name: user.name || '',
-                      username: user.name || user.email || '',
-                    });
-                  }
+                // Re-identify user in PostHog after restoring from storage
+                if (validation.user.id) {
+                  analyticsIdentify(validation.user.id, {
+                    email: validation.user.email || '',
+                    name: validation.user.name || '',
+                    username: validation.user.name || validation.user.email || '',
+                  });
                 }
 
                 return;
-              } else {
-                // Token is invalid, clear auth state
-                logger.info('Stored token is invalid, clearing auth state');
+              }
+
+              if (validation.definitive) {
+                // The backend evaluated the token and rejected it — the
+                // session is truly dead. Clear it.
+                logger.info('Stored token rejected by server, clearing auth', {
+                  reason: validation.reason,
+                });
                 set({
                   user: null,
                   tokens: null,
@@ -216,18 +240,35 @@ export const useAuthStore = create<AuthStore>()(
                 });
                 return;
               }
+
+              // Indeterminate failure (client timeout, network error, 5xx):
+              // we never learned whether the token is valid, so KEEP the
+              // session. Wiping it here is what used to log users out of
+              // prod whenever the API had a bad moment. Queries retry on
+              // their own; the next boot revalidates.
+              logger.warn(
+                'Token validation inconclusive (network/server issue), keeping session',
+                { reason: validation.reason }
+              );
+              if (!persistedUser) {
+                // No cached user to render with — fall back to the login
+                // page rather than an empty authenticated shell. The token
+                // stays stored; the next boot retries validation.
+                set({ isLoading: false });
+              }
+              return;
             }
 
             // No stored token, user needs to log in
             set({ isLoading: false });
           } catch (error) {
+            // Unexpected failure somewhere in init. Do NOT clear the stored
+            // tokens — destroying a possibly-valid session on an incidental
+            // error (analytics, storage, a throw in a helper) is exactly the
+            // failure mode the classification above exists to prevent. Drop
+            // the loading gate and let the next boot retry.
             logger.error('Auth initialization failed:', error);
-            set({
-              user: null,
-              tokens: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
+            set({ isLoading: false });
           } finally {
             // Always release the init lock. Leaving `initInProgress: true`
             // persisted in localStorage made subsequent `initializeAuth`

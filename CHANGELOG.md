@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.12] - 2026-07-16
+
+### Fixed
+
+- A slow or unreachable backend no longer destroys the session or hangs the app at boot. Opening the dashboard while the API was degraded used to show a full-screen "Loading…" for minutes (boot token validation had no timeout, so the request pended until the ~5-minute server cutoff) and then kick the user to the login page even though their session was perfectly valid (every failure — timeout, network error, 5xx — was treated as "invalid token" and wiped the stored session). Boot now restores the session instantly from the last known state and validates it in the background with a 15-second cap; only an actual server-side rejection (revoked token, deleted user, 401/403) logs the user out, while network failures and server errors keep the session and retry on the next boot.
+
 ## [2.33.11] - 2026-07-16
 
 ### Removed
