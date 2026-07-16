@@ -125,7 +125,37 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   const portfolioContext = useContext(PortfolioContext);
 
   const [snapshots, setSnapshots] = useState<Snapshots[]>([]);
-  const portfolioQuery = useMemo(() => GraphQlQuery.getPortfolioByUser(), []);
+
+  // Timeframe chip (1M / 3M / 12M). Persisted per widget; legacy day-count
+  // values ('30'/'60'/'90') are normalized to the new keys on mount (below).
+  const [timeFilter, setTimeFilter] = usePersistedState(
+    'timeFilter',
+    fixedTimeframe || '1m'
+  );
+
+  // Fetch the WHOLE selected range from the backend (ClickHouse-backed, 12-month
+  // retention) so the longer chips actually return more history instead of being
+  // capped at the old hardcoded 30-day window. `from` is floored to the UTC day
+  // so the react-query cache key stays stable across renders within a day.
+  const portfolioQuery = useMemo(() => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const rangeDays: Record<string, number> = {
+      '1m': 30,
+      '3m': 90,
+      '12m': 365,
+      // legacy / alternate keys still fetch a sensible window
+      '30': 30,
+      '60': 60,
+      '90': 90,
+      '1w': 7,
+      '3d': 3,
+      '1d': 1,
+      '1y': 365,
+    };
+    const days = rangeDays[timeFilter] ?? 30;
+    const from = Math.floor(Date.now() / dayMs) * dayMs - days * dayMs;
+    return GraphQlQuery.getPortfolioByUser({ from });
+  }, [timeFilter]);
   const { data: p, isLoading: portfolioLoading } = useGraphQL<PortfolioQuery>(
     'getPortfolioByUser',
     portfolioQuery
@@ -155,10 +185,6 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   const [selectedCoins, setSelectedCoins] = usePersistedState('selectedCoins', [
     'ALL',
   ]);
-  const [timeFilter, setTimeFilter] = usePersistedState(
-    'timeFilter',
-    fixedTimeframe || '30'
-  );
   const [selectedCurrency, setSelectedCurrency] = usePersistedState(
     'selectedCurrency',
     'USD'
@@ -195,6 +221,16 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       setTimeFilter(fixedTimeframe);
     }
   }, [fixedTimeframe, timeFilter, setTimeFilter]);
+
+  // Migrate legacy persisted day-count chips ('30'/'60'/'90') to the new
+  // 1M/3M/12M keys so returning users land on a valid, highlighted chip.
+  useEffect(() => {
+    if (fixedTimeframe) return;
+    const legacy: Record<string, string> = { '30': '1m', '60': '3m', '90': '3m' };
+    if (legacy[timeFilter]) setTimeFilter(legacy[timeFilter]);
+    // run once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Handle inline name editing
   const handleNameChange = useCallback(
@@ -469,6 +505,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       '1w': 7 * 24 * 60 * 60 * 1000,
       '1m': 30 * 24 * 60 * 60 * 1000,
       '3m': 90 * 24 * 60 * 60 * 1000,
+      '12m': 365 * 24 * 60 * 60 * 1000,
       '1y': 365 * 24 * 60 * 60 * 1000,
     };
 
@@ -572,7 +609,10 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
 
       // Format date label based on time filter
       let dateString: string;
-      if (timeFilter === '90' || timeFilter === '3m') {
+      if (timeFilter === '12m' || timeFilter === '1y') {
+        // For a year, show month-only labels (e.g. "Jul")
+        dateString = date.toLocaleDateString('en-US', { month: 'short' });
+      } else if (timeFilter === '90' || timeFilter === '3m') {
         // For 90 days, show month/day format
         dateString = date.toLocaleDateString('en-US', {
           month: 'short',
@@ -630,7 +670,14 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
 
     // Intelligently thin out data points while preserving chart detail
     let finalChartData = chartData;
-    if (timeFilter === '90' || timeFilter === '3m') {
+    if (timeFilter === '12m' || timeFilter === '1y') {
+      // For a year of daily points, thin down to keep the chart readable
+      const targetPoints = Math.min(chartData.length, 30);
+      const step = Math.max(1, Math.floor(chartData.length / targetPoints));
+      finalChartData = chartData.filter(
+        (_, index) => index % step === 0 || index === chartData.length - 1
+      );
+    } else if (timeFilter === '90' || timeFilter === '3m') {
       // For 90 days, show fewer points to avoid overcrowding
       const targetPoints = Math.min(chartData.length, 25);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
@@ -919,8 +966,11 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                         ? Math.ceil(portfolioData.chartData.length / 6) // Show ~6 labels for 60 days
                         : timeFilter === '30'
                           ? Math.ceil(portfolioData.chartData.length / 5) // Show ~5 labels for 30 days
-                          : timeFilter === '1m' || timeFilter === '3m'
-                            ? Math.ceil(portfolioData.chartData.length / 8) // Backward compatibility
+                          : timeFilter === '1m' ||
+                              timeFilter === '3m' ||
+                              timeFilter === '12m' ||
+                              timeFilter === '1y'
+                            ? Math.ceil(portfolioData.chartData.length / 8) // ~8 labels
                             : timeFilter === '1w'
                               ? Math.ceil(portfolioData.chartData.length / 6)
                               : 'preserveStartEnd' // Show all labels for shorter periods
@@ -1015,9 +1065,9 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       {snapshots && snapshots.length > 0 && (
         <TimeframeButtons
           options={[
-            { value: '30', label: '30D' },
-            { value: '60', label: '60D' },
-            { value: '90', label: '90D' },
+            { value: '1m', label: '1M' },
+            { value: '3m', label: '3M' },
+            { value: '12m', label: '12M' },
           ]}
           selectedTimeframe={timeFilter}
           onTimeframeChange={(value) => setTimeFilter(value)}

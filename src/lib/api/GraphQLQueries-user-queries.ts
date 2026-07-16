@@ -434,7 +434,11 @@ export const userQueries = {
     return { query, variables };
   },
 
-  getPortfolioByUser: (input?: { timezone?: string }) => {
+  getPortfolioByUser: (input?: {
+    timezone?: string;
+    from?: number;
+    to?: number;
+  }) => {
     const query = `query getPortfolioByUser($input: getPortfolioByUser) {
                         getPortfolioByUser(input:$input){
                             status

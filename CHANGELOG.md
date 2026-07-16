@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.6] - 2026-07-16
+
+### Changed
+
+- Portfolio Value chart time chips are now **1M / 3M / 12M** (was 30D / 60D / 90D). The chart fetches the whole selected range from the backend instead of only the last 30 days, so the longer ranges actually show more history. Legacy persisted 30/60/90 selections migrate to the new chips.
+
 ## [2.33.5] - 2026-07-16
 
 ### Fixed
