@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.13] - 2026-07-16
+
+### Fixed
+
+- Dashboard chart widgets: switching a timeframe/range now updates the selected chip and chart immediately instead of appearing frozen for several seconds. Affected every widget backed by a persisted setting (Profit over time's Daily/Weekly/Monthly/Total, Portfolio Value's 1M/3M/12M). The persisted-setting hook had stopped subscribing to its own stored value (a regression from the 2.32.17 re-render cleanup, which switched the store access to method selectors), so clicking a chip wrote the new value but re-rendered nothing — the widget only repainted later when an unrelated update (a socket tick or the minute clock) happened to flush a render. Restored a precise per-setting subscription so the owning widget re-renders the instant its own setting changes.
+
 ## [2.33.12] - 2026-07-16
 
 ### Fixed

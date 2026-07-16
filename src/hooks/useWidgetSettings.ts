@@ -100,7 +100,21 @@ export function useWidgetSettings<T = Record<string, unknown>>(
     key: K,
     defaultValue: T[K]
   ): [T[K], (value: T[K]) => void] {
-    const value = getSetting(key, defaultValue);
+    // Subscribe to THIS setting's stored value so the owning widget
+    // re-renders the moment its own setting changes. Reading through the
+    // non-reactive `getSetting` getter (as this hook did after v2.32.17
+    // switched the store access to method selectors) severed that link:
+    // clicking a timeframe chip wrote the store but re-rendered nothing —
+    // the React.memo'd widget only repainted seconds later when an
+    // unrelated tick (socket update, minute clock) happened to flush a
+    // render, which users saw as the chip/chart freezing. The selector
+    // returns only the raw stored value (`undefined` when unset — a stable
+    // primitive), so inline array/object `defaultValue` args can't churn
+    // the subscription.
+    const stored = useWidgetSettingsStore(
+      (s) => s.settings[namespacedWidgetId]?.[key as string]
+    );
+    const value = (stored ?? defaultValue) as T[K];
     const setValue = useCallback(
       (newValue: T[K]) => setSetting(key, newValue),
       // `setSetting` is itself a useCallback keyed on `namespacedWidgetId`, so
