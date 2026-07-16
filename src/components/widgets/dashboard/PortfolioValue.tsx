@@ -19,7 +19,6 @@ import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
 import React, {
   useCallback,
   useContext,
-  useDeferredValue,
   useEffect,
   useMemo,
   useState,
@@ -133,14 +132,6 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     'timeFilter',
     fixedTimeframe || '1m'
   );
-
-  // The chip highlight uses `timeFilter` (urgent → updates instantly on click).
-  // The heavy chart recompute/render uses `deferredTimeFilter`, so React paints
-  // the new chip selection first and re-renders the chart in a deferred pass.
-  // `rangeSwitching` (the two differ mid-transition) drives the chart's loading
-  // overlay so the user sees a spinner instead of a frozen chip.
-  const deferredTimeFilter = useDeferredValue(timeFilter);
-  const rangeSwitching = timeFilter !== deferredTimeFilter;
 
   // Persisted filter selections. Declared here (before the fetch) because the
   // query depends on whether a coin/exchange filter is active.
@@ -496,7 +487,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         currentValue: 0,
         changeValue: 0,
         changePercent: 0,
-        deferredTimeFilter: deferredTimeFilter,
+        timeFilter: timeFilter,
         chartData: [],
       };
     }
@@ -521,7 +512,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
 
     const cutoffTime =
       now -
-      (timeFilterMs[deferredTimeFilter as keyof typeof timeFilterMs] ||
+      (timeFilterMs[timeFilter as keyof typeof timeFilterMs] ||
         timeFilterMs['30']);
     const filteredSnapshots = snapshots.filter(
       (snapshot) => snapshot.updateTime >= cutoffTime
@@ -625,34 +616,34 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
 
       // Format date label based on time filter
       let dateString: string;
-      if (deferredTimeFilter === '12m' || deferredTimeFilter === '1y') {
+      if (timeFilter === '12m' || timeFilter === '1y') {
         // For a year, show month-only labels (e.g. "Jul")
         dateString = date.toLocaleDateString('en-US', { month: 'short' });
-      } else if (deferredTimeFilter === '90' || deferredTimeFilter === '3m') {
+      } else if (timeFilter === '90' || timeFilter === '3m') {
         // For 90 days, show month/day format
         dateString = date.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
         });
-      } else if (deferredTimeFilter === '60') {
+      } else if (timeFilter === '60') {
         // For 60 days, show month/day format
         dateString = date.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
         });
-      } else if (deferredTimeFilter === '30' || deferredTimeFilter === '1m') {
+      } else if (timeFilter === '30' || timeFilter === '1m') {
         // For 30 days, show month/day format
         dateString = date.toLocaleDateString('en-US', {
           month: 'short',
           day: 'numeric',
         });
-      } else if (deferredTimeFilter === '1w') {
+      } else if (timeFilter === '1w') {
         // For 1 week, show day abbreviation + date like "Mon 1" or "Tue 2"
         const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
         const dayName = dayNames[date.getDay()];
         const dayNum = date.getDate();
         dateString = `${dayName} ${dayNum}`;
-      } else if (deferredTimeFilter === '3d') {
+      } else if (timeFilter === '3d') {
         // For 3 days, show month/day format like "7/5" or "7/6"
         dateString = date.toLocaleDateString('en-US', {
           month: 'numeric',
@@ -695,35 +686,35 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
 
     // Intelligently thin out data points while preserving chart detail
     let finalChartData = chartData;
-    if (deferredTimeFilter === '12m' || deferredTimeFilter === '1y') {
+    if (timeFilter === '12m' || timeFilter === '1y') {
       // For a year of daily points, thin down to keep the chart readable
       const targetPoints = Math.min(chartData.length, 30);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
       finalChartData = chartData.filter(
         (_, index) => index % step === 0 || index === chartData.length - 1
       );
-    } else if (deferredTimeFilter === '90' || deferredTimeFilter === '3m') {
+    } else if (timeFilter === '90' || timeFilter === '3m') {
       // For 90 days, show fewer points to avoid overcrowding
       const targetPoints = Math.min(chartData.length, 25);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
       finalChartData = chartData.filter(
         (_, index) => index % step === 0 || index === chartData.length - 1
       );
-    } else if (deferredTimeFilter === '60') {
+    } else if (timeFilter === '60') {
       // For 60 days, show moderate number of points
       const targetPoints = Math.min(chartData.length, 20);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
       finalChartData = chartData.filter(
         (_, index) => index % step === 0 || index === chartData.length - 1
       );
-    } else if (deferredTimeFilter === '30' || deferredTimeFilter === '1m') {
+    } else if (timeFilter === '30' || timeFilter === '1m') {
       // For 30 days, show more points but limit for performance
       const targetPoints = Math.min(chartData.length, 20);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
       finalChartData = chartData.filter(
         (_, index) => index % step === 0 || index === chartData.length - 1
       );
-    } else if (deferredTimeFilter === '1w') {
+    } else if (timeFilter === '1w') {
       // For 1 week, show more frequent points
       const targetPoints = Math.min(chartData.length, 15);
       const step = Math.max(1, Math.floor(chartData.length / targetPoints));
@@ -750,11 +741,11 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       currentValue,
       changeValue,
       changePercent,
-      deferredTimeFilter: deferredTimeFilter,
+      timeFilter: timeFilter,
       chartData: finalChartData,
     };
     },
-    [snapshots, deferredTimeFilter, selectedCoins, nowTick]
+    [snapshots, timeFilter, selectedCoins, nowTick]
   );
 
   const portfolioData = useMemo(
@@ -928,11 +919,10 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       )}
       {snapshots && snapshots.length > 0 && (
         <div className="flex-1 mb-2 relative min-h-0">
-          {/* Loading overlay while the chart recomputes for a new range (chip
-              switch) or refetches (filter change). The chip highlight has already
-              updated (urgent), so this shows the chart catching up rather than a
-              frozen widget. */}
-          {(rangeSwitching || portfolioLoading) && (
+          {/* Loading overlay while the chart data is (re)fetching — e.g. the
+              initial load or a coin/exchange filter change. Chip range switches
+              are client-side (no refetch) so they don't trigger this. */}
+          {portfolioLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-card/40 pointer-events-none">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-primary" />
             </div>
@@ -994,18 +984,18 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                     className: 'text-muted-foreground',
                   }}
                   interval={
-                    deferredTimeFilter === '90'
+                    timeFilter === '90'
                       ? Math.ceil(portfolioData.chartData.length / 8) // Show ~8 labels for 90 days
-                      : deferredTimeFilter === '60'
+                      : timeFilter === '60'
                         ? Math.ceil(portfolioData.chartData.length / 6) // Show ~6 labels for 60 days
-                        : deferredTimeFilter === '30'
+                        : timeFilter === '30'
                           ? Math.ceil(portfolioData.chartData.length / 5) // Show ~5 labels for 30 days
-                          : deferredTimeFilter === '1m' ||
-                              deferredTimeFilter === '3m' ||
-                              deferredTimeFilter === '12m' ||
-                              deferredTimeFilter === '1y'
+                          : timeFilter === '1m' ||
+                              timeFilter === '3m' ||
+                              timeFilter === '12m' ||
+                              timeFilter === '1y'
                             ? Math.ceil(portfolioData.chartData.length / 8) // ~8 labels
-                            : deferredTimeFilter === '1w'
+                            : timeFilter === '1w'
                               ? Math.ceil(portfolioData.chartData.length / 6)
                               : 'preserveStartEnd' // Show all labels for shorter periods
                   }
@@ -1117,10 +1107,8 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       portfolioData,
       selectedCoins,
       getCoinColor,
-      timeFilter, // chip highlight — urgent, so it updates the instant a chip is clicked
-      deferredTimeFilter, // XAxis interval — deferred, follows the chart
-      rangeSwitching, // drives the chart loading overlay
-      portfolioLoading,
+      timeFilter,
+      portfolioLoading, // drives the chart loading overlay
       fixedTimeframe, // chips are hidden when a fixed range is forced
       privacyMode,
       selectedCurrency,

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.10] - 2026-07-16
+
+### Fixed
+
+- Reverted the `useDeferredValue` experiment on the Portfolio Value chart (2.33.9) — it made the chip selection lag/freeze instead of updating. Chip range switches are client-side and fast (~2ms compute); the chart uses `timeFilter` directly and the loading spinner shows only during an actual (re)fetch (initial load / filter change). Chips still work on the portfolio page (fixedTimeframe lock removed in 2.33.9).
+
 ## [2.33.9] - 2026-07-16
 
 ### Fixed
