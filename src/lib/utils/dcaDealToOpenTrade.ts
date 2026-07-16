@@ -7,6 +7,7 @@
  * two "Deals" tabs in lock-step instead of drifting two near-identical copies.
  */
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
+import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
 import type { DCADeals } from '@/types';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
@@ -131,5 +132,9 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
       ? new Date(deal.closeTime).toISOString()
       : undefined,
     trailingMode: deal.trailingMode,
+    // Per-order auto-compounding breakdown (orig size + amount compounding
+    // added), surfaced in the deal detail drawer. Undefined when the bot
+    // isn't compounding.
+    compoundBreakdown: computeCompoundBreakdown(deal.sizes),
   };
 }

@@ -17,6 +17,7 @@ import {
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
+import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
 import { getOrderTypeLabel } from '@/utils/mapOrderName';
 import { extractPairAssets } from '@/utils/pairs';
 import React, { useMemo } from 'react';
@@ -159,6 +160,7 @@ interface TradeDetailDrawerProps {
       all: number;
     };
     created?: number | undefined;
+    compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
     // Bot-related properties for chart
     botId?: string | undefined;
     pair?: string;

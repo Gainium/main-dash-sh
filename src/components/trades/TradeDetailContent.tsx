@@ -7,8 +7,9 @@ import {
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
 import type { SmartViewOrder } from '@/hooks/bots/dca/useDealSmartOrders';
+import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
 import { extractPairAssets } from '@/utils/pairs';
-import { Activity, Clock, DollarSign, Layers } from 'lucide-react';
+import { Activity, Clock, DollarSign, Layers, Repeat } from 'lucide-react';
 import React from 'react';
 import { formatCurrency, formatPercentage } from '../../lib/utils';
 import { formatPriceWithPrecision } from '@/utils/formatters';
@@ -78,6 +79,7 @@ interface TradeDetailContentProps {
       all: number;
     };
     created?: number | undefined;
+    compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
   };
   privacyMode?: boolean;
   showChips?: boolean;
@@ -276,6 +278,69 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
           )}
         </div>
       </div>
+
+      {/* Auto-Compounding Section — how much compounding added to each order.
+          Only rendered when the deal actually compounded (see
+          computeCompoundBreakdown). */}
+      {trade.compoundBreakdown && trade.compoundBreakdown.length > 0 && (
+        <div>
+          <h3 className="text-lg font-semibold mb-4 flex items-center gap-xs">
+            <Repeat className="w-5 h-5" />
+            Auto-Compounding
+          </h3>
+          <Card className="p-md">
+            <div className="space-y-xs">
+              <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-6 gap-y-1 text-sm">
+                <div className="text-muted-foreground">Order</div>
+                <div className="text-muted-foreground text-right whitespace-nowrap">
+                  Configured
+                </div>
+                <div className="text-muted-foreground text-right whitespace-nowrap">
+                  Compounded
+                </div>
+                <div className="text-muted-foreground text-right whitespace-nowrap">
+                  Effective
+                </div>
+                {trade.compoundBreakdown.map((entry) => (
+                  <React.Fragment key={entry.key}>
+                    <div className="font-medium">{entry.key}</div>
+                    <div className="text-right tabular-nums">
+                      {privacyMode
+                        ? '***'
+                        : formatNumber(entry.valueOrig, false)}
+                    </div>
+                    <div
+                      className={`text-right tabular-nums ${
+                        entry.valueAdded >= 0 ? 'text-profit' : 'text-loss'
+                      }`}
+                    >
+                      {privacyMode
+                        ? '***'
+                        : `${entry.valueAdded >= 0 ? '+' : ''}${formatNumber(
+                            entry.valueAdded,
+                            false
+                          )}`}
+                    </div>
+                    <div className="text-right tabular-nums font-medium">
+                      {privacyMode
+                        ? '***'
+                        : formatNumber(
+                            entry.valueOrig + entry.valueAdded,
+                            false
+                          )}
+                    </div>
+                  </React.Fragment>
+                ))}
+              </div>
+              <div className="text-xs text-muted-foreground pt-xs">
+                Amounts in {baseAsset}. Auto-compounding reinvests realized
+                profit by increasing each order&apos;s size above its configured
+                amount.
+              </div>
+            </div>
+          </Card>
+        </div>
+      )}
 
       {/* Balance & Usage Section */}
       <div>

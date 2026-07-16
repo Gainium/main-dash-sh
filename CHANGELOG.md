@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.18] - 2026-07-16
+
+### Added
+
+- Combo and DCA deal details now show an **Auto-Compounding** breakdown. For each order — the initial buy and every DCA safety order — it lists the configured size, the amount auto-compounding added on top, and the resulting effective size. The dashboard already fetched this data but never displayed it, so there was no way to see how much compounding contributed to a deal; this restores the visibility the legacy dashboard had.
+
 ## [2.33.17] - 2026-07-16
 
 ### Fixed

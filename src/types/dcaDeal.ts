@@ -7,6 +7,10 @@ import {
 } from '@/lib/utils/tradingMetrics';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import {
+  computeCompoundBreakdown,
+  type CompoundBreakdownEntry,
+} from '@/lib/utils/compoundBreakdown';
+import {
   BotTypesEnum,
   ComboTpBase,
   DCADealStatusEnum,
@@ -145,6 +149,7 @@ export type TransformedTrade = {
   closeTime?: string;
   trailingMode?: string;
   exitPrice?: number;
+  compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
 };
 
 export const transformDealToTrade = (
@@ -524,5 +529,8 @@ export const transformDealToTrade = (
       ? tpSLConfig((deal as DCADeals).settings, 'sl', combo)
       : '-',
     exitPrice: deal.lastPrice,
+    // Per-order auto-compounding breakdown, surfaced in the deal detail
+    // drawer. Undefined when the bot isn't compounding.
+    compoundBreakdown: computeCompoundBreakdown(deal.sizes),
   };
 };

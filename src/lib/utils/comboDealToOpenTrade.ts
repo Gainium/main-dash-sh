@@ -10,6 +10,7 @@
  * without `botName` populated — the page passes a lookup into its loaded bots.
  */
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
+import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -132,5 +133,9 @@ export function comboDealToOpenTrade(
       ? new Date(deal.closeTime).toISOString()
       : undefined,
     trailingMode: deal.trailingMode,
+    // Per-order auto-compounding breakdown (orig size + amount compounding
+    // added), surfaced in the deal detail drawer. Undefined when the bot
+    // isn't compounding.
+    compoundBreakdown: computeCompoundBreakdown(deal.sizes),
   };
 }

@@ -104,6 +104,7 @@ import { useHedgeDeals } from '@/hooks/useHedgeDeals';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
 import { comboDealToOpenTrade } from '@/lib/utils/comboDealToOpenTrade';
+import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
 import type { HedgeUnPnlResult } from '@/utils/bots/hedge/computeHedgeUnPnl';
 
 /**
@@ -174,6 +175,7 @@ export interface TradeDetails {
     all: number;
   };
   created?: number | undefined;
+  compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
   botId?: string;
   pair?: string;
 }

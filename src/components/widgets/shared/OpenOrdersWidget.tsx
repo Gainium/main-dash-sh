@@ -20,6 +20,10 @@ import {
 import { fetchDealOrders } from '@/hooks/useDealOrders';
 import { useSetDealNote } from '@/hooks/useSetDealNote';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
+import {
+  computeCompoundBreakdown,
+  type CompoundBreakdownEntry,
+} from '@/lib/utils/compoundBreakdown';
 /* import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api'; */
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
@@ -301,6 +305,7 @@ export interface OpenTrade {
   updateTime?: string;
   closeTime?: string;
   trailingMode?: string;
+  compoundBreakdown?: CompoundBreakdownEntry[];
 }
 
 // Trade actions component
@@ -1553,6 +1558,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           ? new Date(deal.closeTime).toISOString()
           : undefined,
         trailingMode: deal.trailingMode,
+        compoundBreakdown: computeCompoundBreakdown(deal.sizes),
       };
     },
     [botTypeOverride, getMarketPrice, liveOrders]
