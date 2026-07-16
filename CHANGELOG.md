@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.33.17] - 2026-07-16
+
+### Fixed
+
+- Opening a grid or DCA bot's edit page no longer freezes the tab on cold load. When the detailed-settings query hadn't resolved yet and the form fell back to basic bot data, that fallback was rebuilt as a fresh object on every render, defeating the downstream memoization and spinning the bot form into an infinite re-render loop that pegged the browser. The fallback is now memoized, so the edit page mounts and settles normally.
+
 ## [2.33.16] - 2026-07-16
 
 ### Fixed

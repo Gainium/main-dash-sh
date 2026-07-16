@@ -257,40 +257,47 @@ export function useBotSettings(
     console.error('[useBotSettings] getDCABot error:', botResult.error.message);
   }
 
-  // Extract bot settings - prefer detailed settings, fallback to basic bot data
-  let botSettings: BotSettingsData | null = null;
+  // Extract bot settings - prefer detailed settings, fallback to basic bot data.
+  // Memoize on the two source payloads so the returned reference is stable
+  // across renders where nothing changed. The fallback branch builds a brand-new
+  // object literal; without memoization that unstable identity defeats the
+  // downstream useMemo in useBotFormDataQuery, which BotFormQueryProvider spreads
+  // into its context value → every consumer re-renders → this hook runs again →
+  // infinite render loop that hard-freezes the bot-edit page.
+  const botSettings: BotSettingsData | null = useMemo(() => {
+    // Try getDCABotSettings first
+    if (settingsResult.data?.status === 'OK') {
+      return settingsResult.data.data;
+    }
 
-  // Try getDCABotSettings first
-  if (settingsResult.data?.status === 'OK') {
-    botSettings = settingsResult.data.data;
-  }
+    // Fallback to getDCABot if settings not available
+    if (botResult.data?.status === 'OK' && botResult.data.data) {
+      const botData = botResult.data.data as {
+        settings?: Record<string, unknown>;
+        exchange?: string;
+        exchangeUUID?: string;
+        symbol?: { value?: { baseAsset?: string; quoteAsset?: string } };
+        created?: string;
+        updated?: string;
+      };
+      // Convert basic bot data to BotSettingsData format
+      return {
+        settings: (botData.settings || {}) as unknown as BotSettings,
+        exchange: botData.exchange || '',
+        exchangeUUID: botData.exchangeUUID || '',
+        baseAsset: botData.symbol?.value?.baseAsset
+          ? [botData.symbol.value.baseAsset]
+          : [],
+        quoteAsset: botData.symbol?.value?.quoteAsset
+          ? [botData.symbol.value.quoteAsset]
+          : [],
+        created: botData.created || '',
+        updated: botData.updated || '',
+      };
+    }
 
-  // Fallback to getDCABot if settings not available
-  if (!botSettings && botResult.data?.status === 'OK' && botResult.data.data) {
-    const botData = botResult.data.data as {
-      settings?: Record<string, unknown>;
-      exchange?: string;
-      exchangeUUID?: string;
-      symbol?: { value?: { baseAsset?: string; quoteAsset?: string } };
-      created?: string;
-      updated?: string;
-    };
-    // Convert basic bot data to BotSettingsData format
-    botSettings = {
-      settings: (botData.settings || {}) as unknown as BotSettings,
-      exchange: botData.exchange || '',
-      exchangeUUID: botData.exchangeUUID || '',
-      baseAsset: botData.symbol?.value?.baseAsset
-        ? [botData.symbol.value.baseAsset]
-        : [],
-      quoteAsset: botData.symbol?.value?.quoteAsset
-        ? [botData.symbol.value.quoteAsset]
-        : [],
-      created: botData.created || '',
-      updated: botData.updated || '',
-    };
-    console.log('[useBotSettings] Using getDCABot fallback data:', botSettings);
-  }
+    return null;
+  }, [settingsResult.data, botResult.data]);
 
   return {
     botSettings,
