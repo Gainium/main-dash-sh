@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.35.2] - 2026-07-17
+
+### Fixed
+
+- A slow or failed connection while opening a bot no longer makes the app think the bot is missing — it could switch your Live/Paper toggle on its own, or wrongly report a healthy bot as not found.
+
 ## [2.35.1] - 2026-07-17
 
 ### Fixed

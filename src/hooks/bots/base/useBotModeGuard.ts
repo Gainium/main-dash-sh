@@ -80,12 +80,25 @@ export function useBotModeGuard(
 
   // The bot is "missing" in a mode when the query resolved to a payload that
   // isn't a populated OK — the backend answers a wrong-mode lookup with
-  // `status: NOTOK` ("Bot not found"), and occasionally `OK` + null. A thrown
-  // request error leaves `data` undefined, which we deliberately do NOT treat
-  // as missing (so a transient failure never fakes a not-found).
+  // `status: NOTOK` ("Bot not found"), and occasionally `OK` + null.
+  //
+  // Only a payload this probe actually resolved FOR THE CURRENT KEY counts as
+  // evidence. `!!data` is not enough: the global
+  // `placeholderData: (prev) => prev` in `lib/queryClient` back-fills `data`
+  // with the PREVIOUS key's payload whenever this key has none of its own —
+  // on a thrown/timed-out request, and while a key change refetches (the key
+  // mixes in live/paper via `useCacheKey`, so flipping the toggle swaps it).
+  // Reading `!!data` therefore let a stale or unrelated `NOTOK` vote as "not
+  // in this mode", flipping the user's trading mode for a bot that was never
+  // in the other mode and reporting a healthy bot as notFound. `isSuccess`
+  // excludes errors; `isPlaceholderData` excludes borrowed payloads. Absence
+  // of evidence must not read as evidence of absence.
+  const currentResolved = current.isSuccess && !current.isPlaceholderData;
   const foundInCurrent =
-    current.data?.status === 'OK' && current.data.data != null;
-  const missingInCurrent = !!current.data && !foundInCurrent;
+    currentResolved &&
+    current.data?.status === 'OK' &&
+    current.data.data != null;
+  const missingInCurrent = currentResolved && !foundInCurrent;
 
   // Only reach for the OTHER mode once we know it's missing in the current
   // one — avoids a second request on every normal bot page load.
@@ -99,9 +112,11 @@ export function useBotModeGuard(
     }
   );
 
+  // Same rule for the other-mode probe (see `currentResolved`).
+  const otherResolved = other.isSuccess && !other.isPlaceholderData;
   const foundInOther =
-    other.data?.status === 'OK' && other.data.data != null;
-  const missingInOther = !!other.data && !foundInOther;
+    otherResolved && other.data?.status === 'OK' && other.data.data != null;
+  const missingInOther = otherResolved && !foundInOther;
 
   // Align the global toggle to the mode the bot actually lives in. This is a
   // store-only update (not `usePaperContext.setPaperContext`), so it doesn't
