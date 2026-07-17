@@ -8,6 +8,7 @@ import {
   Check,
   ChevronRight,
   Copy,
+  Database,
   Download,
   Edit,
   Eye,
@@ -247,6 +248,18 @@ const settingsSections: SettingsSection[] = [
     title: 'Connected Apps',
     icon: <Plug className="w-4 h-4" />,
   },
+  // Cloud-only: the Saved Data manager lives in the cloud overlay and
+  // fills `settings.savedData`. Sh has no filler, so it never shows the
+  // section rather than surfacing an empty tab.
+  ...(IS_CLOUD
+    ? [
+        {
+          id: 'saved-data',
+          title: 'Local Data',
+          icon: <Database className="w-4 h-4" />,
+        },
+      ]
+    : []),
   {
     id: 'danger-zone',
     title: 'Danger Zone',
@@ -2140,6 +2153,14 @@ const Settings: React.FC = () => {
     </div>
   );
 
+  const renderSavedData = () => (
+    // Full-width — the Saved Data manager renders wide local/remote data
+    // tables, so it isn't constrained to the max-w-4xl form column.
+    // Cloud fills with the embedded SavedDataPage; sh registers nothing
+    // (and the section is cloud-gated out of the sidebar anyway).
+    <Slot name="settings.savedData" />
+  );
+
   const renderContent = () => {
     switch (activeSection) {
       case 'personal-data':
@@ -2158,6 +2179,8 @@ const Settings: React.FC = () => {
         return renderNotificationPreferences();
       case 'connected-apps':
         return renderConnectedApps();
+      case 'saved-data':
+        return renderSavedData();
       case 'danger-zone':
         return renderDangerZone();
       default:

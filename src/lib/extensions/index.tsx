@@ -126,6 +126,13 @@ export interface SlotPropsMap {
    *  Connected Apps tab body in core's Settings page. */
   'settings.connectedApps': Record<string, unknown>;
 
+  /** "Saved Data" section on the Settings page — local/remote saved-data
+   *  manager (rulebooks, journal, layouts, cached candles, backtests…)
+   *  with JSON export/import. Cloud fills with the `SavedDataPage`
+   *  (mounted `isEmbedded`); the section is cloud-gated in core's
+   *  Settings sidebar, so sh never surfaces it. */
+  'settings.savedData': Record<string, unknown>;
+
   /** Banner shown app-wide when an account-delete request is pending.
    *  Cloud only; sh renders nothing. Mounted once in MainLayout above
    *  the page content. */
