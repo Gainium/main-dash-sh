@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.35.0] - 2026-07-17
+
+### Added
+
+- **Active sessions** section in Login & Security: see every device and browser signed in to your account (device, approximate location, IP, login method and sign-in time), log out an individual session, or log out all other sessions at once. Sessions opened by support to check your account are not shown.
+
 ## [2.34.1] - 2026-07-17
 
 ### Added

@@ -1216,4 +1216,46 @@ export const userQueries = {
     const variables = { input };
     return { query, variables };
   },
+
+  // ===== Active sessions (device / login session management) =====
+  // Admin-impersonation sessions are filtered out server-side, so they
+  // never appear in this list.
+  activeSessions: () => {
+    const query = `query activeSessions {
+                    activeSessions {
+                        status
+                        reason
+                        data {
+                            id
+                            source
+                            device
+                            ip
+                            location
+                            createdAt
+                            expiredAt
+                            current
+                        }
+                    }
+                }`;
+    return { query };
+  },
+  revokeSession: (input: { id: string }) => {
+    const query = `mutation revokeSession($input: revokeSessionInput!) {
+                    revokeSession(input: $input) {
+                        status
+                        reason
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+  logoutOtherSessions: () => {
+    const query = `mutation logoutOtherSessions {
+                    logoutOtherSessions {
+                        status
+                        reason
+                    }
+                }`;
+    return { query };
+  },
 };

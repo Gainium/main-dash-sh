@@ -60,6 +60,7 @@ import { Switch } from '../components/ui/switch';
 import { InfoIcon, Tooltip } from '../components/ui/tooltip';
 import VisualSettings from '../components/VisualSettings';
 import PasskeyManager from '../components/auth/PasskeyManager';
+import SessionsCard from '../components/settings/SessionsCard';
 import QRCode from 'react-qr-code';
 import {
   Dialog,
@@ -1303,6 +1304,11 @@ const Settings: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          {/* Active sessions — device/session management. In core so both
+              self-hosted and cloud ship it; admin-impersonation sessions are
+              filtered out server-side. */}
+          <SessionsCard />
         </div>
 
         {/* Regenerate recovery codes dialog */}
