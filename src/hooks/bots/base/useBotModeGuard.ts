@@ -3,7 +3,7 @@ import { useShareContext } from '@/hooks/useShareContext';
 import { useUIStore } from '@/stores/uiStore';
 import { BotTypesEnum } from '@/types';
 import logger from '@/lib/loggerInstance';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 /**
  * Result of resolving which trading mode (paper vs live) a specific bot
@@ -107,17 +107,40 @@ export function useBotModeGuard(
   // store-only update (not `usePaperContext.setPaperContext`), so it doesn't
   // mutate the user's persisted profile default — it just makes the current
   // session's queries target the right collection.
+  //
+  // Realign at most ONCE per bot. `setTradingMode(!isLiveTrading)` is defined
+  // relative to the toggle it just flipped, and `isLiveTrading` is a dependency
+  // of this effect, so a second pass inverts the value straight back. The probes
+  // cannot break the tie: flipping the toggle changes BOTH probe cache keys
+  // (`useCacheKey` mixes in live/paper), and the global
+  // `placeholderData: (prev) => prev` in `lib/queryClient` keeps serving the
+  // pre-flip answers while the new keys refetch — so `missingInCurrent &&
+  // foundInOther` stays true across the flip and the toggle oscillates forever.
+  // Every pass re-filters each paper/live list (bots appear/vanish) until React
+  // trips its update-depth limit and the page dies to the ErrorBoundary (#185).
+  const realignedForRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (missingInCurrent && foundInOther) {
-      logger.info('[useBotModeGuard] realigning trading mode to bot mode', {
-        botId,
-        botType,
-        wasLive: isLiveTrading,
-        nowLive: !isLiveTrading,
-      });
-      setTradingMode(!isLiveTrading);
-    }
-  }, [missingInCurrent, foundInOther, isLiveTrading, setTradingMode, botId, botType]);
+    if (!botId) return;
+    if (!(missingInCurrent && foundInOther)) return;
+    if (realignedForRef.current === botId) return;
+
+    realignedForRef.current = botId;
+    logger.info('[useBotModeGuard] realigning trading mode to bot mode', {
+      botId,
+      botType,
+      wasLive: isLiveTrading,
+      nowLive: !isLiveTrading,
+    });
+    setTradingMode(!isLiveTrading);
+  }, [
+    missingInCurrent,
+    foundInOther,
+    isLiveTrading,
+    setTradingMode,
+    botId,
+    botType,
+  ]);
 
   if (!enabled) {
     return { status: 'ok', notFound: false, isResolving: false };
