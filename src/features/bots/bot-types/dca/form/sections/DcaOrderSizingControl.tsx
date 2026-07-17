@@ -433,6 +433,13 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
             currencyReferenceOptions={options}
             currencyReferenceDisabled={true}
             currencyReferenceTooltip="Adjust order size reference in the Base Order Size section"
+            // Futures order size is funded by margin × leverage, not the free
+            // spot-wallet balance — which reads 0 once the bot's capital is
+            // committed to an open position. Validating against it produced a
+            // false "exceeds available balance" error on the hedge-combo edit
+            // form (forum #4921 / bug #94). Skip the wallet-based cap for
+            // futures; the balance still displays.
+            disableBalanceValidation={Boolean(futures)}
             errorField={errorField}
             navId={navId}
             endAdornment={

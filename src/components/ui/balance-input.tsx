@@ -64,6 +64,14 @@ export interface BalanceInputProps {
   errorField?: string; // Field name for error registration (e.g., 'baseOrderSize')
   navId?: string; // Navigation ID for linking from alert summary
   readOnly?: boolean; // If true, input is read-only and shows value without allowing edits
+  /**
+   * Suppress the "exceeds available balance" validation while keeping the
+   * balance display. Used for futures order-size inputs, where the free
+   * spot-wallet balance is NOT a valid cap on the (leveraged, margin-funded)
+   * order size — the funds live in margin, so free reads 0 on a running bot
+   * and every positive size wrongly trips the error (forum #4921 / bug #94).
+   */
+  disableBalanceValidation?: boolean;
 }
 
 export const BalanceInput: React.FC<BalanceInputProps> = ({
@@ -96,6 +104,7 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
   errorField,
   navId,
   readOnly,
+  disableBalanceValidation = false,
 }) => {
   const [inputValue, setInputValue] = useState<string>(
     value?.toString() || '0'
@@ -275,12 +284,12 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
 
   // Check if amount exceeds available balance
   const exceedsBalance = useMemo(() => {
-    if (readOnly) {
+    if (readOnly || disableBalanceValidation) {
       return false;
     }
     const numValue = parseFloat(inputValue);
     return !isNaN(numValue) && numValue > availableBalance;
-  }, [inputValue, availableBalance, readOnly]);
+  }, [inputValue, availableBalance, readOnly, disableBalanceValidation]);
 
   // Register component error with form context (if within a bot form)
   useComponentError(
