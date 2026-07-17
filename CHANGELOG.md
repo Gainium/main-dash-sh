@@ -5,11 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.34.1] - 2026-07-17
+
+### Added
+
+- Each backtest in the backtests list now has an **Export** option in its row action menu, so a single backtest can be exported without first selecting it. Available for DCA, Combo, and Grid backtests. The option is enabled only for locally-stored backtests (those with a full local payload to export); server-only backtests show it disabled. The exported JSON file is named after the backtest (`<name>_<TYPE>_<date>.json`).
+
+### Changed
+
+- Backtest export is now JSON only; the CSV export option was removed (single-row menu and bulk action).
+- Backtest export reads the complete backtest from local storage, so locally-run backtests export their full, re-importable data.
+
 ## [2.34.0] - 2026-07-17
 
 ### Added
 
-- New `settings.savedData` extension slot on the Settings page, letting a host build mount a data-management section. The cloud dashboard fills it with the **Local Data** manager (export/import of local data — rulebooks, trade journal, chart layouts, cached candles, saved backtests — as JSON). The section is host-gated, so self-hosted builds that register no filler don't surface an empty tab.
+- New `settings.savedData` extension slot on the Settings page, letting a host build mount a data-management section. The cloud dashboard fills it with the **Saved Data** manager (export/import of local data — rulebooks, trade journal, chart layouts, cached candles, saved backtests — plus remote backtests). The section is host-gated, so self-hosted builds that register no filler don't surface an empty tab.
 
 ## [2.33.18] - 2026-07-16
 

@@ -46,6 +46,8 @@ export interface BacktestRowBase {
   symbol?: string;
   baseAsset?: string;
   quoteAsset?: string;
+  /** Created timestamp (ms). Used for sorting and export filenames. */
+  time?: number;
   settings?: { name?: string };
   deals?: unknown[];
   periodicStats?: unknown[];
@@ -68,6 +70,7 @@ export interface BacktestColumnContext<TResult extends BacktestRowBase> {
   onShare: (bt: TResult) => void;
   onLoadIntoForm: (bt: TResult) => void; // "Load in settings"
   onLoadDetails: (bt: TResult) => void; // "Load details"
+  onExport: (bt: TResult) => void; // "Export" (JSON)
   onDelete: (ids: string[]) => void;
   onImportAsPaper: (bt: TResult) => void;
 }

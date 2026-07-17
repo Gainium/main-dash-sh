@@ -10,6 +10,7 @@ import type { BacktestData } from './useBacktests';
 import { useGraphQL } from './useGraphQL';
 import {
   getAllFull as getAllLocalBacktestsFromDB,
+  getById as getLocalBacktestById,
   removeId as removeBacktestIdFromDB,
   save as saveBacktestInDB,
 } from '@/utils/backtest/db';
@@ -23,7 +24,8 @@ export interface BacktestDeleteInput {
 
 export interface BacktestExportInput {
   ids: string[];
-  format: 'json' | 'csv';
+  // Base download filename (without extension). Defaults to `backtests_<date>`.
+  filename?: string;
   // When true, return Blob but do not trigger an automatic download
   skipDownload?: boolean;
 }
@@ -437,7 +439,6 @@ export function useExportBacktests() {
     mutationFn: async (input: BacktestExportInput) => {
       logger.info('[useExportBacktests] Exporting backtests:', {
         count: input.ids.length,
-        format: input.format,
       });
 
       // Try to gather backtests from react-query cache (getBacktests/comboBacktests/gridBacktests)
@@ -466,56 +467,54 @@ export function useExportBacktests() {
         }
       }
 
+      // Backtests that ran client-side live only in the local IndexedDB store
+      // (the react-query cache holds server summaries). For any requested id we
+      // couldn't find in the cache, pull its full payload from local storage so
+      // locally-run backtests export their complete, re-importable data.
+      const missingIds = input.ids.filter((id) => !allBacktestsMap.has(id));
+      for (const id of missingIds) {
+        try {
+          const entry = await getLocalBacktestById(id, true);
+          if (!entry?.data) continue;
+          const parsed =
+            typeof entry.data === 'string' ? JSON.parse(entry.data) : entry.data;
+          if (parsed && typeof parsed === 'object') {
+            const bt = {
+              ...(parsed as BacktestData),
+              _id: (parsed as { _id?: string })._id ?? entry.id,
+            } as BacktestData;
+            allBacktestsMap.set(id, bt);
+          }
+        } catch (error) {
+          logger.error('[useExportBacktests] Failed to read local backtest', {
+            id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+
       const allBacktests = Array.from(allBacktestsMap.values());
 
       const selected = allBacktests.filter((bt) => input.ids.includes(bt._id));
 
-      // Build export content
-      let content = '';
-      let mimeType = 'application/json';
-      let filename = `backtests_${new Date().toISOString().split('T')[0]}.json`;
-
-      if (input.format === 'json') {
-        // Wrap in an object with data property for import compatibility
-        const exportData = {
-          category: 'backtests',
-          data: selected,
-          exportedAt: new Date().toISOString(),
-          count: selected.length,
-        };
-        content = JSON.stringify(exportData, null, 2);
-        mimeType = 'application/json';
-        filename = `backtests_${new Date().toISOString().split('T')[0]}.json`;
-      } else {
-        // CSV
-        const headers = [
-          'ID',
-          'Name',
-          'Pair',
-          'Strategy',
-          'Net Profit',
-          'Annual Return',
-          'Max Drawdown',
-          'Created',
-        ];
-        const rows = selected.map((bt) => [
-          bt._id,
-          bt.settings?.name || '',
-          Array.isArray(bt.settings?.pair)
-            ? bt.settings.pair[0]
-            : bt.settings?.pair || '',
-          bt.settings?.strategy || '',
-          bt.financial?.netProfitTotal?.toString() || '0',
-          bt.financial?.annualizedReturn?.toString() || '0',
-          bt.financial?.maxDrawDown?.toString() || '0',
-          bt.created || '',
-        ]);
-        content = [headers, ...rows].map((row) => row.join(',')).join('\n');
-        mimeType = 'text/csv';
-        filename = `backtests_${new Date().toISOString().split('T')[0]}.csv`;
+      if (selected.length === 0) {
+        throw new Error('No exportable data found for the selected backtest(s)');
       }
 
-      const blob = new Blob([content], { type: mimeType });
+      // Build export content (JSON, wrapped for import compatibility)
+      const baseName =
+        input.filename?.trim() ||
+        `backtests_${new Date().toISOString().split('T')[0]}`;
+      const filename = `${baseName}.json`;
+      const exportData = {
+        category: 'backtests',
+        data: selected,
+        exportedAt: new Date().toISOString(),
+        count: selected.length,
+      };
+      const content = JSON.stringify(exportData, null, 2);
+
+      const blob = new Blob([content], { type: 'application/json' });
 
       // If not explicitly requested to skip download, trigger download
       if (!input.skipDownload) {

@@ -827,10 +827,7 @@ const BacktestDataPage: React.FC = () => {
     }
 
     try {
-      await exportBacktestsMutation.mutateAsync({
-        ids: itemsToExport,
-        format: 'json',
-      });
+      await exportBacktestsMutation.mutateAsync({ ids: itemsToExport });
       toast.success(
         `Exported ${itemsToExport.length} backtest${itemsToExport.length > 1 ? 's' : ''} successfully.`
       );

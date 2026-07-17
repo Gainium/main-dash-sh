@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import {
   Database,
+  Download,
   FileUp,
   MoreVertical,
   Share2,
@@ -43,6 +44,7 @@ export function buildComboBacktestColumns(
     onShare,
     onLoadIntoForm,
     onLoadDetails,
+    onExport,
     onDelete,
     onImportAsPaper,
   } = ctx;
@@ -422,6 +424,9 @@ export function buildComboBacktestColumns(
     },
     cell: ({ row }) => {
       const backtest = row.original;
+      // Only locally-stored backtests (full payload hydrated in IndexedDB,
+      // same signal as the Database icon on the Name column) can be exported.
+      const canExport = (backtest.deals?.length ?? 0) > 0;
       return (
         <div className="flex items-center justify-end">
           <DropdownMenu>
@@ -442,6 +447,13 @@ export function buildComboBacktestColumns(
               <DropdownMenuItem onClick={() => void onLoadDetails(backtest)}>
                 <FileUp className="mr-2 h-4 w-4" />
                 Load details
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                disabled={!canExport}
+                onClick={() => onExport(backtest)}
+              >
+                <Download className="mr-2 h-4 w-4" />
+                Export
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => onDelete([backtest._id])}

@@ -421,10 +421,7 @@ const Backtests: React.FC<BacktestsProps> = ({
         const bt = row.original;
         const handleExport = async () => {
           try {
-            await exportBacktestsMutation.mutateAsync({
-              ids: [bt.id],
-              format: 'json',
-            });
+            await exportBacktestsMutation.mutateAsync({ ids: [bt.id] });
             toast.success(`Exported backtest "${bt.name}"`);
           } catch (err) {
             toast.error(
@@ -602,10 +599,7 @@ const Backtests: React.FC<BacktestsProps> = ({
               onAction: async (selectedRows: Backtest[]) => {
                 const ids = selectedRows.map((r) => r.id);
                 try {
-                  await exportBacktestsMutation.mutateAsync({
-                    ids,
-                    format: 'json',
-                  });
+                  await exportBacktestsMutation.mutateAsync({ ids });
                   toast.success(
                     `Exported ${ids.length} backtest${ids.length > 1 ? 's' : ''}`
                   );

@@ -53,6 +53,24 @@ import { removePaperPrefix } from '@/utils/exchangeUtils';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Download, Trash2 } from 'lucide-react';
 
+// Descriptive export filename: `<bot name>_<TYPE>_<YYYY-MM-DD>` (created date,
+// falling back to today). Sanitized to safe filename characters.
+function buildBacktestExportName(
+  backtest: BacktestRowBase,
+  kind: 'dca' | 'grid' | 'combo'
+): string {
+  const name =
+    (backtest.settings?.name || 'backtest')
+      .replace(/[^\w.-]+/g, '-')
+      .replace(/^-+|-+$/g, '') || 'backtest';
+  const type = kind.toUpperCase();
+  const created = backtest.time ? new Date(backtest.time) : new Date();
+  const date = Number.isNaN(created.getTime())
+    ? new Date().toISOString().split('T')[0]
+    : created.toISOString().split('T')[0];
+  return `${name}_${type}_${date}`;
+}
+
 export interface BotBacktestPanelApi {
   /**
    * Ready-to-mount <BotPanelInsights> element, CONTROLLED by
@@ -322,16 +340,18 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     );
   }, [rows.length, rowsLoading, rowsError]);
 
-  // Handle export single or multiple backtests
+  // Handle export single or multiple backtests (JSON)
   const handleExportBacktests = useCallback(
-    async (backtestIds: string[], format: 'json' | 'csv' = 'json') => {
+    async (backtestIds: string[], filename?: string) => {
       try {
         logger.info('[BotBacktestPanel] Exporting backtests', {
           backtestIds,
-          format,
           prefix: 'BACKTEST_EXPORT',
         });
-        await exportBacktestsMutation.mutateAsync({ ids: backtestIds, format });
+        await exportBacktestsMutation.mutateAsync({
+          ids: backtestIds,
+          ...(filename ? { filename } : {}),
+        });
         toast.success(
           `Exported ${backtestIds.length} backtest${backtestIds.length > 1 ? 's' : ''} successfully`
         );
@@ -503,6 +523,11 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
           onShare: handleShareBacktest,
           onLoadIntoForm: onLoadBacktestIntoForm,
           onLoadDetails: handleLoadBacktestDetails,
+          onExport: (backtest) =>
+            void handleExportBacktests(
+              [backtest._id],
+              buildBacktestExportName(backtest, descriptor.kind)
+            ),
           onDelete: handleDeleteBacktests,
           onImportAsPaper: handleImportAsPaper,
         },
@@ -517,6 +542,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
       handleShareBacktest,
       onLoadBacktestIntoForm,
       handleLoadBacktestDetails,
+      handleExportBacktests,
       handleDeleteBacktests,
       handleImportAsPaper,
     ]
@@ -564,20 +590,11 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     const bulkActions: BulkAction<TResult>[] = [
       {
         id: 'export-json',
-        label: 'Export as JSON',
+        label: 'Export',
         icon: Download,
         onAction: (selectedRows) => {
           const ids = selectedRows.map((row) => row._id);
-          void handleExportBacktests(ids, 'json');
-        },
-      },
-      {
-        id: 'export-csv',
-        label: 'Export as CSV',
-        icon: Download,
-        onAction: (selectedRows) => {
-          const ids = selectedRows.map((row) => row._id);
-          void handleExportBacktests(ids, 'csv');
+          void handleExportBacktests(ids);
         },
       },
       {

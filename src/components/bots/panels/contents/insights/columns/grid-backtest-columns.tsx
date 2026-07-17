@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table';
-import { MoreVertical, Trash2 } from 'lucide-react';
+import { Download, MoreVertical, Trash2 } from 'lucide-react';
 
 import type { BacktestColumnContext } from '@/components/bots/workbench/descriptors/types';
 import { Button } from '@/components/ui/button';
@@ -28,7 +28,7 @@ import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
 export function buildGridBacktestColumns(
   ctx: BacktestColumnContext<GRIDBacktestingResultHistory>
 ): ColumnDef<GRIDBacktestingResultHistory>[] {
-  const { backtestNoteOverrides, onSaveNote, onDelete } = ctx;
+  const { backtestNoteOverrides, onSaveNote, onExport, onDelete } = ctx;
 
   return [
     {
@@ -403,6 +403,9 @@ export function buildGridBacktestColumns(
       meta: { pinned: 'right' },
       cell: ({ row }) => {
         const backtest = row.original;
+        // Only locally-stored backtests (full payload hydrated in IndexedDB)
+        // can be exported. Grid stores its trades under `orders`.
+        const canExport = (backtest.orders?.length ?? 0) > 0;
         return (
           <div className="flex items-center justify-end">
             <DropdownMenu>
@@ -412,6 +415,16 @@ export function buildGridBacktestColumns(
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
+                <DropdownMenuItem
+                  disabled={!canExport}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onExport(backtest);
+                  }}
+                >
+                  <Download className="mr-2 h-4 w-4" />
+                  Export
+                </DropdownMenuItem>
                 <DropdownMenuItem
                   onClick={(e) => {
                     e.stopPropagation();
