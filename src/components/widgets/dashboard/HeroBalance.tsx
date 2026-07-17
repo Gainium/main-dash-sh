@@ -372,10 +372,14 @@ export const HeroBalance: React.FC = () => {
       dealsRow(terminalDealStats),
     ];
 
-    const openTrades = buckets.reduce(
-      (s, b) => s + b.normal + b.inProfit + b.eighty + b.max,
-      0
-    );
+    // `normal` is already the TOTAL number of open deals in the bucket — the
+    // backend aggregates it as `$sum: 1` over every open deal. `inProfit`,
+    // `eighty` and `max` are OVERLAPPING sub-categories of those same deals
+    // (a deal can be both in profit and at 80% DCA), so adding them on top of
+    // `normal` double-counts and inflates "Open trades". Count `normal` only —
+    // matching V1 (main-dash StatusStats) and the BotStatus widget, neither of
+    // which ever sums these four together.
+    const openTrades = buckets.reduce((s, b) => s + b.normal, 0);
     const unrealizedPnl = buckets.reduce((s, b) => s + b.unrealizedProfit, 0);
     const totalProfit =
       profitVal(dcaAllProfit) +
