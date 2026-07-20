@@ -70,7 +70,11 @@ export const useAutoNameFromPreset = ({
   useEffect(() => {
     if (mode !== 'create') return;
     if (!firstPair) return;
-    const currentName = (formData.name ?? '').trim();
+    // `formData.name` is usually a string, but imported settings (the
+    // envelope `form` branch of the import dialog) can inject a non-string
+    // value straight into form state. Coerce before `.trim()` so a numeric
+    // name doesn't crash the whole form ("(name ?? '').trim is not a function").
+    const currentName = String(formData.name ?? '').trim();
 
     const prefix = pairCount > 1 ? `${firstPair} +${pairCount - 1}` : firstPair;
     const middle = activePreset?.label ?? botTypeLabel;
