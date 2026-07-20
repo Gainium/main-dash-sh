@@ -1,7 +1,8 @@
 import { flexRender, type Table } from '@tanstack/react-table';
 import { clsx } from 'clsx';
 import { ChevronDown } from 'lucide-react';
-import React, { useState } from 'react';
+import React from 'react';
+import { useTableCustomState } from '../../../stores/tablePreferencesStore';
 import { Badge } from '../badge';
 import {
   DropdownMenu,
@@ -11,6 +12,8 @@ import {
 } from '../dropdown-menu';
 
 interface DataTableFooterProps<TData> {
+  /** Table id used to persist the per-column totals aggregation choice. */
+  tableId: string;
   table: Table<TData>;
   pinnedColumns: {
     left: string[];
@@ -36,15 +39,20 @@ type ColumnTotalsMeta<TData> = {
 };
 
 export function DataTableFooter<TData>({
+  tableId,
   table,
   pinnedColumns,
   getColumnWidth,
   calculateStickyPosition,
 }: DataTableFooterProps<TData>) {
-  // Track aggregation type per column
-  const [columnAggregations, setColumnAggregations] = useState<
+  // Track aggregation type per column, persisted per-table in local storage so
+  // the selection (total, average, min, max) survives remounts and sessions.
+  const [columnAggregations, setColumnAggregations] = useTableCustomState<
     Record<string, AggregationType>
-  >({});
+  >(tableId, 'totalsAggregations', {});
+
+  const setAggregation = (columnId: string, type: AggregationType) =>
+    setColumnAggregations({ ...columnAggregations, [columnId]: type });
 
   // Check if any column has a footer defined
   const hasFooters = table.getFooterGroups().some((footerGroup) =>
@@ -178,42 +186,22 @@ export function DataTableFooter<TData>({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="start">
                         <DropdownMenuItem
-                          onClick={() =>
-                            setColumnAggregations((prev) => ({
-                              ...prev,
-                              [columnId]: 'sum',
-                            }))
-                          }
+                          onClick={() => setAggregation(columnId, 'sum')}
                         >
                           Total (Sum)
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setColumnAggregations((prev) => ({
-                              ...prev,
-                              [columnId]: 'average',
-                            }))
-                          }
+                          onClick={() => setAggregation(columnId, 'average')}
                         >
                           Average
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setColumnAggregations((prev) => ({
-                              ...prev,
-                              [columnId]: 'min',
-                            }))
-                          }
+                          onClick={() => setAggregation(columnId, 'min')}
                         >
                           Minimum
                         </DropdownMenuItem>
                         <DropdownMenuItem
-                          onClick={() =>
-                            setColumnAggregations((prev) => ({
-                              ...prev,
-                              [columnId]: 'max',
-                            }))
-                          }
+                          onClick={() => setAggregation(columnId, 'max')}
                         >
                           Maximum
                         </DropdownMenuItem>

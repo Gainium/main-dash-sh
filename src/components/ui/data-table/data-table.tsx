@@ -4289,6 +4289,7 @@ function DataTableComponent<TData, TValue>(
                   )}
                 </tbody>
                 <DataTableFooter
+                  tableId={tableId}
                   table={table}
                   pinnedColumns={effectivePinnedColumns}
                   getColumnWidth={getColumnWidth}
