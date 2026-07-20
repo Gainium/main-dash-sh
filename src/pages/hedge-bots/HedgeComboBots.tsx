@@ -458,7 +458,15 @@ const HedgeComboBots = () => {
             ${(getValue() as number).toFixed(2)}
           </span>
         ),
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        footerValue: (value: number) => (
+          <span className="text-sm font-bold">${value.toFixed(2)}</span>
+        ),
       },
       {
         id: 'maxCost',
@@ -469,7 +477,17 @@ const HedgeComboBots = () => {
             ${(getValue() as number).toFixed(2)}
           </span>
         ),
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        footerValue: (value: number) => (
+          <span className="text-sm font-bold text-muted-foreground">
+            ${value.toFixed(2)}
+          </span>
+        ),
       },
       {
         id: 'usage',
@@ -517,7 +535,25 @@ const HedgeComboBots = () => {
             size="sm"
           />
         ),
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        footerValue: (value: number) => (
+          <span
+            className={
+              privacyMode
+                ? 'text-sm text-muted-foreground font-bold'
+                : value >= 0
+                  ? 'text-sm text-success font-bold'
+                  : 'text-sm text-destructive font-bold'
+            }
+          >
+            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+          </span>
+        ),
       },
       {
         id: 'unPnl',
@@ -533,7 +569,25 @@ const HedgeComboBots = () => {
             size="sm"
           />
         ),
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        footerValue: (value: number) => (
+          <span
+            className={
+              privacyMode
+                ? 'text-sm text-muted-foreground font-bold'
+                : value >= 0
+                  ? 'text-sm text-success font-bold'
+                  : 'text-sm text-destructive font-bold'
+            }
+          >
+            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+          </span>
+        ),
       },
       {
         id: 'avgDaily',
@@ -547,7 +601,27 @@ const HedgeComboBots = () => {
             size="sm"
           />
         ),
-        meta: { filterType: 'number' as const },
+        // Summing per-bot daily averages is meaningless; default to the
+        // average across bots (min/max also available in the dropdown).
+        meta: {
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'average',
+        },
+        aggregationFn: 'mean',
+        footerValue: (value: number) => (
+          <span
+            className={
+              privacyMode
+                ? 'text-sm text-muted-foreground font-bold'
+                : value >= 0
+                  ? 'text-sm text-success font-bold'
+                  : 'text-sm text-destructive font-bold'
+            }
+          >
+            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+          </span>
+        ),
       },
       {
         id: 'annualized',
