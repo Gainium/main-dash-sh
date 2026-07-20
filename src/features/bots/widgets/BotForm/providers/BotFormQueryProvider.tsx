@@ -325,29 +325,37 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     }
   }, [shouldCheckPairs, formPair, pairMetadata, updateFormData]);
 
-  const futuresSetRef = useRef<boolean | null>(null);
-  const coinmSetRef = useRef<boolean | null>(null);
+  // Sync the market-type flags (`futures`/`coinm`) and the profit-currency
+  // default off the selected exchange. Derive all three together, once per
+  // provider change, and write them unconditionally — mirroring how legacy
+  // main-dash seeds a fresh bot (`futures: isFutures`, `coinm: isCoinm`,
+  // `profitCurrency: isCoinm ? 'base' : 'quote'`).
+  //
+  // Only run in create mode. In edit mode the exchange is locked
+  // (`isExchangeLocked = !!id`) and the saved bot already carries the right
+  // `futures`/`coinm`/`profitCurrency`, so re-deriving here would clobber the
+  // user's persisted profitCurrency on load. Cloning routes through the create
+  // page (`?load=`) with the exchange editable, so `create` still re-derives
+  // when the user switches exchange there — matching legacy's change handler.
+  //
+  // The previous per-flag `useRef` guards were buggy: the coin-m branch fired
+  // on the first run for non-coin-m exchanges (`null !== false`) and its
+  // `profitCurrency = 'base'` clobbered the `'quote'` the futures branch set,
+  // and `exchangeProviderRef` was never assigned so the outer guard never
+  // tracked the provider (leaving `futures` stale after a reset).
   const exchangeProviderRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (
-      currentExchange?.provider &&
-      exchangeProviderRef.current !== currentExchange?.provider
-    ) {
-      const futures = isFuturesExchange(currentExchange.provider);
-      const coinm = isCoinmExchange(currentExchange.provider);
-      if (futuresSetRef.current !== futures) {
-        futuresSetRef.current = futures;
-        updateFormData('futures', futures);
-        updateFormData('profitCurrency', 'quote');
-      }
-      if (coinmSetRef.current !== coinm) {
-        coinmSetRef.current = coinm;
-        updateFormData('coinm', coinm);
-        updateFormData('profitCurrency', 'base');
-      }
-    }
-  }, [currentExchange?.provider, updateFormData]);
+    const provider = currentExchange?.provider;
+    if (!provider || mode !== 'create') return;
+    if (exchangeProviderRef.current === provider) return;
+    exchangeProviderRef.current = provider;
+    const futures = isFuturesExchange(provider);
+    const coinm = isCoinmExchange(provider);
+    updateFormData('futures', futures);
+    updateFormData('coinm', coinm);
+    updateFormData('profitCurrency', coinm ? 'base' : 'quote');
+  }, [currentExchange?.provider, mode, updateFormData]);
 
   const contextValue = useMemo<BotFormQueryContextValue>(
     () => ({

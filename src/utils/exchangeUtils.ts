@@ -26,6 +26,10 @@ const FUTURES_ENUM_SET = new Set<ExchangeEnum>([
   ExchangeEnum.bitgetCoinm,
   ExchangeEnum.paperBitgetUsdm,
   ExchangeEnum.paperBitgetCoinm,
+  ExchangeEnum.krakenUsdm,
+  ExchangeEnum.paperKrakenUsdm,
+  ExchangeEnum.krakenCoinm,
+  ExchangeEnum.paperKrakenCoinm,
 ]);
 
 const COINM_ENUM_SET = new Set<ExchangeEnum>([
@@ -39,6 +43,8 @@ const COINM_ENUM_SET = new Set<ExchangeEnum>([
   ExchangeEnum.paperOkxInverse,
   ExchangeEnum.kucoinInverse,
   ExchangeEnum.paperKucoinInverse,
+  ExchangeEnum.krakenCoinm,
+  ExchangeEnum.paperKrakenCoinm,
 ]);
 
 const normalizeExchangeId = (

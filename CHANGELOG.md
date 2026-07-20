@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.35.6] - 2026-07-20
+
+### Fixed
+
+- New-bot form no longer forces Profit Currency to "base" on spot and USDⓈ-M (linear) exchanges — it now defaults to "quote" and only uses "base" for inverse (coin-m) exchanges, matching the legacy dashboard.
+- New-bot form reliably reflects the selected exchange's market type, so the futures-only controls (Order Size Reference, Margin & Leverage) show up on futures exchanges instead of occasionally staying hidden after a form reset.
+
 ## [2.35.5] - 2026-07-20
 
 ### Changed
