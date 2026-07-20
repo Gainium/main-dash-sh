@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.35.4] - 2026-07-20
+
+### Changed
+
+- Renamed the Combo bot's "Base grid step (%)" and "DCA grid step (%)" fields to "Base grid range (%)" and "DCA grid range (%)". The value has always been the grid's total span (split across the levels), not the per-level step — the derived per-level spacing is still shown below each field. No change to bot behavior.
+
 ## [2.35.3] - 2026-07-20
 
 ### Changed

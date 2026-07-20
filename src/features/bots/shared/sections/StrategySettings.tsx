@@ -520,12 +520,12 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
                       </div>
                       <div className="space-y-1.5">
                         <Label htmlFor="combo-base-step">
-                          Base grid step (%)
+                          Base grid range (%)
                         </Label>
                         <FieldVariableBinding
                           path="baseStep"
                           varType="float"
-                          tooltip="Bind base grid step"
+                          tooltip="Bind base grid range"
                           variant="inline"
                           onVariableSelected={applyBaseStepVariable}
                           onVariableResolved={applyBaseStepVariable}

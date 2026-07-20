@@ -1409,11 +1409,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                     </FieldVariableBinding>
                   </div>
                   <div className="space-y-1.5">
-                    <Label htmlFor="combo-DCA-step">DCA grid step (%)</Label>
+                    <Label htmlFor="combo-DCA-step">DCA grid range (%)</Label>
                     <FieldVariableBinding
                       path="step"
                       varType="float"
-                      tooltip="Bind DCA grid step"
+                      tooltip="Bind DCA grid range"
                       variant="inline"
                       onVariableSelected={applyStepVariable}
                       onVariableResolved={applyStepVariable}
