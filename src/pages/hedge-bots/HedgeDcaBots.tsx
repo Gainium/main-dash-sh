@@ -32,6 +32,7 @@ import {
   StatusChip,
 } from '@/components/ui/chip';
 import { DataTable } from '@/components/ui/data-table/data-table';
+import { DualArcProgressGauge } from '@/components/ui/DualArcProgressGauge';
 import EmptyState from '@/components/ui/empty-state';
 import { HedgeBotActionsCell } from './HedgeBotActionsCell';
 import { Button } from '@/components/ui/button';
@@ -543,6 +544,39 @@ const HedgeDcaBots = () => {
           </span>
         ),
         meta: { filterType: 'number' as const },
+      },
+      {
+        id: 'usage',
+        header: 'USAGE',
+        // Combined bot usage = filled value / max value, matching the v1
+        // hedge table (currentValue / maxValue * 100). Rendered as the same
+        // gauge the DCA/Combo list columns use for parity across bot types.
+        accessorFn: (row) => {
+          const current = row.__currentCost ?? 0;
+          const max = row.__maxCost ?? 0;
+          return max > 0 ? (current / max) * 100 : 0;
+        },
+        meta: { filterType: 'number' as const },
+        cell: ({ row }) => {
+          const current = row.original.__currentCost ?? 0;
+          const max = row.original.__maxCost ?? 0;
+          const usage = max > 0 ? (current / max) * 100 : 0;
+          return (
+            <div className="flex items-center justify-center">
+              <DualArcProgressGauge
+                size={40}
+                outerPercentage={usage}
+                innerPercentage={0}
+                outerProgressColor="#10b981"
+                showInnerGauge={false}
+                displayMode="outer"
+                centerText={`${usage.toFixed(0)}%`}
+                label=""
+                animate={false}
+              />
+            </div>
+          );
+        },
       },
       {
         id: 'profitTotalUsd',
