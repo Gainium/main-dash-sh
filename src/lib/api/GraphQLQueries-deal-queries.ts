@@ -873,6 +873,18 @@ export const dealQueries = {
     return { query, variables };
   },
 
+  restoreDeal: (input: { botId: string; dealId: string }) => {
+    const query = `mutation restoreDeal($input: restoreDealInput!) {
+  restoreDeal(input: $input) {
+  status
+  reason
+  data
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   addDealFunds: (
     input: {
       dealId: string;

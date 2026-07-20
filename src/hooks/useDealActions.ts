@@ -359,6 +359,65 @@ export function useCloseMultiPairDeal() {
   });
 }
 
+interface RestoreDealInput {
+  dealId: string;
+  botId: string;
+}
+
+/**
+ * Restore a canceled DCA or terminal deal: the backend re-adopts the deal's
+ * existing (still on-exchange) position as a fresh bare terminal deal — no DCA,
+ * take-profit or stop-loss. The original canceled deal stays canceled; a new
+ * active terminal deal appears, so we just invalidate the list caches to pull
+ * it in (nothing to optimistically remove).
+ */
+export function useRestoreDeal() {
+  const { tokens } = useAuthStore();
+
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  const client = new GraphQLClient(
+    import.meta.env['VITE_API_ENDPOINT'],
+    tokens?.accessToken,
+    !isLiveTrading
+  );
+
+  return useMutation<DealResponse, Error, RestoreDealInput>({
+    mutationFn: async ({ dealId, botId }) => {
+      logger.info('[useRestoreDeal] Restoring deal:', { dealId, botId });
+
+      const { query, variables } = dealQueries.restoreDeal({ dealId, botId });
+
+      const response = await client.request<{
+        restoreDeal: DealResponse;
+      }>(query, variables);
+
+      if (response.restoreDeal.status !== 'OK') {
+        throw new Error(
+          response.restoreDeal.reason || 'Failed to restore deal'
+        );
+      }
+
+      return response.restoreDeal;
+    },
+    onSuccess: (data, variables) => {
+      logger.info('[useRestoreDeal] Deal restored', {
+        dealId: variables.dealId,
+        botId: variables.botId,
+        response: data,
+      });
+      invalidateListCaches(DEAL_LIST_QUERY_KEYS);
+    },
+    onError: (error, variables) => {
+      logger.error('[useRestoreDeal] Failed to restore deal', {
+        dealId: variables.dealId,
+        botId: variables.botId,
+        error: error.message,
+      });
+    },
+  });
+}
+
 export function useMoveDealToTerminal() {
   const { tokens } = useAuthStore();
 

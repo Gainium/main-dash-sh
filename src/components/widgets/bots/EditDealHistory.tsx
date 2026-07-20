@@ -9,6 +9,7 @@ import {
   Minus,
   Play,
   Plus,
+  RotateCcw,
   Search,
   Square,
   TrendingDown,
@@ -29,13 +30,18 @@ import {
 import { useBotSpecificDeals } from '../../../hooks/useBotSpecificDeals';
 import { useBotTransactions } from '../../../hooks/useBotTransactions';
 import { useDcaBots } from '../../../hooks/useDcaBots';
-import { useDealActions } from '../../../hooks/useDealActions';
+import {
+  useDealActions,
+  useRestoreDeal,
+} from '../../../hooks/useDealActions';
 import { useGridBots } from '../../../hooks/useGridBots';
+import { toast } from '../../../lib/toast';
 import {
   BotTypesEnum,
   CloseDCATypeEnum,
   DCADealStatusEnum,
 } from '../../../types';
+import { ConfirmationDialog } from '../../ui/confirmation-dialog';
 import { Tabs, TabsList, TabsTrigger } from '../../ui/tabs';
 import { getCompatibilityDefaultSize } from '../DefaultWidgetSizes';
 import { WidgetWrapper, type WidgetMenuActions } from '../WidgetWrapper';
@@ -348,6 +354,36 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
       type: null,
       deal: null,
     });
+  };
+
+  // Restore — only for canceled deals of DCA and terminal bots (no grid/combo,
+  // no other statuses). Re-adopts the deal's position as a bare active terminal
+  // deal (no DCA, TP or SL).
+  const restoreDealMutation = useRestoreDeal();
+  const canRestoreDeals =
+    resolvedBotType === BotTypesEnum.dca ||
+    resolvedBotType === BotTypesEnum.terminal;
+  const [restoreDialogDeal, setRestoreDialogDeal] = React.useState<{
+    botId: string;
+    id: string;
+    symbol: string;
+  } | null>(null);
+  const handleRestoreConfirm = async () => {
+    if (!restoreDialogDeal) return;
+    try {
+      await restoreDealMutation.mutateAsync({
+        dealId: restoreDialogDeal.id,
+        botId: restoreDialogDeal.botId,
+      });
+      toast.success('Deal restored successfully');
+    } catch (error) {
+      console.error('Failed to restore deal:', error);
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to restore deal'
+      );
+    } finally {
+      setRestoreDialogDeal(null);
+    }
   };
 
   // Enhanced deal processing with filtering, sorting, and pagination
@@ -780,6 +816,22 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                   <Square className="w-4 h-4" />
                                 </button>
                               )}
+                              {canRestoreDeals &&
+                                deal.status === 'canceled' && (
+                                  <button
+                                    onClick={() =>
+                                      setRestoreDialogDeal({
+                                        botId: deal.botId,
+                                        id: deal.id,
+                                        symbol: deal.symbol,
+                                      })
+                                    }
+                                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                                    title="Restore deal"
+                                  >
+                                    <RotateCcw className="w-4 h-4" />
+                                  </button>
+                                )}
                             </div>
 
                             {/* Deal Value */}
@@ -1133,6 +1185,21 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
           </div>
         </div>
       )}
+      <ConfirmationDialog
+        open={!!restoreDialogDeal}
+        onOpenChange={(open) => {
+          if (!open) setRestoreDialogDeal(null);
+        }}
+        title="Restore deal"
+        description={
+          restoreDialogDeal
+            ? `Restore the deal for ${restoreDialogDeal.symbol}? It will be added back as an active deal that holds the current position, with no DCA, take profit or stop loss.`
+            : ''
+        }
+        confirmText="Restore"
+        cancelText="Cancel"
+        onConfirm={handleRestoreConfirm}
+      />
     </WidgetWrapper>
   );
 };

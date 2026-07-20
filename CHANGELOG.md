@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.36.0] - 2026-07-20
+
+### Added
+
+- Restore action for canceled deals: canceled DCA and Terminal deals now have a "Restore" option in the deal actions menu that re-activates the deal as a bare position — adopting its existing holdings with no DCA, take profit or stop loss. The confirmation states this. Shown only on canceled DCA and Terminal deals (no other bot types or statuses). Requires the matching `restoreDeal` backend support.
+
 ## [2.35.9] - 2026-07-20
 
 ### Added

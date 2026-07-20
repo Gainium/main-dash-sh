@@ -14,6 +14,7 @@ import {
     MoreHorizontal,
     Plus,
     PlusCircle,
+    RotateCcw,
     Search,
     SlidersHorizontal,
     Square,
@@ -62,6 +63,7 @@ import {
     useDealActions,
     useEditDeal,
     useMoveDealToTerminal,
+    useRestoreDeal,
 } from '@/hooks/useDealActions';
 import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -233,6 +235,7 @@ const DealActionsMenu: React.FC<{
   const [closeDialogOpen, setCloseDialogOpen] = useState(false);
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
 
@@ -469,6 +472,49 @@ const DealActionsMenu: React.FC<{
     }
   }, [handleMoveToTerminal, trade]);
 
+  // Restore — only for canceled DCA and Terminal deals (no other bot types,
+  // no other statuses). Re-adopts the deal's position as a bare active
+  // terminal deal (no DCA, TP or SL).
+  const restoreDealMutation = useRestoreDeal();
+  const canShowRestore = useMemo(
+    () =>
+      (trade.type === 'DCA' || trade.type === 'Terminal') &&
+      typeof trade.botId === 'string' &&
+      trade.botId.length > 0 &&
+      ['canceled', 'cancelled'].includes(
+        String(trade.status || '').toLowerCase()
+      ),
+    [trade.botId, trade.type, trade.status]
+  );
+  const handleRestoreConfirm = useCallback(async () => {
+    if (!trade.botId) {
+      toast.error('Cannot restore deal - missing bot ID');
+      return;
+    }
+    try {
+      const response = await restoreDealMutation.mutateAsync({
+        dealId: trade.id,
+        botId: trade.botId,
+      });
+      toast.success(
+        typeof response.data === 'string'
+          ? response.data
+          : 'Deal restored successfully'
+      );
+    } catch (error) {
+      logger.error('[DrawerDealsTable] Failed to restore deal', {
+        error,
+        dealId: trade.id,
+        botId: trade.botId,
+      });
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to restore deal'
+      );
+    } finally {
+      setRestoreDialogOpen(false);
+    }
+  }, [restoreDealMutation, trade.botId, trade.id]);
+
   // Change DCA levels — DCA and Combo bot deals only (not grid), disabled for
   // risk-based deals whose levels are managed by the risk engine.
   const canShowChangeDca = trade.type === 'DCA' || trade.type === 'Combo';
@@ -580,6 +626,12 @@ const DealActionsMenu: React.FC<{
               Move to Terminal
             </DropdownMenuItem>
           )}
+          {canShowRestore && (
+            <DropdownMenuItem onClick={() => setRestoreDialogOpen(true)}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restore
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             onClick={() => setCancelDialogOpen(true)}
             disabled={!isDealOpen}
@@ -606,6 +658,15 @@ const DealActionsMenu: React.FC<{
         cancelText="Keep Deal"
         variant="destructive"
         onConfirm={handleCancelConfirm}
+      />
+      <ConfirmationDialog
+        open={restoreDialogOpen}
+        onOpenChange={setRestoreDialogOpen}
+        title="Restore deal"
+        description={`Restore the deal for ${symbolString}? It will be added back as an active deal that holds the current position, with no DCA, take profit or stop loss.`}
+        confirmText="Restore"
+        cancelText="Cancel"
+        onConfirm={handleRestoreConfirm}
       />
       <CloseOptionsDialog
         open={closeDialogOpen}

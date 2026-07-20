@@ -16,6 +16,7 @@ import {
     useDealActions,
     useEditDeal,
     useMoveDealToTerminal,
+    useRestoreDeal,
 } from '@/hooks/useDealActions';
 import { fetchDealOrders } from '@/hooks/useDealOrders';
 import { useSetDealNote } from '@/hooks/useSetDealNote';
@@ -69,6 +70,7 @@ import {
     MoreHorizontal,
     PlusCircle,
     Receipt,
+    RotateCcw,
     SlidersHorizontal,
     X,
     XCircle,
@@ -397,9 +399,11 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
   const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
+  const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
   const moveDealToTerminalMutation = useMoveDealToTerminal();
+  const restoreDealMutation = useRestoreDeal();
 
   // Move to Terminal is available to DCA, Combo and Grid bot deals (parity
   // with legacy main-dash; only combo deals pass `combo: true`).
@@ -691,6 +695,43 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
     trade.type,
   ]);
 
+  // Restore — only for canceled DCA and Terminal deals (no other bot types,
+  // no other statuses). Re-adopts the deal's position as a bare active
+  // terminal deal (no DCA, TP or SL).
+  const canShowRestore =
+    (trade.type === 'DCA' || trade.type === 'Terminal') &&
+    typeof trade.botId === 'string' &&
+    trade.botId.length > 0 &&
+    isCanceledDealStatus(trade.status);
+  const handleRestoreConfirm = useCallback(async () => {
+    if (!trade.botId) {
+      toast.error('Cannot restore deal - missing bot ID');
+      return;
+    }
+    try {
+      const response = await restoreDealMutation.mutateAsync({
+        dealId: trade.id,
+        botId: trade.botId,
+      });
+      toast.success(
+        typeof response.data === 'string'
+          ? response.data
+          : 'Deal restored successfully'
+      );
+    } catch (error) {
+      logger.error(`${LOG_PREFIX}: Failed to restore deal`, {
+        error,
+        dealId: trade.id,
+        botId: trade.botId,
+      });
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to restore deal'
+      );
+    } finally {
+      setRestoreDialogOpen(false);
+    }
+  }, [restoreDealMutation, trade.botId, trade.id]);
+
   const handleAdjustFundsConfirm = useCallback(
     (settings: AddFundsSettings) => {
       if (!adjustFundsDialog) {
@@ -769,6 +810,12 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
               Move to Bot
             </DropdownMenuItem>
           )}
+          {canShowRestore && (
+            <DropdownMenuItem onClick={() => setRestoreDialogOpen(true)}>
+              <RotateCcw className="w-4 h-4 mr-2" />
+              Restore
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={handleCancelClick} disabled={!isDealOpen}>
             <X className="w-4 h-4 mr-2" />
             Cancel
@@ -791,6 +838,15 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
           cancelText="Keep Trade"
           variant="destructive"
           onConfirm={handleCancelConfirm}
+        />
+        <ConfirmationDialog
+          open={restoreDialogOpen}
+          onOpenChange={setRestoreDialogOpen}
+          title="Restore deal"
+          description={`Restore the deal for ${trade.symbol}? It will be added back as an active deal that holds the current position, with no DCA, take profit or stop loss.`}
+          confirmText="Restore"
+          cancelText="Cancel"
+          onConfirm={handleRestoreConfirm}
         />
         <CloseOptionsDialog
           open={closeDialogOpen}
