@@ -1129,23 +1129,54 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
 
   const { fetchMultipleFees } = useUserFees();
 
+  // Fees must be fetched for EVERY symbol shown in this table, not just the
+  // bot's configured settings.pair. A pair can be removed from settings (or
+  // auto-dropped by the engine) while a deal on it stays open; those deal
+  // symbols still need a fee, otherwise transformDealToTrade forces unrealized
+  // P&L to undefined and the row renders "Price unavailable" even though the
+  // price is present. Mirror the union-of-deal-symbols pattern the Overview /
+  // positions view uses (useDcaDeals). Encoded as a stable string key so the
+  // fetch effect only re-runs when the actual target set changes.
+  const feeTargetsKey = useMemo(() => {
+    const targets = new Set<string>();
+    const botExchange = bot?.exchangeUUID;
+    if (botExchange && bot?.settings?.pair) {
+      for (const symbol of [bot.settings.pair].flat()) {
+        if (symbol) targets.add(`${botExchange} ${symbol}`);
+      }
+    }
+    for (const deal of botDeals) {
+      const dealExchange =
+        (deal as DCADeals | ComboDeal).exchangeUUID || botExchange;
+      const dealSymbol = deal.symbol?.symbol;
+      if (dealExchange && dealSymbol) {
+        targets.add(`${dealExchange} ${dealSymbol}`);
+      }
+    }
+    return Array.from(targets).sort().join('\n');
+  }, [bot?.exchangeUUID, bot?.settings?.pair, botDeals]);
+
   useEffect(() => {
-    if (!bot?.settings.pair) {
+    if (!feeTargetsKey) {
       return;
+    }
+
+    // Rebuild the exchange -> symbols map from the stable key.
+    const exchangeSymbolMap = new Map<string, Set<string>>();
+    for (const entry of feeTargetsKey.split('\n')) {
+      const sep = entry.indexOf(' ');
+      if (sep < 0) continue;
+      const exchange = entry.slice(0, sep);
+      const symbol = entry.slice(sep + 1);
+      if (!exchangeSymbolMap.has(exchange)) {
+        exchangeSymbolMap.set(exchange, new Set());
+      }
+      exchangeSymbolMap.get(exchange)?.add(symbol);
     }
 
     // Use the service to fetch fees with automatic caching
     fetchMultipleFees({
-      exchangeSymbolMap: [bot.settings.pair].flat().reduce(
-        (acc, symbol) => {
-          if (!acc.has(bot.exchangeUUID)) {
-            acc.set(bot.exchangeUUID, new Set());
-          }
-          acc.get(bot.exchangeUUID)?.add(symbol);
-          return acc;
-        },
-        new Map() as Map<string, Set<string>>
-      ),
+      exchangeSymbolMap,
       options: {
         debug: import.meta.env.DEV,
       },
@@ -1165,12 +1196,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           }))
         );
       });
-  }, [
-    bot?.settings.pair,
-    bot?.exchangeUUID,
-    tokens?.accessToken,
-    fetchMultipleFees,
-  ]);
+  }, [feeTargetsKey, tokens?.accessToken, fetchMultipleFees]);
   const lastPriceUpdateRef = useRef(0);
   const PRICE_UPDATE_THROTTLE_MS = 10000; // Increased to 10 seconds for better stability
 

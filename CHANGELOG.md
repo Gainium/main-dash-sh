@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.36.1] - 2026-07-20
+
+### Fixed
+
+- Bot drawer deals table: open deals on a symbol that isn't in the bot's `settings.pair` (e.g. a pair the user removed while a deal stayed open) no longer show "Price unavailable" for unrealized P&L. Fees are now fetched for the union of `settings.pair` and every displayed deal symbol — matching the Overview/positions view — so the client-side P&L can be computed for those deals.
+
 ## [2.36.0] - 2026-07-20
 
 ### Added
