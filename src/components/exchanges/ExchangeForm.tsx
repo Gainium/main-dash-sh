@@ -1597,7 +1597,24 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                     }
                     onValueChange={(value) => {
                       if (exchangeConfig.name === 'okx') {
-                        updateFormData({ okxSource: value as OKXSource });
+                        const updates: Partial<ExchangeFormData> = {
+                          okxSource: value as OKXSource,
+                        };
+                        // OKX Europe (my.okx.com) has no supported futures —
+                        // fall back to the spot variant so we never try to
+                        // create okxLinear/okxInverse for an EU account (the
+                        // backend refuses it too). The notice below explains why.
+                        if (
+                          value === OKXSource.my &&
+                          [
+                            ExchangeEnum.okxAll,
+                            ExchangeEnum.okxLinear,
+                            ExchangeEnum.okxInverse,
+                          ].includes(formData.provider)
+                        ) {
+                          updates.provider = ExchangeEnum.okxSpot;
+                        }
+                        updateFormData(updates);
                       } else {
                         updateFormData({ bybitHost: value });
                       }

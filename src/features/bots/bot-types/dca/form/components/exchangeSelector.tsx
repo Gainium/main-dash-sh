@@ -9,6 +9,7 @@ import ExchangeIcon from '@/components/widgets/shared/ExchangeIcon';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import type { BotFormMode, BotFormUpdateValue, Fields } from '@/features/bots';
 import type { ExchangeInUser } from '@/types';
+import { ExchangeEnum, OKXSource } from '@/types/exchange.types';
 import type { BotFormData } from '@/types/bots';
 import { getProviderIcon, isFuturesExchange } from '@/utils/exchangeUtils';
 import { useLocalUserSettingsStore } from '@/stores/localUserSettingsStore';
@@ -67,6 +68,25 @@ const ExchangeSelector = ({
     })}`;
   }, []);
 
+  // OKX Europe (my.okx.com) has no supported futures product, yet some EU
+  // accounts still carry legacy okxLinear/okxInverse sub-accounts created
+  // before this was blocked. Hide those from the bot exchange picker so users
+  // don't land on an unusable USDT-only futures account — but never hide the
+  // one already selected, so an existing bot pinned to it still resolves.
+  const visibleExchanges = useMemo(
+    () =>
+      exchangesData?.filter(
+        (exchange) =>
+          exchange.uuid === currentExchange?.uuid ||
+          !(
+            exchange.okxSource === OKXSource.my &&
+            (exchange.provider === ExchangeEnum.okxLinear ||
+              exchange.provider === ExchangeEnum.okxInverse)
+          )
+      ),
+    [exchangesData, currentExchange?.uuid]
+  );
+
   useEffect(() => {
     if (mode !== 'create') {
       return;
@@ -75,20 +95,20 @@ const ExchangeSelector = ({
       return;
     }
     if (formData.exchangeUUID) {
-      const isExistExchange = exchangesData?.find(
+      const isExistExchange = visibleExchanges?.find(
         (exchange) => exchange.uuid === formData.exchangeUUID
       );
       if (isExistExchange) {
         return;
       }
     }
-    if (!exchangesData?.length) {
+    if (!visibleExchanges?.length) {
       return;
     }
     // Honor the user's chosen default exchange (the starred one) when it
     // still exists, regardless of recency.
     if (defaultExchangeUuid) {
-      const preferred = exchangesData.find(
+      const preferred = visibleExchanges.find(
         (exchange) => exchange.uuid === defaultExchangeUuid
       );
       if (preferred) {
@@ -102,7 +122,7 @@ const ExchangeSelector = ({
     // resort. This avoids the common case where the API returns the
     // user's oldest exchange (e.g. Hyperliquid) first and it gets stuck
     // as the default forever.
-    const sortedByRecency = [...exchangesData].sort((a, b) => {
+    const sortedByRecency = [...visibleExchanges].sort((a, b) => {
       const aT = typeof a.lastUpdated === 'number' ? a.lastUpdated : -1;
       const bT = typeof b.lastUpdated === 'number' ? b.lastUpdated : -1;
       return bT - aT;
@@ -110,7 +130,7 @@ const ExchangeSelector = ({
     const fallback =
       sortedByRecency[0]?.lastUpdated !== undefined
         ? sortedByRecency[0]
-        : exchangesData[exchangesData.length - 1];
+        : visibleExchanges[visibleExchanges.length - 1];
     if (fallback) {
       updateFormData('exchangeUUID', fallback.uuid);
     }
@@ -118,7 +138,7 @@ const ExchangeSelector = ({
     mode,
     isExchangeLocked,
     formData.exchangeUUID,
-    exchangesData,
+    visibleExchanges,
     updateFormData,
     defaultExchangeUuid,
   ]);
@@ -166,7 +186,7 @@ const ExchangeSelector = ({
               />
             </SelectTrigger>
             <SelectContent>
-              {exchangesData?.map((exchange) => {
+              {visibleExchanges?.map((exchange) => {
                 const balanceValue =
                   typeof exchange.balance === 'number' &&
                   Number.isFinite(exchange.balance)
@@ -247,7 +267,7 @@ const ExchangeSelector = ({
                   </SelectItem>
                 );
               })}
-              {!exchangesData?.length && (
+              {!visibleExchanges?.length && (
                 <SelectItem value="__no-exchanges__" disabled>
                   No exchanges available
                 </SelectItem>

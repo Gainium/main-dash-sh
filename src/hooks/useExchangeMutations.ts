@@ -3,7 +3,7 @@ import { ACTIVATION_EVENTS, trackActivation } from '@/lib/analytics/events';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
-import { getExchangeTradeType } from '@/utils/exchangeUtils';
+import { getExchangeTradeType, TradeTypeEnum } from '@/utils/exchangeUtils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import type { ExchangeFormData } from '../components/exchanges/types';
 import { createExchangeService } from '../services/exchangeService';
@@ -218,7 +218,14 @@ export const formDataToAddExchangeInput = (
     keysType: formData.keysType || undefined,
     okxSource: formData.okxSource || undefined,
     bybitHost: formData.bybitHost || undefined,
-    tradeType: getExchangeTradeType(formData.provider),
+    // OKX Europe (my.okx.com) has no supported futures — never send `all`/
+    // `futures` for an EU account, so the backend only ever creates the spot
+    // sub-account. Safety net for the form's provider auto-correction.
+    tradeType:
+      mapProviderToBackend(formData.provider) === ExchangeEnum.okx &&
+      formData.okxSource === OKXSource.my
+        ? TradeTypeEnum.spot
+        : getExchangeTradeType(formData.provider),
     shouldCheckAffiliate: options?.shouldCheckAffiliate,
     subaccount: options?.subaccount || false,
   };
