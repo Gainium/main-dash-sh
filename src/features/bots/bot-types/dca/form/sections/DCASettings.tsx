@@ -1812,13 +1812,12 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                   onValueChange={(value) =>
                     updateFormData(
                       'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg' | 'breakeven'
+                      value as 'tp' | 'avg'
                     )
                   }
                   options={[
                     { value: 'tp', label: 'Take Profit' },
                     { value: 'avg', label: 'Average' },
-                    { value: 'breakeven', label: 'Breakeven' },
                   ]}
                 />
               </div>
@@ -2424,13 +2423,12 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                   onValueChange={(value) =>
                     updateFormData(
                       'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg' | 'breakeven'
+                      value as 'tp' | 'avg'
                     )
                   }
                   options={[
                     { value: 'tp', label: 'Take Profit' },
                     { value: 'avg', label: 'Average' },
-                    { value: 'breakeven', label: 'Breakeven' },
                   ]}
                 />
               </div>
@@ -3729,13 +3727,12 @@ const CustomDCA: React.FC<DCASectionProps> = ({
                   onValueChange={(value) =>
                     updateFormData(
                       'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg' | 'breakeven'
+                      value as 'tp' | 'avg'
                     )
                   }
                   options={[
                     { value: 'tp', label: 'Take Profit' },
                     { value: 'avg', label: 'Average' },
-                    { value: 'breakeven', label: 'Breakeven' },
                   ]}
                 />
               </div>
