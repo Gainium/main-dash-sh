@@ -15,7 +15,7 @@ import { getProviderIcon, isFuturesExchange } from '@/utils/exchangeUtils';
 import { useLocalUserSettingsStore } from '@/stores/localUserSettingsStore';
 import { cn } from '@/lib/utils';
 import { Star } from 'lucide-react';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 
 type ExchangeSelectorProps = {
   isExchangeLocked: boolean;
@@ -87,6 +87,15 @@ const ExchangeSelector = ({
     [exchangesData, currentExchange?.uuid]
   );
 
+  // The uuid we last auto-dispatched. `updateFormData` writes to the bot-form
+  // store asynchronously, so between the dispatch and `formData.exchangeUUID`
+  // reflecting it the effect can re-run (Smart Terminal re-renders on every
+  // price tick, and `visibleExchanges`/`updateFormData` are fresh identities
+  // each render). Without this in-flight latch the effect would re-dispatch
+  // the SAME selection on every one of those interim renders — the React #185
+  // "maximum update depth exceeded" loop reported on /terminal?dealType=smart.
+  const pendingSelectionRef = useRef<string | null>(null);
+
   useEffect(() => {
     if (mode !== 'create') {
       return;
@@ -94,11 +103,15 @@ const ExchangeSelector = ({
     if (isExchangeLocked) {
       return;
     }
+    // The current selection is already valid — nothing to auto-pick. Clear the
+    // latch so a genuine future re-selection (e.g. the selected exchange gets
+    // deleted) can dispatch again.
     if (formData.exchangeUUID) {
       const isExistExchange = visibleExchanges?.find(
         (exchange) => exchange.uuid === formData.exchangeUUID
       );
       if (isExistExchange) {
+        pendingSelectionRef.current = null;
         return;
       }
     }
@@ -107,33 +120,46 @@ const ExchangeSelector = ({
     }
     // Honor the user's chosen default exchange (the starred one) when it
     // still exists, regardless of recency.
+    let target: string | undefined;
     if (defaultExchangeUuid) {
       const preferred = visibleExchanges.find(
         (exchange) => exchange.uuid === defaultExchangeUuid
       );
       if (preferred) {
-        updateFormData('exchangeUUID', preferred.uuid);
-        return;
+        target = preferred.uuid;
       }
     }
-    // No (or stale) persisted exchange — pick the most-recently-active one
-    // by `lastUpdated`. Falls back to the last entry in the list (most
-    // exchange APIs append new accounts), then to the first as a last
-    // resort. This avoids the common case where the API returns the
-    // user's oldest exchange (e.g. Hyperliquid) first and it gets stuck
-    // as the default forever.
-    const sortedByRecency = [...visibleExchanges].sort((a, b) => {
-      const aT = typeof a.lastUpdated === 'number' ? a.lastUpdated : -1;
-      const bT = typeof b.lastUpdated === 'number' ? b.lastUpdated : -1;
-      return bT - aT;
-    });
-    const fallback =
-      sortedByRecency[0]?.lastUpdated !== undefined
-        ? sortedByRecency[0]
-        : visibleExchanges[visibleExchanges.length - 1];
-    if (fallback) {
-      updateFormData('exchangeUUID', fallback.uuid);
+    if (!target) {
+      // No (or stale) persisted exchange — pick the most-recently-active one
+      // by `lastUpdated`. Falls back to the last entry in the list (most
+      // exchange APIs append new accounts), then to the first as a last
+      // resort. This avoids the common case where the API returns the
+      // user's oldest exchange (e.g. Hyperliquid) first and it gets stuck
+      // as the default forever.
+      const sortedByRecency = [...visibleExchanges].sort((a, b) => {
+        const aT = typeof a.lastUpdated === 'number' ? a.lastUpdated : -1;
+        const bT = typeof b.lastUpdated === 'number' ? b.lastUpdated : -1;
+        return bT - aT;
+      });
+      const fallback =
+        sortedByRecency[0]?.lastUpdated !== undefined
+          ? sortedByRecency[0]
+          : visibleExchanges[visibleExchanges.length - 1];
+      target = fallback?.uuid;
     }
+    if (!target) {
+      return;
+    }
+    // Idempotency guard: never re-dispatch a selection that is already the
+    // current value or one we just dispatched and are still waiting to see
+    // reflected in `formData`. This is what converges the effect and stops the
+    // update-depth loop under unstable `visibleExchanges`/`updateFormData`
+    // identities.
+    if (target === formData.exchangeUUID || target === pendingSelectionRef.current) {
+      return;
+    }
+    pendingSelectionRef.current = target;
+    updateFormData('exchangeUUID', target);
   }, [
     mode,
     isExchangeLocked,
