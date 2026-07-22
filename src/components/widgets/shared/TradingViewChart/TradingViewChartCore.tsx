@@ -1320,7 +1320,7 @@ export const TradingViewChartCore = forwardRef<
             await addTradingViewIndicator(chart as never, config);
           }
         },
-        centerAtTimestampMs: (timestampMs: number) => {
+        centerAtTimestampMs: (timestampMs: number, endTimestampMs?: number) => {
           if (!widgetRef.current || !isChartReady) return;
           try {
             const widget = widgetRef.current as ExtendedWidget;
@@ -1333,15 +1333,27 @@ export const TradingViewChartCore = forwardRef<
               secondsPerBar = parseInt(norm, 10) * 60; // minutes
             else if (norm.endsWith('D')) secondsPerBar = 86400;
             else if (norm.endsWith('W')) secondsPerBar = 604800;
-            const timeSec = Math.floor(timestampMs / 1000);
-            const halfBars = 100;
-            const halfWindow = Math.max(1, halfBars * secondsPerBar);
-            const range = {
-              from: timeSec - halfWindow,
-              to: timeSec + halfWindow,
-            };
+            const startSec = Math.floor(timestampMs / 1000);
+            const endSec =
+              endTimestampMs != null && Number.isFinite(endTimestampMs)
+                ? Math.floor(endTimestampMs / 1000)
+                : null;
+            let range: { from: number; to: number };
+            if (endSec != null && endSec > startSec) {
+              // Frame the deal's actual entry→close span plus 20 bars of
+              // padding each side (mirrors dealToTradingView's PAD_BARS), so a
+              // short deal on a coarse interval fills the viewport instead of
+              // being a 1-2 bar sliver inside a fixed ±100-bar window.
+              const pad = 20 * secondsPerBar;
+              range = { from: startSec - pad, to: endSec + pad };
+            } else {
+              // No span given (or degenerate) — center a fixed window on the
+              // point (used by the grid transactions chart).
+              const halfWindow = Math.max(1, 100 * secondsPerBar);
+              range = { from: startSec - halfWindow, to: startSec + halfWindow };
+            }
             if (api.setVisibleRange) api.setVisibleRange(range);
-            else api.scrollToTime?.(timeSec, true, true);
+            else api.scrollToTime?.(startSec, true, true);
           } catch (e) {
             logger.error('centerAtTimestampMs failed', e);
           }

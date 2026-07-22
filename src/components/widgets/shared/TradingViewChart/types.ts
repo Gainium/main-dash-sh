@@ -136,7 +136,7 @@ export interface TradingViewChartCoreRef {
   updateIndicators: (
     indicators: ChartIndicatorConfig[] | null | undefined
   ) => Promise<void> | void;
-  centerAtTimestampMs: (timestampMs: number) => void;
+  centerAtTimestampMs: (timestampMs: number, endTimestampMs?: number) => void;
   updateOrderDrawings: (orders: ChartOrderDrawing[] | null) => void;
   updatePastEntries: (entries: IndicatorsEvents[] | null) => void;
   updateAveragePriceLines: (avgPrices: AvgPrice[] | null) => void;

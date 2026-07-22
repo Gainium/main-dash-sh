@@ -436,11 +436,15 @@ export function RedesignDealsTab({ vm }: RedesignDealsTabProps) {
     [rawDeal, intervalResolution, vm.to, candles],
   );
 
-  // On deal switch, pan the existing widget to the new deal's start.
+  // On deal switch, frame the existing widget to the new deal's entry→close
+  // span (open deals fall back to the run end) so short deals stay readable.
   useEffect(() => {
     if (!rawDeal?.startTime) return;
-    chartRef.current?.centerAtTimestampMs(rawDeal.startTime);
-  }, [rawDeal?.startTime, sel]);
+    chartRef.current?.centerAtTimestampMs(
+      rawDeal.startTime,
+      rawDeal.closedTime ?? vm.to,
+    );
+  }, [rawDeal?.startTime, rawDeal?.closedTime, sel, vm.to]);
 
   // Empty state — no deals on this result (saved/stripped history) or the
   // selected deal lacks a resolvable symbol/pair.

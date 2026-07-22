@@ -178,7 +178,7 @@ export interface TradingViewChartRef {
   addOrder: (order: ChartOrderLine) => void;
   removeOrder: (orderId: string) => void;
   getCoreRef: () => TradingViewChartCoreRef | null;
-  centerAtTimestampMs: (timestampMs: number) => void;
+  centerAtTimestampMs: (timestampMs: number, endTimestampMs?: number) => void;
 }
 
 /**
@@ -609,9 +609,9 @@ const TradingViewChartComponent = forwardRef<
       getWidget: () => coreChartRef.current?.getWidget() || null,
       isReady: () => isChartReady && coreChartRef.current?.isReady() === true,
       getCoreRef: () => coreChartRef.current,
-      centerAtTimestampMs: (timestampMs: number) => {
+      centerAtTimestampMs: (timestampMs: number, endTimestampMs?: number) => {
         if (coreChartRef.current?.isReady()) {
-          coreChartRef.current.centerAtTimestampMs(timestampMs);
+          coreChartRef.current.centerAtTimestampMs(timestampMs, endTimestampMs);
         }
       },
 
