@@ -85,7 +85,12 @@ const ComboBotNewWidget = () => {
     loadQuery.data,
   ]);
 
-  const isLoadingClone = Boolean(loadFromBotId) && !loadHandled;
+  // Also hold the seed while a curated/URL exchange provider is still
+  // resolving against the (async-loading) exchanges store — see
+  // useBotConfigPreload's `exchangePending`.
+  const isLoadingClone =
+    (Boolean(loadFromBotId) && !loadHandled) ||
+    Boolean(preload?.exchangePending);
 
   // "Load in settings" — in-place form reload with the backtest's settings.
   const handleLoadBacktest = useCallback(

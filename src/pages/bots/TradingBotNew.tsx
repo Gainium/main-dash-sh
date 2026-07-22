@@ -91,7 +91,13 @@ const TradingBotNewWidget = () => {
     loadQuery.data,
   ]);
 
-  const isLoadingClone = Boolean(loadFromBotId) && !loadHandled;
+  // Also hold the seed while a curated/URL exchange provider is still
+  // resolving against the (async-loading) exchanges store — otherwise the
+  // form seeds before the provider→UUID lookup can run. See
+  // useBotConfigPreload's `exchangePending`.
+  const isLoadingClone =
+    (Boolean(loadFromBotId) && !loadHandled) ||
+    Boolean(preload?.exchangePending);
 
   // "Load in settings" — in-place form reload with the backtest's settings.
   const handleLoadBacktest = useCallback(

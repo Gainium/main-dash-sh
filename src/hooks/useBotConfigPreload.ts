@@ -59,6 +59,15 @@ export interface BotConfigPreload {
   name?: string;
   /** Curated metadata (only present when staged by the curated-presets widget). */
   curated?: CuratedPreloadHint;
+  /**
+   * True while a staged/URL exchange provider still needs resolving but the
+   * exchanges store hasn't loaded yet. Callers should hold the form seed
+   * (via `isSeedPending`) until this clears so the resolved `exchangeUUID`
+   * makes it into the one-shot form seed instead of being clobbered by the
+   * exchange auto-picker. Clears to `false` once exchanges are ready — even
+   * when the provider is not connected — so the form never hangs.
+   */
+  exchangePending?: boolean;
 }
 
 /**
@@ -115,9 +124,16 @@ function readSession(): StagedBotConfig | null {
 
 export function useBotConfigPreload(): BotConfigPreload | null {
   const [search] = useSearchParams();
-  const exchangesByProvider = useExchangesStore(
-    (s) => s.getExchangesByProvider
-  );
+  // Subscribe to the exchanges DATA (not the stable `getExchangesByProvider`
+  // selector — that function reference never changes when the store loads, so
+  // a memo keyed off it would resolve the curated provider ONCE against an
+  // empty store and never re-run). Keying resolution off `exchanges` + the
+  // readiness flags makes provider→UUID resolution re-run the moment the
+  // exchanges arrive.
+  const exchanges = useExchangesStore((s) => s.exchanges);
+  const hasHydrated = useExchangesStore((s) => s._hasHydrated);
+  const initialLoaded = useExchangesStore((s) => s.initialLoaded);
+  const exchangesError = useExchangesStore((s) => s.error);
 
   // Read sessionStorage at most ONCE per page mount. useMemo on a
   // stable empty-deps array is sufficient — the effect of removing the
@@ -133,6 +149,17 @@ export function useBotConfigPreload(): BotConfigPreload | null {
     curated: staged?.curated ?? null,
     stagedType: staged?.type,
   });
+
+  // The exchanges store has produced a definitive answer once it has
+  // rehydrated AND either the network fetch completed (initialLoaded), some
+  // exchanges are present (from the IDB cache or a prior page), or the fetch
+  // errored. Until then, resolving a curated provider to a UUID would
+  // spuriously miss and let the form auto-pick the wrong exchange.
+  const exchangesReady =
+    hasHydrated &&
+    (initialLoaded ||
+      Object.keys(exchanges).length > 0 ||
+      Boolean(exchangesError));
 
   return useMemo<BotConfigPreload | null>(() => {
     // The clone flow owns its own state machine — don't interfere.
@@ -161,16 +188,16 @@ export function useBotConfigPreload(): BotConfigPreload | null {
     let exchangeUUID: string | undefined;
     if (exchangeProvider) {
       try {
-        const matches = exchangesByProvider(exchangeProvider);
+        const allExchanges = Object.values(exchanges);
+        const matches = allExchanges.filter(
+          (ex) => ex.provider === exchangeProvider
+        );
         exchangeUUID = matches[0]?.uuid;
         if (!exchangeUUID) {
           // No exact match — look for paper variants of the same base.
           // E.g. `kucoin` → match any provider starting with `paperKucoin`.
           const base = exchangeProvider.toLowerCase();
           const paperPrefix = `paper${base.charAt(0).toUpperCase()}${base.slice(1)}`;
-          const allExchanges = Object.values(
-            useExchangesStore.getState().exchanges
-          );
           const paperMatch = allExchanges.find((e) =>
             String(e.provider ?? '').startsWith(paperPrefix)
           );
@@ -224,12 +251,23 @@ export function useBotConfigPreload(): BotConfigPreload | null {
     // surfaced in the return value so non-side-effect consumers can
     // read it.
 
+    // Hold the form seed until the exchanges store can resolve a staged/URL
+    // provider. Without this the form mounts (seeding its store ONCE) before
+    // exchanges load, `exchangeProvider` resolves to `undefined`, and the
+    // exchange auto-picker clobbers the curated choice with the user's
+    // default account. Once `exchangesReady` flips true this memo re-runs
+    // (the `exchanges` dep changed), `exchangeUUID` resolves, and the gate
+    // opens. A provider the user simply hasn't connected resolves to
+    // `undefined` but is NOT pending (exchangesReady is already true), so the
+    // form falls back to its normal auto-pick instead of hanging.
+    const exchangePending =
+      Boolean(exchangeProvider) && !exchangeUUID && !exchangesReady;
+
     return {
       initialFormData,
       name: staged?.name,
       curated: staged?.curated,
+      exchangePending,
     };
-    // exchangesByProvider is a zustand selector and is stable per
-    // store instance — no dep needed.
-  }, [search, staged, exchangesByProvider]);
+  }, [search, staged, exchanges, exchangesReady]);
 }

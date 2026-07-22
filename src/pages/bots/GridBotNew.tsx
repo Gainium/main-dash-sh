@@ -72,8 +72,12 @@ const GridBotNewWidget = () => {
   // While the source bot is loading, hold the form mount so the seed lands on
   // first render (grid has no formReloadKey pattern). Once the fetch resolves
   // (success or error) we mount normally.
+  // Also hold the seed while a curated/URL exchange provider is still
+  // resolving against the (async-loading) exchanges store — see
+  // useBotConfigPreload's `exchangePending`.
   const isLoadingClone =
-    Boolean(loadFromBotId) && loadQuery.isLoading && !loadErrorHandled;
+    (Boolean(loadFromBotId) && loadQuery.isLoading && !loadErrorHandled) ||
+    Boolean(preload?.exchangePending);
 
   const initialFormData = clonedInitialFormData ?? preload?.initialFormData;
 
