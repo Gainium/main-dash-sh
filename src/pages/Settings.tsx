@@ -857,6 +857,7 @@ const Settings: React.FC = () => {
     const allowedMethods: AllowedLoginMethods = {
       password: user?.allowedLoginMethods?.password !== false,
       google: user?.allowedLoginMethods?.google !== false,
+      discord: user?.allowedLoginMethods?.discord !== false,
       emailLink: user?.allowedLoginMethods?.emailLink !== false,
       passkey: user?.allowedLoginMethods?.passkey !== false,
     };
@@ -876,6 +877,11 @@ const Settings: React.FC = () => {
         key: 'google',
         label: 'Google',
         description: 'Sign in with your linked Google account.',
+      },
+      {
+        key: 'discord',
+        label: 'Discord',
+        description: 'Sign in with your linked Discord account.',
       },
       {
         key: 'emailLink',

@@ -15,6 +15,7 @@ import { logger } from '@/lib/loggerInstance';
 export interface AllowedLoginMethods {
   password: boolean;
   google: boolean;
+  discord: boolean;
   emailLink: boolean;
   passkey: boolean;
 }

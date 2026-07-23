@@ -26,6 +26,8 @@ function methodLabel(source: string | null): string {
       return 'Passkey';
     case 'google':
       return 'Google';
+    case 'discord':
+      return 'Discord';
     case null:
     case '':
       return '';

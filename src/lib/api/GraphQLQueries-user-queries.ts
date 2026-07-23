@@ -53,6 +53,7 @@ const ALLOWED_LOGIN_METHODS_SELECTION = IS_CLOUD
   ? `allowedLoginMethods {
                                   password
                                   google
+                                  discord
                                   emailLink
                                   passkey
                                 }`
@@ -528,6 +529,7 @@ export const userQueries = {
   setAllowedLoginMethods: (input: {
     password: boolean;
     google: boolean;
+    discord: boolean;
     emailLink: boolean;
     passkey: boolean;
   }) => {
@@ -538,6 +540,7 @@ export const userQueries = {
                             data {
                                 password
                                 google
+                                discord
                                 emailLink
                                 passkey
                             }
