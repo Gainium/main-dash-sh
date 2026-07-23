@@ -553,6 +553,40 @@ export const TakeProfitSettings: React.FC = () => {
         ]);
       }
 
+      // When switching to Dynamic ATR/ADR, auto-seed a default ATR when no
+      // close indicators exist — legacy main-dash seeds one on selecting the
+      // option so the section is immediately valid (no group; dynamic-AR
+      // indicators are ungrouped, matching legacy's notNeedGroupId).
+      if (
+        value === CloseConditionEnum.dynamicAr &&
+        closeIndicators.length === 0 &&
+        !indicatorLimitReached
+      ) {
+        const defaults = getIndicatorDefaultParams(
+          IndicatorEnum.atr,
+          IndicatorAction.closeDeal
+        );
+        const sanitizedParams = sanitizeIndicatorParams(
+          (defaults ?? {}) as IndicatorParamsState
+        );
+        const paramsWithFactor: IndicatorParamsState = {
+          ...sanitizedParams,
+          dynamicArFactor: sanitizedParams['dynamicArFactor'] ?? '1',
+        };
+        const newIndicator = buildIndicatorConfig(
+          IndicatorEnum.atr,
+          paramsWithFactor,
+          {
+            uuid: createCloseIndicatorId(),
+          }
+        );
+
+        updateFormData('indicators', [
+          ...indicators,
+          { ...newIndicator, ...paramsWithFactor },
+        ]);
+      }
+
       updateFormData('dealCloseCondition', value);
     },
     [

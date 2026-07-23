@@ -2066,6 +2066,45 @@ export const StopLossSettings: React.FC<StopLossSettingsProps> = ({
         ]);
       }
 
+      // When switching to Dynamic ATR/ADR, auto-seed a default ATR for the
+      // stop-loss section when none exist — legacy main-dash seeds one on
+      // selecting the option so the section is immediately valid (no group;
+      // dynamic-AR indicators are ungrouped, matching legacy's
+      // notNeedGroupId).
+      if (
+        value === CloseConditionEnum.dynamicAr &&
+        currentSlIndicators.length === 0 &&
+        !currentIndicatorLimitReached
+      ) {
+        const defaultParams = getIndicatorDefaultParams(
+          IndicatorEnum.atr,
+          IndicatorAction.closeDeal,
+          IndicatorSection.sl
+        );
+        const sanitized = sanitizeIndicatorParams(
+          (defaultParams ?? {}) as IndicatorParamsState
+        );
+        const paramsWithFactor: IndicatorParamsState = {
+          ...sanitized,
+          dynamicArFactor: sanitized['dynamicArFactor'] ?? '1',
+        };
+        const newIndicator = buildIndicatorConfig(
+          IndicatorEnum.atr,
+          paramsWithFactor,
+          {
+            uuid: createSlIndicatorId(),
+            keepConditionBars: '0',
+            indicatorAction: IndicatorAction.closeDeal,
+            section: IndicatorSection.sl,
+          }
+        );
+
+        updateFormData('indicators', [
+          ...indicators,
+          { ...newIndicator, ...paramsWithFactor },
+        ]);
+      }
+
       updateFormData('dealCloseConditionSL', value);
     },
     [
