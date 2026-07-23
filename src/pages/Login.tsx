@@ -672,8 +672,13 @@ const Login: React.FC = () => {
                             htmlFor="magic-email"
                             className="text-sm font-medium"
                           >
-                            Email me a sign-in link
+                            Sign in or sign up with email
                           </Label>
+                          <p className="text-xs text-muted-foreground">
+                            We&apos;ll email you a link. New to Gainium? The
+                            same link creates your account — no Google or
+                            password needed.
+                          </p>
                           <Input
                             id="magic-email"
                             type="email"
@@ -718,8 +723,9 @@ const Login: React.FC = () => {
                             Check your inbox
                           </p>
                           <p className="text-xs text-muted-foreground">
-                            We sent a sign-in link to {magicEmail}. The link
-                            expires in a few minutes.
+                            We sent a link to {magicEmail}. Click it to sign
+                            in — or to create your account if you&apos;re
+                            new. It expires in a few minutes.
                           </p>
                           <button
                             type="button"
