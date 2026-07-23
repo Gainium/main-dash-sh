@@ -29,6 +29,7 @@ import Dashboard from './pages/Dashboard';
 import DualArcProgressGaugeTest from './pages/DualArcProgressGaugeTest';
 import Exchanges from './pages/Exchanges';
 import GlobalVariables from './pages/GlobalVariables';
+import DiscordCallback from './pages/DiscordCallback';
 import Login from './pages/Login';
 import MagicLinkConsume from './pages/MagicLinkConsume';
 import NotFound from './pages/NotFound';
@@ -36,6 +37,7 @@ import PasswordResetConsume from './pages/PasswordResetConsume';
 import Overview from './pages/Overview';
 import Portfolio from './pages/Portfolio';
 import Settings from './pages/Settings';
+import SignUp from './pages/SignUp';
 import Trades from './pages/Trading';
 import TradingTerminal from './pages/TradingTerminal';
 // Lazy-loaded — 3000+ LOC design-system gallery, only fetched if a user
@@ -97,7 +99,20 @@ function App() {
           }
         />
         <Route path="/login" element={<Login />} />
+        {/* Sign-up is a cloud-only page (Google + magic link); sh's
+            first-user registration lives inside /login. */}
+        <Route
+          path="/signup"
+          element={
+            IS_CLOUD ? <SignUp /> : <Navigate to="/login" replace />
+          }
+        />
+        <Route
+          path="/register"
+          element={<Navigate to="/signup" replace />}
+        />
         <Route path="/auth/magic/:token" element={<MagicLinkConsume />} />
+        <Route path="/auth/discord" element={<DiscordCallback />} />
         <Route
           path="/auth/reset/:token"
           element={<PasswordResetConsume />}

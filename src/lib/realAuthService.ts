@@ -136,20 +136,48 @@ export class RealAuthService {
   }
 
   /**
+   * Login with Discord OAuth using the same GraphQL oauth mutation as
+   * Google. `discordToken` is the OAuth2 access token from Discord's
+   * implicit-grant redirect (scope `identify email`); the backend
+   * fetches the user from Discord and requires a verified email.
+   */
+  static async loginWithDiscord(discordToken: string): Promise<{
+    accessToken: string;
+    user: User;
+  }> {
+    return this.oauthLogin('discord', discordToken);
+  }
+
+  /**
    * Login with Google OAuth using GraphQL oauth mutation
    */
   static async loginWithGoogle(googleToken: string): Promise<{
     accessToken: string;
     user: User;
   }> {
+    return this.oauthLogin('google', googleToken);
+  }
+
+  /**
+   * Shared OAuth login path — Google ID token or Discord access token,
+   * exchanged for a Gainium JWT via the `oauth` mutation. Throws
+   * OTP_REQUIRED (with temporaryToken) when the account has 2FA.
+   */
+  private static async oauthLogin(
+    oauthType: 'google' | 'discord',
+    oauthToken: string
+  ): Promise<{
+    accessToken: string;
+    user: User;
+  }> {
     try {
-      logger.info('Attempting Google OAuth login');
+      logger.info(`Attempting ${oauthType} OAuth login`);
 
       // Get user timezone (default to UTC)
       const timezone =
         Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
 
-      // Use the oauth mutation to authenticate with Google
+      // Use the oauth mutation to authenticate with the provider
       const mutation = `
         mutation oauth($input: oauthInput!) {
           oauth(input: $input) {
@@ -169,15 +197,20 @@ export class RealAuthService {
         oauth: GainiumAuthResponse;
       }>(mutation, {
         input: {
-          type: 'google',
-          token: googleToken,
+          type: oauthType,
+          token: oauthToken,
           timezone,
         },
       });
 
-      if (response.oauth.status !== 'OK' || !response.oauth.data?.token) {
+      const providerLabel = oauthType === 'google' ? 'Google' : 'Discord';
+      if (
+        response?.oauth?.status !== 'OK' ||
+        !response.oauth.data?.token
+      ) {
         throw new Error(
-          response.oauth.reason || 'Google authentication failed'
+          response?.oauth?.reason ||
+            `${providerLabel} authentication failed. Please try again.`
         );
       }
 
@@ -193,14 +226,14 @@ export class RealAuthService {
       // Get user information using the token
       const user = await this.getUserInfo(token);
 
-      logger.info('Google login successful', { userId: user.id });
+      logger.info(`${oauthType} login successful`, { userId: user.id });
 
       return {
         accessToken: token,
         user,
       };
     } catch (error) {
-      logger.error('Google login failed', {
+      logger.error(`${oauthType} login failed`, {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
       throw error;
@@ -506,6 +539,7 @@ export function enableRealAuthentication() {
   return {
     loginWithPassword: RealAuthService.loginWithPassword,
     loginWithGoogle: RealAuthService.loginWithGoogle,
+    loginWithDiscord: RealAuthService.loginWithDiscord,
     logout: RealAuthService.logout,
     validateToken: RealAuthService.validateToken,
     validateOTP: RealAuthService.validateOTP,

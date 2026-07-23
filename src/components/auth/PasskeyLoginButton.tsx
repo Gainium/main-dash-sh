@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Fingerprint, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   isWebAuthnSupported,
   useAuthenticatePasskey,
@@ -69,20 +70,30 @@ export const PasskeyLoginButton: React.FC<PasskeyLoginButtonProps> = ({
 
   return (
     <>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={handleClick}
-        disabled={!termsAccepted || authenticate.isPending}
-        className={className}
+      <Tooltip
+        tooltip={
+          !termsAccepted
+            ? 'Please accept the terms and conditions first'
+            : undefined
+        }
+        side="top"
+        triggerClassName="w-full"
       >
-        {authenticate.isPending ? (
-          <Loader2 className="w-4 h-4 animate-spin mr-xs text-white" />
-        ) : (
-          <Fingerprint className="w-4 h-4 mr-xs text-white" />
-        )}
-        {compactLabel ? 'Passkey' : 'Sign in with passkey'}
-      </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handleClick}
+          disabled={!termsAccepted || authenticate.isPending}
+          className={className}
+        >
+          {authenticate.isPending ? (
+            <Loader2 className="w-4 h-4 animate-spin mr-xs text-white" />
+          ) : (
+            <Fingerprint className="w-4 h-4 mr-xs text-white" />
+          )}
+          {compactLabel ? 'Passkey' : 'Sign in with passkey'}
+        </Button>
+      </Tooltip>
       {localError && (
         <p className="text-xs text-red-500 mt-xs">{localError}</p>
       )}

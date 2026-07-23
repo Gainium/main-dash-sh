@@ -19,6 +19,11 @@ export interface AuthCapabilities {
    *  The Login page reads this to decide whether to render the
    *  Google button + the "or continue with email" divider. */
   google: boolean;
+  /** True when this build supports Discord OAuth login (cloud only —
+   *  needs VITE_DISCORD_CLIENT_ID and the backend oauth mutation's
+   *  discord branch). Optional so existing adapter registrations
+   *  keep compiling; absent means disabled. */
+  discord?: boolean;
   /** True when this build expects a first-install registration flow.
    *  The Login page reads this to render the register form
    *  branch (calls `checkUserExist`, asks for license key, etc). */

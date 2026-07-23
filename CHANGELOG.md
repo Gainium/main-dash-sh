@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.37.0] - 2026-07-23
+
+### Added
+
+- Dedicated sign-up page at /signup (cloud): create an account with Google, Discord, or an email link — no password needed. The login page links to it ("Don't have an account? Sign up"), and /register redirects there.
+- Discord sign-in/sign-up (cloud): new "Continue with Discord" option on the login and sign-up pages, with a dedicated /auth/discord callback. Enabled when VITE_DISCORD_CLIENT_ID is configured.
+
+### Changed
+
+- Login page redesigned: each sign-in method is a full-width row (Google, Discord, passkey, email link) with even spacing; the Google button now matches the app's button style instead of the Google-rendered widget; clearer headings on login and sign-up.
+- The passkey button now explains via tooltip that terms must be accepted first.
+
 ## [2.36.3] - 2026-07-23
 
 ### Changed

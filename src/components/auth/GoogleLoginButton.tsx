@@ -1,3 +1,4 @@
+import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/apiClient';
 import { RealAuthService } from '@/lib/realAuthService';
 import { useAuthStore } from '@/stores/authStore';
@@ -5,6 +6,29 @@ import type { User } from '@/types/auth';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
 import React from 'react';
+
+/** The multicolor Google "G" mark, drawn inline so the custom button
+ *  doesn't depend on Google's iframe for its visuals. */
+const GoogleGlyph: React.FC = () => (
+  <svg className="w-4 h-4" viewBox="0 0 24 24" aria-hidden="true">
+    <path
+      fill="#4285F4"
+      d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.46a5.52 5.52 0 0 1-2.4 3.62v3h3.88c2.27-2.09 3.58-5.17 3.58-8.81Z"
+    />
+    <path
+      fill="#34A853"
+      d="M12 24c3.24 0 5.96-1.07 7.94-2.91l-3.88-3.01c-1.07.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.72-4.95H1.27v3.11A12 12 0 0 0 12 24Z"
+    />
+    <path
+      fill="#FBBC05"
+      d="M5.28 14.28A7.22 7.22 0 0 1 4.9 12c0-.79.14-1.56.38-2.28V6.61H1.27a12 12 0 0 0 0 10.78l4.01-3.11Z"
+    />
+    <path
+      fill="#EA4335"
+      d="M12 4.77c1.76 0 3.34.61 4.59 1.8l3.44-3.44A11.98 11.98 0 0 0 12 0 12 12 0 0 0 1.27 6.61l4.01 3.11C6.22 6.88 8.87 4.77 12 4.77Z"
+    />
+  </svg>
+);
 
 interface GoogleLoginButtonProps {
   /**
@@ -197,25 +221,44 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
 
   return (
     <div className={className}>
-      <div className={disabled ? 'opacity-50 pointer-events-none' : ''}>
-        <GoogleLogin
-          onSuccess={handleGoogleSuccess}
-          onError={handleGoogleError}
-          useOneTap={useOneTap}
-          auto_select={autoSelect}
-          theme="filled_black"
-          size="large"
-          text="signin_with"
-          shape="rectangular"
-          logo_alignment="left"
-          width="100%"
-          containerProps={{
-            style: {
-              height: '48px', // h-12
-              borderRadius: '6px',
-            },
-          }}
-        />
+      <div
+        className={`relative group ${
+          disabled ? 'opacity-50 pointer-events-none' : ''
+        }`}
+      >
+        {/* Visual layer: our own button, styled like the other auth
+            rows. The real Google widget sits on top, invisible, and
+            captures the click — the backend needs the ID-token
+            credential only the GIS button flow returns. */}
+        <Button
+          type="button"
+          variant="outline"
+          tabIndex={-1}
+          aria-hidden
+          className="w-full h-11 pointer-events-none group-hover:bg-accent group-hover:text-accent-foreground"
+        >
+          <GoogleGlyph />
+          <span className="ml-xs">Continue with Google</span>
+        </Button>
+        <div className="absolute inset-0 opacity-[0.001] overflow-hidden">
+          <GoogleLogin
+            onSuccess={handleGoogleSuccess}
+            onError={handleGoogleError}
+            useOneTap={useOneTap}
+            auto_select={autoSelect}
+            theme="filled_black"
+            size="large"
+            text="signin_with"
+            shape="rectangular"
+            logo_alignment="left"
+            width="400"
+            containerProps={{
+              style: {
+                height: '100%',
+              },
+            }}
+          />
+        </div>
       </div>
     </div>
   );
