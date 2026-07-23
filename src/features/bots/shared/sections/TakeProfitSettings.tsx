@@ -1791,12 +1791,15 @@ export const TakeProfitSettings: React.FC = () => {
   const handleChangeIndicatorParams = useCallback(
     (id: string, params: IndicatorParamsState) => {
       const sanitized = sanitizeIndicatorParams(params);
+      // Spread the sanitized params top-level: both the display
+      // (DynamicArIndicatorConfig reads the indicator itself as its params
+      // state) and the save serializer (normalizeIndicatorParamsRecord drops
+      // any legacy `params` sub-object) only see top-level fields — nesting
+      // under `params` made edits (e.g. ATR Length) silently snap back.
       updateFormData(
         'indicators',
         indicators.map((indicator) =>
-          indicator.uuid === id
-            ? { ...indicator, params: sanitized }
-            : indicator
+          indicator.uuid === id ? { ...indicator, ...sanitized } : indicator
         )
       );
     },

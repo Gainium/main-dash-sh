@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.1] - 2026-07-23
+
+### Fixed
+
+- Take Profit → Dynamic ATR/ADR: configured ATR/ADR indicators are now saved with the bot — previously they vanished after saving and reopening the editor ("No ATR/ADR indicators configured"). The same fix applies to Stop Loss in Dynamic ATR/ADR mode.
+- Take Profit → Dynamic ATR/ADR: editing the indicator's Length (and Interval) no longer snaps back to the previous value.
+- Risk:Reward: editing an indicator's parameters in the inline config no longer snaps back to the previous value.
+
 ## [2.38.0] - 2026-07-23
 
 ### Added

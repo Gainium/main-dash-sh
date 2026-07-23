@@ -376,11 +376,12 @@ export const RiskRewardSettings: React.FC = () => {
   const handleChangeIndicatorParams = React.useCallback(
     (id: string, params: IndicatorParamsState) => {
       const sanitized = sanitizeIndicatorParams(params);
+      // Spread top-level (not nested under `params`): the inline config and
+      // the save serializer only read top-level fields, so nested edits were
+      // ignored and inputs snapped back to their previous values.
       updateRiskIndicators(
         riskIndicators.map((indicator) =>
-          indicator.uuid === id
-            ? { ...indicator, params: sanitized }
-            : indicator
+          indicator.uuid === id ? { ...indicator, ...sanitized } : indicator
         )
       );
     },

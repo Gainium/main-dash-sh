@@ -2167,6 +2167,34 @@ export const mapTpSlFields = (
         typeof _dynamicArLockValue === 'boolean' ? _dynamicArLockValue : true;
       tpSlFields['dynamicArLockValue'] = dynamicArLockValue;
       fieldsMapped.push('dynamicArLockValue');
+
+      // Serialize the ATR/ADR close indicators like the techInd branch does.
+      // Without this no mapper section contributes closeDeal indicators when
+      // the close condition is dynamicAr (the Start section filters to
+      // startDeal only), so the configured ATR/ADR silently vanished on save.
+      const closeIndicators = Array.isArray(indicators)
+        ? indicators.filter(
+            (i) =>
+              i.indicatorAction === IndicatorAction.closeDeal &&
+              i.section !== IndicatorSection.sl
+          )
+        : [];
+      if (closeIndicators.length > 0) {
+        tpSlFields['indicators'] = indicators.map((indicator) => {
+          return closeIndicators.find((i) => i.uuid === indicator.uuid)
+            ? serializeIndicatorConfig(indicator as IndicatorConfig, {
+                warnings,
+                overrides: {
+                  indicatorAction: IndicatorAction.closeDeal,
+                  section: undefined,
+                },
+              })
+            : indicator;
+        });
+        fieldsMapped.push('indicators');
+      } else {
+        fieldsSkipped.push('indicators');
+      }
     } else {
       fieldsSkipped.push(
         'stopDealLogic',
@@ -2371,6 +2399,13 @@ export const mapTpSlFields = (
     }
     const shouldProcessStopLossIndicators =
       resolvedSlCondition === CloseConditionEnum.techInd && stopLossEnabled;
+    // dynamicAr SL also stores its ATR/ADR indicators as closeDeal entries in
+    // the shared array (section: sl) — they must be serialized too, or they
+    // are dropped on save just like the take-profit dynamicAr case.
+    const shouldSerializeStopLossIndicators =
+      (resolvedSlCondition === CloseConditionEnum.techInd ||
+        resolvedSlCondition === CloseConditionEnum.dynamicAr) &&
+      stopLossEnabled;
 
     if (shouldProcessStopLossIndicators) {
       fieldsProcessed.push('stopDealSlLogic');
@@ -2395,7 +2430,7 @@ export const mapTpSlFields = (
       fieldsSkipped.push('stopDealSlLogic');
     }
 
-    if (shouldProcessStopLossIndicators) {
+    if (shouldSerializeStopLossIndicators) {
       const closeIndicatorsSl = Array.isArray(indicators)
         ? indicators.filter(
             (i) =>
@@ -2404,7 +2439,10 @@ export const mapTpSlFields = (
           )
         : [];
       if (closeIndicatorsSl.length > 0) {
-        tpSlFields['indicators'] = indicators.map((indicator) => {
+        // Build on the array the TP branch may already have written so its
+        // serialized close indicators are not overwritten with raw entries.
+        const baseIndicators = tpSlFields['indicators'] ?? indicators;
+        tpSlFields['indicators'] = baseIndicators.map((indicator) => {
           return closeIndicatorsSl.find((i) => i.uuid === indicator.uuid)
             ? serializeIndicatorConfig(indicator as IndicatorConfig, {
                 warnings,
