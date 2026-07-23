@@ -1,5 +1,6 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useNowTick } from '@/hooks/useNowTick';
+import { getValidTimezone } from '@/utils/timeUtils';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
 import logger from '@/lib/loggerInstance';
@@ -87,7 +88,10 @@ export const Profit: React.FC<ProfitProps> = ({
 
   // Get user timezone
   const user = useAuthStore((s) => s.user);
-  const userTimezone = user?.timezone || 'UTC';
+  // Stored timezone is free-text and may be an invalid IANA id (e.g. the
+  // localized "Europa/Roma"), which makes getProfitByUser return NOTOK and
+  // Intl throw — blanking this widget. Sanitize to a valid zone.
+  const userTimezone = getValidTimezone(user?.timezone);
 
   // Persisted settings for this widget instance
   const [timeFilter, setTimeFilter] = usePersistedState('timeFilter', 'Daily');

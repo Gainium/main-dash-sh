@@ -77,3 +77,30 @@ export const STALE_GENERATED_AT_MS = 24 * 60 * 60 * 1000;
 export function isGeneratedAtStale(timestamp: number): boolean {
   return Date.now() - timestamp > STALE_GENERATED_AT_MS;
 }
+
+/**
+ * The user's stored timezone comes from a free-text Settings input, so it can
+ * hold an invalid IANA id — e.g. the localized spelling "Europa/Roma" instead
+ * of "Europe/Rome". Feeding such a value to `Intl.DateTimeFormat` throws a
+ * RangeError, and the daily-profit backend returns NOTOK for it, which blanked
+ * the Overview Profit / Hero Balance widgets ($0.00 + "No profit history yet")
+ * despite real profit. Validate and fall back to the browser's own resolved
+ * zone (then UTC) so a corrupt stored value degrades gracefully instead of
+ * zeroing the dashboard.
+ */
+export function getValidTimezone(tz?: string | null): string {
+  if (tz) {
+    try {
+      // Throws RangeError for an unknown/invalid IANA identifier.
+      new Intl.DateTimeFormat('en-US', { timeZone: tz });
+      return tz;
+    } catch {
+      // fall through to a valid fallback
+    }
+  }
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  } catch {
+    return 'UTC';
+  }
+}

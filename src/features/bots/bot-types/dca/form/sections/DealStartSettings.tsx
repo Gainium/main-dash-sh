@@ -60,6 +60,7 @@ import {
   buildIndicatorConfig,
   sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
+import { getValidTimezone } from '@/utils/timeUtils';
 import { Info } from 'lucide-react';
 import React, { useMemo } from 'react';
 
@@ -293,10 +294,11 @@ export const DealStartSettings: React.FC = () => {
     },
     [updateFormData]
   );
+  // Stored timezone is free-text and may be an invalid IANA id (e.g. the
+  // localized "Europa/Roma"), which throws when fed to Intl/date pickers.
+  // Sanitize to a valid zone (falls back to the browser's own).
   const timezone = React.useMemo(
-    () =>
-      userSettings?.timezone ||
-      Intl.DateTimeFormat().resolvedOptions().timeZone,
+    () => getValidTimezone(userSettings?.timezone),
     [userSettings?.timezone]
   );
 

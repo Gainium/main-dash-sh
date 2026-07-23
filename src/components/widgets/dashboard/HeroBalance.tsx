@@ -19,6 +19,7 @@ import {
   type ProfitQuery,
 } from '@/types';
 import { formatCurrency, formatPercentage } from '@/utils/formatters';
+import { getValidTimezone } from '@/utils/timeUtils';
 import { Skeleton } from '@/components/ui/skeleton';
 import React, { useMemo } from 'react';
 import { Cell, Pie, PieChart } from 'recharts';
@@ -86,7 +87,10 @@ function toTzDateKey(date: Date, timezone: string): string {
 export const HeroBalance: React.FC = () => {
   const privacyMode = useUIStore((s) => s.privacyMode);
   const { exchanges } = useTransformedExchangesFromContext();
-  const userTimezone = useAuthStore((s) => s.user?.timezone || 'UTC');
+  // Stored timezone is free-text and may be an invalid IANA id (e.g. the
+  // localized "Europa/Roma"); an invalid value throws in toTzDateKey's Intl
+  // call and makes getProfitByUser return NOTOK. Sanitize to a valid zone.
+  const userTimezone = useAuthStore((s) => getValidTimezone(s.user?.timezone));
 
   // Portfolio snapshots — same query the rest of the dashboard uses, so cache hits.
   const portfolioQuery = useMemo(() => GraphQlQuery.getPortfolioByUser(), []);
