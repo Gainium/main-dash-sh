@@ -47,6 +47,7 @@ import {
   DetailDrawerTrigger,
 } from '../ui/detail-drawer';
 import { Switch } from '../ui/switch';
+import { InfoIcon, Tooltip } from '../ui/tooltip';
 import {
   getAvailableBotWidgetTypesForPage,
   getBotWidgetMetadata,
@@ -602,8 +603,16 @@ const WidgetsManager: React.FC<WidgetsManagerProps> = ({
             </h4>
             <div className="flex items-center justify-between p-sm rounded-md bg-card  shadow-sm">
               <div className="flex-1">
-                <div className="font-medium text-sm text-card-foreground">
-                  Controls always visible
+                <div className="flex items-center gap-xs">
+                  <div className="font-medium text-sm text-card-foreground">
+                    Controls always visible
+                  </div>
+                  <Tooltip
+                    tooltip="Keep widget controls (settings, menu, remove, drag handle) permanently visible instead of showing them on hover. Easier on touch devices; hover-only keeps the dashboard cleaner."
+                    tooltipURL="/help/custom-dashboards"
+                  >
+                    <InfoIcon />
+                  </Tooltip>
                 </div>
                 <div className="text-xs text-muted-foreground">
                   Show widget controls without hovering
@@ -675,9 +684,17 @@ const WidgetsManager: React.FC<WidgetsManagerProps> = ({
           {/* Current Widgets Section - hide when registry is 'navigation' */}
           {!isNavigation && (
             <div className="p-sm border-b border-border">
-              <h4 className="font-medium text-sm mb-3 text-foreground">
-                {registry.charAt(0).toUpperCase() + registry.slice(1)} Widgets (
-                {widgets.length})
+              <h4 className="font-medium text-sm mb-3 text-foreground flex items-center gap-xs">
+                <span>
+                  {registry.charAt(0).toUpperCase() + registry.slice(1)}{' '}
+                  Widgets ({widgets.length})
+                </span>
+                <Tooltip
+                  tooltip="Drag entries to reorder widgets on the grid. You can add several copies of the same widget and configure each one separately."
+                  tooltipURL="/help/custom-dashboards"
+                >
+                  <InfoIcon />
+                </Tooltip>
               </h4>
               <div className="space-y-sm" key={refreshKey}>
                 <SortableContext

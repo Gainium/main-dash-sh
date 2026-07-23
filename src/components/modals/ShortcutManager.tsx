@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Switch } from '@/components/ui/switch';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { SHORTCUT_IDS } from '@/config/shortcuts';
 import { useShortcutStore } from '@/stores/shortcutStore';
 import { Keyboard } from 'lucide-react';
@@ -50,8 +51,14 @@ export const ShortcutManager: React.FC<ShortcutManagerProps> = ({
 
         <div className="px-6 py-3 shrink-0">
           <div className="flex items-center justify-between gap-sm">
-            <div className="text-sm text-muted-foreground">
+            <div className="flex items-center gap-xs text-sm text-muted-foreground">
               Disable shortcut hints
+              <Tooltip
+                tooltip='Hints are the occasional "Next time, press…" messages shown when you use the mouse for something that has a keyboard shortcut. Turn this on to stop showing them.'
+                tooltipURL="/help/keyboard-shortcuts"
+              >
+                <InfoIcon />
+              </Tooltip>
             </div>
             <Switch
               checked={disableShortcutHints}

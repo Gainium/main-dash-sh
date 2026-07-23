@@ -3,6 +3,7 @@ import { ItemRowList } from '@/components/common/ItemRowList';
 import ShortcutRecorder from '@/components/common/ShortcutRecorder';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useShortcutStore, type ShortcutConfig } from '@/stores/shortcutStore';
 import { RotateCcw, Trash2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -231,16 +232,21 @@ export const ShortcutsList: React.FC<ShortcutsListProps> = ({
               </div>
             )}
             {showResetAll && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={resetAllShortcuts}
-                className="h-9 gap-xs"
-                title="Reset all shortcuts to defaults"
+              <Tooltip
+                tooltip="Restores every shortcut to its default key and re-enables built-in shortcuts you removed. Dashboard shortcuts have no default, so they stay unassigned."
+                tooltipURL="/help/keyboard-shortcuts"
               >
-                <RotateCcw className="h-4 w-4" />
-                <span className="hidden sm:inline">Reset all</span>
-              </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={resetAllShortcuts}
+                  className="h-9 gap-xs"
+                  title="Reset all shortcuts to defaults"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  <span className="hidden sm:inline">Reset all</span>
+                </Button>
+              </Tooltip>
             )}
           </div>
         </div>
@@ -260,9 +266,25 @@ export const ShortcutsList: React.FC<ShortcutsListProps> = ({
           const categoryShortcuts = groupedShortcuts[category] || [];
           return (
             <div key={category}>
-              <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider">
+              <h3 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wider flex items-center gap-xs">
                 {categoryLabels[category as keyof typeof categoryLabels] ||
                   category}
+                {category === 'dashboards' && (
+                  <Tooltip
+                    tooltip="Each of your dashboards can get its own shortcut. None is assigned by default — click the cog icon next to a dashboard and press a key combination to jump to it from anywhere."
+                    tooltipURL="/help/keyboard-shortcuts"
+                  >
+                    <InfoIcon />
+                  </Tooltip>
+                )}
+                {category === 'custom' && (
+                  <Tooltip
+                    tooltip="Create your own shortcut to any page: give it a name, enter the page's path (the part of the address after the domain, starting with '/'), and record a key combination."
+                    tooltipURL="/help/keyboard-shortcuts"
+                  >
+                    <InfoIcon />
+                  </Tooltip>
+                )}
               </h3>
               <div className="space-y-xs">
                 {categoryShortcuts.map((shortcut) => (

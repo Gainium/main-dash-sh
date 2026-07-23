@@ -22,6 +22,7 @@ import { useShortcutStore } from '../../stores/shortcutStore';
 import { useTradingTerminalStore } from '../../stores/tradingTerminalStore';
 import ShortcutChip from '../common/ShortcutChip';
 import { Button } from '../ui/button';
+import { InfoIcon, Tooltip } from '../ui/tooltip';
 import { ConfirmationDialog, InputDialog } from '../ui/confirmation-dialog';
 import {
   DetailDrawer,
@@ -223,47 +224,64 @@ const LayoutManager: React.FC<LayoutManagerProps> = ({
       <div className="shrink-0 p-sm border-b border-border">
         <div className="grid grid-cols-3 gap-sm">
           <div className="p-xs rounded-md bg-inner-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleGridLock}
-              className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
+            <Tooltip
+              tooltip="Lock the grid to prevent widgets from being dragged or resized. Unlock it to edit the layout again."
+              tooltipURL="/help/custom-dashboards"
+              triggerClassName="w-full"
             >
-              {isGridLayoutLocked ? (
-                <>
-                  <Lock className="h-4 w-4 text-primary" />
-                  <span className="hidden sm:inline">Locked</span>
-                </>
-              ) : (
-                <>
-                  <Unlock className="h-4 w-4 text-gradient-start dark:text-gradient-end" />
-                  <span className="hidden sm:inline">Unlocked</span>
-                </>
-              )}
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={toggleGridLock}
+                className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
+              >
+                {isGridLayoutLocked ? (
+                  <>
+                    <Lock className="h-4 w-4 text-primary" />
+                    <span className="hidden sm:inline">Locked</span>
+                  </>
+                ) : (
+                  <>
+                    <Unlock className="h-4 w-4 text-gradient-start dark:text-gradient-end" />
+                    <span className="hidden sm:inline">Unlocked</span>
+                  </>
+                )}
+              </Button>
+            </Tooltip>
           </div>
           <div className="p-xs rounded-md bg-inner-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleSaveLayout}
-              className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
+            <Tooltip
+              tooltip="Save the current arrangement as a named layout. You can keep several layouts and switch between them anytime."
+              tooltipURL="/help/custom-dashboards"
+              triggerClassName="w-full"
             >
-              <Save className="h-4 w-4" />
-              <span className="hidden sm:inline">Save</span>
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleSaveLayout}
+                className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
+              >
+                <Save className="h-4 w-4" />
+                <span className="hidden sm:inline">Save</span>
+              </Button>
+            </Tooltip>
           </div>
           <div className="p-xs rounded-md bg-inner-container">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleTidyUp}
-              className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
-              title="Automatically arrange widgets to efficiently fill available space while respecting size constraints"
+            <Tooltip
+              tooltip="Automatically re-pack the layout: widgets reset to their default sizes, arrange compactly, and expand to fill leftover space."
+              tooltipURL="/help/custom-dashboards"
+              triggerClassName="w-full"
             >
-              <Sparkles className="h-4 w-4" />
-              <span className="hidden sm:inline">Tidy up</span>
-            </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleTidyUp}
+                className="w-full flex items-center justify-center gap-xs h-8 px-3 py-2 text-xs text-card-foreground hover:bg-muted/50 touch-manipulation"
+              >
+                <Sparkles className="h-4 w-4" />
+                <span className="hidden sm:inline">Tidy up</span>
+              </Button>
+            </Tooltip>
           </div>
         </div>
       </div>
@@ -276,8 +294,14 @@ const LayoutManager: React.FC<LayoutManagerProps> = ({
       >
         {/* Layout Presets Section */}
         <div className="p-sm border-b border-border">
-          <h4 className="font-medium text-sm mb-2 text-foreground">
+          <h4 className="font-medium text-sm mb-2 text-foreground flex items-center gap-xs">
             Layout Presets
+            <Tooltip
+              tooltip="Default restores the built-in widget set and arrangement for your screen size, replacing the current widgets. Save your layout first if you want a way back."
+              tooltipURL="/help/custom-dashboards"
+            >
+              <InfoIcon />
+            </Tooltip>
           </h4>
           <p className="text-xs text-muted-foreground mb-3">
             Choose a preset layout for your dashboard widgets
@@ -302,8 +326,14 @@ const LayoutManager: React.FC<LayoutManagerProps> = ({
           Array.isArray(savedLayouts) &&
           savedLayouts.length > 0 && (
             <div className="p-sm border-b border-border">
-              <h4 className="font-medium text-sm mb-3 text-foreground">
+              <h4 className="font-medium text-sm mb-3 text-foreground flex items-center gap-xs">
                 Saved Layouts
+                <Tooltip
+                  tooltip="Click a layout to load it. Layouts remember the screen size they were created on, shown under each name."
+                  tooltipURL="/help/custom-dashboards"
+                >
+                  <InfoIcon />
+                </Tooltip>
               </h4>
               <div className="grid grid-cols-1 gap-sm">
                 {savedLayouts.map((layout: any) => (
@@ -342,8 +372,14 @@ const LayoutManager: React.FC<LayoutManagerProps> = ({
 
         {/* Import/Export Section */}
         <div className="p-sm border-b border-border">
-          <h4 className="font-medium text-sm mb-3 text-foreground">
+          <h4 className="font-medium text-sm mb-3 text-foreground flex items-center gap-xs">
             Import/Export
+            <Tooltip
+              tooltip="Export downloads this dashboard (widgets, settings, and arrangement) as a file. Import restores one — useful for backups or moving a dashboard between accounts."
+              tooltipURL="/help/custom-dashboards"
+            >
+              <InfoIcon />
+            </Tooltip>
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-sm">
             <Button
@@ -369,15 +405,21 @@ const LayoutManager: React.FC<LayoutManagerProps> = ({
 
         {/* Reset Section */}
         <div className="p-sm">
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={handleResetToSaved}
-            className="w-full flex items-center justify-center gap-xs h-12 touch-manipulation"
+          <Tooltip
+            tooltip="Discard current changes and reload the layout you most recently saved. Falls back to the default layout if none was saved."
+            tooltipURL="/help/custom-dashboards"
+            triggerClassName="w-full"
           >
-            <RotateCcw className="h-4 w-4" />
-            Reset to Last Saved
-          </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleResetToSaved}
+              className="w-full flex items-center justify-center gap-xs h-12 touch-manipulation"
+            >
+              <RotateCcw className="h-4 w-4" />
+              Reset to Last Saved
+            </Button>
+          </Tooltip>
           {/* Bottom padding for scroll space */}
           <div className="h-6"></div>
         </div>

@@ -2,6 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { CreateDashboardDialog } from '@/components/dashboard/CreateDashboardDialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import {
@@ -140,6 +141,12 @@ const DashboardsPanel: React.FC<DashboardsPanelProps> = ({
                 <h3 className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                   All Dashboards
                 </h3>
+                <Tooltip
+                  tooltip="Click a dashboard to open it, or create a new one with the + button above. Rename, clone, reorder, or delete dashboards from the Dashboard Manager on the dashboard page."
+                  tooltipURL="/help/custom-dashboards"
+                >
+                  <InfoIcon />
+                </Tooltip>
                 <Badge
                   variant="secondary"
                   className="ml-auto h-5 px-2 text-xs bg-muted/50 text-card-foreground border-0"

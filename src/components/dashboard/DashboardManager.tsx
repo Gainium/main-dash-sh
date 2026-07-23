@@ -49,6 +49,7 @@ import ShortcutRecorder from '../common/ShortcutRecorder';
 import LayoutManager from '../layout/LayoutManager';
 import WidgetsManager from '../layout/WidgetsManager';
 import { Button } from '../ui/button';
+import { InfoIcon, Tooltip } from '../ui/tooltip';
 import {
   Card,
   CardContent,
@@ -904,7 +905,15 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({
                   <Card compact>
                     <CardHeader className="pb-3">
                       <CardTitle className="text-sm">
-                        Current Dashboard Actions
+                        <span className="flex items-center gap-xs">
+                          Current Dashboard Actions
+                          <Tooltip
+                            tooltip="Save Dashboard stores a snapshot of the current widget arrangement you can restore later with Reset to Last Saved. Save as New duplicates the whole dashboard under a new name."
+                            tooltipURL="/help/custom-dashboards"
+                          >
+                            <InfoIcon />
+                          </Tooltip>
+                        </span>
                       </CardTitle>
                       <CardDescription>
                         Manage saving and duplication of the current dashboard
@@ -938,7 +947,17 @@ const DashboardManager: React.FC<DashboardManagerProps> = ({
 
                   <Card compact>
                     <CardHeader className="pb-3 flex items-center justify-between">
-                      <CardTitle className="text-sm">All Dashboards</CardTitle>
+                      <CardTitle className="text-sm">
+                        <span className="flex items-center gap-xs">
+                          All Dashboards
+                          <Tooltip
+                            tooltip="Click a dashboard to switch to it, or drag to reorder. Each dashboard can be renamed, cloned, deleted, or given its own keyboard shortcut."
+                            tooltipURL="/help/custom-dashboards"
+                          >
+                            <InfoIcon />
+                          </Tooltip>
+                        </span>
+                      </CardTitle>
                       <div>
                         <Button
                           variant="outline"
