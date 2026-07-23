@@ -8,6 +8,13 @@
  */
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
+import {
+  calculateDealCost,
+  calculateDealSize,
+  isLongStrategy,
+} from '@/lib/utils/tradingMetrics';
+import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import { ExchangeEnum } from '@/types';
 import type { DCADeals } from '@/types';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
@@ -15,7 +22,38 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
   const baseSymbol = symbol.replace(deal.symbol?.quoteAsset || '', '');
   const quoteSymbol = deal.symbol?.quoteAsset || 'USD';
   const pair = `${baseSymbol}/${quoteSymbol}`;
-  const cost = deal.usage?.current?.quote || 0;
+  // Cost/size must be strategy-aware: usage is tracked on the QUOTE side for
+  // LONG spot / USD-M futures but on the BASE side for SHORT spot / COIN-M. The
+  // old `usage.current.quote` read returned 0 for SHORT spot deals — blanking
+  // Cost/Notional, zeroing Unrealized-% (pnl/0), and dropping them from any
+  // `cost > 0` positions filter. Reuse the same short-aware helpers the
+  // canonical `transformDealToTrade` uses so both transforms agree.
+  const futures =
+    `${deal.settings?.futures}` !== 'null'
+      ? deal.settings?.futures
+      : isFuturesExchange(deal.exchange ?? ExchangeEnum.binance);
+  const coinm =
+    `${deal.settings?.coinm}` !== 'null'
+      ? deal.settings?.coinm
+      : isCoinmExchange(deal.exchange ?? ExchangeEnum.binance);
+  const metricsInput = {
+    strategy: deal.strategy,
+    status: deal.status,
+    avgPrice: deal.avgPrice,
+    usage: {
+      current: {
+        base: deal.usage?.current?.base || 0,
+        quote: deal.usage?.current?.quote || 0,
+      },
+    },
+    currentBalances: deal.currentBalances,
+    initialBalances: deal.initialBalances,
+    futures,
+    coinm,
+    leverage: deal.settings?.leverage,
+    marginType: deal.settings?.marginType,
+  };
+  const cost = calculateDealCost(metricsInput);
   const createdTime = deal.createTime ? new Date(deal.createTime) : new Date();
   const workingMs = Date.now() - createdTime.getTime();
   const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
@@ -91,10 +129,17 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     pnl: deal.profit?.totalUsd || 0,
     cost,
     value: cost + (deal.profit?.totalUsd || 0),
-    size: deal.currentBalances?.base || 0,
-    usagePercentage: deal.usage?.max?.quote
-      ? (deal.usage.current.quote / deal.usage.max.quote) * 100
-      : 0,
+    size: calculateDealSize(metricsInput),
+    // SHORT spot / COIN-M usage lives on the base side; reading only the quote
+    // side reported 0% usage for short deals (legacy parity with
+    // transformDealToTrade's `usesBaseSide`).
+    usagePercentage: (futures ? coinm : !isLongStrategy(deal.strategy))
+      ? deal.usage?.max?.base
+        ? ((deal.usage.current?.base || 0) / deal.usage.max.base) * 100
+        : 0
+      : deal.usage?.max?.quote
+        ? ((deal.usage.current?.quote || 0) / deal.usage.max.quote) * 100
+        : 0,
     createdTime,
     workingTime,
     drawdown: deal.stats?.drawdownPercent ? deal.stats.drawdownPercent * 100 : 0,
