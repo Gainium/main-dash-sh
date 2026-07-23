@@ -19,6 +19,11 @@ import type { HelpDocBySlugResponse } from '@/types/helpCenter';
 import { BookOpen, Calendar, Clock, X } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import {
+  getStandaloneYouTubeHref,
+  YouTubeEmbed,
+} from '../ui/YouTubeEmbed';
 
 const LOG_PREFIX = '[HelpCenter]';
 
@@ -85,11 +90,16 @@ const markdownComponents: Partial<Components> = {
       {children}
     </h4>
   ),
-  p: ({ children, ...props }) => (
-    <p className="text-foreground/90 leading-relaxed mb-4" {...props}>
-      {children}
-    </p>
-  ),
+  p: ({ children, node, ...props }) => {
+    // A paragraph that is just a bare YouTube link becomes an inline embed
+    const youTubeHref = getStandaloneYouTubeHref(node?.children);
+    if (youTubeHref) return <YouTubeEmbed url={youTubeHref} />;
+    return (
+      <p className="text-foreground/90 leading-relaxed mb-4" {...props}>
+        {children}
+      </p>
+    );
+  },
   ul: ({ children, ...props }) => (
     <ul
       className="text-foreground/90 list-disc list-inside mb-4 space-y-1 pl-2"
@@ -352,7 +362,10 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
 
               {/* Content */}
               <div className="help-article-content">
-                <ReactMarkdown components={markdownComponents}>
+                <ReactMarkdown
+                  remarkPlugins={[remarkGfm]}
+                  components={markdownComponents}
+                >
                   {article.content}
                 </ReactMarkdown>
               </div>
