@@ -1,4 +1,10 @@
 export { useAutoNameFromPreset } from './useAutoNameFromPreset';
+export {
+  composeAutoBotName,
+  decideAutoBotName,
+  matchesAutoShape,
+  todayIso,
+} from './autoBotName';
 export { useQuickBalance } from './useQuickBalance';
 export {
   MultiPairCalibrationStatus,

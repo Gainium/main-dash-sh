@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.3] - 2026-07-24
+
+### Fixed
+
+- Quick bot setup: editing the auto-filled bot name no longer snaps back to the generated value when the form re-renders (market data settling, switching the strategy preset). A name you type is now kept, including edits that leave the trailing preset and date in place.
+
+### Changed
+
+- Quick bot setup: auto-generated bot names now always include the bot type (e.g. `BTCUSDT Hedge DCA Balanced 2026-07-24`, `BTCUSDT DCA 2026-07-24`) — Hedge DCA/Combo previously omitted it. The strategy preset, when one is selected, follows the bot type.
+
 ## [2.38.2] - 2026-07-23
 
 ### Changed
