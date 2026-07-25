@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.6] - 2026-07-25
+
+### Removed
+
+- DCA and Combo bot settings: the "Volume based on" control and its "Required change" mode are gone from the bot form. Safety-order volume is always scaled, which is what the DCA overview table and graph already project — use volume and volume scale to shape the ladder. The dependent fields ("Required changed based on", "Required change", "Max volume per DCA", and the required-change order size reference) go with it. Existing bots keep the settings they were saved with.
+
 ## [2.38.5] - 2026-07-25
 
 ### Fixed

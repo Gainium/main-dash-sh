@@ -122,53 +122,6 @@ const clampMinimumDeviation = (value: number) =>
 const formatMinimumDeviation = (value: number) =>
   formatNumericInput(clampMinimumDeviation(value), 2);
 
-type UpdateFormDataFn = (field: Fields, value: BotFormUpdateValue) => void;
-
-const useVolumeBindingControls = (updateFormData: UpdateFormDataFn) => {
-  const { isBound: isRequiredChangeVarBound } = useBotVarBinding(
-    'dcaVolumeRequiredChange'
-  );
-  const applyRequiredChangeVariable = useCallback(
-    (variable: GlobalVariable | null) => {
-      if (!variable) {
-        return;
-      }
-      const numericValue = Number.parseFloat(String(variable.value ?? ''));
-      if (!Number.isFinite(numericValue)) {
-        return;
-      }
-      const clamped = Math.min(Math.max(numericValue, 0.1), 100);
-      const normalized = Math.round(clamped * 10) / 10;
-      updateFormData('dcaVolumeRequiredChange', normalized);
-    },
-    [updateFormData]
-  );
-
-  const { isBound: isMaxVolumeVarBound } =
-    useBotVarBinding('dcaVolumeMaxValue');
-  const applyMaxVolumeVariable = useCallback(
-    (variable: GlobalVariable | null) => {
-      if (!variable) {
-        return;
-      }
-      const numericValue = Number.parseFloat(String(variable.value ?? ''));
-      if (!Number.isFinite(numericValue)) {
-        return;
-      }
-      const clamped = numericValue < -1 ? -1 : numericValue;
-      updateFormData('dcaVolumeMaxValue', clamped);
-    },
-    [updateFormData]
-  );
-
-  return {
-    isRequiredChangeVarBound,
-    applyRequiredChangeVariable,
-    isMaxVolumeVarBound,
-    applyMaxVolumeVariable,
-  };
-};
-
 const normalizeCloseCondition = (
   value?: BotFormData['dca']['dealCloseCondition'] | string | null
 ): CloseConditionEnum => {
@@ -519,11 +472,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   const strategy = useBotFormSelector('strategy');
   const useActiveMinigrids = useBotFormSelector('useActiveMinigrids');
   const comboUseSmartGrids = useBotFormSelector('comboUseSmartGrids');
-  const dcaVolumeRequiredChangeRef = useBotFormSelector(
-    'dcaVolumeRequiredChangeRef'
-  );
-  const dcaVolumeRequiredChange = useBotFormSelector('dcaVolumeRequiredChange');
-  const dcaVolumeMaxValue = useBotFormSelector('dcaVolumeMaxValue');
   const showVolumeControls = canDisplayRequiredChange({
     dealCloseCondition,
     useTp,
@@ -828,13 +776,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     },
     [clampVolumeScale, updateFormData]
   );
-
-  const {
-    isRequiredChangeVarBound,
-    applyRequiredChangeVariable,
-    isMaxVolumeVarBound,
-    applyMaxVolumeVariable,
-  } = useVolumeBindingControls(updateFormData);
 
   const { isBound: isGridLevelVarBound } = useBotVarBinding('gridLevel');
   const applyGridLevelVariable = useCallback(
@@ -1772,159 +1713,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
         </SettingsRow>
       </MasonryLayout>
 
-      <SettingsLoadMore id="dca-volume-advanced" title="More Settings">
-        <SettingsRow
-          name="Volume based on"
-          tooltip="Choose how DCA order volumes should be derived when indicators trigger."
-        >
-          {showVolumeControls ? (
-            <TerminalButtonStack
-              value={dcaVolumeBaseOn ?? DCAVolumeType.scale}
-              onValueChange={(value) =>
-                updateFormData('dcaVolumeBaseOn', value as DCAVolumeType)
-              }
-              options={[
-                { value: DCAVolumeType.scale, label: 'Scaled' },
-                { value: DCAVolumeType.change, label: 'Required change' },
-              ]}
-            />
-          ) : (
-            <SettingsAlert
-              title={
-                'Enable take profit with a single target to configure required-change based volume scaling.'
-              }
-            />
-          )}
-        </SettingsRow>
-
-        {showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change ? (
-          <SettingsRow
-            name="Required change options"
-            tooltip="Fine-tune how much price movement is needed after an indicator-triggered entry."
-            tooltipURL="/help/dynamic-dca-volume-required-change"
-            colSpan="full"
-          >
-            <SettingsRowSurface spacing="sm">
-              <div className="space-y-xs">
-                <Label>Required changed based on</Label>
-                <TerminalButtonStack
-                  value={dcaVolumeRequiredChangeRef || 'tp'}
-                  onValueChange={(value) =>
-                    updateFormData(
-                      'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg'
-                    )
-                  }
-                  options={[
-                    { value: 'tp', label: 'Take Profit' },
-                    { value: 'avg', label: 'Average' },
-                  ]}
-                />
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="required-change-percent">Required change</Label>
-                <FieldVariableBinding
-                  path="dcaVolumeRequiredChange"
-                  varType="float"
-                  tooltip="Bind required change"
-                  variant="inline"
-                  onVariableSelected={applyRequiredChangeVariable}
-                  onVariableResolved={applyRequiredChangeVariable}
-                >
-                  <NumberInput
-                    id="required-change-percent"
-                    value={dcaVolumeRequiredChange || 1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeRequiredChange',
-                        typeof value === 'string'
-                          ? Number.parseFloat(value) || 1
-                          : value
-                      )
-                    }
-                    min={0.1}
-                    max={100}
-                    step={0.1}
-                    className="w-full"
-                    disabled={isRequiredChangeVarBound}
-                    showControls={false}
-                    endAdornment={unitAdornment('%')}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              {futures && (
-                <div className="space-y-xs">
-                  <Label>Order size reference</Label>
-                  <TerminalButtonStack
-                    value={formData.orderSizeReference || 'notional'}
-                    onValueChange={(value) =>
-                      updateFormData(
-                        'orderSizeReference',
-                        value as 'notional' | 'cost'
-                      )
-                    }
-                    options={[
-                      { value: 'notional', label: 'Notional Value' },
-                      { value: 'cost', label: 'Cost' },
-                    ]}
-                  />
-                </div>
-              )}
-
-              <div className="space-y-xs">
-                <Label htmlFor="max-volume-per-dca">Max volume per DCA</Label>
-                <FieldVariableBinding
-                  path="dcaVolumeMaxValue"
-                  varType="float"
-                  tooltip="Bind max volume"
-                  variant="inline"
-                  onVariableSelected={applyMaxVolumeVariable}
-                  onVariableResolved={applyMaxVolumeVariable}
-                >
-                  <NumberInput
-                    id="max-volume-per-dca"
-                    value={dcaVolumeMaxValue || -1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeMaxValue',
-                        typeof value === 'string'
-                          ? parseFloat(value) || -1
-                          : value
-                      )
-                    }
-                    min={-1}
-                    step={0.1}
-                    className="w-full"
-                    disabled={isMaxVolumeVarBound}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="currency-required-change">Currency</Label>
-                <Select value={orderSizeType || 'quote'} disabled>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="quote">
-                      {tradingContext.quoteAsset ?? 'Quote'}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="rounded bg-muted p-xs text-sm text-muted-foreground">
-                Min value is 100 {tradingContext.quoteAsset ?? 'Quote'} or 0.001{' '}
-                {tradingContext.baseAsset ?? 'Base'} whichever is higher
-              </div>
-            </SettingsRowSurface>
-          </SettingsRow>
-        ) : null}
-      </SettingsLoadMore>
-
       {/* Deal overview as a SettingsRow with tabs in trailing */}
       {!isDealEdit && (
         <Tabs
@@ -2048,11 +1836,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
   const useMultiTp = useBotFormSelector('useMultiTp');
   const orderSizeType = useBotFormSelector('orderSizeType');
   const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
-  const dcaVolumeRequiredChangeRef = useBotFormSelector(
-    'dcaVolumeRequiredChangeRef'
-  );
-  const dcaVolumeRequiredChange = useBotFormSelector('dcaVolumeRequiredChange');
-  const dcaVolumeMaxValue = useBotFormSelector('dcaVolumeMaxValue');
   const indicators = useBotFormSelector('indicators');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
@@ -2065,13 +1848,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     useMultiTp,
     orderSizeType,
   });
-  const {
-    isRequiredChangeVarBound,
-    applyRequiredChangeVariable,
-    isMaxVolumeVarBound,
-    applyMaxVolumeVariable,
-  } = useVolumeBindingControls(updateFormData);
-
   useEffect(() => {
     if (!showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change) {
       updateFormData('dcaVolumeBaseOn', 'scaled');
@@ -2380,161 +2156,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
           Add DCA Indicator
         </Button>
       </SettingsRow>
-
-      <SettingsLoadMore
-        id="dca-indicators-volume-advanced"
-        title="More Settings"
-      >
-        <SettingsRow
-          name="Volume based on"
-          tooltip="Choose how DCA order volumes should be derived when indicators trigger."
-        >
-          {showVolumeControls ? (
-            <TerminalButtonStack
-              value={dcaVolumeBaseOn ?? DCAVolumeType.scale}
-              onValueChange={(value) =>
-                updateFormData('dcaVolumeBaseOn', value as DCAVolumeType)
-              }
-              options={[
-                { value: DCAVolumeType.scale, label: 'Scaled' },
-                { value: DCAVolumeType.change, label: 'Required change' },
-              ]}
-            />
-          ) : (
-            <SettingsAlert
-              title={
-                'Enable take profit with a single target to configure required-change based volume scaling.'
-              }
-            />
-          )}
-        </SettingsRow>
-
-        {showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change ? (
-          <SettingsRow
-            name="Required change options"
-            tooltip="Fine-tune how much price movement is needed after an indicator-triggered entry."
-            colSpan="full"
-          >
-            <SettingsRowSurface spacing="sm">
-              <div className="space-y-xs">
-                <Label>Required changed based on</Label>
-                <TerminalButtonStack
-                  value={dcaVolumeRequiredChangeRef || 'tp'}
-                  onValueChange={(value) =>
-                    updateFormData(
-                      'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg'
-                    )
-                  }
-                  options={[
-                    { value: 'tp', label: 'Take Profit' },
-                    { value: 'avg', label: 'Average' },
-                  ]}
-                />
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="required-change-percent">Required change</Label>
-                <FieldVariableBinding
-                  path="dcaVolumeRequiredChange"
-                  varType="float"
-                  tooltip="Bind required change"
-                  variant="inline"
-                  onVariableSelected={applyRequiredChangeVariable}
-                  onVariableResolved={applyRequiredChangeVariable}
-                >
-                  <NumberInput
-                    id="required-change-percent"
-                    value={dcaVolumeRequiredChange || 1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeRequiredChange',
-                        typeof value === 'string'
-                          ? Number.parseFloat(value) || 1
-                          : value
-                      )
-                    }
-                    min={0.1}
-                    max={100}
-                    step={0.1}
-                    className="w-full"
-                    disabled={isRequiredChangeVarBound}
-                    showControls={false}
-                    endAdornment={unitAdornment('%')}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              {futures && (
-                <div className="space-y-xs">
-                  <Label>Order size reference</Label>
-                  <TerminalButtonStack
-                    value={formData.orderSizeReference || 'notional'}
-                    onValueChange={(value) =>
-                      updateFormData(
-                        'orderSizeReference',
-                        value as 'notional' | 'cost'
-                      )
-                    }
-                    options={[
-                      { value: 'notional', label: 'Notional Value' },
-                      { value: 'cost', label: 'Cost' },
-                    ]}
-                  />
-                </div>
-              )}
-
-              <div className="space-y-xs">
-                <Label htmlFor="max-volume-per-dca">Max volume per DCA</Label>
-                <FieldVariableBinding
-                  path="dcaVolumeMaxValue"
-                  varType="float"
-                  tooltip="Bind max volume"
-                  variant="inline"
-                  onVariableSelected={applyMaxVolumeVariable}
-                  onVariableResolved={applyMaxVolumeVariable}
-                >
-                  <NumberInput
-                    id="max-volume-per-dca"
-                    value={dcaVolumeMaxValue || -1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeMaxValue',
-                        typeof value === 'string'
-                          ? parseFloat(value) || -1
-                          : value
-                      )
-                    }
-                    min={-1}
-                    step={0.1}
-                    className="w-full"
-                    disabled={isMaxVolumeVarBound}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="currency-required-change">Currency</Label>
-                <Select value={orderSizeType || 'quote'} disabled>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="quote">
-                      {tradingContext.quoteAsset ?? 'Quote'}
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="rounded bg-muted p-xs text-sm text-muted-foreground">
-                Min value is 100 {tradingContext.quoteAsset ?? 'Quote'} or 0.001{' '}
-                {tradingContext.baseAsset ?? 'Base'} whichever is higher
-              </div>
-            </SettingsRowSurface>
-          </SettingsRow>
-        ) : null}
-      </SettingsLoadMore>
 
       {/* Deal overview as a SettingsRow with tabs in trailing */}
       <Tabs
@@ -3321,24 +2942,12 @@ const CustomDCA: React.FC<DCASectionProps> = ({
   const strategy = useBotFormSelector('strategy');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
-  const dcaVolumeRequiredChangeRef = useBotFormSelector(
-    'dcaVolumeRequiredChangeRef'
-  );
-  const dcaVolumeRequiredChange = useBotFormSelector('dcaVolumeRequiredChange');
-  const dcaVolumeMaxValue = useBotFormSelector('dcaVolumeMaxValue');
   const showVolumeControls = canDisplayRequiredChange({
     dealCloseCondition,
     useTp,
     useMultiTp,
     orderSizeType,
   });
-  const {
-    isRequiredChangeVarBound,
-    applyRequiredChangeVariable,
-    isMaxVolumeVarBound,
-    applyMaxVolumeVariable,
-  } = useVolumeBindingControls(updateFormData);
-
   const stepRange = tradingContext.ranges.step;
   const stepRangeMin = stepRange.min;
   const stepRangeMax = stepRange.max;
@@ -3689,135 +3298,6 @@ const CustomDCA: React.FC<DCASectionProps> = ({
             tradingContext={tradingContext}
           />
         </SettingsRow>
-        <SettingsRow
-          name="Volume based on"
-          tooltip="Choose how DCA order volumes should be derived when indicators trigger."
-        >
-          {showVolumeControls ? (
-            <TerminalButtonStack
-              value={dcaVolumeBaseOn ?? DCAVolumeType.scale}
-              onValueChange={(value) =>
-                updateFormData('dcaVolumeBaseOn', value as DCAVolumeType)
-              }
-              options={[
-                { value: DCAVolumeType.scale, label: 'Scaled' },
-                { value: DCAVolumeType.change, label: 'Required change' },
-              ]}
-            />
-          ) : (
-            <SettingsAlert
-              title={
-                'Enable take profit with a single target to configure required-change based volume scaling.'
-              }
-            />
-          )}
-        </SettingsRow>
-
-        {showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change && (
-          <SettingsRow
-            name="Required change options"
-            tooltip="Fine-tune how much price movement is needed after an indicator-triggered entry."
-            colSpan="full"
-          >
-            <SettingsRowSurface spacing="sm">
-              <div className="space-y-xs">
-                <Label>Required changed based on</Label>
-                <TerminalButtonStack
-                  value={dcaVolumeRequiredChangeRef || 'tp'}
-                  onValueChange={(value) =>
-                    updateFormData(
-                      'dcaVolumeRequiredChangeRef',
-                      value as 'tp' | 'avg'
-                    )
-                  }
-                  options={[
-                    { value: 'tp', label: 'Take Profit' },
-                    { value: 'avg', label: 'Average' },
-                  ]}
-                />
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="custom-required-change">Required Change</Label>
-                <FieldVariableBinding
-                  path="dcaVolumeRequiredChange"
-                  varType="float"
-                  tooltip="Bind required change"
-                  variant="inline"
-                  onVariableSelected={applyRequiredChangeVariable}
-                  onVariableResolved={applyRequiredChangeVariable}
-                >
-                  <NumberInput
-                    id="custom-required-change"
-                    value={dcaVolumeRequiredChange || 1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeRequiredChange',
-                        typeof value === 'string'
-                          ? parseFloat(value) || 1
-                          : value
-                      )
-                    }
-                    min={0.1}
-                    max={100}
-                    step={0.1}
-                    className="w-full"
-                    disabled={isRequiredChangeVarBound}
-                    showControls={false}
-                    endAdornment={unitAdornment('%')}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="custom-max-volume-dca">
-                  Max volume per DCA
-                </Label>
-                <FieldVariableBinding
-                  path="dcaVolumeMaxValue"
-                  varType="float"
-                  tooltip="Bind max volume"
-                  variant="inline"
-                  onVariableSelected={applyMaxVolumeVariable}
-                  onVariableResolved={applyMaxVolumeVariable}
-                >
-                  <NumberInput
-                    id="custom-max-volume-dca"
-                    value={dcaVolumeMaxValue || -1}
-                    onChange={(value) =>
-                      updateFormData(
-                        'dcaVolumeMaxValue',
-                        typeof value === 'string'
-                          ? parseFloat(value) || -1
-                          : value
-                      )
-                    }
-                    min={-1}
-                    step={0.1}
-                    disabled={isMaxVolumeVarBound}
-                  />
-                </FieldVariableBinding>
-              </div>
-
-              <div className="space-y-xs">
-                <Label htmlFor="currency-required-change">Currency</Label>
-                <Select value={orderSizeType || 'quote'} disabled>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Intentionally left blank; disabled select */}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="rounded bg-muted p-xs text-sm text-muted-foreground">
-                Min value is 100 {tradingContext.quoteAsset ?? 'Quote'} or 0.001{' '}
-                {tradingContext.baseAsset ?? 'Base'} whichever is higher
-              </div>
-            </SettingsRowSurface>
-          </SettingsRow>
-        )}
       </SettingsLoadMore>
 
       {/* Deal overview as a SettingsRow with tabs in trailing */}
