@@ -951,6 +951,19 @@ export const userQueries = {
     return { query, variables };
   },
 
+  getUserPeriods: () => {
+    const query = `query getUserPeriods {
+  getUserPeriods {
+  status
+  reason
+  data {
+  ${period}
+  }
+  }
+  }`;
+    return { query };
+  },
+
   saveUserPeriod: (input: Omit<Period, '_id'>) => {
     const query = `mutation saveUserPeriod($input: userPeriodInput!) {
   saveUserPeriod(input: $input) {

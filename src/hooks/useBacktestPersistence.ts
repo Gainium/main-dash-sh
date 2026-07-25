@@ -320,6 +320,11 @@ export const useBacktestPersistence = () => {
       // even when the user is offline or not authenticated.
       const serialized = JSON.stringify({
         ...params.result,
+        // `params.result` is the raw engine output — its `duration` has no
+        // `periodName`. The local copy shadows the remote row in the list
+        // merge (same `_id` wins), so without this the saved-period name
+        // would render as N/A even though the server stored it correctly.
+        duration: payload.duration,
         config: params.config,
         _id: computedId,
         time: payload.time,
@@ -514,6 +519,9 @@ export const useBacktestPersistence = () => {
 
       const serialized = JSON.stringify({
         ...result,
+        // See the DCA path: the local copy wins the list merge, so it has to
+        // carry the period name too or the column falls back to N/A.
+        duration: payload.duration,
         config,
         _id: computedId,
         time: payload.time,

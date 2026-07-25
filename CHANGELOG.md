@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.5] - 2026-07-25
+
+### Fixed
+
+- Saved backtesting periods are stored on your account again instead of only in the browser, so periods created in the previous dashboard — or on another browser or device — show up in the backtest settings. Periods that only existed locally are uploaded once on first load.
+- The backtest run that creates a new saved period now records that period's name, so it no longer appears as `N/A` in the Testing Period Name column of the backtest list.
+- Client-side backtests now show the saved period's name in the Testing Period Name column. The name was stored correctly on the server but the browser's local copy of the result — which takes precedence in the list — was written without it, so every client-side run displayed `N/A`.
+
 ## [2.38.3] - 2026-07-24
 
 ### Fixed

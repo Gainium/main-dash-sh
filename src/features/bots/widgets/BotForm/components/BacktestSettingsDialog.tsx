@@ -145,12 +145,23 @@ export const BacktestSettingsDialog: React.FC<{
   // Period store
   const {
     periods,
+    loading: periodsLoading,
+    loadPeriods,
     addPeriod,
     updatePeriod,
     deletePeriod,
     lastSelectedPeriodId,
     setLastSelectedPeriodId,
   } = useBacktestPeriodStore();
+
+  // Saved periods live on the user's account. Fetch them the first time the
+  // dialog is opened rather than on mount — this component is mounted with
+  // every bot form, open or not.
+  useEffect(() => {
+    if (open) {
+      void loadPeriods();
+    }
+  }, [open, loadPeriods]);
 
   // Period manager state
   const [showPeriodManager, setShowPeriodManager] = useState(false);
@@ -305,7 +316,7 @@ export const BacktestSettingsDialog: React.FC<{
     setEditTo(period.to);
   };
 
-  const handleUpdatePeriod = () => {
+  const handleUpdatePeriod = async () => {
     if (!editingPeriod) return;
     if (!editName.trim()) {
       toast.error('Please enter a period name');
@@ -316,18 +327,30 @@ export const BacktestSettingsDialog: React.FC<{
       return;
     }
 
-    updatePeriod(editingPeriod.uuid, {
-      name: editName,
-      from: editFrom,
-      to: editTo,
-    });
+    try {
+      await updatePeriod(editingPeriod.uuid, {
+        name: editName,
+        from: editFrom,
+        to: editTo,
+      });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to update period: ${message}`);
+      return;
+    }
     setEditingPeriod(null);
     toast.success(`Period "${editName}" updated`);
   };
 
-  const handleDeletePeriod = () => {
+  const handleDeletePeriod = async () => {
     if (!deletingPeriod) return;
-    deletePeriod(deletingPeriod.uuid);
+    try {
+      await deletePeriod(deletingPeriod.uuid);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      toast.error(`Failed to delete period: ${message}`);
+      return;
+    }
     if (periodId === deletingPeriod.uuid) {
       setPeriodId('auto');
       setLastSelectedPeriodId('auto');
@@ -341,15 +364,33 @@ export const BacktestSettingsDialog: React.FC<{
     setRunning(true);
     try {
       // logger.info('[backtester] Run initiated', { mode, timeframe, startDate, endDate, slippagePercent, userFee })
-      // If saving new period, save it first
+      // If saving new period, save it first.
+      //
+      // `resolvedPeriodId` (not the `periodId` state) is what gets handed to
+      // `onRun`: `setPeriodId` won't have applied by the time we call it, so
+      // reading the state here would send 'custom' and the caller would drop
+      // the period name — the run that creates a period would be the one run
+      // that shows up unnamed in the results list. Legacy does the same thing
+      // with its local `up` variable.
+      let resolvedPeriodId = periodId;
       if (saveNew && periodId === 'custom' && newName.trim()) {
         const from = parseLocalDateTime(startDate).getTime();
         const to = parseLocalDateTime(endDate).getTime();
-        const newPeriod = addPeriod({ name: newName, from, to });
-        setPeriodId(newPeriod.uuid);
-        setLastSelectedPeriodId(newPeriod.uuid);
-        setSaveNew(false);
-        setNewName('');
+        try {
+          const newPeriod = await addPeriod({ name: newName, from, to });
+          if (newPeriod) {
+            resolvedPeriodId = newPeriod.uuid;
+            setPeriodId(newPeriod.uuid);
+            setLastSelectedPeriodId(newPeriod.uuid);
+            setSaveNew(false);
+            setNewName('');
+          }
+        } catch (err) {
+          // Saving the period is a side quest — surface it, but still run the
+          // backtest the user actually asked for.
+          const message = err instanceof Error ? err.message : String(err);
+          toast.error(`Failed to save period: ${message}`);
+        }
       }
 
       await onRun({
@@ -361,7 +402,7 @@ export const BacktestSettingsDialog: React.FC<{
         userFee,
         RFR,
         MAR,
-        periodId,
+        periodId: resolvedPeriodId,
         saveNew,
         newName,
       });
@@ -400,7 +441,7 @@ export const BacktestSettingsDialog: React.FC<{
             </p>
             {periods.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
-                No saved periods yet
+                {periodsLoading ? 'Loading saved periods…' : 'No saved periods yet'}
               </p>
             ) : (
               <table className="w-full text-xs">
