@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.7] - 2026-07-26
+
+### Fixed
+
+- Bot chart: the page no longer crashes to the error screen when the chart is rebuilt while live data is still arriving — changing the pair or timeframe, or navigating away mid-update, could take down the whole Grid bot edit page. Average-price lines, indicators and the position overlay now wait for the new chart instead.
+
 ## [2.38.6] - 2026-07-25
 
 ### Removed
