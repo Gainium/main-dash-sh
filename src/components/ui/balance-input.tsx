@@ -25,6 +25,17 @@ import { Skeleton } from './skeleton';
 export interface BalanceInputProps {
   value?: number;
   onChange?: (value: number) => void;
+  /** Fired when the input gains focus. The trading terminal uses it to flip
+   *  which of its two linked fields (Amount / Total) is canonical. */
+  onFocus?: () => void;
+  /**
+   * When the typed value is pushed to `onChange`.
+   * - `'change'` (default) — every keystroke, as the bot form does.
+   * - `'blur'` — only on blur / Enter. The terminal's Amount and Total fields
+   *   are derived from each other via price, so committing per keystroke
+   *   re-derives the linked field on every character (legacy parity).
+   */
+  commitOn?: 'change' | 'blur';
   availableBalance?: number;
   currency?: string;
   label?: string;
@@ -77,6 +88,8 @@ export interface BalanceInputProps {
 export const BalanceInput: React.FC<BalanceInputProps> = ({
   value = 0,
   onChange,
+  onFocus,
+  commitOn = 'change',
   availableBalance = 0,
   currency = 'USD',
   placeholder = '0',
@@ -252,21 +265,34 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
     return availableBalance;
   }, [max, availableBalance]);
 
+  // Push the current draft to the consumer. Shared by the per-keystroke and
+  // commit-on-blur paths so both parse identically.
+  const commitInputValue = useCallback(
+    (raw: string) => {
+      const numValue = parseFloat(raw);
+      if (!isNaN(numValue) /* && numValue >= min */) {
+        onChange?.(numValue);
+      } else if (raw === '' || raw === '0') {
+        onChange?.(0);
+      }
+    },
+    [/* min, */ onChange]
+  );
+
   // Handle input change
   const handleInputChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const newValue = e.target.value;
       setInputValue(newValue);
 
-      // Parse and validate the input
-      const numValue = parseFloat(newValue);
-      if (!isNaN(numValue) /* && numValue >= min */) {
-        onChange?.(numValue);
-      } else if (newValue === '' || newValue === '0') {
-        onChange?.(0);
+      if (commitOn === 'blur') {
+        // Draft only — committed by handleInputBlur / Enter.
+        return;
       }
+
+      commitInputValue(newValue);
     },
-    [/* min, */ onChange]
+    [commitOn, commitInputValue]
   );
 
   // Handle percentage button click
@@ -299,17 +325,37 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
     { navId }
   );
 
+  // Handle input focus. `isEditing` is only engaged in commit-on-blur mode:
+  // it freezes the prop->draft sync so an in-flight edit isn't clobbered by a
+  // derived value arriving mid-typing. In commit-on-change mode the sync must
+  // keep running (guards clamp the value as you type).
+  const handleInputFocus = useCallback(() => {
+    if (commitOn === 'blur') {
+      setIsEditing(true);
+    }
+    onFocus?.();
+  }, [commitOn, onFocus]);
+
   // Handle input blur
   const handleInputBlur = useCallback(() => {
     setIsEditing(false);
-  }, []);
+    if (commitOn === 'blur') {
+      commitInputValue(inputValue);
+    }
+  }, [commitOn, commitInputValue, inputValue]);
 
   // Handle Enter key to finish editing
-  const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      setIsEditing(false);
-    }
-  }, []);
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === 'Enter') {
+        setIsEditing(false);
+        if (commitOn === 'blur') {
+          commitInputValue(inputValue);
+        }
+      }
+    },
+    [commitOn, commitInputValue, inputValue]
+  );
 
   // Default coin icon
   const defaultCoinIcon = (
@@ -462,9 +508,16 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
                 type="number"
                 value={inputValue}
                 onChange={handleInputChange}
+                onFocus={handleInputFocus}
                 onBlur={handleInputBlur}
                 onKeyDown={handleKeyDown}
                 placeholder={placeholder}
+                // `disabled`/`readOnly` used to be honored by the surrounding
+                // chrome (percentage buttons, currency dropdown) but never
+                // reached the field itself, so a locked or variable-bound
+                // amount stayed typeable.
+                disabled={disabled}
+                readOnly={readOnly}
                 min={min}
                 max={maxValue}
                 step={step}

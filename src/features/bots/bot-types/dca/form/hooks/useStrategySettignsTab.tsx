@@ -42,6 +42,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type StrategySettingsProps } from '../sections';
 import { useBalanceRefreshControl } from './useBalanceRefreshControl';
 
+/**
+ * Decimals kept when showing a base amount that was DERIVED from the quote
+ * side. Deliberately finer than the pair's tradable step: the step floor is
+ * for the value that gets ordered, not for a readout of what the other field
+ * is worth.
+ */
+const DERIVED_AMOUNT_DISPLAY_DECIMALS = 8;
+
 interface ClampResult {
   value: number;
   formatted: string;
@@ -1048,16 +1056,43 @@ export const useStrategySettingsTab = ({
     [baseOrderSize, effectivePrice, coinm, minAmount, precisionQuote]
   );
 
+  // Same conversion as `amountInBase`, but NOT floored to the exchange's base
+  // step. The step floor is right when the figure becomes the canonical order
+  // size (the focus flip below writes `amountInBase`), and wrong for a readout:
+  // on a 0.001-step futures pair a 10 USDT total converts to 0.000153 BTC,
+  // which floors to a flat "0" and tells the user nothing. The order-minimum
+  // validation already reports that the size is untradable.
+  const amountInBaseDisplay = useMemo(
+    () =>
+      math.round(
+        (+(baseOrderSize ?? 0) * minAmount) / (effectivePrice || 1),
+        DERIVED_AMOUNT_DISPLAY_DECIMALS,
+        true
+      ),
+    [baseOrderSize, minAmount, effectivePrice]
+  );
+
   // The display flip (legacy 1055-1060 / 1195-1200): the active field shows the
   // raw canonical value in its own unit; the inactive field shows the derived.
+  //
+  // The derived side needs a price to exist at all. `amountInBase` /
+  // `totalInQuote` divide by `effectivePrice || 1`, so with no price loaded
+  // (pair query failed, or nothing picked yet) they degenerate to a 1:1 echo of
+  // the canonical figure — a 10 USDT total rendered as "10 BTC". Show nothing
+  // rather than a number that is wrong by five orders of magnitude.
+  const hasUsablePrice = effectivePrice > 0;
   const amountFieldValue =
     orderSizeType === OrderSizeTypeEnum.base
       ? +(baseOrderSize ?? 0)
-      : amountInBase;
+      : hasUsablePrice
+        ? amountInBaseDisplay
+        : 0;
   const totalFieldValue =
     orderSizeType === OrderSizeTypeEnum.quote
       ? +(baseOrderSize ?? 0)
-      : totalInQuote;
+      : hasUsablePrice
+        ? totalInQuote
+        : 0;
 
   // Amount USD adornment: USD of the value SHOWN in the Amount field, not the
   // derived base figure (legacy computes from `orderSizeType===base ?
@@ -1543,6 +1578,12 @@ export const useStrategySettingsTab = ({
     amountUsdEquivalent,
     maxAmount,
     maxTotal,
+    // Decimals for whichever of the Amount/Total pair is currently DERIVED.
+    // The canonical field formats with its own order guard; the derived one
+    // can't — the guard describes the other unit, so a BTC amount shown at the
+    // quote's 2 dp reads "0".
+    derivedAmountPrecision: DERIVED_AMOUNT_DISPLAY_DECIMALS,
+    derivedTotalPrecision: coinm ? 0 : precisionQuote,
     coinm,
     providerIsBybit,
     activePerc,

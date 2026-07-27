@@ -12,6 +12,7 @@ import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import {
   useBotFormSelector,
   useBotFormState,
+  useBotFormTopLevelSelector,
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
@@ -109,6 +110,10 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   // ~L1014 for the routing.
   const useTp = useBotFormSelector('useTp');
   const strategy = useBotFormSelector('strategy');
+  // The trading terminal reuses this quick form to place a one-off order, not
+  // to create a named bot — so it neither shows the Bot Name row nor lets the
+  // auto-namer write a value into form state.
+  const isTerminal = Boolean(useBotFormTopLevelSelector('terminal'));
   const dcaState = formData[slice] as QuickSetupDcaLike;
 
   const activePreset = useMemo(
@@ -337,6 +342,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
     activePreset,
     presetLabels: PRESET_LABELS,
     botTypeLabel: slice === 'combo' ? 'Combo' : 'DCA',
+    enabled: !isTerminal,
   });
 
   const { availableBalance } = useQuickBalance({
@@ -457,6 +463,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
         {...(exchangesLoading !== undefined ? { exchangesLoading } : {})}
         mode={mode}
         isFieldLocked={isFieldLocked}
+        hideName={isTerminal}
       />
 
       <SettingsRow

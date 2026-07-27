@@ -252,6 +252,10 @@ interface TerminalBasicSettingsProps {
   exchangesData?: ExchangeBotForm[] | undefined;
   exchangesLoading?: boolean;
   onUpdateBalances?: () => void;
+  /** The BotForm shell hands every tab component this refresher; the terminal
+   *  mounts this section directly as a tab, so it arrives under the shell's
+   *  name rather than as `onUpdateBalances`. */
+  handleUpdateBalances?: () => unknown;
   mode: BotFormMode;
   isFieldLocked?: (field: Fields) => boolean;
 }
@@ -267,6 +271,20 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     exchangesData,
     errors,
   } = props;
+  // Normalize the shell's refresher onto the prop name the strategy hook (and
+  // therefore `useBalanceRefreshControl`) expects, so the terminal's balance
+  // readout gets a working refresh button like the bot forms do.
+  const resolvedOnUpdateBalances =
+    props.onUpdateBalances ?? props.handleUpdateBalances;
+  const strategyTabProps = useMemo(
+    () => ({
+      ...props,
+      ...(typeof resolvedOnUpdateBalances === 'function'
+        ? { onUpdateBalances: resolvedOnUpdateBalances }
+        : {}),
+    }),
+    [props, resolvedOnUpdateBalances]
+  );
   const {
     exchangeProvider,
     formattedMissingPairs,
@@ -338,6 +356,8 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     amountUsdEquivalent,
     maxAmount,
     maxTotal,
+    derivedAmountPrecision,
+    derivedTotalPrecision,
     providerIsBybit,
     activePerc,
     setPercent,
@@ -345,7 +365,10 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     handleAmountChange,
     handleTotalFocus,
     handleTotalChange,
-  } = useStrategySettingsTab(props);
+    baseOrderContext,
+    canTriggerBalanceRefresh,
+    handleRefreshBalances,
+  } = useStrategySettingsTab(strategyTabProps);
 
   // Legacy parity (Import deal type): the import flow declares a position
   // already held at a known entry price, so it always uses a limit order
@@ -673,7 +696,18 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                     activePerc={activePerc}
                     setPercent={setPercent}
                     guard={baseOrderGuard}
+                    derivedAmountPrecision={derivedAmountPrecision}
+                    derivedTotalPrecision={derivedTotalPrecision}
                     disabled={isBaseOrderVarBound || baseOrderLocked}
+                    fundingBalanceAmount={baseOrderContext.balanceAmount}
+                    fundingBalanceCurrency={baseOrderContext.balanceCurrency}
+                    onRefreshBalance={handleRefreshBalances}
+                    showRefreshButton={
+                      canTriggerBalanceRefresh &&
+                      !isBaseOrderVarBound &&
+                      !baseOrderLocked
+                    }
+                    disableBalanceValidation={Boolean(futures)}
                   />
                 </FieldVariableBinding>
                 {baseOrderWarning.message ? (

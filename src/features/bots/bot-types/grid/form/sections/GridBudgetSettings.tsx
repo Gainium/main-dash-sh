@@ -1,23 +1,34 @@
 import React from 'react';
 
+import { BalanceInput } from '@/components/ui/balance-input';
 import { Label } from '@/components/ui/label';
 import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import { Switch } from '@/components/ui/switch';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import SettingsRow, {
   SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
-import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
+import { useBalanceStore } from '@/stores/live/balanceStore';
+import { normalizeBalanceAsset } from '@/utils/exchangeUtils';
 import type { BotFormAlert } from '@/types/bots/form';
 
-export const GridBudgetSettings: React.FC = () => {
+interface GridBudgetSettingsProps {
+  /** Refreshes the balance shown next to the investment field. */
+  onUpdateBalances?: (() => void) | undefined;
+}
+
+export const GridBudgetSettings: React.FC<GridBudgetSettingsProps> = ({
+  onUpdateBalances,
+}) => {
   const { formState, quoteAsset } = useGridForm();
   const { updateFormData, errors, formData, mode } = formState;
   const budget = useBotFormSelector('budget');
+  const futures = useBotFormSelector('futures');
   const useOrderInAdvance = useBotFormSelector('useOrderInAdvance');
   const ordersInAdvance = useBotFormSelector('ordersInAdvance');
   const handleBudgetChange = (value: number | string) => {
@@ -26,6 +37,28 @@ export const GridBudgetSettings: React.FC = () => {
       typeof value === 'string' ? value : value.toString()
     );
   };
+
+  // Free balance of the asset the grid is funded in. Scoped by
+  // `formData.exchangeUUID` — the same key `useDcaTradingContext` keys its
+  // balance map on — rather than a `currentExchange` prop, which resolves late
+  // (and stays null on some tabs), leaving the readout stuck at 0. Wallet
+  // symbols are canonicalized the same way so aliased assets reconcile.
+  const balances = useBalanceStore((state) => state.balances);
+  const availableBalance = React.useMemo(() => {
+    const wanted = normalizeBalanceAsset(quoteAsset);
+    const exchangeUUID = formData.exchangeUUID;
+    if (!wanted || !exchangeUUID) {
+      return 0;
+    }
+    const total = balances
+      .filter(
+        (balance) =>
+          balance.exchangeUUID === exchangeUUID &&
+          normalizeBalanceAsset(balance.asset) === wanted
+      )
+      .reduce((sum, balance) => sum + (Number(balance.free) || 0), 0);
+    return Number.isFinite(total) ? total : 0;
+  }, [balances, quoteAsset, formData.exchangeUUID]);
 
   const handleActiveOrdersChange = (value: number | string) => {
     if (value === '') {
@@ -109,16 +142,26 @@ export const GridBudgetSettings: React.FC = () => {
         alerts={budgetAlerts}
       >
         <div className="space-y-xs">
-          <NumberInput
-            id="grid-budget"
-            value={budget ?? ''}
+          <BalanceInput
+            value={Number(budget ?? 0)}
             onChange={handleBudgetChange}
             placeholder="Enter total investment"
-            showControls={false}
-            endAdornment={unitAdornment(quoteAdornmentLabel, {
-              size: 'sm',
-              className: 'whitespace-nowrap',
-            })}
+            availableBalance={availableBalance}
+            currency={quoteAdornmentLabel}
+            balanceAmount={availableBalance}
+            balanceCurrency={quoteAdornmentLabel}
+            coinIcon={<CoinIcon symbol={quoteAdornmentLabel} size="w-6 h-6" />}
+            unitLabel={quoteAdornmentLabel}
+            precision={2}
+            step={0.01}
+            {...(onUpdateBalances ? { onRefreshBalance: onUpdateBalances } : {})}
+            showRefreshButton={typeof onUpdateBalances === 'function'}
+            // A futures grid funds its levels from margin x leverage, not the
+            // free spot balance, so the wallet figure isn't a valid cap
+            // (same reasoning as the DCA order size — forum #4921 / bug #94).
+            disableBalanceValidation={Boolean(futures)}
+            errorField="budget"
+            navId="budget"
           />
           {minBudget !== null && (
             <p className="text-xs text-muted-foreground">

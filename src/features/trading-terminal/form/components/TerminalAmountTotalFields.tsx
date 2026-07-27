@@ -1,5 +1,7 @@
 import { NumberInput } from '@/components/ui';
+import { BalanceInput } from '@/components/ui/balance-input';
 import { Button } from '@/components/ui/button';
+import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import {
   formatNumberWithTrim,
   type PrecisionGuard,
@@ -7,6 +9,20 @@ import {
 import { OrderSizeTypeEnum } from '@/types';
 import { Lock } from 'lucide-react';
 import React, { useState } from 'react';
+
+/** Caption above each field. The lock marks which unit is canonical (legacy
+ *  `#FF9551`) and is shown only on that field — the derived one carries no
+ *  lock. It sits here rather than in the field's icon slot so the coin icon
+ *  can occupy that slot, as on the DCA and grid forms. */
+const FieldCaption: React.FC<{ label: string; active: boolean }> = ({
+  label,
+  active,
+}) => (
+  <span className="flex items-center gap-1 text-muted-foreground text-xs">
+    {active ? <Lock className="h-3 w-3 text-[#FF9551]" /> : null}
+    {label}
+  </span>
+);
 
 export interface TerminalAmountTotalFieldsProps {
   /** Value shown in the Amount field (base units). */
@@ -31,7 +47,23 @@ export interface TerminalAmountTotalFieldsProps {
   activePerc: string;
   setPercent: (num: number) => () => void;
   guard?: PrecisionGuard | null;
+  /** Decimals to format Amount with when it is the DERIVED field (the guard
+   *  then describes the quote unit, not this one). */
+  derivedAmountPrecision: number;
+  /** Decimals to format Total with when it is the derived field. */
+  derivedTotalPrecision: number;
   disabled?: boolean;
+  /** Free balance of the wallet that funds this order (quote for a long,
+   *  base for a short — see `resolveBaseOrderContext`). Shown as "Bal". */
+  fundingBalanceAmount: number;
+  /** Symbol of the funding wallet above. */
+  fundingBalanceCurrency: string;
+  /** Refreshes the balances shown in the "Bal" readout. */
+  onRefreshBalance?: (() => void) | undefined;
+  showRefreshButton?: boolean;
+  /** Futures size is funded by margin x leverage, not the free spot balance,
+   *  so the wallet cap must not be enforced (forum #4921 / bug #94). */
+  disableBalanceValidation?: boolean;
 }
 
 /**
@@ -40,6 +72,10 @@ export interface TerminalAmountTotalFieldsProps {
  * price by the parent hook. The active field (per `orderSizeType`) shows the
  * raw canonical value; the inactive field shows the price-derived value. The
  * lock icon tint signals which unit is canonical (legacy `#FF9551`).
+ *
+ * Both fields render the shared `BalanceInput` — the same funds control the
+ * DCA/grid bot forms use — so the terminal gets the balance readout and
+ * refresh control instead of a bare number field.
  *
  * Purely presentational: all state lives in `useStrategySettingsTab`.
  */
@@ -62,7 +98,14 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
   activePerc,
   setPercent,
   guard,
+  derivedAmountPrecision,
+  derivedTotalPrecision,
   disabled,
+  fundingBalanceAmount,
+  fundingBalanceCurrency,
+  onRefreshBalance,
+  showRefreshButton = false,
+  disableBalanceValidation = false,
 }) => {
   const [freePerc, setFreePerc] = useState<string>('');
 
@@ -71,6 +114,11 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
   const amountActive = orderSizeType === OrderSizeTypeEnum.base;
   const totalActive = orderSizeType === OrderSizeTypeEnum.quote;
 
+  // The guard describes the CANONICAL unit only (whichever field
+  // `orderSizeType` points at), so its bounds and decimals apply to that field
+  // alone. Feeding them to the derived field is wrong in both directions: a
+  // quote-unit minimum would cap a base-unit amount, and quote decimals round a
+  // BTC figure away entirely ("0.0000765" -> "0").
   const guardProps: {
     min?: number;
     max?: number;
@@ -90,31 +138,59 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
     guardProps.precision = guard.decimals;
   }
 
+  // Each field falls back to its own unit's decimals when it isn't canonical.
+  const amountProps = amountActive
+    ? guardProps
+    : { precision: derivedAmountPrecision };
+  const totalProps = totalActive
+    ? guardProps
+    : { precision: derivedTotalPrecision };
+
+  // The wallet-derived cap for each field, already adjusted for direction,
+  // fee, leverage and COIN-M contract sizing by the parent hook. Used as the
+  // "exceeds available balance" ceiling — the raw wallet free balance is the
+  // wrong unit for the Amount field (base) on a long.
+  const maxAmountValue = Number(maxAmount);
+  const maxTotalValue = Number(maxTotal);
+
+  // Only the canonical field validates: both render the same underlying
+  // baseOrderSize, so validating the derived one would double-report.
+  const balanceProps = {
+    balanceAmount: fundingBalanceAmount,
+    balanceCurrency: fundingBalanceCurrency,
+    showRefreshButton,
+    showPercentageButtons: false,
+    // The terminal keeps its own percentage row (below the Amount field): it
+    // has a free-form % entry and an active-selection highlight, and it sizes
+    // off the leverage/fee-adjusted max rather than the raw wallet balance.
+    commitOn: 'blur' as const,
+    ...(onRefreshBalance ? { onRefreshBalance } : {}),
+  };
+
   return (
     <div className="space-y-3">
       {/* Amount field */}
       <div className="space-y-xs">
-        <span className="text-muted-foreground text-xs">Amount</span>
-        <NumberInput
+        <FieldCaption label="Amount" active={amountActive} />
+        <BalanceInput
           value={amountValue}
-          // Commit on blur only (legacy parity): NumberInput's internal draft
-          // shows the raw typing; committing per-keystroke would thrash the
-          // form store and re-derive the linked field on every character.
-          onBlur={(e) => onAmountChange(e.target.value)}
+          // Commit on blur only (legacy parity): committing per-keystroke
+          // would thrash the form store and re-derive the linked field on
+          // every character.
+          onChange={onAmountChange}
           onFocus={onAmountFocus}
           disabled={disabled}
-          showControls={false}
-          startAdornment={
-            <Lock
-              className={`h-4 w-4 ${amountActive ? 'text-[#FF9551]' : 'text-muted-foreground'}`}
-            />
+          availableBalance={
+            Number.isFinite(maxAmountValue) ? maxAmountValue : 0
           }
-          endAdornment={
-            <span className="opacity-50">
-              {formatNumberWithTrim(usdEquivalent, 2)} USD
-            </span>
-          }
-          {...guardProps}
+          currency={baseAsset}
+          unitLabel={baseAsset}
+          coinIcon={<CoinIcon symbol={baseAsset} size="w-6 h-6" />}
+          disableBalanceValidation={disableBalanceValidation || !amountActive}
+          errorField="terminalAmount"
+          navId="baseOrderSize"
+          {...balanceProps}
+          {...amountProps}
         />
 
         {/* Percentage row (Amount only) */}
@@ -147,28 +223,34 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
           </div>
         </div>
 
+        {/* The USD equivalent used to sit inside the field; the balance
+            readout now occupies that slot, so it joins the max hint. */}
         <p className="text-xs text-muted-foreground">
-          Max amount {maxAmount} {baseAsset}
+          ≈ {formatNumberWithTrim(usdEquivalent, 2)} USD · Max amount{' '}
+          {maxAmount} {baseAsset}
         </p>
       </div>
 
       {/* Total field */}
       <div className="space-y-xs">
-        <span className="text-muted-foreground text-xs">Total</span>
-        <NumberInput
+        <FieldCaption label="Total" active={totalActive} />
+        <BalanceInput
           value={totalValue}
           // Commit on blur only (legacy parity) — see Amount field above.
-          onBlur={(e) => onTotalChange(e.target.value)}
+          onChange={onTotalChange}
           onFocus={onTotalFocus}
           disabled={disabled}
-          showControls={false}
-          startAdornment={
-            <Lock
-              className={`h-4 w-4 ${totalActive ? 'text-[#FF9551]' : 'text-muted-foreground'}`}
-            />
-          }
-          endAdornment={<span>{totalUnit}</span>}
-          {...guardProps}
+          availableBalance={Number.isFinite(maxTotalValue) ? maxTotalValue : 0}
+          currency={totalUnit}
+          unitLabel={totalUnit}
+          // COIN-M totals are denominated in contracts/USD, which have no coin
+          // icon of their own — fall back to the settlement (quote) asset.
+          coinIcon={<CoinIcon symbol={quoteAsset} size="w-6 h-6" />}
+          disableBalanceValidation={disableBalanceValidation || !totalActive}
+          errorField="terminalTotal"
+          navId="baseOrderSize"
+          {...balanceProps}
+          {...totalProps}
         />
         <p className="text-xs text-muted-foreground">
           Max total {maxTotal} {totalUnit}

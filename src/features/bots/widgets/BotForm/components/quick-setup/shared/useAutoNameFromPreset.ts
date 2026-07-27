@@ -30,6 +30,13 @@ interface UseAutoNameFromPresetArgs {
    * 'Grid'), with the active preset label appended after it when set.
    */
   botTypeLabel: string;
+  /**
+   * Set false to leave `formData.name` alone entirely. The trading terminal
+   * places one-off orders rather than named bots, so it neither shows the
+   * name field nor wants a generated value sitting in form state.
+   * Defaults to true.
+   */
+  enabled?: boolean;
 }
 
 /**
@@ -53,12 +60,14 @@ export const useAutoNameFromPreset = ({
   activePreset,
   presetLabels,
   botTypeLabel,
+  enabled = true,
 }: UseAutoNameFromPresetArgs): void => {
   const { formData, updateFormData } = useBotFormState();
   // The value we last auto-wrote, or null before our first write this mount.
   const lastAutoName = useRef<string | null>(null);
 
   useEffect(() => {
+    if (!enabled) return;
     if (mode !== 'create') return;
     if (!firstPair) return;
     // `formData.name` is usually a string, but imported settings (the
@@ -85,6 +94,7 @@ export const useAutoNameFromPreset = ({
       updateFormData('name' as Fields, name);
     }
   }, [
+    enabled,
     activePreset,
     firstPair,
     pairCount,

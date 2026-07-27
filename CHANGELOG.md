@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.12] - 2026-07-27
+
+### Changed
+
+- Trading terminal: the Amount and Total order-size fields now use the same funds control as the bot forms, so both show the funding wallet's balance with a refresh button instead of a bare number box. The percentage row, the canonical-unit lock and the max hints are unchanged.
+- Trading terminal: Quick mode no longer shows a Bot Name field or generates a name for the order — matching Manual mode, which never had one.
+- Grid bot form: the manual Investment field gains the same balance readout and refresh control the quick setup already had.
+
+### Fixed
+
+- Trading terminal: a base amount derived from the Total no longer displays as `0` on pairs with a coarse lot step (a 10 USDT total on a 0.001-step futures pair read "0 BTC" instead of 0.00015318). The exchange step still rounds the value that gets ordered; it no longer rounds the readout.
+- Trading terminal: with no price loaded — the pair query failing, or nothing selected yet — the derived field now shows nothing instead of echoing the other field's figure in the wrong unit (a 10 USDT total rendered as "10 BTC").
+- Bot forms: the shared funds input now honors `disabled`/`readOnly`, so a locked or variable-bound order size can no longer be typed into.
+
 ## [2.38.11] - 2026-07-27
 
 ### Fixed
