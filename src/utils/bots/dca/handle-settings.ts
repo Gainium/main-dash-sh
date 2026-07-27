@@ -210,6 +210,23 @@ export const handleSettingsUpdate = (
     ) {
       updates.dca.scaleDcaType = ScaleDcaTypeEnum.percentage;
     }
+    // The two DCA-mode cleanups below (start-DCA indicators / dcaCustom) are
+    // normalizations for the mode the form is SETTLED in. They used to read the
+    // PRE-update `settings`, so switching the DCA-type tab *back* to
+    // Indicators/Custom evaluated the mode being left and wiped the config the
+    // user just returned to. Read the post-update mode instead (legacy V1
+    // reassigns its locals the same way — useSettingsComponent.ts:2604-2611),
+    // and never let the mode selector itself trigger its own cleanup, so a
+    // round-trip through another tab is lossless in both directions.
+    // `useDca` counts as a mode switch too: turning DCA off rewrites
+    // dcaCondition to `percentage` above, which would otherwise make the
+    // post-update read wipe the list the user is only toggling away from.
+    const isDcaTypeSwitch =
+      field === 'dcaCondition' ||
+      field === 'scaleDcaType' ||
+      field === 'useDca';
+    const nextDcaCondition = updates.dca.dcaCondition ?? dcaCondition;
+    const nextScaleDcaType = updates.dca.scaleDcaType ?? scaleDcaType;
     if (field === 'strategy' && !settings.futures) {
       if (
         value === StrategyEnum.short &&
@@ -336,8 +353,9 @@ export const handleSettingsUpdate = (
       );
     }
     if (
-      dcaCondition !== DCAConditionEnum.indicators &&
-      (scaleDcaType === ScaleDcaTypeEnum.percentage || !scaleDcaType)
+      !isDcaTypeSwitch &&
+      nextDcaCondition !== DCAConditionEnum.indicators &&
+      (nextScaleDcaType === ScaleDcaTypeEnum.percentage || !nextScaleDcaType)
     ) {
       updates.dca.indicators = (updates.dca.indicators ?? []).filter(
         (i) => i.indicatorAction !== IndicatorAction.startDca
@@ -479,7 +497,7 @@ export const handleSettingsUpdate = (
         (i) => i.indicatorAction !== IndicatorAction.closeDeal
       );
     }
-    if (dcaCondition !== DCAConditionEnum.custom) {
+    if (!isDcaTypeSwitch && nextDcaCondition !== DCAConditionEnum.custom) {
       updates.dca.dcaCustom = [];
     }
     if (

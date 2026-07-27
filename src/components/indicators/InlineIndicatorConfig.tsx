@@ -86,6 +86,34 @@ const resolveFieldKey = (
   return { key: field.key, defaultValue: field.defaultValue };
 };
 
+// `hiddenWhen`/`disabledWhen` gate on values the user may never have touched.
+// An unset param still RENDERS as its `defaultValue` (see `renderField`), so
+// gating on the raw params object keeps a field visible even though the UI
+// already shows the value that should hide it — e.g. MAR's "Comparison MA
+// length" stayed visible while Reference showed its default "Current price".
+// The modal dodges this by seeding defaults into its own state
+// (IndicatorConfigurationModal.tsx:199); the inline editor is handed the stored
+// params verbatim, so fill the gaps here before gating.
+const withFieldDefaults = (
+  definition: IndicatorDefinition,
+  params: IndicatorParamsState | null
+): IndicatorParamsState | null => {
+  if (!params) {
+    return null;
+  }
+  const filled = { ...params } as Record<string, IndicatorParamPrimitive>;
+  for (const field of [
+    ...definition.fields,
+    ...(definition.advancedFields ?? []),
+  ]) {
+    const { key, defaultValue } = resolveFieldKey(field, params);
+    if (filled[key as string] === undefined && defaultValue !== undefined) {
+      filled[key as string] = defaultValue as IndicatorParamPrimitive;
+    }
+  }
+  return filled as IndicatorParamsState;
+};
+
 const shouldHideField = (
   field: IndicatorFieldDefinition,
   params: IndicatorParamsState | null
@@ -166,6 +194,13 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
     onChange(next);
   };
 
+  // Params with every field's default filled in, used ONLY for the
+  // hiddenWhen/disabledWhen gating so it matches what the inputs actually show.
+  const effectiveParams = React.useMemo(
+    () => withFieldDefaults(definition, params),
+    [definition, params]
+  );
+
   const renderField = (field: IndicatorFieldDefinition) => {
     // Effective storage key may differ from `field.key` (legacy STOCH band swap).
     const { key: storageKey, defaultValue: effectiveDefault } = resolveFieldKey(
@@ -174,11 +209,11 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
     );
     const value = params[storageKey] ?? effectiveDefault;
 
-    if (shouldHideField(field, params)) {
+    if (shouldHideField(field, effectiveParams)) {
       return null;
     }
 
-    const disabled = shouldDisableField(field, params);
+    const disabled = shouldDisableField(field, effectiveParams);
 
     // Conditional option sets (e.g. Market Structure value list depends on the
     // selected trigger type). First matching directive wins; else fall back.

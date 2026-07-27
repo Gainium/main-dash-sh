@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.8] - 2026-07-26
+
+### Fixed
+
+- DCA bot form: switching the DCA type tab away from Indicators (or Custom) and back no longer clears the configuration — the indicator list and custom DCA rows now survive the round-trip in both directions.
+- DCA bot form: "Add DCA Indicator" now starts from a copy of the previous start-DCA indicator (type, parameters, minimum % from last order, order size) instead of resetting to RSI defaults. Only the first indicator falls back to defaults.
+- Indicator settings: fields gated on another field's value now respect that field's default, so the Moving Average Ratio "Comparison MA length" input is hidden while Reference is "Current price" instead of lingering above "Relative to".
+
 ## [2.38.7] - 2026-07-26
 
 ### Fixed

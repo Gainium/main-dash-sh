@@ -116,6 +116,14 @@ import { DcaOrderSizingControl } from './DcaOrderSizingControl';
 const MINIMUM_DEVIATION_MIN = 0;
 const MINIMUM_DEVIATION_MAX = 10;
 
+// Cloning a start-DCA indicator needs several distinct ids in one call, so the
+// `dca-indicator-${Date.now()}` scheme would collide. Same shape as the helper
+// in BotControllerSettings.tsx / DynamicArIndicatorPanel.tsx.
+const createDcaIndicatorId = () =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `dca-indicator-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 const clampMinimumDeviation = (value: number) =>
   Math.min(MINIMUM_DEVIATION_MAX, Math.max(MINIMUM_DEVIATION_MIN, value));
 
@@ -1947,11 +1955,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
 
   const addIndicator = () => {
     if ((indicators || []).length >= 20) return; // Max 20 indicators
-    const defaults = getIndicatorDefaultParams(
-      IndicatorEnum.rsi,
-      IndicatorAction.startDca,
-      IndicatorSection.dca
-    );
     const findGroup = indicatorGroups.find(
       (g) => g.action === IndicatorAction.startDca
     );
@@ -1961,11 +1964,30 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
       section: IndicatorSection.dca,
       logic: IndicatorsLogicEnum.and,
     };
-    const newIndicator: IndicatorConfig = {
-      ...defaults,
-      uuid: `dca-indicator-${Date.now()}`,
+    // Ladders of start-DCA signals are usually the same indicator repeated at
+    // increasing distance, so a new row clones the last one (fresh ids) rather
+    // than resetting to RSI. Only the first row falls back to defaults — legacy
+    // V1 parity (useSettingsComponent.ts:1385-1406).
+    const startDcaIndicators = (indicators || []).filter(
+      (i) => i.indicatorAction === IndicatorAction.startDca
+    );
+    const previous = startDcaIndicators[startDcaIndicators.length - 1];
+    const base: IndicatorConfig = previous ?? {
+      ...getIndicatorDefaultParams(
+        IndicatorEnum.rsi,
+        IndicatorAction.startDca,
+        IndicatorSection.dca
+      ),
       minPercFromLast: '1',
       orderSize: orderSize || '0',
+    };
+    const newIndicator: IndicatorConfig = {
+      ...base,
+      indicatorAction: IndicatorAction.startDca,
+      section: IndicatorSection.dca,
+      uuid: createDcaIndicatorId(),
+      ...(base.maUUID ? { maUUID: createDcaIndicatorId() } : {}),
+      ...(base.xoUUID ? { xoUUID: createDcaIndicatorId() } : {}),
       groupId: groupToUse.id,
     };
     const updatedIndicators = [...(indicators || []), newIndicator];
