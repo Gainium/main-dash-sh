@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.16] - 2026-07-27
+
+### Fixed
+
+- Switching to Live trading no longer reverts to Paper after a page reload.
+  The mode a user picks is written to their profile on the server, but the
+  copy of that profile the app keeps locally was never updated — so the next
+  reload restored the previous mode, and the one after that flipped it back,
+  which read as the toggle randomly resetting itself. The saved profile now
+  moves with the toggle, and a profile that genuinely changed (including a
+  switch made on another device) is still applied instead of being ignored
+  for the rest of the session.
+
 ## [2.38.15] - 2026-07-27
 
 ### Fixed

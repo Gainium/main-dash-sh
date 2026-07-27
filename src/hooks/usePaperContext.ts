@@ -6,14 +6,23 @@ import {
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { useCallback, useEffect } from 'react';
 import { useUserProfile } from './useUserProfile';
 
-// Module-level flag: once initialized from user profile in a session,
-// don't re-sync on navigation (prevents overwriting optimistic updates).
-// Resets on full page reload when the module re-evaluates.
-let _sessionInitialized = false;
+// Module-level: the server-side `paperContext` we have already reconciled into
+// the UI store this page load. `undefined` = nothing reconciled yet.
+//
+// This deliberately tracks the VALUE, not just "did we init once". A one-shot
+// boolean latched onto whichever profile happened to be in the store first —
+// which on a reload is the PERSISTED one — and then ignored the fresh payload
+// that `initializeAuth`'s `validateToken` delivers a moment later. Keying on
+// the value instead means:
+//   - an unchanged profile never re-applies, so a user's own toggle and
+//     `useBotModeGuard`'s store-only realignment are never clobbered;
+//   - a profile that genuinely CHANGED (fresh payload, or the mode was
+//     switched on another device) still gets applied.
+let _appliedServerPaperContext: boolean | undefined;
 
 /**
  * Hook for managing paper context (live vs paper trading mode)
@@ -28,12 +37,18 @@ export function usePaperContext() {
   const tradingMode = useUIStore((s) => s.tradingMode);
   const setTradingMode = useUIStore((s) => s.setTradingMode);
   const setTradingModeValue = useUIStore((s) => s.setTradingModeValue);
+  const setUserPaperContext = useAuthStore((s) => s.setUserPaperContext);
   const { userProfile, isSuccess: isUserProfileSuccess } = useUserProfile();
-  const queryClient = useQueryClient();
 
-  // Initialize UI store from user profile on first load only
+  // Reconcile the UI store with the profile whenever the profile's
+  // paperContext differs from the last value we applied.
   useEffect(() => {
-    if (isUserProfileSuccess && userProfile && !_sessionInitialized) {
+    if (
+      isUserProfileSuccess &&
+      userProfile &&
+      userProfile.paperContext != null &&
+      _appliedServerPaperContext !== userProfile.paperContext
+    ) {
       // URL params are not used for auto-activation of demo mode here
       // (demo mode is only activated at the end of onboarding via UI action).
 
@@ -57,29 +72,29 @@ export function usePaperContext() {
         paperContext: userProfile.paperContext,
       });
 
+      // Record BEFORE applying: the mode we're about to set is now the
+      // reconciled state for this server value, and re-entering with the same
+      // value must be a no-op.
+      _appliedServerPaperContext = userProfile.paperContext;
+
       // Only set trading mode from the profile's paperContext (live/paper)
       // The demo flag in profile is intentionally ignored during
       // initialization to avoid early auto-activation; demo should be
       // activated via onboarding completion or explicit user action.
-      if (userProfile.paperContext !== undefined) {
-        // Regular users: paperContext from profile
-        const shouldBeLiveTrading = !userProfile.paperContext;
+      // Regular users: paperContext from profile
+      const shouldBeLiveTrading = !userProfile.paperContext;
 
-        // Only update if different to avoid unnecessary re-renders
-        if (isLiveTrading !== shouldBeLiveTrading) {
-          logger.info('[demo-dismiss] syncing trading mode from user profile', {
-            shouldBeLiveTrading,
-          });
-          setTradingMode(shouldBeLiveTrading);
-          logger.debug('Initialized trading mode from user profile', {
-            paperContext: userProfile.paperContext,
-            isLiveTrading: shouldBeLiveTrading,
-          });
-        }
+      // Only update if different to avoid unnecessary re-renders
+      if (isLiveTrading !== shouldBeLiveTrading) {
+        logger.info('[demo-dismiss] syncing trading mode from user profile', {
+          shouldBeLiveTrading,
+        });
+        setTradingMode(shouldBeLiveTrading);
+        logger.debug('Initialized trading mode from user profile', {
+          paperContext: userProfile.paperContext,
+          isLiveTrading: shouldBeLiveTrading,
+        });
       }
-
-      // Mark as initialized for the entire session
-      _sessionInitialized = true;
     }
   }, [
     isUserProfileSuccess,
@@ -88,6 +103,20 @@ export function usePaperContext() {
     setTradingModeValue,
     isLiveTrading,
   ]);
+
+  // Apply a trading mode locally: the UI store AND the profile the store holds.
+  // These two must move together — `useUserProfile` reads the auth store's
+  // `user`, that user is persisted, and the effect above reconciles the UI
+  // store against it on every boot. Updating only the UI store leaves a
+  // persisted profile that still says the OLD mode, and the next reload applies
+  // it right back over the user's choice.
+  const applyTradingMode = useCallback(
+    (isLive: boolean) => {
+      setTradingMode(isLive);
+      setUserPaperContext(!isLive);
+    },
+    [setTradingMode, setUserPaperContext]
+  );
 
   // Mutation to update paperContext on the server
   const updatePaperContextMutation = useMutation({
@@ -122,8 +151,12 @@ export function usePaperContext() {
         response: data,
       });
 
-      // Store was already updated optimistically — just refresh the profile cache
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      // Both the UI store and the profile were already updated optimistically
+      // by `applyTradingMode` below. There is deliberately no
+      // `invalidateQueries(['user'])` here: the profile is NOT a React Query —
+      // `useUserProfile` reads `useAuthStore().user` — so invalidating that key
+      // matched no query and silently did nothing, which is how the profile
+      // went stale and reverted the mode on the next reload.
     },
     onError: (error, paperContext) => {
       logger.error('Failed to update paper context', {
@@ -131,7 +164,7 @@ export function usePaperContext() {
       });
       // Revert the optimistic update: paperContext is the desired new value,
       // so reverting means going back to the opposite.
-      setTradingMode(paperContext);
+      applyTradingMode(paperContext);
     },
   });
 
@@ -140,13 +173,13 @@ export function usePaperContext() {
     (paperContext: boolean) => {
       logger.info('[demo-dismiss] setPaperContext invoked', { paperContext });
       // Optimistically update the store so navigation picks up the new mode
-      setTradingMode(!paperContext);
+      applyTradingMode(!paperContext);
       updatePaperContextMutation.mutate(paperContext);
 
       // Any explicit paper/live selection exits demo mode until user opts back in
       setDemoModeExitOverride(true);
     },
-    [updatePaperContextMutation, setTradingMode]
+    [updatePaperContextMutation, applyTradingMode]
   );
 
   // Function to set live trading mode (true = live trading, false = paper trading)
@@ -158,13 +191,13 @@ export function usePaperContext() {
         paperContext,
       });
       // Optimistically update the store so navigation picks up the new mode
-      setTradingMode(isLive);
+      applyTradingMode(isLive);
       updatePaperContextMutation.mutate(paperContext);
 
       // Flag that user intentionally exited demo mode when switching to live/paper
       setDemoModeExitOverride(true);
     },
-    [updatePaperContextMutation, setTradingMode]
+    [updatePaperContextMutation, applyTradingMode]
   );
 
   // Function to toggle between live and paper trading
@@ -180,9 +213,9 @@ export function usePaperContext() {
       newPaperContext,
     });
     // Optimistically update the store so navigation picks up the new mode
-    setTradingMode(!isLiveTrading);
+    applyTradingMode(!isLiveTrading);
     updatePaperContextMutation.mutate(newPaperContext);
-  }, [isLiveTrading, tradingMode, updatePaperContextMutation, setTradingMode]);
+  }, [isLiveTrading, tradingMode, updatePaperContextMutation, applyTradingMode]);
 
   return {
     // Current state

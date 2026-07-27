@@ -40,6 +40,7 @@ interface AuthActions {
   initializeAuth: () => Promise<void>;
   isTokenExpired: () => boolean;
   setLoading: (loading: boolean) => void;
+  setUserPaperContext: (paperContext: boolean) => void;
 }
 
 type AuthStore = AuthState & AuthActions;
@@ -387,6 +388,20 @@ export const useAuthStore = create<AuthStore>()(
         setLoading: (loading: boolean) => {
           if (get().isLoading === loading) return; // Avoid unnecessary state updates
           set({ isLoading: loading });
+        },
+
+        // The paper/live toggle writes `paperContext` to the server, but the
+        // profile this store holds is what `usePaperContext` reconciles the UI
+        // store against on every boot — and it is persisted. Without writing
+        // the new value back here, the persisted profile keeps the PREVIOUS
+        // paperContext until the next `validateToken` lands, and the reload in
+        // between re-applies that stale value: switch to Live, reload, the app
+        // comes back Paper. (Legacy main-dash does the same write —
+        // `setUserAction(dispatch, { ...user, paperContext: value })`.)
+        setUserPaperContext: (paperContext: boolean) => {
+          const { user } = get();
+          if (!user || user.paperContext === paperContext) return;
+          set({ user: { ...user, paperContext } });
         },
       }),
       {
