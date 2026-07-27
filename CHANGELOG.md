@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.14] - 2026-07-27
+
+### Fixed
+
+- The app now honours the browser's font-size setting everywhere. Text was
+  sized in absolute pixels while every container, gap and sidebar width scaled
+  with the browser's setting, so anyone who had changed it (Chrome →
+  Appearance → Font size) got boxes that no longer matched their text —
+  overflowing and truncating labels, with page zoom unable to help because it
+  scales both sides at once. Text and layout are now on the same scale, so the
+  app simply renders larger or smaller as a whole. Rendering is unchanged for
+  anyone on the default 16px, and the in-app font-size setting is unaffected.
+
 ## [2.38.13] - 2026-07-27
 
 ### Fixed

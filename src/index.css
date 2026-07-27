@@ -1062,7 +1062,18 @@
 
   /* Visual Settings CSS Variables and Utilities */
   :root {
-    --base-font-size: 14px;
+    /* Expressed in `rem`, NOT `px` — 0.875rem is 14px at the browser default
+       of 16px, so this is visually identical for the vast majority of users.
+       It must stay rem-relative: every layout dimension in the app (the
+       --spacing-* tokens below, Tailwind's spacing scale, sidebar widths) is
+       rem-based and therefore tracks the browser's font-size setting. When
+       typography was absolute px the two drifted apart, and any user who
+       changed Chrome's Appearance → Font size got containers that no longer
+       fit their own text — text overflowed and truncated with no way back
+       (page zoom scales both, so it never helped). Keep type and layout on
+       the same unit. `useVisualSettings` writes this at runtime and must
+       emit rem for the same reason. */
+    --base-font-size: 0.875rem;
     --spacing-mode: compact;
     --visual-effects: 1;
     /* Default spacing values ensure Tailwind spacing utilities have fallbacks
@@ -1109,13 +1120,16 @@
        Expanded minimum: 260px (16.25rem) to prevent being too narrow
        Widget minimum: 300px (18.75rem) to prevent being too narrow */
     --sidebar-width-collapsed: 4rem; /* Fixed 64px - does not scale */
+    /* Divide by 1rem, not 16px: --base-font-size is rem-relative, so this
+       ratio must be too or the width would scale twice over (once via rem,
+       again via the ratio) on a non-default browser font size. */
     --sidebar-width-expanded: max(
       16.25rem,
-      calc(17.25rem * (var(--base-font-size) / 16px))
+      calc(17.25rem * (var(--base-font-size) / 1rem))
     );
     --sidebar-width-widget: max(
       18.75rem,
-      calc(20rem * (var(--base-font-size) / 16px))
+      calc(20rem * (var(--base-font-size) / 1rem))
     );
   }
 

@@ -16,10 +16,18 @@ export const useApplyVisualSettings = () => {
   );
 
   useEffect(() => {
-    // Apply base font size as CSS custom property
+    // Apply base font size as CSS custom property.
+    //
+    // Emitted in `rem`, NOT `px`: `fontSize` is authored as "px at the browser
+    // default" (16px), so dividing by 16 preserves the exact same rendering
+    // for anyone on that default while letting type scale with the browser's
+    // font-size setting — which is what every layout dimension in the app
+    // already does. Writing px here would pin type while boxes kept scaling,
+    // the mismatch that made containers overflow their own text. See the
+    // --base-font-size comment in index.css.
     document.documentElement.style.setProperty(
       '--base-font-size',
-      `${fontSize}px`
+      `${fontSize / 16}rem`
     );
   }, [fontSize]);
 
