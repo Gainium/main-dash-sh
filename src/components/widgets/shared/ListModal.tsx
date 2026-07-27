@@ -383,11 +383,15 @@ const ListModalRow = React.memo<ListModalRowProps>(
           {/* Icon - only render if present */}
           {icon && <div className="shrink-0">{icon}</div>}
 
-          {/* Content + metric chips. On mobile they stack (name on top,
-              chips wrap below); from sm up the chips sit to the right of
-              the name. */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between sm:gap-sm">
-            <div className="min-w-0">
+          {/* Content + metric chips. They stack (name on top, chips wrap
+              below) until the MODAL — not the viewport — is wide enough to
+              seat them side by side. The threshold is in `em` on purpose: it
+              resolves against the rendered text size, so if the browser
+              inflates the type (a minimum-font-size setting) the row stacks
+              instead of squeezing the name out. The name also keeps a `ch`
+              floor so it can never shrink to an unreadable sliver. */}
+          <div className="flex-1 min-w-0 flex flex-col gap-1 @min-[28em]:flex-row @min-[28em]:items-center @min-[28em]:justify-between @min-[28em]:gap-sm">
+            <div className="min-w-[7ch]">
               {isPair ? (
                 <>
                   <div className="text-foreground font-semibold text-sm truncate leading-tight">
@@ -420,10 +424,10 @@ const ListModalRow = React.memo<ListModalRowProps>(
               )}
             </div>
 
-            {/* Curated ROI + 24h change. Mobile: a wrapping row under the
-                name. sm+: a right-aligned column (ROI over 24h). */}
+            {/* Curated ROI + 24h change. Narrow modal: a wrapping row under
+                the name. Wide enough: a right-aligned column (ROI over 24h). */}
             {(showRoi || show24h) && (
-              <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 sm:flex-col sm:items-end sm:gap-1">
+              <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 @min-[28em]:flex-col @min-[28em]:items-end @min-[28em]:gap-1">
                 {showRoi && (
                   <div
                     className="flex items-center gap-1.5"
@@ -702,8 +706,17 @@ export const ListModal: React.FC<ListModalProps> = ({
       onClick={onClose}
       data-testid="list-modal-overlay"
     >
+      {/* Width is derived from `--base-font-size`, NOT from `rem`. `rem`
+          tracks the BROWSER's default font size while every `text-*` token in
+          this app is computed from `--base-font-size` (see index.css) — so a
+          user who sets Chrome's font size to anything but 16px got a shell
+          that no longer fit its own text, and the pair name (the only
+          flexible cell in a row) collapsed to nothing. Sizing off the same
+          variable the type uses keeps shell and text in lock-step.
+          `@container` lets the rows below react to the modal's real width
+          instead of the viewport's. */}
       <div
-        className="bg-popover rounded-2xl shadow-xl w-[26rem] max-w-full max-h-[85vh] sm:max-h-[34rem] flex flex-col"
+        className="bg-popover rounded-2xl shadow-xl @container w-[min(100%,calc(var(--base-font-size)*30))] md:w-[min(90vw,calc(var(--base-font-size)*36))] xl:w-[min(90vw,calc(var(--base-font-size)*42))] max-h-[85vh] sm:max-h-[min(85vh,calc(var(--base-font-size)*40))] flex flex-col"
         role="dialog"
         aria-modal="true"
         data-testid="list-modal-content"
@@ -798,9 +811,13 @@ export const ListModal: React.FC<ListModalProps> = ({
             </div>
           )}
 
-          {/* Search + sort */}
-          <div className="flex items-center gap-sm">
-            <div className="relative flex-1 min-w-0">
+          {/* Search + sort. The sort trigger is content-sized, so it used to
+              starve the search input (placeholder clipped to "Searc") the
+              moment the type grew relative to the shell. It may shrink now,
+              and the row wraps rather than squeezing either control below a
+              usable width. */}
+          <div className="flex flex-wrap items-center gap-sm">
+            <div className="relative flex-1 min-w-[12ch]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
             <input
               type="text"
@@ -825,7 +842,7 @@ export const ListModal: React.FC<ListModalProps> = ({
 
           {showSort && (
             <Select value={sortMode} onValueChange={onSortModeChange}>
-              <SelectTrigger size="sm" className="w-auto shrink-0">
+              <SelectTrigger size="sm" className="w-auto min-w-0 shrink">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

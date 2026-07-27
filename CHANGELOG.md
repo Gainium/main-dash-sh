@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.13] - 2026-07-27
+
+### Fixed
+
+- Pair/coin picker: rows were unreadable — the pair name squeezed down to a
+  sliver next to its ROI / 24h chips, and the search placeholder clipped — for
+  anyone whose browser font size isn't the 16px default (Chrome's Appearance →
+  Font size, or a minimum-font-size setting). The dialog was sized in `rem`
+  (browser font size) while all its text is sized from `--base-font-size`, so
+  the two drifted apart and the pair name, as the only flexible cell, absorbed
+  the whole shortfall. The dialog now scales with the same setting its text
+  does, rows reflow based on the dialog's own width, and the name keeps a
+  readable minimum.
+
+### Changed
+
+- Pair/coin picker: the dialog now widens on larger screens instead of staying
+  at a fixed 26rem, so more of each pair's name and metrics is visible.
+
 ## [2.38.12] - 2026-07-27
 
 ### Changed
