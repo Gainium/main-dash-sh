@@ -1,8 +1,8 @@
 import type { BotFormMode } from '@/features/bots';
 import { getPlanLimits } from '@/lib/planLimits';
+import { normalizePairKey } from '@/utils/pairs';
 
-export const normalizePairKey = (pair: string): string =>
-  pair.replace(/[\s/_-]/gu, '').toUpperCase();
+export { normalizePairKey };
 
 export const isFreeOrTrialPlan = (planName?: string | null): boolean =>
   getPlanLimits(planName).isFreePlan;

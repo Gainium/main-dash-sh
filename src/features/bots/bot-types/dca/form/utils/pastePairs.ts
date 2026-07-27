@@ -1,4 +1,5 @@
 import type { TradingPair } from '@/hooks/useTradingPairs';
+import { resolveStoredPairSymbol } from '@/utils/pairs';
 
 type NormalizePairFn = (pair: string) => string;
 type ResolvePairMetadataFn = (pairKey: string) => TradingPair | undefined;
@@ -165,7 +166,12 @@ export const processPairsPaste = (
     }
 
     existing.add(normalized);
-    nextPairs.push(normalized);
+    // De-dupe on the normalized key, but STORE the exchange-native symbol when
+    // the pair can't be rebuilt from its assets — `BTCUSD_PERP` must not be
+    // flattened to `BTCUSDPERP` on its way into `formData.pair`.
+    nextPairs.push(
+      resolveStoredPairSymbol(normalized, resolvePairMetadata(normalized))
+    );
     addedCount += 1;
   });
 

@@ -22,6 +22,10 @@ import {
   type UseBotFormDataQueryResult,
 } from '@/hooks/bots/forms/useBotFormDataQuery';
 import { type TradingPair } from '@/hooks/useTradingPairs';
+import {
+  normalizePairKey,
+  resolvePairSelectionSymbol,
+} from '@/utils/pairs';
 import { useUserFee } from '@/hooks/useUserFee';
 import type { Asset, CoinListItem, ExchangeInUser } from '@/types';
 import { OKXSource } from '@/types/exchange.types';
@@ -170,7 +174,19 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           return;
         }
 
-        const selectionSymbol = `${base}-${quote}`;
+        // Identify the pair by its exchange-native symbol whenever that symbol
+        // can't be rebuilt from base + quote (COIN-M `BTCUSD_PERP`, dated
+        // futures `BTCUSDT_260925` / `BTCUSDT-25SEP26`, `BTCPERP`, `BTCUSDU26`,
+        // OKX X-Perps). Rebuilding those produces a symbol the candle API
+        // rejects — or one that silently resolves to the perpetual instead of
+        // the dated contract — and it also collapsed every expiry of a market
+        // onto one `BASE-QUOTE` row, so the `items.has` de-dupe below dropped
+        // all but the first from the picker entirely.
+        const selectionSymbol = resolvePairSelectionSymbol(
+          pair.pair,
+          base,
+          quote
+        );
 
         // Avoid duplicates when multiple exchanges share the same pair
         if (items.has(selectionSymbol)) {
@@ -201,7 +217,11 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           color: 'var(--color-primary)',
         });
 
-        const normalizedPairKey = `${base}${quote}`;
+        // Key off the selection symbol, not `${base}${quote}`: for a suffixed
+        // pair the latter would collapse `BTCUSD_PERP` to `BTCUSD` and collide
+        // with the venue's plain `BTCUSD` contract. Lookups all run the stored
+        // pair through `normalizePairKey`, so this stays the matching key.
+        const normalizedPairKey = normalizePairKey(selectionSymbol);
         bySelectionSymbol[selectionSymbol] = pair;
         if (!(normalizedPairKey in byPair)) {
           byPair[normalizedPairKey] = pair;

@@ -23,6 +23,10 @@ import {
 } from '../utils/pastePairs';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
+import {
+  resolvePairSelectionSymbol,
+  resolveStoredPairSymbol,
+} from '@/utils/pairs';
 
 const HELPER_TOKEN_PATTERN = /^[A-Z0-9]+_ALL$/u;
 
@@ -74,7 +78,13 @@ export const useBasicSettingsTab = (
           return;
         }
 
-        const key = `${base}${quote}`;
+        // Key on the same identity `pairMetadata.byPair` uses, so a contract
+        // pair (`BTCUSD_PERP`) is findable here too instead of being filed
+        // under `BTCUSD` — where the venue's plain BTC/USD contract would
+        // shadow it and hand back the wrong precision/assets.
+        const key = normalizePairKey(
+          resolvePairSelectionSymbol(pair.pair, base, quote)
+        );
         if (!(key in aggregated)) {
           aggregated[key] = pair;
         }
@@ -344,35 +354,49 @@ export const useBasicSettingsTab = (
     return findMissingPairs(pairs, metadataSources);
   }, [activeLivePairsMap, pairMetadata.byPair, pairs, scopedFormPairMetadata]);
 
-  const splitPair = useCallback((pair: string) => {
-    if (!pair) {
-      return ['?', 'USDT'] as const;
-    }
-    // Pairs may be stored slash- OR dash-separated (e.g. "BTC/USDT", and
-    // "PGx-USD" for Kraken xStocks). Split on either separator so a dash-pair
-    // base isn't left with a trailing "-" — that stray dash broke the
-    // live-pairs index lookup (→ assetClass lost → stock icon fell back) and
-    // the "BASE/QUOTE" label (rendered "PGX-/USD"). Mirrors GRID's splitPairParts.
-    const parts = pair.split(/[-/]/).filter(Boolean);
-    if (parts.length === 2) {
-      return [parts[0] || '?', parts[1] || 'USDT'] as const;
-    }
-
-    const normalized = pair.toUpperCase();
-    const knownQuotes = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
-    for (const quote of knownQuotes) {
-      if (normalized.endsWith(quote)) {
-        return [
-          normalized.slice(0, normalized.length - quote.length) || '?',
-          quote,
-        ] as const;
+  const splitPair = useCallback(
+    (pair: string) => {
+      if (!pair) {
+        return ['?', 'USDT'] as const;
       }
-    }
-    if (normalized.length > 3) {
-      return [normalized.slice(0, -3), normalized.slice(-3)] as const;
-    }
-    return [normalized, 'USDT'] as const;
-  }, []);
+      // Prefer the loaded pair's own assets — string-splitting a contract
+      // symbol has no chance of being right ("BTCUSD_PERP" fell through to the
+      // last-three-characters guess and rendered as "BTCUSD_P/ERP"). The
+      // heuristics below stay as the fallback for pairs we have no metadata
+      // for (free-typed input, a pair from another exchange).
+      const metadata = resolvePairMetadata(pair);
+      const metadataBase = metadata?.baseAsset?.name;
+      const metadataQuote = metadata?.quoteAsset?.name;
+      if (metadataBase && metadataQuote) {
+        return [metadataBase, metadataQuote] as const;
+      }
+      // Pairs may be stored slash- OR dash-separated (e.g. "BTC/USDT", and
+      // "PGx-USD" for Kraken xStocks). Split on either separator so a dash-pair
+      // base isn't left with a trailing "-" — that stray dash broke the
+      // live-pairs index lookup (→ assetClass lost → stock icon fell back) and
+      // the "BASE/QUOTE" label (rendered "PGX-/USD"). Mirrors GRID's splitPairParts.
+      const parts = pair.split(/[-/]/).filter(Boolean);
+      if (parts.length === 2) {
+        return [parts[0] || '?', parts[1] || 'USDT'] as const;
+      }
+
+      const normalized = pair.toUpperCase();
+      const knownQuotes = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
+      for (const quote of knownQuotes) {
+        if (normalized.endsWith(quote)) {
+          return [
+            normalized.slice(0, normalized.length - quote.length) || '?',
+            quote,
+          ] as const;
+        }
+      }
+      if (normalized.length > 3) {
+        return [normalized.slice(0, -3), normalized.slice(-3)] as const;
+      }
+      return [normalized, 'USDT'] as const;
+    },
+    [resolvePairMetadata]
+  );
 
   const multiAssetDimension = useMemo<'base' | 'quote' | null>(() => {
     if (!useMulti) {
@@ -466,10 +490,21 @@ export const useBasicSettingsTab = (
 
   const convertPairToSelectionSymbol = useCallback(
     (pair: string) => {
+      // Must produce the same identity the picker built in
+      // BotFormQueryProvider, or the selected chip never matches its row. For a
+      // contract pair that identity IS the native symbol, not `BASE-QUOTE`.
+      const metadata = resolvePairMetadata(pair);
+      if (metadata?.pair) {
+        return resolvePairSelectionSymbol(
+          metadata.pair,
+          metadata.baseAsset?.name,
+          metadata.quoteAsset?.name
+        );
+      }
       const [baseAsset, quoteAsset] = splitPair(pair);
       return `${baseAsset}-${quoteAsset}`;
     },
-    [splitPair]
+    [resolvePairMetadata, splitPair]
   );
 
   const selectedPairSymbols = useMemo(
@@ -686,7 +721,17 @@ export const useBasicSettingsTab = (
         return;
       }
 
+      // `sanitized` stays the comparison / de-dupe key; `storedSymbol` is what
+      // actually lands in `formData.pair` and is forwarded to the exchange, so
+      // a contract pair keeps its native symbol instead of being flattened.
       const sanitized = normalizePair(pairSymbol);
+      const selectionMetadata =
+        pairMetadata.bySelectionSymbol[pairSymbol] ??
+        resolvePairMetadata(sanitized);
+      const storedSymbol = resolveStoredPairSymbol(
+        pairSymbol,
+        selectionMetadata
+      );
       const exists = pairs.some((item) => normalizePair(item) === sanitized);
 
       if (exists) {
@@ -695,9 +740,7 @@ export const useBasicSettingsTab = (
       }
 
       if (useMulti && pairs.length > 0) {
-        const candidateMetadata =
-          pairMetadata.bySelectionSymbol[pairSymbol] ??
-          resolvePairMetadata(sanitized);
+        const candidateMetadata = selectionMetadata;
         const [selectionBase, selectionQuote] =
           parseSelectionSymbol(pairSymbol);
         const [fallbackBase, fallbackQuote] = splitPair(sanitized);
@@ -739,7 +782,7 @@ export const useBasicSettingsTab = (
             updateFormData('useMulti', true);
             // Try again after enabling multi-mode
             setPairError('');
-            updateFormData('pair', [...pairs, sanitized]);
+            updateFormData('pair', [...pairs, storedSymbol]);
             return;
           }
         }
@@ -753,7 +796,7 @@ export const useBasicSettingsTab = (
         updateFormData('useMulti', true);
       }
 
-      updateFormData('pair', [...pairs, sanitized]);
+      updateFormData('pair', [...pairs, storedSymbol]);
     },
     [
       applyPairsInput,

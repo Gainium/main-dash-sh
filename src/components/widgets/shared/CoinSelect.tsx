@@ -7,6 +7,7 @@ import {
   type PairRoiContext,
 } from '@/lib/pairMarketData';
 import { useStarredPairsStore } from '@/stores/starredPairsStore';
+import { resolveStoredPairSymbol } from '@/utils/pairs';
 import { BotTypesEnum, StrategyEnum, type CoinListItem } from '@/types';
 import { ArrowRightLeft, X as CloseIcon, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -414,16 +415,39 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
         // symbol prop → chart stays on the old pair, backtest button stays
         // disabled. The regular add-pair flow goes through `normalizePair`
         // in basic-settings; bypassing it for atomic replace skipped that
-        // step. Match the same regex as `normalizePairInput`.
-        const normalized = symbol.replace(/[\s\-/]/g, '').toUpperCase();
+        // step.
+        //
+        // Contract pairs are the exception: their selectionSymbol IS the
+        // exchange-native symbol (`BTCUSD_PERP`), and stripping its separators
+        // would produce a symbol the exchange rejects. `resolveStoredPairSymbol`
+        // keeps those verbatim and normalizes everything else exactly as before.
+        const item = itemLookup[symbol];
+        const stored = resolveStoredPairSymbol(
+          symbol,
+          // Without both assets we can't tell the two shapes apart — fall
+          // through to the historical normalization rather than guess.
+          item?.baseAsset && item?.quoteAsset
+            ? {
+                pair: symbol,
+                baseAsset: { name: item.baseAsset },
+                quoteAsset: { name: item.quoteAsset },
+              }
+            : null
+        );
         // Atomic single-write replacement.
-        updateFormData('pair', [normalized]);
+        updateFormData('pair', [stored]);
         handleDialogClose();
         return;
       }
       onCoinToggle(symbol);
     },
-    [replacingSymbol, handleDialogClose, updateFormData, onCoinToggle]
+    [
+      replacingSymbol,
+      handleDialogClose,
+      updateFormData,
+      onCoinToggle,
+      itemLookup,
+    ]
   );
 
   const handleToggleFavoritesFirst = useCallback(

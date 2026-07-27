@@ -32,6 +32,10 @@ import {
   resolveExchangeLockState,
   resolvePairsLockState,
 } from '@/utils/bots/dca/basic-settings';
+import {
+  resolvePairSelectionSymbol,
+  resolveStoredPairSymbol,
+} from '@/utils/pairs';
 import ExchangeSelector from '../../../dca/form/components/exchangeSelector';
 
 const HELPER_TOKEN_PATTERN = /^[A-Z0-9]+_ALL$/u;
@@ -604,7 +608,15 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
 
       clearPairError();
 
-      const nextPairs = [sanitized];
+      // `sanitized` compares; the stored value keeps the exchange-native symbol
+      // for pairs that can't be rebuilt from their assets.
+      const nextPairs = [
+        resolveStoredPairSymbol(
+          pairSymbol,
+          pairMetadata.bySelectionSymbol[pairSymbol] ??
+            resolvePairMetadata(sanitized)
+        ),
+      ];
 
       updateFormData('pair', nextPairs);
     },
@@ -615,6 +627,8 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       isPairsLocked,
       normalizePair,
       pairs,
+      pairMetadata.bySelectionSymbol,
+      resolvePairMetadata,
       updateFormData,
       setErrors,
     ]
@@ -623,17 +637,32 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
   const selectedPairSymbols = React.useMemo(() => {
     const unique = new Set<string>();
     pairs.forEach((pair) => {
-      const token = toSelectionSymbol(pair);
+      // Match the identity the picker built — a contract pair is identified by
+      // its native symbol, so deriving `BASE-QUOTE` here would never match its
+      // row and the selection would render as unselected.
+      const metadata = resolvePairMetadata(pair);
+      const token = metadata?.pair
+        ? resolvePairSelectionSymbol(
+            metadata.pair,
+            metadata.baseAsset?.name,
+            metadata.quoteAsset?.name
+          )
+        : toSelectionSymbol(pair);
       if (token) {
         unique.add(token);
       }
     });
     return Array.from(unique);
-  }, [pairs]);
+  }, [pairs, resolvePairMetadata]);
 
   const lockedPairs = React.useMemo(() => {
     return pairs.map((pair, index) => {
-      const { base, quote } = splitPairParts(pair);
+      // Authoritative assets first — string-splitting a contract symbol renders
+      // nonsense ("BTCUSD_PERP" → "BTCUSD_P/ERP").
+      const metadata = resolvePairMetadata(pair);
+      const fallback = splitPairParts(pair);
+      const base = metadata?.baseAsset?.name ?? fallback.base;
+      const quote = metadata?.quoteAsset?.name ?? fallback.quote;
       const label = quote ? `${base}/${quote}` : base;
       return {
         key: `${pair}-${index}`,
@@ -642,7 +671,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
         label,
       };
     });
-  }, [pairs]);
+  }, [pairs, resolvePairMetadata]);
 
   const handleInitialPriceReset = () => {
     updateFormData('initialPrice', '');

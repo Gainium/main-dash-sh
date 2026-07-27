@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.11] - 2026-07-27
+
+### Fixed
+
+- Bot form: pairs whose exchange symbol is not simply base + quote — Binance COIN-M (`BTCUSD_PERP`), dated futures (`BTCUSDT_260925`, `BTCUSDT-25SEP26`) and USDC perpetuals (`BTCPERP`, `BTCUSDU26`) on Bybit, Bitget and KuCoin — are now identified by their exchange symbol instead of a rebuilt `BASE+QUOTE`. Previously the chart showed "No data here" or silently plotted a different contract (the perpetual instead of the dated future), selecting such a pair left the chart on the previous one, and the pair label rendered as nonsense (`BTCUSD_P/ERP`).
+- Bot form: the pair picker no longer hides contracts that share a base and quote. Every expiry of a market collapsed onto a single row, so 10 of 30 Binance COIN-M pairs and 36 of 760 Bybit linear pairs were unreachable.
+
 ## [2.38.10] - 2026-07-27
 
 ### Fixed

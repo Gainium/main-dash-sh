@@ -1,8 +1,8 @@
 import type { BotFormMode } from '@/contexts/bots/form/BotFormProvider';
 import { getPlanLimits } from '@/lib/planLimits';
+import { normalizePairKey } from '@/utils/pairs';
 
-export const normalizePairKey = (pair: string): string =>
-  pair.replace(/[\s/_-]/gu, '').toUpperCase();
+export { normalizePairKey };
 
 /**
  * Whether the user's plan is the free / trial tier. Delegates to the
