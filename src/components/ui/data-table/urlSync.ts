@@ -7,6 +7,28 @@
 
 const looksLikeBase64 = (s: string) => /^[A-Za-z0-9_-]+$/.test(s);
 
+// Operators whose value is an ARRAY, not a scalar. `String(['a','b'])` would
+// flatten these to "a,b" and read back as one string, which silently breaks
+// the filter: `isAnyOf` then looks for a cell containing the literal
+// "a,b" (matches nothing) and `between` bails out of its Array.isArray guard
+// (matches everything). Each element is encoded separately so a comma inside
+// a value survives as %2C and the join stays unambiguous.
+const MULTI_VALUE_OPERATORS = new Set(['isAnyOf', 'isNoneOf', 'between']);
+
+/**
+ * Read the value part of a multi-value filter back into an array.
+ * Handles both the current format (each element encoded, joined with a literal
+ * `,`) and legacy links written before that fix, where the whole array was
+ * flattened with `String()` and encoded once, so the separators arrived as
+ * `%2C` and the elements as one blob.
+ */
+const parseMultiValue = (raw?: string): string[] => {
+  if (!raw) return [];
+  if (raw.includes(',')) return raw.split(',').map((p) => decodeURIComponent(p));
+  const decoded = decodeURIComponent(raw);
+  return decoded.includes(',') ? decoded.split(',') : [decoded];
+};
+
 export const serializeFilters = (filters: unknown) => {
   if (!Array.isArray(filters) || filters.length === 0) return '';
   const parts = (filters as any[]).map((f) => {
@@ -41,7 +63,9 @@ export const serializeFilters = (filters: unknown) => {
     const valueStr =
       value === undefined || value === null
         ? ''
-        : encodeURIComponent(String(value));
+        : Array.isArray(value)
+          ? value.map((v) => encodeURIComponent(String(v))).join(',')
+          : encodeURIComponent(String(value));
     return `${id}:${operator}:${valueStr}`;
   });
   return parts.filter(Boolean).join('|');
@@ -60,7 +84,11 @@ export const deserializeFilters = <T>(v: string | null): T | null => {
           if (operator === 'isEmpty' || operator === 'isNotEmpty') {
             return { id, value: { operator } };
           }
-          const value = raw ? decodeURIComponent(raw) : '';
+          const value = MULTI_VALUE_OPERATORS.has(operator)
+            ? parseMultiValue(raw)
+            : raw
+              ? decodeURIComponent(raw)
+              : '';
           return { id, value: { operator, value } };
         })
         .filter(Boolean);
