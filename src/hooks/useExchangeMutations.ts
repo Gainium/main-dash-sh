@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { ACTIVATION_EVENTS, trackActivation } from '@/lib/analytics/events';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
@@ -11,7 +10,6 @@ import {
   CoinbaseKeysType,
   ExchangeEnum,
   OKXSource,
-  type ExchangeInUser,
 } from '../types/exchange.types';
 import { useExchangesStore } from '@/stores/exchangesStore';
 
@@ -272,7 +270,7 @@ export const formDataToUpdateExchangeInput = (
  */
 export function useExchangeMutations() {
   const queryClient = useQueryClient();
-  const { tokens } = useAuthStore();
+  const { tokens, refreshUser } = useAuthStore();
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
   // Add exchange mutation
@@ -289,27 +287,19 @@ export function useExchangeMutations() {
         trading_mode: isLiveTrading ? 'live' : 'paper',
       });
 
-      // Invalidate and refetch exchanges query
-      queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+      // `['user']` is the exchange list's real cache key: `useExchanges`
+      // calls `useGraphQL('user', …)` and `useCacheKey` builds
+      // `[baseKey, vars, userId, tradingContext]`, so this prefix-invalidate
+      // is what actually refetches it. Do NOT mistake it for a profile
+      // refresh — the profile lives in the auth store, not React Query.
       queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      // Optionally update the cache optimistically
-      queryClient.setQueryData(['exchanges'], (oldData: any) => {
-        if (!oldData) return oldData;
-
-        // Add all new exchanges to the existing data
-        if (oldData.data?.exchanges) {
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              exchanges: [...oldData.data.exchanges, ...exchanges],
-            },
-          };
-        }
-
-        return oldData;
-      });
+      // Connecting an exchange flips server-owned profile flags
+      // (`hasExchanges`, `hasLiveExchanges`, `hasPaperExchanges`,
+      // `onboardingSteps.liveExchange`). Only `refreshUser` re-reads them;
+      // without it the onboarding widget stays on "Add a Live Exchange"
+      // until the next full page load.
+      void refreshUser();
 
       // A `SPOT & Futures` (all) selection creates BOTH a spot and a
       // futures account, so the backend returns more than one exchange.
@@ -338,29 +328,13 @@ export function useExchangeMutations() {
     onSuccess: (data) => {
       logger.info('Exchange updated successfully:', data);
 
-      // Invalidate and refetch exchanges query
-      queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+      // See addExchange: `['user']` is the exchange list's cache key.
       queryClient.invalidateQueries({ queryKey: ['user'] });
 
-      // Update the cache optimistically
-      queryClient.setQueryData(['exchanges'], (oldData: any) => {
-        if (!oldData) return oldData;
+      // Editing keys can move an account between live and paper, which
+      // shifts `hasLiveExchanges` / `hasPaperExchanges` on the profile.
+      void refreshUser();
 
-        if (oldData.data?.exchanges) {
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              exchanges: oldData.data.exchanges.map(
-                (exchange: ExchangeInUser) =>
-                  exchange.uuid === data.uuid ? data : exchange
-              ),
-            },
-          };
-        }
-
-        return oldData;
-      });
       // Merge into the existing store entry instead of replacing. The
       // server's `updateExchange` response can come back with stale or
       // missing `hedge` / `zeroFee` fields (those live behind separate
@@ -397,34 +371,14 @@ export function useExchangeMutations() {
       );
       logger.info('[delete-exchange] Deleted exchange uuid:', variables.uuid);
 
-      // Invalidate and refetch exchanges query
-      queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+      // See addExchange: `['user']` is the exchange list's cache key.
       queryClient.invalidateQueries({ queryKey: ['user'] });
       logger.info('[delete-exchange] Invalidated queries');
 
-      // Remove the exchange from cache optimistically
-      queryClient.setQueryData(['exchanges'], (oldData: any) => {
-        if (!oldData) return oldData;
+      // Removing the last exchange must clear `hasExchanges` &co on the
+      // profile, otherwise empty states and onboarding stay "connected".
+      void refreshUser();
 
-        if (oldData.data?.exchanges) {
-          const filtered = oldData.data.exchanges.filter(
-            (exchange: ExchangeInUser) => exchange.uuid !== variables.uuid
-          );
-          logger.info(
-            '[delete-exchange] Removed exchange from cache, remaining exchanges:',
-            filtered.length
-          );
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              exchanges: filtered,
-            },
-          };
-        }
-
-        return oldData;
-      });
       useExchangesStore.getState().removeExchange(variables.uuid);
     },
     onError: (error) => {
@@ -444,25 +398,6 @@ export function useExchangeMutations() {
     },
     onSuccess: (data) => {
       logger.info('Hedge mode updated successfully:', data);
-
-      queryClient.setQueryData(['exchanges'], (oldData: any) => {
-        if (!oldData) return oldData;
-        if (oldData.data?.exchanges) {
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              exchanges: oldData.data.exchanges.map(
-                (exchange: ExchangeInUser) =>
-                  exchange.uuid === data.uuid
-                    ? { ...exchange, hedge: data.hedge }
-                    : exchange
-              ),
-            },
-          };
-        }
-        return oldData;
-      });
 
       const existing = useExchangesStore.getState().exchanges[data.uuid];
       if (existing) {
@@ -492,25 +427,6 @@ export function useExchangeMutations() {
     onSuccess: (data) => {
       logger.info('Zero fee updated successfully:', data);
 
-      queryClient.setQueryData(['exchanges'], (oldData: any) => {
-        if (!oldData) return oldData;
-        if (oldData.data?.exchanges) {
-          return {
-            ...oldData,
-            data: {
-              ...oldData.data,
-              exchanges: oldData.data.exchanges.map(
-                (exchange: ExchangeInUser) =>
-                  exchange.uuid === data.uuid
-                    ? { ...exchange, zeroFee: data.zeroFee }
-                    : exchange
-              ),
-            },
-          };
-        }
-        return oldData;
-      });
-
       const existing = useExchangesStore.getState().exchanges[data.uuid];
       if (existing) {
         useExchangesStore.getState().addOrUpdateExchange({
@@ -539,8 +455,8 @@ export function useExchangeMutations() {
       // Mark exchange store stale so consumers refetch latest balances
       useExchangesStore.getState().markStale();
 
-      // Invalidate exchanges query to refetch updated balances
-      queryClient.invalidateQueries({ queryKey: ['exchanges'] });
+      // See addExchange: `['user']` is the exchange list's cache key, so this
+      // is what refetches the updated balances.
       queryClient.invalidateQueries({ queryKey: ['user'] });
     },
     onError: (error) => {

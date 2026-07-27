@@ -14,8 +14,7 @@ import {
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
-import { ExchangeEnum } from '@/types';
-import type { DCADeals } from '@/types';
+import { ExchangeEnum, type DCADeals } from '@/types';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
   const symbol = deal.symbol?.symbol || 'Unknown';

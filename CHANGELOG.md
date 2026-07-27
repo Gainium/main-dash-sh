@@ -5,6 +5,27 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.17] - 2026-07-27
+
+### Fixed
+
+- Connecting or removing an exchange now updates the onboarding checklist and
+  the "no exchanges yet" empty states immediately, instead of leaving them on
+  the previous state until the next full page load. Same root cause as the
+  trading-mode revert in 2.38.16: the locally-kept copy of the profile was
+  never refreshed after the change.
+- Marking notifications or changelog entries as read no longer re-downloads the
+  exchange, backtest and market-data caches as a side effect.
+
+### Changed
+
+- Removed the dead React Query cache operations against the `['exchanges']` key
+  in the exchange mutations. No query has ever owned that key — the exchange
+  list is cached under `['user', …]` — so the invalidations and the optimistic
+  `setQueryData` blocks were no-ops. The `['user']` invalidations and the
+  `useExchangesStore` updates, which are what actually refresh the UI, are
+  unchanged. Internal cleanup, no behavior change.
+
 ## [2.38.16] - 2026-07-27
 
 ### Fixed

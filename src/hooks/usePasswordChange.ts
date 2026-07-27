@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { GraphQLClient, type ReturnResult } from '@/lib/api';
 import GraphQlQuery from '@/lib/api/GraphQLQueries';
 import { useAuthStore } from '@/stores/authStore';
@@ -36,7 +36,6 @@ export function validatePassword(
  */
 export function usePasswordChange() {
   const { tokens } = useAuthStore();
-  const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (input: PasswordChangeInput) => {
@@ -68,8 +67,9 @@ export function usePasswordChange() {
     onSuccess: (data) => {
       logger.info('Password changed successfully', { response: data });
 
-      // Optionally invalidate user data
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      // Nothing to invalidate: the password is not part of the user profile
+      // payload, and `['user']` is the exchange/backtest cache key rather
+      // than the profile's — invalidating it here only cost a refetch.
     },
     onError: (error) => {
       logger.error('Failed to change password', {

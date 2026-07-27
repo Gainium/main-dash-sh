@@ -529,8 +529,10 @@ export function useNotifications(
         '✅ [MARK AS READ] Successfully marked notification as read:',
         notification.id
       );
-      // CRITICAL: Add user data invalidation to sync with backend
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      // No `['user']` invalidation here: read state lives on the
+      // notification queries below, not on the user profile, and `['user']`
+      // is the exchange/backtest/market-data cache key — invalidating it
+      // just refetches megabytes of unrelated data.
       queryClient.invalidateQueries({ queryKey: ['getMessageBot'] });
       queryClient.invalidateQueries({ queryKey: ['getPlatformNotifications'] });
       queryClient.invalidateQueries({ queryKey: ['getChangeLogs'] });
@@ -602,8 +604,7 @@ export function useNotifications(
           '✅ [CHANGELOG MARK AS READ] Backend succeeded - invalidating queries...'
         );
 
-        // CRITICAL: Add user data invalidation to sync with backend
-        queryClient.invalidateQueries({ queryKey: ['user'] });
+        // See markNotificationAsRead: no `['user']` invalidation.
         queryClient.invalidateQueries({ queryKey: ['getUnreadChangeLogs'] });
         queryClient.invalidateQueries({ queryKey: ['getChangeLogs'] });
       } else {
@@ -701,8 +702,7 @@ export function useNotifications(
       logger.info(
         '✅ [BULK MARK AS READ] Successfully marked all announcements as read'
       );
-      // CRITICAL: Add user data invalidation to sync with backend
-      queryClient.invalidateQueries({ queryKey: ['user'] });
+      // See markNotificationAsRead: no `['user']` invalidation.
       queryClient.invalidateQueries({ queryKey: ['getPlatformNotifications'] });
       queryClient.invalidateQueries({ queryKey: ['getMessageBot'] });
       queryClient.invalidateQueries({ queryKey: ['getChangeLogs'] });
