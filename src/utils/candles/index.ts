@@ -616,12 +616,30 @@ class Candles {
           `[Candles.getCandlesFromExchange] Iteration ${ind}/${count}: Received ${candles.length} candles | First: ${candles.length > 0 ? new Date(candles[0].time).toISOString() : 'N/A'} | Last: ${candles.length > 0 ? new Date(candles[candles.length - 1].time).toISOString() : 'N/A'}`
         );
 
-        // CRITICAL FIX: Break if no candles returned to prevent infinite loop
+        // An empty chunk means one of two very different things, and they must
+        // not be treated alike.
         if (candles.length === 0) {
-          console.warn(
-            `[Candles.getCandlesFromExchange] No candles returned at iteration ${ind}/${count} - stopping loop | Collected ${data.length} bars total`
+          if (data.length > 0) {
+            // We already have bars and the exchange stopped serving: this is
+            // the END of available history. Stop (also prevents an infinite
+            // loop, since `prev` only advances off the last received candle).
+            console.warn(
+              `[Candles.getCandlesFromExchange] No candles returned at iteration ${ind}/${count} - stopping loop | Collected ${data.length} bars total`
+            );
+            break;
+          }
+          // Nothing collected yet: the requested window simply BEGINS BEFORE
+          // this market existed (newly listed pair / young contract). Breaking
+          // here aborted the whole load and rendered "No data here" even though
+          // recent candles exist. Skip the leading pre-listing gap instead —
+          // `prev` is advanced past the probed chunk so the loop still makes
+          // real progress, and it stays bounded by the existing count /
+          // maxIterations guards.
+          logger.info(
+            `[Candles.getCandlesFromExchange] Empty leading chunk at iteration ${ind}/${count} - skipping pre-listing gap up to ${new Date(toThis * 1000).toISOString()}`
           );
-          break;
+          prev = toThis * 1000;
+          continue;
         }
 
         // CRITICAL FIX: Update prev based on ACTUAL last candle received, not requested range

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.9] - 2026-07-27
+
+### Fixed
+
+- Charts: recently listed pairs no longer render a permanently empty chart ("No data here", `O∅ H∅ L∅ C∅`). When the requested window started before the market existed, the candle loader stopped at the first empty range and threw away the whole load; it now skips the leading pre-listing gap and returns the candles that do exist.
+
 ## [2.38.8] - 2026-07-26
 
 ### Fixed
