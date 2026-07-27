@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.10] - 2026-07-27
+
+### Fixed
+
+- Bot form: after "Reset to defaults", a bot form on a futures exchange no longer silently reverts to spot behavior. The Order Size Reference and Margin & Leverage rows stayed hidden (and the spot-only Profit Currency row appeared) because the derived futures/coin-m flags were only ever set when the selected exchange changed; they are now kept in sync with the exchange.
+
 ## [2.38.9] - 2026-07-27
 
 ### Fixed
