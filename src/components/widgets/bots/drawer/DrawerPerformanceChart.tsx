@@ -19,13 +19,13 @@ import { useDcaBots } from '../../../../hooks/useDcaBots';
 import { useGridBots } from '../../../../hooks/useGridBots';
 import { useHedgeComboBots } from '../../../../hooks/useHedgeComboBots';
 import { useHedgeDcaBots } from '../../../../hooks/useHedgeDcaBots'; */
-import { BotTypesEnum, type DCABot } from '@/types';
-import {
-  useBotProfitChartData,
-  type BotProfitDataPoint,
-} from '../../../../hooks/useBotProfitChartData';
+import { BotTypesEnum, type BotStats, type DCABot } from '@/types';
 import { useLiveBotMetrics } from '../../../../hooks/useLiveBotMetrics';
-import { cn, formatCurrency } from '../../../../lib/utils';
+import { useShareContext } from '../../../../hooks/useShareContext';
+import { useSharedBot } from '../../../../hooks/useSharedBot';
+import { cn } from '../../../../lib/utils';
+import { formatPriceWithPrecision } from '../../../../utils/formatters';
+import { formatCurrency } from '../../../../utils/numberFormatter';
 import { useUIStore } from '../../../../stores/uiStore';
 import { DrawerSection } from './DrawerSection';
 
@@ -35,6 +35,19 @@ interface ChartDataPoint {
   realizedProfit?: number;
   buyAndHold?: number;
 }
+
+/** A stats object usable as the chart source: it must carry a real series. */
+const hasChart = (stats?: BotStats | null): stats is BotStats =>
+  Array.isArray(stats?.chart) && stats.chart.length > 1;
+
+/**
+ * Both money helpers below prefix the currency symbol to the *signed* number,
+ * so a negative renders as "$-83.20". The realized-profit axis here spans
+ * negatives, so normalize to the conventional "-$83.20". This only moves the
+ * sign — the magnitude ladders stay owned by the shared formatters.
+ */
+const signedMoney = (value: number, format: (n: number) => string): string =>
+  `${value < 0 ? '-' : ''}${format(Math.abs(value))}`;
 
 export interface DrawerPerformanceChartProps {
   widgetId: string;
@@ -118,71 +131,80 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     enabled: Boolean(actualBotId),
   });
 
-  // Determine bot type to map to BotTypesEnum for the profit chart API
+  // Determine bot type to map to BotTypesEnum for the by-id bot fetch
   const botType = botProp?.type || 'dca';
   const botTypeEnum =
     botType === 'combo'
       ? BotTypesEnum.combo
       : botType === 'grid'
         ? BotTypesEnum.grid
-        : BotTypesEnum.dca;
+        : botType === 'hedgeDca'
+          ? BotTypesEnum.hedgeDca
+          : botType === 'hedgeCombo'
+            ? BotTypesEnum.hedgeCombo
+            : BotTypesEnum.dca;
 
-  // Fetch profit chart data from dedicated API as fallback when stats.chart is empty
-  const { profitData: profitChartData } = useBotProfitChartData(
-    actualBotId ?? '',
-    botTypeEnum
-  );
+  // `stats.chart` is the ONLY series denominated in real currency, so it is the
+  // only thing this chart may plot. It normally rides on the bot object, but
+  // `dcaBotListFragment` strips `stats` from the DCA list payload
+  // (main-dash-sh 52dae4f, "slim dcaBotList payload") on the assumption that
+  // "the single-bot drawer path uses getDCABot" — which `useDrawerBot` only
+  // does for a bot that is MISSING from the list. An active DCA bot IS in the
+  // list, so it arrives with no `stats` at all; and nothing seeds
+  // `botStatsStore` until the socket pushes a `bot stats update` (next deal
+  // close), so `liveStats` is null on a fresh page load too. Fetch the bot by
+  // id in exactly that case — same authenticated `getDCABot` read
+  // `useDrawerBot` already uses, whose full fragment does carry `stats.chart`.
+  const { shareId } = useShareContext();
+  const listStats = (bot as DCABot)?.stats as BotStats | undefined;
+  const needsStatsFetch =
+    Boolean(actualBotId) && !hasChart(liveStats) && !hasChart(listStats);
+  const { bot: fetchedBot } = useSharedBot({
+    botId: actualBotId ?? '',
+    type: botTypeEnum,
+    shareId,
+    enabled: needsStatsFetch,
+  });
 
   // Chart visibility state - all enabled by default
   const [showEquity, setShowEquity] = useState(true);
   const [showProfit, setShowProfit] = useState(true);
   const [showBuyAndHold, setShowBuyAndHold] = useState(true);
 
-  // Generate chart data - use same data source as card for consistency
-  // Falls back to profitChartData API when stats.chart is insufficient
+  // Generate chart data - use same data source as card for consistency.
+  // Every source here is a `stats.chart` series, i.e. real currency. There is
+  // deliberately NO fallback to `getBotProfitChartData`: that endpoint stores
+  // a per-deal ROI *decimal fraction* (main-app dcaHelper.ts,
+  // `value: perc = deal.profit.total / (usage * multiplier)`), not an amount,
+  // so plotting it as equity/realized profit rendered a 1% deal as "$0.01".
+  // That series is already shown correctly, as a percentage, by the sibling
+  // "Deal Returns" widget (DrawerPnLScatterChart) directly below this one.
   const chartData = useMemo(() => {
     // The backend seeds the chart's `realizedProfit` at the starting balance and
     // accumulates realized PnL on top of it, so the series shares the equity
     // scale (a legacy single-axis trick). Recover the *true* realized profit by
     // removing that starting-balance offset; equity and buyAndHold are genuine
     // portfolio values and stay absolute, each on the left axis.
-    const startBalanceUsd =
-      liveStats?.numerical?.general?.startBalance?.usd ??
-      (bot as DCABot)?.stats?.numerical?.general?.startBalance?.usd ??
-      0;
+    //
+    // Take the series and the offset from the SAME stats object. Pairing one
+    // source's chart with another's (or with a missing one, which defaults to
+    // 0) subtracts the wrong seed and plots the starting balance itself as
+    // "realized profit" — off by the whole account size.
+    const stats =
+      [liveStats, listStats, (fetchedBot as DCABot | undefined)?.stats].find(
+        hasChart
+      ) ?? undefined;
 
-    const { source: chartSource, realizedOffset } = (() => {
-      if (Array.isArray(liveStats?.chart) && liveStats.chart.length > 1) {
-        return { source: liveStats.chart, realizedOffset: startBalanceUsd };
-      }
-      if (
-        Array.isArray((bot as DCABot)?.stats?.chart) &&
-        (bot as DCABot)?.stats?.chart?.length &&
-        ((bot as DCABot).stats?.chart.length ?? 0) > 1
-      ) {
-        return {
-          source: (bot as DCABot)?.stats?.chart,
-          realizedOffset: startBalanceUsd,
-        };
-      }
-      if (Array.isArray(initialChartData) && initialChartData.length > 0) {
-        return { source: initialChartData, realizedOffset: startBalanceUsd };
-      }
-      // Fallback: profitChartData returns pure per-deal values (already
-      // un-offset), so the starting-balance subtraction does not apply here.
-      if (Array.isArray(profitChartData) && profitChartData.length > 0) {
-        return {
-          source: profitChartData.map((p: BotProfitDataPoint) => ({
-            time: p.time,
-            equity: p.value,
-            realizedProfit: p.value,
-            buyAndHold: 0,
-          })),
-          realizedOffset: 0,
-        };
-      }
-      return { source: [], realizedOffset: 0 };
-    })();
+    const chartSource =
+      stats?.chart ??
+      (Array.isArray(initialChartData) && initialChartData.length > 0
+        ? initialChartData
+        : []);
+    // `initialChartData` is itself built from the list bot's `stats.chart`
+    // (drawerWidgetConfig.buildPerformanceChartProps), so `listStats` is the
+    // matching offset for it.
+    const realizedOffset =
+      (stats ?? listStats)?.numerical?.general?.startBalance?.usd ?? 0;
 
     const sanitized = (chartSource ?? [])
       .filter(
@@ -217,7 +239,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
       .sort((a: { time: number }, b: { time: number }) => a.time - b.time);
 
     return sanitized;
-  }, [bot, initialChartData, liveStats, profitChartData]);
+  }, [listStats, initialChartData, liveStats, fetchedBot]);
 
   const isPositiveProfit = useMemo(() => {
     if (typeof liveStats?.numerical?.profit?.grossProfit === 'number') {
@@ -415,9 +437,9 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                   tickLine={{ stroke: '#6b7280' }}
                   axisLine={{ stroke: '#6b7280' }}
                   tickFormatter={(value) =>
-                    privacyMode ? '***' : formatCurrency(value, 0)
+                    privacyMode ? '***' : signedMoney(value, formatCurrency)
                   }
-                  width={25}
+                  width={44}
                 />
                 <YAxis
                   yAxisId="profit"
@@ -434,9 +456,9 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     stroke: isPositiveProfit ? colors.success : colors.destructive,
                   }}
                   tickFormatter={(value) =>
-                    privacyMode ? '***' : formatCurrency(value, 0)
+                    privacyMode ? '***' : signedMoney(value, formatCurrency)
                   }
-                  width={28}
+                  width={44}
                 />
                 <Tooltip
                   content={
@@ -446,7 +468,10 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                           ? (value, name) => ['***', name] as const
                           : (value, name) =>
                               [
-                                formatCurrency(value as number, 2),
+                                signedMoney(
+                                  value as number,
+                                  formatPriceWithPrecision
+                                ),
                                 name,
                               ] as const
                       }
