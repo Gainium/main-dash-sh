@@ -17,7 +17,41 @@ export const COMMON_QUOTE_ASSETS = [
   'CAD',
   'GBP',
   'JPY',
+  // Stablecoins that are real quote assets on venues we support. They matter
+  // because `extractPairAssets` is the splitter behind `toExchangeCandleSymbol`,
+  // and that function now dashes by default for every exchange that is not
+  // explicitly compact-native — so a quote missing from this list means the
+  // concatenated symbol is handed to a dashed venue unconverted (the bug #153
+  // failure shape).
+  //
+  // ⚠️ Only 4-char quotes whose tail is NOT itself a listed quote are safe to
+  // add. `RLUSD` and `FDUSD` were tried and REVERTED: they end in `USD`, so
+  // longest-first matching mis-split real listed pairs — prod holds
+  // `KRL-USD`@coinbase, `PRL-USD`@coinbase, `MERL-USD`@kraken/okx and
+  // `UFD-USD`@kraken, whose stored compact forms (`KRLUSD`, `MERLUSD`, …)
+  // became `K-RLUSD` / `ME-RLUSD` — worse than not converting at all. (RLUSD
+  // as a quote exists only on one Kraken pair; FDUSD only on compact venues
+  // where the splitter never runs — so dropping them costs nothing.)
+  //
+  // `USDE` is deliberately UPPERCASE despite Ethena branding it "USDe": the
+  // pairs collection, the venues' instrument ids and the archive keys all
+  // store `USDE`, and downstream lookups are case-sensitive.
+  'USDH',
+  'USDE',
+  'USDS',
+  'USDG',
 ] as const;
+
+// Suffix matching must try the LONGEST quote first, otherwise a short entry
+// shadows a longer one that shares its tail: `ETHFDUSD` would split as
+// `ETHFD`/`USD` because `USD` is checked before `FDUSD`, and `BTCUSDH` would
+// split as… nothing at all before `USDH` existed. Sorting is done here rather
+// than by reordering `COMMON_QUOTE_ASSETS` because that constant is also used
+// (in `utils/tradingView/factory.ts`) to generate symbol-search suggestions,
+// where the declared order is the presentation order.
+const QUOTE_ASSETS_LONGEST_FIRST: readonly string[] = [
+  ...COMMON_QUOTE_ASSETS,
+].sort((a, b) => b.length - a.length);
 
 /**
  * True when a pair carries a tokenized-stock ("xStock") wrapper on its base —
@@ -163,8 +197,11 @@ export const extractPairAssets = (symbol: string) => {
 
   const upperSymbol = symbol.toUpperCase();
 
-  for (const quote of COMMON_QUOTE_ASSETS) {
-    if (upperSymbol.endsWith(quote) && symbol.length > quote.length) {
+  for (const quote of QUOTE_ASSETS_LONGEST_FIRST) {
+    if (
+      upperSymbol.endsWith(quote.toUpperCase()) &&
+      symbol.length > quote.length
+    ) {
       return {
         baseAsset: symbol.slice(0, -quote.length).replace(/[-_]$/, ''),
         quoteAsset: quote,

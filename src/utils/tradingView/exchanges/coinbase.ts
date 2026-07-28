@@ -1,3 +1,5 @@
+import { ExchangeEnum } from '@/types';
+import { toExchangeCandleSymbol } from '@/utils/exchangeUtils';
 import type {
   ExchangeHandler,
   ExchangeConfig,
@@ -121,8 +123,18 @@ const subscribe = async (
       try {
         // Make a request to get the latest candles
         const url = new URL(`${import.meta.env.VITE_API_ENDPOINT}/candles`);
-        url.searchParams.set('exchange', 'coinbase');
-        url.searchParams.set('symbol', symbolInfo.name);
+        // Candles are public market data, so the poll deliberately keeps
+        // asking the real venue even for paper accounts (paperCoinbase and
+        // coinbase are conversion-identical anyway).
+        url.searchParams.set('exchange', ExchangeEnum.coinbase);
+        // Same dashed-native conversion the `requestCandles` chokepoint
+        // applies — Coinbase product ids are dashed ("BTC-USD") and the raw
+        // concatenated name comes back "ProductID is invalid", so every 30s
+        // poll silently failed and the chart never live-updated.
+        url.searchParams.set(
+          'symbol',
+          toExchangeCandleSymbol(ExchangeEnum.coinbase, symbolInfo.name)
+        );
         url.searchParams.set('type', interval);
         url.searchParams.set(
           'startAt',

@@ -144,85 +144,193 @@ export const normalizeBalanceAsset = (asset?: string | null): string => {
   return SPOT_BALANCE_ASSET_ALIASES[upper] ?? upper;
 };
 
-// Exchanges whose candle API expects the dashed native pair ("BTC-USDT")
-// rather than the concatenated form ("BTCUSDT") the app stores internally.
+// Candle-symbol wire form for EVERY `ExchangeEnum` member.
 //
-// - KuCoin **spot** ("BTC-USDT"). KuCoin futures (linear/inverse) use contract
-//   symbols and are intentionally excluded.
-// - Kraken **spot and futures** — Kraken's `/candles` backend rejects the
-//   concatenated form ("Unknown asset pair" on spot, "Bad Request" on
-//   krakenUsdm) and only resolves the dashed pair (`BTC-USDT`, `BTC-USD`). The
-//   legacy dashboard never hit this because it carried the dashed pair through;
-//   the redesign normalizes bot pairs to the concatenated form, so the dash has
-//   to be restored here. Paper variants are included because callers may pass an
-//   un-stripped exchange.
-const DASHED_CANDLE_SYMBOL_ENUM_SET = new Set<ExchangeEnum>([
-  ExchangeEnum.kucoin,
-  ExchangeEnum.paperKucoin,
-  ExchangeEnum.kraken,
-  ExchangeEnum.krakenSpot,
-  ExchangeEnum.krakenAll,
-  ExchangeEnum.krakenUsdm,
-  ExchangeEnum.paperKraken,
-  ExchangeEnum.paperKrakenSpot,
-  ExchangeEnum.paperKrakenAll,
-  ExchangeEnum.paperKrakenUsdm,
-  // OKX (spot + linear/inverse perps) and Coinbase also identify pairs with a
-  // dash ("BTC-USDT", "BTC-USD") — the candle API rejects the concatenated
-  // "BTCUSDT" form ("Instrument ID ... doesn't exist" / "ProductID is
-  // invalid"). Their absence here left the chart blank whenever a flow passed
-  // the concatenated pair (e.g. Hedge Combo create). Paper variants included
-  // for the same un-stripped-exchange reason as above.
-  ExchangeEnum.okx,
-  ExchangeEnum.okxLinear,
-  ExchangeEnum.okxInverse,
-  ExchangeEnum.okxSpot,
-  ExchangeEnum.okxAll,
-  ExchangeEnum.paperOkx,
-  ExchangeEnum.paperOkxLinear,
-  ExchangeEnum.paperOkxInverse,
-  ExchangeEnum.paperOkxSpot,
-  ExchangeEnum.paperOkxAll,
-  ExchangeEnum.coinbase,
-  ExchangeEnum.paperCoinbase,
-  // Hyperliquid (spot + linear perps) also identifies pairs with a dash
-  // ("BTC-USDC"). The concatenated "BTCUSDC" form reaches the connector's
-  // asset map as an unresolvable symbol, so every bot-form / backtest /
-  // market-stats candle request 500'd (bug #153: the market-archive backfill
-  // retried the fabricated coin against Hyperliquid for ~93s per request).
-  // Saved-bot charts never hit this because they carry the dashed pair
-  // through. Paper variants included for the same un-stripped-exchange
-  // reason as above.
-  ExchangeEnum.hyperliquid,
-  ExchangeEnum.hyperliquidLinear,
-  ExchangeEnum.hyperliquidAll,
-  ExchangeEnum.paperHyperliquid,
-  ExchangeEnum.paperHyperliquidLinear,
-  ExchangeEnum.paperHyperliquidAll,
-]);
+// HISTORY / RATIONALE — this used to be an *allowlist* of dashed exchanges
+// (`DASHED_CANDLE_SYMBOL_ENUM_SET`), i.e. "concatenated is the default, dash
+// only the venues we've been burned by". That default is backwards: every
+// venue we ever had to add (KuCoin spot, Kraken, OKX, Coinbase, Hyperliquid)
+// was added *after* a user-visible outage, because a missing entry fails
+// silently — the venue simply can't resolve the fabricated compact symbol and
+// the chart/backtest comes back blank (bug #153: Hyperliquid `BTCUSDC` sent a
+// market-archive backfill chasing a coin that doesn't exist, ~93s per
+// request). Dashed is also the majority form and what the platform's own
+// symbol codec calls canonical, so it is the safe default for any exchange we
+// add next.
+//
+// So the polarity is inverted: **dash by default**, and enumerate only the
+// venues whose candle API genuinely wants a NON-dashed string:
+//   • `compact` — the exchange-native concatenated pair, e.g. Binance/Bybit/
+//     Bitget/MEXC `BTCUSDT`, Bybit inverse `BTCUSD`. Dashing these is fatal:
+//     Binance klines answers -1121 "Invalid symbol", and the dashed string
+//     also misses every existing archive row (main-app keys the ClickHouse
+//     lookup on the raw symbol) and triggers a backfill for a symbol that
+//     does not exist.
+//   • `compact` also covers **contract-symbol** venues, where the connector
+//     re-encodes the compact pair into a contract id: KuCoin futures turns
+//     `BTCUSDT` into `XBTUSDTM`, so a dashed input yields the invalid
+//     `XBT-USDTM`; Binance COIN-M stores the raw dapi contract `BTCUSD_PERP`.
+//   • Pseudo-exchanges (`*All` / `*Spot` account-connection provider values,
+//     `ftx*`, `ManualBacktesting`) never reach a real candle API — the
+//     connector rejects them on the `exchange` param before the symbol is
+//     read. They are classified with their family so the flip is a no-op for
+//     them.
+//
+// The map is an exhaustive `Record<ExchangeEnum, …>` on purpose: adding a new
+// enum member is a COMPILE ERROR until it is classified, so a new exchange can
+// never silently inherit a wire form nobody checked.
+type CandleSymbolForm = 'compact' | 'dashed';
+
+const CANDLE_SYMBOL_FORM_BY_EXCHANGE: Record<ExchangeEnum, CandleSymbolForm> = {
+  // ---- Binance family — compact (`BTCUSDT`); COIN-M is a contract id ----
+  [ExchangeEnum.binance]: 'compact',
+  [ExchangeEnum.binanceUS]: 'compact',
+  [ExchangeEnum.binanceUsdm]: 'compact',
+  [ExchangeEnum.binanceCoinm]: 'compact',
+  [ExchangeEnum.binanceAll]: 'compact',
+  [ExchangeEnum.binanceSpot]: 'compact',
+  [ExchangeEnum.paperBinance]: 'compact',
+  [ExchangeEnum.paperBinanceUsdm]: 'compact',
+  [ExchangeEnum.paperBinanceCoinm]: 'compact',
+  [ExchangeEnum.paperBinanceAll]: 'compact',
+  [ExchangeEnum.paperBinanceSpot]: 'compact',
+
+  // ---- Bybit family — compact (linear `BTCUSDT`, inverse `BTCUSD`) ----
+  [ExchangeEnum.bybit]: 'compact',
+  [ExchangeEnum.bybitUsdm]: 'compact',
+  [ExchangeEnum.bybitCoinm]: 'compact',
+  [ExchangeEnum.bybitAll]: 'compact',
+  [ExchangeEnum.bybitSpot]: 'compact',
+  [ExchangeEnum.paperBybit]: 'compact',
+  [ExchangeEnum.paperBybitUsdm]: 'compact',
+  [ExchangeEnum.paperBybitCoinm]: 'compact',
+  [ExchangeEnum.paperBybitAll]: 'compact',
+  [ExchangeEnum.paperBybitSpot]: 'compact',
+
+  // ---- Bitget family — compact ----
+  [ExchangeEnum.bitget]: 'compact',
+  [ExchangeEnum.bitgetUsdm]: 'compact',
+  [ExchangeEnum.bitgetCoinm]: 'compact',
+  [ExchangeEnum.bitgetAll]: 'compact',
+  [ExchangeEnum.bitgetSpot]: 'compact',
+  [ExchangeEnum.paperBitget]: 'compact',
+  [ExchangeEnum.paperBitgetUsdm]: 'compact',
+  [ExchangeEnum.paperBitgetCoinm]: 'compact',
+  [ExchangeEnum.paperBitgetAll]: 'compact',
+  [ExchangeEnum.paperBitgetSpot]: 'compact',
+
+  // ---- MEXC — compact ----
+  [ExchangeEnum.mexc]: 'compact',
+  [ExchangeEnum.paperMexc]: 'compact',
+
+  // ---- KuCoin FUTURES — contract ids (`XBTUSDTM`); dashing is fatal ----
+  [ExchangeEnum.kucoinLinear]: 'compact',
+  [ExchangeEnum.kucoinInverse]: 'compact',
+  [ExchangeEnum.paperKucoinLinear]: 'compact',
+  [ExchangeEnum.paperKucoinInverse]: 'compact',
+
+  // ---- Dead / synthetic venues — kept compact so the flip is a no-op ----
+  [ExchangeEnum.ftx]: 'compact',
+  [ExchangeEnum.ftxUS]: 'compact',
+  [ExchangeEnum.paperFtx]: 'compact',
+  [ExchangeEnum.ManualBacktesting]: 'compact',
+
+  // ---- KuCoin SPOT — dashed (`BTC-USDT`) ----
+  [ExchangeEnum.kucoin]: 'dashed',
+  [ExchangeEnum.kucoinSpot]: 'dashed',
+  [ExchangeEnum.kucoinAll]: 'dashed',
+  [ExchangeEnum.paperKucoin]: 'dashed',
+  [ExchangeEnum.paperKucoinSpot]: 'dashed',
+  [ExchangeEnum.paperKucoinAll]: 'dashed',
+
+  // ---- OKX (spot + linear/inverse perps) — dashed instIds ----
+  [ExchangeEnum.okx]: 'dashed',
+  [ExchangeEnum.okxLinear]: 'dashed',
+  [ExchangeEnum.okxInverse]: 'dashed',
+  [ExchangeEnum.okxAll]: 'dashed',
+  [ExchangeEnum.okxSpot]: 'dashed',
+  [ExchangeEnum.paperOkx]: 'dashed',
+  [ExchangeEnum.paperOkxLinear]: 'dashed',
+  [ExchangeEnum.paperOkxInverse]: 'dashed',
+  [ExchangeEnum.paperOkxAll]: 'dashed',
+  [ExchangeEnum.paperOkxSpot]: 'dashed',
+
+  // ---- Coinbase — dashed product ids (`BTC-USD`) ----
+  [ExchangeEnum.coinbase]: 'dashed',
+  [ExchangeEnum.paperCoinbase]: 'dashed',
+
+  // ---- Hyperliquid (spot + linear perps) — dashed (`BTC-USDC`) ----
+  [ExchangeEnum.hyperliquid]: 'dashed',
+  [ExchangeEnum.hyperliquidLinear]: 'dashed',
+  [ExchangeEnum.hyperliquidAll]: 'dashed',
+  [ExchangeEnum.paperHyperliquid]: 'dashed',
+  [ExchangeEnum.paperHyperliquidLinear]: 'dashed',
+  [ExchangeEnum.paperHyperliquidAll]: 'dashed',
+
+  // ---- Kraken (spot + futures) — dashed (`BTC-USDT`, `BTC-USD`) ----
+  [ExchangeEnum.kraken]: 'dashed',
+  [ExchangeEnum.krakenAll]: 'dashed',
+  [ExchangeEnum.krakenSpot]: 'dashed',
+  [ExchangeEnum.krakenUsdm]: 'dashed',
+  [ExchangeEnum.krakenCoinm]: 'dashed',
+  [ExchangeEnum.paperKraken]: 'dashed',
+  [ExchangeEnum.paperKrakenAll]: 'dashed',
+  [ExchangeEnum.paperKrakenSpot]: 'dashed',
+  [ExchangeEnum.paperKrakenUsdm]: 'dashed',
+  [ExchangeEnum.paperKrakenCoinm]: 'dashed',
+};
+
+// The keep-list: exchanges whose candle symbol must be passed through
+// VERBATIM. Everything not in here (including an unrecognised / future
+// exchange string) is dashed.
+const COMPACT_CANDLE_SYMBOL_ENUM_SET = new Set<ExchangeEnum>(
+  (Object.keys(CANDLE_SYMBOL_FORM_BY_EXCHANGE) as ExchangeEnum[]).filter(
+    (exchange) => CANDLE_SYMBOL_FORM_BY_EXCHANGE[exchange] === 'compact'
+  )
+);
 
 /**
  * Convert our normalized concatenated pair (e.g. "BTCUSDT") into the symbol an
- * exchange's candle API expects. KuCoin spot, Kraken (spot + futures), OKX,
- * Coinbase and Hyperliquid identify pairs with a dash ("BTC-USDT");
- * Binance/Bybit/etc. use the concatenated form natively and pass through
- * unchanged, as do symbols that already carry a separator.
+ * exchange's candle API expects.
+ *
+ * Dashed (`BTC-USDT`) is the DEFAULT — it is the canonical platform form and
+ * what most venues (KuCoin spot, Kraken, OKX, Coinbase, Hyperliquid, and any
+ * exchange added in future) require. Only the venues enumerated as `compact`
+ * in `CANDLE_SYMBOL_FORM_BY_EXCHANGE` — the Binance / Bybit / Bitget / MEXC
+ * families plus the contract-symbol markets (KuCoin futures, Binance COIN-M) —
+ * pass through unchanged, as do symbols that already carry a separator.
  *
  * Applied at the single `requestCandles` chokepoint so every candle consumer
- * (chart, backtest, market-stats / quick-panel risk calc, …) is covered.
+ * (chart, backtest, market-stats / quick-panel risk calc, …) is covered, plus
+ * the handful of live-update subscriptions that build their own requests.
  */
 export const toExchangeCandleSymbol = (
   exchange: ExchangeEnum | string | null | undefined,
   symbol: string
 ): string => {
-  if (
-    !DASHED_CANDLE_SYMBOL_ENUM_SET.has(exchange as ExchangeEnum) ||
-    symbol.includes('-')
-  ) {
+  // Already exchange-native (dashed, or an xStock like `AAPLx-USD`, or an
+  // OKX/HIP-3 multi-segment id) — never re-split it.
+  if (symbol.includes('-')) {
+    return symbol;
+  }
+  if (COMPACT_CANDLE_SYMBOL_ENUM_SET.has(exchange as ExchangeEnum)) {
     return symbol;
   }
   const { baseAsset, quoteAsset } = extractPairAssets(symbol);
-  return baseAsset && quoteAsset ? `${baseAsset}-${quoteAsset}` : symbol;
+  if (baseAsset && quoteAsset) {
+    return `${baseAsset}-${quoteAsset}`;
+  }
+  // Unsplittable on a dashed venue: the quote is not in COMMON_QUOTE_ASSETS.
+  // Ship the input unchanged (prior behavior) but say so — silent
+  // passthrough here is exactly how bug #153 stayed invisible for weeks.
+  // Callers with pair metadata in scope should pass the native
+  // `pairMetadata[key].pair` instead of relying on this heuristic.
+  console.warn(
+    `[toExchangeCandleSymbol] Cannot derive the dashed pair for "${symbol}" on ${String(
+      exchange
+    )} — quote not in COMMON_QUOTE_ASSETS; sending unconverted.`
+  );
+  return symbol;
 };
 
 // Providers that do NOT support the "ignore fee" toggle (mirrors legacy `showZeroFee`).

@@ -15,6 +15,40 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   removes the snapshot's cross-exchange no-op write storm). "Refresh all"
   keeps the full refresh.
 
+## [2.38.24] - 2026-07-28
+
+### Fixed
+
+- Charts, backtests and market stats now request each exchange's **native**
+  pair symbol by default. Previously only a hand-maintained list of venues got
+  the dashed pair (`BTC-USDT`) and everything else was sent the concatenated
+  form; a venue missing from that list simply returned nothing, so the chart
+  or backtest came back blank with no error. The rule is inverted: the dashed
+  native pair is the default and only the venues that genuinely use the
+  concatenated or contract form (Binance, Bybit, Bitget, MEXC, KuCoin futures,
+  Binance COIN-M) are exempt. Newly added exchanges are now correct on day one
+  instead of after an outage. This also fixes KuCoin spot (`kucoinSpot` /
+  `kucoinAll`) and Kraken inverse futures pairs, which were never on the old
+  list. When a symbol cannot be converted, a console warning now says so
+  instead of failing silently.
+- Coinbase charts now live-update again: the 30-second refresh polled with the
+  concatenated pair, which Coinbase rejects as an invalid product id, so the
+  last candle never moved after the initial load.
+- KuCoin spot charts now live-tick: the websocket subscription asked for a
+  symbol the exchange doesn't publish, so bars only updated on reload.
+- OKX charts now live-tick with the RIGHT market's prices: the subscription
+  both used a symbol OKX doesn't publish and — for perpetual accounts —
+  resolved to the spot instrument; perp charts now subscribe to the `-SWAP`
+  instrument.
+- Server-side backtests on dashed-pair exchanges (Hyperliquid, Kraken, OKX,
+  Coinbase, KuCoin spot) now find their candles. The pair sent to the
+  backtester is taken from the exchange's own pair metadata (preserving
+  case-sensitive symbols like Kraken's tokenized stocks `AAPLx-USD` and
+  irregular ids like OKX's `BTC-USD_UM_XPERP`), falling back to the chart's
+  converter only when metadata is missing.
+- Pair splitting recognises the `USDH`, `USDE`, `USDS` and `USDG` quotes and
+  always matches the longest quote first.
+
 ## [2.38.21] - 2026-07-28
 
 ### Fixed

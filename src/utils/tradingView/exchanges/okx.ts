@@ -1,3 +1,5 @@
+import { ExchangeEnum } from '@/types';
+import { toExchangeCandleSymbol } from '@/utils/exchangeUtils';
 import type {
   ExchangeHandler,
   ExchangeConfig,
@@ -113,11 +115,32 @@ const convertOKXInterval = (interval: string): string => {
   return intervalMap[interval] || 'candle1m';
 };
 
-// Market type detection for OKX
+// Market type detection for OKX. `symbolInfo.exchange` arrives UPPER-CASED
+// ("OKXLINEAR"), so the check must be case-insensitive — the old
+// `exchange.includes('linear')` never matched and every perp chart was
+// treated as spot.
 const getOKXMarketType = (exchange?: string): 'spot' | 'linear' => {
-  if (!exchange) return 'spot';
-  if (exchange.includes('linear')) return 'linear';
+  const normalized = (exchange ?? '').toLowerCase();
+  if (normalized.includes('linear') || normalized.includes('inverse')) {
+    return 'linear';
+  }
   return 'spot';
+};
+
+// `symbolInfo.exchange` carries the upper-cased enum value (e.g. "OKXLINEAR",
+// "PAPEROKX"); map it back to the real enum so the symbol is converted for the
+// right market. Local instead of the factory's `mapStringToExchange` to avoid a
+// module cycle (factory imports handlers). Mirrors hyperliquid.ts.
+const toExchangeParam = (symbolInfoExchange?: string): ExchangeEnum => {
+  const normalized = (symbolInfoExchange ?? '').toLowerCase();
+  const paper = normalized.startsWith('paper');
+  if (normalized.includes('inverse')) {
+    return paper ? ExchangeEnum.paperOkxInverse : ExchangeEnum.okxInverse;
+  }
+  if (normalized.includes('linear')) {
+    return paper ? ExchangeEnum.paperOkxLinear : ExchangeEnum.okxLinear;
+  }
+  return paper ? ExchangeEnum.paperOkx : ExchangeEnum.okx;
 };
 
 // WebSocket subscription management
@@ -137,6 +160,28 @@ const subscribe = async (
     const marketType = getOKXMarketType(symbolInfo.exchange);
     const wsUrl = config.websocketUrls?.[marketType];
     const okxChannel = convertOKXInterval(interval);
+    // OKX instIds are dashed ("BTC-USDT") but the app carries pairs
+    // concatenated ("BTCUSDT"), so the raw name subscribed to an instrument
+    // OKX doesn't know and the chart never live-ticked. Same dashed-native
+    // conversion the `requestCandles` chokepoint applies; converted once so
+    // the subscribe arg and the message filter can never disagree.
+    //
+    // Perpetuals: OKX's WS candle channel identifies perps as
+    // "BTC-USDT-SWAP" — subscribing the bare "BTC-USDT" on an okxLinear /
+    // okxInverse chart would tick with SPOT prices. Our pair form omits the
+    // suffix, so append it for perp markets (skip dated futures and ids that
+    // already carry a segment, e.g. "BTC-USD_UM_XPERP" or "…-SWAP").
+    const exchangeEnum = toExchangeParam(symbolInfo.exchange);
+    const dashedId = toExchangeCandleSymbol(exchangeEnum, symbolInfo.name);
+    const isPerpMarket =
+      exchangeEnum === ExchangeEnum.okxLinear ||
+      exchangeEnum === ExchangeEnum.paperOkxLinear ||
+      exchangeEnum === ExchangeEnum.okxInverse ||
+      exchangeEnum === ExchangeEnum.paperOkxInverse;
+    const instId =
+      isPerpMarket && !dashedId.includes('-SWAP') && !dashedId.includes('_')
+        ? `${dashedId}-SWAP`
+        : dashedId;
 
     const ws = new WebSocket(wsUrl ?? '');
 
@@ -147,7 +192,7 @@ const subscribe = async (
         args: [
           {
             channel: okxChannel,
-            instId: symbolInfo.name,
+            instId,
           },
         ],
       };
@@ -160,7 +205,7 @@ const subscribe = async (
 
         if (
           data.arg?.channel === okxChannel &&
-          data.arg?.instId === symbolInfo.name &&
+          data.arg?.instId === instId &&
           data.data
         ) {
           const klineData = data.data[0];

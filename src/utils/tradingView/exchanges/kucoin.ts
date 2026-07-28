@@ -1,3 +1,5 @@
+import { ExchangeEnum } from '@/types';
+import { toExchangeCandleSymbol } from '@/utils/exchangeUtils';
 import {
   type ExchangeHandler,
   type Bar,
@@ -48,6 +50,23 @@ const convertCandleKucoin = (c: string[]): Bar => {
   };
 };
 
+// This handler is registered for the whole KuCoin family (spot, futures and
+// the `*All`/`*Spot` pseudo-exchanges), but `/market/candles:` is the KuCoin
+// **spot** public WS channel, whose topic uses the dashed native symbol
+// ("BTC-USDT"). The app carries pairs concatenated ("BTCUSDT"), so the raw
+// name subscribed to a topic KuCoin never publishes and the chart never
+// live-ticked. Futures use contract ids (`XBTUSDTM`) on a different channel
+// entirely — that path is left exactly as it was rather than half-fixed here.
+const isKucoinFutures = (symbolInfoExchange?: string): boolean => {
+  const normalized = (symbolInfoExchange ?? '').toLowerCase();
+  return normalized.includes('linear') || normalized.includes('inverse');
+};
+
+const toKucoinWireSymbol = (symbolInfo: LibrarySymbolInfo): string =>
+  isKucoinFutures(symbolInfo.exchange)
+    ? symbolInfo.name
+    : toExchangeCandleSymbol(ExchangeEnum.kucoin, symbolInfo.name);
+
 // Create KuCoin WebSocket connection
 const createKucoinWebSocket = async (
   symbolInfo: LibrarySymbolInfo,
@@ -60,6 +79,10 @@ const createKucoinWebSocket = async (
   const wsUrl = tokenData.url;
 
   const ws = new WebSocket(wsUrl);
+
+  // Converted once so the subscribe topic and the message filter can never
+  // disagree.
+  const wireSymbol = toKucoinWireSymbol(symbolInfo);
 
   // Set up ping interval variable
   let pingInterval: NodeJS.Timeout | undefined;
@@ -94,7 +117,7 @@ const createKucoinWebSocket = async (
         const subscribeMessage = {
           id: Date.now().toString(),
           type: 'subscribe',
-          topic: `/market/candles:${symbolInfo.name}_${kucoinResolution}`,
+          topic: `/market/candles:${wireSymbol}_${kucoinResolution}`,
           privateChannel: false,
           response: true,
         };
@@ -106,7 +129,7 @@ const createKucoinWebSocket = async (
       ) {
         // Handle kline updates
         const data = message.data as WSKlinesUpdate['data'];
-        if (data && data.candles && data.symbol === symbolInfo.name) {
+        if (data && data.candles && data.symbol === wireSymbol) {
           const bar = convertCandleKucoin(data.candles);
           onTick(bar);
         }
