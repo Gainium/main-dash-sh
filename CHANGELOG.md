@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.25] - 2026-07-28
+
+### Fixed
+
+- Tables no longer re-render each other. Every table shared a single
+  preferences subscription, so changing the rows-per-page, view mode, sorting,
+  search or column layout on one table re-rendered every other table on the
+  page. Pages that stack several tables (bot view, portfolio, trading) now
+  only redraw the table you actually touched. A table's own preference change
+  also no longer hands its toolbar and controls a fresh set of callbacks,
+  which was defeating their memoisation. Nothing changes about what is
+  persisted or restored.
+
 ## [2.38.23] - 2026-07-28
 
 ### Fixed

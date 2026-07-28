@@ -6,6 +6,7 @@ import type {
 import { useCallback, useMemo } from 'react';
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
+import { useShallow } from 'zustand/react/shallow';
 
 // Interface for table preferences
 export interface TablePreferences {
@@ -306,8 +307,19 @@ export const useTablePreferences = (
   defaultSorting?: SortingState,
   defaultColumnFilters?: ColumnFiltersState
 ) => {
+  // Subscribe to THIS table's slice only. Calling the store with no selector
+  // subscribes to the whole `preferences` map, so a pref write for ANY other
+  // tableId (every table on the page shares this store) produced a new root
+  // object and re-rendered every mounted DataTable — e.g. changing the page
+  // size on one table re-rendered all the others. `preferences[tableId]` keeps
+  // its reference when another table is written, so those tables now stay put.
+  const tablePreferences = useTablePreferencesStore(
+    (state) => state.preferences[tableId]
+  );
+
+  // Actions are created once by `create()` and never replaced, so this
+  // shallow-compared selector never fires an update.
   const {
-    preferences,
     setColumnOrder,
     setColumnVisibility,
     setColumnWidths,
@@ -318,11 +330,19 @@ export const useTablePreferences = (
     setColumnFilters,
     setGlobalFilter,
     resetPreferences,
-  } = useTablePreferencesStore();
-
-  const tablePreferences = useMemo(
-    () => preferences[tableId],
-    [preferences, tableId]
+  } = useTablePreferencesStore(
+    useShallow((state) => ({
+      setColumnOrder: state.setColumnOrder,
+      setColumnVisibility: state.setColumnVisibility,
+      setColumnWidths: state.setColumnWidths,
+      setPinnedColumns: state.setPinnedColumns,
+      setPagination: state.setPagination,
+      setViewMode: state.setViewMode,
+      setSorting: state.setSorting,
+      setColumnFilters: state.setColumnFilters,
+      setGlobalFilter: state.setGlobalFilter,
+      resetPreferences: state.resetPreferences,
+    }))
   );
 
   const defOrder = useMemo(
@@ -380,17 +400,14 @@ export const useTablePreferences = (
     };
   }, [tablePreferences?.pinnedColumns, defPinnedColumns]);
 
-  const result = useMemo(
+  // The tableId-bound setters depend only on the tableId and the (permanent)
+  // store actions — never on the persisted VALUES. Memoising them separately
+  // from `result` keeps their identities stable when this table's own prefs
+  // change; folding them into the value memo below handed every consumer ten
+  // fresh callbacks on each write, invalidating the downstream `useCallback`s
+  // and `React.memo` boundaries in DataTableComponent that close over them.
+  const setters = useMemo(
     () => ({
-      columnOrder: tablePreferences?.columnOrder ?? defOrder,
-      columnVisibility: tablePreferences?.columnVisibility ?? defVisibility,
-      columnWidths: tablePreferences?.columnWidths ?? defColumnWidth,
-      pinnedColumns: mergedPinnedColumns,
-      pagination: tablePreferences?.pagination ?? defPagination,
-      viewMode: tablePreferences?.viewMode ?? defViewMode,
-      sorting: tablePreferences?.sorting ?? defSorting,
-      columnFilters: tablePreferences?.columnFilters ?? defFilters,
-      globalFilter: tablePreferences?.globalFilter ?? '',
       setColumnOrder: (order: string[]) => setColumnOrder(tableId, order),
       setColumnVisibility: (visibility: VisibilityState) =>
         setColumnVisibility(tableId, visibility),
@@ -409,14 +426,6 @@ export const useTablePreferences = (
     }),
     [
       tableId,
-      defOrder,
-      defColumnWidth,
-      defFilters,
-      defPagination,
-      defViewMode,
-      mergedPinnedColumns,
-      defSorting,
-      defVisibility,
       setColumnOrder,
       setColumnVisibility,
       setColumnWidths,
@@ -426,6 +435,33 @@ export const useTablePreferences = (
       setSorting,
       setColumnFilters,
       setGlobalFilter,
+      resetPreferences,
+    ]
+  );
+
+  const result = useMemo(
+    () => ({
+      columnOrder: tablePreferences?.columnOrder ?? defOrder,
+      columnVisibility: tablePreferences?.columnVisibility ?? defVisibility,
+      columnWidths: tablePreferences?.columnWidths ?? defColumnWidth,
+      pinnedColumns: mergedPinnedColumns,
+      pagination: tablePreferences?.pagination ?? defPagination,
+      viewMode: tablePreferences?.viewMode ?? defViewMode,
+      sorting: tablePreferences?.sorting ?? defSorting,
+      columnFilters: tablePreferences?.columnFilters ?? defFilters,
+      globalFilter: tablePreferences?.globalFilter ?? '',
+      ...setters,
+    }),
+    [
+      defOrder,
+      defColumnWidth,
+      defFilters,
+      defPagination,
+      defViewMode,
+      mergedPinnedColumns,
+      defSorting,
+      defVisibility,
+      setters,
       tablePreferences?.globalFilter,
       tablePreferences?.columnOrder,
       tablePreferences?.columnVisibility,
@@ -434,7 +470,6 @@ export const useTablePreferences = (
       tablePreferences?.sorting,
       tablePreferences?.columnFilters,
       tablePreferences?.columnWidths,
-      resetPreferences,
     ]
   );
 
