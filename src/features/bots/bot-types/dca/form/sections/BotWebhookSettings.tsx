@@ -108,7 +108,14 @@ export const BotWebhookSettings: React.FC = () => {
   );
 
   const webhookUrl = React.useMemo(() => generateWebhookUrl(), []);
-  const resolvedBotId = botId ?? bot?._id ?? 'YOUR_BOT_UUID';
+  // The trade_signal endpoint resolves the bot by its `uuid` field, NOT by the
+  // Mongo `_id` the route param carries (main-app webhookProcess does
+  // `dcaBotDb.readData({ uuid })`). Legacy main-dash has always emitted
+  // `bot.uuid` here — emitting `_id` produces payloads that silently match no
+  // bot.
+  const resolvedBotUuid = bot?.uuid ?? 'YOUR_BOT_UUID';
+  const missingBotUuid = !bot?.uuid;
+  // Outgoing webhooks are persisted through the bot API, which keys off `_id`.
   const missingBotId = !botId && !bot?._id;
 
   const [sampleBase, sampleQuote] = React.useMemo(() => {
@@ -173,7 +180,7 @@ export const BotWebhookSettings: React.FC = () => {
       {
         title: 'Start bot',
         payload: JSON.stringify(
-          { action: 'startBot', uuid: resolvedBotId },
+          { action: 'startBot', uuid: resolvedBotUuid },
           null,
           2
         ),
@@ -182,7 +189,7 @@ export const BotWebhookSettings: React.FC = () => {
       {
         title: 'Stop bot',
         payload: JSON.stringify(
-          { action: 'stopBot', uuid: resolvedBotId, closeType: stopCloseType },
+          { action: 'stopBot', uuid: resolvedBotUuid, closeType: stopCloseType },
           null,
           2
         ),
@@ -212,7 +219,7 @@ export const BotWebhookSettings: React.FC = () => {
     dealPayloads.push({
       title: 'Open deal for all symbols',
       payload: JSON.stringify(
-        { action: 'startDeal', uuid: resolvedBotId },
+        { action: 'startDeal', uuid: resolvedBotUuid },
         null,
         2
       ),
@@ -223,7 +230,7 @@ export const BotWebhookSettings: React.FC = () => {
     dealPayloads.push({
       title: 'Close deal for all symbols',
       payload: JSON.stringify(
-        { action: 'closeDeal', uuid: resolvedBotId },
+        { action: 'closeDeal', uuid: resolvedBotUuid },
         null,
         2
       ),
@@ -235,7 +242,7 @@ export const BotWebhookSettings: React.FC = () => {
     dealPayloads.push({
       title: 'Close deal by SL for all symbols',
       payload: JSON.stringify(
-        { action: 'closeDealSl', uuid: resolvedBotId },
+        { action: 'closeDealSl', uuid: resolvedBotUuid },
         null,
         2
       ),
@@ -248,7 +255,7 @@ export const BotWebhookSettings: React.FC = () => {
       dealPayloads.push({
         title: 'Open deal for symbol (example)',
         payload: JSON.stringify(
-          { action: 'startDeal', uuid: resolvedBotId, symbol: sampleSymbol },
+          { action: 'startDeal', uuid: resolvedBotUuid, symbol: sampleSymbol },
           null,
           2
         ),
@@ -260,7 +267,7 @@ export const BotWebhookSettings: React.FC = () => {
       dealPayloads.push({
         title: 'Close deal for symbol (example)',
         payload: JSON.stringify(
-          { action: 'closeDeal', uuid: resolvedBotId, symbol: sampleSymbol },
+          { action: 'closeDeal', uuid: resolvedBotUuid, symbol: sampleSymbol },
           null,
           2
         ),
@@ -272,7 +279,7 @@ export const BotWebhookSettings: React.FC = () => {
       dealPayloads.push({
         title: 'Close deal by SL for symbol (example)',
         payload: JSON.stringify(
-          { action: 'closeDealSl', uuid: resolvedBotId, symbol: sampleSymbol },
+          { action: 'closeDealSl', uuid: resolvedBotUuid, symbol: sampleSymbol },
           null,
           2
         ),
@@ -287,7 +294,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'addFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'base',
           qty: addQty,
           symbol: sampleSymbol,
@@ -323,7 +330,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'addFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'quote',
           qty: addQty,
           type: addQtyType,
@@ -358,7 +365,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'addFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'quote',
           qty: addQty,
           symbol: sampleSymbol,
@@ -394,7 +401,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'reduceFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'base',
           qty: reduceQty,
           symbol: sampleSymbol,
@@ -430,7 +437,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'reduceFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'quote',
           qty: reduceQty,
           type: reduceQtyType,
@@ -465,7 +472,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'reduceFunds',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           asset: 'quote',
           qty: reduceQty,
           symbol: sampleSymbol,
@@ -504,7 +511,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'changePairs',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           pairsToSet: [targetSymbol],
           pairsToSetMode: 'replace',
         },
@@ -529,7 +536,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'changePairs',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           pairsToSet: [targetSymbol],
           pairsToSetMode: 'add',
         },
@@ -554,7 +561,7 @@ export const BotWebhookSettings: React.FC = () => {
       payload: JSON.stringify(
         {
           action: 'changePairs',
-          uuid: resolvedBotId,
+          uuid: resolvedBotUuid,
           pairsToSet: [targetSymbol],
           pairsToSetMode: 'remove',
         },
@@ -797,7 +804,7 @@ export const BotWebhookSettings: React.FC = () => {
               <Badge variant={isPaper ? 'outline' : 'default'}>
                 {isPaper ? 'Paper trading' : 'Live trading'}
               </Badge>
-              <Badge variant="secondary">Bot ID: {resolvedBotId}</Badge>
+              <Badge variant="secondary">Bot UUID: {resolvedBotUuid}</Badge>
             </div>
           </div>
         </CardHeader>
@@ -847,10 +854,10 @@ export const BotWebhookSettings: React.FC = () => {
               </a>
             </Button>
           </div>
-          {missingBotId ? (
+          {missingBotUuid ? (
             <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
               <AlertTitle className="text-sm font-semibold">
-                Bot ID required
+                Bot UUID required
               </AlertTitle>
               <AlertDescription className="text-xs sm:text-sm">
                 Save the bot first to generate a persistent identifier. Webhook

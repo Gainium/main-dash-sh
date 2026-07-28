@@ -114,7 +114,8 @@ const OUTGOING_VARIABLES = [
 // --- Incoming Action Item ---
 interface IncomingActionItemProps {
   availability: WebhookActionAvailability;
-  botId: string;
+  /** The bot's `uuid` field — what trade_signal matches on, NOT the Mongo `_id`. */
+  botUuid: string;
   botSymbol: string;
   allBotSymbols: string[];
   isMulti: boolean;
@@ -125,7 +126,7 @@ interface IncomingActionItemProps {
 
 const IncomingActionItem: React.FC<IncomingActionItemProps> = ({
   availability,
-  botId,
+  botUuid,
   botSymbol: defaultSymbol,
   allBotSymbols,
   isMulti,
@@ -169,18 +170,18 @@ const IncomingActionItem: React.FC<IncomingActionItemProps> = ({
       case WebhookActionEnum.start:
       case WebhookActionEnum.close:
       case WebhookActionEnum.closeSl:
-        return generateWebhookPayload(action, botId, {
+        return generateWebhookPayload(action, botUuid, {
           ...(isMulti ? { symbol: selectedSymbol } : {}),
         });
 
       case WebhookActionEnum.stopBot:
-        return generateWebhookPayload(action, botId, {
+        return generateWebhookPayload(action, botUuid, {
           closeType: selectedCloseType,
         });
 
       case WebhookActionEnum.addFunds:
       case WebhookActionEnum.reduceFunds:
-        return generateWebhookPayload(action, botId, {
+        return generateWebhookPayload(action, botUuid, {
           asset: selectedAsset,
           qty: selectedQty || 'X',
           type: selectedType,
@@ -188,19 +189,19 @@ const IncomingActionItem: React.FC<IncomingActionItemProps> = ({
         });
 
       case WebhookActionEnum.changePairs:
-        return generateWebhookPayload(action, botId, {
+        return generateWebhookPayload(action, botUuid, {
           pairsToSet: [selectedSymbol],
           pairsToSetMode: selectedPairsMode,
         });
 
       default:
-        return generateWebhookPayload(action, botId, {
+        return generateWebhookPayload(action, botUuid, {
           ...(isMulti ? { symbol: selectedSymbol } : {}),
         });
     }
   }, [
     action,
-    botId,
+    botUuid,
     isMulti,
     selectedSymbol,
     selectedAsset,
@@ -935,7 +936,7 @@ export const DrawerWebhookInfo: React.FC<DrawerWebhookInfoProps> = ({
                   <IncomingActionItem
                     key={avail.action}
                     availability={avail}
-                    botId={bot._id}
+                    botUuid={bot.uuid}
                     botSymbol={botSymbol}
                     allBotSymbols={allBotSymbols}
                     isMulti={!!webhookOptions.multi}

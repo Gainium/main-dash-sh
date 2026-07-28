@@ -160,7 +160,7 @@ export const WebhookConfigurationModal: React.FC<
 
     const payloads: Record<string, WebhookPayload> = {};
     availableActions.forEach((action) => {
-      const basePayload = generateWebhookPayload(action, bot._id);
+      const basePayload = generateWebhookPayload(action, bot.uuid);
       payloads[action] = basePayload;
 
       // Add symbol-specific examples for relevant actions
@@ -171,7 +171,7 @@ export const WebhookConfigurationModal: React.FC<
           WebhookActionEnum.closeSl,
         ].includes(action)
       ) {
-        payloads[`${action}_symbol`] = generateWebhookPayload(action, bot._id, {
+        payloads[`${action}_symbol`] = generateWebhookPayload(action, bot.uuid, {
           symbol: botSymbol,
         });
       }
@@ -182,7 +182,7 @@ export const WebhookConfigurationModal: React.FC<
           action
         )
       ) {
-        payloads[`${action}_quote`] = generateWebhookPayload(action, bot._id, {
+        payloads[`${action}_quote`] = generateWebhookPayload(action, bot.uuid, {
           asset: 'quote',
           symbol: botSymbol,
         });
@@ -299,10 +299,10 @@ export const WebhookConfigurationModal: React.FC<
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-md">
                   <div>
                     <span className="text-sm text-muted-foreground">
-                      Bot ID:
+                      Bot UUID:
                     </span>
                     <div className="font-mono bg-muted px-2 py-1 rounded mt-1 break-all text-xs sm:text-sm">
-                      {bot._id}
+                      {bot.uuid}
                     </div>
                   </div>
                   <div>

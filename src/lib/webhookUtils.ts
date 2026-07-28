@@ -25,15 +25,19 @@ export function generateWebhookUrl(): string {
 
 /**
  * Generate webhook payload for a specific action - matching main-dash schema exactly
+ *
+ * `botUuid` MUST be the bot's `uuid` field, not its Mongo `_id`: main-app's
+ * webhookProcess resolves the target with `readData({ uuid })`, so a payload
+ * carrying `_id` matches no bot and the signal is silently dropped.
  */
 export function generateWebhookPayload(
   action: WebhookActionEnum,
-  botId: string,
+  botUuid: string,
   options: WebhookPayloadOptions = {}
 ): WebhookPayload {
   const basePayload: WebhookPayload = {
     action,
-    uuid: botId,
+    uuid: botUuid,
   };
 
   switch (action) {

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.19] - 2026-07-28
+
+### Fixed
+
+- Webhook payloads in the bot editor, the bot drawer and the webhook
+  configuration modal now carry the bot's real webhook UUID instead of its
+  internal database id. Copying a sample payload and firing it at
+  `/trade_signal` previously matched no bot, so the signal was silently
+  ignored — start/stop bot, open/close deal, add/reduce funds and change pairs
+  all did nothing. The legacy dashboard always sent the correct value.
+
 ## [2.38.18] - 2026-07-28
 
 ### Fixed
