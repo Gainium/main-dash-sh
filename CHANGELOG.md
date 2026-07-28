@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.21] - 2026-07-28
+
+### Fixed
+
+- Accounts with no saved dashboards no longer log "Failed to initialize
+  default widgets" (twice, via StrictMode) on /dashboard: the small-screen
+  (sm/xs/xxs) default layouts still referenced the removed
+  `technical-indicator-heatmap` widget, and hitting it aborted default-widget
+  setup for the whole page. The dead entry is gone, and the default /
+  screen-adjusted layout builders now skip widget types not registered in the
+  current build (e.g. cloud-only widgets on self-hosted) — same policy as
+  dashboard templates — instead of failing outright.
+
 ## [2.38.20] - 2026-07-28
 
 ### Fixed

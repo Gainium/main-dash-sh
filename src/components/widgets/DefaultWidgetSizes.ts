@@ -288,7 +288,6 @@ export const BREAKPOINT_CONFIGURATIONS: BreakpointConfigurations = {
       { type: 'latest-orders', title: 'Latest Orders' },
       // New default
       { type: 'fear-greed-index', title: 'Fear & Greed' },
-      { type: 'technical-indicator-heatmap', title: 'Technical Indicators' },
     ],
     defaultTradingWidgets: [{ type: 'trading-chart', title: 'Trading Chart' }],
   },
@@ -359,7 +358,6 @@ export const BREAKPOINT_CONFIGURATIONS: BreakpointConfigurations = {
       { type: 'latest-orders', title: 'Latest Orders' },
       // New default
       { type: 'fear-greed-index', title: 'Fear & Greed' },
-      { type: 'technical-indicator-heatmap', title: 'Technical Indicators' },
     ],
     defaultTradingWidgets: [{ type: 'trading-chart', title: 'Trading Chart' }],
   },
@@ -430,7 +428,6 @@ export const BREAKPOINT_CONFIGURATIONS: BreakpointConfigurations = {
       { type: 'latest-orders', title: 'Latest Orders' },
       // New default
       { type: 'fear-greed-index', title: 'Fear & Greed' },
-      { type: 'technical-indicator-heatmap', title: 'Technical Indicators' },
     ],
     defaultTradingWidgets: [{ type: 'trading-chart', title: 'Trading Chart' }],
   },

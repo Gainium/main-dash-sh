@@ -6,6 +6,7 @@ import { devtools, persist } from 'zustand/middleware';
 import { tidyLayout } from '../components/layout/TidyLayoutEngine';
 import {
   getWidgetMetadata,
+  isWidgetTypeAvailable,
   type WidgetType,
 } from '../components/widgets/dashboard';
 import {
@@ -245,11 +246,13 @@ export const useDashboardStore = create<DashboardState>()(
             const containerWidth = window.innerWidth - 64; // Account for sidebar and padding
             const breakpoint = getCurrentBreakpoint(containerWidth);
 
-            // Get default widgets for current breakpoint
+            // Get default widgets for current breakpoint. Skip types not
+            // registered in the current build (e.g. cloud-only widgets on
+            // sh) — same policy as createDashboardFromTemplate.
             const defaultWidgetConfigs = getDefaultLayoutWidgetsByWidth(
               containerWidth,
               'dashboard'
-            );
+            ).filter((widgetConfig) => isWidgetTypeAvailable(widgetConfig.type));
 
             // Create widgets with proper layout data
             const createDefaultWidgets = () => {
@@ -722,11 +725,12 @@ export const useDashboardStore = create<DashboardState>()(
           // Check if current layout needs adjustment based on screen size
           let needsAdjustment = false;
 
-          // Also check if we need to add/remove widgets based on the current breakpoint
+          // Also check if we need to add/remove widgets based on the current
+          // breakpoint. Skip types not registered in the current build.
           const defaultWidgetConfigs = getDefaultLayoutWidgetsByWidth(
             containerWidth,
             'dashboard'
-          );
+          ).filter((widgetConfig) => isWidgetTypeAvailable(widgetConfig.type));
 
           const currentWidgetTypes = new Set(state.widgets.map((w) => w.type));
           const expectedWidgetTypes = new Set(
