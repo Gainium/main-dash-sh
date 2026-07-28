@@ -121,7 +121,9 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
         Number.isFinite(parsedBalance) &&
         parsedBalance > 0;
       if (didTopUp) {
-        await updateBalance.mutateAsync({});
+        // Only re-fetch the edited account's balances — a full all-exchange
+        // refresh here kept the dialog spinner up for the whole snapshot.
+        await updateBalance.mutateAsync({ uuid: exchangeData.uuid });
         toast.success('Balances updated successfully');
       }
 

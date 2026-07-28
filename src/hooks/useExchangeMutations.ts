@@ -67,6 +67,9 @@ export interface SetZeroFeeInput {
 // Update balance input
 export interface UpdateBalanceInput {
   skipSnapshot?: boolean | undefined;
+  // Refresh only this exchange's balances from the venue (snapshot totals
+  // still recompute server-side). Requires app >= 2.71.14 / app-sh core 1.37.6.
+  uuid?: string | undefined;
 }
 
 // Create exchange service factory

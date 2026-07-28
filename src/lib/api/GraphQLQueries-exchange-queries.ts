@@ -195,7 +195,10 @@ export const exchangeQueries = {
   },
 
   // Update balance query (note: this is a query, not a mutation)
-  updateBalance: (input?: { skipSnapshot?: boolean | undefined }) => {
+  updateBalance: (input?: {
+    skipSnapshot?: boolean | undefined;
+    uuid?: string | undefined;
+  }) => {
     const query = `query updateBalance($input: updateBalanceInput) {
                         updateBalance(input: $input) {
                             status

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.23] - 2026-07-28
+
+### Fixed
+
+- Paper top-up and the per-exchange balance refresh no longer hang for 30-40s:
+  both now ask the backend to re-fetch only the affected exchange (new
+  `updateBalance(uuid)` input; requires app-sh core >= 1.37.6, which also
+  removes the snapshot's cross-exchange no-op write storm). "Refresh all"
+  keeps the full refresh.
+
 ## [2.38.21] - 2026-07-28
 
 ### Fixed

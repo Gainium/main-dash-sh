@@ -112,9 +112,9 @@ export function useExchangeActions() {
     }
   };
 
-  // Update balance for specific exchange
-  // NOTE: The backend historically updates all balances; main-dash calls updateBalance without uuid
-  // so we follow the same approach to ensure the single-exchange refresh triggers an update.
+  // Update balance for specific exchange. Passing `uuid` makes the backend
+  // re-fetch only this exchange from the venue instead of every connected
+  // exchange (snapshot totals still recompute server-side).
   const updateExchangeBalance = async (exchange: ExchangeInUser) => {
     try {
       logger.info(
@@ -122,8 +122,8 @@ export function useExchangeActions() {
         exchange.uuid
       );
       await updateBalance.mutateAsync({
-        // Intentionally omit `uuid` for parity with main-dash behavior
         skipSnapshot: false,
+        uuid: exchange.uuid,
       });
       logger.info(`Balance update requested for ${exchange.name}`);
       toast.success('Balances updated successfully');
