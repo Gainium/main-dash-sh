@@ -77,7 +77,7 @@ import {
   type ExchangeMinimumBumpEvent,
 } from '@/hooks/bots/forms/useExchangeMinimumBump';
 import { useBacktestPersistence } from '@/hooks/useBacktestPersistence';
-import { useBotArchive, useBotClone } from '@/hooks/useBotMutations';
+import { useBotArchive } from '@/hooks/useBotMutations';
 import { useBotTemplateShortcuts } from '@/hooks/useBotTemplatesSync';
 import { getLocalPrices } from '@/helper/price';
 import GridBacktestingEngine from '@/lib/backtester/gridWrapper';
@@ -140,7 +140,7 @@ import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
 import { validateGridFormData } from '@/utils/bots/grid/validation';
-import { buildBotEditRoute } from '@/utils/bots/navigation';
+import { buildBotCloneRoute, buildBotEditRoute } from '@/utils/bots/navigation';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { COMBO_BOT_TYPE_ID } from '../../registry';
 import BacktestSettingsDialog, {
@@ -565,7 +565,6 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const navigate = useNavigate();
   const archiveMutation = useBotArchive();
-  const cloneMutation = useBotClone();
 
   const [showImportExportDialog, setShowImportExportDialog] = useState(false);
   // Template creation/edit state moved to footer templates menu component
@@ -2333,39 +2332,19 @@ const BotForm: React.FC<BotFormProps> = ({
     [botId, statusToggleMutation]
   );
 
-  const handleDuplicate = useCallback(async () => {
+  // Duplicating opens the pre-filled *create* page (the canonical clone route
+  // every other surface already uses — see `useBotActions.clone`). Creating the
+  // copy immediately instead would land on the edit page, where the pair and
+  // exchange of a saved bot can no longer be changed — which defeats the main
+  // reason to duplicate a bot. Nothing is persisted until the user hits Create.
+  const handleDuplicate = useCallback(() => {
     if (!botId) {
       toast.error('Bot ID missing. Unable to duplicate.');
       return;
     }
 
-    try {
-      const cloned = await cloneMutation.mutateAsync({
-        id: botId,
-        botData: botForOperations ?? undefined,
-        type: isGridBot
-          ? BotTypesEnum.grid
-          : isComboBot
-            ? BotTypesEnum.combo
-            : BotTypesEnum.dca,
-      });
-
-      if (cloned?._id) {
-        navigate(buildBotEditRoute(botExperience.id, cloned._id));
-      }
-    } catch (error) {
-      console.error('[BotForm] Failed to duplicate bot', error);
-      toast.error('Failed to duplicate bot.');
-    }
-  }, [
-    botExperience.id,
-    botId,
-    cloneMutation,
-    botForOperations,
-    navigate,
-    isGridBot,
-    isComboBot,
-  ]);
+    navigate(buildBotCloneRoute(botExperience.id, botId));
+  }, [botExperience.id, botId, navigate]);
 
   const handleBacktest = useCallback(() => {
     if (!botId) {
@@ -2528,7 +2507,6 @@ const BotForm: React.FC<BotFormProps> = ({
     setFundsDialogMode('reduce');
   }, []);
 
-  const duplicatePending = cloneMutation.isPending;
   const archivePending = archiveMutation.isPending;
 
   const isBotArchived =
@@ -2592,7 +2570,7 @@ const BotForm: React.FC<BotFormProps> = ({
             onSelect: () => {
               void handleDuplicate();
             },
-            disabled: duplicatePending || !botId,
+            disabled: !botId,
           },
           {
             label: 'Run backtest',
@@ -2645,7 +2623,6 @@ const BotForm: React.FC<BotFormProps> = ({
     botForOperations,
     botId,
     botShareEnabled,
-    duplicatePending,
     handleArchiveToggle,
     handleBacktest,
     handleDuplicate,

@@ -288,6 +288,13 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                     <span>No pairs configured</span>
                   </div>
                 )}
+                {pairLockState.reason === 'edit-single-pair' && (
+                  <p className="text-xs text-muted-foreground/75">
+                    The trading pair is fixed for a single-pair bot. Use
+                    &ldquo;Duplicate bot&rdquo; to run the same strategy on
+                    another pair.
+                  </p>
+                )}
               </div>
             ) : (
               <>

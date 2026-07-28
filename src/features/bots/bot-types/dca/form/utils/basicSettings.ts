@@ -183,15 +183,17 @@ export interface ResolvePairsLockStateResult {
 export const resolvePairsLockState = (
   input: ResolvePairsLockStateInput
 ): ResolvePairsLockStateResult => {
-  if (typeof input.externallyLocked === 'boolean') {
-    return {
-      locked: input.externallyLocked,
-      reason: input.externallyLocked ? 'external-lock' : null,
-    };
+  if (input.externallyLocked === true) {
+    return { locked: true, reason: 'external-lock' };
   }
 
-  if (input.mode === 'edit') {
-    return { locked: false, reason: null };
+  // The backend refuses pair changes on a saved single-pair bot
+  // (`changeDCABot`/`changeComboBot`: "Cannot change pair for non-multi pairs
+  // bot"), and the form strips `pair` from the update payload to match. Render
+  // the pair read-only instead of offering an edit that silently reverts.
+  // Multi-pair bots keep the picker — their pair changes do save.
+  if (input.mode === 'edit' && !input.useMulti) {
+    return { locked: true, reason: 'edit-single-pair' };
   }
 
   return { locked: false, reason: null };

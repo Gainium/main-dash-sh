@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.18] - 2026-07-28
+
+### Fixed
+
+- "Duplicate bot" in the bot editor's overflow menu now opens the pre-filled
+  create page instead of immediately saving a copy. The duplicate's trading
+  pair and exchange stay editable until you press Create — previously the copy
+  was created straight away and landed on its edit page, where the pair of a
+  single-pair bot can never be changed. Clone from the bot list already worked
+  this way; the editor menu was the last place that didn't.
+- The trading pair of an existing single-pair DCA, Combo or Grid bot is now
+  shown read-only, with a note explaining how to move the strategy to another
+  pair. It previously looked editable and reported "Bot updated successfully!",
+  but the pair silently reverted — the backend rejects pair changes on
+  non-multi bots. Multi-pair bots are unaffected and stay editable.
+
 ## [2.38.17] - 2026-07-27
 
 ### Fixed
