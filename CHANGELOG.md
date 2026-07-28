@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.20] - 2026-07-28
+
+### Fixed
+
+- Hyperliquid candle requests from the bot form, backtests and market stats
+  now send the dashed pair (`BTC-USDC`) the exchange actually lists instead of
+  the concatenated internal form (`BTCUSDC`), which the backend could never
+  resolve — those flows showed no candles on Hyperliquid, and each attempt
+  burnt ~90s of retries server-side (bug #153). Saved-bot charts were
+  unaffected.
+- Hyperliquid charts now have their own data handler. They previously fell
+  back to the Binance chart handler, whose live-update stream subscribes to
+  Binance's WebSocket — a Hyperliquid chart could silently tick with Binance
+  prices for lookalike symbols. Live updates now poll Gainium's own candle
+  endpoint, and an unregistered exchange reaching the Binance fallback is
+  logged.
+
 ## [2.38.19] - 2026-07-28
 
 ### Fixed

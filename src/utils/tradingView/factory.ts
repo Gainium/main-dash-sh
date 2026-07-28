@@ -5,6 +5,7 @@ import { binanceHandler } from './exchanges/binance';
 import { bitgetHandler } from './exchanges/bitget';
 import { bybitHandler } from './exchanges/bybit';
 import { coinbaseHandler } from './exchanges/coinbase';
+import { hyperliquidHandler } from './exchanges/hyperliquid';
 import { krakenHandler } from './exchanges/kraken';
 import { kucoinHandler } from './exchanges/kucoin';
 import { okxHandler } from './exchanges/okx';
@@ -105,6 +106,17 @@ const exchangeHandlers: Record<string, ExchangeHandler> = {
   paperkrakenall: krakenHandler,
   paperkrakenspot: krakenHandler,
   paperkrakenusdm: krakenHandler,
+
+  // Hyperliquid — spot + linear perps. Without an explicit entry these fell
+  // through to the Binance fallback below, whose subscribe streams klines
+  // from Binance's WebSocket for the Hyperliquid symbol (BTCUSDC is a real
+  // Binance pair, so charts could silently tick with Binance prices).
+  hyperliquid: hyperliquidHandler,
+  hyperliquidlinear: hyperliquidHandler,
+  hyperliquidall: hyperliquidHandler,
+  paperhyperliquid: hyperliquidHandler,
+  paperhyperliquidlinear: hyperliquidHandler,
+  paperhyperliquidall: hyperliquidHandler,
 };
 
 interface ParsedSymbolName {
@@ -136,7 +148,18 @@ export const getExchangeHandler = async (
   exchange: string
 ): Promise<ExchangeHandler> => {
   const normalizedExchange = exchange.toLowerCase();
-  return exchangeHandlers[normalizedExchange] || binanceHandler; // Default to Binance
+  const handler = exchangeHandlers[normalizedExchange];
+  if (!handler) {
+    // The Binance fallback is only correct for exchanges that share Binance's
+    // compact symbol form AND should never reach its WebSocket subscribe.
+    // An unlisted exchange landing here is how Hyperliquid charts ended up
+    // streaming Binance klines — make the next one visible.
+    logger.warn(
+      `[tradingView/factory] No chart handler registered for exchange "${exchange}" — falling back to the Binance handler. Register a proper handler in exchangeHandlers.`
+    );
+    return binanceHandler;
+  }
+  return handler;
 };
 
 // Get display name for exchange (handle paper trading naming)

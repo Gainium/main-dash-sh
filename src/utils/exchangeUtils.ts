@@ -185,14 +185,28 @@ const DASHED_CANDLE_SYMBOL_ENUM_SET = new Set<ExchangeEnum>([
   ExchangeEnum.paperOkxAll,
   ExchangeEnum.coinbase,
   ExchangeEnum.paperCoinbase,
+  // Hyperliquid (spot + linear perps) also identifies pairs with a dash
+  // ("BTC-USDC"). The concatenated "BTCUSDC" form reaches the connector's
+  // asset map as an unresolvable symbol, so every bot-form / backtest /
+  // market-stats candle request 500'd (bug #153: the market-archive backfill
+  // retried the fabricated coin against Hyperliquid for ~93s per request).
+  // Saved-bot charts never hit this because they carry the dashed pair
+  // through. Paper variants included for the same un-stripped-exchange
+  // reason as above.
+  ExchangeEnum.hyperliquid,
+  ExchangeEnum.hyperliquidLinear,
+  ExchangeEnum.hyperliquidAll,
+  ExchangeEnum.paperHyperliquid,
+  ExchangeEnum.paperHyperliquidLinear,
+  ExchangeEnum.paperHyperliquidAll,
 ]);
 
 /**
  * Convert our normalized concatenated pair (e.g. "BTCUSDT") into the symbol an
- * exchange's candle API expects. KuCoin spot and Kraken (spot + futures)
- * identify pairs with a dash ("BTC-USDT"); Binance/Bybit/etc. use the
- * concatenated form natively and pass through unchanged, as do symbols that
- * already carry a separator.
+ * exchange's candle API expects. KuCoin spot, Kraken (spot + futures), OKX,
+ * Coinbase and Hyperliquid identify pairs with a dash ("BTC-USDT");
+ * Binance/Bybit/etc. use the concatenated form natively and pass through
+ * unchanged, as do symbols that already carry a separator.
  *
  * Applied at the single `requestCandles` chokepoint so every candle consumer
  * (chart, backtest, market-stats / quick-panel risk calc, …) is covered.
