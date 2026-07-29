@@ -72,7 +72,12 @@ export interface BotFormProps {
     submitLabel?: string;
     submitDisabled?: boolean;
     submitIsPending?: boolean;
-    onBacktest?: (formData?: BotFormData) => void;
+    onBacktest?: (
+      formData?: BotFormData,
+      cfg?: Partial<
+        import('./components/BacktestSettingsDialog').BacktestConfig
+      >
+    ) => void;
     /** Direct run hook (footer's big Backtest button, skips dialog).
      *  Used by hedge bots so the quick-run path hits the hedge runner
      *  instead of falling back to the leg's local DCA backtest. */
@@ -155,9 +160,13 @@ export interface BotFormProps {
   onFormDataChange?: (data: BotChartData) => void;
   /**
    * Handler invoked when user clicks the Backtest button from the form footer.
-   * Receives the current form data as a parameter.
+   * Receives the current form data, plus the period/timeframe the footer's
+   * backtest bar is showing when the full settings dialog is opened.
    */
-  onBacktest?: (formData?: BotFormData) => void;
+  onBacktest?: (
+    formData?: BotFormData,
+    cfg?: Partial<import('./components/BacktestSettingsDialog').BacktestConfig>
+  ) => void;
   /**
    * Handler invoked after a backtest finishes and is persisted successfully.
    * Receives the ID of the newly saved backtest so the parent can auto-select it.

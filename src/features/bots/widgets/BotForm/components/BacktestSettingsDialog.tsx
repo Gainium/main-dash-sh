@@ -31,7 +31,7 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import { Edit2, Save, Trash2 } from 'lucide-react';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 export type BacktestConfig = {
   mode: 'local' | 'server';
@@ -162,6 +162,32 @@ export const BacktestSettingsDialog: React.FC<{
       void loadPeriods();
     }
   }, [open, loadPeriods]);
+
+  // This component is mounted with every bot form, open or not (see the
+  // periods fetch above), so the `useState` initialisers only ever observe
+  // the FIRST `initialData` — later values are silently dropped. Re-apply
+  // the period fields when the caller hands over new ones, the same reason
+  // `userFee` has its own sync effect above.
+  //
+  // Keyed on the values (not on `open`) so a caller passing a STATIC
+  // `initialData` — e.g. HedgeBotEditLayout — applies it once and never
+  // clobbers the user's own in-dialog edits when they reopen.
+  const appliedInitialRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!initialData) return;
+    const { timeframe: tf, startDate: sd, endDate: ed, periodId: pid } =
+      initialData;
+    const key = JSON.stringify([tf, sd, ed, pid]);
+    if (appliedInitialRef.current === key) return;
+    appliedInitialRef.current = key;
+    if (tf) setTimeframe(tf as ExchangeIntervals);
+    // The footer emits `YYYY-MM-DD`; these inputs are `datetime-local` and
+    // need `YYYY-MM-DDTHH:mm`. Round-trip through the local-time helpers
+    // rather than `new Date(str)`, which would read a bare date as UTC.
+    if (sd !== undefined) setStartDate(formatLocalDateTime(parseLocalDateTime(sd)));
+    if (ed !== undefined) setEndDate(formatLocalDateTime(parseLocalDateTime(ed)));
+    if (pid !== undefined) setPeriodId(pid);
+  }, [initialData]);
 
   // Period manager state
   const [showPeriodManager, setShowPeriodManager] = useState(false);
@@ -393,11 +419,18 @@ export const BacktestSettingsDialog: React.FC<{
         }
       }
 
+      // 'Auto' means "derive the window from the timeframe" — the caller
+      // does that by leaving `firstDataTime`/`lastDataTime` unset. The date
+      // state deliberately survives an auto↔custom toggle, so the dates
+      // seeded by the footer (or by a saved period) have to be dropped here
+      // or an Auto run would silently use them instead.
+      const isAuto = resolvedPeriodId === 'auto';
+
       await onRun({
         mode,
         timeframe,
-        startDate,
-        endDate,
+        startDate: isAuto ? '' : startDate,
+        endDate: isAuto ? '' : endDate,
         slippagePercent,
         userFee,
         RFR,

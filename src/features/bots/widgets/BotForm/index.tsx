@@ -1240,9 +1240,23 @@ const BotForm: React.FC<BotFormProps> = ({
     isTerminal
   );
 
-  const onBacktestClick = useCallback(() => {
-    setShowBacktestDialog(true);
-  }, [setShowBacktestDialog]);
+  // Seed for the settings dialog. The footer's "More backtest settings"
+  // button hands over the period + timeframe its own bar is showing; without
+  // this the dialog opened on a hardcoded 1h/Auto and ran the backtest on
+  // those instead of on what the user had picked.
+  const [backtestDialogInitial, setBacktestDialogInitial] = useState<
+    Partial<BacktestConfig>
+  >({ mode: 'local', timeframe: ExchangeIntervals.oneH });
+
+  const onBacktestClick = useCallback(
+    (_formData?: BotFormData, cfg?: Partial<BacktestConfig>) => {
+      if (cfg) {
+        setBacktestDialogInitial((prev) => ({ ...prev, ...cfg }));
+      }
+      setShowBacktestDialog(true);
+    },
+    [setShowBacktestDialog]
+  );
 
   useEffect(() => {
     if (!isGridBot) {
@@ -3772,7 +3786,7 @@ const BotForm: React.FC<BotFormProps> = ({
       />
       <BacktestSettingsDialog
         open={showBacktestDialog}
-        initialData={{ mode: 'local', timeframe: ExchangeIntervals.oneH }}
+        initialData={backtestDialogInitial}
         onClose={() => setShowBacktestDialog(false)}
         formData={formData}
         backtestProgress={backtestProgress}
@@ -4190,7 +4204,7 @@ const BotForm: React.FC<BotFormProps> = ({
       />
       <BacktestSettingsDialog
         open={showBacktestDialog}
-        initialData={{ mode: 'local', timeframe: ExchangeIntervals.oneH }}
+        initialData={backtestDialogInitial}
         onClose={() => setShowBacktestDialog(false)}
         formData={formData}
         backtestProgress={backtestProgress}

@@ -106,7 +106,12 @@ export interface BotFormFooterProps {
   formData: BotFormData
   botType: BotTypesEnum
   currentExchange: ExchangeInUser | null
-  onBacktest?: (formData?: BotFormData) => void
+  /**
+   * Opens the full backtest settings dialog. `cfg` carries the period +
+   * timeframe currently picked in the compact backtest bar so the dialog
+   * opens on what the user is looking at rather than its own defaults.
+   */
+  onBacktest?: (formData?: BotFormData, cfg?: Partial<BacktestConfig>) => void
   /**
    * Optional direct backtest runner. When provided, the compact
    * Backtest button in the footer skips the settings dialog and calls
@@ -881,7 +886,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
 
     // Backtest handler - track bot backtests with PostHog
     const handleBacktest = useCallback(
-      (data?: BotFormData) => {
+      (data?: BotFormData, cfg?: Partial<BacktestConfig>) => {
         try {
           const normalizedBotType =
             botType === BotTypesEnum.hedgeDca
@@ -919,7 +924,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           // swallow errors to avoid interfering with UI
         }
 
-        void onBacktest?.(data)
+        void onBacktest?.(data, cfg)
       },
       [botType, formData, indicators.length, onBacktest, currentExchange],
     )
@@ -1378,6 +1383,16 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
     }, [period, timeframe])
 
+    // The "More" overflow opens the settings dialog seeded with what the
+    // bar currently shows, so both buttons in this box run the same test.
+    // `periodId: 'custom'` is required, not cosmetic: the dialog ignores
+    // startDate/endDate under its default 'auto' period, so handing over
+    // the dates without selecting 'custom' would still run the wrong window.
+    const handleOpenBacktestSettings = useCallback(() => {
+      const cfg = buildPeriodConfig()
+      handleBacktest(formData, cfg ? { ...cfg, periodId: 'custom' } : undefined)
+    }, [buildPeriodConfig, handleBacktest, formData])
+
     const handleQuickRun = useCallback(() => {
       const cfg = buildPeriodConfig()
       if (!cfg || !onRunBacktestDirect) {
@@ -1512,7 +1527,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               type='button'
               variant='ghost'
               size='icon'
-              onClick={() => handleBacktest(formData)}
+              onClick={handleOpenBacktestSettings}
               disabled={readOnly || backtestPending}
               aria-label='More backtest settings'
               title='More backtest settings'
@@ -1532,8 +1547,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       shouldDisplayErrorSummary,
       isRunning,
       handleQuickRun,
-      handleBacktest,
-      formData,
+      handleOpenBacktestSettings,
     ])
 
     return (

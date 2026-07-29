@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.1] - 2026-07-29
+
+### Fixed
+
+- The bot form's "More backtest settings" dialog opened on a hardcoded 1 hour /
+  Auto instead of the candle timeframe and period picked in the quick-backtest
+  bar, and ran the backtest on those defaults — so the bar's BACKTEST button and
+  the dialog's START TEST produced different results from identical visible
+  settings. The dialog now opens on the bar's timeframe and period.
+- Selecting the "Auto" period in the backtest settings dialog no longer runs on
+  the dates left over from a previously selected period; Auto again derives the
+  window from the candle timeframe.
+
 ## [2.39.0] - 2026-07-29
 
 ### Fixed
