@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.9] - 2026-07-29
+
+### Fixed
+
+- Accumulated Profit showed a "Current Total" far below the real accumulated
+  profit, and the 7D/30D/90D/All buttons only redrew the timeline without
+  changing the period figures. The widget always asked the backend for daily
+  profit, which is capped at the last 30 days, so every stat was really a
+  30-day number: 90D and All padded the missing months with zeroes and reported
+  a "Period Start" of $0. The widget now requests the bucket size that covers
+  the selected range (daily, weekly, or monthly) and takes the headline total
+  from the all-time profit aggregate, so "Current Total" is the true cumulative
+  profit and "Period Start"/"Change" move with the selected range.
+- Accumulated Profit scaled its figures by hardcoded per-exchange percentages
+  left over from the widget's mock-data implementation.
+
 ## [2.39.8] - 2026-07-29
 
 ### Fixed

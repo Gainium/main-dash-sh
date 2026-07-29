@@ -104,3 +104,40 @@ export function getValidTimezone(tz?: string | null): string {
     return 'UTC';
   }
 }
+
+/**
+ * Parse one `getProfitByUser` result row's `date` into a Date.
+ *
+ * The backend encodes the bucket key differently per requested timeframe:
+ *   0 (daily)   → ISO date string   e.g. "2026-07-28T00:00:00.000Z"
+ *   1 (weekly)  → "<year>-<week>"   e.g. "2026-13"
+ *   2 (monthly) → "<year>-<month>"  e.g. "2026-4"
+ *   3 (total)   → epoch ms          e.g. 1697940000000
+ *
+ * Rows come back UNSORTED, and `new Date("2026-13")` is an Invalid Date, so a
+ * consumer that wants them in chronological order has to decode the key first.
+ *
+ * Weekly buckets are numbered by Mongo's `$isoWeek` or `$week` (the user's
+ * `weekStart` setting picks which), so the exact weekday a week starts on can
+ * differ by a couple of days between users; the week is therefore approximated
+ * as Jan 1 + (week - 1) weeks. That is precise enough to order buckets and
+ * place them on a chart axis, but do not treat it as the true week boundary.
+ *
+ * Returns an Invalid Date for a malformed key — test with
+ * `Number.isNaN(d.getTime())` before calling `toISOString()`, which throws.
+ */
+export function parseProfitBucketDate(
+  date: string | number,
+  timeframe: number
+): Date {
+  if (timeframe === 1 || timeframe === 2) {
+    const [year, n] = String(date).split('-').map(Number);
+    if (!Number.isFinite(year) || !Number.isFinite(n)) {
+      return new Date(NaN);
+    }
+    return timeframe === 1
+      ? new Date(year, 0, 1 + (n - 1) * 7)
+      : new Date(year, n - 1, 1);
+  }
+  return new Date(date);
+}

@@ -1,6 +1,7 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
+import { parseProfitBucketDate } from '@/utils/timeUtils';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   Area,
@@ -45,6 +46,30 @@ interface ProfitData_API {
   }>;
 }
 
+/**
+ * Which backend bucket size to request per filter. Each timeframe covers a
+ * bounded window server-side — 0 = last 30 days (daily), 1 = last 24 weeks
+ * (weekly), 2 = last 12 months (monthly) — so a filter has to pick a bucket
+ * whose window actually reaches back far enough.
+ */
+const TIMEFRAME_BY_FILTER: Record<string, number> = {
+  '7D': 0,
+  '30D': 0,
+  '90D': 1,
+  All: 2,
+};
+
+/** How far back the selected filter looks; `null` = every bucket returned. */
+const WINDOW_DAYS_BY_FILTER: Record<string, number | null> = {
+  '7D': 7,
+  '30D': 30,
+  '90D': 90,
+  All: null,
+};
+
+/** Timeframe 3 is the all-time aggregate: a single row summing every deal. */
+const TOTAL_TIMEFRAME = 3;
+
 export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   widgetId = 'accumulated-profit',
   isEditable = false,
@@ -69,14 +94,19 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   // Local UI state (not persisted)
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
 
-  // Memoize the GraphQL query definition - changes only when dependencies change
+  const timeframe = TIMEFRAME_BY_FILTER[timeFilter] ?? 0;
+
+  // The series the chart draws. This MUST follow the selected filter: it used
+  // to be pinned to `timeframe: 0`, which the backend caps at 30 daily buckets,
+  // so 90D/All were padded with 60+ empty days and every stat was really a
+  // 30-day figure no matter which button was active.
   const accumulatedProfitQuery = useMemo(
     () =>
       GraphQlQuery.getProfitByUser({
         timezone: 'UTC',
-        timeframe: 0, // Daily data
+        timeframe,
       }),
-    [] // No dependencies - this query is static
+    [timeframe]
   );
 
   // Use the same GraphQL approach as the Profit widget
@@ -84,16 +114,31 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
     data: profitResponse,
     isLoading,
     error,
-    refetch: refetchAccumulatedProfit,
   } = useGraphQL<ProfitData_API>('getProfitByUser', accumulatedProfitQuery);
+
+  // "Accumulated" profit means cumulative-to-date, so the headline total is the
+  // user's all-time realised profit, not the sum of whatever window is on
+  // screen. No windowed timeframe can supply that (even monthly stops at 12
+  // months), so read it from the dedicated all-time aggregate.
+  const totalProfitQuery = useMemo(
+    () =>
+      GraphQlQuery.getProfitByUser({
+        timezone: 'UTC',
+        timeframe: TOTAL_TIMEFRAME,
+      }),
+    []
+  );
+
+  const { data: totalProfitResponse, isLoading: isTotalLoading } =
+    useGraphQL<ProfitData_API>('getProfitByUser', totalProfitQuery);
 
   // Extract profit data from the response
   const profitData = profitResponse?.data?.result || [];
+  const allTimeTotal = totalProfitResponse?.data?.result?.[0]?.quote ?? 0;
 
-  // Refetch data when timeFilter changes
-  useEffect(() => {
-    refetchAccumulatedProfit();
-  }, [timeFilter, refetchAccumulatedProfit]);
+  // Both reads feed every stat, so hold the whole widget until they land —
+  // otherwise the total renders against a half-built series.
+  const isAnyLoading = isLoading || isTotalLoading;
 
   // Listen for external options open events (e.g., from widget manager)
   useEffect(() => {
@@ -115,169 +160,71 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
     };
   }, [widgetId]);
 
-  // Helper function to get date range based on timeFilter
-  const getDateRange = (filter: string) => {
-    const today = new Date();
-    let startDate: Date;
-
-    switch (filter) {
-      case '7D':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 7);
-        break;
-      case '30D':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 30);
-        break;
-      case '90D':
-        startDate = new Date(today);
-        startDate.setDate(today.getDate() - 90);
-        break;
-      case 'All':
-      default:
-        // For 'All', use data from first available date
-        if (profitData.length > 0) {
-          const sortedData = [...profitData]
-            .filter((point) => point.date !== null && point.date !== undefined)
-            .sort(
-              (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-            );
-          if (sortedData.length > 0) {
-            startDate = new Date(sortedData[0].date);
-          } else {
-            startDate = new Date(today);
-            startDate.setDate(today.getDate() - 30); // Default to 30 days if no data
-          }
-        } else {
-          startDate = new Date(today);
-          startDate.setDate(today.getDate() - 30); // Default to 30 days if no data
-        }
-        break;
-    }
-
-    return { startDate, endDate: today };
-  };
-
   // Process real profit data for chart display
-  const getAccumulatedProfitDataForExchanges = (exchangeIds: string[]) => {
+  const getAccumulatedProfitData = () => {
     // If loading, return empty state
-    if (isLoading) {
+    if (isAnyLoading) {
       return {
         currentTotal: 0,
-        previousTotal: 0,
         change: 0,
         changePercent: 0,
         periodStart: 0,
-        periodEnd: 0,
         chartData: [],
       };
     }
 
-    const { startDate, endDate } = getDateRange(timeFilter);
-
-    // Create a map of existing profit data by date
-    const profitMap = new Map<string, number>();
-    profitData.forEach((point) => {
-      if (point.date === undefined || point.date === null) {
-        return;
-      }
-      const dateKey = new Date(point.date).toISOString().split('T')[0];
-      profitMap.set(dateKey, point.quote);
-    });
-
-    // Generate complete date series for the selected period
-    const dateSeriesData: Array<{
-      date: string;
-      value: number;
-      label: string;
-      dailyProfit: number;
-      fullDate: string;
-    }> = [];
-
-    let accumulated = 0;
-    const currentDate = new Date(startDate);
-
-    // Calculate initial accumulated value up to start date
-    const dataBeforeStart = profitData.filter(
-      (point) => point.date && new Date(point.date) < startDate
-    );
-    const initialAccumulated = dataBeforeStart.reduce(
-      (sum, point) => sum + point.quote,
-      0
-    );
-    accumulated = initialAccumulated;
-
-    // Generate daily data points for the entire period
-    while (currentDate <= endDate) {
-      const dateKey = currentDate.toISOString().split('T')[0];
-      const dailyProfit = profitMap.get(dateKey) || 0;
-      accumulated += dailyProfit;
-
-      const label = currentDate.toLocaleDateString('en-US', {
-        month: 'short',
-        day: 'numeric',
-      });
-
-      const fullDate = currentDate.toLocaleDateString('en-US', {
-        weekday: 'short',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
-      });
-
-      dateSeriesData.push({
-        date: currentDate.toISOString(),
-        value: accumulated,
-        label,
-        dailyProfit,
-        fullDate,
-      });
-
-      // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
+    // Keep only the buckets inside the selected window. 'All' keeps everything
+    // the backend returned. Rows arrive unordered and weekly/monthly keys
+    // ("2026-13", "2026-4") are not Date-parseable, so decode before sorting.
+    const windowDays = WINDOW_DAYS_BY_FILTER[timeFilter] ?? null;
+    let windowStart: Date | null = null;
+    if (windowDays !== null) {
+      windowStart = new Date();
+      windowStart.setDate(windowStart.getDate() - windowDays);
     }
 
-    // Calculate stats
-    const currentTotal = accumulated;
-    const periodStart = initialAccumulated;
-    const change = currentTotal - periodStart;
+    const buckets = profitData
+      .filter((point) => point.date !== undefined && point.date !== null)
+      .map((point) => ({
+        date: parseProfitBucketDate(point.date, timeframe),
+        profit: point.quote || 0,
+      }))
+      .filter((bucket) => !Number.isNaN(bucket.date.getTime()))
+      .filter((bucket) => windowStart === null || bucket.date >= windowStart)
+      .sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    // Profit earned inside the window, and the accumulated total it built on.
+    // Anchoring to the all-time total makes the curve end at the user's real
+    // cumulative profit instead of restarting from zero each period.
+    const change = buckets.reduce((sum, bucket) => sum + bucket.profit, 0);
+    const currentTotal = allTimeTotal;
+    const periodStart = currentTotal - change;
     const changePercent = periodStart !== 0 ? (change / periodStart) * 100 : 0;
 
-    // Apply exchange filters (simplified for now - in real app this would be more sophisticated)
-    let multiplier = 1;
-    if (!exchangeIds.includes('ALL')) {
-      // Simulate different profit percentages for different exchanges
-      const exchangeMultipliers: { [key: string]: number } = {
-        binance: 0.45,
-        coinbase: 0.25,
-        kraken: 0.15,
-        bybit: 0.1,
-        kucoin: 0.05,
+    let accumulated = periodStart;
+    const chartData = buckets.map((bucket) => {
+      accumulated += bucket.profit;
+      return {
+        date: bucket.date.toISOString(),
+        value: accumulated,
+        label: bucket.date.toLocaleDateString('en-US', {
+          month: 'short',
+          day: 'numeric',
+        }),
+        dailyProfit: bucket.profit,
+        fullDate: bucket.date.toLocaleDateString('en-US', {
+          weekday: 'short',
+          month: 'long',
+          day: 'numeric',
+          year: 'numeric',
+        }),
       };
+    });
 
-      multiplier = exchangeIds.reduce((sum, exchangeId) => {
-        return sum + (exchangeMultipliers[exchangeId] || 0);
-      }, 0);
-
-      multiplier = multiplier > 0 ? multiplier : 1;
-    }
-
-    return {
-      currentTotal: currentTotal * multiplier,
-      previousTotal: periodStart * multiplier,
-      change: change * multiplier,
-      changePercent,
-      periodStart: periodStart * multiplier,
-      periodEnd: currentTotal * multiplier,
-      chartData: dateSeriesData.map((point) => ({
-        ...point,
-        value: point.value * multiplier,
-        dailyProfit: point.dailyProfit * multiplier,
-      })),
-    };
+    return { currentTotal, change, changePercent, periodStart, chartData };
   };
 
-  const accumulatedProfitData = getAccumulatedProfitDataForExchanges(['ALL']);
+  const accumulatedProfitData = getAccumulatedProfitData();
 
   // Create stats data array for the WidgetStats component
   const createAccumulatedStatsData = () => {
@@ -327,21 +274,21 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   const content = (
     <div className="flex flex-col h-full p-md bg-card @container">
       {/* Loading State */}
-      {isLoading && (
+      {isAnyLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-muted-foreground">Loading profit data...</div>
         </div>
       )}
 
       {/* Error State */}
-      {error && !isLoading && (
+      {error && !isAnyLoading && (
         <div className="flex items-center justify-center h-full">
           <div className="text-destructive">Error: {error.message}</div>
         </div>
       )}
 
       {/* Data Content */}
-      {!isLoading && !error && (
+      {!isAnyLoading && !error && (
         <>
           {/* Stats Section */}
           <WidgetStats stats={createAccumulatedStatsData()} className="mb-6" />
@@ -494,6 +441,10 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       {
         queryKey: 'getProfitByUser',
         variables: accumulatedProfitQuery.variables as Record<string, unknown>,
+      },
+      {
+        queryKey: 'getProfitByUser',
+        variables: totalProfitQuery.variables as Record<string, unknown>,
       },
     ],
   };
