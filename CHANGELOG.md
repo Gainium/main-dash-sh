@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.0] - 2026-07-29
+
+### Fixed
+
+- Billing history showed every row as a green `+amount`, so subscription
+  purchases read as money coming in. Amounts are stored unsigned, so the sign
+  now comes from the backend's `direction` classification: top-ups are `+`,
+  purchases are `-`, and PayPal subscription renewals are neutral because they
+  are charged to PayPal directly and never move the Gainium balance.
+
+### Added
+
+- Billing history has a Details column showing the payment's provider
+  reference — the PayPal transaction id you can actually search for, the
+  Bitcart invoice id, plus processor fee, net and any crypto discount. Rows
+  that are internal wallet movements (plan-change credit, rewards conversion)
+  no longer show a meaningless internal uuid, and are labelled for what they
+  are instead of showing a raw source string like `bitcartcc`.
+
 ## [2.38.26] - 2026-07-29
 
 ### Changed

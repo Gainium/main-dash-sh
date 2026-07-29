@@ -152,6 +152,7 @@ export const userQueries = {
                               balance
                               amount
                               created
+                              direction
                             }
                         }
                   }`;
@@ -168,6 +169,17 @@ export const userQueries = {
                               date
                               source
                               balance
+                              direction
+                              label
+                              reference
+                              referenceLabel
+                              transaction
+                              transactionLabel
+                              subscriptionReference
+                              subscriptionReferenceLabel
+                              fee
+                              net
+                              cryptoDiscountPercent
                             }
                         }
                   }`;
