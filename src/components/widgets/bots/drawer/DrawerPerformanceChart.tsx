@@ -7,6 +7,7 @@ import {
   CartesianGrid,
   ComposedChart,
   Line,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -39,6 +40,18 @@ interface ChartDataPoint {
 /** A stats object usable as the chart source: it must carry a real series. */
 const hasChart = (stats?: BotStats | null): stats is BotStats =>
   Array.isArray(stats?.chart) && stats.chart.length > 1;
+
+/**
+ * The backend stores ONE chart point per day and hard-trims the array to this
+ * many entries (main-app `core/src/bot/dcaHelper.ts`, `stats.chart.shift()`),
+ * so a bot older than ~3 months only ever ships its most recent window. The
+ * values stay absolute (realized profit is seeded at the starting balance and
+ * accumulated for the bot's whole life), so a truncated window opens at
+ * whatever the cumulative P&L was that day — which reads as "the chart ignores
+ * my old losses" when the drawdown happened before the window. Surface the
+ * truncation instead of leaving the user to infer it.
+ */
+const CHART_WINDOW_DAYS = 90;
 
 /**
  * Both money helpers below prefix the currency symbol to the *signed* number,
@@ -252,6 +265,10 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     return chartData.length > 0;
   }, [chartData]);
 
+  // At the cap the backend has been dropping the oldest day for a while, so
+  // everything before the first point is missing — including any drawdown.
+  const isWindowed = chartData.length >= CHART_WINDOW_DAYS;
+
   // Chart series are now handled directly in JSX for better performance
 
   /* const isLoading = botsLoading;
@@ -362,6 +379,13 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
         {!hasRealData && (
           <div className="mb-3 w-full rounded-md bg-muted/40 px-2 py-1 text-xs text-muted-foreground sm:w-auto sm:text-right">
             No data
+          </div>
+        )}
+
+        {hasRealData && isWindowed && (
+          <div className="mb-2 text-xs leading-tight text-muted-foreground">
+            Last {CHART_WINDOW_DAYS} days · Realized Profit is cumulative since
+            the bot started
           </div>
         )}
 
@@ -478,6 +502,34 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
                     />
                   }
                 />
+                {/* Break-even marker for the realized-P&L axis. Without it a
+                    truncated window that opens deep in the red (see
+                    CHART_WINDOW_DAYS) reads as an uninterrupted climb, and a
+                    bot still recovering from a loss looks purely profitable.
+                    Tinted like the realized-profit series, not like the grid,
+                    so it reads against the RIGHT axis — on the left axis $0
+                    lands mid-equity and would look like a price level. */}
+                {showProfit && (
+                  <ReferenceLine
+                    yAxisId="profit"
+                    y={0}
+                    stroke={
+                      isPositiveProfit ? colors.success : colors.destructive
+                    }
+                    strokeDasharray="4 4"
+                    strokeOpacity={0.45}
+                    ifOverflow="extendDomain"
+                    label={{
+                      value: 'Break-even',
+                      position: 'insideBottomRight',
+                      fill: isPositiveProfit
+                        ? colors.success
+                        : colors.destructive,
+                      fillOpacity: 0.8,
+                      fontSize: 8,
+                    }}
+                  />
+                )}
                 {showEquity && (
                   <Area
                     yAxisId="equity"

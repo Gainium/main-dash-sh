@@ -245,6 +245,14 @@ export function registerSlot<K extends SlotName>(
 }
 
 /**
+ * Whether a component is registered for the slot. Lets callers render
+ * an explicit fallback instead of the empty space `Slot` collapses to.
+ */
+export function hasSlot(name: SlotName): boolean {
+  return slots.has(name);
+}
+
+/**
  * Render whatever is registered for the slot. When the slot is empty
  * (e.g. sh build without that registration), returns `null` and the
  * surrounding layout collapses around it.

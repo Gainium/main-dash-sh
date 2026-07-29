@@ -39,14 +39,17 @@ import {
   LatestOrders,
   NewsRSS,
   NotesWidget,
+  OverviewQuickActions,
   PortfolioAllocation,
   PortfolioBalances,
+  PortfolioCategoriesAnalysis,
+  PortfolioExchangeDistribution,
   PortfolioValue,
   Profit,
   TreemapDeals,
   Watchlist,
 } from '../components/widgets/dashboard';
-import { Slot, type SlotName } from '../lib/extensions';
+import { hasSlot, Slot, type SlotName } from '../lib/extensions';
 import {
   getDefaultWidgetSize,
   type Breakpoint,
@@ -323,12 +326,63 @@ const GridLayout: React.FC<GridLayoutProps> = ({
                 menuActions={menuActions}
               />
             );
+          case 'overview-quick-actions':
+            return (
+              <OverviewQuickActions
+                widgetId={widget.id}
+                isEditable={!isGridLayoutLocked}
+                onCollapse={handleWidgetCollapse}
+                menuActions={menuActions}
+              />
+            );
+          case 'portfolio-categories-analysis':
+            return (
+              <PortfolioCategoriesAnalysis
+                widgetId={widget.id}
+                isEditable={!isGridLayoutLocked}
+                onCollapse={handleWidgetCollapse}
+                menuActions={menuActions}
+              />
+            );
+          case 'portfolio-exchange-distribution':
+            return (
+              <PortfolioExchangeDistribution
+                widgetId={widget.id}
+                isEditable={!isGridLayoutLocked}
+                onCollapse={handleWidgetCollapse}
+                menuActions={menuActions}
+              />
+            );
           default: {
             // Widget types not handled above are looked up through the
             // slot adapter. Host builds register components under
-            // `widget.<type>`; absent registrations render `null` and
-            // the grid collapses around it.
+            // `widget.<type>`.
             const slotName = `widget.${widget.type}` as SlotName;
+            if (!hasSlot(slotName)) {
+              // No registration for this type (e.g. a cloud-only widget in
+              // an sh build, or a stale saved layout). Rendering `null`
+              // here used to leave an invisible, unremovable grid cell —
+              // show an explicit placeholder with a remove action instead.
+              return (
+                <div className="flex h-full flex-col items-center justify-center gap-2 rounded-lg bg-card p-md text-center">
+                  <p className="text-sm text-muted-foreground">
+                    This widget is not available in this edition.
+                  </p>
+                  <p className="text-xs text-muted-foreground/70">
+                    Type: {widget.type}
+                  </p>
+                  {!isGridLayoutLocked && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => menuActions.onDelete?.()}
+                    >
+                      Remove widget
+                    </Button>
+                  )}
+                </div>
+              );
+            }
             return (
               <Slot
                 name={slotName}

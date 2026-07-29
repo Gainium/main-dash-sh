@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.2] - 2026-07-29
+
+### Changed
+
+- Bot Performance Chart: added a break-even line to the Realized Profit axis
+  and a note that the chart covers the last 90 days and that Realized Profit is
+  cumulative since the bot started. A bot older than 90 days opens the chart
+  mid-history, so a line that starts below break-even and climbs was being read
+  as pure profit with earlier losses missing.
+
 ## [2.39.1] - 2026-07-29
 
 ### Fixed
