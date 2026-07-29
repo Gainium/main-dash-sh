@@ -403,11 +403,16 @@ export function transformDcaBotToBot(
     }
   }
 
+  // `numerical`/`general` are optional on `DcaBotStats` and genuinely absent on
+  // list bots: `dcaBotListFragment` requests a chart-only `stats` slice, so
+  // `stats` is present while `stats.numerical` is not. Guard every hop or this
+  // throws for every card in the Trading Bots list.
+  const statsNetProfitPerc = res.stats?.numerical?.general?.netProfitPerc;
   let profitPerc =
-    typeof res.stats?.numerical.general.netProfitPerc !== 'undefined' &&
-    `${res.stats?.numerical.general.netProfitPerc}` !== 'null' &&
-    res.stats?.numerical.general.netProfitPerc
-      ? res.stats.numerical.general.netProfitPerc
+    typeof statsNetProfitPerc !== 'undefined' &&
+    `${statsNetProfitPerc}` !== 'null' &&
+    statsNetProfitPerc
+      ? statsNetProfitPerc
       : (res.profit?.totalUsd ?? 0) / maxValue;
   profitPerc = math.round(profitPerc * 100, 2);
   maxValue = math.round(maxValue, 2);

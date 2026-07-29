@@ -1535,20 +1535,37 @@ const dcaBotFragment = `
             liveStats {${liveStatsFragment}}
 `;
 
+// Minimal `stats` slice the Trading Bots cards need: `BotCard` renders its
+// equity mini-chart from `bot.stats.chart` and reads ONLY `equity` + `time`
+// off each point (see `BotCard.tsx` -> `equityChartData`). `realizedProfit` /
+// `buyAndHold` are drawer-only, so they stay out of the list payload.
+const listChartStatsFragment = `{
+              chart {
+                equity
+                time
+              }
+            }`;
+
 // List-context slim fragment for `dcaBotList`. The Trading Bots list renders
 // hundreds of DCA bots at once; the full `dcaBotFragment` ships per-bot
 // time-series arrays (`stats.numerical.{profit,loss}.series`,
-// `loss.seriesEquity`, the `stats.chart` block) and a per-symbol `symbolStats`
-// object — none of which the list/card/table/summary actually read. Cards, the
-// table and the drawer all source their stats + equity mini-chart from the live
-// `bot stats update` websocket stream (`botStatsStore`, consumed via
-// `liveBotStats`/`useLiveBotMetrics`), and the single-bot drawer path uses
-// `getDCABot` (which keeps the full `dcaBotFragment`). So dropping `stats` and
-// `symbolStats` here is behavior-neutral while cutting the list response by
-// roughly an order of magnitude. `liveStats` is kept: the value/uPnL transforms
-// in `dcaBot.ts` read it from the list bot.
+// `loss.seriesEquity`) and a per-symbol `symbolStats` object — none of which
+// the list/card/table/summary read. Those stay dropped, and the single-bot
+// drawer path still uses `getDCABot` (which keeps the full `dcaBotFragment`).
+//
+// `stats.chart` however is NOT droppable: it is the only source for the card's
+// equity mini-chart on COLD LOAD. The `bot stats update` websocket stream is an
+// *update* channel, not a hydration one — main-app only emits it when a bot
+// recomputes its stats (`core/src/bot/dcaHelper.ts`), so a bot that has not
+// closed a deal since page load never ticks and its card stayed permanently
+// blank. Stripping `stats` wholesale is what caused that regression, so we
+// re-request a chart-only slice here instead of the whole block.
+// Measured on a 482-bot account: full `stats` = ~2.54 MB, this chart-only
+// slice = ~918 KB, i.e. most of the payload saving is retained.
+// `liveStats` is kept: the value/uPnL transforms in `dcaBot.ts` read it from
+// the list bot.
 const dcaBotListFragment = dcaBotFragment
-  .replace(`stats ${statsFragment}`, '')
+  .replace(`stats ${statsFragment}`, `stats ${listChartStatsFragment}`)
   .replace(`symbolStats ${symbolsStatsFragment}`, '');
 
 const comboBotFragment = `
