@@ -91,10 +91,6 @@ const PERFORMANCE_CHART_DEFINITION: LayoutDefinition = {
   // "No performance data available" message when empty, matching other widgets.
 };
 
-const PNL_SCATTER_CHART_DEFINITION: LayoutDefinition = {
-  type: 'drawer-pnl-scatter-chart',
-};
-
 const ADDITIONAL_DETAILS_DEFINITION: LayoutDefinition = {
   type: 'drawer-additional-details',
   buildProps: buildAdditionalDetailsProps,
@@ -138,8 +134,10 @@ const COMBO_LAYOUT: LayoutDefinition[] = [
 
   // Profit & Performance (like DCA)
   { type: 'drawer-profit-tabs' },
+  // Performance = equity/realized-profit panel + deal-returns panel, one
+  // widget on a shared time axis (they were two widgets with independent
+  // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
-  PNL_SCATTER_CHART_DEFINITION,
 
   // Trading Activity (Combo has deals like DCA + minigrids)
   { type: 'drawer-deals-table' },
@@ -165,8 +163,10 @@ const DCA_LAYOUT: LayoutDefinition[] = [
   GENERAL_INFO_DEFINITION,
 
   { type: 'drawer-profit-tabs' },
+  // Performance = equity/realized-profit panel + deal-returns panel, one
+  // widget on a shared time axis (they were two widgets with independent
+  // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
-  PNL_SCATTER_CHART_DEFINITION,
   { type: 'drawer-deals-table' },
   { type: 'drawer-balance-info' },
   { type: 'drawer-orders-table' },
@@ -187,8 +187,10 @@ const HEDGE_DCA_LAYOUT: LayoutDefinition[] = [
   // Profit & Performance
   { type: 'drawer-profit-tabs' },
   //{ type: 'drawer-hedge-pnl' },
+  // Performance = equity/realized-profit panel + deal-returns panel, one
+  // widget on a shared time axis (they were two widgets with independent
+  // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
-  PNL_SCATTER_CHART_DEFINITION,
 
   // Trading Activity
   // Deals table now aggregates child bot deals (long/short legs)
@@ -212,8 +214,10 @@ const HEDGE_COMBO_LAYOUT: LayoutDefinition[] = [
   // Profit & Performance
   { type: 'drawer-profit-tabs' },
   //{ type: 'drawer-hedge-pnl' },
+  // Performance = equity/realized-profit panel + deal-returns panel, one
+  // widget on a shared time axis (they were two widgets with independent
+  // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
-  PNL_SCATTER_CHART_DEFINITION,
 
   // Trading Activity (Hedge Combo has minigrids)
   // Deals table now aggregates child bot deals (long/short legs)

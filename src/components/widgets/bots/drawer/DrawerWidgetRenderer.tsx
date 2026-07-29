@@ -22,7 +22,6 @@ import {
   DrawerMinigridsTable,
   DrawerOrdersTable,
   DrawerPerformanceChart,
-  DrawerPnLScatterChart,
   DrawerProfitChart,
   DrawerProfitTabs,
   DrawerUnsupported,
@@ -75,7 +74,6 @@ const WIDGET_COMPONENTS: Record<
   }>
 > = {
   'drawer-performance-chart': DrawerPerformanceChart,
-  'drawer-pnl-scatter-chart': DrawerPnLScatterChart,
   'drawer-profit-tabs': DrawerProfitTabs,
   'drawer-asset-allocation': DrawerAssetAllocation,
   'drawer-deals-table': DrawerDealsTable,

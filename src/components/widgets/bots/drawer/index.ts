@@ -16,7 +16,6 @@ export { default as DrawerGridProfitChart } from './DrawerGridProfitChart';
 export { default as DrawerMinigridsTable } from './DrawerMinigridsTable';
 export { default as DrawerOrdersTable } from './DrawerOrdersTable';
 export { default as DrawerPerformanceChart } from './DrawerPerformanceChart';
-export { default as DrawerPnLScatterChart } from './DrawerPnLScatterChart';
 export { default as DrawerProfitChart } from './DrawerProfitChart';
 export { default as DrawerProfitTabs } from './DrawerProfitTabs';
 export { default as DrawerUnsupported } from './DrawerUnsupported';
@@ -29,7 +28,6 @@ export type { DrawerSectionProps } from './DrawerSection';
 // Widget type definitions
 export type DrawerWidgetType =
   | 'drawer-performance-chart'
-  | 'drawer-pnl-scatter-chart'
   | 'drawer-profit-tabs'
   | 'drawer-asset-allocation'
   | 'drawer-deals-table'
