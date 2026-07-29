@@ -1,6 +1,10 @@
 import { pouchdbSync } from '@/lib/zustand-pouchdb-middleware';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import {
+  getDefaultWidgetSize,
+  type Breakpoint,
+} from '../components/widgets/DefaultWidgetSizes';
 
 interface WidgetSettings {
   [widgetId: string]: {
@@ -254,3 +258,38 @@ export const useWidgetSettingsStore = create<WidgetSettingsState>()(
     }
   )
 );
+
+/**
+ * Persist the sizes a layout pass produced so the grid actually renders them.
+ *
+ * `GridLayout` only honours a stored width/height when the widget is flagged as
+ * custom-sized; otherwise it falls back to the breakpoint default. So a pass
+ * that stretches a widget to fill a gap has to record that width, or the widget
+ * gets drawn at its default width at the position computed for the wider one -
+ * which is what left holes in the grid after "Tidy up".
+ *
+ * Sizes that match the breakpoint default are cleared rather than stored, so
+ * widgets the pass did not resize stay fully responsive.
+ */
+export const syncCustomSizesFromLayout = (
+  widgets: {
+    id: string;
+    type: string;
+    layoutData: { w: number; h: number };
+  }[],
+  breakpoint: Breakpoint
+): void => {
+  const { setWidgetCustomSize, setWidgetHasCustomSize } =
+    useWidgetSettingsStore.getState();
+
+  widgets.forEach((widget) => {
+    const defaultSize = getDefaultWidgetSize(widget.type, breakpoint);
+    const { w, h } = widget.layoutData;
+
+    if (w === defaultSize.w && h === defaultSize.h) {
+      setWidgetHasCustomSize(widget.id, false);
+    } else {
+      setWidgetCustomSize(widget.id, w, h);
+    }
+  });
+};

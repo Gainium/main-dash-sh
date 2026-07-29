@@ -322,16 +322,15 @@ export const useTradingTerminalStore = create<TradingTerminalState>()(
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
           })) as any; // Type assertion needed due to interface differences
 
-          // Use the sophisticated TidyLayoutEngine for comprehensive layout optimization
-          const containerWidth =
-            typeof window !== 'undefined' ? window.innerWidth - 64 : undefined;
+          // Use the sophisticated TidyLayoutEngine for comprehensive layout
+          // optimization. It measures the real grid container itself, so the
+          // breakpoint it sizes for is the one the grid renders at.
           const tidyResult = tidyLayout(widgetsForEngine, {
             gridCols: 12,
             enableHorizontalExpansion: true,
             enableVerticalCompaction: true,
             minRowGap: 0,
             registry: 'trading',
-            ...(containerWidth !== undefined && { containerWidth }), // Only include if defined
           });
 
           logger.info(

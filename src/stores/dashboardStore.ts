@@ -16,7 +16,10 @@ import {
 } from '../components/widgets/DefaultWidgetSizes';
 import type { SavedLayout } from '../types/layout';
 import { getEnhancedScreenSize, getScreenSize } from '../utils/screenSize';
-import { useWidgetSettingsStore } from './widgetSettingsStore';
+import {
+  syncCustomSizesFromLayout,
+  useWidgetSettingsStore,
+} from './widgetSettingsStore';
 
 export interface WidgetTab {
   id: string;
@@ -465,19 +468,22 @@ export const useDashboardStore = create<DashboardState>()(
             return;
           }
 
-          // Use the sophisticated TidyLayoutEngine for comprehensive layout optimization
-          const containerWidth =
-            typeof window !== 'undefined' ? window.innerWidth - 64 : undefined;
+          // Use the sophisticated TidyLayoutEngine for comprehensive layout
+          // optimization. It measures the real grid container itself, so the
+          // breakpoint it sizes for is the one the grid renders at.
           const tidyResult = tidyLayout(state.widgets, {
             gridCols: 12,
             enableHorizontalExpansion: true,
             enableVerticalCompaction: true,
             minRowGap: 0,
             registry: 'dashboard',
-            ...(containerWidth !== undefined && { containerWidth }), // Only include if defined
           });
 
           logger.info('Tidy layout optimization completed:', tidyResult.stats);
+
+          // Record the tidied sizes, otherwise the grid re-draws every widget
+          // at its breakpoint default and the packing falls apart.
+          syncCustomSizesFromLayout(tidyResult.widgets, tidyResult.breakpoint);
 
           // Apply the optimized layout
           set({

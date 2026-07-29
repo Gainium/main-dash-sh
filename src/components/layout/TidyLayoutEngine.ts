@@ -4,6 +4,7 @@ import type { WidgetConfig } from '../../stores/dashboardStore';
 import {
   getCurrentBreakpoint,
   getDefaultWidgetSize,
+  type Breakpoint,
 } from '../widgets/DefaultWidgetSizes';
 import { getWidgetMetadata, type WidgetType } from '../widgets/dashboard';
 
@@ -24,22 +25,20 @@ import { getWidgetMetadata, type WidgetType } from '../widgets/dashboard';
  * - Default sizes are defined in DefaultWidgetSizes.ts
  *
  * Phase 2: Optimal Positioning (Grid Packing)
- * - Widgets are arranged in a left-to-right, top-to-bottom flow
- * - When a widget doesn't fit in the current row, it moves to the next row
- * - This creates the most compact vertical layout possible
- * - Rows are automatically sized based on the tallest widget in each row
+ * - Widgets are arranged in rows, left to right, top to bottom
+ * - When the next widget is too wide for what is left of the row, we look
+ *   further down the queue for one that does fit rather than wrapping and
+ *   abandoning those columns
  *
  * Phase 3: Space Expansion (Horizontal Optimization)
- * - For each row, calculate remaining horizontal space (12 cols - used cols)
- * - Distribute extra space proportionally among widgets based on their expansion capacity
- * - Expansion capacity = (maxWidth - currentWidth) for each widget
- * - Widgets with higher expansion capacity get more of the extra space
- * - Prevents widgets from exceeding their maximum allowed sizes
+ * - Whatever columns a row did not use are handed back to that row's widgets,
+ *   one column at a time so the space is shared evenly
+ * - No widget grows past its maxSize; a row whose widgets are all capped keeps
+ *   its remainder (that cap is a deliberate per-widget constraint)
  *
  * Phase 4: Vertical Compaction
- * - Remove any unnecessary vertical gaps between rows
- * - Ensure rows are positioned as close together as possible
- * - Maintains proper spacing while maximizing screen real estate usage
+ * - Rows are stacked directly under one another, each as tall as its tallest
+ *   widget, so no dead band survives between rows
  */
 
 export interface TidyLayoutOptions {
@@ -62,6 +61,8 @@ export interface TidyLayoutResult {
   layout: Layout[];
   /** Updated widget configurations with new layout data */
   widgets: WidgetConfig[];
+  /** Breakpoint the sizes were computed for (callers persist sizes against it) */
+  breakpoint: Breakpoint;
   /** Statistics about the optimization */
   stats: {
     totalWidgets: number;
@@ -99,10 +100,13 @@ export class TidyLayoutEngine {
       options: this.options,
     });
 
+    const breakpoint = getCurrentBreakpoint(this.resolveContainerWidth());
+
     if (widgets.length === 0) {
       return {
         layout: [],
         widgets: [],
+        breakpoint,
         stats: {
           totalWidgets: 0,
           spaceSavedVertically: 0,
@@ -113,16 +117,16 @@ export class TidyLayoutEngine {
     }
 
     // Phase 1: Reset to default sizes
-    const resizedWidgets = this.resetToDefaultSizes(widgets);
+    const resizedWidgets = this.resetToDefaultSizes(widgets, breakpoint);
     logger.debug('Phase 1 complete: Reset to default sizes');
 
     // Phase 2: Optimal positioning (grid packing)
-    const packedLayout = this.createOptimalPackedLayout(resizedWidgets);
+    const packedLayout = this.packWidgets(resizedWidgets);
     logger.debug('Phase 2 complete: Optimal positioning');
 
     // Phase 3: Space expansion (horizontal optimization)
     const expandedLayout = this.options.enableHorizontalExpansion
-      ? this.expandHorizontally(packedLayout, resizedWidgets)
+      ? this.fillHorizontalGaps(packedLayout, resizedWidgets)
       : packedLayout;
     logger.debug('Phase 3 complete: Horizontal expansion');
 
@@ -146,8 +150,38 @@ export class TidyLayoutEngine {
     return {
       layout: compactedLayout,
       widgets: finalWidgets,
+      breakpoint,
       stats,
     };
+  }
+
+  /**
+   * Resolve the width the grid is actually rendered at.
+   *
+   * The breakpoint decides which default widget sizes we lay out with, and the
+   * renderer picks its own breakpoint from the *grid container* width. Guessing
+   * from `window.innerWidth` disagrees with it whenever the sidebar, page
+   * padding or a scrollbar is in play, which produced layouts sized for one
+   * breakpoint but drawn at another.
+   */
+  private resolveContainerWidth(): number {
+    if (this.options.containerWidth !== undefined) {
+      return this.options.containerWidth;
+    }
+
+    if (typeof document !== 'undefined') {
+      const grid = document.querySelector('.react-grid-layout');
+      if (grid && grid.clientWidth > 0) {
+        return grid.clientWidth;
+      }
+    }
+
+    const viewportWidth =
+      typeof window !== 'undefined' ? window.innerWidth - 64 : 0;
+
+    // A zero/negative width means nothing has been laid out yet (SSR, hidden
+    // tab). Fall back to a desktop width rather than tidying for `xxs`.
+    return viewportWidth > 0 ? viewportWidth : 1200;
   }
 
   /**
@@ -160,25 +194,24 @@ export class TidyLayoutEngine {
    * - Ensures predictable behavior regardless of current state
    * - Uses responsive sizing based on current screen width
    */
-  private resetToDefaultSizes(widgets: WidgetConfig[]): WidgetConfig[] {
-    // Get current breakpoint for responsive sizing
-    const containerWidth =
-      this.options.containerWidth ||
-      (typeof window !== 'undefined' ? window.innerWidth - 64 : 1200); // Account for sidebar
-    const currentBreakpoint = getCurrentBreakpoint(containerWidth);
-
+  private resetToDefaultSizes(
+    widgets: WidgetConfig[],
+    breakpoint: Breakpoint
+  ): WidgetConfig[] {
     logger.debug(
-      `Resetting widgets to default sizes for breakpoint: ${currentBreakpoint} (container width: ${containerWidth}px)`
+      `Resetting widgets to default sizes for breakpoint: ${breakpoint}`
     );
+
+    const gridCols = this.options.gridCols ?? 12;
 
     return widgets.map((widget) => {
       // Get the responsive default size for this widget type and current breakpoint
-      const defaultSize = getDefaultWidgetSize(widget.type, currentBreakpoint);
+      const defaultSize = getDefaultWidgetSize(widget.type, breakpoint);
 
       logger.debug(
         `Resetting widget ${widget.id} (${widget.type}) to responsive default size:`,
         {
-          breakpoint: currentBreakpoint,
+          breakpoint,
           from: { w: widget.layoutData.w, h: widget.layoutData.h },
           to: { w: defaultSize.w, h: defaultSize.h },
         }
@@ -188,7 +221,7 @@ export class TidyLayoutEngine {
         ...widget,
         layoutData: {
           ...widget.layoutData,
-          w: defaultSize.w,
+          w: Math.min(Math.max(1, defaultSize.w), gridCols),
           h: defaultSize.h,
           // Keep current position for now, will be optimized in next phase
         },
@@ -199,51 +232,56 @@ export class TidyLayoutEngine {
   /**
    * PHASE 2: Create optimal packed layout (minimize empty spaces)
    *
-   * Algorithm: Left-to-right, top-to-bottom greedy packing
-   * - Start at position (0,0)
-   * - For each widget, try to place it at current position
-   * - If it doesn't fit in current row, move to next row
-   * - Track row height as the maximum height of widgets in that row
-   * - This creates the most vertically compact layout possible
+   * Algorithm: row packing with look-ahead.
+   * - Widgets are laid into rows in order, but when the next widget is too wide
+   *   for what is left of the current row we look further down the queue for one
+   *   that does fit instead of wrapping immediately
+   * - That look-ahead is the difference between a row that ends at 8/12 columns
+   *   (the old behaviour, which left a permanent hole) and a row that fills
    */
-  private createOptimalPackedLayout(widgets: WidgetConfig[]): Layout[] {
+  private packWidgets(widgets: WidgetConfig[]): Layout[] {
+    const gridCols = this.options.gridCols ?? 12;
+    const minRowGap = this.options.minRowGap ?? 0;
+    const queue = widgets.map((widget) => ({
+      id: widget.id,
+      w: Math.min(Math.max(1, widget.layoutData.w), gridCols),
+      h: widget.layoutData.h,
+    }));
+
     const layouts: Layout[] = [];
-    let currentX = 0;
     let currentY = 0;
-    let rowHeight = 0;
 
-    for (const widget of widgets) {
-      const widgetWidth = widget.layoutData.w;
-      const widgetHeight = widget.layoutData.h;
+    while (queue.length > 0) {
+      let remaining = gridCols;
+      let x = 0;
+      let rowHeight = 0;
 
-      // Check if widget fits in current row
-      if (currentX + widgetWidth > (this.options.gridCols ?? 12)) {
-        // Move to next row
-        currentX = 0;
-        currentY += rowHeight + (this.options.minRowGap ?? 0);
-        rowHeight = 0;
+      // Keep pulling the first widget that still fits this row.
+      for (;;) {
+        const index = queue.findIndex((candidate) => candidate.w <= remaining);
+        if (index === -1) break;
 
-        logger.debug(`Widget ${widget.id} moved to new row at y=${currentY}`);
+        const [widget] = queue.splice(index, 1);
+        layouts.push({
+          i: widget.id,
+          x,
+          y: currentY,
+          w: widget.w,
+          h: widget.h,
+          moved: false,
+          static: false,
+        });
+
+        logger.debug(
+          `Placed widget ${widget.id} at (${x}, ${currentY}) size (${widget.w}x${widget.h})`
+        );
+
+        x += widget.w;
+        remaining -= widget.w;
+        rowHeight = Math.max(rowHeight, widget.h);
       }
 
-      // Place widget at current position
-      layouts.push({
-        i: widget.id,
-        x: currentX,
-        y: currentY,
-        w: widgetWidth,
-        h: widgetHeight,
-        moved: false,
-        static: false,
-      });
-
-      logger.debug(
-        `Placed widget ${widget.id} at (${currentX}, ${currentY}) size (${widgetWidth}x${widgetHeight})`
-      );
-
-      // Update position for next widget
-      currentX += widgetWidth;
-      rowHeight = Math.max(rowHeight, widgetHeight);
+      currentY += rowHeight + minRowGap;
     }
 
     return layouts;
@@ -252,177 +290,103 @@ export class TidyLayoutEngine {
   /**
    * PHASE 3: Horizontal expansion to fill empty spaces
    *
-   * For each row:
-   * 1. Calculate remaining horizontal space (gridCols - usedCols)
-   * 2. Determine expansion capacity for each widget (maxWidth - currentWidth)
-   * 3. Distribute extra space proportionally based on expansion capacity
-   * 4. Ensure no widget exceeds its maximum allowed size
+   * Hands the columns a row did not use to the widgets in that row, one column
+   * at a time so the space is shared evenly, and never past a widget's maxSize.
    *
-   * This maximizes screen real estate usage while respecting widget constraints
+   * The previous implementation split the leftover proportionally and floored
+   * every share, so it routinely gave away fewer columns than were free - and a
+   * row holding a single widget kept its whole gap.
    */
-  private expandHorizontally(
+  private fillHorizontalGaps(
     layouts: Layout[],
     widgets: WidgetConfig[]
   ): Layout[] {
     if (layouts.length === 0) return layouts;
 
-    // Group widgets by row (same Y coordinate)
-    const rowGroups = this.groupLayoutsByRow(layouts);
-    const expandedLayouts: Layout[] = [];
+    const gridCols = this.options.gridCols ?? 12;
+    const expanded: Layout[] = [];
 
-    for (const [rowY, rowLayouts] of rowGroups.entries()) {
-      const totalUsedWidth = rowLayouts.reduce(
-        (sum, layout) => sum + layout.w,
-        0
-      );
-      const remainingWidth = (this.options.gridCols ?? 12) - totalUsedWidth;
+    for (const rowLayouts of this.groupLayoutsByRow(layouts).values()) {
+      const row = rowLayouts.map((layout) => ({ ...layout }));
+      const maxWidths = row.map((layout) => {
+        const widget = widgets.find((candidate) => candidate.id === layout.i);
+        return Math.min(this.getMaxSize(widget?.type || '').w, gridCols);
+      });
 
-      logger.debug(
-        `Row ${rowY}: used=${totalUsedWidth}, remaining=${remainingWidth}`
-      );
+      let remaining =
+        gridCols - row.reduce((sum, layout) => sum + layout.w, 0);
 
-      if (remainingWidth > 0) {
-        // Calculate expansion capacity for each widget in this row
-        const expansionInfo = rowLayouts.map((layout) => {
-          const widget = widgets.find((w) => w.id === layout.i);
-          const widgetType = widget?.type || '';
-          const maxSize = this.getMaxSize(widgetType);
-          const maxExpansion = Math.max(0, maxSize.w - layout.w);
-
-          return {
-            layout,
-            maxExpansion,
-            widgetType,
-          };
-        });
-
-        const totalExpansionCapacity = expansionInfo.reduce(
-          (sum, info) => sum + info.maxExpansion,
-          0
-        );
-
-        // Distribute remaining width proportionally
-        let currentX = 0;
-        let remainingWidthToDistribute = Math.min(
-          remainingWidth,
-          totalExpansionCapacity
-        );
-
-        expansionInfo.forEach((info, index) => {
-          let extraWidth = 0;
-
-          if (totalExpansionCapacity > 0 && remainingWidthToDistribute > 0) {
-            // Calculate proportional expansion
-            const proportion = info.maxExpansion / totalExpansionCapacity;
-            extraWidth = Math.min(
-              Math.floor(remainingWidth * proportion),
-              info.maxExpansion,
-              remainingWidthToDistribute
-            );
-
-            // Handle remainder for last widget in row
-            if (index === expansionInfo.length - 1) {
-              const usedWidth = expansionInfo
-                .slice(0, -1)
-                .reduce((sum, prevInfo) => {
-                  const prevProportion =
-                    prevInfo.maxExpansion / totalExpansionCapacity;
-                  return (
-                    sum +
-                    Math.min(
-                      Math.floor(remainingWidth * prevProportion),
-                      prevInfo.maxExpansion
-                    )
-                  );
-                }, 0);
-
-              extraWidth = Math.min(
-                remainingWidth - usedWidth,
-                info.maxExpansion,
-                remainingWidthToDistribute
-              );
-            }
-
-            remainingWidthToDistribute -= extraWidth;
+      // Round-robin a column at a time: exact, and no widget hogs the gap.
+      let progressed = true;
+      while (remaining > 0 && progressed) {
+        progressed = false;
+        for (let index = 0; index < row.length && remaining > 0; index++) {
+          if (row[index].w < maxWidths[index]) {
+            row[index].w += 1;
+            remaining -= 1;
+            progressed = true;
           }
+        }
+      }
 
-          const expandedLayout = {
-            ...info.layout,
-            x: currentX,
-            w: info.layout.w + extraWidth,
-          };
-
-          expandedLayouts.push(expandedLayout);
-          currentX += expandedLayout.w;
-
-          if (extraWidth > 0) {
-            logger.debug(
-              `Expanded widget ${info.layout.i} by ${extraWidth} units`
-            );
-          }
-        });
-      } else {
-        // No expansion needed, just update X positions for proper alignment
-        let currentX = 0;
-        rowLayouts.forEach((layout) => {
-          expandedLayouts.push({
-            ...layout,
-            x: currentX,
-          });
-          currentX += layout.w;
-        });
+      // Re-flow the row now that the widths are final.
+      let x = 0;
+      for (const layout of row) {
+        layout.x = x;
+        x += layout.w;
+        expanded.push(layout);
       }
     }
 
-    return expandedLayouts;
+    return expanded;
   }
 
   /**
    * PHASE 4: Vertical compaction to remove unnecessary gaps
    *
-   * Ensures that rows are positioned as close together as possible
-   * while maintaining the minimum required gap between rows
+   * Stacks the rows directly under one another, each row as tall as its tallest
+   * widget, so no dead band survives between rows.
    */
   private compactVertically(layouts: Layout[]): Layout[] {
     if (layouts.length === 0) return layouts;
 
-    const rowGroups = this.groupLayoutsByRow(layouts);
-    const sortedRows = Array.from(rowGroups.entries()).sort(
+    const minRowGap = this.options.minRowGap ?? 0;
+    const rows = Array.from(this.groupLayoutsByRow(layouts).entries()).sort(
       ([a], [b]) => a - b
     );
 
-    const compactedLayouts: Layout[] = [];
+    const compacted: Layout[] = [];
     let currentY = 0;
 
-    for (const [_originalY, rowLayouts] of sortedRows) {
+    for (const [, rowLayouts] of rows) {
       const rowHeight = Math.max(...rowLayouts.map((layout) => layout.h));
 
-      // Update all layouts in this row to the new Y position
       for (const layout of rowLayouts) {
-        compactedLayouts.push({
-          ...layout,
-          y: currentY,
-        });
+        compacted.push({ ...layout, y: currentY });
       }
 
-      // Move to next row position
-      currentY += rowHeight + (this.options.minRowGap ?? 0);
+      currentY += rowHeight + minRowGap;
     }
 
-    return compactedLayouts;
+    // Preserve the incoming order so callers can zip layouts to widgets.
+    return layouts.map(
+      (item) => compacted.find((entry) => entry.i === item.i) ?? { ...item }
+    );
   }
 
   /**
-   * Helper method to group layouts by their Y coordinate (row)
+   * Group layouts by their Y coordinate (row), keeping each row left-to-right
    */
   private groupLayoutsByRow(layouts: Layout[]): Map<number, Layout[]> {
     const rowGroups = new Map<number, Layout[]>();
 
-    for (const layout of layouts) {
-      if (!rowGroups.has(layout.y)) {
-        rowGroups.set(layout.y, []);
+    for (const layout of [...layouts].sort((a, b) => a.y - b.y || a.x - b.x)) {
+      const row = rowGroups.get(layout.y);
+      if (row) {
+        row.push(layout);
+      } else {
+        rowGroups.set(layout.y, [layout]);
       }
-      rowGroups.get(layout.y)?.push(layout);
     }
 
     return rowGroups;
@@ -455,7 +419,9 @@ export class TidyLayoutEngine {
       if (layoutItem) {
         return {
           ...widget,
-          layoutData: { ...layoutItem },
+          // Spread over the existing layoutData so per-widget constraints
+          // (minW/maxW/...) survive the tidy pass.
+          layoutData: { ...widget.layoutData, ...layoutItem },
         };
       }
       return widget;

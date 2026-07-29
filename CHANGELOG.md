@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.8] - 2026-07-29
+
+### Fixed
+
+- "Tidy up" on the dashboard left large empty areas instead of filling them.
+  A row whose next widget did not fit wrapped early and abandoned the remaining
+  columns, leftover space was only shared proportionally (so a row holding a
+  single widget kept its whole gap), and the widths the pass computed were
+  discarded at render time because they were never recorded as the widget's
+  size. Tidy up now looks ahead when filling a row, hands every unused column
+  back to that row's widgets up to their maximum size, and stores the result so
+  the grid draws it.
+- "Tidy up" sized widgets for the wrong breakpoint on narrow desktop windows.
+  It guessed the layout width from the window instead of measuring the grid, so
+  a page with a scrollbar could be arranged for one breakpoint and drawn at
+  another.
+
 ## [2.39.7] - 2026-07-29
 
 ### Removed
