@@ -1018,9 +1018,20 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       }
     }, [actualOpen]);
 
-    const onTradeChartSelect = useCallback((trade: TradeDetails) => {
-      setChartTrade(trade);
-    }, []);
+    // Clicking a deal in the deals list plots its entry/exit on the attached
+    // chart panel. That panel only exists on md+ and when it isn't collapsed —
+    // without it the click would be invisible, so fall back to opening the
+    // deal details view there.
+    const onTradeChartSelect = useCallback(
+      (trade: TradeDetails) => {
+        if (isMobile || isLeftPanelCollapsed) {
+          handleTradeSelect(trade);
+          return;
+        }
+        setChartTrade(trade);
+      },
+      [isMobile, isLeftPanelCollapsed, handleTradeSelect]
+    );
 
     // Clicking a pair chip in the drawer switches the chart to that pair.
     // Clear any selected deal first so the chart shows the plain pair rather

@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.38.26] - 2026-07-29
+
+### Changed
+
+- Bot view, Deals section: clicking a deal (card or table row) now plots that
+  deal's entry and exit on the chart instead of opening the deal details.
+  Details are still one click away from the deal's "View Details" menu entry.
+  On mobile and when the chart panel is collapsed — where there is no chart to
+  draw on — clicking a deal still opens its details.
+
 ## [2.38.25] - 2026-07-28
 
 ### Fixed

@@ -727,8 +727,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const onTradeSelect = useCallback(
     (trade: TransformedTrade, onlyChart = false) => {
       setSelectedChartDealId(trade.id);
-      if (onlyChart) {
-        onTradeChartSelect?.(trade);
+      // `onlyChart` plots the deal's entry/exit on the drawer chart instead of
+      // opening the deal details view. It's optional, so fall back to the
+      // details view when no chart consumer is wired up — otherwise the click
+      // would be a silent no-op.
+      if (onlyChart && onTradeChartSelect) {
+        onTradeChartSelect(trade);
       } else {
         _onTradeSelect?.(trade);
       }
@@ -1520,7 +1524,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     () => (props: { item: TransformedTrade; index: number }) => (
       <TradeCardWrapper
         {...props}
-        onTradeSelect={(t) => onTradeSelectRef.current(t, false)}
+        onTradeSelect={(t) => onTradeSelectRef.current(t, true)}
         privacyMode={privacyModeCardRef.current}
         handleOpenDetailDrawer={handleRowClickRef.current}
         filledOrders={completedOrdersRef.current}
@@ -3039,8 +3043,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       selectedTab,
     ]
   );
+  // Clicking a row (or a card) plots the deal's entry/exit on the drawer
+  // chart. Opening the full deal details stays on the row's "View Details"
+  // menu entry, which calls `handleRowClick` with `onlyChart` unset.
   const onRowClick = useCallback(
-    (t: TransformedTrade) => handleRowClick(t, false),
+    (t: TransformedTrade) => handleRowClick(t, true),
     [handleRowClick]
   );
   const getRowIsSelected = useCallback(
