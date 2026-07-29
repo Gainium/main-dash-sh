@@ -2877,6 +2877,20 @@ function DataTableComponent<TData, TValue>(
     debugTable: false,
   });
 
+  // Whether DataTableFooter will render a sticky totals row (same check it
+  // makes internally) — drives the scroll container's bottom padding.
+  const hasTotalsFooter = table
+    .getFooterGroups()
+    .some((footerGroup) =>
+      footerGroup.headers.some((header) =>
+        Boolean(
+          (header.column.columnDef.meta as { enableTotalsRow?: boolean })
+            ?.enableTotalsRow
+        )
+      )
+    );
+
+
   // Clamp pageIndex to a valid range whenever data length or pageSize changes
   useEffect(() => {
     try {
@@ -3823,7 +3837,13 @@ function DataTableComponent<TData, TValue>(
           <div
             ref={scrollContainerRef}
             className={clsx(
-              'overflow-auto w-full h-full custom-scrollbar pb-4',
+              'overflow-auto w-full h-full custom-scrollbar',
+              // Sticky elements pin to the scrollport's PADDING edge, so
+              // bottom padding here would float the sticky totals row 16px
+              // above the container bottom with clipped rows showing in the
+              // gap. Keep the breathing room only when there is no totals
+              // row.
+              hasTotalsFooter ? 'pb-0' : 'pb-4',
               canScrollLeft ? 'pl-6' : 'pl-0',
               canScrollRight ? 'pr-6' : 'pr-0'
             )}

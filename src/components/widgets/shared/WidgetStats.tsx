@@ -13,6 +13,8 @@ export interface StatItem {
   icon?: string;
   textValue?: string;
   subLabel?: string;
+  /** Explicit profit/loss coloring for `textValue` stats. */
+  tone?: 'success' | 'destructive' | 'neutral';
 }
 
 export interface WidgetStatsProps {
@@ -59,11 +61,15 @@ export const WidgetStats: React.FC<WidgetStatsProps> = ({
                   {stat.icon && <span>{stat.icon}</span>}
                   <span
                     className={`text-xl font-bold ${
-                      stat.textValue === 'Rising'
+                      stat.tone === 'success'
                         ? 'text-success'
-                        : stat.textValue === 'Falling'
+                        : stat.tone === 'destructive'
                           ? 'text-destructive'
-                          : 'text-foreground'
+                          : stat.textValue === 'Rising'
+                            ? 'text-success'
+                            : stat.textValue === 'Falling'
+                              ? 'text-destructive'
+                              : 'text-foreground'
                     }`}
                   >
                     {stat.textValue}

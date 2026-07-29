@@ -128,7 +128,7 @@ const BotSelectionDialog: React.FC<{
       onClick={onClose}
     >
       <div
-        className="bg-card border border-border rounded-lg p-md w-80 max-h-96 overflow-hidden flex flex-col"
+        className="bg-card border border-border rounded-lg p-md w-full max-w-lg mx-4 max-h-[70vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-4">
@@ -163,7 +163,7 @@ const BotSelectionDialog: React.FC<{
           {filteredItems.map((item) => (
             <div
               key={item.id}
-              className="flex items-center justify-between p-sm rounded hover:bg-muted/50 cursor-pointer"
+              className="flex items-center justify-between gap-sm p-sm rounded hover:bg-muted/50 cursor-pointer"
               onClick={() => {
                 logger.info('[BotSelectionDialog] Clicked on bot', {
                   id: item.id,
@@ -172,14 +172,14 @@ const BotSelectionDialog: React.FC<{
                 onItemToggle(item.id);
               }}
             >
-              <div className="flex items-center gap-sm">
+              <div className="flex items-center gap-sm flex-1 min-w-0">
                 <BotTypeChip
                   botType={item.botType || BotTypesEnum.dca}
                   iconOnly={true}
                   size="sm"
                 />
-                <div>
-                  <div className="text-foreground font-medium text-sm">
+                <div className="min-w-0">
+                  <div className="text-foreground font-medium text-sm truncate">
                     {item.name}
                   </div>
                   {item.subtitle && (
@@ -190,7 +190,7 @@ const BotSelectionDialog: React.FC<{
                 </div>
               </div>
               {selectedItems.includes(item.id) && (
-                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center flex-shrink-0">
                   <svg
                     className="w-3 h-3 text-primary-foreground"
                     fill="currentColor"
@@ -691,6 +691,12 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         ? `${(-Math.abs(performanceStats.maxEquityDrawdownPercent)).toFixed(2)}%`
         : '—';
 
+    // Profit/loss coloring by sign; zero / unavailable stays neutral
+    const toneBySign = (
+      v: number | null
+    ): 'success' | 'destructive' | 'neutral' =>
+      v == null || v === 0 ? 'neutral' : v > 0 ? 'success' : 'destructive';
+
     return [
       {
         label: 'Total Trades',
@@ -702,12 +708,14 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         label: 'Net Result',
         value: 0,
         textValue: nr,
+        tone: toneBySign(performanceStats.netResultPercent),
         showSign: false,
       },
       {
         label: 'Avg Daily Return',
         value: 0,
         textValue: adr,
+        tone: toneBySign(performanceStats.avgDailyReturnPercent),
         showSign: false,
       },
       {
@@ -719,6 +727,11 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         label: 'Max Equity Drawdown',
         value: 0,
         textValue: mdd,
+        tone:
+          performanceStats.maxEquityDrawdownPercent != null &&
+          performanceStats.maxEquityDrawdownPercent !== 0
+            ? ('destructive' as const)
+            : ('neutral' as const),
         showSign: false,
       },
       {

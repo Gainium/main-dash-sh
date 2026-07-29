@@ -18,6 +18,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   look purely profitable. Under ALL the upper panel simply starts where its
   daily history begins, leaving the earlier deals visible below it.
 
+## [2.39.5] - 2026-07-29
+
+### Changed
+
+- Advanced Bot Stats: Net Result, Avg Daily Return, and Max Equity Drawdown
+  tiles use profit/loss colors; the Select Bots dialog is wider and long bot
+  names truncate so the selection checkmark stays visible.
+
+### Fixed
+
+- Tables with a totals row (e.g. Portfolio Balances) no longer show a gap with
+  clipped rows under the sticky totals row — the scroll container's bottom
+  padding pushed the sticky row 16px above the table edge.
+
 ## [2.39.4] - 2026-07-29
 
 ### Changed
