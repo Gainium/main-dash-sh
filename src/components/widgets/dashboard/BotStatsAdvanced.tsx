@@ -733,7 +733,6 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
           performanceStats.maxDealDurationMinutes != null
             ? formatDuration(performanceStats.maxDealDurationMinutes)
             : '—',
-        icon: '⏱️',
         showSign: false,
       },
       {
@@ -743,7 +742,6 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
           performanceStats.winRatePercent != null
             ? `${performanceStats.winRatePercent.toFixed(1)}%`
             : '—',
-        icon: '🎯',
         showSign: false,
       },
       {
@@ -753,7 +751,6 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
           performanceStats.profitFactor != null
             ? performanceStats.profitFactor.toFixed(2)
             : '—',
-        icon: '📊',
         showSign: false,
       },
     ];
@@ -921,8 +918,8 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                             offset="5%"
                             stopColor={
                               chartTab === 'profit'
-                                ? colors.info
-                                : colors.success
+                                ? colors.success
+                                : colors.info
                             }
                             stopOpacity={0.3}
                           />
@@ -930,8 +927,8 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                             offset="95%"
                             stopColor={
                               chartTab === 'profit'
-                                ? colors.info
-                                : colors.success
+                                ? colors.success
+                                : colors.info
                             }
                             stopOpacity={0}
                           />
@@ -978,7 +975,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                         type="monotone"
                         dataKey="value"
                         stroke={
-                          chartTab === 'profit' ? colors.info : colors.success
+                          chartTab === 'profit' ? colors.success : colors.info
                         }
                         strokeWidth={2}
                         fill="url(#equityGradient)"
