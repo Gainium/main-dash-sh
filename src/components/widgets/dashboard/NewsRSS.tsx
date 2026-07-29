@@ -113,7 +113,7 @@ const NewsRSS: React.FC<NewsRSSProps> = ({
   const handleRefresh = async () => {
     if (selectedFeeds.length > 0) {
       setIsLoading(true);
-      await Promise.all(selectedFeeds.map((url) => fetchFeed(url)));
+      await Promise.all(selectedFeeds.map((url) => fetchFeed(url, true)));
       setIsLoading(false);
     }
   };

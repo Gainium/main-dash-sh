@@ -230,6 +230,71 @@ async function parseRSS(xml: string, url: string): Promise<RSSFeed> {
   };
 }
 
+// Shape of api.rss2json.com's parsed response (only the fields we read)
+interface Rss2JsonResponse {
+  status: string;
+  message?: string;
+  feed?: { title?: string };
+  items?: Array<{
+    title?: string;
+    link?: string;
+    guid?: string;
+    pubDate?: string;
+    description?: string;
+    content?: string;
+    thumbnail?: string;
+    enclosure?: { link?: string; type?: string; thumbnail?: string };
+  }>;
+}
+
+// Map rss2json's pre-parsed JSON into our RSSFeed shape
+function parseRss2Json(data: Rss2JsonResponse, url: string): RSSFeed {
+  const items: RSSItem[] = (data.items ?? []).map((item) => {
+    const description = item.description || item.content || '';
+
+    // Best-effort image: thumbnail → image enclosure → first <img> in HTML
+    let imageUrl = item.thumbnail || item.enclosure?.thumbnail || '';
+    if (
+      !imageUrl &&
+      item.enclosure?.link &&
+      (item.enclosure.type?.startsWith('image') ||
+        /\.(png|jpe?g|gif|webp)(\?|$)/i.test(item.enclosure.link))
+    ) {
+      imageUrl = item.enclosure.link;
+    }
+    if (!imageUrl && description) {
+      const imgMatch = description.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (imgMatch?.[1]) imageUrl = imgMatch[1];
+    }
+
+    // rss2json emits "YYYY-MM-DD HH:mm:ss" (UTC); normalize to ISO so
+    // `new Date(...)` parses it consistently across browsers.
+    const rawDate = item.pubDate || '';
+    const pubDate = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(rawDate)
+      ? `${rawDate.replace(' ', 'T')}Z`
+      : rawDate || new Date().toISOString();
+
+    const rssItem: RSSItem = {
+      title: item.title || 'Untitled',
+      link: item.link || '#',
+      description,
+      pubDate,
+      guid: item.guid || item.link || Math.random().toString(),
+    };
+    if (imageUrl) {
+      rssItem.image = { url: imageUrl };
+    }
+    return rssItem;
+  });
+
+  return {
+    url,
+    title: data.feed?.title || 'Untitled Feed',
+    items: items.slice(0, 20),
+    lastFetched: Date.now(),
+  };
+}
+
 export const useRSSStore = create<RSSStore>()(
   persist(
     (set, get) => ({
@@ -239,12 +304,13 @@ export const useRSSStore = create<RSSStore>()(
       selectedFeeds: [PREDEFINED_RSS_FEEDS[0].url],
       lastAutoRefresh: 0,
 
-      fetchFeed: async (url: string) => {
+      fetchFeed: async (url: string, forceRefresh?: boolean) => {
         const { feeds } = get();
         const cached = feeds[url];
 
-        // Use cache if it's still valid
+        // Use cache if it's still valid (unless the caller forces a refresh)
         if (
+          !forceRefresh &&
           cached &&
           !cached.error &&
           Date.now() - cached.lastFetched < CACHE_EXPIRATION
@@ -252,67 +318,70 @@ export const useRSSStore = create<RSSStore>()(
           return;
         }
 
-        // List of CORS proxies to try in order
-        const proxies = [
-          (feedUrl: string) =>
-            `https://api.allorigins.win/get?url=${encodeURIComponent(feedUrl)}`,
-          (feedUrl: string) => `https://cors.bridged.cc/${feedUrl}`,
-          (feedUrl: string) =>
-            `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}`,
+        // Fetch strategies, tried in order. Each returns a parsed RSSFeed or
+        // throws. Browsers can't fetch third-party feeds directly (CORS), so
+        // both strategies go through a public relay:
+        // 1. allorigins — relays the raw XML (full item content, up to 20
+        //    items) but has a history of outages (Cloudflare 52x).
+        // 2. rss2json — very reliable, but returns pre-parsed JSON capped at
+        //    10 items on the free tier, so it's the fallback.
+        // (cors.bridged.cc used to sit in this list; the service is dead.)
+        const strategies: Array<() => Promise<RSSFeed>> = [
+          async () => {
+            const response = await fetch(
+              `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`
+            );
+            if (!response.ok) {
+              throw new Error(`allorigins HTTP ${response.status}`);
+            }
+            const responseText = await response.text();
+            let data: { contents?: string };
+            try {
+              data = JSON.parse(responseText);
+            } catch {
+              // Outages return plain-text bodies like "error code: 522"
+              throw new Error(
+                `allorigins returned non-JSON: ${responseText.slice(0, 80)}`
+              );
+            }
+            let xmlContent = data.contents;
+            if (!xmlContent) {
+              throw new Error('allorigins returned no content');
+            }
+            // Non-text content types come back as a base64 data: URI
+            if (xmlContent.startsWith('data:')) {
+              const base64 = xmlContent.split(',')[1] ?? '';
+              xmlContent = new TextDecoder().decode(
+                Uint8Array.from(atob(base64), (c) => c.charCodeAt(0))
+              );
+            }
+            if (!xmlContent.trim().startsWith('<')) {
+              throw new Error('allorigins response is not XML');
+            }
+            return parseRSS(xmlContent, url);
+          },
+          async () => {
+            const response = await fetch(
+              `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(url)}`
+            );
+            if (!response.ok) {
+              throw new Error(`rss2json HTTP ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.status !== 'ok' || !Array.isArray(data.items)) {
+              throw new Error(
+                `rss2json error: ${data.message || 'no items returned'}`
+              );
+            }
+            return parseRss2Json(data, url);
+          },
         ];
 
         let lastError: Error | null = null;
 
-        for (let i = 0; i < proxies.length; i++) {
+        for (let i = 0; i < strategies.length; i++) {
           try {
-            const proxyUrl = proxies[i](url);
-            const response = await fetch(proxyUrl, {
-              headers: {
-                Accept: 'application/xml, application/rss+xml, text/xml, */*',
-              },
-            });
-
-            if (!response.ok) {
-              throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            const responseText = await response.text();
-
-            // Validate that the response is XML, not HTML
-            if (
-              responseText.trim().startsWith('<html') ||
-              responseText.trim().startsWith('<!DOCTYPE')
-            ) {
-              throw new Error('Proxy returned HTML instead of RSS feed');
-            }
-
-            let xmlContent = responseText;
-
-            // Handle different proxy response formats
-            if (proxyUrl.includes('allorigins.win')) {
-              const data = JSON.parse(responseText);
-              if (!data.contents) {
-                throw new Error('Proxy returned no content');
-              }
-              xmlContent = data.contents;
-            } else if (proxyUrl.includes('rss2json')) {
-              const data = JSON.parse(responseText);
-              if (data.status === 'error') {
-                throw new Error(`RSS2JSON error: ${data.message}`);
-              }
-              // rss2json returns parsed data, not XML - skip to next proxy
-              if (data.items) {
-                throw new Error('Switching to XML-based proxy');
-              }
-            }
-
-            // Validate that the content is XML
-            if (!xmlContent.trim().startsWith('<')) {
-              throw new Error('Response is not XML format');
-            }
-
-            const feed = await parseRSS(xmlContent, url);
-
+            const feed = await strategies[i]();
             set((state) => ({
               feeds: {
                 ...state.feeds,
@@ -324,13 +393,13 @@ export const useRSSStore = create<RSSStore>()(
             lastError =
               error instanceof Error ? error : new Error(String(error));
             console.warn(
-              `Proxy ${i + 1} failed for ${url}: ${lastError.message}`
+              `RSS strategy ${i + 1} failed for ${url}: ${lastError.message}`
             );
-            // Continue to next proxy
+            // Continue to next strategy
           }
         }
 
-        // All proxies failed
+        // All strategies failed
         const errorMessage =
           lastError?.message || 'All proxies failed to fetch RSS feed';
         console.error(`Error fetching RSS feed from ${url}:`, errorMessage);

@@ -24,7 +24,7 @@ export interface PortfolioExchangeDistributionProps {
   allowResize?: boolean;
   height?: string | number;
   onRemove?: () => void;
-  onCollapse?: () => void;
+  onCollapse?: (widgetId: string, collapsed: boolean) => void;
   onTabMove?: (
     fromTabId: string,
     toWidgetId: string,

@@ -5,6 +5,29 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.3] - 2026-07-29
+
+### Fixed
+
+- Advanced Bot Stats: the Accumulated Profit / Equity chart now plots real USD
+  series for the selected bots — the widget's data fetch never worked (it
+  POSTed to a non-existent `/graphql` on the frontend origin), and the series
+  it asked for was a per-deal ROI fraction, not an amount. It now aggregates
+  each bot's `stats.chart` (the same real-currency series the bot drawer
+  uses), forward-filling across bots so differently-timed deals sum correctly.
+  Win Rate, Profit Factor, and Max Deal Duration tiles show real values
+  instead of "—".
+- News RSS widget loads again: of its three CORS relays, one service is dead,
+  one was down, and the third (rss2json) was fetched and then discarded by a
+  bug. rss2json responses are now parsed properly as a fallback, and the
+  widget's Refresh button forces a re-fetch instead of silently hitting cache.
+- Ready dashboard layouts (Trading Desk, Daily Briefing, Portfolio Deep Dive)
+  no longer create empty, unremovable widget cells: the Quick Actions,
+  Categories Analysis, and Exchange Distribution widget types were registered
+  but never wired into the grid renderer. Any widget type that has no
+  registered renderer now shows an explicit placeholder with a Remove button
+  instead of an invisible cell.
+
 ## [2.39.2] - 2026-07-29
 
 ### Changed
