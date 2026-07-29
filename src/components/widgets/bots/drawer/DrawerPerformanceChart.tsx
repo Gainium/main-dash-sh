@@ -21,7 +21,6 @@ import { useGridBots } from '../../../../hooks/useGridBots';
 import { useHedgeComboBots } from '../../../../hooks/useHedgeComboBots';
 import { useHedgeDcaBots } from '../../../../hooks/useHedgeDcaBots'; */
 import { BotTypesEnum, type BotStats, type DCABot } from '@/types';
-import { useBotProfitChartData } from '../../../../hooks/useBotProfitChartData';
 import { useLiveBotMetrics } from '../../../../hooks/useLiveBotMetrics';
 import { useShareContext } from '../../../../hooks/useShareContext';
 import { useSharedBot } from '../../../../hooks/useSharedBot';
@@ -29,10 +28,6 @@ import { cn } from '../../../../lib/utils';
 import { formatPriceWithPrecision } from '../../../../utils/formatters';
 import { formatCurrency } from '../../../../utils/numberFormatter';
 import { useUIStore } from '../../../../stores/uiStore';
-import {
-  DealReturnsPanel,
-  buildDealReturnPoints,
-} from './DrawerPnLScatterChart';
 import { DrawerSection } from './DrawerSection';
 
 interface ChartDataPoint {
@@ -57,22 +52,6 @@ const hasChart = (stats?: BotStats | null): stats is BotStats =>
  * truncation instead of leaving the user to infer it.
  */
 const CHART_WINDOW_DAYS = 90;
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-/**
- * Range options for BOTH panels. Deliberately no "12M": the deal-returns
- * series is pruned at 12 months and the equity series is capped at 90 days, so
- * a 12M option would be indistinguishable from ALL on every existing bot. If
- * the backend cap is ever raised, add it here — nothing else needs to change.
- */
-const RANGES = [
-  { key: '1M', label: '1M', days: 30 },
-  { key: '3M', label: '3M', days: 90 },
-  { key: 'ALL', label: 'ALL', days: null },
-] as const;
-
-type RangeKey = (typeof RANGES)[number]['key'];
 
 /**
  * Both money helpers below prefix the currency symbol to the *signed* number,
@@ -205,18 +184,6 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
   const [showProfit, setShowProfit] = useState(true);
   const [showBuyAndHold, setShowBuyAndHold] = useState(true);
 
-  // Default to ALL: the widest view is the one that answers "is this bot
-  // actually up?", and it is the only one that shows a drawdown older than the
-  // equity series' 90-day cap.
-  const [range, setRange] = useState<RangeKey>('ALL');
-
-  // Lower panel's series. Owned here, not by the panel, because the shared X
-  // domain is the union of both series and the range filter applies to both.
-  const { profitData, isLoading: dealsLoading } = useBotProfitChartData(
-    actualBotId ?? '',
-    botTypeEnum
-  );
-
   // Generate chart data - use same data source as card for consistency.
   // Every source here is a `stats.chart` series, i.e. real currency. There is
   // deliberately NO fallback to `getBotProfitChartData`: that endpoint stores
@@ -294,58 +261,13 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     return (bot?.profit?.totalUsd || 0) >= 0;
   }, [liveStats, bot]);
 
-  const dealPoints = useMemo(
-    () => buildDealReturnPoints(profitData),
-    [profitData]
-  );
+  const hasRealData = useMemo(() => {
+    return chartData.length > 0;
+  }, [chartData]);
 
-  // Range filter, applied to both panels from one cutoff so they can never
-  // disagree about what "3M" means.
-  const cutoff = useMemo(() => {
-    const days = RANGES.find((r) => r.key === range)?.days ?? null;
-    return days === null ? null : Date.now() - days * DAY_MS;
-  }, [range]);
-
-  const visibleChartData = useMemo(
-    () => (cutoff === null ? chartData : chartData.filter((p) => p.time >= cutoff)),
-    [chartData, cutoff]
-  );
-  const visibleDealPoints = useMemo(
-    () => (cutoff === null ? dealPoints : dealPoints.filter((p) => p.x >= cutoff)),
-    [dealPoints, cutoff]
-  );
-
-  /**
-   * ONE domain for both panels — the union of what each has in range. The two
-   * series come from different stores with different retention (90 daily
-   * points on the bot doc vs. up to 500 closed deals in `botProfitChart`), so
-   * the union is normally wider than the equity series. That is intended: the
-   * performance panel simply draws nothing before its first point, and the gap
-   * is the honest picture of how far our daily history goes back.
-   */
-  const domain = useMemo<[number, number] | null>(() => {
-    const times = [
-      ...visibleChartData.map((p) => p.time),
-      ...visibleDealPoints.map((p) => p.x),
-    ];
-    if (!times.length) return null;
-    const min = Math.min(...times);
-    const max = Math.max(...times);
-    // A single point (or all points on one day) would give a zero-width
-    // domain, which recharts renders as an empty plot.
-    return min === max ? [min - DAY_MS, max + DAY_MS] : [min, max];
-  }, [visibleChartData, visibleDealPoints]);
-
-  const hasRealData = visibleChartData.length > 0;
-  const hasAnyData = hasRealData || visibleDealPoints.length > 0;
-
-  // True when the deal history reaches back further than the daily series does
-  // — i.e. the performance panel opens mid-history and the leading gap needs
-  // explaining. `CHART_WINDOW_DAYS` is why: see its docblock.
-  const equityHistoryIsShort =
-    hasRealData &&
-    domain !== null &&
-    visibleChartData[0].time - domain[0] > DAY_MS;
+  // At the cap the backend has been dropping the oldest day for a while, so
+  // everything before the first point is missing — including any drawdown.
+  const isWindowed = chartData.length >= CHART_WINDOW_DAYS;
 
   // Chart series are now handled directly in JSX for better performance
 
@@ -398,33 +320,14 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     <DrawerSection
       widgetId={widgetId}
       widgetType="drawer-performance-chart"
-      title="Performance"
+      title="Performance Chart"
       icon={TrendingUp}
       minSize={{ w: 6, h: 8 }}
       maxSize={{ w: 12, h: 16 }}
       hasOptions={false}
       headerActions={
-        hasAnyData && (
-          <div className="flex flex-wrap items-center gap-sm">
-            <div className="flex items-center gap-xs rounded-lg bg-inner-container p-1">
-              {RANGES.map(({ key, label }) => (
-                <button
-                  key={key}
-                  type="button"
-                  onClick={() => setRange(key)}
-                  aria-pressed={range === key}
-                  className={cn(
-                    'inline-flex items-center justify-center rounded-md border border-transparent px-2.5 py-1.5 text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 min-h-0!',
-                    range === key
-                      ? 'bg-background text-foreground border-border shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)]'
-                      : 'bg-muted/50 text-muted-foreground hover:bg-muted hover:text-foreground'
-                  )}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-xs rounded-lg bg-inner-container p-1">
+        hasRealData && (
+          <div className="flex flex-wrap items-center gap-xs rounded-lg bg-inner-container p-1">
             {[
               {
                 key: 'equity',
