@@ -21,7 +21,7 @@ import { cn, formatCurrency } from '../../../../lib/utils';
 import { transformDcaBotToBot } from '../../../../types/dcaBot';
 import { transformGridBotToBot } from '../../../../types/gridBot';
 import { transformHedgeBotToBot } from '../../../../types/hedgeBot'; */
-import type { BotStats, DCABot } from '@/types';
+import type { DCABot } from '@/types';
 import { useUIStore } from '../../../../stores/uiStore';
 import { ProfitAndPerc } from '../../../ui/chip/ProfitAndPerc';
 import { ProfitLossPercChip } from '../../../ui/chip/ProfitLossPercChip';
@@ -492,15 +492,6 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
       );
     }
 
-    const bestDay =
-      typeof liveStats?.numerical?.general?.bestDay?.value === 'number'
-        ? liveStats.numerical.general?.bestDay?.value
-        : (rawBot?.stats as BotStats)?.numerical?.general.bestDay?.value || 0;
-    const worstDay =
-      typeof liveStats?.numerical?.general?.worstDay?.value === 'number'
-        ? liveStats.numerical.general?.worstDay?.value
-        : (rawBot?.stats as BotStats)?.numerical?.general.worstDay?.value || 0;
-
     // Grid bots: Use closedTrades (buy + sell transactions)
     // DCA bots: Use backend stats.numerical.deals
     const totalDeals =
@@ -561,8 +552,6 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
     return {
       totalProfit,
       avgDailyProfit: avgDaily,
-      bestDay,
-      worstDay,
       totalDays,
       totalDeals,
       tradeWinRate,
