@@ -37,6 +37,15 @@ import {
 import type { BotFormErrors } from '@/types/bots';
 import { math } from '@/utils/math';
 
+/**
+ * Chart label for a projected DCA level whose price is derived purely from the
+ * startDca indicator's "Minimum % from last filled order". These are NOT smart
+ * orders — nothing is placed on the exchange until the indicator fires.
+ */
+export const DCA_MIN_PERC_LABEL = 'DCA (min. %)';
+/** Chart label for `dcaByMarket` levels — price-triggered market orders. */
+export const DCA_BY_MARKET_LABEL = 'DCA by market';
+
 export type DCABotSettings = Pick<
   _DCABotSettingsCommon,
   | 'indicators'
@@ -60,6 +69,7 @@ export type DCABotSettings = Pick<
   | 'coinm'
   | 'useDca'
   | 'dcaCondition'
+  | 'dcaByMarket'
   | 'scaleDcaType'
   | 'dcaVolumeBaseOn'
   | 'dcaVolumeRequiredChange'
@@ -1077,7 +1087,21 @@ export async function createDCAOrders(
           draggable: !!(onDrag && isCustomMode),
         });
       }
-      if (!all && useSmartOrders) {
+      if (!all && settings.dcaCondition === DCAConditionEnum.indicators) {
+        // Indicator-driven DCA never rests on the exchange: the bot fires a
+        // MARKET order once a startDca indicator triggers AND price has moved
+        // at least `minPercFromLast` from the last fill. So every level here is
+        // a projected threshold, not a resting order — `useSmartOrders` /
+        // `activeOrdersCount` have no effect for this condition (the backend
+        // strips dealRegular orders outright, see dcaHelper
+        // `generateCurrentDealOrders`). Mark them all as projections and label
+        // them for what they are rather than falling through to "Smart order".
+        orders = orders.map((o) => ({
+          ...o,
+          grey: true,
+          greyLabel: DCA_MIN_PERC_LABEL,
+        }));
+      } else if (!all && useSmartOrders) {
         const sorted = [...orders].sort((a, b) =>
           settings.strategy === StrategyEnum.long
             ? b.price - a.price
@@ -1085,7 +1109,14 @@ export async function createDCAOrders(
         );
         const activeCount = parseInt(activeOrdersCount);
         const active = sorted.slice(0, activeCount);
-        const smart = sorted.slice(activeCount).map((o) => ({ ...o, grey: true }));
+        const smart = sorted.slice(activeCount).map((o) => ({
+          ...o,
+          grey: true,
+          // `dcaByMarket` levels are triggered by price and sent as market
+          // orders too, so they aren't smart orders either (legacy main-dash
+          // labelled these "DCA by market" — keep parity).
+          ...(settings.dcaByMarket ? { greyLabel: DCA_BY_MARKET_LABEL } : {}),
+        }));
         orders = [...active, ...smart];
       }
     }

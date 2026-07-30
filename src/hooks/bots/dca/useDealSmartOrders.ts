@@ -4,7 +4,9 @@ import { useUserFees } from '@/hooks/useUserFeesService';
 import logger from '@/lib/loggerInstance';
 import {
   BotOrderSideEnum,
+  DCAConditionEnum,
   DCAOrderTypeEnum,
+  IndicatorAction,
   StrategyEnum,
   type Asset,
   type DCABotSettings,
@@ -13,9 +15,12 @@ import {
   type Symbols,
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
+import { projectIndicatorDcaThresholds } from '@/utils/bots/dca/indicator-dca-thresholds';
 import {
   createComboOrders,
   createDCAOrders,
+  DCA_BY_MARKET_LABEL,
+  DCA_MIN_PERC_LABEL,
   defaultContext,
   type ExampleOrdersStoreContext,
 } from '@/utils/bots/dca/example-orders-core';
@@ -59,7 +64,7 @@ const EMPTY: UseDealSmartOrdersResult = {
 };
 
 /**
- * Computes the projected "smart order" ladder for an active deal, mirroring
+ * Computes the projected (not-yet-placed) ladder for an active deal, mirroring
  * legacy `main-dash` (`useDCAPage.getChartOrders`):
  *
  *  1. Build the FULL DCA/combo ladder client-side from the deal's merged
@@ -71,6 +76,16 @@ const EMPTY: UseDealSmartOrdersResult = {
  *     do this, which is why it shows a "Smart order" and a "FILLED" row at the
  *     same price; we drop the projected level when a real order already sits
  *     there.
+ *
+ * Two things differ from legacy for `dcaCondition: 'indicators'`, where the bot
+ * rests nothing on the exchange and instead market-buys once a startDca
+ * indicator fires past its "Minimum % from last filled order":
+ *
+ *  - the projection runs regardless of `useSmartOrders` (inert for this
+ *    condition) and is labelled `DCA (min. %)` rather than `Smart order`;
+ *  - level prices are re-anchored on `deal.lastPrice` via
+ *    {@link projectIndicatorDcaThresholds}, because step 1's ladder chains off
+ *    `initialPrice` and drifts once a level fills below its threshold.
  */
 export function useDealSmartOrders({
   bot,
@@ -92,6 +107,34 @@ export function useDealSmartOrders({
 
   const strategy = (mergedSettings?.strategy ??
     StrategyEnum.long) as StrategyEnum;
+
+  /**
+   * Indicator-driven DCA is not a smart-order ladder: nothing is placed on the
+   * exchange. The bot fires a MARKET order when a startDca indicator triggers
+   * AND price has moved at least that indicator's `minPercFromLast` away from
+   * `deal.lastPrice` (the last fill). So the projection is meaningful whether
+   * or not `useSmartOrders` is on — for this condition the setting is inert.
+   */
+  const isIndicatorDca = Boolean(
+    !isCombo && mergedSettings?.dcaCondition === DCAConditionEnum.indicators
+  );
+
+  /** Per-level "Minimum % from last filled order", in startDca order. */
+  const minPercFromLast = useMemo<number[]>(() => {
+    if (!isIndicatorDca) return [];
+    return (mergedSettings?.indicators ?? [])
+      .filter((i) => i.indicatorAction === IndicatorAction.startDca)
+      .map((i) => +(i.minPercFromLast ?? '0') / 100)
+      .map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
+  }, [isIndicatorDca, mergedSettings?.indicators]);
+
+  const projectionLabel = isCombo
+    ? 'Combo grid order'
+    : isIndicatorDca
+      ? DCA_MIN_PERC_LABEL
+      : mergedSettings?.dcaByMarket
+        ? DCA_BY_MARKET_LABEL
+        : 'Smart order';
 
   // Resolve the rich Symbols object (precision + min/step) for the deal's pair.
   const symbol = useMemo<Symbols | null>(() => {
@@ -119,7 +162,7 @@ export function useDealSmartOrders({
       mergedSettings &&
       (isCombo
         ? mergedSettings.comboUseSmartGrids
-        : mergedSettings.useSmartOrders)
+        : mergedSettings.useSmartOrders || isIndicatorDca)
   );
 
   const balances = useMemo<Asset[]>(() => {
@@ -155,8 +198,20 @@ export function useDealSmartOrders({
       prec: symbol.priceAssetPrecision,
       usd: usdRate,
       combo: isCombo,
+      // Indicator-condition ladders size themselves off the startDca indicator
+      // list (level count + per-level order size), so it has to key the compute.
+      inds: isIndicatorDca ? minPercFromLast : undefined,
     });
-  }, [guardPass, deal, mergedSettings, symbol, usdRate, isCombo]);
+  }, [
+    guardPass,
+    deal,
+    mergedSettings,
+    symbol,
+    usdRate,
+    isCombo,
+    isIndicatorDca,
+    minPercFromLast,
+  ]);
 
   const lastKeyRef = useRef<string>('');
   useEffect(() => {
@@ -236,7 +291,36 @@ export function useDealSmartOrders({
         .map(roundP)
     );
 
-    const projected = ladder.filter((o) => {
+    // Re-anchor indicator-driven levels on the deal's last fill.
+    //
+    // The shared ladder chains each `minPercFromLast` off `deal.initialPrice`
+    // through its own *projected* levels. The backend instead measures every
+    // threshold from `deal.lastPrice` (the deepest fill so far) at the moment
+    // the indicator fires. Those agree only if each level filled exactly on its
+    // projected threshold — but the indicator normally fires some way past the
+    // minimum, so the ladder drifts and draws the next DCA nearer than it can
+    // actually be. Chain from `deal.lastPrice` instead, and drop the levels the
+    // deal has already consumed (for this condition there are no resting DCA
+    // orders, so the pending-order bound below can't filter them out).
+    let effectiveLadder = ladder;
+    if (isIndicatorDca && deal.lastPrice > 0 && minPercFromLast.length) {
+      const thresholds = projectIndicatorDcaThresholds({
+        lastPrice: deal.lastPrice,
+        levelsComplete: deal.levels?.complete ?? 1,
+        minPercFromLast,
+        isLong,
+        precision: prec,
+      });
+      let level = -1;
+      effectiveLadder = ladder.map((o) => {
+        if (o.type !== projType) return o;
+        level += 1;
+        const price = thresholds[level];
+        return price == null ? { ...o, hide: true } : { ...o, price };
+      });
+    }
+
+    const projected = effectiveLadder.filter((o) => {
       if (o.type !== projType) return false;
       if (o.hide || o.note) return false;
       if (!(o.price > 0) || !(o.qty > 0)) return false;
@@ -255,7 +339,7 @@ export function useDealSmartOrders({
 
     const side = isLong ? BotOrderSideEnum.buy : BotOrderSideEnum.sell;
     const sideLower: 'buy' | 'sell' = isLong ? 'buy' : 'sell';
-    const label = isCombo ? 'Combo grid order' : 'Smart order';
+    const label = projectionLabel;
 
     const smartChartOrders: DCAGrid[] = projected.map((o) => ({
       ...o,
@@ -302,6 +386,9 @@ export function useDealSmartOrders({
     ladder,
     strategy,
     isCombo,
+    isIndicatorDca,
+    minPercFromLast,
+    projectionLabel,
     pendingOrders,
     completedOrders,
   ]);

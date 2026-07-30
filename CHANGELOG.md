@@ -5,6 +5,25 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.12] - 2026-07-30
+
+### Fixed
+
+- Projected DCA levels on the price chart were labelled "Smart order" for bots
+  whose DCA condition is an indicator. Those bots never rest a DCA order on the
+  exchange — each level is just the "Minimum % from last filled order"
+  threshold the indicator has to clear — so they now read "DCA (min. %)".
+  `dcaByMarket` levels read "DCA by market", matching the legacy dashboard.
+- Indicator-condition bots now show their projected DCA levels on the chart even
+  with Smart orders switched off. Smart orders have no effect for that condition,
+  so gating the indication on it hid it for no reason.
+- The next-DCA indication on an open deal's chart is now anchored on the deal's
+  last filled price, the same reference the bot uses when it evaluates the
+  minimum-%. It previously chained off the deal's initial price through its own
+  projected levels, which drew the next DCA closer than it could actually happen
+  once a level filled below its threshold. Levels the deal has already taken no
+  longer show up as pending.
+
 ## [2.39.11] - 2026-07-30
 
 ### Fixed
