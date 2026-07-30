@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.10] - 2026-07-29
+
+### Fixed
+
+- The usage ring in a bot's Deals tab (table view) always read 0% for SHORT
+  spot and COIN-M deals, even when orders had filled. The column derived the
+  percentage from the quote-side usage figures, but those deals track usage on
+  the base asset, so the ring stayed empty while the card view showed the real
+  number. The table now uses the same strategy-aware usage percentage the card
+  view and the Deals page already display.
+
 ## [2.39.9] - 2026-07-29
 
 ### Fixed

@@ -2232,20 +2232,18 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'usage',
-        accessorFn: (row) => {
-          const usagePercent =
-            row.usage?.maxUsd && row.usage?.currentUsd
-              ? (row.usage.currentUsd / row.usage.maxUsd) * 100
-              : 0;
-          return usagePercent;
-        },
+        // `usage.currentUsd`/`maxUsd` are quote-side only (see
+        // transformDealToTrade), so this ring read 0% for SHORT spot and COIN-M
+        // deals, whose usage is tracked on the BASE side. Reuse the row's
+        // strategy-aware `outerGaugePercent` — the same value the card view and
+        // the OpenOrdersWidget usage column already render.
+        accessorFn: (row) => row.outerGaugePercent ?? row.usagePercentage ?? 0,
         header: 'Usage',
         cell: ({ row }) => {
           const trade = row.original;
-          const usagePercent =
-            trade.usage?.maxUsd && trade.usage?.currentUsd
-              ? Math.round((trade.usage.currentUsd / trade.usage.maxUsd) * 100)
-              : 0;
+          const usagePercent = Math.round(
+            trade.outerGaugePercent ?? trade.usagePercentage ?? 0
+          );
           return (
             <div
               className="flex justify-center cursor-pointer hover:opacity-80"
