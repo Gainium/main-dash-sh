@@ -13,9 +13,19 @@ export const useMultiDashboardBridge = () => {
   // Get current dashboard from multi-dashboard store
   const currentDashboard = multiDashboardStore.getCurrentDashboard();
 
-  // If we don't have any dashboards in the multi-dashboard store, use the fallback single dashboard store
+  // If we don't have any dashboards in the multi-dashboard store, use the fallback single dashboard store.
+  // Only once rehydration has finished: the multi-dashboard store persists to
+  // IndexedDB (async), so before that `dashboards` is always `[]` and falling
+  // back here made `useWidgetPage` call the LEGACY store's
+  // initializeDefaultWidgets() on every page load — which applies its default
+  // layout and calls cleanupOrphanedSettings() with the legacy default widget
+  // ids, deleting the persisted settings of the real widgets (whose ids never
+  // match). That silently reset per-widget state such as the Advanced Bot
+  // Stats bot selection on every refresh.
   const shouldUseFallback =
-    multiDashboardStore.dashboards.length === 0 && !currentDashboard;
+    multiDashboardStore._hasHydrated &&
+    multiDashboardStore.dashboards.length === 0 &&
+    !currentDashboard;
 
   // Create a bridge interface that matches the dashboard store interface
   const bridgeStore = useMemo(() => {

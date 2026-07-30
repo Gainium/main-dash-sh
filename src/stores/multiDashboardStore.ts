@@ -82,6 +82,16 @@ interface MultiDashboardState {
   // Dashboard management
   dashboards: DashboardConfig[];
   currentDashboardId: string;
+  /** True once the IndexedDB rehydration has completed (or failed). Consumers
+   *  must treat `!_hasHydrated` as "unknown", NOT as "there are no dashboards":
+   *  this store persists to IndexedDB (async), so the initial in-memory state
+   *  (`dashboards: []`) is indistinguishable from a user who really has none.
+   *  Reading it as the latter made the widget-page bridge fall back to the
+   *  legacy single-dashboard store, which applied its default layout and
+   *  purged every real widget's persisted settings via
+   *  `cleanupOrphanedSettings` on each page load. */
+  _hasHydrated: boolean;
+  setHasHydrated: (state: boolean) => void;
 
   // Actions
   createDashboard: (name?: string, skipDefaultWidgets?: boolean) => string;
@@ -193,6 +203,9 @@ export const useMultiDashboardStore = create<MultiDashboardState>()(
           // Initial state
           dashboards: [],
           currentDashboardId: '',
+          _hasHydrated: false,
+
+          setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
 
           // Dashboard management actions
           createDashboard: (name, skipDefaultWidgets = false) => {
@@ -1719,6 +1732,14 @@ export const useMultiDashboardStore = create<MultiDashboardState>()(
             dashboards: state.dashboards,
             currentDashboardId: state.currentDashboardId,
           }),
+          onRehydrateStorage: () => (_state, error) => {
+            if (error) {
+              logger.error('[MultiDashboardStore] Rehydration error:', error);
+            }
+            // Flip regardless of error — consumers must stop waiting even if
+            // the IndexedDB read failed.
+            useMultiDashboardStore.getState().setHasHydrated(true);
+          },
         }
       ),
       { name: 'multi-dashboard-store' }

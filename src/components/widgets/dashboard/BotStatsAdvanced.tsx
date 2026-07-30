@@ -893,9 +893,14 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
             {/* Stats Section - always shown when bots are selected */}
             <WidgetStats stats={createStatsData()} className="mb-6" />
 
-            {/* Chart with Tabs (shown only if data exists) */}
-            <div className="flex-1 mb-6 min-h-[200px]">
-              <div className="flex items-center justify-between mb-3">
+            {/* Chart with Tabs (shown only if data exists).
+                Lay the header and the chart out as a flex column: the chart box
+                used to be `h-full` (= 100% of this section) while starting
+                BELOW the header, so it overflowed the section by the header's
+                height and the x-axis date labels landed on top of the
+                time-filter buttons underneath. */}
+            <div className="flex-1 mb-6 min-h-[200px] flex flex-col">
+              <div className="flex items-center justify-between mb-3 shrink-0">
                 <h4 className="text-muted-foreground text-sm font-medium">
                   {chartTab === 'profit' ? 'Accumulated Profit' : 'Equity'} (
                   {selectedBots.length} Selected)
@@ -912,7 +917,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                   </TabsList>
                 </Tabs>
               </div>
-              <div className="w-full h-full">
+              <div className="w-full flex-1 min-h-0">
                 {activeSeries.length > 0 ? (
                   <ResponsiveContainer width="100%" height="100%">
                     <AreaChart

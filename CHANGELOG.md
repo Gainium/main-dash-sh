@@ -5,6 +5,23 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.39.11] - 2026-07-30
+
+### Fixed
+
+- Advanced Bot Stats widget: the x-axis date labels on the Accumulated
+  Profit / Equity chart overlapped the `7D / 30D / 90D / 1Y / All` range
+  buttons underneath it. The chart box was sized at 100% of its section
+  while starting below the section's header, so it overflowed the section
+  and spilled onto the buttons.
+- Dashboard widgets lost their saved settings on every page load — the
+  Advanced Bot Stats bot selection (and its time-range choice) reset to
+  empty after a refresh. The multi-dashboard store rehydrates from
+  IndexedDB asynchronously, so before it finished the widget page treated
+  "not loaded yet" as "no dashboards", fell back to the legacy dashboard
+  store, and applied that store's default layout — whose orphaned-settings
+  cleanup deleted the persisted settings of the real widgets.
+
 ## [2.39.10] - 2026-07-29
 
 ### Fixed
