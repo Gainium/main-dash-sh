@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.40.1] - 2026-07-30
+
+### Fixed
+
+- The Portfolio Value widget's "Coins" filter is usable again. Its "Add coins"
+  picker came up empty ("No items found") so no coin could be typed or selected,
+  because the chart's default all-coins/all-exchanges view fetches a lean series
+  without the per-asset breakdown the picker lists from. The picker now reads the
+  breakdown separately when it is opened.
+- The Portfolio Value coin picker and its filter chips now list every coin in the
+  loaded history, not only those held in the oldest snapshot of the range — a
+  coin acquired later was missing from the picker and its chart series would not
+  draw when selected.
+- Picking a coin while "All coins" is still selected now draws that coin's line
+  over the total, instead of leaving the chart unchanged.
+
 ## [2.40.0] - 2026-07-30
 
 ### Added

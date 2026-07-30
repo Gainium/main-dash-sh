@@ -66,6 +66,13 @@ interface PortfolioSnapshotWithExchanges {
 // Currency reference data + lookup live in `@/utils/currencyUtils` (imported
 // above as `currencies` / `getCurrencyInfo`) — do not duplicate them here.
 
+// Backend asset names are already the display symbol, bar one legacy alias.
+// Single source of truth so the chart series, the picker list and the filter
+// chips can never disagree on how a coin is keyed (`selectedCoins` holds the
+// uppercase symbol).
+const normalizeAssetSymbol = (name: string) =>
+  (name === 'looks' ? 'RARE' : name).toUpperCase();
+
 // Color palette for different coins.
 const COIN_COLORS = [
   '#3b82f6', // blue
@@ -143,13 +150,21 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     'ALL',
   ]);
 
-  // A coin/exchange filter is active unless BOTH include 'ALL'. Only then is the
-  // per-day assets[] breakdown needed; the all/all line uses `totalUsd`. Uses the
-  // SAME `.includes('ALL')` predicate as `showAllExchanges`/`showAllCoins` in the
-  // processing below, so the lean-fetch decision can never disagree with the
-  // branch that consumes it (a mismatch would reduce over absent assets).
+  // The per-day assets[] breakdown is needed whenever the widget must reason
+  // about individual coins/exchanges — i.e. whenever ANY selection beyond a bare
+  // 'ALL' is in play. `['ALL', 'BTC']` counts: the chart overlays a BTC series on
+  // the total line, and that series needs BTC's per-day value. Testing only for
+  // the ABSENCE of 'ALL' (as this did) left that state on the lean payload, so a
+  // coin added alongside "All coins" drew no series at all.
+  // Still stricter than the `showAllExchanges`/`showAllCoins` predicates that
+  // consume it: those are both true only when this is false (a bare 'ALL' on each
+  // side), which is exactly the branch that reads `totalUsd` and never reduces
+  // over assets — so the lean fetch can still never starve a consumer.
   const needsAssets =
-    !selectedCoins.includes('ALL') || !selectedExchanges.includes('ALL');
+    !selectedCoins.includes('ALL') ||
+    selectedCoins.length > 1 ||
+    !selectedExchanges.includes('ALL') ||
+    selectedExchanges.length > 1;
 
   // Fetch the WHOLE 12-month range ONCE. The chips filter the already-loaded
   // series client-side (`timeFilterMs` below), so switching ranges is INSTANT —
@@ -177,7 +192,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
           // [] so downstream `.map`/filters never hit null.
           assets: (snap.assets ?? []).map((pa) => ({
             ...pa,
-            name: pa.name === 'looks' ? 'RARE' : pa.name, // Normalize asset names
+            name: normalizeAssetSymbol(pa.name), // Normalize asset names
           })),
         })) || []
       );
@@ -245,6 +260,25 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   const [showExchangeDialog, setShowExchangeDialog] = useState(false);
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
+
+  // The coin picker needs the per-asset breakdown, but the chart's own fetch is
+  // deliberately LEAN in the default all/all state (`needsAssets` above) — so
+  // `snapshots` carried no assets[] and the picker listed nothing but "All
+  // Coins": you could not type or select a coin at all. Decouple the picker from
+  // that optimization by reading the breakdown separately, on first open of the
+  // dialog. This deliberately reuses the SAME argument-less
+  // `GraphQlQuery.getPortfolioByUser()` that the sibling portfolio widgets
+  // (PortfolioAllocation, ExchangeCard, PortfolioExchangeDistribution) already
+  // issue, so it shares their react-query cache entry — on pages where one of
+  // them is mounted the picker fills from cache with no extra request, and the
+  // chart's 12-month series stays lean either way.
+  const [coinListRequested, setCoinListRequested] = useState(false);
+  const coinListQuery = useMemo(() => GraphQlQuery.getPortfolioByUser(), []);
+  const { data: coinList } = useGraphQL<PortfolioQuery>(
+    'getPortfolioByUser',
+    coinListQuery,
+    { enabled: coinListRequested && !needsAssets }
+  );
 
   // Listen for external options open events (e.g., from widget manager)
   useEffect(() => {
@@ -402,6 +436,37 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [selectedCoins, setSelectedCoins]
   );
 
+  // Every coin present in the loaded portfolio history — the single source for
+  // both the picker list and the selected-coin chips. A UNION across snapshots
+  // rather than `snapshots[0].assets`, because `snapshots[0]` is the OLDEST row
+  // in the range: a coin acquired later never appeared in the picker, and its
+  // chart series silently refused to draw. Walked newest-first so current
+  // holdings lead the list. Falls back to the dedicated `coinList` read when the
+  // chart's own fetch is lean and carries no assets at all.
+  const coinAssets = useMemo(() => {
+    const source = snapshots.some((snap) => snap.assets.length > 0)
+      ? snapshots
+      : (coinList?.data?.result ?? []);
+    const latestUsdBySymbol = new Map<string, number>();
+    for (let i = source.length - 1; i >= 0; i--) {
+      for (const asset of source[i]?.assets ?? []) {
+        const symbol = normalizeAssetSymbol(asset.name);
+        if (!latestUsdBySymbol.has(symbol))
+          latestUsdBySymbol.set(symbol, asset.amountUsd);
+      }
+    }
+    return [...latestUsdBySymbol].map(([symbol, amountUsd]) => ({
+      symbol,
+      amountUsd,
+    }));
+  }, [snapshots, coinList]);
+
+  // Which coins the chart can actually plot a series for.
+  const coinSymbols = useMemo(
+    () => new Set(coinAssets.map((asset) => asset.symbol)),
+    [coinAssets]
+  );
+
   // Prepare coin data for ListModal
   const modalItems = useMemo(
     () => [
@@ -412,18 +477,16 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         color: '#3b82f6',
         subtitle: 'Total portfolio value',
       },
-      ...(snapshots?.[0]?.assets || []).map((asset) => {
-        return {
-          symbol: asset.name.toUpperCase(),
-          name: asset.name.toUpperCase(),
-          icon: '', // CoinIcon component uses symbol prop to construct URL
-          price: asset.amountUsd,
-          color: '',
-          // Don't set baseAsset, quoteAsset, or isExchange so it uses CoinIcon
-        };
-      }),
+      ...coinAssets.map((asset) => ({
+        symbol: asset.symbol,
+        name: asset.symbol,
+        icon: '', // CoinIcon component uses symbol prop to construct URL
+        price: asset.amountUsd,
+        color: '',
+        // Don't set baseAsset, quoteAsset, or isExchange so it uses CoinIcon
+      })),
     ],
-    [snapshots]
+    [coinAssets]
   );
 
   // Prepare exchange data for ListModal
@@ -778,12 +841,10 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [privacyMode, portfolioData, currencyInfo, selectedCurrency]
   );
 
-  // Check if any filters are active (not default state)
-  const filtersActive =
-    !selectedExchanges.includes('ALL') ||
-    selectedExchanges.length > 1 ||
-    !selectedCoins.includes('ALL') ||
-    selectedCoins.length > 1;
+  // Whether any filter is active (not the default state) is the same question as
+  // whether the assets[] breakdown is needed — keep it one predicate so the
+  // "Clear filters" affordance and the fetch shape can never disagree.
+  const filtersActive = needsAssets;
 
   // Clear all filters to default state
   const clearAllFilters = useCallback(() => {
@@ -809,17 +870,20 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [exchanges]
   );
 
-  // Create coin filter items for the generic filter system
+  // Create coin filter items for the generic filter system. `id` must be the
+  // uppercase symbol: FilterSection resolves each selected chip by
+  // `availableItems.find(i => i.id === itemId)` against `selectedCoins`, which
+  // holds the symbols ListModal reports.
   const coinFilterItems: FilterItem[] = useMemo(
     () =>
-      (snapshots?.[0]?.assets || []).map((coin) => ({
-        id: coin.name,
-        name: coin.name.toUpperCase(),
+      coinAssets.map((asset) => ({
+        id: asset.symbol,
+        name: asset.symbol,
         icon: '',
         color: '',
         isExchange: false,
       })),
-    [snapshots]
+    [coinAssets]
   );
 
   // Create filter content using the generic filter system
@@ -841,7 +905,11 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
           selectedItems={selectedCoins}
           availableItems={coinFilterItems}
           onItemRemove={handleRemoveCoin}
-          onShowDialog={() => setShowCoinDialog(true)}
+          onShowDialog={() => {
+            // Opening the picker is what arms the breakdown read above.
+            setCoinListRequested(true);
+            setShowCoinDialog(true);
+          }}
           addButtonText="Add coins"
           showAllOption={true}
         />
@@ -949,15 +1017,13 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                   </linearGradient>
                   {selectedCoins.map((coinSymbol, index) => {
                     if (coinSymbol === 'ALL') return null;
-                    const asset = snapshots?.[0]?.assets.find(
-                      (a) => a.name.toUpperCase() === coinSymbol.toUpperCase()
-                    );
-                    if (!asset) return null;
+                    const symbol = coinSymbol.toUpperCase();
+                    if (!coinSymbols.has(symbol)) return null;
                     const color = getCoinColor(coinSymbol, index);
-                    const gradientId = `color${asset.name.toUpperCase()}`;
+                    const gradientId = `color${symbol}`;
                     return (
                       <linearGradient
-                        key={`gradient-${asset.name}`}
+                        key={`gradient-${symbol}`}
                         id={gradientId}
                         x1="0"
                         y1="0"
@@ -1054,18 +1120,16 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                 {selectedCoins
                   .filter((coin) => coin !== 'ALL')
                   .map((coinSymbol, index) => {
-                    const asset = snapshots?.[0]?.assets.find(
-                      (a) => a.name.toUpperCase() === coinSymbol.toUpperCase()
-                    );
-                    if (!asset) return null;
+                    const symbol = coinSymbol.toUpperCase();
+                    if (!coinSymbols.has(symbol)) return null;
                     const color = getCoinColor(coinSymbol, index);
-                    const gradientId = `color${asset.name.toUpperCase()}`;
+                    const gradientId = `color${symbol}`;
                     return (
                       <Area
                         isAnimationActive={false}
-                        key={asset.name}
+                        key={symbol}
                         type="monotone"
-                        dataKey={asset.name.toUpperCase()}
+                        dataKey={symbol}
                         stroke={color}
                         strokeWidth={1.5}
                         fill={`url(#${gradientId})`}
@@ -1106,6 +1170,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       snapshots,
       portfolioData,
       selectedCoins,
+      coinSymbols, // gates which selected coins get a chart series
       getCoinColor,
       timeFilter,
       portfolioLoading, // drives the chart loading overlay
