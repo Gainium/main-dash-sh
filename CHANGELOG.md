@@ -5,6 +5,35 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.40.0] - 2026-07-30
+
+### Added
+
+- The bot page's price chart is now deal-aware. While a DCA or Combo bot has an
+  open deal on the charted pair, the chart draws that deal's real resting orders
+  and its projected next DCA levels — the same indication the deal drawer shows
+  — instead of the settings preview, which is projected from the current market
+  price and so never lined up with a running deal. The deal's own fills appear
+  as buy/sell markers alongside them.
+- An "Active deal orders" item in the chart's display menu switches back to the
+  settings preview, for tuning a bot's parameters while a deal is open. It only
+  appears when there is an open deal to show.
+
+### Changed
+
+- The chart's display menu now shows each option's current state as a checkbox
+  instead of an unlabelled "Toggle …" action, so it's clear what is on.
+
+### Fixed
+
+- Changing the chart's display menu left the old "Chart" button behind on the
+  toolbar, stacking up a duplicate per change. Removing the previous button
+  silently did nothing because the dropdown handle was never awaited, and two
+  overlapping attaches could each add one; the menu is now rebuilt in place.
+- Opening a bot page could crash it with "Maximum update depth exceeded". The
+  bot-deals hook re-ran a state-setting effect on every render whenever a caller
+  passed its filter inline, which every caller does.
+
 ## [2.39.12] - 2026-07-30
 
 ### Fixed

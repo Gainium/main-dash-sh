@@ -1,6 +1,10 @@
-import { formatOrderForDisplay } from '@/hooks/useBotOrders';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
+import {
+  dealCompletedOrdersToTransactions,
+  dealPendingOrdersToChartLines,
+} from '@/utils/bots/dca/deal-chart-orders';
+import { splitDealOrders } from '@/utils/orders/viewOrder';
 import {
   useComboBotsStore,
   useDcaBotsStore,
@@ -8,17 +12,12 @@ import {
   useGridBotsStore,
 } from '@/stores/live';
 import {
-  BotOrderSideEnum,
   BotTypesEnum,
-  DCAOrderTypeEnum,
   type DCABotSettings,
   type DCAGrid,
-  type OrderData,
 } from '@/types';
-import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
-import { getOrderTypeLabel } from '@/utils/mapOrderName';
 import { extractPairAssets } from '@/utils/pairs';
 import React, { useMemo } from 'react';
 import { formatTradingPair } from '../../lib/utils';
@@ -50,60 +49,6 @@ const mapTradeTypeToBotType = (
     default:
       return BotTypesEnum.dca;
   }
-};
-
-// Mirror of the transform in BotDetailsDrawer.transformOrders so this drawer,
-// when mounted standalone (e.g. from the Trading Bots /deals tab), renders
-// orders in the same shape `TradeDetailContent` expects.
-const orderDataToViewOrder = (
-  order: OrderData,
-  fallbackExchange?: string
-): ViewOrder => {
-  const formatted = formatOrderForDisplay(order);
-  const executedQty = parseFloat(order.executedQty || '0');
-  const origQty = parseFloat(order.origQty || '0');
-  const executedPrice =
-    executedQty > 0
-      ? formatted.price * (executedQty / origQty)
-      : formatted.price;
-  const orderTypeLabel = getOrderTypeLabel(
-    order.typeOrder || 'regular',
-    order.sl || false,
-    order.clientOrderId,
-    order.reduceFundsId,
-    true
-  );
-
-  return {
-    id: formatted.id,
-    dealId: formatted.dealId,
-    type: formatted.side,
-    status: formatted.status,
-    symbol: formatted.symbol,
-    baseAsset: formatted.baseAsset,
-    quoteAsset: formatted.quoteAsset,
-    amount: formatted.quantity,
-    price: formatted.price,
-    filled: formatted.executedQuantity,
-    remaining: formatted.quantity - formatted.executedQuantity,
-    total: formatted.price * formatted.quantity,
-    createTime: new Date(formatted.time).toISOString(),
-    ...(formatted.updateTime && {
-      updateTime: new Date(formatted.updateTime).toISOString(),
-    }),
-    side: formatted.side,
-    exchange: formatted.exchange || fallbackExchange || 'Unknown',
-    executedQuantity: formatted.executedQuantity,
-    executedPrice,
-    orderType: orderTypeLabel,
-    origQty: order.origQty,
-    typeOrder: order.typeOrder,
-    sl: order.sl,
-    clientOrderId: order.clientOrderId,
-    reduceFundsId: order.reduceFundsId,
-    time: order.updateTime,
-    executedQty: order.executedQty,
-  };
 };
 
 interface TradeDetailDrawerProps {
@@ -223,24 +168,10 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
     [dcaBot, comboBot, gridBot]
   );
 
-  const { pendingOrders, completedOrders } = useMemo(() => {
-    const pending: ViewOrder[] = [];
-    const completed: ViewOrder[] = [];
-    for (const order of dealOrders ?? []) {
-      const view = orderDataToViewOrder(order, trade.exchange);
-      const status = String(order.status || '').toUpperCase();
-      if (
-        status === 'FILLED' ||
-        status === 'CANCELED' ||
-        status === 'CANCELLED'
-      ) {
-        completed.push(view);
-      } else {
-        pending.push(view);
-      }
-    }
-    return { pendingOrders: pending, completedOrders: completed };
-  }, [dealOrders, trade.exchange]);
+  const { pendingOrders, completedOrders } = useMemo(
+    () => splitDealOrders(dealOrders, trade.exchange),
+    [dealOrders, trade.exchange]
+  );
 
   // Raw deal (not the lossy `trade`) — carries initialPrice, gridBreakpoints,
   // per-deal settings overrides, dynamicAr — needed to project smart orders.
@@ -269,34 +200,16 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
 
   // Feed the price chart: real pending orders + projected grey smart levels.
   // Grey lines render automatically (BotChart maps grey:true → color).
-  const chartOrders = useMemo<DCAGrid[]>(() => {
-    const realLines: DCAGrid[] = pendingOrders.map((o) => ({
-      qty: +o.origQty,
-      price: +o.price,
-      side: o.side === 'buy' ? BotOrderSideEnum.buy : BotOrderSideEnum.sell,
-      id: o.id,
-      type: o.typeOrder as DCAOrderTypeEnum,
-      pair: o.symbol,
-      strategy,
-      label: getOrderTypeLabel(
-        o.typeOrder ?? 'regular',
-        !!o.sl,
-        o.clientOrderId,
-        o.reduceFundsId,
-        false
-      ),
-    }));
-    return [...realLines, ...smartChartOrders];
-  }, [pendingOrders, smartChartOrders, strategy]);
+  const chartOrders = useMemo<DCAGrid[]>(
+    () => [
+      ...dealPendingOrdersToChartLines(pendingOrders, strategy),
+      ...smartChartOrders,
+    ],
+    [pendingOrders, smartChartOrders, strategy]
+  );
 
   const chartTransactions = useMemo(
-    () =>
-      completedOrders.map((o) => ({
-        price: +o.price,
-        side: o.side === 'buy' ? BotOrderSideEnum.buy : BotOrderSideEnum.sell,
-        id: o.id,
-        time: o.time,
-      })),
+    () => dealCompletedOrdersToTransactions(completedOrders),
     [completedOrders]
   );
 

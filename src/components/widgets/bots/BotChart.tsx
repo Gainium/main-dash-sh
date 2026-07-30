@@ -39,7 +39,7 @@ import {
   useBotChartDisplayOptions,
   type BotChartDisplayOptionsResult,
 } from './hooks/useBotChartDisplayOptions';
-import { isTokenizedStockPair } from '@/utils/pairs';
+import { isTokenizedStockPair, normalizePairKey } from '@/utils/pairs';
 import { useOrderStore } from '@/stores/live';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
@@ -229,6 +229,7 @@ export interface BotChartWidgetSettings extends ChartWidgetSettings {
   showTransactions: boolean;
   showPastOrders: boolean;
   showSignals: boolean;
+  showDealOrders: boolean;
 }
 
 export interface BotChartProps {
@@ -324,13 +325,29 @@ const BotChart: React.FC<BotChartProps> = ({
     defaultInterval
   );
 
-  const internalDisplayOptions = useBotChartDisplayOptions(widgetId);
+  // The active deal's chart annotation, handed down by the bot page (see
+  // useBotPageDealChart). Absent everywhere else, which keeps the terminal /
+  // create-bot / grid charts on the form ladder exactly as before.
+  const dealChartOrders = useMemo(
+    () => pickFirstArray<DCAGrid>(data?.['dealChartOrders']),
+    [data]
+  );
+  const dealChartTransactions = useMemo(
+    () => pickFirstArray<TransactionChart>(data?.['dealChartTransactions']),
+    [data]
+  );
+  const dealChartPair = getString(data?.['dealChartPair']);
+
+  const internalDisplayOptions = useBotChartDisplayOptions(widgetId, {
+    hasDealOrders: dealChartOrders.length > 0,
+  });
 
   const {
     showOrders,
     showTransactions,
     showPastOrders,
     showSignals,
+    showDealOrders,
     toolbarDropdownItems,
   } = displayOptionsOverride ?? internalDisplayOptions;
 
@@ -466,9 +483,22 @@ const BotChart: React.FC<BotChartProps> = ({
 
   const { marketData } = useMarketData(currentPair, currentExchange);
 
+  // Draw the running deal's ladder INSTEAD of the form's, not on top of it.
+  // The form ladder is projected from the current market price, so on a bot
+  // that already has an open deal the two disagree by construction and drawing
+  // both puts two competing sets of DCA lines on the chart. The deal's own
+  // lines are the truthful answer to "where does this bot buy next"; the
+  // toolbar toggle switches back to the settings preview for anyone tuning
+  // parameters mid-deal.
+  const dealOverlayActive =
+    showDealOrders &&
+    dealChartOrders.length > 0 &&
+    (!dealChartPair ||
+      normalizePairKey(currentPair) === normalizePairKey(dealChartPair));
+
   const rawOrders: ChartOrderLine[] = useMemo(
     () =>
-      exampleOrders
+      (dealOverlayActive ? dealChartOrders : exampleOrders)
         .filter((o) => !o.hide && !o.note)
         .map((o) => ({
           ...o,
@@ -481,7 +511,7 @@ const BotChart: React.FC<BotChartProps> = ({
           isDraggable: o.grey ? false : !!o.draggable,
           ...(o.grey ? { color: '#94a3b8' } : {}),
         })),
-    [exampleOrders]
+    [dealOverlayActive, dealChartOrders, exampleOrders]
   );
 
   const rawOrderDrawings = useMemo(
@@ -599,10 +629,24 @@ const BotChart: React.FC<BotChartProps> = ({
     [rawOrderDrawings, showPastOrders]
   );
 
-  const transactions = useMemo(
-    () => (showTransactions ? rawTransactions : EMPTY_TRANSACTIONS),
-    [rawTransactions, showTransactions]
-  );
+  const transactions = useMemo(() => {
+    if (!showTransactions) {
+      return EMPTY_TRANSACTIONS;
+    }
+    // The deal's own fills, so the ladder's grey "next DCA" levels read against
+    // the levels the deal has already taken.
+    if (dealOverlayActive && dealChartTransactions.length) {
+      return rawTransactions.length
+        ? [...rawTransactions, ...dealChartTransactions]
+        : dealChartTransactions;
+    }
+    return rawTransactions;
+  }, [
+    rawTransactions,
+    showTransactions,
+    dealOverlayActive,
+    dealChartTransactions,
+  ]);
 
   const pastEntries = useMemo(
     () => (showSignals ? rawPastEntries : EMPTY_INDICATOR_EVENTS),

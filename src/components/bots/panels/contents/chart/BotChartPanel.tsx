@@ -20,7 +20,16 @@ const BotChartPanel = ({
 }: BotChartPanelProps) => {
   const resolvedWidgetId = incomingWidgetId ?? 'bot-chart';
 
-  const displayOptions = useBotChartDisplayOptions(resolvedWidgetId);
+  // This panel owns the display options (it overrides BotChart's internal
+  // copy), so it — not BotChart — decides whether the active-deal toggle is
+  // offered. Same source of truth: the overlay the bot page passed down.
+  const hasDealOrders = Array.isArray(restProps.data?.['dealChartOrders'])
+    ? (restProps.data['dealChartOrders'] as unknown[]).length > 0
+    : false;
+
+  const displayOptions = useBotChartDisplayOptions(resolvedWidgetId, {
+    hasDealOrders,
+  });
 
   useEffect(() => {
     if (!onPanelMenuChange) return;

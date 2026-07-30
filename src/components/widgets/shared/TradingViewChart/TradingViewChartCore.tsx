@@ -160,6 +160,8 @@ export const TradingViewChartCore = forwardRef<
       null
     );
     const toolbarDropdownSignatureRef = useRef<string | null>(null);
+    /** Serializes toolbar-dropdown attach/detach so they can't interleave. */
+    const toolbarDropdownQueueRef = useRef<Promise<void>>(Promise.resolve());
     const visibleRangeCallbackRef = useRef<
       (range?: { from: number; to: number } | null) => void
     >(() => undefined);
@@ -975,51 +977,81 @@ export const TradingViewChartCore = forwardRef<
     }, []);
 
     const attachToolbarDropdown = useCallback(
-      async (config?: TradingViewToolbarDropdownConfig | null) => {
-        if (!config || !config.items?.length) {
-          detachToolbarDropdown();
-          return;
-        }
-
-        const widget = widgetRef.current as ExtendedWidget | null;
-        if (!widget || typeof widget.headerReady !== 'function') {
-          return;
-        }
-
-        const signature = JSON.stringify({
-          title: config.title,
-          tooltip: config.tooltip ?? '',
-          items: config.items.map((item) => ({
-            title: item.title,
-            isDisabled: item.isDisabled ?? false,
-          })),
-        });
-
-        if (toolbarDropdownSignatureRef.current === signature) {
-          return;
-        }
-
-        try {
-          await widget.headerReady();
-          detachToolbarDropdown();
-          if (typeof widget.createDropdown !== 'function') {
+      (config?: TradingViewToolbarDropdownConfig | null) => {
+        const run = async () => {
+          if (!config || !config.items?.length) {
+            detachToolbarDropdown();
             return;
           }
 
-          const handle = widget.createDropdown({
+          const widget = widgetRef.current as ExtendedWidget | null;
+          if (!widget || typeof widget.headerReady !== 'function') {
+            return;
+          }
+
+          const signature = JSON.stringify({
             title: config.title,
-            ...(config.tooltip ? { tooltip: config.tooltip } : {}),
-            useTradingViewStyle: config.useTradingViewStyle ?? true,
-            items: config.items,
+            tooltip: config.tooltip ?? '',
+            items: config.items.map((item) => ({
+              title: item.title,
+              isDisabled: item.isDisabled ?? false,
+            })),
           });
 
-          toolbarDropdownHandleRef.current = handle ?? null;
-          toolbarDropdownSignatureRef.current = signature;
-        } catch (dropdownError) {
-          logger.warn('Failed to attach TradingView toolbar dropdown', {
-            dropdownError,
-          });
-        }
+          if (toolbarDropdownSignatureRef.current === signature) {
+            return;
+          }
+
+          try {
+            await widget.headerReady();
+            // Drop the previous button without going through
+            // detachToolbarDropdown — that also clears the signature, which we
+            // are about to overwrite anyway.
+            const previous = toolbarDropdownHandleRef.current;
+            toolbarDropdownHandleRef.current = null;
+            if (previous) {
+              try {
+                previous.remove?.();
+              } catch (dropdownError) {
+                logger.debug('Failed to remove TradingView toolbar dropdown', {
+                  dropdownError,
+                });
+              }
+            }
+            if (typeof widget.createDropdown !== 'function') {
+              return;
+            }
+
+            // `createDropdown` RESOLVES to the dropdown API — it does not
+            // return it synchronously. Storing the un-awaited promise gave us a
+            // "handle" whose `remove` was undefined, so detaching silently did
+            // nothing and every re-attach stacked another button on the
+            // toolbar. Invisible until something actually changed the config.
+            const handle = await widget.createDropdown({
+              title: config.title,
+              ...(config.tooltip ? { tooltip: config.tooltip } : {}),
+              useTradingViewStyle: config.useTradingViewStyle ?? true,
+              items: config.items,
+            });
+
+            toolbarDropdownHandleRef.current = handle ?? null;
+            toolbarDropdownSignatureRef.current = signature;
+          } catch (dropdownError) {
+            logger.warn('Failed to attach TradingView toolbar dropdown', {
+              dropdownError,
+            });
+          }
+        };
+
+        // Serialize: both `headerReady()` and `createDropdown()` yield, so two
+        // overlapping attaches would each find `toolbarDropdownHandleRef` empty
+        // and create a button nobody removes. Chaining guarantees the next
+        // attach sees the previous one's handle.
+        toolbarDropdownQueueRef.current = toolbarDropdownQueueRef.current.then(
+          run,
+          run
+        );
+        return toolbarDropdownQueueRef.current;
       },
       [detachToolbarDropdown, widgetRef]
     );

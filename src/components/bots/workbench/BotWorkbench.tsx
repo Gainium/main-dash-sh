@@ -22,6 +22,7 @@ import type { TradingViewChartRef } from '@/components/widgets/shared/TradingVie
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import { useBotPageLoading } from '@/hooks/bots/base/useBotPageLoading';
 import { useBotPageRedirect } from '@/hooks/bots/base/useBotPageRedirect';
+import { useBotPageDealChart } from '@/hooks/bots/dca/useBotPageDealChart';
 import { Slot } from '@/lib/extensions';
 import { type BotChartData, type DCABacktestingResultHistory } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
@@ -98,7 +99,28 @@ export function BotWorkbench<
   const { activePickerField, handleChartPick, onActiveChanged } =
     useTradingTerminalUtils();
 
+  // Deal-awareness for the EDIT chart: when the bot has an open deal on the
+  // charted pair, annotate the chart with that deal's real resting orders plus
+  // the projected next DCA levels instead of the form's from-current-price
+  // ladder. Empty (and query-free) on create, and for bot types that have no
+  // DCA ladder to project. Community request:
+  // https://community.gainium.io/t/can-you-add-a-dca-order-indication-like-on-v1/4953
+  const dealChart = useBotPageDealChart({
+    botId: editBotId ?? '',
+    botType: descriptor.botType,
+    pair: chartData.symbol,
+    enabled: mode === 'edit',
+  });
+
   const chartPanel = useMemo<PanelContentConfig>(() => {
+    const dealOverlay = dealChart.orders.length
+      ? {
+          dealChartOrders: dealChart.orders,
+          dealChartTransactions: dealChart.transactions,
+          dealChartPair: dealChart.pair,
+        }
+      : {};
+
     const data =
       editBotId !== undefined
         ? {
@@ -106,6 +128,7 @@ export function BotWorkbench<
             ...(chartData.symbol ? { symbol: chartData.symbol } : {}),
             exchange: chartData.exchange || 'binance',
             ...(chartData.botId ? { botId: chartData.botId } : {}),
+            ...dealOverlay,
           }
         : {
             ...(chartData.symbol ? { symbol: chartData.symbol } : {}),
@@ -152,6 +175,7 @@ export function BotWorkbench<
     handleChartPick,
     onActiveChanged,
     descriptor.chartWidgetId,
+    dealChart,
   ]);
 
   const loadingChartPanel = useMemo<PanelContentConfig>(() => {

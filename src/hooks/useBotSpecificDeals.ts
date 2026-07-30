@@ -206,6 +206,12 @@ export function useBotSpecificDeals(
         setHasLoadedOnce(true);
       }
     }
+    // `filter` itself must NOT be a dep — only the fields the body reads. Every
+    // call site passes an inline object literal, so depending on the object
+    // re-runs this effect on EVERY render; the body then calls
+    // `setIntermediateDeals` with a freshly-built array, which re-renders, which
+    // re-runs the effect… React eventually throws "Maximum update depth
+    // exceeded" and the page falls into its error boundary.
   }, [
     queryResult.data,
     queryResult.isLoading,
@@ -213,7 +219,6 @@ export function useBotSpecificDeals(
     currentPageLoading,
     loadedPages,
     filter.pageSize,
-    filter,
   ]);
 
   // Debounced store update - only update when loading is complete

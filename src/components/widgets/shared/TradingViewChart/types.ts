@@ -39,7 +39,9 @@ export interface TradingViewWidgetInstance {
     tooltip?: string;
     useTradingViewStyle?: boolean;
     items: TradingViewDropdownItem[];
-  }) => TradingViewDropdownHandle | undefined;
+    // Resolves to the dropdown API; the vendor does not return it
+    // synchronously. Awaiting it is what makes `remove()` reachable.
+  }) => Promise<TradingViewDropdownHandle | undefined> | TradingViewDropdownHandle | undefined;
   loadChartFromServer?: (chartRecord: {
     id: string | number;
     name?: string;
