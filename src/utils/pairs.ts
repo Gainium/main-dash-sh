@@ -192,7 +192,13 @@ export const extractPairAssets = (symbol: string) => {
   }
   if (symbol.includes('-')) {
     const parts = symbol.split('-');
-    return { baseAsset: parts[0], quoteAsset: parts[1] || '' };
+    // OKX X-Perp pairs carry a contract-family suffix after the quote asset
+    // (`BTC-USD_UM_XPERP`) — strip it here so display/icon lookups get the
+    // real quote (`USD`), not `USD_UM_XPERP`. The full literal string (with
+    // suffix) is still what's sent to the exchange API; callers use `pair`
+    // directly for that, not this reconstruction.
+    const quotePart = (parts[1] || '').split('_')[0];
+    return { baseAsset: parts[0], quoteAsset: quotePart };
   }
 
   const upperSymbol = symbol.toUpperCase();

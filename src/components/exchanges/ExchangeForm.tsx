@@ -40,6 +40,7 @@ import {
   coinbaseKeyTypes,
   exchangeProviders,
   getDefaultAccountName,
+  getEffectivePaperBrand,
   getExchangeConfig,
   getExchangeHostOptions,
   getPaperAllSubAccounts,
@@ -409,7 +410,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
     return getExchangeConfig(formData.provider);
   }, [formData.provider]);
 
-  // Get paper trading assets for current exchange
+  // Get paper trading assets for current exchange. Origin-aware: an OKX
+  // account on the Europe origin funds from the `okxEu` lists (no USDT on
+  // the EU venue).
   const paperTradingAssets = useMemo(() => {
     if (!exchangeConfig) {
       logger.debug(
@@ -417,7 +420,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       );
       return [];
     }
-    const assets = getPaperTradingAssets(exchangeConfig.name);
+    const assets = getPaperTradingAssets(
+      getEffectivePaperBrand(exchangeConfig.name, formData.okxSource)
+    );
     logger.debug('ExchangeForm: Paper trading assets loaded', {
       exchangeName: exchangeConfig.name,
       exchangeId: exchangeConfig.id,
@@ -425,16 +430,29 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       assets: assets.map((a) => a.symbol),
     });
     return assets;
-  }, [exchangeConfig]);
+  }, [exchangeConfig, formData.okxSource]);
 
   // A paper `SPOT & Futures` (all) ADD creates one account per market — list
   // them so the form can render an independent funding row for each. Empty
-  // for single-market selections, edit mode, and live exchanges.
+  // for single-market selections, edit mode, and live exchanges. OKX Europe
+  // has no inverse product, so its bundle is SPOT + Linear only (matching
+  // what the backend actually creates for okxSource=my).
   const paperAllSubAccounts = useMemo(() => {
     if (mode !== 'add' || !formData.isPaperTrading) return [];
     if (exchangeConfig?.category !== 'all') return [];
-    return getPaperAllSubAccounts(mapProviderToBackend(formData.provider));
-  }, [mode, formData.isPaperTrading, formData.provider, exchangeConfig?.category]);
+    const subAccounts = getPaperAllSubAccounts(
+      mapProviderToBackend(formData.provider)
+    );
+    return formData.okxSource === OKXSource.my
+      ? subAccounts.filter((id) => id !== ExchangeEnum.paperOkxInverse)
+      : subAccounts;
+  }, [
+    mode,
+    formData.isPaperTrading,
+    formData.provider,
+    formData.okxSource,
+    exchangeConfig?.category,
+  ]);
 
   // Per-sub-account funding state for the multi-account case, keyed by the
   // created account's provider id. Seeded from each market's default asset
@@ -448,7 +466,10 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       setPaperTopUps({});
       return;
     }
-    const brand = exchangeConfig.name;
+    const brand = getEffectivePaperBrand(
+      exchangeConfig.name,
+      formData.okxSource
+    );
     const next: Record<string, { asset: string; amount: string }> = {};
     for (const id of paperAllSubAccounts) {
       const first = getSubAccountTopUpAssets(id, brand)[0];
@@ -458,7 +479,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       };
     }
     setPaperTopUps(next);
-  }, [paperAllSubAccounts, exchangeConfig]);
+  }, [paperAllSubAccounts, exchangeConfig, formData.okxSource]);
 
   const updatePaperTopUp = (
     id: string,
@@ -537,9 +558,15 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       updates.okxSource = OKXSource.com;
     }
 
-    // Set default paper trading asset
+    // Set default paper trading asset (origin-aware: OKX Europe funds from
+    // the okxEu lists; the origin survives switches between OKX tiles).
     if (config.isPaperExchange || updates.isPaperTrading) {
-      const assets = getPaperTradingAssets(config.name);
+      const assets = getPaperTradingAssets(
+        getEffectivePaperBrand(
+          config.name,
+          updates.okxSource ?? formData.okxSource
+        )
+      );
       if (assets.length > 0) {
         updates.coinToTopUp = assets[0].symbol;
         updates.stablecoinBalance = assets[0].defaultBalance;
@@ -956,7 +983,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
       const config = getExchangeConfig(formData.provider);
       if (config) {
-        const assets = getPaperTradingAssets(config.name);
+        const assets = getPaperTradingAssets(
+          getEffectivePaperBrand(config.name, formData.okxSource)
+        );
         logger.debug('ExchangeForm: Got paper trading assets', {
           exchangeName: config.name,
           assetsCount: assets.length,
@@ -1121,7 +1150,10 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
               {paperAllSubAccounts.map((id) => {
                 const assets = getSubAccountTopUpAssets(
                   id,
-                  exchangeConfig?.name ?? 'binance'
+                  getEffectivePaperBrand(
+                    exchangeConfig?.name ?? 'binance',
+                    formData.okxSource
+                  )
                 );
                 const row = paperTopUps[id] ?? { asset: '', amount: '' };
                 const rowError = errors.paperTopUps?.[id];
@@ -1600,19 +1632,37 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                         const updates: Partial<ExchangeFormData> = {
                           okxSource: value as OKXSource,
                         };
-                        // OKX Europe (my.okx.com) has no supported futures —
-                        // fall back to the spot variant so we never try to
-                        // create okxLinear/okxInverse for an EU account (the
-                        // backend refuses it too). The notice below explains why.
-                        if (
-                          value === OKXSource.my &&
-                          [
-                            ExchangeEnum.okxAll,
-                            ExchangeEnum.okxLinear,
-                            ExchangeEnum.okxInverse,
-                          ].includes(formData.provider)
-                        ) {
-                          updates.provider = ExchangeEnum.okxSpot;
+                        // OKX Europe (my.okx.com) futures are the linear,
+                        // USDC-settled X-Perps — supported on the okxLinear
+                        // rail. The EU venue has no coin-margined (inverse)
+                        // product, so only correct an Inverse selection to
+                        // Linear; Spot/Linear/All stay as picked (the backend
+                        // creates the spot + linear legs only for EU).
+                        if (value === OKXSource.my) {
+                          if (formData.provider === ExchangeEnum.okxInverse) {
+                            updates.provider = ExchangeEnum.okxLinear;
+                          }
+                          if (
+                            formData.provider === ExchangeEnum.paperOkxInverse
+                          ) {
+                            updates.provider = ExchangeEnum.paperOkxLinear;
+                          }
+                        }
+                        // Origin change swaps the funding-asset universe for a
+                        // paper add (EU has no USDT) — re-seed the single-account
+                        // default so a stale USDT pick can't linger.
+                        if (formData.isPaperTrading && exchangeConfig) {
+                          const assets = getPaperTradingAssets(
+                            getEffectivePaperBrand(
+                              exchangeConfig.name,
+                              value as OKXSource
+                            )
+                          );
+                          if (assets.length > 0) {
+                            updates.coinToTopUp = assets[0].symbol;
+                            updates.stablecoinBalance =
+                              assets[0].defaultBalance;
+                          }
                         }
                         updateFormData(updates);
                       } else {
@@ -1641,10 +1691,10 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                         <AlertCircle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
                         <span>
                           OKX Europe offers a restricted product set. Through
-                          Gainium you can currently trade{' '}
-                          <strong>USDC/EUR spot</strong> pairs on EU accounts —
-                          USDT pairs aren&apos;t available, and X-Perp futures
-                          aren&apos;t supported yet.
+                          Gainium you can trade <strong>USDC/EUR spot</strong>{' '}
+                          pairs and <strong>X-Perp futures</strong> on EU
+                          accounts — USDT pairs and coin-margined (inverse)
+                          contracts aren&apos;t available.
                         </span>
                       </div>
                     )}

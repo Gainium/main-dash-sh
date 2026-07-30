@@ -77,6 +77,7 @@ import {
   type ExchangeMinimumBumpEvent,
 } from '@/hooks/bots/forms/useExchangeMinimumBump';
 import { useBacktestPersistence } from '@/hooks/useBacktestPersistence';
+import { extractPairAssets, normalizePairKey } from '@/utils/pairs';
 import { useBotArchive } from '@/hooks/useBotMutations';
 import { useBotTemplateShortcuts } from '@/hooks/useBotTemplatesSync';
 import { getLocalPrices } from '@/helper/price';
@@ -2872,17 +2873,20 @@ const BotForm: React.FC<BotFormProps> = ({
               : [];
 
           const symbols: Symbols[] = resolvedPairs.map((p) => {
-            const normalized = p.replace(/-/g, '').toUpperCase();
+            // `pairMetadata`/`pairMetadata.byPair` are keyed via
+            // `normalizePairKey`, which strips `[\s/_-]` — not just `-`.
+            // A dash-only strip leaves `_UM_XPERP` intact for X-Perp pairs
+            // (`AAVE-USD_UM_XPERP`), so the lookup always missed for them.
+            const normalized = normalizePairKey(p);
             const meta =
               (formData.pairMetadata ?? {})[normalized] ||
               pairMetadata?.byPair?.[normalized] ||
               null;
-            const base =
-              meta?.baseAsset?.name ??
-              normalized.slice(0, Math.floor(normalized.length / 2));
-            const quote =
-              meta?.quoteAsset?.name ??
-              normalized.slice(Math.floor(normalized.length / 2));
+            // Fall back to the suffix-aware parser, not a midpoint slice of
+            // the (possibly still contract-suffixed) normalized string.
+            const fallback = extractPairAssets(p);
+            const base = meta?.baseAsset?.name ?? fallback.baseAsset;
+            const quote = meta?.quoteAsset?.name ?? fallback.quoteAsset;
             return {
               pair: p,
               baseAsset: {

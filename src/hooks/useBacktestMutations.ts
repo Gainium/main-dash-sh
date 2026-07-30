@@ -15,6 +15,7 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots';
 import { toExchangeCandleSymbol } from '@/utils/exchangeUtils';
+import { normalizePairKey } from '@/utils/pairs';
 
 export type BacktestInput = DCABacktestingResultShort & {
   symbol: string;
@@ -127,22 +128,30 @@ export function prepareBacktestInput(
   // can rebuild (OKX-EU `BTC-USD_UM_XPERP`). Prefer it; fall back to the
   // chart chokepoint's converter only when the metadata is missing. Same
   // pattern as the bot create/update mappers.
+  // `pairMetadata` is keyed by `normalizePairKey(pair)`, not the raw pair
+  // string — a direct `s in formData.pairMetadata` lookup misses for any pair
+  // whose native symbol contains a separator character (e.g. X-Perp
+  // `AAVE-USD_UM_XPERP`), silently dropping it from the backtest.
+  const metaFor = (pair: string) =>
+    formData.pairMetadata[pair] ??
+    formData.pairMetadata[normalizePairKey(pair)];
   const toNativePair = (pair: string): string =>
-    formData.pairMetadata[pair]?.pair ??
+    metaFor(pair)?.pair ??
     toExchangeCandleSymbol(currentExchange.provider, pair);
   const symbols = [formData.pair]
     .flat()
     .map((s) => {
-      if (s in formData.pairMetadata) {
+      const meta = metaFor(s);
+      if (meta) {
         fullSymbols.push({
-          ...formData.pairMetadata[s],
+          ...meta,
           maxOrders: 200,
           exchange: currentExchange.provider,
         });
         return {
           pair: toNativePair(s),
-          baseAsset: formData.pairMetadata[s].baseAsset.name,
-          quoteAsset: formData.pairMetadata[s].quoteAsset.name,
+          baseAsset: meta.baseAsset.name,
+          quoteAsset: meta.quoteAsset.name,
         };
       }
       return null;

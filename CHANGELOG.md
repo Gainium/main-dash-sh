@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.41.0] - 2026-07-30
+
+### Added
+
+- OKX Europe X-Perp futures support: the EU origin (my.okx.com) now allows Spot & Futures / Linear Futures adds (Inverse auto-corrects to Linear — the EU venue has no coin-margined product), paper OKX accounts gain the origin selector, and OKX-EU paper funding uses USDC/EUR/USD lists (no USDT on the EU venue). Based on work contributed by community member discord2020 (forum topic 4925).
+
+### Fixed
+
+- X-Perp pairs no longer break the quick-backtest symbol resolution (pairMetadata lookups now use the normalized pair key; asset fallback uses the suffix-aware parser instead of a midpoint slice) — previously every USD-denominated backtest stat rendered as $0.00 (fix by discord2020).
+- `extractPairAssets` strips the X-Perp contract-family suffix so display/icon lookups get the real quote asset (`USD`, not `USD_UM_XPERP`).
+
 ## [2.40.1] - 2026-07-30
 
 ### Fixed

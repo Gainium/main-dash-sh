@@ -68,11 +68,10 @@ const ExchangeSelector = ({
     })}`;
   }, []);
 
-  // OKX Europe (my.okx.com) has no supported futures product, yet some EU
-  // accounts still carry legacy okxLinear/okxInverse sub-accounts created
-  // before this was blocked. Hide those from the bot exchange picker so users
-  // don't land on an unusable USDT-only futures account — but never hide the
-  // one already selected, so an existing bot pinned to it still resolves.
+  // OKX Europe (my.okx.com) linear futures are the X-Perps — supported, so
+  // okxLinear EU accounts show normally. The EU venue has no coin-margined
+  // product, so a legacy okxInverse+EU sub-account stays hidden — but never
+  // hide the one already selected, so an existing bot pinned to it resolves.
   const visibleExchanges = useMemo(
     () =>
       exchangesData?.filter(
@@ -80,8 +79,7 @@ const ExchangeSelector = ({
           exchange.uuid === currentExchange?.uuid ||
           !(
             exchange.okxSource === OKXSource.my &&
-            (exchange.provider === ExchangeEnum.okxLinear ||
-              exchange.provider === ExchangeEnum.okxInverse)
+            exchange.provider === ExchangeEnum.okxInverse
           )
       ),
     [exchangesData, currentExchange?.uuid]

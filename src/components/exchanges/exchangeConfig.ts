@@ -453,7 +453,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     displayName: 'Paper OKX',
     requiresPassphrase: false,
     supportsKeyTypes: false,
-    supportsHostSelection: false,
+    supportsHostSelection: true,
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
@@ -465,7 +465,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     displayName: 'Paper OKX SPOT & Futures',
     requiresPassphrase: false,
     supportsKeyTypes: false,
-    supportsHostSelection: false,
+    supportsHostSelection: true,
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
@@ -476,7 +476,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     displayName: 'Paper OKX SPOT',
     requiresPassphrase: false,
     supportsKeyTypes: false,
-    supportsHostSelection: false,
+    supportsHostSelection: true,
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'spot',
@@ -487,7 +487,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     displayName: 'Paper OKX Inverse Futures',
     requiresPassphrase: false,
     supportsKeyTypes: false,
-    supportsHostSelection: false,
+    supportsHostSelection: true,
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'futures',
@@ -498,7 +498,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     displayName: 'Paper OKX Linear Futures',
     requiresPassphrase: false,
     supportsKeyTypes: false,
-    supportsHostSelection: false,
+    supportsHostSelection: true,
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'futures',
@@ -841,6 +841,13 @@ export const paperTradingAssets: Record<string, PaperTradingAsset[]> = {
     { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
     { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
   ],
+  // OKX Europe (okxSource=my): no USDT at all on the EU venue. Spot quotes
+  // EUR/USDC; X-Perp futures settle in USD.
+  okxEu: [
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
+    { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
+    { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
+  ],
   // USDT 881 · BTC 64 · USDC 59 · ETH 25
   kucoin: [
     { symbol: 'USDT', name: 'Tether USD', defaultBalance: USD_BAL },
@@ -971,6 +978,18 @@ export const getPaperTradingAssets = (
   return paperTradingAssets[exchangeName] || paperTradingAssets['binance'];
 };
 
+/**
+ * Brand key for the paper-asset lists, origin-aware: an OKX account on the
+ * Europe origin (my.okx.com) trades a venue with no USDT at all, so its
+ * paper funding options come from the `okxEu` lists instead of `okx`.
+ * Every other brand/origin resolves to the plain config name.
+ */
+export const getEffectivePaperBrand = (
+  exchangeName: string,
+  okxSource?: OKXSource | string
+): string =>
+  exchangeName === 'okx' && okxSource === OKXSource.my ? 'okxEu' : exchangeName;
+
 // ---------------------------------------------------------------------------
 // Independent per-sub-account paper funding ("SPOT & Futures" create)
 //
@@ -1078,6 +1097,12 @@ const LINEAR_MARGIN_ASSETS_BY_BRAND: Record<string, PaperTradingAsset[]> = {
   hyperliquid: [
     { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
     { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
+  ],
+  // OKX Europe X-Perps settle in USD; margin is multi-asset but never USDT
+  // (no USDT on the EU venue at all).
+  okxEu: [
+    { symbol: 'USD', name: 'US Dollar', defaultBalance: '10000' },
+    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
   ],
 };
 const DEFAULT_LINEAR_MARGIN_ASSETS: PaperTradingAsset[] = [
