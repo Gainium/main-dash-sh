@@ -3,6 +3,7 @@ import { jwtDecode } from 'jwt-decode';
 import {
   GraphQLClient,
   GraphQLHttpError,
+  isSessionDeadMessage,
   type GraphQLRequestOptions,
 } from './api/GraphQLClient';
 import { GraphQlQuery } from './api';
@@ -372,13 +373,21 @@ export class RealAuthService {
       // else — GraphQLTimeoutError (client abort), TypeError (network
       // failure), 5xx/429 GraphQLHttpError, parse errors — is indeterminate:
       // we never learned whether the token is valid.
+      //
+      // main-app is the exception to the "HTTP status decides" rule: it
+      // rejects a bad token with a 200 carrying an `errors` array, which
+      // arrives here as a plain Error. That message is still the backend
+      // definitively refusing the token, so it clears the session too —
+      // while every indeterminate failure above keeps it.
+      const reason = error instanceof Error ? error.message : 'Unknown error';
       const definitive =
-        error instanceof GraphQLHttpError &&
-        (error.details.status === 401 || error.details.status === 403);
+        (error instanceof GraphQLHttpError &&
+          (error.details.status === 401 || error.details.status === 403)) ||
+        isSessionDeadMessage(reason);
       return {
         ok: false,
         definitive,
-        reason: error instanceof Error ? error.message : 'Unknown error',
+        reason,
       };
     }
   }

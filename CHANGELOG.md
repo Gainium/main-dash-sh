@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.41.3] - 2026-07-31
+
+### Fixed
+
+- Signing out is now immediate when the backend rejects your session. Previously an invalidated session left the dashboard loaded but non-functional — every panel showed an error while the app still considered you logged in, and you had to clear site data by hand. The app now returns you to the login screen as soon as the server refuses the session. Sessions are still preserved through network drops and backend outages, so a temporary connection problem will not sign you out.
+
 ## [2.41.2] - 2026-07-31
 
 ### Fixed

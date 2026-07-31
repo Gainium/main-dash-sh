@@ -8,6 +8,7 @@ import { pouchDBSync } from '@/lib/pouchdbSync';
 import { priceCache } from '@/lib/priceCache';
 import { queryClient } from '@/lib/queryClient';
 import { RealAuthService } from '@/lib/realAuthService';
+import { setSessionDeadHandler } from '@/lib/api/GraphQLClient';
 import { useUIStore } from '@/stores/uiStore';
 import { indexedDBStorage } from '@/lib/zustand-indexeddb-storage';
 
@@ -434,3 +435,13 @@ export const useAuthStore = create<AuthStore>()(
     }
   )
 );
+
+// Any query that comes back with the backend's "token rejected" message tears
+// the session down immediately, so an open tab lands on the login screen
+// instead of sitting on a shell whose every widget errors. Registered here
+// (rather than imported inside GraphQLClient) to keep the module graph acyclic.
+setSessionDeadHandler(() => {
+  const { isAuthenticated, tokens } = useAuthStore.getState();
+  if (!isAuthenticated && !tokens?.accessToken) return; // already signed out
+  void useAuthStore.getState().logout();
+});
