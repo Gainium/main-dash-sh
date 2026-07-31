@@ -101,6 +101,40 @@ const getExchangeHelpPath = (name?: string): string | null => {
   }
 };
 
+/**
+ * Turn a failed submit into something a human can read.
+ *
+ * The API layer rejects with the whole `BaseReturn` envelope stringified into
+ * `error.message` — `{"status":"NOTOK","reason":"…","data":null,"usage":[…],
+ * "timeProfile":{…}}`. Rendering that raw shows the user a wall of JSON and
+ * blows past the width of the alert. `reason` is the sentence the backend
+ * actually wrote for them, so prefer it and fall back to the raw text only
+ * when there is nothing better.
+ */
+export const readableSubmitError = (error: unknown): string => {
+  const raw = error instanceof Error ? error.message : `${error ?? ''}`;
+  const trimmed = raw.trim();
+  if (!trimmed) return 'Connection failed';
+
+  const start = trimmed.indexOf('{');
+  if (start !== -1) {
+    try {
+      const parsed = JSON.parse(trimmed.slice(start)) as {
+        reason?: unknown;
+        message?: unknown;
+        error?: unknown;
+      };
+      const reason = parsed.reason ?? parsed.message ?? parsed.error;
+      if (typeof reason === 'string' && reason.trim()) {
+        return reason.trim();
+      }
+    } catch {
+      // Not JSON after all — fall through and show what we were given.
+    }
+  }
+  return trimmed;
+};
+
 const ExchangeForm: React.FC<ExchangeFormProps> = ({
   initialData,
   onSubmit,
@@ -957,8 +991,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       setConnectionStatus({
         isConnecting: false,
         isValidating: false,
-        connectionError:
-          error instanceof Error ? error.message : 'Connection failed',
+        connectionError: readableSubmitError(error),
       });
     }
   };
@@ -1026,9 +1059,11 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-lg">
       {/* Connection Status Alert */}
       {connectionStatus.connectionError && (
-        <div className="flex items-center p-md text-red-800 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800 dark:text-red-200">
-          <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
-          <p className="text-sm">{connectionStatus.connectionError}</p>
+        <div className="flex items-start p-md text-red-800 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800 dark:text-red-200">
+          <AlertCircle className="h-4 w-4 mr-2 mt-0.5 shrink-0" />
+          <p className="min-w-0 text-sm break-words">
+            {connectionStatus.connectionError}
+          </p>
         </div>
       )}
 
