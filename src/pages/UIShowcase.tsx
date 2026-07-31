@@ -59,6 +59,7 @@ import {
   Chip,
   ExchangeChip,
   ProfitAndPerc,
+  RotationChip,
   StatusChip,
   StrategyChip,
   TimeChip,
@@ -753,6 +754,21 @@ export default function UIShowcase() {
                       <Chip variant="primary" chipStyle="ghost" size="md">
                         Ghost
                       </Chip>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-sm font-medium mb-xs block">
+                      Key rotation
+                    </Label>
+                    <p className="text-xs text-muted-foreground mb-xs">
+                      Shown on an exchange connection whose API key still needs
+                      replacing. Compact variant is for dense rows.
+                    </p>
+                    <div className="flex flex-wrap items-center gap-xs">
+                      <RotationChip rotationRequired provider="bybit" />
+                      <RotationChip rotationRequired provider="hyperliquid" />
+                      <RotationChip rotationRequired provider="bybit" compact />
                     </div>
                   </div>
                 </div>

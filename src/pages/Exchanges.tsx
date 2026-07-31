@@ -22,6 +22,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
+import { RotationChip } from '../components/ui/chip/RotationChip';
 import ExchangeCard from '../components/widgets/ExchangeCard';
 import { useExchangeActions } from '../hooks/useExchangeActions';
 import { type UIExchange } from '../hooks/useTransformedExchanges';
@@ -150,15 +151,29 @@ const ExchangeCardsGrid: React.FC<{
       {
         accessorKey: 'name',
         header: 'Exchange',
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const name = String(getValue());
-          return name === 'ALL' ? (
-            <div className="flex items-center gap-xs">
-              <Zap className="w-4 h-4 text-yellow-500" />
-              All Exchanges
+          if (name === 'ALL') {
+            return (
+              <div className="flex items-center gap-xs">
+                <Zap className="w-4 h-4 text-yellow-500" />
+                All Exchanges
+              </div>
+            );
+          }
+          const exchange = row.original;
+          return (
+            <div className="flex items-center gap-xs min-w-0">
+              <span className="truncate">{name}</span>
+              <RotationChip
+                rotationRequired={exchange.rotationRequired}
+                provider={exchange.provider}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(resolveExchangeData(exchange));
+                }}
+              />
             </div>
-          ) : (
-            name
           );
         },
       },

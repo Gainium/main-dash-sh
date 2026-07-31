@@ -12,6 +12,7 @@ interface ExchangeData {
   provider: ExchangeEnum | 'all';
   balance?: number | undefined;
   status?: boolean | undefined;
+  rotationRequired?: boolean | undefined;
 }
 
 // Transformed exchange for UI consumption
@@ -25,6 +26,8 @@ export interface UIExchange {
   balance?: number | undefined;
   status: boolean;
   color?: string;
+  /** Still on a credential the operator has asked the user to replace. */
+  rotationRequired: boolean;
 }
 
 /**
@@ -60,6 +63,8 @@ export function useTransformedExchanges() {
         0
       ),
       status: true,
+      // The aggregate row is not a real connection, so it never carries a key.
+      rotationRequired: false,
     };
 
     // Transform individual exchanges
@@ -73,6 +78,7 @@ export function useTransformedExchanges() {
         type: 'exchange' as const,
         balance: exchange.balance ?? undefined,
         status: exchange.status ?? false,
+        rotationRequired: exchange.rotationRequired ?? false,
       })
     );
 

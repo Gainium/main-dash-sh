@@ -1933,6 +1933,7 @@ lastUpdated
 waitingForConfirmation
 affiliate
 subaccount
+rotationRequired
 `;
 
 const shortExchangeFragment = `

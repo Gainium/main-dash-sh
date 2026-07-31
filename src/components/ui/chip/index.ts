@@ -5,6 +5,7 @@ export { ChipDemo } from './ChipDemo';
 export { ExchangeChip } from './ExchangeChip';
 export { ProfitAndPerc } from './ProfitAndPerc';
 export { ProfitLossPercChip } from './ProfitLossPercChip';
+export { RotationChip } from './RotationChip';
 export { StatusChip } from './StatusChip';
 export { StrategyChip } from './StrategyChip';
 export { TimeChip } from './TimeChip';

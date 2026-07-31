@@ -5,6 +5,7 @@ import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
 import { ExchangeEnum, type ExchangeInUser } from '@/types/exchange.types';
 import { StatusChip } from '@/components/ui/chip/StatusChip';
+import { RotationChip } from '@/components/ui/chip/RotationChip';
 import { formatExchangeProvider, getProviderIcon } from '@/utils/exchangeUtils';
 import { MoreVertical, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -302,6 +303,18 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                         />
                       </span>
                     )}
+                    <RotationChip
+                      rotationRequired={exchange.rotationRequired}
+                      provider={exchange.provider}
+                      onClick={
+                        onEdit
+                          ? (e) => {
+                              e.stopPropagation();
+                              onEdit(resolveExchangeData(exchange));
+                            }
+                          : undefined
+                      }
+                    />
                   </div>
                   {exchange.provider && (
                     <span className="text-base text-muted-foreground truncate">

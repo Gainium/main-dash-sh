@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.0] - 2026-08-01
+
+### Added
+
+- Exchanges and Portfolio pages show a "Replace key" chip on any exchange connection whose API key was still in place before 31 July, when unauthorised access to one of our servers was detected. Clicking it opens the edit dialog. Hyperliquid connections get the Web3-wallet wording instead of the create-a-new-key steps. The chip disappears once the key is replaced.
+
+### Fixed
+
+- Links in notifications are now clickable. A notification that cites a help page rendered its URL as plain text you had to select and copy.
+
 ## [2.41.4] - 2026-07-31
 
 ### Fixed

@@ -3,6 +3,47 @@ import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import React, { useState } from 'react';
 
+/**
+ * `http(s)://…` runs, so a notification that cites a help page renders a real
+ * link instead of text the user has to select and paste. Deliberately narrow:
+ * only these two schemes match, so a message can never produce a `javascript:`
+ * or `data:` href even though some notification text originates from an
+ * exchange rather than from us.
+ */
+const URL_PATTERN = /(https?:\/\/[^\s<]+)/g;
+
+/** Sentence punctuation that trails a URL belongs to the sentence, not the URL. */
+const trimTrailingPunctuation = (url: string): [string, string] => {
+  const match = /[.,;:!?)\]]+$/.exec(url);
+  return match ? [url.slice(0, match.index), match[0]] : [url, ''];
+};
+
+/**
+ * Plain-text message → nodes with the URLs turned into anchors. The HTML
+ * branch below is left alone; announcements author their own markup.
+ */
+const linkify = (text: string): React.ReactNode[] =>
+  text.split(URL_PATTERN).map((part, i) => {
+    // Odd indices are the captured URLs — `String.split` with a capturing
+    // group interleaves them with the surrounding text.
+    if (i % 2 === 0) return part;
+    const [href, trailing] = trimTrailingPunctuation(part);
+    return (
+      <React.Fragment key={i}>
+        <a
+          href={href}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="text-primary underline underline-offset-2 hover:no-underline break-words"
+          onClick={(event) => event.stopPropagation()}
+        >
+          {href}
+        </a>
+        {trailing}
+      </React.Fragment>
+    );
+  });
+
 export interface NotificationRichContentProps {
   notification: UnifiedNotification;
   clampLines?: number;
@@ -46,7 +87,7 @@ export const NotificationRichContent: React.FC<
               style={{ cursor: 'text' }}
             />
           ) : (
-            <div className={messageClass}>{messageContent}</div>
+            <div className={messageClass}>{linkify(messageContent)}</div>
           )}
         </div>
 

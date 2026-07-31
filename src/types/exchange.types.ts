@@ -17,6 +17,11 @@ export type ExchangeInUser = {
   waitingForConfirmation?: boolean;
   zeroFee?: boolean;
   subaccount?: boolean;
+  /**
+   * True while this connection is still on an API key the operator has asked
+   * the user to replace. Server-computed; false unless the backend flagged it.
+   */
+  rotationRequired?: boolean;
 };
 
 export enum OKXSource {

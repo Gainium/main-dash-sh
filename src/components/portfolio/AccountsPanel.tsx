@@ -7,6 +7,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { Button } from '../ui/button';
 import Widget from '../ui/widget';
 import ExchangeIcon from '../widgets/shared/ExchangeIcon';
+import { RotationChip } from '../ui/chip/RotationChip';
 
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import type { ExchangeInUser } from '../../types/exchange.types';
@@ -259,6 +260,12 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
                     />
                   </span>
                   <span className="truncate">{exchange.name}</span>
+                  <RotationChip
+                    rotationRequired={exchange.rotationRequired}
+                    provider={exchange.provider}
+                    compact
+                    onClick={(e) => handleEditExchange(exchange, e)}
+                  />
                 </div>
               </div>
 
