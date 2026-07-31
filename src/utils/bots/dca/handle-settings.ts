@@ -242,7 +242,6 @@ export const handleSettingsUpdate = (
         updates.dca.orderSizeType = OrderSizeTypeEnum.quote;
       }
     }
-    const oldDealCloseCondition = dealCloseCondition;
     if (
       field === 'useTp' &&
       !!value &&
@@ -299,7 +298,6 @@ export const handleSettingsUpdate = (
           )
       );
     }
-    const oldDealCloseConditionSL = dealCloseConditionSL;
     if (
       field === 'startCondition' &&
       (value as StartConditionEnum) !== StartConditionEnum.ti
@@ -308,50 +306,13 @@ export const handleSettingsUpdate = (
         (i) => i.indicatorAction !== IndicatorAction.startDeal
       );
     }
-    if (
-      field === 'dealCloseCondition' &&
-      (((value as CloseConditionEnum) === CloseConditionEnum.dynamicAr &&
-        oldDealCloseCondition === CloseConditionEnum.techInd) ||
-        ((value as CloseConditionEnum) === CloseConditionEnum.techInd &&
-          oldDealCloseCondition === CloseConditionEnum.dynamicAr))
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section !== IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section !== IndicatorSection.sl
-          )
-      );
-    }
-    if (
-      field === 'dealCloseConditionSL' &&
-      (((value as CloseConditionEnum) === CloseConditionEnum.dynamicAr &&
-        oldDealCloseConditionSL === CloseConditionEnum.techInd) ||
-        ((value as CloseConditionEnum) === CloseConditionEnum.techInd &&
-          oldDealCloseConditionSL === CloseConditionEnum.dynamicAr))
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section === IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section === IndicatorSection.sl
-          )
-      );
-    }
+    // NOTE: changing `dealCloseCondition` / `dealCloseConditionSL` used to
+    // delete that section's close indicators and groups here (six blocks,
+    // one of which read the SL condition but filtered the TP indicators).
+    // Mode switching is now lossless — the form keeps every configuration
+    // so the user gets it back on switching mode again, and the payload
+    // mapper drops the indicators the active mode cannot use on save.
+    // See `isCloseIndicatorUsedByCondition` in indicatorConfigUtils.
     if (
       !isDcaTypeSwitch &&
       nextDcaCondition !== DCAConditionEnum.indicators &&
@@ -359,86 +320,6 @@ export const handleSettingsUpdate = (
     ) {
       updates.dca.indicators = (updates.dca.indicators ?? []).filter(
         (i) => i.indicatorAction !== IndicatorAction.startDca
-      );
-    }
-    if (
-      field === 'dealCloseConditionSL' &&
-      (value as CloseConditionEnum) !== CloseConditionEnum.techInd &&
-      (value as CloseConditionEnum) !== CloseConditionEnum.dynamicAr
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section === IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section === IndicatorSection.sl
-          )
-      );
-    }
-    if (
-      field === 'dealCloseConditionSL' &&
-      (value as CloseConditionEnum) === CloseConditionEnum.dynamicAr &&
-      oldDealCloseConditionSL === CloseConditionEnum.techInd
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section === IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section === IndicatorSection.sl
-          )
-      );
-    }
-    if (
-      field === 'dealCloseCondition' &&
-      (value as CloseConditionEnum) !== CloseConditionEnum.techInd &&
-      (value as CloseConditionEnum) !== CloseConditionEnum.dynamicAr
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section !== IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section !== IndicatorSection.sl
-          )
-      );
-    }
-    if (
-      field === 'dealCloseCondition' &&
-      (value as CloseConditionEnum) === CloseConditionEnum.dynamicAr &&
-      oldDealCloseConditionSL === CloseConditionEnum.techInd
-    ) {
-      updates.dca.indicators = (updates.dca.indicators ?? []).filter(
-        (i) =>
-          !(
-            i.indicatorAction === IndicatorAction.closeDeal &&
-            i.section !== IndicatorSection.sl
-          )
-      );
-      updates.dca.indicatorGroups = (updates.dca.indicatorGroups ?? []).filter(
-        (ig) =>
-          !(
-            ig.action === IndicatorAction.closeDeal &&
-            ig.section !== IndicatorSection.sl
-          )
       );
     }
     if (

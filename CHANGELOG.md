@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.41.1] - 2026-07-31
+
+### Fixed
+
+- DCA bot form: switching a take-profit or stop-loss close condition no longer deletes that section's configured indicators and groups — your configuration is kept and comes back when you switch mode again. Switching take profit to Dynamic ATR/ADR no longer wipes the take-profit indicators when the stop loss happens to be on Indicators.
+- DCA bot form: the saved bot now carries only the indicators the active close condition actually uses (grouped indicators for Indicators, ungrouped ATR/ADR for Dynamic ATR/ADR, none for Percentage or webhook), so a leftover indicator can no longer be picked up as the dynamic take-profit distance. Groups left empty by that filter are dropped too.
+- DCA bot form: creating a bot no longer fails with an unexplained error after leaving an untouched seeded indicator behind — the raw form indicators are no longer sent alongside the mapped ones.
+- DCA bot form: Dynamic ATR/ADR now seeds its ATR even when the section still holds indicators from Indicators mode, and Create Bot is blocked with an explanatory error when a Dynamic ATR/ADR take profit or stop loss has no ATR/ADR indicator.
+
 ## [2.41.0] - 2026-07-30
 
 ### Added

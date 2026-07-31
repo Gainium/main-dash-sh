@@ -79,6 +79,7 @@ import {
 } from '@/utils/bots/dca/take-profit';
 import {
   buildIndicatorConfig,
+  isCloseIndicatorUsedByCondition,
   sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
 import { Info } from 'lucide-react';
@@ -2018,7 +2019,9 @@ export const StopLossSettings: React.FC<StopLossSettingsProps> = ({
       if (
         value === CloseConditionEnum.techInd &&
         currentSlIndicatorGroups.length === 0 &&
-        currentSlIndicators.length === 0 &&
+        currentSlIndicators.filter((i) =>
+          isCloseIndicatorUsedByCondition(i, CloseConditionEnum.techInd)
+        ).length === 0 &&
         !currentIndicatorLimitReached
       ) {
         const newGroup: IndicatorGroup = {
@@ -2073,7 +2076,9 @@ export const StopLossSettings: React.FC<StopLossSettingsProps> = ({
       // notNeedGroupId).
       if (
         value === CloseConditionEnum.dynamicAr &&
-        currentSlIndicators.length === 0 &&
+        currentSlIndicators.filter((i) =>
+          isCloseIndicatorUsedByCondition(i, CloseConditionEnum.dynamicAr)
+        ).length === 0 &&
         !currentIndicatorLimitReached
       ) {
         const defaultParams = getIndicatorDefaultParams(

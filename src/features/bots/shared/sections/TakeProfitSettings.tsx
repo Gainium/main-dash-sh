@@ -100,6 +100,7 @@ import {
 } from '@/utils/bots/dca/take-profit-behaviours';
 import {
     buildIndicatorConfig,
+    isCloseIndicatorUsedByCondition,
     sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
 import { AlertTriangle, Info } from 'lucide-react';
@@ -518,7 +519,9 @@ export const TakeProfitSettings: React.FC = () => {
       if (
         value === CloseConditionEnum.techInd &&
         closeIndicatorGroups.length === 0 &&
-        closeIndicators.length === 0 &&
+        closeIndicators.filter((i) =>
+          isCloseIndicatorUsedByCondition(i, CloseConditionEnum.techInd)
+        ).length === 0 &&
         !indicatorLimitReached
       ) {
         const newGroup: IndicatorGroup = {
@@ -559,7 +562,9 @@ export const TakeProfitSettings: React.FC = () => {
       // indicators are ungrouped, matching legacy's notNeedGroupId).
       if (
         value === CloseConditionEnum.dynamicAr &&
-        closeIndicators.length === 0 &&
+        closeIndicators.filter((i) =>
+          isCloseIndicatorUsedByCondition(i, CloseConditionEnum.dynamicAr)
+        ).length === 0 &&
         !indicatorLimitReached
       ) {
         const defaults = getIndicatorDefaultParams(

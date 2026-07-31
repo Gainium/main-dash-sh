@@ -1,6 +1,10 @@
 import type { BotFormMode } from '@/features/bots';
 import { mapFormDataToBackend } from '@/mappers/bots/dca/field-mapping';
 import {
+  isCloseIndicatorOfSection,
+  isCloseIndicatorUsedByCondition,
+} from '@/utils/indicators/indicatorConfigUtils';
+import {
   BotMarginTypeEnum,
   BotStartTypeEnum,
   BotTypesEnum,
@@ -1027,17 +1031,37 @@ export const hotValidateDcaFormData = ({
     errors['startIndicators'] =
       `You need to select at least 1 indicator to start the bot`;
   }
-  if (
-    dealCloseCondition === CloseConditionEnum.techInd &&
+  // Count only the indicators the ACTIVE close condition can use — the same
+  // set the payload mapper saves. Mode switching is lossless, so a section
+  // may still hold the other mode's leftovers, and counting those would let
+  // a bot with no usable close indicator through.
+  const usableCloseIndicators = (
+    section: IndicatorSection.tp | IndicatorSection.sl,
+    condition: CloseConditionEnum | undefined
+  ) =>
     indicators.filter(
       (i) =>
-        i.indicatorAction === IndicatorAction.closeDeal &&
-        i.section !== IndicatorSection.sl
-    ).length === 0 &&
+        isCloseIndicatorOfSection(i, section) &&
+        isCloseIndicatorUsedByCondition(i, condition)
+    );
+
+  if (
+    dealCloseCondition === CloseConditionEnum.techInd &&
+    usableCloseIndicators(IndicatorSection.tp, dealCloseCondition).length ===
+      0 &&
     useTp
   ) {
     errors['indicatorsClose'] =
       `You need to select at least 1 indicator to close the deal by take profit`;
+  }
+  if (
+    dealCloseCondition === CloseConditionEnum.dynamicAr &&
+    usableCloseIndicators(IndicatorSection.tp, dealCloseCondition).length ===
+      0 &&
+    useTp
+  ) {
+    errors['indicatorsClose'] =
+      `You need to add at least 1 ATR or ADR indicator to close the deal by dynamic take profit`;
   }
   if (
     (dcaCondition === DCAConditionEnum.indicators ||
@@ -1064,15 +1088,21 @@ export const hotValidateDcaFormData = ({
   }
   if (
     dealCloseConditionSL === CloseConditionEnum.techInd &&
-    indicators.filter(
-      (i) =>
-        i.indicatorAction === IndicatorAction.closeDeal &&
-        i.section === IndicatorSection.sl
-    ).length === 0 &&
+    usableCloseIndicators(IndicatorSection.sl, dealCloseConditionSL).length ===
+      0 &&
     useSl
   ) {
     errors['indicatorsCloseSL'] =
       `You need to select at least 1 indicator to close the deal by stop loss`;
+  }
+  if (
+    dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
+    usableCloseIndicators(IndicatorSection.sl, dealCloseConditionSL).length ===
+      0 &&
+    useSl
+  ) {
+    errors['indicatorsCloseSL'] =
+      `You need to add at least 1 ATR or ADR indicator to close the deal by dynamic stop loss`;
   }
   if (
     type === DCATypeEnum.terminal &&

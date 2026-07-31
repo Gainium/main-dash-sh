@@ -48,6 +48,10 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { IndicatorConfig } from '@/types/indicators';
+import {
+  isCloseIndicatorOfSection,
+  isCloseIndicatorUsedByCondition,
+} from '@/utils/indicators/indicatorConfigUtils';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 
@@ -209,6 +213,37 @@ const serializeIndicatorConfig = (
   };
 
   return payload;
+};
+
+/**
+ * Drop the close indicators the ACTIVE close conditions cannot use.
+ *
+ * The bot form deliberately keeps every configuration when the user
+ * switches close condition, so switching back restores it. Filtering
+ * therefore happens here, on the way out: Indicators keeps its grouped
+ * entries, Dynamic ATR/ADR keeps its ungrouped ATR/ADR, Percentage and
+ * webhook keep none. Without this, a leftover entry reaches the backend,
+ * where dynamic ATR/ADR reads the FIRST close indicator of the section as
+ * its distance source — a stray RSI would silently become the exit price.
+ */
+const pruneUnusedCloseIndicators = (
+  formData: BotFormData,
+  indicators: IndicatorConfig[]
+): IndicatorConfig[] => {
+  const isComboBot = formData.type === BotTypesEnum.combo;
+  const settings = isComboBot ? formData.combo : formData.dca;
+  const tpCondition = settings.dealCloseCondition || CloseConditionEnum.tp;
+  const slCondition = settings.dealCloseConditionSL || CloseConditionEnum.tp;
+
+  return indicators.filter((indicator) => {
+    if (indicator.indicatorAction !== IndicatorAction.closeDeal) {
+      return true;
+    }
+    const condition = isCloseIndicatorOfSection(indicator, IndicatorSection.sl)
+      ? slCondition
+      : tpCondition;
+    return isCloseIndicatorUsedByCondition(indicator, condition);
+  });
 };
 
 /**
@@ -4144,6 +4179,20 @@ export const mapFormDataToBackend = (
       ([_, value]) => value !== undefined && value !== null && value !== ''
     )
   ); */
+
+  // Single choke point for the save-path close-indicator filter: the form
+  // keeps every close condition's configuration, the payload carries only
+  // what the active conditions use.
+  finalData.indicators = pruneUnusedCloseIndicators(
+    formData,
+    finalData.indicators ?? []
+  );
+  // …and re-prune the groups: mapIndicatorGroupsFields filters against the
+  // unpruned form state, so a group emptied by the filter above would still
+  // be sent.
+  finalData.indicatorGroups = (finalData.indicatorGroups ?? []).filter((ig) =>
+    (finalData.indicators ?? []).some((i) => i.groupId === ig.id)
+  );
 
   finalData.pair = [formData.pair]
     .flat()

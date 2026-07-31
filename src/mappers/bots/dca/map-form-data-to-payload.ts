@@ -189,9 +189,16 @@ const buildCreatePayload = (
   //TODO: remove when backend will be updated
   // avgPrice is a deal-edit-only breakeven override; createDCABotInput has no
   // such field, so strip it (like useExperimental) before building the payload.
+  // indicators/indicatorGroups are stripped too: these are the RAW form
+  // entries, whose catalog defaults are still numbers (`indicatorValue: 70`,
+  // `keepConditionBars: 0`) where the schema wants strings. The mapper output
+  // is the only sanctioned source — and it does not always win the spread in
+  // mergeCreatePayload, because an empty array is dropped by sanitizeValue.
   const {
     useExperimental: _useExperimental,
     avgPrice: _avgPrice,
+    indicators: _rawIndicators,
+    indicatorGroups: _rawIndicatorGroups,
     ...rest
   } = isComboBot ? formData.combo : formData.dca;
 
@@ -239,6 +246,12 @@ const buildCreatePayload = (
     ],
     ordersCount: +ordersCount || 0,
     activeOrdersCount: +activeOrdersCount || 0,
+    // Empty placeholders, never the raw form arrays (see the destructure
+    // above). mergeCreatePayload spreads the mapper output over these, so a
+    // bot with indicators still gets the serialized ones; a bot without one
+    // sends [] instead of leaking unserialized catalog defaults.
+    indicators: [],
+    indicatorGroups: [],
   };
 
   const resolveIntegerValue = (value: unknown): number | null => {
