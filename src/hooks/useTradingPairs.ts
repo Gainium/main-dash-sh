@@ -105,9 +105,15 @@ export function useTradingPairs() {
   // Wait for IDB rehydration to finish first — otherwise we'd fire a network
   // request even when cached pairs are about to arrive from IndexedDB, and the
   // brief pre-hydration empty state would leak into UI consumers.
+  // MUST NOT depend on the store's own `isLoading`: this gates the query's
+  // `enabled`, and the query's `isLoading` is mirrored back into the store
+  // below. Feeding that flag back in here closes the circle into a
+  // self-sustaining enable/disable cycle — a `getAllPairs` re-fetch storm
+  // whenever the request fails, and a render loop (React #185 in
+  // ExchangeDataProvider) when it settles fast enough. Readiness only.
   const shouldFetch = useMemo(() => {
-    return _hasHydrated && !initialLoaded && !isLoading;
-  }, [_hasHydrated, initialLoaded, isLoading]);
+    return _hasHydrated && !initialLoaded;
+  }, [_hasHydrated, initialLoaded]);
 
   // Use GraphQL hook with conditional fetching
   const apiResult = useGraphQL<GetAllPairsResponse>(
@@ -152,24 +158,15 @@ export function useTradingPairs() {
     initialLoaded,
   ]);
 
-  // Update store loading state.
-  // IMPORTANT: Do NOT gate this on `shouldFetch` — when the query finishes or
-  // errors, `shouldFetch` may have already flipped to false (because isLoading
-  // is true in the store), which would prevent the loading flag from being
-  // cleared and cause a permanent "Loading pairs…" state.
+  // Mirror the query's loading state into the store — strictly one-way.
+  // Unconditional (no early return, no branch that can be skipped) so the flag
+  // can never get stuck in the "Loading pairs…" state the old two-branch
+  // version was written to rescue: whatever the query reports IS the store's
+  // loading state. `shouldFetch` only participates as a value here, never as a
+  // gate, so it cannot be starved of the write that clears it.
   useEffect(() => {
-    if (shouldFetch && apiResult.isLoading) {
-      // The query just started — propagate loading=true to the store.
-      setLoading(true);
-    } else if (!apiResult.isLoading && isLoading && !shouldFetch) {
-      // The query finished (or was never started because it's disabled) but
-      // the store is still marked as loading — clear it to break the deadlock.
-      logger.info(
-        '[useTradingPairs] Clearing stuck loading state (apiResult done, store still loading)'
-      );
-      setLoading(false);
-    }
-  }, [apiResult.isLoading, shouldFetch, isLoading, setLoading]);
+    setLoading(shouldFetch && apiResult.isLoading);
+  }, [apiResult.isLoading, shouldFetch, setLoading]);
 
   // Update store error state — also make sure isLoading is cleared on error
   useEffect(() => {

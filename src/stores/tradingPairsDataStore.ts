@@ -210,9 +210,20 @@ export const useTradingPairsDataStore = create<TradingPairsDataState>()(
         });
       },
 
-      setLoading: (loading: boolean) => set({ isLoading: loading }),
+      // Bail out when the value is unchanged. Every `set` hands subscribers a
+      // brand-new state object, and this store is consumed without a selector
+      // (`useTradingPairsDataStore()`), so a redundant write re-renders every
+      // consumer for nothing — and lets an effect that re-writes the same
+      // value sustain a render loop. Same guard as authStore.setLoading.
+      setLoading: (loading: boolean) => {
+        if (get().isLoading === loading) return;
+        set({ isLoading: loading });
+      },
 
-      setError: (error: string | null) => set({ error }),
+      setError: (error: string | null) => {
+        if (get().error === error) return;
+        set({ error });
+      },
 
       setHasHydrated: (state: boolean) => set({ _hasHydrated: state }),
 

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.41.2] - 2026-07-31
+
+### Fixed
+
+- Overview: when the trading-pairs or exchanges request failed or was slow, the dashboard kept re-issuing it in a self-sustaining loop instead of stopping after the normal retries. It now retries a bounded number of times and then surfaces the error — which also removes the render loop that could crash the page outright while that was happening.
+
 ## [2.41.1] - 2026-07-31
 
 ### Fixed

@@ -33,9 +33,13 @@ export function useExchanges() {
   // Determine if we need to fetch from API. Wait for IDB rehydration before
   // firing — otherwise we'd fire a network request even when cached exchanges
   // are about to arrive from IndexedDB.
+  // MUST NOT depend on the store's own `isLoading` — see the same note in
+  // useTradingPairs. Here the feedback deadlocks instead of looping: once the
+  // mirror effect below sets loading=true, `shouldFetch` flips false and the
+  // old `if (shouldFetch)` guard could never run again to clear it.
   const shouldFetch = useMemo(
-    () => _hasHydrated && !initialLoaded && !isLoading,
-    [_hasHydrated, initialLoaded, isLoading]
+    () => _hasHydrated && !initialLoaded,
+    [_hasHydrated, initialLoaded]
   );
   // Use GraphQL hook with conditional fetching
   const apiResult = useGraphQL<GetAllExchangesResponse>(
@@ -79,11 +83,10 @@ export function useExchanges() {
     initialLoaded,
   ]);
 
-  // Update store loading state
+  // Mirror the query's loading state into the store — strictly one-way and
+  // unconditional, so the flag can never be left stuck true.
   useEffect(() => {
-    if (shouldFetch) {
-      setLoading(apiResult.isLoading);
-    }
+    setLoading(shouldFetch && apiResult.isLoading);
   }, [apiResult.isLoading, shouldFetch, setLoading]);
 
   // Update store error state

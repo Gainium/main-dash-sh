@@ -170,12 +170,20 @@ export const useExchangesStore = create<ExchangesState>()(
         });
       },
 
+      // Bail out when nothing actually changes. Every `set` hands subscribers a
+      // brand-new state object, and this store is consumed without a selector
+      // (`useExchangesStore()`), so a redundant write re-renders every consumer
+      // for nothing — and lets an effect that re-writes the same value sustain
+      // a render loop. Same guard as authStore.setLoading.
       setLoading: (loading: boolean) => {
+        if (get().isLoading === loading) return;
         logger.debug(`[ExchangesStore] Setting loading: ${loading}`);
         set({ isLoading: loading });
       },
 
       setError: (error: string | null) => {
+        const { error: prevError, isLoading } = get();
+        if (prevError === error && !isLoading) return;
         logger.error(`[ExchangesStore] Setting error: ${error}`);
         set({ error, isLoading: false });
       },
