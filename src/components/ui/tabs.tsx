@@ -109,34 +109,82 @@ const Tabs = React.forwardRef<
         ? defaultValue
         : undefined;
 
-    // Update URL when value changes (controlled case)
+    // Keep the latest onValueChange in a ref so the sync effect below doesn't
+    // re-run on every render just because a caller passes an inline arrow
+    // (which is the common case, e.g. the trading terminal's deal-type tabs).
+    const onValueChangeRef = React.useRef(onValueChange);
     React.useEffect(() => {
-      if (!paramSync || !paramKey) return;
+      onValueChangeRef.current = onValueChange;
+    });
 
-      const currentParam = searchParams.get(paramKey) ?? undefined;
+    // Bidirectional URL <-> value sync (controlled case only).
+    //
+    // These used to be two separate effects that each fired whenever the URL
+    // and `value` merely DIFFERED: one forced `URL := value`, the other forced
+    // `value := URL`. That is stable only while the parent derives `value`
+    // from the URL. A parent that derives it from somewhere else — the trading
+    // terminal derives it from form state and falls back to 'smart' when unset
+    // — makes the two directions overwrite each other indefinitely: each write
+    // re-triggers the opposite one. That produced the observed
+    // ?dealType=smart <-> ?dealType=simple flapping and, once the churn
+    // reached the Radix Select ref callbacks below, React #185
+    // ("Maximum update depth exceeded").
+    //
+    // Fix: run ONE effect that propagates a change only in the direction whose
+    // own source actually moved, and bail when neither did, so the two sides
+    // can never ping-pong. On mount the URL wins, so deep links such as
+    // /terminal?dealType=simple are honored instead of being overwritten.
+    const prevValueRef = React.useRef(value);
+    const prevParamRef = React.useRef(paramValue);
+    const didInitRef = React.useRef(false);
 
-      // If we're controlled and parent sets a value, reflect it in URL
-      if (value !== undefined) {
-        if (value !== currentParam) {
-          const next = new URLSearchParams(searchParams.toString());
-          if (value) next.set(paramKey, value);
-          else next.delete(paramKey);
-          setSearchParams(next, { replace: paramReplace });
-        }
-      }
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [value, paramKey, paramReplace, paramSync]);
-
-    // If the URL changes externally and this is controlled, notify parent
     React.useEffect(() => {
-      if (!paramSync || !paramKey || value === undefined || !onValueChange)
+      if (!paramSync || !paramKey || value === undefined) return;
+
+      const currentParam =
+        new URLSearchParams(serializedSearch).get(paramKey) ?? undefined;
+
+      const valueChanged = prevValueRef.current !== value;
+      const paramChanged = prevParamRef.current !== currentParam;
+      prevValueRef.current = value;
+      prevParamRef.current = currentParam;
+
+      const firstRun = !didInitRef.current;
+      didInitRef.current = true;
+
+      // Already agree — nothing to propagate.
+      if (currentParam === value) return;
+
+      // The URL is authoritative on mount (deep link) and whenever it is the
+      // side that changed on its own (back/forward, an external navigation).
+      const urlWins =
+        currentParam !== undefined &&
+        (firstRun || (paramChanged && !valueChanged));
+
+      if (urlWins) {
+        onValueChangeRef.current?.(currentParam);
         return;
-      const currentParams = new URLSearchParams(serializedSearch);
-      const currentParam = currentParams.get(paramKey) ?? undefined;
-      if (currentParam !== undefined && currentParam !== value) {
-        onValueChange(currentParam);
       }
-    }, [serializedSearch, paramKey, value, onValueChange, paramSync]);
+
+      // Otherwise the parent's value is authoritative — but only write when
+      // something actually moved. Without this guard the effect would rewrite
+      // the URL on every render and restart the loop.
+      if (!firstRun && !valueChanged && !paramChanged) return;
+
+      // Build from `serializedSearch` (the value this effect is keyed on) so we
+      // never clobber unrelated params using a stale `searchParams` snapshot.
+      const next = new URLSearchParams(serializedSearch);
+      if (value) next.set(paramKey, value);
+      else next.delete(paramKey);
+      setSearchParams(next, { replace: paramReplace });
+    }, [
+      serializedSearch,
+      value,
+      paramKey,
+      paramReplace,
+      paramSync,
+      setSearchParams,
+    ]);
 
     const handleValueChange: typeof onValueChange = (newValue) => {
       // Only sync to URL if both paramSync and paramKey are provided
