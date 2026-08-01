@@ -44,9 +44,11 @@ import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to
 import BotFormSaveTemplateDialog from '@/features/bots/widgets/BotForm/components/BotFormSaveTemplateDialog';
 import {
   BotTypesEnum,
+  timeIntervalMap,
   type DCABacktestingResult,
   type DCABacktestingResultHistory,
   type DCABotSettings,
+  type ExchangeIntervals,
   type GRIDBacktestingResultHistory,
   type HedgeBacktestingResult,
 } from '@/types';
@@ -66,6 +68,7 @@ import { RedesignOverviewTab } from './tabs/RedesignOverviewTab';
 import { RedesignDealsTab } from './tabs/RedesignDealsTab';
 import {
   buildBacktestViewModel,
+  requestedRangeOf,
   type BacktestViewModel,
   type BacktestViewModelMeta,
 } from './viewModel';
@@ -138,13 +141,56 @@ function fmtDate(t: number): string {
   });
 }
 
+/** Whole days in a span, rounded down; 0 for a non-positive/garbage span. */
+function spanDays(ms: number): number {
+  return Number.isFinite(ms) && ms > 0 ? Math.floor(ms / 86_400_000) : 0;
+}
+
+/**
+ * How much of the requested window the run actually got, or null when there is
+ * nothing to report.
+ *
+ * Backtests are silently shortened whenever the venue serves less candle
+ * history than was asked for. The clearest case is Kraken's spot `OHLC`
+ * endpoint, which only ever returns its most recent 720 candles per interval
+ * and ignores an earlier `since` — so a 210-day 1h run covers 30 days. The
+ * loader handles that correctly (it collects everything that exists), but until
+ * now the header printed only the covered window, which reads exactly like the
+ * period the user chose. Every statistic in the modal then describes a fraction
+ * of the requested period with nothing saying so (community #4970).
+ *
+ * Derived entirely from the run's own numbers — the requested window vs. the
+ * candles that came back — so it needs no per-venue table and stays correct as
+ * venues change their limits. Only a LEADING shortfall is reported: a trailing
+ * one is normal (the last candle of an open interval simply hasn't closed).
+ */
+function coverageShortfall(h: HeaderModel): {
+  requestedDays: number;
+  coveredDays: number;
+} | null {
+  if (!h.requestedFrom || !h.from || !h.to) return null;
+  // Tolerance: a couple of candles' slack, so a run that merely starts on the
+  // next bar boundary is not flagged. Falls back to a day when the interval
+  // isn't a known one (hedge has no interval at all).
+  const step = timeIntervalMap[h.interval as ExchangeIntervals] ?? 0;
+  const tolerance = step > 0 ? step * 2 : 86_400_000;
+  if (h.from - h.requestedFrom <= tolerance) return null;
+  const requestedDays = spanDays((h.requestedTo || h.to) - h.requestedFrom);
+  const coveredDays = spanDays(h.to - h.from);
+  return requestedDays > coveredDays ? { requestedDays, coveredDays } : null;
+}
+
 /** Unified header identity, derived per-kind. */
 interface HeaderModel {
   pair: string;
   exchange: string;
   interval: string;
+  /** First / last candle the run actually COVERED (`duration.*DataTime`). */
   from: number;
   to: number;
+  /** The window that was REQUESTED, or 0 when unknown. See `coverageShortfall`. */
+  requestedFrom: number;
+  requestedTo: number;
   strategyLabel: string;
   /** dca/combo only — "Long" | "Short". Grid has no deal direction. */
   direction: string | null;
@@ -157,6 +203,8 @@ function headerFromVm(vm: BacktestViewModel, kind: ResultKind): HeaderModel {
     interval: String(vm.interval ?? ''),
     from: vm.from,
     to: vm.to,
+    requestedFrom: vm.requestedFrom,
+    requestedTo: vm.requestedTo,
     strategyLabel: kind === 'combo' ? 'Combo' : 'DCA',
     direction: vm.direction,
   };
@@ -172,6 +220,7 @@ function headerFromGrid(result: GRIDBacktestingResultHistory): HeaderModel {
     interval: result.interval ? String(result.interval) : '',
     from: Number(result.duration?.firstDataTime) || 0,
     to: Number(result.duration?.lastDataTime) || 0,
+    ...requestedRangeOf(result),
     strategyLabel: 'Grid',
     direction: null,
   };
@@ -202,6 +251,7 @@ function headerFromHedge(
     interval: '',
     from: Number(long?.duration?.firstDataTime) || 0,
     to: Number(long?.duration?.lastDataTime) || 0,
+    ...requestedRangeOf(meta),
     strategyLabel:
       hedgeBotType === BotTypesEnum.hedgeCombo ? 'Hedge Combo' : 'Hedge DCA',
     direction: null,
@@ -301,6 +351,8 @@ export function BacktestResultsFullModal({
       : kind === 'hedge'
         ? headerFromHedge(hedgeMeta, hedgeBotType)
         : null;
+
+  const shortfall = header ? coverageShortfall(header) : null;
 
   // Analysis tab gating (dca/combo) — enable when there are deals or periodic
   // stats; the tab also self-handles the empty case.
@@ -455,10 +507,31 @@ export function BacktestResultsFullModal({
               )}
             </div>
             {header && (
-              <div className="truncate text-xs text-muted-foreground/80">
-                {[header.exchange, header.interval].filter(Boolean).join(' · ')}
-                {(header.exchange || header.interval) && ' · '}
-                {fmtDate(header.from)} → {fmtDate(header.to)}
+              <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground/80">
+                <span className="truncate">
+                  {[header.exchange, header.interval]
+                    .filter(Boolean)
+                    .join(' · ')}
+                  {(header.exchange || header.interval) && ' · '}
+                  {fmtDate(header.from)} → {fmtDate(header.to)}
+                </span>
+                {shortfall && (
+                  <Badge
+                    variant="warning"
+                    title={`This run covers ${fmtDate(header.from)} → ${fmtDate(
+                      header.to
+                    )}, not the ${fmtDate(header.requestedFrom)} → ${fmtDate(
+                      header.requestedTo || header.to
+                    )} you selected: ${header.exchange || 'the exchange'} returned no ${
+                      header.pair || 'pair'
+                    } ${header.interval} candles before ${fmtDate(
+                      header.from
+                    )}. Exchanges cap how far back their candle history goes (and a pair may simply have listed later). Every statistic below describes the covered period only.`}
+                  >
+                    Partial history — {shortfall.coveredDays} of{' '}
+                    {shortfall.requestedDays} days
+                  </Badge>
+                )}
               </div>
             )}
           </div>

@@ -83,8 +83,20 @@ export interface BacktestViewModel {
   direction: string; // "Long" | "Short" (from settings.strategy)
   strategy: string; // "DCA"
   interval: ExchangeIntervals | string;
-  from: number; // duration.firstDataTime
-  to: number; // duration.lastDataTime
+  from: number; // duration.firstDataTime — first candle actually COVERED
+  to: number; // duration.lastDataTime — last candle actually COVERED
+  /**
+   * The range the user ASKED for, when it is known. 0 when it isn't.
+   *
+   * This is deliberately separate from `from`/`to`: those are derived from the
+   * candles the run actually received, and the two diverge whenever the venue
+   * served less history than was requested (Kraken spot's OHLC endpoint, for
+   * example, only ever returns its most recent 720 candles per interval — a
+   * 210-day 1h backtest silently covers 30 days). Keeping both lets the header
+   * say so instead of presenting the shortened window as the tested period.
+   */
+  requestedFrom: number;
+  requestedTo: number;
 
   // headline KPIs
   netPerc: number; // financial.netProfitTotalPerc
@@ -126,6 +138,35 @@ export interface BacktestViewModelMeta {
   exchange?: string;
   baseAsset?: string;
   quoteAsset?: string;
+  /**
+   * The requested backtest window (epoch ms), for a FRESH in-memory result
+   * that hasn't been persisted yet. A saved result carries the same pair as
+   * `config.firstDataTime` / `config.lastDataTime` (`BacktestingSettings`), so
+   * only the fresh-run callers need to pass these.
+   */
+  requestedFrom?: number;
+  requestedTo?: number;
+}
+
+/**
+ * The window the run was ASKED to cover. Saved backtests persist it as
+ * `config.firstDataTime` / `config.lastDataTime` (strings over GraphQL);
+ * a fresh run passes it via `meta`. Returns 0 when neither is available —
+ * callers treat 0 as "unknown", never as a real timestamp.
+ */
+export function requestedRangeOf(
+  result: unknown,
+  meta?: Pick<BacktestViewModelMeta, 'requestedFrom' | 'requestedTo'>
+): { requestedFrom: number; requestedTo: number } {
+  const config = (
+    result as {
+      config?: { firstDataTime?: unknown; lastDataTime?: unknown };
+    } | null
+  )?.config;
+  return {
+    requestedFrom: num(meta?.requestedFrom ?? config?.firstDataTime),
+    requestedTo: num(meta?.requestedTo ?? config?.lastDataTime),
+  };
 }
 
 const MS_PER_HOUR = 3_600_000;
@@ -482,6 +523,7 @@ export function buildBacktestViewModel(
     interval: result.interval,
     from: num(duration?.firstDataTime),
     to: num(duration?.lastDataTime),
+    ...requestedRangeOf(result, meta),
 
     netPerc: num(financial?.netProfitTotalPerc),
     netUsd: num(financial?.netProfitTotalUsd),

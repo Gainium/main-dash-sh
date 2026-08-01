@@ -549,6 +549,10 @@ class Candles {
       let actualIterations = 0;
       let consecutiveErrors = 0;
       const maxConsecutiveErrors = 3;
+      // Leading chunks the venue answered with nothing — see the empty-chunk
+      // branch below. Counted so the completion log states the range actually
+      // covered instead of implying the requested one was served.
+      let leadingEmptyChunks = 0;
 
       for (const request of [...Array(count).keys()]) {
         if (this._stop) {
@@ -654,15 +658,28 @@ class Candles {
             );
             break;
           }
-          // Nothing collected yet: the requested window simply BEGINS BEFORE
-          // this market existed (newly listed pair / young contract). Breaking
-          // here aborted the whole load and rendered "No data here" even though
-          // recent candles exist. Skip the leading pre-listing gap instead —
-          // `prev` is advanced past the probed chunk so the loop still makes
-          // real progress, and it stays bounded by the existing count /
-          // maxIterations guards.
+          // Nothing collected yet: the requested window BEGINS BEFORE the
+          // earliest candle this venue will serve for this pair. Two very
+          // different causes produce this identical signal, and the loader
+          // cannot tell them apart from a single empty chunk:
+          //   • the market did not exist yet (newly listed pair / young
+          //     contract), or
+          //   • the VENUE caps how far back its candle endpoint reaches —
+          //     Kraken's spot `OHLC` returns only its most recent 720 candles
+          //     per interval and ignores an earlier `since` entirely, so 1h
+          //     history stops 30 days back no matter what is requested
+          //     (community #4970).
+          // Either way the right move is the same: skip the gap rather than
+          // break (breaking aborted the whole load and rendered "No data here"
+          // even though recent candles exist). `prev` is advanced past the
+          // probed chunk so the loop still makes real progress, bounded by the
+          // existing count / maxIterations guards. What must NOT happen is
+          // asserting the pre-listing reading — the run is then quietly
+          // shortened, which is why the backtest results header compares the
+          // requested window against the covered one and says so.
+          leadingEmptyChunks++;
           logger.info(
-            `[Candles.getCandlesFromExchange] Empty leading chunk at iteration ${ind}/${count} - skipping pre-listing gap up to ${new Date(toThis * 1000).toISOString()}`
+            `[Candles.getCandlesFromExchange] Empty leading chunk at iteration ${ind}/${count} - no candles before ${new Date(toThis * 1000).toISOString()} (pair not listed yet, or venue history limit); skipping ahead`
           );
           prev = toThis * 1000;
           continue;
@@ -744,6 +761,15 @@ class Candles {
       logger.info(
         `[Candles.getCandlesFromExchange] Completed: symbol=${symbol} interval=${interval} iterations=${ind}/${count} actualIterations=${actualIterations} totalBars=${data.length} uniqueBars=${dataIndex.size}`
       );
+      if (leadingEmptyChunks > 0 && data.length > 0) {
+        // Say plainly that the caller is getting less than it asked for. The
+        // user-facing counterpart is the backtest results header, which flags
+        // the same shortfall; this line is what makes it diagnosable from a
+        // console log alone.
+        logger.warn(
+          `[Candles.getCandlesFromExchange] Requested from ${new Date(from).toISOString()} but ${this.exchangeName} served nothing before ${new Date(data[0].time).toISOString()} for ${symbol}@${interval} (${leadingEmptyChunks} empty leading chunk(s)) - the pair listed later, or this venue caps its candle history`
+        );
+      }
       return data;
     } catch (e) {
       if (handleErrorByCandles) {

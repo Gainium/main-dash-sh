@@ -3059,6 +3059,10 @@ const BotForm: React.FC<BotFormProps> = ({
                     baseAsset: persistenceSymbol.baseAsset?.name ?? '',
                     quoteAsset: persistenceSymbol.quoteAsset?.name ?? '',
                     exchange: currentExchange.provider,
+                    // Mirror the persisted shape: the results header reads the
+                    // REQUESTED window off `config` (a saved run always has it)
+                    // to flag a run the venue's candle-history ceiling cut short.
+                    config: { firstDataTime, lastDataTime },
                   } as unknown as GRIDBacktestingResultHistory;
                   setBacktestResult({
                     result: gridHistory,
@@ -3260,6 +3264,13 @@ const BotForm: React.FC<BotFormProps> = ({
                     exchange: currentExchange.provider,
                     baseAsset: persistenceSymbol.baseAsset?.name ?? '',
                     quoteAsset: persistenceSymbol.quoteAsset?.name ?? '',
+                    // The window the user asked for. A saved result carries it
+                    // as `config.firstDataTime/lastDataTime`; this fresh one
+                    // doesn't, so the results header can only tell the user the
+                    // run was cut short (venue history ceiling / late listing)
+                    // if we hand it over here.
+                    requestedFrom: firstDataTime,
+                    requestedTo: lastDataTime,
                   };
                   const dcaVm = buildBacktestViewModel(
                     typedResult,

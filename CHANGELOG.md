@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.6] - 2026-08-01
+
+### Fixed
+
+- Backtest results now say when a run covered less than the period you selected. Exchanges cap how far back their candle history reaches — Kraken spot, for example, serves only its most recent 720 candles per timeframe, so a 210-day 1h backtest quietly tested 30 days. The results header now shows a "Partial history — X of Y days" warning, with the reason on hover, whenever the tested window starts later than the one requested.
+
 ## [2.42.5] - 2026-08-01
 
 ### Fixed
