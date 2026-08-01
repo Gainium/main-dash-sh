@@ -170,7 +170,17 @@ export function useBotConfigPreload(): BotConfigPreload | null {
       symbol: search.get('symbol') ?? undefined,
     };
     const exchangeProvider = staged?.exchange ?? fromUrl.exchange;
-    const symbol = staged?.symbol ?? fromUrl.symbol;
+    // `staged` is JSON.parse'd from sessionStorage, so its scalars are whatever
+    // the producer wrote — the interface below is a claim, not a guarantee. A
+    // numeric `symbol` used to land in `formData.pair` as a number and crash
+    // QuickBotForm's market-stats calibration (`.trim is not a function`)
+    // during render. Coerce here, the same way the `?load=` clone path
+    // sanitizes its pairs in `map-bot-settings-to-form-data.ts`.
+    const symbolRaw = staged?.symbol ?? fromUrl.symbol;
+    const symbol =
+      symbolRaw === undefined || symbolRaw === null
+        ? undefined
+        : String(symbolRaw).trim() || undefined;
 
     // Nothing to preload: let the form do its normal thing.
     if (!staged && !exchangeProvider && !symbol) return null;

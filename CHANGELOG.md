@@ -5,19 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.5] - 2026-08-01
+
+### Fixed
+
+- Opening the new-bot form from a staged configuration (e.g. "Copy to live", a curated preset, or a wizard hand-off) no longer shows "Something went wrong" when the staged trading pair was stored as a number instead of text. The pair is now read as text and the form loads normally.
+
 ## [2.42.4] - 2026-08-01
 
 ### Fixed
 
-- A running deal's chart showed no upcoming DCA levels for bots whose DCA
-  condition is an indicator. Those bots rest nothing on the exchange, so the
-  bot page only ever drew the base order and TP/SL — the "DCA (min. %)"
-  thresholds that the bot form chart already showed were missing exactly where
-  they are most useful. The deal drawer's chart now overlays the same projection,
-  anchored on the deal's last filled price.
-- Projected levels lost their label on the bot page chart: the unfolding chart
-  panel dropped `greyLabel` and the grey colour on the way to the chart, so
-  not-yet-placed levels were indistinguishable from real resting orders.
+- Opening the trading terminal on a specific deal type (e.g. a link ending in `?dealType=simple`) now selects that tab. The address was being rewritten back to `smart`, so you landed on the wrong tab, and the resulting tug-of-war between the address bar and the form could escalate into a "Maximum update depth exceeded" crash.
 
 ## [2.42.3] - 2026-08-01
 

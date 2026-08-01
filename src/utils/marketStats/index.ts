@@ -29,7 +29,14 @@ export {
  * strip separators here.
  */
 export const normalizeSymbol = (raw: string | undefined | null): string =>
-  (raw ?? '').trim().toUpperCase();
+  // `String(...)` rather than a bare `?? ''`: callers feed this straight from
+  // `formData.pair`, which is typed `string | string[]` but is seeded from
+  // untyped channels (sessionStorage `botConfig`, URL hints). A numeric pair
+  // slipped through and `(raw ?? '').trim()` threw during QuickBotForm's
+  // render. Matches the `String(x ?? '').trim()` idiom used elsewhere.
+  String(raw ?? '')
+    .trim()
+    .toUpperCase();
 
 const TTL_MS = 5 * 60 * 1000;
 
