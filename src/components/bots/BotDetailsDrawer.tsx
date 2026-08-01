@@ -13,6 +13,7 @@ import {
   type AvgPrice,
   type BotStatus,
   type DCABot,
+  type DCABotSettings,
   type DCADeals,
   type HedgeBotSettings,
 } from '@/types';
@@ -20,6 +21,7 @@ import {
 import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
 import { indicatorStore } from '@/stores/indicatorStore';
 import { useDealStore } from '@/stores/live/dealStore';
+import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
@@ -1073,9 +1075,45 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       handleAutoOpenHandled,
     ]);
 
+    // The deal the CHART is annotated with — `chartTrade` when the user picked
+    // one, otherwise the auto-selected deal.
+    const chartDealId = chartTrade?.id ?? selectedTrade?.id ?? '';
+
+    // Raw deal (not the lossy TradeDetails): the projection below measures from
+    // `lastPrice` / `levels`, which only the store copy keeps socket-fresh.
+    const chartRawDeal = useDealStore((s) =>
+      chartDealId ? (s.deals[bot._id]?.[chartDealId] ?? null) : null
+    );
+
+    const chartDealOrders = useMemo(() => {
+      if (isGrid || !chartDealId) {
+        return { pending: [] as typeof pendingOrders, completed: [] as typeof completedOrders };
+      }
+      return {
+        pending: pendingOrders.filter((o) => o.dealId === chartDealId),
+        completed: completedOrders.filter((o) => o.dealId === chartDealId),
+      };
+    }, [isGrid, chartDealId, pendingOrders, completedOrders]);
+
+    // Projected levels the bot has not placed yet. Indicator-condition DCA rests
+    // NOTHING on the exchange, so without this the chart shows no forward
+    // levels at all for those bots — only the base order and TP/SL. This is the
+    // same projection the trade drawer and the bot form chart already run.
+    const { smartChartOrders: dealProjectedOrders } = useDealSmartOrders({
+      bot: {
+        settings: bot.settings as DCABotSettings | undefined,
+        exchangeUUID: bot.exchangeUUID ?? chartRawDeal?.exchangeUUID,
+      },
+      deal: chartRawDeal,
+      pendingOrders: chartDealOrders.pending,
+      completedOrders: chartDealOrders.completed,
+      isCombo: type === BotTypesEnum.combo,
+      enabled: !isGrid && Boolean(chartDealId),
+    });
+
     const chartOrders = useMemo(
-      () =>
-        [...pendingOrders]
+      () => [
+        ...[...pendingOrders]
           .filter((o) => {
             // Grid bots don't have deals — show all orders on the chart
             if (isGrid) return true;
@@ -1104,7 +1142,15 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   false
                 ), // false = not real order for display
           })),
-      [pendingOrders, selectedTrade?.id, chartTrade?.id, isGrid]
+        ...dealProjectedOrders,
+      ],
+      [
+        pendingOrders,
+        selectedTrade?.id,
+        chartTrade?.id,
+        isGrid,
+        dealProjectedOrders,
+      ]
     );
 
     const chartTransactions = useMemo(

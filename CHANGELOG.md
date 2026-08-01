@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.4] - 2026-08-01
+
+### Fixed
+
+- A running deal's chart showed no upcoming DCA levels for bots whose DCA
+  condition is an indicator. Those bots rest nothing on the exchange, so the
+  bot page only ever drew the base order and TP/SL — the "DCA (min. %)"
+  thresholds that the bot form chart already showed were missing exactly where
+  they are most useful. The deal drawer's chart now overlays the same projection,
+  anchored on the deal's last filled price.
+- Projected levels lost their label on the bot page chart: the unfolding chart
+  panel dropped `greyLabel` and the grey colour on the way to the chart, so
+  not-yet-placed levels were indistinguishable from real resting orders.
+
 ## [2.42.3] - 2026-08-01
 
 ### Changed

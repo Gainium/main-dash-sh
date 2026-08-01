@@ -670,7 +670,12 @@ const UnfoldingChartPanel = ({
         ...o,
         side: o.side.toLowerCase(),
         label: o.label || o.type,
-        isDraggable: !!o.draggable,
+        // Projected (not-yet-placed) levels have to carry `greyLabel` + a grey
+        // colour through, or `orderLines.ts` can't tell them apart from real
+        // resting orders and drops their label. Mirrors BotChart's mapping.
+        greyLabel: o.grey ? (o.greyLabel ?? 'Smart order') : undefined,
+        isDraggable: o.grey ? false : !!o.draggable,
+        ...(o.grey ? { color: '#94a3b8' } : {}),
       })),
     [exampleOrders]
   );
