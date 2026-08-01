@@ -2837,8 +2837,17 @@ const BotForm: React.FC<BotFormProps> = ({
   const onRunBacktest = useCallback(
     async (cfg: BacktestConfig) => {
       if (cfg.mode === 'server') {
-        // Use the existing handler from useFormHandlers which runs the server mutation
-        await handleFormBacktest();
+        // Use the existing handler from useFormHandlers which runs the server
+        // mutation — and hand it what the dialog collected. Calling it bare
+        // dropped every field the user picked, so each server run silently
+        // tested the last 365 days at 1h with 0% slippage.
+        await handleFormBacktest({
+          timeframe: cfg.timeframe,
+          startDate: cfg.startDate,
+          endDate: cfg.endDate,
+          slippagePercent: cfg.slippagePercent,
+          userFee: cfg.userFee,
+        });
       } else {
         try {
           if (!currentExchange) {

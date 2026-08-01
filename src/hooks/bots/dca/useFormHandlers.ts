@@ -77,10 +77,24 @@ interface UseFormHandlersOptions {
   ) => MapFormDataToPayloadResult | MapGridFormDataToPayloadResult;
 }
 
+/**
+ * What the backtest settings dialog collected, handed through to the server
+ * mutation. Everything is optional and falls back to the constants below, so
+ * a no-argument `handleBacktest()` behaves exactly as it always has.
+ */
+export interface BacktestOverrides {
+  timeframe?: ExchangeIntervals;
+  /** `YYYY-MM-DDTHH:mm` (dialog) or ISO — empty string means "Auto". */
+  startDate?: string;
+  endDate?: string;
+  slippagePercent?: number;
+  userFee?: string | number;
+}
+
 export interface UseFormHandlersReturn {
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
   handleSave: (e?: React.FormEvent) => Promise<void>;
-  handleBacktest: () => Promise<void>;
+  handleBacktest: (overrides?: BacktestOverrides) => Promise<void>;
   backtestPending: boolean;
 }
 
@@ -423,7 +437,7 @@ export const useFormHandlers = (
     }
   };
 
-  const handleBacktest = useCallback(async () => {
+  const handleBacktest = useCallback(async (overrides?: BacktestOverrides) => {
     try {
       if (options.validate) {
         const validation = options.validate(formData) as unknown as {
@@ -482,17 +496,22 @@ export const useFormHandlers = (
         return;
       }
 
-      const timeframe = /**Default to 60m */ ExchangeIntervals.oneH;
-      const startDate = new Date(
-        Date.now() - 365 * 24 * 60 * 60 * 1000
-      ).toISOString();
-      const endDate = new Date().toISOString();
+      // What the settings dialog collected wins; the constants below are only
+      // the fallback for a no-argument call. `??` (not `||`) so an explicit
+      // empty date — the dialog's "Auto" period — survives as "unset" rather
+      // than silently reverting to the hardcoded 365-day window.
+      const timeframe =
+        overrides?.timeframe ?? /**Default to 60m */ ExchangeIntervals.oneH;
+      const startDate =
+        overrides?.startDate ??
+        new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString();
+      const endDate = overrides?.endDate ?? new Date().toISOString();
       const config = {
         startDate,
         endDate,
         timeframe,
         includeCommissions: true,
-        slippagePercent: /** fallback to 0 */ 0,
+        slippagePercent: overrides?.slippagePercent ?? /** fallback to 0 */ 0,
       };
 
       if (mode === 'create' && !bot) {
@@ -502,14 +521,25 @@ export const useFormHandlers = (
         return;
       }
 
+      // `startDate`/`endDate` are date STRINGS, so unary `+` on them is NaN,
+      // not a timestamp — and the `? :` guard never helps because a non-empty
+      // string is truthy. Parse them, exactly as the local (in-browser) path
+      // does in BotForm/index.tsx, and leave the field unset when the value
+      // isn't a real date: that is how "Auto" asks the backend to derive the
+      // window itself.
+      const firstDataTime = new Date(config.startDate).getTime();
+      const lastDataTime = new Date(config.endDate).getTime();
+
       const input: SSBinput = prepareBacktestInput(
         formData,
         currentExchange,
         {
-          userFee: `${formData.userFee?.makerCommission || 0}`,
+          userFee: `${overrides?.userFee ?? formData.userFee?.makerCommission ?? 0}`,
           slippage: `${config.slippagePercent}`,
-          firstDataTime: config.startDate ? +config.startDate : undefined,
-          lastDataTime: config.endDate ? +config.endDate : undefined,
+          firstDataTime: Number.isFinite(firstDataTime)
+            ? firstDataTime
+            : undefined,
+          lastDataTime: Number.isFinite(lastDataTime) ? lastDataTime : undefined,
         },
         config.timeframe
       );
