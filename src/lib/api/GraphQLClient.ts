@@ -159,13 +159,24 @@ const isPublicShareView = (): boolean => {
   return href.includes('share=') || href.includes('backtestShare=');
 };
 
-let onSessionDead: (() => void) | null = null;
+let onSessionDead: ((rejectedToken: string | null) => void) | null = null;
 
 /**
  * Registered once by the auth store. Kept as a callback rather than a direct
  * import so this module stays free of a GraphQLClient → authStore cycle.
+ *
+ * The handler receives the token the REJECTED request was sent with. SPA
+ * login doesn't reload the page, so requests fired under a previous (dead)
+ * session can still be in flight after the user re-authenticates — for tens
+ * of seconds on a slow connection. The handler must compare the rejected
+ * token against the CURRENT one and ignore stragglers; without that check a
+ * late rejection tears down the brand-new session (and `logout()` then
+ * revokes its token server-side via deleteToken), looping the user back to
+ * the login screen every time they sign in.
  */
-export const setSessionDeadHandler = (handler: () => void): void => {
+export const setSessionDeadHandler = (
+  handler: (rejectedToken: string | null) => void
+): void => {
   onSessionDead = handler;
 };
 
@@ -483,8 +494,10 @@ export class GraphQLClient {
         // signed with a retired secret). Tear the session down now rather
         // than leaving the user on a shell that 401s every widget.
         if (isSessionDeadMessage(messages) && !isPublicShareView()) {
-          logger.warn('Backend rejected the session token — logging out');
-          onSessionDead?.();
+          logger.warn('Backend rejected the session token', {
+            rejectedTokenTail: this.token ? this.token.slice(-8) : null,
+          });
+          onSessionDead?.(this.token ?? null);
         }
         throw new Error(`GraphQL errors: ${messages}`);
       }

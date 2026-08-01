@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.1] - 2026-08-01
+
+### Fixed
+
+- Signing back in no longer immediately logs you out again on a slow connection. Requests still in flight from the previous session could resolve after re-login with the backend's "session expired" rejection, and the app treated that as the new session being dead — signing the user out and revoking the fresh session server-side, over and over. A rejection now only ends the session whose token was actually rejected.
+
 ## [2.42.0] - 2026-08-01
 
 ### Added
