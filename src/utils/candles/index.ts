@@ -484,6 +484,23 @@ class Candles {
     signal,
   }: Omit<GetCandlesInput, 'baseAsset' | 'quoteAsset'>): Promise<Bar[]> {
     try {
+      // Per-venue candle page size. This is BOTH the `limit` we send and the
+      // width of each request window, and the iteration budget below is
+      // `ceil(range / step / requestStep)` — decided BEFORE any request goes
+      // out. So a value larger than what the venue actually serves is a
+      // CORRECTNESS bug, not just a slow one: every page comes back short,
+      // the budget runs out before the cursor reaches the end, and the loader
+      // stops with no error. The backtest then silently runs on a shorter
+      // period than the one the user asked for.
+      // Values below were measured through our own `/candles` (direct
+      // exchange-connector path, i.e. what a self-hosted install and prod's
+      // archive-miss fallback receive) at 15m/1h/1d — a page size must hold at
+      // EVERY interval, since this constant is interval-independent.
+      // Deliberately NOT raised: `bitget` spot. It serves 1000/page only while
+      // the window stays inside its recent-candles lookback (83 days at 1h);
+      // a 1000-bar window at 1d/1w falls through to the history endpoint,
+      // which is hard-capped at 200. Measured on a 730-day 1d range: 200 gives
+      // 731 bars, 1000 gives 200. The conservative 200 is the correct value.
       const requestStep =
         this.exchangeName === ExchangeEnum.binance ||
         this.exchangeName === ExchangeEnum.binanceUS ||
@@ -505,10 +522,19 @@ class Candles {
                   ? 300
                   : this.exchangeName === ExchangeEnum.kraken ||
                       this.exchangeName === ExchangeEnum.krakenSpot ||
-                      this.exchangeName === ExchangeEnum.krakenAll ||
-                      this.exchangeName === ExchangeEnum.krakenUsdm
+                      this.exchangeName === ExchangeEnum.krakenAll
                     ? 720
-                    : 200;
+                    : // Kraken FUTURES is a different endpoint from Kraken
+                      // spot's 720-capped OHLC: it serves up to 7000 bars in
+                      // one call. 5000 leaves headroom under that ceiling.
+                      this.exchangeName === ExchangeEnum.krakenUsdm ||
+                        this.exchangeName === ExchangeEnum.hyperliquid ||
+                        this.exchangeName === ExchangeEnum.hyperliquidLinear
+                      ? 5000
+                      : this.exchangeName === ExchangeEnum.bitgetUsdm ||
+                          this.exchangeName === ExchangeEnum.bitgetCoinm
+                        ? 2000
+                        : 200;
       const step = timeIntervalMap[interval];
       const count = Math.max(Math.ceil((to - from) / step / requestStep), 0);
       logger.info(
