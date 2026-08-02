@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.17] - 2026-08-02
+
+### Fixed
+
+- Charts: a Moving Average Ratio (MAR) indicator with Percentile Ranking enabled no
+  longer forces its pane onto a 0-100 price scale. MAR is a ratio centered on 1.0, but
+  its percentile reference band was drawn at the fixed values 100 and 0 (correct only
+  for studies whose own domain is 0-100, like RSI or MFI), so the MAR line collapsed
+  into a sliver at the bottom of the pane and the axis showed `100.00000000`. The band
+  now follows the highest/lowest MAR value over the percentile lookback window, so the
+  pane scales to the ratio's own range.
+
 ## [2.42.16] - 2026-08-02
 
 ### Fixed

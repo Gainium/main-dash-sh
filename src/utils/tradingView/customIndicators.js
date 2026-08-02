@@ -5618,11 +5618,25 @@ export const MAR = (r) => ({
       const percentile = usePercentile
         ? percentileRank(marVar, percentileLookback, percentilePercentage, r)
         : r.Std.na();
+      // percentileHigh/percentileLow are the literal constants 100 and 0 —
+      // correct reference bounds for studies whose own domain IS 0-100 (RSI,
+      // MFI, ...), but MAR is an unbounded ratio centered on 1.0. Plotting
+      // 100/0 next to a ~1.0 line (the percentile fills anchor to them) forces
+      // this pane's price scale to span 0-100 and squashes the MAR line into a
+      // sliver at the bottom. Anchor the band to the highest/lowest MAR value
+      // actually seen over the lookback window so it stays in the ratio's own
+      // range.
+      const percentileBandHigh = usePercentile
+        ? r.Std.highest(marVar, percentileLookback, this._context)
+        : r.Std.na();
+      const percentileBandLow = usePercentile
+        ? r.Std.lowest(marVar, percentileLookback, this._context)
+        : r.Std.na();
       return [
         mar,
         percentile,
-        usePercentile ? percentileHigh : r.Std.na(),
-        usePercentile ? percentileLow : r.Std.na(),
+        percentileBandHigh,
+        percentileBandLow,
         useTrendFilter && trend !== 0 && trend !== r.Std.na() ? 1 : r.Std.na(),
       ];
     };
