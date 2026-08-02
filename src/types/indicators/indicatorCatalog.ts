@@ -1706,7 +1706,15 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         // Legacy: `${(mar1type ?? '').toUpperCase()} Length`.
         labelFrom: { field: 'mar1type', suffix: 'Length' },
         label: 'Base MA length',
-        defaultValue: 10,
+        // 20, not 10 — the rest of the platform agrees on 20 and only this
+        // entry disagreed (an "indicator config parity" pass, b448534, moved
+        // it 20 -> 10 in passing): legacy's `indicatorConfigDefaults[mar]`,
+        // the public API's `botDefaults`, and the live engine's own fallback
+        // `+(_mar1length ?? 20)` in `dcaHelper`. While the value was only
+        // DRAWN that mismatch was a lie on screen; now that an untouched
+        // field is persisted, saving a MAR that never stored `mar1length`
+        // would have re-tuned the bot from a 20-period base MA to a 10.
+        defaultValue: 20,
         min: 1,
         max: 500,
         step: 1,

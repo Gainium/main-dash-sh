@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.18] - 2026-08-02
+
+### Fixed
+
+- Bot form: saving a bot now stores every indicator setting the form was showing,
+  not only the ones the document already held. A parameter the user never touched
+  was drawn from the indicator's own default (a MAR row showed "EMA", "Current
+  price" and a comparison length of 20) but was absent from the saved bot, so
+  re-saving wrote the same gaps straight back and an affected bot could not be
+  repaired. Values that were actually set are never overwritten.
+- MAR: "Base MA length" defaults to 20 again, matching the value the trading
+  engine has always used for a bot that never set one. It had drifted to 10,
+  which showed the wrong number on screen and — now that an untouched setting
+  is saved — would have re-tuned the bot on its first save.
+
 ## [2.42.17] - 2026-08-02
 
 ### Fixed

@@ -48,10 +48,13 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { IndicatorConfig } from '@/types/indicators';
+import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
+import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
   isCloseIndicatorOfSection,
   isCloseIndicatorUsedByCondition,
 } from '@/utils/indicators/indicatorConfigUtils';
+import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 
@@ -204,10 +207,44 @@ const serializeIndicatorConfig = (
 ): IndicatorConfig => {
   const overrides = options.overrides ?? {};
 
-  const paramsRecord = normalizeIndicatorParamsRecord(indicator);
+  // Save what the form SHOWED, not only what the row happens to hold. A field
+  // the user never touched has no entry in the row (the catalog's
+  // `defaultValue` draws the control, it does not populate the object), and on
+  // a bot loaded from the API it is an explicit `null` — GraphQL answers every
+  // field the indicator selection asks for, so a document that never stored
+  // `mar2type` yields one. Both RENDER as the default (the value expressions
+  // use `??`) yet serialize as nothing, so opening a bot and saving it wrote
+  // its holes straight back and no re-save could ever repair it.
+  //
+  // That is not cosmetic downstream: `indicatorLoader` sizes MAR's warm-up
+  // with `Math.max(mar1length, mar2length)` — NaN with the second missing —
+  // and `MAR`'s constructor calls `ma2Type.toLowerCase()` on the raw argument,
+  // a TypeError rather than a fallback.
+  //
+  // `withFieldDefaults` is the helper the inline editor, the summary card and
+  // `handleIndicatorSelection` already use to answer "what value does this
+  // field effectively have"; persisting that same answer is what makes the
+  // payload match the screen. It only FILLS gaps (`== null`), so everything
+  // the user actually set still wins. It also resolves `keyWhen`, so STOCH's
+  // band params land on the key the current `stochRange` actually binds.
+  //
+  // Looked up straight off the catalog rather than through
+  // `getIndicatorDefinition`, which THROWS on an unregistered type: every call
+  // site here sits inside a try/catch that turns a throw into "this bot cannot
+  // be saved", so a legacy row carrying a type we retired would go from
+  // silently incomplete to unsaveable. No definition — leave the row alone.
+  const definition = INDICATOR_CATALOG[indicator.type as IndicatorEnum];
+  const filled = definition
+    ? ((withFieldDefaults(
+        definition,
+        indicator as IndicatorParamsState
+      ) as IndicatorConfig | null) ?? indicator)
+    : indicator;
+
+  const paramsRecord = normalizeIndicatorParamsRecord(filled);
 
   const payload: IndicatorConfig = {
-    ...indicator,
+    ...filled,
     ...paramsRecord,
     ...overrides,
   };
