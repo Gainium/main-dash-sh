@@ -47,6 +47,7 @@ import type {
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import {
   resolveFieldKey,
+  resolveFieldLabel,
   shouldDisableField,
   shouldHideField,
 } from '@/utils/indicators/indicatorFieldGating';
@@ -227,7 +228,7 @@ export const IndicatorConfigurationModal: React.FC<
       <div className="flex items-start justify-between gap-sm">
         <div className="flex items-center gap-1">
           <Label htmlFor={field.key} className="text-sm font-medium">
-            {field.label}
+            {resolveFieldLabel(definition, field, paramsState)}
           </Label>
           {field.tooltip ? (
             <Tooltip
@@ -331,7 +332,7 @@ export const IndicatorConfigurationModal: React.FC<
             <div>
               <div className="flex items-center gap-1">
                 <Label htmlFor={field.key} className="text-sm font-medium">
-                  {field.label}
+                  {resolveFieldLabel(definition, field, paramsState)}
                 </Label>
                 {field.tooltip ? (
                   <Tooltip

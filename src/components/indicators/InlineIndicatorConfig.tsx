@@ -25,6 +25,7 @@ import type {
 import { filterIntervalOptionsByExchange } from '@/types/indicators/indicatorLogic';
 import {
   resolveFieldKey,
+  resolveFieldLabel,
   shouldDisableField,
   shouldHideField,
   withFieldDefaults,
@@ -123,6 +124,10 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
       params
     );
     const value = params[storageKey] ?? effectiveDefault;
+    // Named after another field's selection when `labelFrom` says so (MAR's
+    // "EMA Length"); resolved off `effectiveParams` so it reads the same
+    // default the driving control displays.
+    const label = resolveFieldLabel(definition, field, effectiveParams);
 
     if (shouldHideField(field, effectiveParams)) {
       return null;
@@ -183,7 +188,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
         return (
           <div key={field.key} className="space-y-xs">
             <div className="flex items-center gap-1">
-              <Label htmlFor={field.key}>{field.label}</Label>
+              <Label htmlFor={field.key}>{label}</Label>
               {field.tooltip ? (
                 <Tooltip tooltip={field.tooltip} tooltipURL={field.tooltipURL} side="top">
                   <InfoIcon />
@@ -222,7 +227,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
           return (
             <div key={field.key} className="space-y-xs">
               <div className="flex items-center gap-1">
-                <Label htmlFor={field.key}>{field.label}</Label>
+                <Label htmlFor={field.key}>{label}</Label>
                 {field.tooltip ? (
                   <Tooltip tooltip={field.tooltip} tooltipURL={field.tooltipURL} side="top">
                     <InfoIcon />
@@ -267,7 +272,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
         return (
           <div key={field.key} className="space-y-xs">
             <div className="flex items-center gap-1">
-              <Label htmlFor={field.key}>{field.label}</Label>
+              <Label htmlFor={field.key}>{label}</Label>
               {field.tooltip ? (
                 <Tooltip tooltip={field.tooltip} tooltipURL={field.tooltipURL} side="top">
                   <InfoIcon />
@@ -281,7 +286,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
             >
               <SelectTrigger>
                 <SelectValue
-                  placeholder={`Select ${field.label.toLowerCase()}`}
+                  placeholder={`Select ${label.toLowerCase()}`}
                 />
               </SelectTrigger>
               <SelectContent>
@@ -314,7 +319,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
                 disabled={disabled}
                 onCheckedChange={(checked) => updateParam(field.key, checked)}
               />
-              <Label htmlFor={field.key}>{field.label}</Label>
+              <Label htmlFor={field.key}>{label}</Label>
               {field.tooltip ? (
                 <Tooltip tooltip={field.tooltip} tooltipURL={field.tooltipURL} side="top">
                   <InfoIcon />

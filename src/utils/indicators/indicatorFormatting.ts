@@ -5,6 +5,7 @@ import type {
 import type { SettingsIndicators } from '@/types';
 import {
   resolveFieldKey,
+  resolveFieldLabel,
   shouldHideField,
   withFieldDefaults,
 } from '@/utils/indicators/indicatorFieldGating';
@@ -92,7 +93,11 @@ export const buildIndicatorSummary = (
     if (!formatted) {
       continue;
     }
-    summary.push(`${field.label}: ${formatted}`);
+    // Same dynamic label the form shows, so the card doesn't call a field
+    // "Base MA length" while the editor under it says "EMA Length".
+    summary.push(
+      `${resolveFieldLabel(definition, field, effectiveParams)}: ${formatted}`
+    );
   }
 
   return summary;

@@ -555,6 +555,8 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeNumberField({
         key: 'maCrossingLength',
+        // Legacy: `${maCrossName[maCrossingValue]} length`.
+        labelFrom: { field: 'maCrossingValue', suffix: 'length' },
         label: 'Comparison length',
         defaultValue: 20,
         min: 1,
@@ -565,6 +567,8 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeIntervalField({
         key: 'maCrossingInterval',
+        // Legacy: `${maCrossName[maCrossingValue]} interval`.
+        labelFrom: { field: 'maCrossingValue', suffix: 'interval' },
         label: 'Comparison interval',
         defaultValue: ExchangeIntervals.oneH,
         options: INTERVAL_OPTIONS,
@@ -1679,6 +1683,10 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeNumberField({
         key: 'mar2length',
+        // Legacy: `${(mar2type ?? '').toUpperCase()} Length`. Only ever shown
+        // while mar2type is an MA — the `hiddenWhen` below removes it for
+        // "Current price", which has no length.
+        labelFrom: { field: 'mar2type', suffix: 'Length' },
         label: 'Comparison MA length',
         defaultValue: 20,
         min: 1,
@@ -1695,6 +1703,8 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeNumberField({
         key: 'mar1length',
+        // Legacy: `${(mar1type ?? '').toUpperCase()} Length`.
+        labelFrom: { field: 'mar1type', suffix: 'Length' },
         label: 'Base MA length',
         defaultValue: 10,
         min: 1,

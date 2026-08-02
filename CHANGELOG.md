@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.13] - 2026-08-02
+
+### Fixed
+
+- The Moving Average Ratio (MAR) and Moving Averages (MA) indicators now name their candle-count
+  fields after the moving average currently selected — "EMA Length" instead of "Base MA length",
+  "WMA Length" instead of "Comparison MA length", and "EMA length"/"EMA interval" instead of
+  "Comparison length"/"Comparison interval". The label follows the type dropdown as you change it,
+  so a length no longer states a number of candles without saying which average it smooths.
+
 ## [2.42.12] - 2026-08-02
 
 ### Fixed

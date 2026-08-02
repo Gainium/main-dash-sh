@@ -80,6 +80,23 @@ export interface IndicatorFieldDefinition {
     key: keyof SettingsIndicators;
     defaultValue?: string | number | boolean | string[];
   }>;
+  /**
+   * Name this field after the option currently selected in ANOTHER field, as
+   * `<that option's label> <suffix>`. Falls back to the static `label` while
+   * the driving field is unset.
+   *
+   * A candle count is meaningless without the smoothing it belongs to, so
+   * legacy labels these inputs dynamically: MAR's two length fields render
+   * `${(mar1type ?? '').toUpperCase()} Length` and the MA indicator's
+   * comparison inputs render `${maCrossName[maCrossingValue]} length` /
+   * `… interval` (indicators.tsx:332/357/1162/1220). A static "Base MA length"
+   * states neither which average it smooths nor which of the two ratio legs it
+   * sizes.
+   */
+  labelFrom?: {
+    field: keyof SettingsIndicators;
+    suffix: string;
+  };
   multiple?: boolean;
   hiddenWhen?: ConditionalDirective[];
   disabledWhen?: ConditionalDirective[];

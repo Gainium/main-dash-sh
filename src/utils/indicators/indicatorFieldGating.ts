@@ -73,6 +73,39 @@ export const withFieldDefaults = (
   return filled as IndicatorParamsState;
 };
 
+// The label a field actually SHOWS. Normally the static `field.label`, but a
+// `labelFrom` field is named after another field's current selection, the way
+// legacy does it (`${(mar1type ?? '').toUpperCase()} Length`,
+// `${maCrossName[maCrossingValue]} length`) so a candle count states which
+// moving average it sizes. The driving field's OPTION LABEL wins over its raw
+// value, so the text matches the dropdown the user just read ("EMA", not
+// "ema"); an unlisted value falls back to its upper-cased self (legacy's
+// `.toUpperCase()`), and a driving field with no value at all to `field.label`.
+export const resolveFieldLabel = (
+  definition: IndicatorDefinition,
+  field: IndicatorFieldDefinition,
+  params: IndicatorParamsState | null
+): string => {
+  if (!field.labelFrom || !params) {
+    return field.label;
+  }
+  const { field: sourceKey, suffix } = field.labelFrom;
+  const source = [
+    ...definition.fields,
+    ...(definition.advancedFields ?? []),
+  ].find((candidate) => candidate.key === sourceKey);
+  // Same reason `withFieldDefaults` exists: an unset driving field still
+  // RENDERS as its default, so name this field after what the user sees.
+  const value = params[sourceKey] ?? source?.defaultValue;
+  if (value === undefined || value === null || value === '') {
+    return field.label;
+  }
+  const optionLabel = source?.options?.find(
+    (option) => option.value === value
+  )?.label;
+  return `${optionLabel ?? String(value).toUpperCase()} ${suffix}`;
+};
+
 export const shouldHideField = (
   field: IndicatorFieldDefinition,
   params: IndicatorParamsState | null
