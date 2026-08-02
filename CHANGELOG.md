@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.10] - 2026-08-02
+
+### Fixed
+
+- Indicator cards no longer summarize settings the form has hidden. A Moving Averages condition set against the current price advertised "Comparison length: 20 · Comparison interval: 1 hour" — two inert fields stuck at their defaults — while the length and interval it actually runs on were pushed off the line. The summary now lists only the settings in effect, and shows one more of them.
+- A Moving Averages condition compared against the current price no longer draws itself on an unrelated chart timeframe. It was also plotted on whatever timeframe the unused comparison interval happened to hold, typically 1 hour.
+
 ## [2.42.9] - 2026-08-02
 
 ### Fixed

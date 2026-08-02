@@ -46,7 +46,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
     >
       {indicators.map((indicator, index) => {
         const definition = getIndicatorDefinition(indicator.type);
-        const summary = buildIndicatorSummary(definition, indicator, 3);
+        const summary = buildIndicatorSummary(definition, indicator);
         const documentationUrl = definition.documentationUrl;
 
         return (

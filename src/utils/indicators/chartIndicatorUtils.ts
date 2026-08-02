@@ -238,7 +238,14 @@ export function convertIndicatorConfigsToChart(
     .filter(
       (i) =>
         tvIntervalMap[i.indicatorInterval] === chartInterval ||
+        // The comparison MA only exists when the reference is another MA — with
+        // "Current price" the stored `maCrossingInterval` is inert (it keeps
+        // whatever default it was seeded with), so it must not drag the
+        // indicator onto that timeframe's chart. Same gate as the crossing
+        // indicator emitted below.
         (i.type === IndicatorEnum.ma &&
+          i.maCrossingValue &&
+          i.maCrossingValue !== MAEnum.price &&
           i.maCrossingInterval &&
           tvIntervalMap[i.maCrossingInterval] === chartInterval) ||
         (i.type === IndicatorEnum.xo &&
