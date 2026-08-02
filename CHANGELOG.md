@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.19] - 2026-08-02
+
+### Fixed
+
+- Binance US bots no longer show a Value of $0.00. The dashboard never
+  requested Binance US prices, so those bots had no market data to value their
+  position against — the Value field showed the correct number for a moment
+  after a page refresh and then dropped to $0.00 once the other exchanges'
+  prices arrived, leaving the field stuck in its dimmed "Updating value with
+  latest prices…" state.
+- A bot whose exchange is missing from the price feed now falls back to the
+  Value the server already calculated instead of displaying $0.00.
+
 ## [2.42.18] - 2026-08-02
 
 ### Fixed

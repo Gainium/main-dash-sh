@@ -37,7 +37,7 @@ export const setActiveExchanges = (exchanges: string[]) => {
 };
 
 // Get exchanges to fetch prices from (only active exchanges + essential ones)
-const getExchangesToFetch = (loadUs: boolean) => {
+const getExchangesToFetch = (_loadUs: boolean) => {
   const essential = [
     ExchangeEnum.binance,
     ExchangeEnum.binanceCoinm,
@@ -63,6 +63,15 @@ const getExchangesToFetch = (loadUs: boolean) => {
     // unrealized P&L stuck on "Price unavailable".
     ExchangeEnum.kraken,
     ExchangeEnum.krakenUsdm,
+    // Binance US used to be reachable only through the `loadUs` flag. V1
+    // derived that flag from the user's connected exchanges (`botTablePage.tsx`
+    // / `useDCAPage.ts`: `!!userExchanges.find(ue => ue.provider === binanceUS)`),
+    // but every V2 call site passes a hardcoded `false` — so binanceUS tickers
+    // were never fetched at all. That left every binanceUS bot with an empty
+    // `findRates`, collapsing its Value/uPnL to $0.00 and pinning
+    // `loadedPrices: false` (the permanently dimmed "Updating value with
+    // latest prices…" state). Treat it as essential like every other venue.
+    ExchangeEnum.binanceUS,
   ];
 
   // Combine essential exchanges with active exchanges
@@ -71,10 +80,9 @@ const getExchangesToFetch = (loadUs: boolean) => {
     ...Array.from(activeExchanges),
   ]);
 
-  // Apply existing filters - only exclude binanceUS if not requested
-  const filtered = Array.from(exchangesToFetch).filter((v) =>
-    loadUs ? true : v !== ExchangeEnum.binanceUS
-  );
+  // `loadUs` is kept for call-site compatibility; binanceUS is now always
+  // fetched (see above), so it no longer gates anything.
+  const filtered = Array.from(exchangesToFetch);
 
   logger.debug('[Price] Exchanges to fetch:', filtered);
   return filtered;

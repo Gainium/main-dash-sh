@@ -475,6 +475,12 @@ export function transformDcaBotToBot(
     .reduce((acc, lp) => ({ ...acc, [lp.symbol]: lp }), {}) as {
     [key: string]: Prices[0];
   };
+  // Whether the price feed actually carries a usable rate for THIS bot's
+  // symbol on THIS bot's exchange — the only input the client-side unPnL
+  // formula below can work from.
+  const botHasUsablePrices = Object.values(findRates).some(
+    (r) => r.price !== 0
+  );
   if (active && (latestPrices.length > 0 || useLiveStats)) {
     currentValues = useLiveStats
       ? res.liveStats?.currentCost || 0
@@ -487,7 +493,7 @@ export function transformDcaBotToBot(
               ? res.usage.current.quote
               : res.usage.current.base) * usdRate
         );
-    if (Object.values(findRates).some((r) => r.price !== 0) && !useLiveStats) {
+    if (botHasUsablePrices && !useLiveStats) {
       unPnl = useLiveStats
         ? res.liveStats?.value || 0
         : long
@@ -655,6 +661,17 @@ export function transformDcaBotToBot(
       unPnl = res.liveStats?.value || 0;
       unPnlPerc = res.liveStats?.relativeValue || 0;
       currentValues = res.liveStats?.currentCost || 0;
+    } else if (!botHasUsablePrices) {
+      // Prices are loaded globally, but none for this bot's exchange/symbol.
+      // `useLiveStats` is a global "no prices at all" gate, so as soon as any
+      // venue's tickers land it flips off for EVERY bot — including ones whose
+      // own venue is missing from the feed. Those fell through the block above
+      // with unPnl/unPnlPerc still 0 and rendered a hard "$0.00" instead of the
+      // value the server already computed. Degrade to liveStats per-bot rather
+      // than reporting a fabricated zero. `currentValues` is deliberately left
+      // alone: it only needs `usdRate`, which usually still resolves here.
+      unPnl = res.liveStats?.value || 0;
+      unPnlPerc = res.liveStats?.relativeValue || 0;
     }
   }
 
