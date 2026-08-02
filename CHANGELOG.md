@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.11] - 2026-08-02
+
+### Fixed
+
+- A Moving Average Ratio (MAR) indicator whose Reference is "Current price" now draws on the bot chart. Its pane, legend and percentile bounds appeared, but the ratio and percentile lines were blank on every bar: the chart spelled the "current price" reference in capitals, which the chart study does not recognise as a price reference, so it had nothing to compare against. Since "Current price" is MAR's default Reference, most MAR indicators were in this state. Backtests and live bots were never affected — only the chart.
+
 ## [2.42.10] - 2026-08-02
 
 ### Fixed

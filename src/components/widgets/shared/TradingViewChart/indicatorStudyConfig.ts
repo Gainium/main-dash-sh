@@ -184,6 +184,19 @@ const toUpperCase = (value: unknown, fallback = ''): string => {
   return fallback;
 };
 
+/**
+ * A moving-average selector as the TradingView studies spell it: MA types
+ * upper-case, the pseudo-type `price` verbatim.
+ */
+const toMaStudyType = (value: unknown, fallback: string): string => {
+  if (typeof value !== 'string' || value.length === 0) {
+    return fallback;
+  }
+  return value.toLowerCase() === MAEnum.price
+    ? MAEnum.price
+    : value.toUpperCase();
+};
+
 const buildPercentileInputs = (
   indicator: ChartIndicatorConfig
 ): TradingViewInput => {
@@ -295,7 +308,13 @@ const buildInputs = (
         {
           type1: toUpperCase(indicator.mar1type, 'EMA'),
           type1length: toNumber(indicator.mar1length, 20),
-          type2: toUpperCase(indicator.mar2type, 'EMA'),
+          // "price" is the ONE value that must not be upper-cased. The study's
+          // `type2` input lists `["SMA",…,"RMA","price"]` and its script tests
+          // `"price" === type2` to decide between reading close and building a
+          // second MA; fed "PRICE" it matches neither, so the ratio resolves to
+          // n/a and the MAR line never draws. Legacy guards exactly this one
+          // value (`mar2type !== MAEnum.price ? …toUpperCase() : MAEnum.price`).
+          type2: toMaStudyType(indicator.mar2type, MAEnum.price),
           type2length: toNumber(indicator.mar2length, 20),
           trendFilter: toBoolean(indicator.trendFilter, false),
           trendLookback: toNumber(indicator.trendFilterLookback, 10),
