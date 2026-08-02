@@ -9,8 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Indicator cards no longer summarize settings the form has hidden. A Moving Averages condition set against the current price advertised "Comparison length: 20 · Comparison interval: 1 hour" — two inert fields stuck at their defaults — while the length and interval it actually runs on were pushed off the line. The summary now lists only the settings in effect, and shows one more of them.
-- A Moving Averages condition compared against the current price no longer draws itself on an unrelated chart timeframe. It was also plotted on whatever timeframe the unused comparison interval happened to hold, typically 1 hour.
+- Indicator settings on a saved bot no longer show fields that should be hidden. Any option the bot never explicitly stored came back from the server as "no value" instead of as absent, so the form stopped treating it as untouched and skipped its own default. The visible symptom was on Moving Average Ratio (MAR): with Reference left at "Current price", the "Comparison MA length" field stayed on screen even though that setting does not apply to it. This affected every indicator whose fields appear or hide based on another field, not just MAR.
 
 ## [2.42.9] - 2026-08-02
 
