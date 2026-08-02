@@ -809,6 +809,14 @@ export const mapBotSettingsToFormData = (
       CloseConditionEnum.tp
     ),
     closeByTimer: getBoolean('closeByTimer', false),
+    closeByTimerValue: getNumber(
+      'closeByTimerValue',
+      DCA_FORM_DEFAULTS.closeByTimerValue
+    ),
+    closeByTimerUnits: parseCooldownUnits(
+      getValue('closeByTimerUnits', undefined),
+      DCA_FORM_DEFAULTS.closeByTimerUnits
+    ),
     closeDealType: getValue<CloseDCATypeEnum.closeByLimit>(
       'closeDealType',
       CloseDCATypeEnum.closeByLimit

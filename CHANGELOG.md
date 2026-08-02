@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.8] - 2026-08-02
+
+### Fixed
+
+- Editing a bot no longer resets "Close by timer" to 10 minutes. The edit form never read the saved timer amount and unit back from the bot, so it always opened showing the 10-minutes default — and saving any unrelated change (a budget increase, for example) wrote that default over the stored setting. Hedge bots were hit hardest, since both legs get saved together.
+
 ## [2.42.7] - 2026-08-02
 
 ### Fixed
