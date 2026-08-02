@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.14] - 2026-08-02
+
+### Fixed
+
+- The Moving Average Ratio (MAR) indicator's "Value" threshold now defaults to 0.99 and steps by
+  0.01 instead of defaulting to 80 with a step of 1. MAR is a ratio between two moving averages, so
+  it sits around 1.0 — a threshold of 80 could never be crossed and the condition silently never
+  fired. The smaller step also lets the field be linked to a decimal global variable.
+
 ## [2.42.13] - 2026-08-02
 
 ### Fixed

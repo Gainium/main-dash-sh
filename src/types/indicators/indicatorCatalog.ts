@@ -1726,8 +1726,15 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeNumberField({
         key: 'indicatorValue',
         label: 'Value',
-        defaultValue: 80,
-        step: 1,
+        // MAR is a RATIO (MA2 / MA1), so it lives around 1.0 — the study's own
+        // band lines sit at 1.01 and 0.99 (utils/tradingView/customIndicators.js),
+        // and legacy defaults this to "0.99" (`indicatorConfigDefaults[mar]`).
+        // 80 with step 1 is an oscillator's threshold: no ratio ever crosses it,
+        // so the condition never fires. The sub-1 step also makes the field bind
+        // float variables instead of int (`inferNumericVarType`), which a ratio
+        // needs.
+        defaultValue: 0.99,
+        step: 0.01,
         allowVariables: true,
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
