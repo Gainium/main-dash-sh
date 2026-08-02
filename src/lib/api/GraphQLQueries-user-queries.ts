@@ -13,6 +13,19 @@ import { credits, period } from './GraphQLQueries-fragments';
 
 type FavoriteIndicatorInput = { indicator: IndicatorEnum | string };
 
+// 2FA is a cloud-only feature: app-sh has no OTP in its GraphQL layer and
+// doesn't expose `otp` on the `user` type, so gate behind IS_CLOUD to avoid a
+// 400 on self-hosted. GraphQL rejects an unknown field at *validation* time,
+// before execution, so the failure is total — the whole `userSettings` payload
+// (apiKeys, licenseKey, …) is lost, not just this field. `otp` is optional on
+// the consumer type and its only reader (`user?.otp?.otp_enabled || false`)
+// yields `false` when absent, which is correct for a build with no 2FA.
+const OTP_SELECTION = IS_CLOUD
+  ? `otp {
+                                  otp_enabled
+                                }`
+  : '';
+
 // `licenseKey` is exposed differently per backend:
 //   • cloud/app  → `licenseKey: String`        (scalar, no subfields)
 //   • sh/app-sh  → `licenseKey: LicenseKey`    (`{ key, isPremium }`)
@@ -371,9 +384,7 @@ export const userQueries = {
                                 name
                                 lastName
                                 picture
-                                otp {
-                                    otp_enabled
-                                }
+                                ${OTP_SELECTION}
                                 ${LICENSE_KEY_SELECTION}
                                 ${DELETED_ACCOUNT_SELECTION}
                                 ${CLOUD_CREDITS_SELECTION}

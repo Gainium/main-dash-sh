@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.7] - 2026-08-02
+
+### Fixed
+
+- Settings → API Keys and Settings → License Key now load on self-hosted installs. Both pages read from the same account request, which asked for a two-factor-authentication field that self-hosted builds don't provide — the server rejected the entire request, so every setting on it came back empty and the pages reported "No API keys found" and "No license key set" even though the values were stored. That field is now requested only where two-factor authentication exists.
+
 ## [2.42.6] - 2026-08-01
 
 ### Fixed
