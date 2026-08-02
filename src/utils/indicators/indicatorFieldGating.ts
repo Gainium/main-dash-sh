@@ -43,6 +43,16 @@ export const resolveFieldKey = (
 // (IndicatorConfigurationModal.tsx `getIndicatorDefaultParams`); the inline
 // editor and the card summary are handed the stored params verbatim, so fill
 // the gaps here before gating.
+//
+// "Unset" has to mean `null` as well as `undefined`. A bot loaded from the API
+// never sends `undefined`: GraphQL answers every field the selection asks for,
+// and the indicator selection in GraphQLQueries-fragments.ts asks for
+// `mar1type`/`mar2type`/`mar2length`, so a document that never stored them
+// yields three explicit `null`s. A `null` still RENDERS as the default (the
+// value expressions use `??`), which is what made this look cosmetic — the
+// Reference select reads "Current price" while the params object says `null`,
+// so `hiddenWhen: mar2type === MAEnum.price` could not match and "Comparison
+// MA length" stayed on screen (and in the summary card) for every SAVED MAR.
 export const withFieldDefaults = (
   definition: IndicatorDefinition,
   params: IndicatorParamsState | null
@@ -56,7 +66,7 @@ export const withFieldDefaults = (
     ...(definition.advancedFields ?? []),
   ]) {
     const { key, defaultValue } = resolveFieldKey(field, params);
-    if (filled[key as string] === undefined && defaultValue !== undefined) {
+    if (filled[key as string] == null && defaultValue !== undefined) {
       filled[key as string] = defaultValue as IndicatorParamPrimitive;
     }
   }

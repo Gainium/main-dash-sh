@@ -45,6 +45,11 @@ import type {
   IndicatorParamsState,
 } from '@/types/indicators/indicatorParams';
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
+import {
+  resolveFieldKey,
+  shouldDisableField,
+  shouldHideField,
+} from '@/utils/indicators/indicatorFieldGating';
 
 interface IndicatorConfigurationModalProps {
   open: boolean;
@@ -91,68 +96,6 @@ const normalizeParams = (
   }
 
   return normalized as IndicatorParamsState;
-};
-
-// Legacy STOCH bands bind a DIFFERENT param key depending on another field
-// (stochRange). Resolve the effective storage key + default from `keyWhen`.
-// First match wins; falls back to the static `key` / `defaultValue`.
-const resolveFieldKey = (
-  field: IndicatorFieldDefinition,
-  params: IndicatorParamsState | null
-): {
-  key: IndicatorFieldDefinition['key'];
-  defaultValue: IndicatorFieldDefinition['defaultValue'];
-} => {
-  if (field.keyWhen && params) {
-    const match = field.keyWhen.find(
-      (entry) => params[entry.field] === entry.equals
-    );
-    if (match) {
-      return { key: match.key, defaultValue: match.defaultValue };
-    }
-  }
-  return { key: field.key, defaultValue: field.defaultValue };
-};
-
-const shouldHideField = (
-  field: IndicatorFieldDefinition,
-  params: IndicatorParamsState | null
-): boolean => {
-  if (!params) {
-    return false;
-  }
-  if (!field.hiddenWhen) {
-    return false;
-  }
-  // Legacy gated on truthiness, so an UNSET gating field is treated as falsy.
-  // That only matches an `equals: false` directive (legacy `parent && (child)`
-  // hides the child when the parent is falsy/undefined). For `equals: true` or
-  // a concrete enum value, an undefined param must NOT match — legacy
-  // `!parent && (field)` / `param === value` keeps the field visible when the
-  // gate is unset. Mirrors InlineIndicatorConfig.
-  return field.hiddenWhen.some(({ field: key, equals }) =>
-    equals === false
-      ? typeof params[key] === 'undefined' || params[key] === false
-      : params[key] === equals
-  );
-};
-
-const shouldDisableField = (
-  field: IndicatorFieldDefinition,
-  params: IndicatorParamsState | null
-): boolean => {
-  if (field.disabled) {
-    return true;
-  }
-  if (!params) {
-    return false;
-  }
-  if (!field.disabledWhen) {
-    return false;
-  }
-  return field.disabledWhen.some(
-    ({ field: key, equals }) => params[key] === equals
-  );
 };
 
 const getFieldLabel = (

@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.12] - 2026-08-02
+
+### Fixed
+
+- Changing an existing DCA indicator's type now carries the new indicator's own settings across. A DCA ladder row starts life as RSI, and switching it to another type swapped only the name — the new type's options were left blank, so a Moving Average Ratio (MAR) row kept RSI's numbers and had no Reference, "Relative to" or "Comparison MA length" of its own. Beyond showing the wrong fields, such a row reached the trading engine incomplete, with no warm-up length to calculate and no reference type to read.
+- The indicator summary card on a saved bot no longer lists settings the form itself hides. A MAR indicator with Reference "Current price" summarised as "Comparison MA length: 20" — a setting that does not apply — while the options that do apply were pushed off the card.
+
 ## [2.42.11] - 2026-08-02
 
 ### Fixed
