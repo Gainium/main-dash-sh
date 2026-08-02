@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.15] - 2026-08-02
+
+### Fixed
+
+- Page-visit tracking no longer restarts a visit when only the page title or the
+  trading mode changes. Pages whose title or mode settles after mount (bot and
+  rulebook detail pages, and the demo-exit flow on Add Exchange) were having a
+  single visit chopped into sub-second fragments that Recent Items then dropped.
+
 ## [2.42.14] - 2026-08-02
 
 ### Fixed

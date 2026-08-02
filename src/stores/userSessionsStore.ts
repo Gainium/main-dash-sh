@@ -666,9 +666,32 @@ export const useUserSessionsStore = create<UserSessionsStore>()(
         displayName?: string,
         tradingMode?: 'live' | 'paper' | 'demo'
       ) => {
+        const cacheDisplayName = () => {
+          // If displayName provided, cache it for the bot ID
+          if (displayName && isDetailPage(path)) {
+            const id = extractIdFromPath(path);
+            if (id) {
+              get().cacheBotMetadata(id, displayName, category);
+            }
+          }
+        };
+
+        // Idempotent for the page already being tracked. A re-entry for the
+        // SAME path (a remount, or a caller re-announcing a title that only
+        // resolved after mount) must refresh the cached name without ending
+        // and restarting the visit: restarting resets the dwell timer under
+        // the 1s floor in `endPageVisit`, so a page whose title/mode settles
+        // asynchronously could never be recorded at all — and each restart
+        // costs three tracking invocations, which is what tripped the
+        // invocation-storm tripwire.
+        if (get().currentPagePath === path) {
+          cacheDisplayName();
+          return;
+        }
+
         noteSessionInvocation(get().currentPagePath);
 
-        // End previous visit if any
+        // End previous visit if any (a no-op when nothing is in progress)
         get().endPageVisit();
 
         // Start new visit
@@ -678,13 +701,7 @@ export const useUserSessionsStore = create<UserSessionsStore>()(
           currentPageTradingContext: tradingMode ?? null,
         });
 
-        // If displayName provided, cache it for the bot ID
-        if (displayName && isDetailPage(path)) {
-          const id = extractIdFromPath(path);
-          if (id) {
-            get().cacheBotMetadata(id, displayName, category);
-          }
-        }
+        cacheDisplayName();
       },
 
       endPageVisit: () => {
@@ -696,11 +713,15 @@ export const useUserSessionsStore = create<UserSessionsStore>()(
           botMetadata,
         } = get();
 
-        noteSessionInvocation(currentPagePath);
-
+        // Nothing in progress — a true no-op, so it must not be counted as an
+        // invocation either. Counting it made every no-op end show up in the
+        // tripwire's trail as a `(null)` currentPagePath and inflated the
+        // measured call rate by ~50% over the real number of page changes.
         if (!currentPagePath || !currentPageStartTime) {
           return;
         }
+
+        noteSessionInvocation(currentPagePath);
 
         const timeSpent = Date.now() - currentPageStartTime;
         const category = getCategoryFromPath(currentPagePath);
