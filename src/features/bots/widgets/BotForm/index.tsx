@@ -2392,7 +2392,14 @@ const BotForm: React.FC<BotFormProps> = ({
         console.error('[BotForm] Failed to toggle archive state', error);
       }
     },
-    [archiveMutation, botId, botTypeEnum]
+    // Stable `.mutateAsync`, not the whole react-query mutation object (fresh
+    // every render). Depending on the object rebuilt this callback on EVERY
+    // render, which churned `resolvedMenuActions.optionsMenuItems` →
+    // `panelMenuConfig` → the footer's `overflowMenuItems`, re-rendering the
+    // memoised ResponsiveButtonRow on every live tick (RenderLoopTripwire).
+    // Same fix as 2.30.13 applied to `restartMutation.mutate`.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [archiveMutation.mutateAsync, botId, botTypeEnum]
   );
 
   /* const handleSmartOrderMergeDialogChange = useCallback(

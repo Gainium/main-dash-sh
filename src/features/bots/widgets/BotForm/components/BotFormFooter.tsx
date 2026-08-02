@@ -30,7 +30,7 @@ import {
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { BacktestConfig } from './BacktestSettingsDialog'
 import { useBotFormPreloadStore } from '@/stores/botFormPreloadStore'
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type PanelMenuConfig } from '@/components/bots/panels/PanelContainer'
 import { Button } from '@/components/ui/button'
@@ -779,7 +779,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const dealCapital = useBotDealCapital(formData, dcaTradingContext, {
       creditsMultiplier: creditsMultiplier || 1,
     })
-    const fundsInfo = useMemo<FundsInfo | null>(() => {
+    const computedFundsInfo = useMemo<FundsInfo | null>(() => {
       const quote = dcaTradingContext.quoteAsset
 
       // Grid: the budget is the whole-bot investment, denominated in quote.
@@ -860,6 +860,29 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
     }, [botType, budget, dcaTradingContext, dealCapital])
 
+    // `computedFundsInfo` is a pure DISPLAY value, but the live trading context
+    // it derives from hands us a new `dcaTradingContext`/`dealCapital` object on
+    // every price tick — so the memo above re-ran and produced a fresh object
+    // even when the chip's text was byte-identical (measured: 11 new references
+    // for 2 real content changes). That churned `buttonConfigs` and re-rendered
+    // the memoised ResponsiveButtonRow ~26x/s (RenderLoopTripwire on /bot/new,
+    // /bot/edit). Keying on a content SIGNATURE — the same identity-free idiom
+    // ResponsiveButtonRow uses for its own `layoutSignature` — holds the
+    // reference steady until the chip actually says something new. The value is
+    // plain JSON (strings/numbers/booleans), so stringify is total and cheap.
+    const fundsInfoRef = useRef<{ sig: string; value: FundsInfo | null }>({
+      sig: '',
+      value: null,
+    })
+    const fundsInfoSignature = JSON.stringify(computedFundsInfo) ?? 'undefined'
+    if (fundsInfoRef.current.sig !== fundsInfoSignature) {
+      fundsInfoRef.current = {
+        sig: fundsInfoSignature,
+        value: computedFundsInfo,
+      }
+    }
+    const fundsInfo = fundsInfoRef.current.value
+
     // Legacy parity (terminal/index.tsx `addNewBot` lines 4219-4225): before
     // placing a terminal order / importing a deal, verify the account can fund
     // it. Without this the request goes through, `createDCABot` returns OK, the
@@ -872,17 +895,40 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       dcaTradingContext,
     )
 
+    // Latest-value ref (same idiom as ResponsiveButtonRow's own `latestRef`).
+    // `onSubmit` is rebuilt by BotForm on every render (its `handleSave` is not
+    // memoised), and `formData` changes on every keystroke — depending on
+    // either directly gave `handleSubmit` a new identity every render, which
+    // churned `buttonConfigs` and re-rendered the memoised ResponsiveButtonRow
+    // ~26x/s under live socket ticks (RenderLoopTripwire on /bot/new,
+    // /bot/edit). Reading them through the ref lets the click handler stay
+    // referentially stable without ever going stale.
+    const submitLatestRef = useRef({
+      onSubmit,
+      mode,
+      terminal: formData.terminal,
+      terminalBalanceSufficient,
+    })
+    submitLatestRef.current = {
+      onSubmit,
+      mode,
+      terminal: formData.terminal,
+      terminalBalanceSufficient,
+    }
+
     const handleSubmit = useCallback(() => {
-      if (
-        mode === 'create' &&
-        formData.terminal &&
-        !terminalBalanceSufficient
-      ) {
+      const {
+        onSubmit: submit,
+        mode: currentMode,
+        terminal,
+        terminalBalanceSufficient: balanceOk,
+      } = submitLatestRef.current
+      if (currentMode === 'create' && terminal && !balanceOk) {
         toast.error('Not enough assets to place order')
         return
       }
-      void onSubmit()
-    }, [onSubmit, mode, formData.terminal, terminalBalanceSufficient])
+      void submit()
+    }, [])
 
     // Backtest handler - track bot backtests with PostHog
     const handleBacktest = useCallback(
@@ -929,8 +975,20 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       [botType, formData, indicators.length, onBacktest, currentExchange],
     )
     const isGridBot = useMemo(() => botType === BotTypesEnum.grid, [botType])
+
+    // Same latest-ref treatment as `handleSubmit`: BotForm rebuilds the
+    // `onToggleStatus` prop on every render, which gave `handleToggle` — and so
+    // the Start/Stop entry of `buttonConfigs` — a new identity every render on
+    // the EDIT form, re-rendering the memoised ResponsiveButtonRow on every
+    // tick (RenderLoopTripwire on /bot/edit). Only its PRESENCE is a real
+    // input, so the memo keys on the boolean below rather than the prop.
+    const toggleLatestRef = useRef(onToggleStatus)
+    toggleLatestRef.current = onToggleStatus
+    const hasToggleStatus = !!onToggleStatus
+
     const handleToggle = useCallback(() => {
-      if (!onToggleStatus) {
+      const toggleStatus = toggleLatestRef.current
+      if (!toggleStatus) {
         return
       }
 
@@ -949,10 +1007,10 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         return
       }
 
-      onToggleStatus({
+      toggleStatus({
         nextStatus: isBotActive ? 'closed' : 'open',
       })
-    }, [onToggleStatus, isBotActive, activeDeals, isGridBot])
+    }, [isBotActive, activeDeals, isGridBot])
 
     const handleStopConfirm = useCallback(
       (closeType: CloseTypeOption) => {
@@ -1157,7 +1215,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
 
       // Start/Stop button - only show in edit mode when locked (view mode)
-      const showToggle = mode === 'edit' && isEditLocked && onToggleStatus
+      const showToggle = mode === 'edit' && isEditLocked && hasToggleStatus
       if (showToggle) {
         configs.push({
           id: 'toggle',
@@ -1238,7 +1296,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       isEditButtonDisabled,
       EditIcon,
       editButtonLabel,
-      onToggleStatus,
+      hasToggleStatus,
       handleToggle,
       toggleDisabled,
       togglePending,
@@ -1383,6 +1441,23 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
     }, [period, timeframe])
 
+    // Same latest-ref treatment as `handleSubmit` above: `formData` changes on
+    // every keystroke and `onRunBacktestDirect` / `handleBacktest` are rebuilt
+    // on every BotForm render, so depending on them directly handed
+    // `backtestButtonConfigs` — and therefore the memoised ResponsiveButtonRow
+    // driving the 4-button quick-backtest bar — a fresh array every render.
+    // Only `buildPeriodConfig` (stable on period + timeframe) stays a real dep.
+    const backtestLatestRef = useRef({
+      formData,
+      handleBacktest,
+      onRunBacktestDirect,
+    })
+    backtestLatestRef.current = {
+      formData,
+      handleBacktest,
+      onRunBacktestDirect,
+    }
+
     // The "More" overflow opens the settings dialog seeded with what the
     // bar currently shows, so both buttons in this box run the same test.
     // `periodId: 'custom'` is required, not cosmetic: the dialog ignores
@@ -1390,17 +1465,24 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     // the dates without selecting 'custom' would still run the wrong window.
     const handleOpenBacktestSettings = useCallback(() => {
       const cfg = buildPeriodConfig()
-      handleBacktest(formData, cfg ? { ...cfg, periodId: 'custom' } : undefined)
-    }, [buildPeriodConfig, handleBacktest, formData])
+      const { formData: data, handleBacktest: runDialog } =
+        backtestLatestRef.current
+      runDialog(data, cfg ? { ...cfg, periodId: 'custom' } : undefined)
+    }, [buildPeriodConfig])
 
     const handleQuickRun = useCallback(() => {
       const cfg = buildPeriodConfig()
-      if (!cfg || !onRunBacktestDirect) {
-        handleBacktest(formData)
+      const {
+        formData: data,
+        handleBacktest: runDialog,
+        onRunBacktestDirect: runDirect,
+      } = backtestLatestRef.current
+      if (!cfg || !runDirect) {
+        runDialog(data)
         return
       }
-      void onRunBacktestDirect(cfg)
-    }, [buildPeriodConfig, onRunBacktestDirect, handleBacktest, formData])
+      void runDirect(cfg)
+    }, [buildPeriodConfig])
 
     // The backtester emits progress as a fraction (0-1) during data
     // loading and sometimes as a percentage (0-100) in later phases.

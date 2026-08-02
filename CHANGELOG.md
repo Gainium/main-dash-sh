@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.16] - 2026-08-02
+
+### Fixed
+
+- Bot create/edit forms (`/bot/new`, `/bot/edit`, `/combo/*`, `/grid/*`): the footer's
+  quick-backtest bar, its options menu, the "Capital required" chip, and the
+  Start/Stop control no longer rebuild on every render. Typing in the form or a live
+  price tick was handing the (memoized) footer button rows brand-new-but-identical
+  button and menu arrays, re-rendering them on every tick and tripping the render-loop
+  watchdog. The chip and the buttons still update immediately whenever what they show
+  actually changes.
+
 ## [2.42.15] - 2026-08-02
 
 ### Fixed
