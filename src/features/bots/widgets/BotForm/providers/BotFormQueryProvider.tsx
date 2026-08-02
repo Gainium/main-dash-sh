@@ -119,9 +119,13 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
 
   const currentExchange = useMemo(() => {
     if (!formExchangeUUID || exchanges.length === 0) {
-      logger.error(
+      // Not an error: the provider mounts before the bot's exchangeUUID and the
+      // exchange list have arrived, so every bot page load passes through here
+      // once and then resolves. At `error` level it fired on every visit and
+      // buried genuine failures. Log counts, not the whole exchange array.
+      logger.debug(
         '[BotFormQueryProvider] No exchangeUUID in formData or exchanges list is empty — returning null for currentExchange',
-        { exchangeUUID: formExchangeUUID, exchanges }
+        { exchangeUUID: formExchangeUUID, exchangeCount: exchanges.length }
       );
       return null;
     }
@@ -132,11 +136,13 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
 
   const { items: pairItems, metadata: pairMetadata } = useMemo(() => {
     if (!pairsByExchange || !currentExchange) {
-      logger.error(
+      // Same mount-before-data state as above, one step downstream — and it
+      // dumped the entire pair map into every entry.
+      logger.debug(
         '[BotFormQueryProvider] No pairsByExchange or currentExchange available — returning empty pair items',
         {
-          pairsByExchange,
-          currentExchange,
+          exchangeCount: Object.keys(pairsByExchange ?? {}).length,
+          hasCurrentExchange: Boolean(currentExchange),
         }
       );
       return {

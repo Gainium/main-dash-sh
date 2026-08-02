@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { useGraphQL } from './useGraphQL';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
+import { IS_CLOUD } from '@/config/mode';
 
 interface MarketData {
   symbol: string;
@@ -88,7 +89,16 @@ export function useMarketData(
       variables: coinVariables,
     },
     {
-      enabled: !!baseAsset,
+      // `getCoins` is a cloud-only field: app-sh's schema declares neither the
+      // field nor its `getCoinsInput` type, so on a self-hosted build the
+      // request fails GraphQL validation and comes back HTTP 400 — four times
+      // per page load, once the shared retry policy is done with it. Nothing
+      // below treats that as anything but "no market data", which is exactly
+      // what not asking produces, so gate it the way `config/mode.ts` documents
+      // (same pattern as the `otp` / credits selections in
+      // GraphQLQueries-user-queries.ts). Both consumers already render around a
+      // null `marketData`.
+      enabled: IS_CLOUD && !!baseAsset,
       queryKey: ['user', 'getCoins', coinVariables],
     }
   );

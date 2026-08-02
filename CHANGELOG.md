@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.9] - 2026-08-02
+
+### Fixed
+
+- Self-hosted installs no longer make a failing market-data request on every page that shows a bot chart. The chart asked for figures only the hosted service can supply (reference price, market-cap rank, categories), so the request was rejected four times per page load and filled the browser console with errors, burying real ones. Those optional figures are now requested only where they exist; nothing else on the chart changes.
+- Opening a bot page no longer logs the ordinary "still loading" state as an error. The bot form reported a missing exchange and an empty pair list at error level on every visit, before that data had arrived, and then resolved a moment later.
+
 ## [2.42.8] - 2026-08-02
 
 ### Fixed
