@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.20] - 2026-08-04
+
+### Fixed
+
+- Hedge and combo bots no longer reset "Minimum deviation" to 0. The bot's
+  stored value was never loaded, so the field always opened at 0 and — on
+  hedge bots, which save only the fields that changed — the number typed in
+  was silently dropped from the update, leaving it permanently at 0. Affects
+  Scaled DCA setups where the deviation matters most (e.g. ATR).
+
 ## [2.42.19] - 2026-08-02
 
 ### Fixed

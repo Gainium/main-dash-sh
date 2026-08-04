@@ -548,6 +548,7 @@ pair
                 activeOrdersCount
                 volumeScale
                 stepScale
+                minimumDeviation
                 useTp
                 useSmartOrders
                 minOpenDeal
