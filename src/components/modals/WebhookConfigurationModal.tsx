@@ -1,3 +1,6 @@
+// Aliased: `Link` in this file is the lucide icon.
+import { Link as RouterLink } from 'react-router-dom';
+
 import { useWebhookEligibility } from '@/hooks/useWebhookEligibility';
 import {
   trackWebhookCopyInteraction,
@@ -199,14 +202,14 @@ export const WebhookConfigurationModal: React.FC<
   const alertDescription = showUpgradeMessage ? (
     <>
       Webhook automation for terminal bots is available on paid plans.{' '}
-      <a
-        href="/subscription"
+      <RouterLink
+        to="/subscription"
         onClick={() => emitUpgradeClick('modal-upsell-link')}
         className="inline-flex items-center font-medium underline transition hover:text-amber-700 dark:hover:text-amber-200"
       >
         Upgrade your plan
         <Lock className="ml-1 h-3 w-3" />
-      </a>{' '}
+      </RouterLink>{' '}
       to unlock TradingView integrations and automated exits.
     </>
   ) : (
@@ -214,14 +217,14 @@ export const WebhookConfigurationModal: React.FC<
       Your current plan no longer includes webhook automation. Existing payloads
       remain visible, but interactions such as copying are disabled until you
       upgrade.{' '}
-      <a
-        href="/subscription"
+      <RouterLink
+        to="/subscription"
         onClick={() => emitUpgradeClick('modal-downgrade-link')}
         className="inline-flex items-center font-medium underline transition hover:text-amber-700 dark:hover:text-amber-200"
       >
         Review plans
         <Lock className="ml-1 h-3 w-3" />
-      </a>
+      </RouterLink>
       .
     </>
   );

@@ -5,6 +5,17 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.21] - 2026-08-04
+
+### Added
+
+- Bot builder: unsaved settings are kept locally and restored if you navigate away or reload, with a notice offering to start fresh
+- Bot builder: warn before leaving the page with unsaved changes
+
+### Fixed
+
+- Bot builder: upsell and help links no longer reload the whole app, which used to discard a half-configured bot
+
 ## [2.42.20] - 2026-08-04
 
 ### Fixed

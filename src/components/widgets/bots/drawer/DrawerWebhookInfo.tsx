@@ -1,5 +1,7 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 /* eslint-disable react-hooks/set-state-in-render */
+import { Link as RouterLink } from 'react-router-dom';
+
 import { useWebhookEligibility } from '@/hooks/useWebhookEligibility';
 import {
   trackWebhookCopyInteraction,
@@ -857,14 +859,14 @@ export const DrawerWebhookInfo: React.FC<DrawerWebhookInfoProps> = ({
             {showUpgradeMessage ? (
               <>
                 Webhook automation for terminal bots is limited to paid plans.{' '}
-                <a
-                  href="/subscription"
+                <RouterLink
+                  to="/subscription"
                   onClick={() => emitUpgradeClick('drawer-upsell-link')}
                   className="inline-flex items-center font-medium underline transition hover:text-amber-700 dark:hover:text-amber-200"
                 >
                   Upgrade your plan
                   <Lock className="ml-1 h-3 w-3" />
-                </a>{' '}
+                </RouterLink>{' '}
                 to unlock copying payloads and advanced TradingView
                 integrations.
               </>
@@ -873,14 +875,14 @@ export const DrawerWebhookInfo: React.FC<DrawerWebhookInfoProps> = ({
                 Your current plan no longer includes webhook automation.
                 Existing payloads stay visible but interactions are disabled
                 until you upgrade.{' '}
-                <a
-                  href="/subscription"
+                <RouterLink
+                  to="/subscription"
                   onClick={() => emitUpgradeClick('drawer-downgrade-link')}
                   className="inline-flex items-center font-medium underline transition hover:text-amber-700 dark:hover:text-amber-200"
                 >
                   Review plans
                   <Lock className="ml-1 h-3 w-3" />
-                </a>
+                </RouterLink>
                 .
               </>
             )}

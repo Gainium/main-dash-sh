@@ -918,6 +918,8 @@ export const BacktestSettingsDialog: React.FC<{
                     {' '}
                     <a
                       href="/help/backtesting-trading-bots"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary underline hover:text-primary/80"
                     >
                       Learn more
@@ -931,6 +933,8 @@ export const BacktestSettingsDialog: React.FC<{
                     {' '}
                     <a
                       href="/help/strategy-vs-random-scatterplot"
+                      target="_blank"
+                      rel="noreferrer"
                       className="text-primary underline hover:text-primary/80"
                     >
                       Strategy vs random

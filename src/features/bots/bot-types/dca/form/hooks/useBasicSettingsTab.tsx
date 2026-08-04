@@ -14,7 +14,7 @@ import {
   shouldRestrictMulti,
 } from '../utils/basicSettings';
 import type { BasicSettingsProps } from '../sections';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { StrategyEnum } from '@/types';
 import {
   processPairsPaste,
@@ -322,12 +322,15 @@ export const useBasicSettingsTab = (
       return (
         <>
           {base}{' '}
-          <a
-            href="/subscription"
+          {/* Router link, not a raw <a>: a plain anchor is a full browser
+              navigation, which tears down the SPA and takes the half-built
+              bot with it. */}
+          <Link
+            to="/subscription"
             className="text-primary underline hover:text-primary/80 transition-colors"
           >
             Upgrade account
-          </a>{' '}
+          </Link>{' '}
           for higher limits.
         </>
       );

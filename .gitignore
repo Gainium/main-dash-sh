@@ -8,3 +8,6 @@ node_modules/
 .env.local
 
 .eslintcache
+# Playwright unit/e2e run output
+test-results/
+playwright-report/

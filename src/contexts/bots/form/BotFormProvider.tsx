@@ -16,6 +16,14 @@ import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
 import {
+  botFormDraftKey,
+  clearBotFormDraft,
+  DRAFT_SAVE_DEBOUNCE_MS,
+  loadBotFormDraft,
+  saveBotFormDraft,
+  sweepExpiredBotFormDrafts,
+} from '@/contexts/bots/form/botFormDraft';
+import {
   botFormAlertsEqual,
   botFormErrorsEqual,
   createBotFormStore,
@@ -179,6 +187,15 @@ export interface BotFormStateContextValue {
    *  (e.g. the form shell) skip standalone-DCA-only chrome like the
    *  Quick/Manual mode toggle. */
   isNestedLeg: boolean;
+  /** Epoch ms of the unsaved draft restored on mount, else null. Drives the
+   *  "restored your unsaved bot" notice in the form shell. */
+  draftRestoredAt: number | null;
+  /** Keep the restored values, hide the notice. */
+  dismissDraftNotice: () => void;
+  /** Throw the draft away and reset the form to defaults. */
+  discardDraft: () => void;
+  /** Drop the persisted draft only — used after a successful create. */
+  clearDraft: () => void;
 }
 
 /**
@@ -224,6 +241,14 @@ interface BotFormInternalContextValue {
   activeChartPair: string | null;
   setActiveChartPair: Dispatch<SetStateAction<string | null>>;
   isNestedLeg: boolean;
+  /** When set, an unsaved draft was restored on mount (epoch ms it was saved). */
+  draftRestoredAt: number | null;
+  /** Acknowledge the restore notice without touching the restored values. */
+  dismissDraftNotice: () => void;
+  /** Throw the draft away and reset the form to defaults. */
+  discardDraft: () => void;
+  /** Drop the persisted draft only — used after a successful create. */
+  clearDraft: () => void;
 }
 
 const BotFormStateContext = createContext<
@@ -349,11 +374,167 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   // field edit writes the store instead of React state, so the provider does
   // not re-render and the context value keeps a stable identity. Consumers
   // subscribe to just the slice they read via `useStore(store, selector)`.
+  // Draft autosave scope: CREATE only. An edit form always has the saved bot
+  // on the server to fall back on; a half-built new bot has nothing, which is
+  // exactly the work users have been losing. Hedge legs opt out — they are
+  // co-mounted sub-forms, not a standalone bot to restore.
+  const draftKey = useMemo(
+    () =>
+      mode === 'create' && !isNestedLeg
+        ? botFormDraftKey(`${botType}${terminal ? ':terminal' : ''}`, 'create')
+        : null,
+    [mode, isNestedLeg, botType, terminal]
+  );
+
   const storeRef = useRef<BotFormStore | null>(null);
+  const restoredDraftAtRef = useRef<number | null>(null);
   if (storeRef.current === null) {
-    storeRef.current = createBotFormStore(defaultStateFn(props));
+    const base = defaultStateFn(props);
+    // Layer a saved draft over the defaults on first mount, before any
+    // subscriber exists — so a restore never reads as a burst of edits.
+    const draft = draftKey ? loadBotFormDraft(draftKey) : null;
+    if (draft) {
+      restoredDraftAtRef.current = draft.savedAt;
+    }
+    storeRef.current = createBotFormStore(
+      draft ? { ...base, ...draft.formData, type: base.type } : base
+    );
   }
   const store = storeRef.current;
+  const [draftRestoredAt, setDraftRestoredAt] = useState<number | null>(
+    restoredDraftAtRef.current
+  );
+
+  // `isDirty` alone is NOT "the user has unsaved work". Opening the builder
+  // auto-populates exchange, pair and a generated bot name through
+  // `updateFormData`, which flips isDirty on mount with nobody having touched
+  // anything. Persisting on that would save a draft on every visit and greet
+  // the user with "restored your unsaved bot" for a bot they never started —
+  // noise that reads as the platform inventing settings.
+  //
+  // So "unsaved work" needs two things:
+  //   1. real input — a key press or a pointer press, and
+  //   2. form values that actually differ from the hydrated baseline.
+  //
+  // The baseline is the last snapshot taken BEFORE the first interaction,
+  // i.e. the auto-populated defaults once they have settled. Without (2), a
+  // stray click plus the hydration writes would be enough to persist a draft
+  // of untouched defaults — which is what "Start fresh" was seen doing: it
+  // reset the form, hydration re-dirtied it, and a brand-new default draft was
+  // written straight back.
+  //
+  // A restored draft counts as already-interacted: the work is real and was
+  // made by a human in an earlier visit. Without this the very first flush
+  // would re-baseline onto the restored values and delete the draft, losing
+  // the work on the next navigation instead of the first.
+  const hasUserInteractedRef = useRef(restoredDraftAtRef.current !== null);
+  const baselineRef = useRef<string | null>(null);
+  const draftEnabled = mode === 'create' && !isNestedLeg;
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const arm = () => {
+      hasUserInteractedRef.current = true;
+    };
+    // Capture phase so a handler that stops propagation cannot hide the
+    // interaction from us.
+    window.addEventListener('keydown', arm, { capture: true });
+    window.addEventListener('pointerdown', arm, { capture: true });
+    return () => {
+      window.removeEventListener('keydown', arm, { capture: true });
+      window.removeEventListener('pointerdown', arm, { capture: true });
+    };
+  }, [draftEnabled]);
+
+  // Autosave while there is real unsaved work; drop the draft the moment the
+  // form is clean (saved, or reset back to defaults). Throttled and driven off
+  // the zustand subscription, so it never touches the render path.
+  useEffect(() => {
+    if (!draftKey) return;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const flush = () => {
+      timer = null;
+      const { formData, isDirty } = store.getState();
+
+      // Pre-interaction: keep re-baselining. Whatever hydration settles on is
+      // "untouched", never a draft.
+      if (!hasUserInteractedRef.current) {
+        baselineRef.current = JSON.stringify(formData);
+        clearBotFormDraft(draftKey);
+        return;
+      }
+
+      if (!isDirty) {
+        clearBotFormDraft(draftKey);
+        return;
+      }
+
+      const serialized = JSON.stringify(formData);
+      if (serialized === baselineRef.current) {
+        // Interacted, but ended up back at the baseline — nothing to restore.
+        clearBotFormDraft(draftKey);
+        return;
+      }
+      saveBotFormDraft(draftKey, formData);
+    };
+    const unsubscribe = store.subscribe(() => {
+      if (timer) return; // leading-throttle: one write per window, not per keystroke
+      timer = setTimeout(flush, DRAFT_SAVE_DEBOUNCE_MS);
+    });
+    return () => {
+      if (timer) clearTimeout(timer);
+      unsubscribe();
+    };
+  }, [draftKey, store]);
+
+  // Last-resort guard for the paths a draft cannot cover: closing the tab, or
+  // a hard navigation out of the SPA entirely. Same interaction gate — a
+  // "leave site?" prompt on a form nobody touched is worse than no prompt.
+  useEffect(() => {
+    if (!draftEnabled) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      const { formData, isDirty } = store.getState();
+      if (!hasUserInteractedRef.current || !isDirty) return;
+      // Same "is this actually the user's work?" test the autosave uses.
+      if (JSON.stringify(formData) === baselineRef.current) return;
+      event.preventDefault();
+      // Legacy browsers require returnValue to be set; the string itself is
+      // ignored by every current browser, which shows its own wording.
+      event.returnValue = '';
+      return '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [draftEnabled, store]);
+
+  // Housekeeping for drafts abandoned past the TTL. Once per mount, cheap.
+  useEffect(() => {
+    sweepExpiredBotFormDrafts();
+  }, []);
+
+  /** Drop the draft AND return the form to a clean default state. */
+  const discardDraft = useCallback(() => {
+    if (draftKey) {
+      clearBotFormDraft(draftKey);
+    }
+    setDraftRestoredAt(null);
+    // Disarm: the form is back to defaults, and the hydration writes that
+    // follow are not user work. The next real interaction re-arms.
+    hasUserInteractedRef.current = false;
+    baselineRef.current = null;
+    // Written straight to the store (rather than the `setFormData` callback
+    // defined further down) to keep this hook free of declaration ordering.
+    store.setState({ formData: defaultStateFn(props, true), isDirty: false });
+  }, [draftKey, props, store]);
+
+  const dismissDraftNotice = useCallback(() => setDraftRestoredAt(null), []);
+
+  /** Clears the persisted draft without touching form state (post-create). */
+  const clearDraft = useCallback(() => {
+    if (draftKey) {
+      clearBotFormDraft(draftKey);
+    }
+    setDraftRestoredAt(null);
+  }, [draftKey]);
 
   // Debounce bookkeeping for the store-subscription side effects (defined at
   // component scope so the public `setErrors`/`setAlerts` write path can cancel
@@ -1589,6 +1770,10 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       activeChartPair,
       setActiveChartPair,
       isNestedLeg: !!isNestedLeg,
+      draftRestoredAt,
+      dismissDraftNotice,
+      discardDraft,
+      clearDraft,
     }),
     [
       store,
@@ -1621,6 +1806,10 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       activeChartPair,
       setActiveChartPair,
       isNestedLeg,
+      draftRestoredAt,
+      dismissDraftNotice,
+      discardDraft,
+      clearDraft,
     ]
   );
 

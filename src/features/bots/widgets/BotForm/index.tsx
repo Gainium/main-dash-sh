@@ -153,6 +153,7 @@ import {
   type BacktestViewModelMeta,
 } from '@/components/widgets/bots/backtest/redesign';
 import { BotFormAlertButton } from './components/BotFormAlertButton';
+import { DraftRestoredNotice } from './components/DraftRestoredNotice';
 import {
   BotFormFooter,
   type ToggleStatusPayload,
@@ -547,6 +548,10 @@ const BotForm: React.FC<BotFormProps> = ({
     setQuickSetupMode,
     isNestedLeg,
     activeChartPair,
+    draftRestoredAt,
+    dismissDraftNotice,
+    discardDraft,
+    clearDraft,
   } = useBotFormState();
   const { isReadOnly } = useBotFormEditing();
 
@@ -783,11 +788,15 @@ const BotForm: React.FC<BotFormProps> = ({
         }
       });
 
+      // The bot is on the server now — the local draft is no longer
+      // "unsaved work" and must not resurface on the next New Bot visit.
+      clearDraft();
+
       // Show celebration instead of immediately navigating
       setCreatedBotId(newBotId);
       setShowCelebration(true);
     },
-    [debugEnabled, refetchExchanges, getBalances]
+    [debugEnabled, refetchExchanges, getBalances, clearDraft]
   );
 
   const handleCelebrationStartBot = useCallback(() => {
@@ -4356,6 +4365,13 @@ const BotForm: React.FC<BotFormProps> = ({
 
   return (
     <AllStrategiesPanelContext.Provider value={allStrategiesCtxValue}>
+      {/* Rendered above every variant (widget / panel / mobile) so the
+          restore is announced exactly once, whatever shell the form is in. */}
+      <DraftRestoredNotice
+        savedAt={draftRestoredAt}
+        onKeep={dismissDraftNotice}
+        onDiscard={discardDraft}
+      />
       {rendered}
     </AllStrategiesPanelContext.Provider>
   );
