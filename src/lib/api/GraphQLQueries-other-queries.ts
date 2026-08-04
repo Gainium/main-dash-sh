@@ -524,6 +524,23 @@ export const otherQueries = {
     return { query, variables };
   },
 
+  /**
+   * Deployment posture booleans (self-hosted). The API answers yes/no only —
+   * it never returns the underlying setting or anything derived from it.
+   */
+  deploymentSecurity: () => {
+    const query = `query deploymentSecurity{
+                        deploymentSecurity{
+                            status
+                            reason
+                            data {
+                                encryptionKeyConfigured
+                            }
+                        }
+                    }`;
+    return { query };
+  },
+
   getUsdRate: () => {
     const query = `query getUsdRate{
                         getUsdRate{

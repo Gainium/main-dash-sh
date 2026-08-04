@@ -22,6 +22,7 @@ import DevToolsDrawer from '../dev/DevToolsDrawer';
 import { PromptPill } from '../onboarding/PromptPill';
 import { OnboardingSurvey } from '../survey/OnboardingSurvey';
 import { PWAStatus } from '../ui/PWAStatus';
+import { EncryptionKeyNotice } from './EncryptionKeyNotice';
 import HeaderWidgetsManager from './HeaderManager';
 import MobileBottomNav from './MobileBottomNav';
 import MobileSidebar from './MobileSidebar';
@@ -326,6 +327,11 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
                 column so it inherits the panel gutter + spacing. Sh renders
                 nothing (a self-hosted operator maintains their own box). */}
             <Slot name="layout.maintenanceBanner" />
+
+            {/* Self-hosted-only encryption-key recommendation. Renders
+                nothing on cloud (the query is not even sent) and nothing
+                once the operator has set a key or dismissed the notice. */}
+            <EncryptionKeyNotice />
 
             {/* Page content with mobile bottom navigation padding and standardized spacing */}
             <main

@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.22] - 2026-08-04
+
+### Added
+
+- Self-hosted: a dismissible notice recommending the operator set an encryption key of their own, shown only while the installation is still using the one that ships with the build
+
 ## [2.42.21] - 2026-08-04
 
 ### Added
