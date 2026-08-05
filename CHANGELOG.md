@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.24] - 2026-08-05
+
+### Fixed
+
+- Hyperliquid: connecting with "Free (approve builder fees)" no longer fails with an unexplained error. The builder-address lookup used a malformed URL, so the wallet was never asked to approve the builder fee and the connection was then refused for an approval the user was never prompted for. If the lookup does fail, setup now stops and says so instead of reporting success.
+
 ## [2.42.23] - 2026-08-05
 
 ### Added

@@ -79,7 +79,16 @@ export const completeHyperliquidSetup = async (
     if (useApproveBuilderFees) {
       const apiEndpoint =
         import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
-      const builderAddress = await fetch(`${apiEndpoint}broker-codes`)
+      // Join with an explicit `/`. This call was ported from legacy main-dash,
+      // where `NEXT_PUBLIC_SERVER` ends in a slash — `VITE_API_ENDPOINT` does
+      // not, so the bare concatenation resolved to the host
+      // `api.gainium.iobroker-codes` (NXDOMAIN). The fetch rejected, the catch
+      // below swallowed it, and setup reported success without ever approving
+      // the fee — after which the backend refused the connection for a missing
+      // approval the user was never asked to give.
+      const builderAddress = await fetch(
+        `${apiEndpoint.replace(/\/+$/, '')}/broker-codes`
+      )
         .then((res) => res.json())
         .then(
           (data: { exchange: ExchangeEnum; code: string }[]) =>
@@ -87,21 +96,33 @@ export const completeHyperliquidSetup = async (
               ?.code
         )
         .catch(() => undefined);
-      if (builderAddress) {
-        try {
-          await exchClient.approveBuilderFee({
-            maxFeeRate,
-            builder: builderAddress as Hex,
-          });
-        } catch (builderError: unknown) {
-          const err = builderError as { response?: { response?: unknown } };
-          return {
-            success: false,
-            error: 'Failed to approve builder fee',
-            details:
-              err?.response?.response?.toString() || `${builderError}`,
-          };
-        }
+      // Never fall through as success: the caller submits the connection
+      // straight after this returns, and the backend rejects any free-plan
+      // Hyperliquid account whose builder fee is unapproved. Failing here is
+      // what turns that into something the user can act on.
+      if (!builderAddress) {
+        return {
+          success: false,
+          error: 'Could not load the Gainium builder address',
+          details:
+            'Gainium could not reach its server to look up the builder ' +
+            'address needed to approve builder fees, so the approval was ' +
+            'not requested. Please try again in a moment.',
+        };
+      }
+      try {
+        await exchClient.approveBuilderFee({
+          maxFeeRate,
+          builder: builderAddress as Hex,
+        });
+      } catch (builderError: unknown) {
+        const err = builderError as { response?: { response?: unknown } };
+        return {
+          success: false,
+          error: 'Failed to approve builder fee',
+          details:
+            err?.response?.response?.toString() || `${builderError}`,
+        };
       }
     }
 
