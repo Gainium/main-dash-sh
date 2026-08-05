@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.23] - 2026-08-05
+
+### Added
+
+- Self-hosted admin: generate this installation's encryption key from the Admin page when one is not set yet. The key is shown once for the operator to save and written to the host `.env`; the page says what to run for the stack to pick it up. The card disappears once a key is configured.
+
 ## [2.42.22] - 2026-08-04
 
 ### Added

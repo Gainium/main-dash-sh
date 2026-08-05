@@ -199,6 +199,23 @@ export interface AdminDiagnostics {
   tickerOnlyExchanges?: string[];
 }
 
+export interface AdminEncryptionKeyStatus {
+  /** this installation has an encryption key of its own */
+  configured: boolean;
+  /** admin-sh can write the key to .env — false when it isn't mounted */
+  canGenerate: boolean;
+  envFileWritable: boolean;
+  envFilePath: string;
+}
+
+export interface AdminGeneratedEncryptionKey {
+  /** shown to the operator once; also written to .env on the host */
+  key: string;
+  envFilePath: string;
+  /** what has to be run for the stack to pick the key up */
+  applyCommand: string;
+}
+
 // ---------------------------------------------------------------------
 // Endpoint helpers — one per route. Keeping them at module scope makes
 // it easy to grep usages + share with react-query hook factories.
@@ -243,6 +260,15 @@ export const adminApi = {
   // server-side endpoint is `/api/containers/:name/logs/stream` and
   // auth comes from a `?token=…` query param (extractToken in
   // admin-sh/src/auth.ts).
+
+  getEncryptionKeyStatus: () =>
+    request<AdminEncryptionKeyStatus>('/api/encryption-key'),
+  // Returns the generated key once, for the operator to save. Never store
+  // it, never log it, never put it in a query string.
+  generateEncryptionKey: () =>
+    request<AdminGeneratedEncryptionKey>('/api/encryption-key', {
+      method: 'POST',
+    }),
 
   getExchanges: () => request<AdminExchangesResponse>('/api/exchanges'),
   setExchanges: (enabled: string[] | null) =>

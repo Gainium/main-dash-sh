@@ -4,6 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { isAdminApiConfigured } from '@/lib/api/adminClient';
 import { ShieldCheck } from 'lucide-react';
 import { DiagnosticsTab } from './DiagnosticsTab';
+import { EncryptionKeyCard } from './EncryptionKeyCard';
 import { ExchangesTab } from './ExchangesTab';
 import { ServicesTab } from './ServicesTab';
 import { UpdatesTab } from './UpdatesTab';
@@ -39,26 +40,32 @@ function AdminPage() {
             admin-sh service.
           </Card>
         ) : (
-          <Tabs defaultValue="services" paramKey="tab" paramSync>
-            <TabsList>
-              <TabsTrigger value="services">Services</TabsTrigger>
-              <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
-              <TabsTrigger value="exchanges">Exchanges</TabsTrigger>
-              <TabsTrigger value="updates">Updates</TabsTrigger>
-            </TabsList>
-            <TabsContent value="services" className="mt-lg">
-              <ServicesTab />
-            </TabsContent>
-            <TabsContent value="diagnostics" className="mt-lg">
-              <DiagnosticsTab />
-            </TabsContent>
-            <TabsContent value="exchanges" className="mt-lg">
-              <ExchangesTab />
-            </TabsContent>
-            <TabsContent value="updates" className="mt-lg">
-              <UpdatesTab />
-            </TabsContent>
-          </Tabs>
+          <>
+            {/* Above the tabs, not inside one: it is a one-time setup
+                recommendation rather than a section, and it removes itself
+                for good once the key is set. */}
+            <EncryptionKeyCard />
+            <Tabs defaultValue="services" paramKey="tab" paramSync>
+              <TabsList>
+                <TabsTrigger value="services">Services</TabsTrigger>
+                <TabsTrigger value="diagnostics">Diagnostics</TabsTrigger>
+                <TabsTrigger value="exchanges">Exchanges</TabsTrigger>
+                <TabsTrigger value="updates">Updates</TabsTrigger>
+              </TabsList>
+              <TabsContent value="services" className="mt-lg">
+                <ServicesTab />
+              </TabsContent>
+              <TabsContent value="diagnostics" className="mt-lg">
+                <DiagnosticsTab />
+              </TabsContent>
+              <TabsContent value="exchanges" className="mt-lg">
+                <ExchangesTab />
+              </TabsContent>
+              <TabsContent value="updates" className="mt-lg">
+                <UpdatesTab />
+              </TabsContent>
+            </Tabs>
+          </>
         )}
       </div>
     </MainLayout>

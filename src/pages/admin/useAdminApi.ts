@@ -10,7 +10,9 @@ import {
   isAdminApiConfigured,
   type AdminContainer,
   type AdminDiagnostics,
+  type AdminEncryptionKeyStatus,
   type AdminExchangesResponse,
+  type AdminGeneratedEncryptionKey,
   type AdminUpdate,
   type AdminUpgradeResult,
 } from '@/lib/api/adminClient';
@@ -122,5 +124,33 @@ export function useAdminUpgrade(): UseMutationResult<
       const pendingSelf = data.results.some((r) => r.selfUpgrade?.pending);
       if (!pendingSelf) qc.invalidateQueries({ queryKey: ROOT_KEY });
     },
+  });
+}
+
+export function useEncryptionKeyStatus(): UseQueryResult<AdminEncryptionKeyStatus> {
+  return useQuery({
+    queryKey: [...ROOT_KEY, 'encryption-key'],
+    queryFn: adminApi.getEncryptionKeyStatus,
+    enabled: isAdminApiConfigured(),
+    // Deployment configuration — it only changes when someone changes it,
+    // and the mutation below invalidates this when they do.
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    // An older admin-sh has no such route. That is a "we don't know", not
+    // an error worth a retry loop or a red panel.
+    retry: false,
+  });
+}
+
+export function useGenerateEncryptionKey(): UseMutationResult<
+  AdminGeneratedEncryptionKey,
+  Error,
+  void
+> {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => adminApi.generateEncryptionKey(),
+    onSuccess: () =>
+      qc.invalidateQueries({ queryKey: [...ROOT_KEY, 'encryption-key'] }),
   });
 }
