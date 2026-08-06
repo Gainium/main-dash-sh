@@ -248,6 +248,7 @@ export const otherQueries = {
                               title
                               text
                               duration
+                              blocking
                             }
                         }
                         ${RESTART_STATE_SELECTION}

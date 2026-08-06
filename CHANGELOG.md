@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.42.27] - 2026-08-06
+
+### Added
+
+- Read whether a maintenance window blocks the dashboard or is only advisory.
+
 ## [2.42.26] - 2026-08-06
 
 ### Added
