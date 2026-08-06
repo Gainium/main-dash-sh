@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import DOMPurify from 'dompurify';
 import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import React, { useState } from 'react';
@@ -83,7 +84,7 @@ export const NotificationRichContent: React.FC<
           {hasHtmlContent ? (
             <div
               className={messageClass}
-              dangerouslySetInnerHTML={{ __html: messageContent }}
+              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(messageContent) }}
               style={{ cursor: 'text' }}
             />
           ) : (
