@@ -32,6 +32,31 @@ import {
   gridBacktest,
   apiKeysFragment,
 } from './GraphQLQueries-fragments';
+import { IS_CLOUD } from '../../config/mode';
+
+// Which bot types are mid-restart, ridden along on the maintenance poll so it
+// costs no extra request (GraphQL selects several root fields per query).
+//
+// Cloud-only: `getRestartState` lives in main-app's `src/graphql`, not
+// `core/src/graphql`, so app-sh has no such root field and asking for it there
+// 400s the whole request — taking the maintenance warning down with it. Same
+// reason as OTP_SELECTION / LICENSE_KEY_SELECTION above their queries.
+//
+// A self-hosted operator restarts their own box and has nobody scheduling a
+// window for them, so there is nothing for this to report there anyway.
+const RESTART_STATE_SELECTION = IS_CLOUD
+  ? `getRestartState {
+                            status
+                            reason
+                            data {
+                              type
+                              inProgress
+                              restarted
+                              estimated
+                              etaMs
+                            }
+                        }`
+  : '';
 
 export type ChangeStatusInput = {
   id: string;
@@ -225,6 +250,7 @@ export const otherQueries = {
                               duration
                             }
                         }
+                        ${RESTART_STATE_SELECTION}
                   }`;
     return { query };
   },
