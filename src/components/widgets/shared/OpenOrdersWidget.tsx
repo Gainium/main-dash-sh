@@ -1555,7 +1555,14 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           pureQuote: 0,
         },
         unrealizedProfit: unrealizedPnl,
-        avgPrice: executionSummary?.averageEntryPrice ?? entryPrice,
+        // The backend's `deal.avgPrice` is the authoritative running average and
+        // is what every other deal table shows (see `dcaDealToOpenTrade` /
+        // `comboDealToOpenTrade`). Do NOT derive it from `executionSummary`
+        // here: `liveOrders` is filtered to OPEN statuses only, so the FILLED
+        // filter feeding `executions` can never match and the summary is always
+        // null — which silently fell through to `entryPrice` (= initialPrice)
+        // and left "Avg Price" frozen at the first entry after adding funds.
+        avgPrice: avgPriceNum,
         levels: deal.levels,
         riskBased: deal.settings?.useRiskReward,
         created: +createdTime,

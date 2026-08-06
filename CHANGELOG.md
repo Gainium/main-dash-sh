@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.42.25] - 2026-08-06
+
+### Fixed
+
+- Trading terminal: the "Avg Price" column and the deal card's "Avg Buy/Sell Price" now show the deal's real running average instead of staying frozen at the initial entry price. Adding funds to an existing trade updates the value straight away, and it no longer disagrees with the average shown for the same deal on the bot deals tables.
+
 ## [2.42.24] - 2026-08-05
 
 ### Fixed
