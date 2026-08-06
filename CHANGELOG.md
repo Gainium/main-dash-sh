@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.42.28] - 2026-08-06
+
+### Fixed
+
+- The Trading Bots page no longer blanks to a bare error when a refresh fails — your bots stay on screen, and when there is genuinely nothing to show it explains why and offers a retry.
+
 ## [2.42.27] - 2026-08-06
 
 ### Added
