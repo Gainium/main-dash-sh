@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.42.30] - 2026-08-06
+
+### Fixed
+
+- A disabled Save button on the bot form now explains why it is disabled instead of giving no reason.
+
 ## [2.42.28] - 2026-08-06
 
 ### Fixed
