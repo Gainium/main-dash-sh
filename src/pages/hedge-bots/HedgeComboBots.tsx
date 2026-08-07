@@ -802,6 +802,9 @@ const HedgeComboBots = () => {
                       data={enrichedBots}
                       getRowId={(row) => row._id}
                       enableGlobalFilter
+                      enableColumnFilters
+                      enableQuickFilterBar
+                      quickFilterBarStorageKey="hedge-combo-bots-filters"
                       enableColumnVisibility
                       defaultColumnVisibility={{ botId: false }}
                       enableSorting

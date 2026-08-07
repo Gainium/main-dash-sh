@@ -1,6 +1,12 @@
 # Changelog
 
-## [2.42.30] - 2026-08-06
+## [2.42.31] - 2026-08-07
+
+### Fixed
+
+- Filters now work the same way in card view as in table view on every bot list. The Filters button was missing on the Hedge DCA and Hedge Combo pages, did nothing on the Grid and Combo pages, and was hidden entirely in card view on All Trades — all four now open the same "Add filter" bar, where you can stack conditions and save filter sets.
+- The filter bar now sits on the same surface as the cards and rows it filters, instead of a full-width strip with a hard bottom edge.
+- Column filters in table view no longer spill out of their column. The operator, the selected values and the clear button stay on one line and shrink to fit, so a narrow column shows a shortened value instead of a broken cell.
 
 ### Fixed
 

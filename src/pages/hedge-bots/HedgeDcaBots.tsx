@@ -898,6 +898,9 @@ const HedgeDcaBots = () => {
                       data={enrichedBots}
                       getRowId={(row) => row._id}
                       enableGlobalFilter
+                      enableColumnFilters
+                      enableQuickFilterBar
+                      quickFilterBarStorageKey="hedge-dca-bots-filters"
                       enableColumnVisibility
                       defaultColumnVisibility={{ botId: false }}
                       enableSorting
