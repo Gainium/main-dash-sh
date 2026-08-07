@@ -11,7 +11,7 @@ import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/t
 export const RiskRewardSettingsTab = React.memo<BotFormTabComponentProps>(
   () => (
     <RiskRewardRuntimeProvider>
-      <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+      <div className="space-y-md">
         <RiskRewardSettings />
       </div>
     </RiskRewardRuntimeProvider>

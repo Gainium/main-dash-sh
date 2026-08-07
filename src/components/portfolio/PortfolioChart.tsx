@@ -123,9 +123,9 @@ export const PortfolioChart: React.FC = () => {
       {/* Stats Section */}
       {snapshots && snapshots.length > 0 && (
         <>
-          <div className="rounded-lg p-xs sm:p-sm bg-inner-container mb-4">
-            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 min-[768px]:grid-cols-4 gap-xs sm:gap-sm">
-              <div className="bg-card rounded-lg p-xs sm:p-sm">
+          <div className="rounded-lg p-xs bg-inner-container mb-4">
+            <div className="grid grid-cols-1 min-[480px]:grid-cols-2 min-[768px]:grid-cols-4 gap-xs">
+              <div className="bg-card rounded-lg p-xs">
                 <div className="text-muted-foreground text-xs mb-1">
                   Total Balance
                 </div>
@@ -137,7 +137,7 @@ export const PortfolioChart: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-xs sm:p-sm">
+              <div className="bg-card rounded-lg p-xs">
                 <div className="text-muted-foreground text-xs mb-1">
                   1d Change
                 </div>
@@ -157,7 +157,7 @@ export const PortfolioChart: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-xs sm:p-sm">
+              <div className="bg-card rounded-lg p-xs">
                 <div className="text-muted-foreground text-xs mb-1">
                   30d Change
                 </div>
@@ -180,7 +180,7 @@ export const PortfolioChart: React.FC = () => {
                 </div>
               </div>
 
-              <div className="bg-card rounded-lg p-xs sm:p-sm">
+              <div className="bg-card rounded-lg p-xs">
                 <div className="text-muted-foreground text-xs mb-1">
                   1y Change
                 </div>

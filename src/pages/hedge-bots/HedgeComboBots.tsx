@@ -727,13 +727,13 @@ const HedgeComboBots = () => {
         >
           <motion.div {...HEDGE_BOTS_WIDGET_MOTION}>
             <Widget
-              className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+              className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
               overflow="auto"
             >
               <div className="flex h-full min-h-[500px] flex-col">
                 <motion.div
-                  className="mb-md shrink-0"
+                  className="shrink-0"
                   {...HEDGE_BOTS_HEADER_MOTION}
                 >
                   <div className="flex items-center justify-between gap-xs sm:hidden">
@@ -741,7 +741,7 @@ const HedgeComboBots = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="mr-xs h-4 w-4" />
+                          <Plus className="h-4 w-4" />
                           New
                         </MotionButton>
                       </span>
@@ -750,7 +750,7 @@ const HedgeComboBots = () => {
                         variant="default"
                         onClick={() => navigate('/hedge/combo/new')}
                       >
-                        <Plus className="mr-xs h-4 w-4" />
+                        <Plus className="h-4 w-4" />
                         New
                       </MotionButton>
                     )}
@@ -764,7 +764,7 @@ const HedgeComboBots = () => {
                     />
                   </div>
 
-                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                     <h2 className="text-xl font-semibold">Hedge Combo Bots</h2>
                     <div className="min-w-0 flex justify-end px-md">
                       <BotListStatsBoxes
@@ -776,7 +776,7 @@ const HedgeComboBots = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="mr-xs h-4 w-4" />
+                          <Plus className="h-4 w-4" />
                           New
                         </MotionButton>
                       </span>
@@ -785,7 +785,7 @@ const HedgeComboBots = () => {
                         variant="default"
                         onClick={() => navigate('/hedge/combo/new')}
                       >
-                        <Plus className="mr-xs h-4 w-4" />
+                        <Plus className="h-4 w-4" />
                         New
                       </MotionButton>
                     )}

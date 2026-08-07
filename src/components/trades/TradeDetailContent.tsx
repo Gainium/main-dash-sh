@@ -332,7 +332,7 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
                   </React.Fragment>
                 ))}
               </div>
-              <div className="text-xs text-muted-foreground pt-xs">
+              <div className="text-xs text-muted-foreground">
                 Amounts in {baseAsset}. Auto-compounding reinvests realized
                 profit by increasing each order&apos;s size above its configured
                 amount.

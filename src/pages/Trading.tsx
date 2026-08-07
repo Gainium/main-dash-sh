@@ -1863,8 +1863,8 @@ const Trading: React.FC = () => {
           <Widget className="p-lg text-card-foreground" noPadding>
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <Activity className="w-12 h-12 text-destructive mx-auto mb-md" />
-                <h3 className="text-lg font-semibold mb-xs">
+                <Activity className="w-12 h-12 text-destructive mx-auto" />
+                <h3 className="text-lg font-semibold">
                   Error Loading Trades
                 </h3>
                 <p className="text-muted-foreground">
@@ -1886,8 +1886,8 @@ const Trading: React.FC = () => {
           <Widget className="p-lg text-card-foreground" noPadding>
             <div className="flex items-center justify-center h-64">
               <div className="text-center">
-                <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto mb-md" />
-                <h3 className="text-lg font-semibold mb-xs">Loading Trades</h3>
+                <Loader2 className="w-12 h-12 animate-spin text-primary mx-auto" />
+                <h3 className="text-lg font-semibold">Loading Trades</h3>
                 <p className="text-muted-foreground">
                   Fetching your open trades and active positions...
                 </p>

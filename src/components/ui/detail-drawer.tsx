@@ -1029,7 +1029,7 @@ const DetailDrawerFooter: React.FC<DetailDrawerFooterProps> = ({
   return (
     <div
       className={cn(
-        'shrink-0 flex justify-end gap-sm md:gap-md p-3 md:p-4 pt-2 md:pt-3 border-t border-border dark:border-border',
+        'shrink-0 flex justify-end gap-sm p-3 md:p-4 pt-2 md:pt-3 border-t border-border dark:border-border',
         className
       )}
     >

@@ -87,15 +87,15 @@ export const PasskeyLoginButton: React.FC<PasskeyLoginButtonProps> = ({
           className={className}
         >
           {authenticate.isPending ? (
-            <Loader2 className="w-4 h-4 animate-spin mr-xs text-white" />
+            <Loader2 className="w-4 h-4 animate-spin text-white" />
           ) : (
-            <Fingerprint className="w-4 h-4 mr-xs text-white" />
+            <Fingerprint className="w-4 h-4 text-white" />
           )}
           {compactLabel ? 'Passkey' : 'Sign in with passkey'}
         </Button>
       </Tooltip>
       {localError && (
-        <p className="text-xs text-red-500 mt-xs">{localError}</p>
+        <p className="text-xs text-red-500">{localError}</p>
       )}
     </>
   );

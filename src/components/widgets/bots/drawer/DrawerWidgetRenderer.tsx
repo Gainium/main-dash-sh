@@ -116,7 +116,7 @@ const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
   }
 
   return (
-    <div className={`space-y-5 sm:space-y-lg ${className}`}>
+    <div className={`space-y-5 ${className}`}>
       {widgets.map((widget, index) => {
         const WidgetComponent = WIDGET_COMPONENTS[widget.type];
 

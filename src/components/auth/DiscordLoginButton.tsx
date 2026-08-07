@@ -68,7 +68,7 @@ const DiscordLoginButton: React.FC<{
         className={className}
       >
         <DiscordGlyph />
-        <span className="ml-xs">Continue with Discord</span>
+        <span className="">Continue with Discord</span>
       </Button>
     </Tooltip>
   );

@@ -213,7 +213,7 @@ export const ShareBotDialog: React.FC<ShareBotDialogProps> = ({
                   {isLiveTrading ? 'Live trading mode' : 'Paper trading mode'}
                 </Badge>
               </div>
-              <div className="flex flex-col sm:flex-row sm:items-center sm:gap-sm">
+              <div className="flex flex-col sm:flex-row sm:items-center">
                 <Input
                   readOnly
                   value={shareUrl}

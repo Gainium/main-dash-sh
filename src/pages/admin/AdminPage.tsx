@@ -52,16 +52,16 @@ function AdminPage() {
                 <TabsTrigger value="exchanges">Exchanges</TabsTrigger>
                 <TabsTrigger value="updates">Updates</TabsTrigger>
               </TabsList>
-              <TabsContent value="services" className="mt-lg">
+              <TabsContent value="services" className="">
                 <ServicesTab />
               </TabsContent>
-              <TabsContent value="diagnostics" className="mt-lg">
+              <TabsContent value="diagnostics" className="">
                 <DiagnosticsTab />
               </TabsContent>
-              <TabsContent value="exchanges" className="mt-lg">
+              <TabsContent value="exchanges" className="">
                 <ExchangesTab />
               </TabsContent>
-              <TabsContent value="updates" className="mt-lg">
+              <TabsContent value="updates" className="">
                 <UpdatesTab />
               </TabsContent>
             </Tabs>

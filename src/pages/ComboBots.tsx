@@ -1520,7 +1520,7 @@ const ComboBots: React.FC = () => {
     return (
       <MainLayout pageTitle="Combo Bots" activePage="/combo-bots">
         <WidgetContainer layout="flex" verticalGap>
-          <Widget className="p-sm md:p-md text-card-foreground" noPadding>
+          <Widget className="p-sm text-card-foreground" noPadding>
             <div className="space-y-xs">
               <h1 className="text-2xl font-bold">Combo Bots</h1>
               <p>Error loading combo bots</p>
@@ -1580,7 +1580,7 @@ const ComboBots: React.FC = () => {
           }}
         >
           <Widget
-            className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+            className="p-sm text-card-foreground flex-1 min-h-[500px]"
             noPadding
             overflow="auto"
           >
@@ -1590,7 +1590,7 @@ const ComboBots: React.FC = () => {
             >
               <div className="flex flex-col h-full min-h-[500px]">
                 <motion.div
-                  className="mb-md shrink-0"
+                  className="shrink-0"
                   initial={{ opacity: 0, x: -20 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ duration: 0.3, delay: 0.5 }}
@@ -1614,7 +1614,7 @@ const ComboBots: React.FC = () => {
                       {readOnly ? (
                         <span title="Creating bots is not available in demo mode">
                           <MotionButton variant="default" disabled={true}>
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         </span>
@@ -1623,7 +1623,7 @@ const ComboBots: React.FC = () => {
                           variant="default"
                           onClick={() => navigate('/combo/new')}
                         >
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       )}
@@ -1641,7 +1641,7 @@ const ComboBots: React.FC = () => {
                   </div>
 
                   {/* Large screens: title, stats and button on a single row */}
-                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                     <div className="flex items-center gap-sm">
                       <div className="flex items-center gap-xs">
                         <h2 className="font-semibold text-xl">
@@ -1667,7 +1667,7 @@ const ComboBots: React.FC = () => {
                       {readOnly ? (
                         <span title="Creating bots is not available in demo mode">
                           <MotionButton variant="default" disabled={true}>
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         </span>
@@ -1676,7 +1676,7 @@ const ComboBots: React.FC = () => {
                           variant="default"
                           onClick={() => navigate('/combo/new')}
                         >
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       )}

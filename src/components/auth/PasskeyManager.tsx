@@ -205,7 +205,7 @@ const PasskeyManager: React.FC = () => {
   const passkeys = list.data ?? [];
 
   return (
-    <div className="space-y-sm md:space-y-md">
+    <div className="space-y-sm">
       <p className="text-sm text-muted-foreground">
         Passkeys let you sign in with biometrics or a hardware security key
         instead of a password.
@@ -256,14 +256,14 @@ const PasskeyManager: React.FC = () => {
             onChange={(e) => setLabel(e.target.value)}
             disabled={register.isPending}
           />
-          <div className="flex gap-xs pt-xs">
+          <div className="flex gap-xs">
             <Button
               onClick={handleAdd}
               disabled={register.isPending}
               className="flex-1"
             >
               {register.isPending && (
-                <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               )}
               Add passkey
             </Button>
@@ -286,7 +286,7 @@ const PasskeyManager: React.FC = () => {
           onClick={() => setShowAddForm(true)}
           disabled={register.isPending}
         >
-          <Fingerprint className="w-4 h-4 mr-xs text-white" />
+          <Fingerprint className="w-4 h-4 text-white" />
           Add a new passkey
         </Button>
       )}

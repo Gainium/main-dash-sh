@@ -8,7 +8,7 @@ export const BotControllerSettingsTab = React.memo<BotFormTabComponentProps>(({
   updateFormData,
 }) => {
   return (
-    <div className="space-y-lg sm:space-y-xl lg:space-y-10">
+    <div className="space-y-lg lg:space-y-10">
       <BotControllerSettings
         formData={formData}
         updateFormData={updateFormData}

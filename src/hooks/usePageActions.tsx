@@ -96,7 +96,7 @@ export const usePageActions = ({
   const pageActions = React.useMemo(
     () => (
       <div
-        className="flex items-center gap-xs md:gap-sm"
+        className="flex items-center gap-xs"
         data-tour="page-actions"
       >
         <DashboardManager

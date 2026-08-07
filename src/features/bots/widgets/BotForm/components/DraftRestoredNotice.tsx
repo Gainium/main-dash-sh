@@ -46,7 +46,7 @@ export const DraftRestoredNotice: React.FC<DraftRestoredNoticeProps> = ({
           We brought back the settings you were editing {relativeAge(savedAt, Date.now())}.
           They were never saved, so nothing is running yet.
         </span>
-        <span className="mt-sm flex gap-xs">
+        <span className="flex gap-xs">
           <Button size="sm" variant="secondary" onClick={onKeep}>
             Keep editing
           </Button>

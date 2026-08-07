@@ -274,7 +274,7 @@ const DialogFooter: React.FC<DialogFooterProps> = ({ children, className }) => {
   return (
     <div
       className={cn(
-        'flex justify-end gap-sm md:gap-md -m-sm mt-0 p-md md:p-lg pt-sm md:pt-md border-t border-border dark:border-border',
+        'flex justify-end gap-sm mt-0 p-md border-t border-border dark:border-border',
         className
       )}
     >

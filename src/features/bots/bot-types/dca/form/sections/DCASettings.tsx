@@ -1738,7 +1738,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
               </TabsList>
             }
           >
-            <div className="mt-sm grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
               <div className="rounded-md overflow-hidden min-h-80 sm:min-h-[420px]">
                 {!isComboBot && (
                   <TabsContent value="graph">
@@ -1759,7 +1759,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                 </TabsContent>
               </div>
 
-              <div className="pt-sm md:pt-0">
+              <div className="md:pt-0">
                 <StatsBoxes
                   boxes={[
                     {
@@ -2215,7 +2215,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
             </TabsList>
           }
         >
-          <div className="mt-sm grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
             <div className="rounded-md overflow-hidden min-h-80 sm:min-h-[420px]">
               {!isComboBot && (
                 <TabsContent value="graph">
@@ -2238,7 +2238,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
               </TabsContent>
             </div>
 
-            <div className="pt-sm md:pt-0">
+            <div className="md:pt-0">
               <StatsBoxes
                 boxes={[
                   {
@@ -3358,7 +3358,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
             </TabsList>
           }
         >
-          <div className="mt-sm grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr,260px] gap-md items-start">
             <div className="rounded-md overflow-hidden min-h-80 sm:min-h-[420px]">
               {!isComboBot && (
                 <TabsContent value="graph">
@@ -3379,7 +3379,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
               </TabsContent>
             </div>
 
-            <div className="pt-sm md:pt-0">
+            <div className="md:pt-0">
               <StatsBoxes
                 boxes={[
                   {

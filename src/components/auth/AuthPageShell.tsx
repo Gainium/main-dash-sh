@@ -21,8 +21,8 @@ const AuthPageShell: React.FC<{ children: React.ReactNode }> = ({
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-xl">
           <div className="p-xl">
-            <div className="text-center mb-md">
-              <div className="inline-flex items-center gap-xs mb-md">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-xs">
                 <LogoLockup className="w-50 h-8" />
               </div>
             </div>

@@ -516,7 +516,7 @@ const Navbar: React.FC<NavbarProps> = ({
     <>
       <nav className="glass-surface-card rounded-lg shadow-[0_2px_20px_rgba(0,0,0,0.06),0_0_0_0.5px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_20px_rgba(0,0,0,0.3),0_0_0_0.5px_rgba(255,255,255,0.05)]">
         <div className="w-full mx-auto">
-          <div className="flex items-center h-14 min-w-0 px-md sm:px-sm md:px-md">
+          <div className="flex items-center h-14 min-w-0 px-md">
             {/* Left side - Logo/Brand and Page Title */}
             <div className="flex items-center gap-sm min-w-0">
               {navigateBack && (
@@ -568,12 +568,12 @@ const Navbar: React.FC<NavbarProps> = ({
 
             {/* Right side - Navigation Actions */}
             <div
-              className="flex items-center gap-1 md:gap-xs shrink-0"
+              className="flex items-center gap-1 shrink-0"
               data-tour="page-actions"
             >
               {/* Page actions - hidden on mobile; also hidden on desktop when moved to menu */}
               <div
-                className={`hidden md:flex gap-1 md:gap-xs ${moveButtonsToMenu ? 'md:hidden' : ''}`}
+                className={`hidden md:flex gap-1 ${moveButtonsToMenu ? 'md:hidden' : ''}`}
               >
                 {pageActions}
               </div>

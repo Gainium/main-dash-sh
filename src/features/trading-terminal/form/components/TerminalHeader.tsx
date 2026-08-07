@@ -262,7 +262,7 @@ const CreateDeal: React.FC<CreateDealProps> = (props) => {
           paramSync={true}
         >
           {/* Tabs wrapper - keep minimal layout, rely on defaults for styling */}
-          <div className="px-sm pt-sm">
+          <div className="px-sm">
             <div className="flex-1 overflow-x-auto">
               <TabsList variant="outlined" disableDropdown>
                 {tabs.map((tab) => (

@@ -37,3 +37,11 @@ jobs:
       - name: Lint
         if: always()
         run: npm run lint
+
+      # Tailwind emits no error for a utility class it does not know, so a
+      # broken theme is invisible to type-check and lint. This compiles
+      # src/index.css and asserts the spacing scale and the `dark:` variant
+      # still produce the CSS the app assumes.
+      - name: Verify CSS contract
+        if: always()
+        run: npm run verify:css

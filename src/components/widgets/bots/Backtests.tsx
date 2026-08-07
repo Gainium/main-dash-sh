@@ -451,10 +451,10 @@ const Backtests: React.FC<BacktestsProps> = ({
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-40">
                 <DropdownMenuItem onSelect={handleExport}>
-                  <Download className="w-3 h-3 mr-xs" /> Export
+                  <Download className="w-3 h-3" /> Export
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={handleDelete}>
-                  <Trash2 className="w-3 h-3 mr-xs" /> Delete
+                  <Trash2 className="w-3 h-3" /> Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

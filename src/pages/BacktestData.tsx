@@ -913,11 +913,11 @@ const BacktestDataPage: React.FC = () => {
           >
             <div className="flex items-center justify-center h-32">
               <div className="text-center">
-                <BarChart3 className="w-8 h-8 mx-auto mb-sm text-muted-foreground opacity-50" />
-                <h3 className="text-base font-medium mb-xs">
+                <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground opacity-50" />
+                <h3 className="text-base font-medium">
                   Failed to Load Backtest Data
                 </h3>
-                <p className="text-sm text-muted-foreground mb-sm">
+                <p className="text-sm text-muted-foreground">
                   {error.message}
                 </p>
                 <Button
@@ -927,7 +927,7 @@ const BacktestDataPage: React.FC = () => {
                   disabled={isRefreshing}
                 >
                   <RefreshCw
-                    className={`w-4 h-4 mr-xs ${isRefreshing ? 'animate-spin' : ''}`}
+                    className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}
                   />
                   Retry
                 </Button>
@@ -963,11 +963,11 @@ const BacktestDataPage: React.FC = () => {
               {/* Primary Actions */}
               <div className="flex flex-wrap items-center gap-xs">
                 <Button variant="outline" size="sm" onClick={handleImport}>
-                  <Upload className="w-4 h-4 mr-xs" />
+                  <Upload className="w-4 h-4" />
                   Import
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleExport}>
-                  <Download className="w-4 h-4 mr-xs" />
+                  <Download className="w-4 h-4" />
                   Export
                 </Button>
                 <Button
@@ -977,7 +977,7 @@ const BacktestDataPage: React.FC = () => {
                   disabled={isRefreshing}
                 >
                   <RefreshCw
-                    className={`w-4 h-4 mr-xs ${isRefreshing ? 'animate-spin' : ''}`}
+                    className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`}
                   />
                   Refresh
                 </Button>
@@ -1097,7 +1097,7 @@ const BacktestDataPage: React.FC = () => {
                         size="sm"
                         onClick={handleBulkDelete}
                       >
-                        <Trash2 className="w-4 h-4 mr-xs" />
+                        <Trash2 className="w-4 h-4" />
                         Delete Selected
                       </Button>
                     </div>
@@ -1123,7 +1123,7 @@ const BacktestDataPage: React.FC = () => {
                         </TabsList>
                       </div>
 
-                      <TabsContent value="remote" className="mt-md">
+                      <TabsContent value="remote" className="">
                         {isMobile ? (
                           <BacktestMobileView
                             data={filteredData.filter(
@@ -1145,7 +1145,7 @@ const BacktestDataPage: React.FC = () => {
                             {isLoading ? (
                               <div className="flex items-center justify-center h-32">
                                 <div className="text-center">
-                                  <RefreshCw className="w-6 h-6 mx-auto mb-xs animate-spin opacity-50" />
+                                  <RefreshCw className="w-6 h-6 mx-auto animate-spin opacity-50" />
                                   <div className="text-sm text-muted-foreground">
                                     Loading backtest data...
                                   </div>
@@ -1155,11 +1155,11 @@ const BacktestDataPage: React.FC = () => {
                                 .length === 0 ? (
                               <div className="flex items-center justify-center h-32">
                                 <div className="text-center">
-                                  <BarChart3 className="w-8 h-8 mx-auto mb-sm text-muted-foreground opacity-50" />
-                                  <h3 className="text-base font-medium mb-xs">
+                                  <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground opacity-50" />
+                                  <h3 className="text-base font-medium">
                                     No Remote Backtest Data
                                   </h3>
-                                  <p className="text-sm text-muted-foreground mb-sm">
+                                  <p className="text-sm text-muted-foreground">
                                     {searchQuery || strategyFilter !== 'all'
                                       ? 'No backtests match your current filters.'
                                       : 'Remote backtest data will appear here when available.'}
@@ -1206,7 +1206,7 @@ const BacktestDataPage: React.FC = () => {
                         )}
                       </TabsContent>
 
-                      <TabsContent value="local" className="mt-md">
+                      <TabsContent value="local" className="">
                         {isMobile ? (
                           <BacktestMobileView
                             data={filteredData.filter(
@@ -1228,7 +1228,7 @@ const BacktestDataPage: React.FC = () => {
                             {isLocalLoading ? (
                               <div className="flex items-center justify-center h-32">
                                 <div className="text-center">
-                                  <RefreshCw className="w-6 h-6 mx-auto mb-xs animate-spin opacity-50" />
+                                  <RefreshCw className="w-6 h-6 mx-auto animate-spin opacity-50" />
                                   <div className="text-sm text-muted-foreground">
                                     Loading local backtest data...
                                   </div>
@@ -1238,8 +1238,8 @@ const BacktestDataPage: React.FC = () => {
                                 .length === 0 ? (
                               <div className="flex items-center justify-center h-32">
                                 <div className="text-center">
-                                  <Database className="w-8 h-8 mx-auto mb-sm text-muted-foreground opacity-50" />
-                                  <h3 className="text-base font-medium mb-xs">
+                                  <Database className="w-8 h-8 mx-auto text-muted-foreground opacity-50" />
+                                  <h3 className="text-base font-medium">
                                     No Local Backtest Data
                                   </h3>
                                   <p className="text-sm text-muted-foreground">
@@ -1380,8 +1380,8 @@ const BacktestDataPage: React.FC = () => {
                     <div className="rounded-lg border bg-card">
                       <div className="flex items-center justify-center h-32">
                         <div className="text-center">
-                          <BarChart3 className="w-8 h-8 mx-auto mb-sm text-muted-foreground opacity-50" />
-                          <h3 className="text-base font-medium mb-xs capitalize">
+                          <BarChart3 className="w-8 h-8 mx-auto text-muted-foreground opacity-50" />
+                          <h3 className="text-base font-medium capitalize">
                             {type} Backtests
                           </h3>
                           <p className="text-sm text-muted-foreground">

@@ -390,7 +390,7 @@ const ListModalRow = React.memo<ListModalRowProps>(
               inflates the type (a minimum-font-size setting) the row stacks
               instead of squeezing the name out. The name also keeps a `ch`
               floor so it can never shrink to an unreadable sliver. */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1 @min-[28em]:flex-row @min-[28em]:items-center @min-[28em]:justify-between @min-[28em]:gap-sm">
+          <div className="flex-1 min-w-0 flex flex-col gap-1 @min-[28em]:flex-row @min-[28em]:items-center @min-[28em]:justify-between">
             <div className="min-w-[7ch]">
               {isPair ? (
                 <>
@@ -494,7 +494,7 @@ const ListModalRow = React.memo<ListModalRowProps>(
             Uses numeric grid gaps: gap-x-md/gap-y-* (axis-named tokens)
             don't generate in this Tailwind config. */}
         {expanded && hasDetails && (
-          // p-sm (combined, works) + pt-0; `pb-sm` alone is a no-op token.
+          // p-sm (combined, works) + pt-0; `` alone is a no-op token.
           <div className="p-sm pt-0" onClick={(e) => e.stopPropagation()}>
             <div className="space-y-sm rounded-md bg-background/50 p-sm">
               {(item.change1h != null ||
@@ -702,7 +702,7 @@ export const ListModal: React.FC<ListModalProps> = ({
 
   const modalContent = (
     <div
-      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-xs sm:p-md"
+      className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-xs"
       onClick={onClose}
       data-testid="list-modal-overlay"
     >
@@ -722,11 +722,8 @@ export const ListModal: React.FC<ListModalProps> = ({
         data-testid="list-modal-content"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Header + search grouped for a consistent top rhythm.
-            NOTE: this Tailwind config only generates named spacing tokens
-            (xs/sm/md/lg) for p-/px-/py- — NOT for pt-/pb-/pl-/pr-. Use
-            py-* (or numeric) for vertical padding; pt-lg silently = 0. */}
-        <div className="px-md py-md space-y-sm sm:px-lg">
+        {/* Header + search grouped for a consistent top rhythm. */}
+        <div className="px-md py-md space-y-sm">
           <div className="flex items-center justify-between gap-sm">
             <div className="flex min-w-0 items-center gap-sm">
               <h3 className="shrink-0 text-foreground font-semibold text-lg">
@@ -878,7 +875,7 @@ export const ListModal: React.FC<ListModalProps> = ({
         </div>
 
         {/* Items List */}
-        <div className="flex-1 overflow-y-auto px-md pb-2 sm:px-lg">
+        <div className="flex-1 overflow-y-auto px-md pb-2">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-sm py-12">
               <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
@@ -908,7 +905,7 @@ export const ListModal: React.FC<ListModalProps> = ({
 
         {/* Footer — Done button for multi-select */}
         {selectionMode === 'multi' && !isLoading && (
-          <div className="px-md py-md sm:px-lg">
+          <div className="px-md py-md">
             <button
               type="button"
               onClick={onClose}

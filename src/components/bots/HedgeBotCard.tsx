@@ -323,7 +323,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
     >
       <div
         data-slot="card"
-        className="bg-muted rounded-lg p-sm md:p-md space-y-sm md:space-y-md transition-all duration-200"
+        className="bg-muted rounded-lg p-sm space-y-sm transition-all duration-200"
       >
         {/* Header — same pattern as BotCard: floating pill actions, 3-row
             content with flex-wrap chip row. */}

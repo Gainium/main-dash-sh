@@ -209,3 +209,72 @@ After any surface, border, or color change in code:
 
 When updating tokens, **update the showcase first** with a scoped preview, get
 visual sign-off, then change the global tokens.
+
+---
+
+## 9. Spacing — the density scale
+
+The app has one spacing scale: **`xs · sm · md · lg · xl`**. It is
+density-aware: every token is a CSS variable that `.spacing-comfortable` and
+`.spacing-compact` redefine at runtime, so a user switching density restyles
+the whole app with no rebuild.
+
+```
+p-md   px-lg  py-sm  pt-xs  pb-md  pl-sm  pr-lg  ps-xs  pe-md
+m-md   mx-lg  my-sm  mt-xs  mb-md  ml-sm  mr-lg  ms-xs  me-md
+gap-md gap-x-sm gap-y-lg     space-x-sm  space-y-lg
+```
+
+Every family above works with **every variant** — `md:p-lg`, `sm:gap-xs`,
+`hover:mb-md` all compile.
+
+**Prefer the named scale over numbers.** `p-4` is a fixed 16px that ignores
+the user's density setting; `p-md` follows it. Tailwind's numeric scale still
+works and is not banned — reach for it only when a value genuinely must not
+scale (hairlines, icon-sized boxes, optical nudges).
+
+### The trap this scale was built around
+
+Tailwind v4 takes its configuration from `src/index.css` — **there is no
+`tailwind.config.js`**, and a v3-style config file would be read only if a
+`@config` directive pointed at it. For a long time this repo had one that
+nothing loaded. The consequences were invisible, because **Tailwind emits no
+CSS and no warning for a utility it does not recognise**: the class lands in
+the DOM, matches no rule, and silently does nothing.
+
+That produced two live bugs:
+
+- `mt-*`, `mb-*`, `ml-*`, `mr-*`, `pt-*`, `pb-*`, `pl-*`, `pr-*` were never
+  defined for the named tokens, and *every* variant-prefixed spacing class
+  (`md:p-md`, `sm:space-y-lg`) was dead as well — because hand-written CSS in
+  a `@layer` cannot be varied by Tailwind. ~600 class usages across 140 files
+  rendered as nothing.
+- `dark:` compiled to `@media (prefers-color-scheme: dark)` and followed the
+  operating system instead of the in-app theme toggle.
+
+Both are now asserted by **`npm run verify:css`**, which compiles
+`src/index.css` and checks that every family × token emits a rule, that each
+one keeps its `var(--spacing-*)` reference (a baked literal would break
+density switching), that variants compile, and that `dark:` keys off
+`[data-theme]`. It runs in CI and on pre-commit. If you add a spacing family,
+add it to that script's `FAMILIES` list too.
+
+`spacing/no-unknown-spacing-token` (ESLint) catches the other half: a token
+outside the scale, like `mb-huge` or `py-2xl`, fails lint instead of silently
+rendering as zero.
+
+### Two rules when adding spacing utilities
+
+1. **Declare tokens under `--space-*`, never `--spacing-*`.** `--spacing-*` is
+   Tailwind's own namespace and also backs `max-w-*`, `w-*`, `size-*` and
+   `basis-*`. Putting our tokens there rewrites `max-w-md` from
+   `--container-md` (28rem) to a spacing value and collapses every such
+   container in the app.
+2. **Use `@utility`, not a class in `@layer utilities`.** Only `@utility`
+   registers the class with Tailwind so variants work.
+
+### Don't stack a named class and a numeric one
+
+`class="space-y-3 space-y-lg"` is ambiguous — `tailwind-merge` does not
+recognise the named form, so both survive into the DOM and the cascade picks
+the winner. Pick one.

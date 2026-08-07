@@ -24,7 +24,7 @@ import { toast } from '@/lib/toast';
  *   - data.token present → signed in (existing user or new user that just
  *     accepted ToS in a prior call). Store the JWT and navigate.
  *   - data.pendingTerms === true → unknown email; render an inline
- *     "Welcome to Gainium" card with a ToS checkbox + "Create my account"
+ * "Welcome to Gainium" card with a ToS checkbox + "Create my account"
  *     button that re-calls consume with termsAccepted=true.
  *   - error / NOTOK → surface the message and offer "Request a new link".
  */
@@ -137,14 +137,14 @@ const MagicLinkConsume: React.FC = () => {
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-xl">
           <div className="p-xl">
-            <div className="text-center mb-md">
-              <div className="inline-flex items-center gap-xs mb-md">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-xs">
                 <LogoLockup className="w-50 h-8" />
               </div>
             </div>
 
             {isWorking ? (
-              <div className="flex flex-col items-center justify-center py-2xl gap-md text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-md text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <p className="text-sm">Signing you in…</p>
               </div>
@@ -165,7 +165,7 @@ const MagicLinkConsume: React.FC = () => {
                   </p>
                 </div>
 
-                <div className="flex items-start gap-sm pt-md">
+                <div className="flex items-start gap-sm">
                   <Checkbox
                     id="terms"
                     checked={termsAccepted}

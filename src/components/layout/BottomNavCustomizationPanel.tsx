@@ -455,9 +455,9 @@ export const BottomNavCustomizationPanel: React.FC<
                     {draggableActiveItems.length}/4 slots
                   </span>
                 </div>
-                <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-xs sm:p-sm rounded-xl border border-primary/20">
+                <div className="bg-gradient-to-r from-primary/5 via-primary/10 to-primary/5 p-xs rounded-xl border border-primary/20">
                   <div className="overflow-x-auto scrollbar-hide">
-                    <div className="flex items-center justify-center gap-xs sm:gap-sm overflow-visible py-2">
+                    <div className="flex items-center justify-center gap-xs overflow-visible py-2">
                       <SortableContext
                         items={draggableActiveItems.map((item) => item.id)}
                         strategy={horizontalListSortingStrategy}

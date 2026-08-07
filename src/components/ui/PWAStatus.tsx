@@ -34,7 +34,7 @@ export const PWAStatus: React.FC<PWAStatusProps> = ({ className = '' }) => {
 
   return (
     <div
-      className={`fixed top-4 right-4 z-50 space-y-sm md:space-y-md ${className}`}
+      className={`fixed top-4 right-4 z-50 space-y-sm ${className}`}
     >
       {/* Offline Indicator */}
       {isOffline && (

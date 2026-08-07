@@ -5,7 +5,7 @@ import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/t
 
 export const GridBudgetSettingsTab = memo<BotFormTabComponentProps>(
   ({ handleUpdateBalances }) => (
-    <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+    <div className="space-y-md">
       <GridBudgetSettings
         {...(handleUpdateBalances
           ? {

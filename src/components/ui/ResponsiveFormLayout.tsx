@@ -88,7 +88,7 @@ export const ResponsiveFormLayout: React.FC<ResponsiveFormLayoutProps> = ({
   className = '',
   mode = 'auto',
   breakpoints = { base: 1, sm: 2, md: 3, lg: 4 },
-  gap = 'gap-sm md:gap-md',
+  gap = 'gap-sm',
   minFieldWidth = 200,
   maxFieldWidth,
   stackOnMobile = true,

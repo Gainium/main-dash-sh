@@ -1928,7 +1928,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
           <div
             className={clsx(
               'flex-1 overflow-auto relative',
-              noPadding ? 'p-0' : 'p-1 sm:p-xs'
+              noPadding ? 'p-0' : 'p-1'
             )}
           >
             {/* Drag handle for headerless widgets */}
@@ -2002,7 +2002,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
           optionsTitle={optionsTitle}
           optionsWidthClass={optionsWidthClass}
         >
-          <div className="h-full w-full p-sm md:p-md">{wrappedContent}</div>
+          <div className="h-full w-full p-sm">{wrappedContent}</div>
         </FullscreenWidgetOverlay>
       )}
 

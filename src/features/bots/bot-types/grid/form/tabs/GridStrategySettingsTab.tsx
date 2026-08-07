@@ -4,7 +4,7 @@ import { GridStrategySettings } from '@/features/bots/bot-types/grid/form/sectio
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
 
 export const GridStrategySettingsTab = memo<BotFormTabComponentProps>(() => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+  <div className="space-y-md">
     <GridStrategySettings />
   </div>
 ));

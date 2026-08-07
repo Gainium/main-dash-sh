@@ -154,7 +154,7 @@ const AssetSummaryCard: React.FC<{
       </span>
     </div>
     {children && (
-      <div className="mt-sm space-y-xs border-t border-border/40 pt-sm">
+      <div className="space-y-xs border-t border-border/40">
         {children}
       </div>
     )}
@@ -777,13 +777,13 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
                   />
                 )}
                 {startDialog.textNow !== '' && (
-                  <p className="pt-xs text-xs text-destructive">
+                  <p className="text-xs text-destructive">
                     {startDialog.textNow}
                   </p>
                 )}
                 {formData.grid.useOrderInAdvance &&
                   startDialog.textTotal !== '' && (
-                    <p className="pt-xs text-xs text-destructive">
+                    <p className="text-xs text-destructive">
                       {startDialog.textTotal}
                     </p>
                   )}
@@ -852,8 +852,8 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
           {!settings?.futures &&
             startDialog.actions.size > 0 &&
             !startDialog.notEnoughBalance && (
-              <div className="border-t border-border/50 pt-md">
-                <p className="mb-sm text-xs font-medium uppercase tracking-wide text-muted-foreground">
+              <div className="border-t border-border/50">
+                <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   How to fund {startDialog.mainAsset}
                 </p>
                 <div className="space-y-sm">

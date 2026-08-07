@@ -43,7 +43,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
       style={{ backgroundColor: '#1e1e1e' }}
     >
       <div className="text-center space-y-xl">
-        <h1 className="text-4xl font-bold text-white mb-lg">
+        <h1 className="text-4xl font-bold text-white">
           Dual Arc Progress Gauge
         </h1>
 
@@ -108,7 +108,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
 
         {/* Multiple examples */}
         <div className="mt-16">
-          <h2 className="text-2xl font-semibold text-white mb-lg">Examples</h2>
+          <h2 className="text-2xl font-semibold text-white">Examples</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-xl">
             <div className="text-center">
               <DualArcProgressGauge
@@ -118,7 +118,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 size={120}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-sm">Low Progress</p>
+              <p className="text-gray-400 text-sm">Low Progress</p>
             </div>
 
             <div className="text-center">
@@ -130,7 +130,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 progressColor={colors.warning}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-sm">
+              <p className="text-gray-400 text-sm">
                 Medium Progress (Orange)
               </p>
             </div>
@@ -144,14 +144,14 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 progressColor={colors.destructive}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-sm">High Progress (Red)</p>
+              <p className="text-gray-400 text-sm">High Progress (Red)</p>
             </div>
           </div>
         </div>
 
         {/* Different sizes */}
         <div className="mt-16">
-          <h2 className="text-2xl font-semibold text-white mb-lg">
+          <h2 className="text-2xl font-semibold text-white">
             Different Sizes
           </h2>
           <div className="flex items-center justify-center space-x-xl">
@@ -163,7 +163,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 size={80}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-xs">Small (80px)</p>
+              <p className="text-gray-400 text-xs">Small (80px)</p>
             </div>
 
             <div className="text-center">
@@ -174,7 +174,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 size={120}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-xs">Medium (120px)</p>
+              <p className="text-gray-400 text-xs">Medium (120px)</p>
             </div>
 
             <div className="text-center">
@@ -185,7 +185,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 size={160}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-xs">Large (160px)</p>
+              <p className="text-gray-400 text-xs">Large (160px)</p>
             </div>
 
             <div className="text-center">
@@ -196,14 +196,14 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 size={200}
                 displayMode="average"
               />
-              <p className="text-gray-400 mt-xs text-xs">Extra Large (200px)</p>
+              <p className="text-gray-400 text-xs">Extra Large (200px)</p>
             </div>
           </div>
         </div>
 
         {/* Separate Arc Colors */}
         <div className="mt-16">
-          <h2 className="text-2xl font-semibold text-white mb-lg">
+          <h2 className="text-2xl font-semibold text-white">
             Separate Arc Colors
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-xl">
@@ -217,7 +217,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 innerProgressColor="#8b5cf6"
                 displayMode="both"
               />
-              <p className="text-gray-400 mt-xs text-sm">Green + Purple</p>
+              <p className="text-gray-400 text-sm">Green + Purple</p>
             </div>
 
             <div className="text-center">
@@ -230,7 +230,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 innerProgressColor="#ec4899"
                 displayMode="both"
               />
-              <p className="text-gray-400 mt-xs text-sm">Orange + Pink</p>
+              <p className="text-gray-400 text-sm">Orange + Pink</p>
             </div>
 
             <div className="text-center">
@@ -243,7 +243,7 @@ const DualArcProgressGaugeTest: React.FC = () => {
                 innerProgressColor="#10b981"
                 displayMode="both"
               />
-              <p className="text-gray-400 mt-xs text-sm">Cyan + Emerald</p>
+              <p className="text-gray-400 text-sm">Cyan + Emerald</p>
             </div>
           </div>
         </div>

@@ -699,7 +699,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
             panels give the alignment without the axis. */}
         {/* Numeric spacing, not the `-md`/`-lg` design tokens: index.css only
             hand-writes the all-sides and x/y token utilities, so single-side
-            `mt-lg`/`mb-sm` silently resolve to 0. */}
+            ``/`` silently resolve to 0. */}
         <div className="mt-6">
           <div className="mb-3 text-xs font-medium text-muted-foreground">
             Deal Returns

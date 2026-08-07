@@ -9,7 +9,7 @@ export const StopLossSettingsTab = React.memo<BotFormTabComponentProps>(({
   updateFormData,
   errors,
 }) => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+  <div className="space-y-md">
     <StopLossSettings
       currentExchange={currentExchange}
       formData={formData}

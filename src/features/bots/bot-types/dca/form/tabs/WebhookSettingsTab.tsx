@@ -7,7 +7,7 @@ import React from 'react';
 // longer forwards formData and its memo bails on keystrokes via the comparator.
 export const WebhookSettingsTab = React.memo<BotFormTabComponentProps>(
   () => (
-    <div className="space-y-lg sm:space-y-xl lg:space-y-10">
+    <div className="space-y-lg lg:space-y-10">
       <BotWebhookSettings />
     </div>
   ),

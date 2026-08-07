@@ -118,17 +118,17 @@ const LegSubTabs: React.FC<{
         <TabsTrigger value="analysis">Analysis</TabsTrigger>
         {!hideDeals && <TabsTrigger value="deals">Deals</TabsTrigger>}
       </TabsList>
-      <TabsContent value="overview" className="pt-md">
+      <TabsContent value="overview" className="">
         <RedesignOverviewTab vm={vm} />
       </TabsContent>
-      <TabsContent value="stats" className="pt-md">
+      <TabsContent value="stats" className="">
         <BacktestStatsTab backtest={backtest} />
       </TabsContent>
-      <TabsContent value="analysis" className="pt-md">
+      <TabsContent value="analysis" className="">
         <BacktestAnalysisTab backtest={backtest} />
       </TabsContent>
       {!hideDeals && (
-        <TabsContent value="deals" className="pt-md">
+        <TabsContent value="deals" className="">
           <RedesignDealsTab vm={vm} />
         </TabsContent>
       )}
@@ -225,7 +225,7 @@ export const HedgeBacktestActiveView: React.FC<
   return (
     <div className="flex h-full flex-col">
       {!dealsAvailableLocally && (
-        <div className="mb-sm rounded-md border border-amber-300 bg-amber-50 px-md py-sm text-xs text-amber-900">
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-md py-sm text-xs text-amber-900">
           Per-deal data isn't on this device — re-run the backtest locally to
           see individual deals. Stats and analysis are shown from the server.
         </div>
@@ -242,14 +242,14 @@ export const HedgeBacktestActiveView: React.FC<
           <TabsTrigger value="long">Long leg</TabsTrigger>
           <TabsTrigger value="short">Short leg</TabsTrigger>
         </TabsList>
-        <TabsContent value="combined" className="pt-md">
+        <TabsContent value="combined" className="">
           {combinedHistory ? (
             <LegSubTabs backtest={combinedHistory} hideDeals />
           ) : (
             <p className="text-sm text-muted-foreground">No data.</p>
           )}
         </TabsContent>
-        <TabsContent value="long" className="pt-md">
+        <TabsContent value="long" className="">
           {longHistory ? (
             <LegSubTabs
               backtest={longHistory}
@@ -259,7 +259,7 @@ export const HedgeBacktestActiveView: React.FC<
             <p className="text-sm text-muted-foreground">No leg data.</p>
           )}
         </TabsContent>
-        <TabsContent value="short" className="pt-md">
+        <TabsContent value="short" className="">
           {shortHistory ? (
             <LegSubTabs
               backtest={shortHistory}
@@ -380,7 +380,7 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
   if (historyLoading) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-xs h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" />
         Loading history…
       </div>
     );
@@ -388,7 +388,7 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
   if (activating) {
     return (
       <div className="flex h-full items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-xs h-4 w-4 animate-spin" />
+        <Loader2 className="h-4 w-4 animate-spin" />
         Loading backtest…
       </div>
     );

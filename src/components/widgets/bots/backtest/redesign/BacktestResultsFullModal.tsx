@@ -471,7 +471,7 @@ export function BacktestResultsFullModal({
         className="flex h-[100dvh] max-h-[100dvh] w-full max-w-none flex-col overflow-hidden rounded-none p-0 bg-card sm:h-[92vh] sm:max-h-[92vh] sm:w-[96vw] sm:max-w-[1400px] sm:rounded-lg"
       >
         {/* ── header (peer-surface separator → the one allowed hairline) ── */}
-        <div className="flex flex-shrink-0 flex-wrap items-start gap-sm border-b border-border/60 px-sm py-sm sm:items-center sm:gap-md sm:px-md">
+        <div className="flex flex-shrink-0 flex-wrap items-start gap-sm border-b border-border/60 px-sm py-sm sm:items-center">
           {/* close — top-right on mobile, far-right of the row on desktop */}
           <button
             type="button"
@@ -588,7 +588,7 @@ export function BacktestResultsFullModal({
         </div>
 
         {/* ── body ── */}
-        <div className="min-h-0 flex-1 overflow-auto p-sm sm:p-md">
+        <div className="min-h-0 flex-1 overflow-auto p-sm">
           {/* hedge — renders its own Combined/Long/Short shell + sub-tabs,
               including the "deals not on this device" amber warning (driven
               by the same nullable `result`). */}

@@ -70,11 +70,11 @@ const PasswordResetConsume: React.FC = () => {
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-xl">
           <div className="p-xl">
-            <div className="text-center mb-md">
-              <div className="inline-flex items-center gap-xs mb-md">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-xs">
                 <LogoLockup className="w-50 h-8" />
               </div>
-              <h1 className="text-2xl font-bold text-foreground mb-xs">
+              <h1 className="text-2xl font-bold text-foreground">
                 Choose a new password
               </h1>
               <p className="text-muted-foreground">
@@ -83,7 +83,7 @@ const PasswordResetConsume: React.FC = () => {
             </div>
 
             {error && (
-              <div className="mb-md p-md bg-red-500/10 border border-red-500/30 rounded-lg">
+              <div className="p-md bg-red-500/10 border border-red-500/30 rounded-lg">
                 <p className="text-sm text-center">{error}</p>
               </div>
             )}
@@ -141,7 +141,7 @@ const PasswordResetConsume: React.FC = () => {
                 className="w-full h-12 font-medium"
               >
                 {resetPassword.isPending && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 )}
                 Reset password
               </Button>

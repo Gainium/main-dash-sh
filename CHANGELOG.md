@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.42.33] - 2026-08-07
+
+### Fixed
+
+- Responsive spacing now actually applies. Layouts that were meant to breathe more on wider screens — and directional margins and padding throughout the app — were written against spacing classes the stylesheet never generated, so they quietly did nothing. The spacing scale now covers every direction and every breakpoint.
+- Light and dark styling now follows the theme you pick in the app rather than your operating system's appearance setting. If your device was set to dark while the app was set to light (or the reverse), some text and highlight colours were taken from the wrong theme.
+
+### Changed
+
+- Spacing tokens (`xs`/`sm`/`md`/`lg`/`xl`) keep tracking the Comfortable/Compact setting, and now do so across every spacing utility rather than a partial subset.
+
 ## [2.42.32] - 2026-08-07
 
 ### Fixed
