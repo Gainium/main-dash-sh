@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.42.32] - 2026-08-07
+
+### Fixed
+
+- An expired session now returns you to the login screen instead of leaving the app open on a page where every panel reads "Error Loading …". Sign-in was only ever checked once, when the tab was first opened, so a session that ran out — or one the app couldn't confirm because the connection dropped at that moment — stayed on screen until you reloaded by hand.
+
 ## [2.42.31] - 2026-08-07
 
 ### Fixed
