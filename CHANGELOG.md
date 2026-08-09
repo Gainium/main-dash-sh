@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.43.0] - 2026-08-09
+
+### Added
+
+- Add Funds and Reduce Funds now work on a multi-deal selection, not just one deal at a time. Select the deals, pick the amount once, and it is applied to each of them — available in the bot details drawer, the Trading page Trades tab, the Trading Terminal and the Open Orders widget. Both actions previously answered with "Coming soon".
+
+### Changed
+
+- The funds dialog says how many deals it is about to act on, and spells out that the amount entered is applied to each selected deal rather than split between them. The asset picker only names the pair's base and quote assets when every selected deal shares them.
+- The bulk Add/Reduce Funds actions only appear when at least one selected deal can actually take a funds adjustment, and deals in the selection that can't (closed, cancelled, or combo) are skipped with a note instead of failing.
+
 ## [2.42.33] - 2026-08-07
 
 ### Fixed
