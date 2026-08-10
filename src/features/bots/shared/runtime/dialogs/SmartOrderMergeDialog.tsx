@@ -331,7 +331,7 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
                             <p className="text-sm font-semibold text-foreground">
                               {deal.label ?? deal.pair}
                             </p>
-                            <div className="flex flex-wrap gap-x-sm gap-y-1 text-xs text-muted-foreground">
+                            <div className="flex flex-wrap gap-y-1 text-xs text-muted-foreground">
                               {deal.strategy ? (
                                 <span>{deal.strategy}</span>
                               ) : null}

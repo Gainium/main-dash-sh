@@ -56,6 +56,11 @@ import {
 import { TradeCard } from '../../../trades/TradeCard';
 /* import { TradeDetailDrawer } from '../../../trades/TradeDetailDrawer'; */
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
+import {
+    canAdjustDealFunds,
+    useBulkAdjustFunds,
+    type BulkAdjustFundsTarget,
+} from '@/components/deals/actions/useBulkAdjustFunds';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
@@ -1477,6 +1482,28 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     onAutoOpenHandled,
   ]);
 
+  // Bulk Add/Reduce Funds — same shared flow the Trading page, the Trading
+  // Terminal and the dashboard Open Orders widget use.
+  const {
+    open: openBulkAdjustFunds,
+    dialog: bulkAdjustFundsDialog,
+  } = useBulkAdjustFunds();
+  const toAdjustFundsTarget = useCallback(
+    (deal: TransformedTrade): BulkAdjustFundsTarget => ({
+      dealId: deal.id,
+      botId: deal.botId ?? botId,
+      status: deal.status,
+      // The row menu hides Add/Reduce Funds on combo bots; the drawer's deals
+      // carry no bot type of their own, so it comes from the bot.
+      type: isComboBot ? 'Combo' : deal.type,
+      baseAsset:
+        typeof deal.symbol === 'string' ? undefined : deal.symbol.baseAsset,
+      quoteAsset:
+        typeof deal.symbol === 'string' ? undefined : deal.symbol.quoteAsset,
+    }),
+    [botId, isComboBot]
+  );
+
   const adjustFundsMutation = useAdjustFunds();
   const handleAdjustFundsConfirm = useCallback(
     (
@@ -1964,20 +1991,10 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           setJournalBulkDialogOpen(selectedDeals);
         },
         onAddFunds: (selectedDeals) => {
-          logger.info(`${LOG_PREFIX}: Bulk add funds`, {
-            count: selectedDeals.length,
-          });
-          toast.info(
-            `Add funds to ${selectedDeals.length} deal(s) (Coming soon)`
-          );
+          openBulkAdjustFunds('add', selectedDeals.map(toAdjustFundsTarget));
         },
         onReduceFunds: (selectedDeals) => {
-          logger.info(`${LOG_PREFIX}: Bulk reduce funds`, {
-            count: selectedDeals.length,
-          });
-          toast.info(
-            `Reduce funds from ${selectedDeals.length} deal(s) (Coming soon)`
-          );
+          openBulkAdjustFunds('reduce', selectedDeals.map(toAdjustFundsTarget));
         },
         onEdit: (selectedDeals) => {
           if (selectedDeals.length === 0) return;
@@ -2012,10 +2029,17 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           setCloseBulkDialogOpen(selectedDeals);
         },
         canMoveToTerminal: canMoveTradeToTerminal,
+        canAdjustFunds: (deal) => canAdjustDealFunds(toAdjustFundsTarget(deal)),
         getSymbol: (deal) =>
           typeof deal.symbol === 'string' ? deal.symbol : deal.symbol.symbol,
       }),
-    [activeDealsRaw, onEditDeal, canMoveTradeToTerminal]
+    [
+      activeDealsRaw,
+      onEditDeal,
+      canMoveTradeToTerminal,
+      openBulkAdjustFunds,
+      toAdjustFundsTarget,
+    ]
   );
 
   // Define columns for the DataTable
@@ -3272,6 +3296,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         cancelText="Cancel"
         onConfirm={handleBulkJournalConfirm}
       />
+
+      {bulkAdjustFundsDialog}
 
       {/* Detail Drawer */}
       {/* {selectedDealForDrawer && (

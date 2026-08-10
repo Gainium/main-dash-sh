@@ -18,7 +18,7 @@ export const BasicSettingsTab = React.memo<BotFormTabComponentProps>(
     mode,
     isFieldLocked,
   }) => (
-    <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+    <div className="space-y-md">
       <BasicSettings
         currentExchange={currentExchange}
         updateFormData={updateFormData}

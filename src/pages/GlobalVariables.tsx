@@ -865,11 +865,11 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
                 <DropdownMenuItem onClick={() => openViewDialog(variable)}>
-                  <Eye className="mr-xs h-4 w-4" />
+                  <Eye className="h-4 w-4" />
                   View
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => openEditDialog(variable)}>
-                  <Edit className="mr-xs h-4 w-4" />
+                  <Edit className="h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
@@ -878,7 +878,7 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
                   className="text-red-600"
                   disabled={variable.botAmount > 0}
                 >
-                  <Trash2 className="mr-xs h-4 w-4" />
+                  <Trash2 className="h-4 w-4" />
                   Delete
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -1174,8 +1174,8 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
   if (error) {
     return (
       <MainLayout pageTitle="Global Variables" activePage="global-variables">
-        <div className="min-h-full p-sm md:p-md space-y-md md:space-y-lg">
-          <div className="flex flex-col items-center justify-center py-xs2 space-y-lg">
+        <div className="min-h-full p-sm space-y-md">
+          <div className="flex flex-col items-center justify-center space-y-lg">
             <div className="p-md rounded-full bg-red-50 dark:bg-red-950">
               <AlertTriangle className="h-8 w-8 text-red-500" />
             </div>
@@ -1191,7 +1191,7 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
             </div>
             <div className="flex gap-xs">
               <Button onClick={handleRefresh} variant="default">
-                <RefreshCw className="h-4 w-4 mr-xs" />
+                <RefreshCw className="h-4 w-4" />
                 Try Again
               </Button>
               <Button

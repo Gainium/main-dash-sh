@@ -40,7 +40,7 @@ const InfoCard: React.FC<InfoCardProps> = ({
         {action && <div className="shrink-0">{action}</div>}
       </div>
       {hasChildren && (
-        <div className={cn('mt-5 space-y-sm md:space-y-md', contentClassName)}>
+        <div className={cn('mt-5 space-y-sm', contentClassName)}>
           {children}
         </div>
       )}

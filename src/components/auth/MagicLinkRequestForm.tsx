@@ -133,7 +133,7 @@ const MagicLinkRequestForm: React.FC<{
             }
           >
             {magicLink.isPending && (
-              <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             )}
             {submitLabel}
           </Button>

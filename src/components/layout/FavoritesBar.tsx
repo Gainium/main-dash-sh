@@ -14,7 +14,7 @@ const FavoritesBar: React.FC = () => {
   return (
     <div className="border-b border-border bg-card/50">
       <div className="container mx-auto px-6">
-        <div className="flex items-center gap-md lg:gap-lg py-2 overflow-x-auto">
+        <div className="flex items-center gap-md py-2 overflow-x-auto">
           {favorites.slice(0, 8).map((coin) => {
             const isPositive = (coin.change24h || 0) > 0;
 

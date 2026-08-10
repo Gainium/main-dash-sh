@@ -771,16 +771,16 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
                 Analysis
               </TabsTrigger>
             </TabsList>
-            <TabsContent value="bt-overview" className="mt-md">
+            <TabsContent value="bt-overview" className="">
               {shareVm && <RedesignOverviewTab vm={shareVm} />}
             </TabsContent>
-            <TabsContent value="bt-stats" className="mt-md">
+            <TabsContent value="bt-stats" className="">
               <BacktestStatsTab backtest={shareBacktest} />
             </TabsContent>
-            <TabsContent value="bt-deals" className="mt-md">
+            <TabsContent value="bt-deals" className="">
               {shareVm && <RedesignDealsTab vm={shareVm} />}
             </TabsContent>
-            <TabsContent value="bt-analysis" className="mt-md">
+            <TabsContent value="bt-analysis" className="">
               {hasAnalysis ? (
                 <BacktestAnalysisTab backtest={shareBacktest} />
               ) : (

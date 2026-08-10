@@ -61,6 +61,12 @@ interface AdjustFundsDialogBaseProps {
   quoteAsset?: string;
   /** Optional balance snapshot for quick reference */
   balances?: FundsBalanceSnapshot[];
+  /**
+   * How many deals this adjustment will be applied to. Anything above 1
+   * switches the copy to the bulk wording, so it is explicit that the amount
+   * entered here is applied to EACH selected deal, not split between them.
+   */
+  targetCount?: number;
 }
 
 export type AdjustFundsDialogMode = 'add' | 'reduce';
@@ -109,6 +115,21 @@ const DESCRIPTIONS: Record<AdjustFundsDialogMode, string> = {
 const SECONDARY_ACTION_TEXT: Record<AdjustFundsDialogMode, string> = {
   add: 'Add funds',
   reduce: 'Reduce funds',
+};
+
+const BULK_DESCRIPTIONS: Record<AdjustFundsDialogMode, (count: number) => string> =
+  {
+    add: (count) =>
+      `Inject additional capital into each of the ${count} selected deals.`,
+    reduce: (count) =>
+      `Withdraw capital from each of the ${count} selected deals.`,
+  };
+
+const BULK_FOOTNOTES: Record<AdjustFundsDialogMode, (count: number) => string> = {
+  add: (count) =>
+    `The selected amount is appended to each of the ${count} deals — it is not split between them.`,
+  reduce: (count) =>
+    `The selected amount is withdrawn from each of the ${count} deals — it is not split between them.`,
 };
 
 const RESET_PAYLOAD = {
@@ -167,7 +188,9 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   baseAsset,
   quoteAsset,
   balances,
+  targetCount = 1,
 }) => {
+  const isBulk = targetCount > 1;
   const [quantity, setQuantity] = React.useState<string>(RESET_PAYLOAD.qty);
   const [asset, setAsset] = React.useState<OrderSizeTypeEnum>(
     defaultSettings?.asset ?? RESET_PAYLOAD.asset
@@ -274,9 +297,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
             {TITLES[mode]}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            {targetName
-              ? `${DESCRIPTIONS[mode]} (${targetName}).`
-              : DESCRIPTIONS[mode]}
+            {isBulk
+              ? BULK_DESCRIPTIONS[mode](targetCount)
+              : targetName
+                ? `${DESCRIPTIONS[mode]} (${targetName}).`
+                : DESCRIPTIONS[mode]}
           </DialogDescription>
         </DialogHeader>
 
@@ -414,9 +439,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
 
             <div className="rounded-lg border border-dashed border-border/60 bg-muted/5 p-sm text-xs text-muted-foreground">
               <p>
-                {mode === 'add'
-                  ? 'The selected amount will be appended to the deal once confirmed.'
-                  : 'The selected amount will be withdrawn from the deal once confirmed.'}
+                {isBulk
+                  ? BULK_FOOTNOTES[mode](targetCount)
+                  : mode === 'add'
+                    ? 'The selected amount will be appended to the deal once confirmed.'
+                    : 'The selected amount will be withdrawn from the deal once confirmed.'}
               </p>
             </div>
             {!!error && <div className="text-sm text-destructive">{error}</div>}
@@ -447,7 +474,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
             disabled={isProcessing || !!error}
             className="w-full sm:w-auto"
           >
-            {isProcessing ? 'Processing…' : SECONDARY_ACTION_TEXT[mode]}
+            {isProcessing
+              ? 'Processing…'
+              : isBulk
+                ? `${SECONDARY_ACTION_TEXT[mode]} (${targetCount})`
+                : SECONDARY_ACTION_TEXT[mode]}
           </Button>
         </DialogFooter>
       </DialogContent>

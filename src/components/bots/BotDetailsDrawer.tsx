@@ -1523,7 +1523,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       />
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-xs sm:gap-sm">
+                    <div className="flex shrink-0 items-center gap-xs">
                       {/* Toggle left-attached panel (desktop only) */}
                       <Button
                         variant="ghost"
@@ -1599,7 +1599,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       pages so the same drawer can flip between long /
                       short leg data without remounting. */}
                   {legSwitcher && !isHedge && (
-                    <div className="mb-sm flex items-center">{legSwitcher}</div>
+                    <div className="flex items-center">{legSwitcher}</div>
                   )}
 
                   {/* Tabs (only in bot view) - Responsive tabs that convert to dropdown on mobile */}
@@ -1632,7 +1632,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     onReviewEvents={
                       activeTab === 'events' ? undefined : goToEvents
                     }
-                    className="mb-md"
+                    className=""
                   />
                 )}
                 <TabsContent
@@ -1695,7 +1695,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="space-y-5 sm:space-y-lg"
+                    className="space-y-5"
                   >
                     {/* Performance widgets — hedge shows a combined block plus
                         each leg's widgets; non-hedge shows the single bot. */}
@@ -1770,7 +1770,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="space-y-5 sm:space-y-lg"
+                    className="space-y-5"
                   >
                     {/* Events — hedge fetches the MERGED hedge-level event
                         feed (the events widget keys off bot.type + wrapper id;
@@ -1884,13 +1884,13 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="space-y-5 sm:space-y-lg"
+                    className="space-y-5"
                   >
                     {/* Webhook — hedge stacks both legs' webhook configs
                         (each leg has its own); non-hedge shows the single
                         bot's webhook. */}
                     {isHedge && hedge ? (
-                      <div className="space-y-5 sm:space-y-lg">
+                      <div className="space-y-5">
                         {[
                           { key: 'long' as const, bot: hedge.longBot },
                           { key: 'short' as const, bot: hedge.shortBot },
@@ -1977,7 +1977,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       </DetailDrawerTitle>
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-xs sm:gap-sm">
+                    <div className="flex shrink-0 items-center gap-xs">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2042,7 +2042,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       )}
                     </div>
 
-                    <div className="flex shrink-0 items-center gap-xs sm:gap-sm">
+                    <div className="flex shrink-0 items-center gap-xs">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -2123,7 +2123,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       animate={{ opacity: 1, x: 0 }}
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ duration: 0.2 }}
-                      className="space-y-5 sm:space-y-lg"
+                      className="space-y-5"
                     >
                       <TradeDetailContent
                         trade={selectedTrade}

@@ -784,7 +784,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
           </div>
 
           <div className="flex flex-col gap-sm w-full sm:w-auto sm:items-end">
-            <div className="grid grid-cols-2 gap-md w-full sm:grid-cols-3 sm:gap-lg">
+            <div className="grid grid-cols-2 gap-md w-full sm:grid-cols-3">
               <div className="flex flex-col text-left sm:text-right">
                 <span className="text-xs text-muted-foreground uppercase tracking-wide">
                   Amount &amp; Price
@@ -1185,7 +1185,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         maxSize={{ w: 12, h: 12 }}
         hasOptions={false}
       >
-        <div className="p-sm md:p-md">
+        <div className="p-sm">
           <div className="text-center text-muted-foreground py-8">
             Loading orders...
           </div>
@@ -1205,7 +1205,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         maxSize={{ w: 12, h: 12 }}
         hasOptions={false}
       >
-        <div className="p-sm md:p-md">
+        <div className="p-sm">
           <div className="text-center text-muted-foreground">Bot not found</div>
         </div>
       </DrawerSection>
@@ -1238,9 +1238,9 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         </div>
       }
     >
-      <div className="p-sm md:p-md">
+      <div className="p-sm">
         {/* Compact Search and Filters */}
-        <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center sm:gap-xs mb-4">
+        <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-center mb-4">
           {/* Search Input */}
           <div className="relative w-full sm:flex-1">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
@@ -1354,7 +1354,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
             {filteredPendingOrders.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/30 px-4 py-3 border-b">
-                  <div className="hidden sm:grid sm:grid-cols-[1.6fr_minmax(140px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] sm:gap-md text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <div className="hidden sm:grid sm:grid-cols-[1.6fr_minmax(140px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     <span>Order Details</span>
                     <span className="text-right">Amount &amp; Price</span>
                     <span className="text-right">Fill Status</span>
@@ -1391,7 +1391,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
             {filteredCompletedOrders.length > 0 ? (
               <div className="border rounded-lg overflow-hidden">
                 <div className="bg-muted/30 px-4 py-3 border-b">
-                  <div className="hidden sm:grid sm:grid-cols-[1.6fr_minmax(140px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] sm:gap-md text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                  <div className="hidden sm:grid sm:grid-cols-[1.6fr_minmax(140px,1fr)_minmax(140px,1fr)_minmax(140px,1fr)] text-xs font-medium text-muted-foreground uppercase tracking-wide">
                     <span>Order Details</span>
                     <span className="text-right">Amount &amp; Price</span>
                     <span className="text-right">Fill Status</span>

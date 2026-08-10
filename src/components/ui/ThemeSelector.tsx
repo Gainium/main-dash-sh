@@ -91,7 +91,7 @@ export const ThemeSelector: React.FC<ThemeSelectorProps> = ({
 
   return (
     <div
-      className={`grid grid-cols-1 md:grid-cols-3 gap-sm md:gap-md max-w-2xl mx-auto ${className}`}
+      className={`grid grid-cols-1 md:grid-cols-3 gap-sm max-w-2xl mx-auto ${className}`}
     >
       {themes.map((themeOption) => (
         <button

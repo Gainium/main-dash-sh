@@ -39,7 +39,7 @@ const PageContainer: React.FC<PageContainerProps> = ({
   const spacingClasses = withWidgetSpacing
     ? [
         'space-y-1', // 4px vertical gap on mobile
-        'md:space-y-xs', // 8px vertical gap on desktop
+        '', // 8px vertical gap on desktop
       ]
     : [];
 

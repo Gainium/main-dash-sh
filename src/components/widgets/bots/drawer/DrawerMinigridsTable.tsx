@@ -254,7 +254,7 @@ export const DrawerMinigridsTable: React.FC<DrawerMinigridsTableProps> = ({
           </div>
 
           {/* Timestamps */}
-          <div className="flex flex-wrap gap-x-md gap-y-1 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/40">
+          <div className="flex flex-wrap gap-y-1 text-xs text-muted-foreground mt-3 pt-3 border-t border-border/40">
             <div>Created: {new Date(minigrid.createTime).toLocaleString()}</div>
             <div>Updated: {new Date(minigrid.updateTime).toLocaleString()}</div>
             {minigrid.closeTime && (

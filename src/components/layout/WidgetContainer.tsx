@@ -110,7 +110,7 @@ const WidgetContainer: React.FC<WidgetContainerProps> = ({
   const getResponsiveGaps = () => {
     if (!margin) {
       // Default responsive gaps
-      return 'gap-xs sm:gap-sm';
+      return 'gap-xs';
     }
 
     const gapClasses: string[] = [];
@@ -197,7 +197,7 @@ const WidgetContainer: React.FC<WidgetContainerProps> = ({
 
     if (!margin) {
       // Default responsive spacing
-      return 'space-y-1 sm:space-y-xs';
+      return 'space-y-1';
     }
 
     const spaceClasses: string[] = [];

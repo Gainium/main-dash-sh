@@ -4055,7 +4055,7 @@ function DataTableComponent<TData, TValue>(
                                 {hotButtonFilters.title}
                               </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-md lg:gap-lg">
+                            <div className="flex flex-wrap items-center gap-md">
                               {hotButtonFilters.filters.map((filter) => (
                                 <div
                                   key={filter.columnId}

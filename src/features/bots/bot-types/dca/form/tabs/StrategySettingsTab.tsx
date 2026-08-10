@@ -12,7 +12,7 @@ export const StrategySettingsTab = React.memo<BotFormTabComponentProps>(({
   bot,
   handleUpdateBalances,
 }) => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+  <div className="space-y-md">
     <StrategySettings
       currentExchange={currentExchange}
       formData={formData}

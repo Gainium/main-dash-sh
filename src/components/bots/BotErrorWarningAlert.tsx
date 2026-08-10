@@ -68,7 +68,7 @@ export function BotErrorWarningAlert({
     <div
       role="alert"
       className={cn(
-        'flex items-start gap-sm rounded-lg border p-sm text-sm md:p-md',
+        'flex items-start gap-sm rounded-lg border p-sm text-sm',
         isError
           ? 'border-destructive/30 bg-destructive/10'
           : isInfo

@@ -457,7 +457,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
             Padding uses --spacing-* tokens so it shrinks in compact mode. */}
         <div
           data-slot="card"
-          className="bg-muted rounded-lg p-sm md:p-md space-y-sm md:space-y-md transition-all duration-200"
+          className="bg-muted rounded-lg p-sm space-y-sm transition-all duration-200"
         >
           {/* Header — name gets full width; chips flow with wrap.
                 Floating actions slide in over the right edge on hover (desktop)

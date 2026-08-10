@@ -24,7 +24,7 @@ export const Widget: React.FC<WidgetProps> = ({
       {...props}
       className={clsx(
         'flex flex-col h-full bg-card', // Remove m-2 to eliminate widget margins
-        !noPadding && 'p-xs md:p-md',
+        !noPadding && 'p-xs',
         rounded && 'rounded-lg',
         shadow && 'shadow-md',
         // Apply overflow behavior

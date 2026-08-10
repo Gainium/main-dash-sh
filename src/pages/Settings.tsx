@@ -176,7 +176,7 @@ const ShLicenseKeyForm: React.FC<ShLicenseKeyFormProps> = ({
           disabled={busy || !draft.trim()}
         >
           {licenseKeyOps.isSaving && (
-            <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           )}
           SAVE LICENSE KEY
         </Button>
@@ -187,7 +187,7 @@ const ShLicenseKeyForm: React.FC<ShLicenseKeyFormProps> = ({
             disabled={busy}
           >
             {licenseKeyOps.isDeleting && (
-              <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+              <Loader2 className="w-4 h-4 animate-spin" />
             )}
             DELETE LICENSE KEY
           </Button>
@@ -591,8 +591,8 @@ const Settings: React.FC = () => {
   const renderSettingsSidebar = () => (
     <div className="md:w-80 md:shrink-0 md:pr-3">
       <div className="bg-card rounded-xl md:sticky md:top-4 overflow-y-auto md:max-h-[calc(100vh-2rem)]">
-        <div className="p-sm md:p-md">
-          <nav className={`grid grid-cols-2 md:grid-cols-1 ${pageGap} md:gap-xs md:space-y-xs`}>
+        <div className="p-sm">
+          <nav className={`grid grid-cols-2 md:grid-cols-1 ${pageGap}`}>
             {settingsSections.map((section) => (
               <div key={section.id}>
                 <button
@@ -621,7 +621,7 @@ const Settings: React.FC = () => {
                 </button>
                 {section.subsections && (
                   <div
-                    className={`ml-lg mt-xs space-y-xs overflow-hidden transition-all duration-300 ease-in-out ${
+                    className={`space-y-xs overflow-hidden transition-all duration-300 ease-in-out ${
                       expandedSections.has(section.id)
                         ? 'max-h-96 opacity-100'
                         : 'max-h-0 opacity-0'
@@ -729,7 +729,7 @@ const Settings: React.FC = () => {
                   <Label className="text-muted-foreground uppercase text-xs tracking-wider">
                     PICTURE
                   </Label>
-                  <div className="flex items-center gap-md mt-xs">
+                  <div className="flex items-center gap-md">
                     <div className="w-12 h-12 gradient-brand rounded-full flex items-center justify-center">
                       <span className="text-white font-bold text-lg">
                         {firstName ? firstName.charAt(0).toUpperCase() : 'U'}
@@ -739,7 +739,7 @@ const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <div className="space-y-xs md:space-y-md">
+              <div className="space-y-xs">
                 <div>
                   <Label
                     htmlFor="email"
@@ -828,7 +828,7 @@ const Settings: React.FC = () => {
                 disabled={isUpdatingTimezone || isLoading}
               >
                 {isUpdatingTimezone && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 )}
                 Update Timezone
               </Button>
@@ -838,7 +838,7 @@ const Settings: React.FC = () => {
                 disabled={isUpdatingSettings || isLoading}
               >
                 {isUpdatingSettings && (
-                  <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                  <Loader2 className="w-4 h-4 animate-spin" />
                 )}
                 Update Personal Data
               </Button>
@@ -982,7 +982,7 @@ const Settings: React.FC = () => {
             </CardHeader>
             <CardContent className="space-y-md">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
-                <div className="space-y-xs md:space-y-md">
+                <div className="space-y-xs">
                   <div>
                     <Label
                       htmlFor="new-password"
@@ -1106,7 +1106,7 @@ const Settings: React.FC = () => {
                   }
                 >
                   {passwordOps.isChangingPassword && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   )}
                   Change Password
                 </Button>
@@ -1146,7 +1146,7 @@ const Settings: React.FC = () => {
 
               {/* 2FA Setup Flow */}
               {twoFAOps.otpData && !is2FAEnabled && (
-                <div className="bg-muted rounded-lg p-sm md:p-md space-y-xs md:space-y-md">
+                <div className="bg-muted rounded-lg p-sm space-y-xs">
                   <h3 className="font-semibold text-foreground">
                     Setup Two-Factor Authentication
                   </h3>
@@ -1173,7 +1173,7 @@ const Settings: React.FC = () => {
                       </div>
                     )}
 
-                    <div className="bg-background p-sm md:p-md rounded-lg">
+                    <div className="bg-background p-sm rounded-lg">
                       <p className="text-xs font-mono break-all">
                         {twoFAOps.otpData.otp_base32}
                       </p>
@@ -1200,7 +1200,7 @@ const Settings: React.FC = () => {
                           disabled={twoFAOps.isVerifyingOTP}
                         >
                           {twoFAOps.isVerifyingOTP && (
-                            <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                            <Loader2 className="w-4 h-4 animate-spin" />
                           )}
                           Verify
                         </Button>
@@ -1212,7 +1212,7 @@ const Settings: React.FC = () => {
 
               {/* Recovery Codes Display */}
               {twoFAOps.recoveryCodes && twoFAOps.recoveryCodes.length > 0 && (
-                <div className="rounded-lg p-sm md:p-md space-y-xs md:space-y-md bg-warning/10 border border-warning/20">
+                <div className="rounded-lg p-sm space-y-xs bg-warning/10 border border-warning/20">
                   <h3 className="font-semibold text-foreground flex items-center gap-xs">
                     <AlertTriangle className="w-4 h-4 text-warning" />
                     Recovery Codes
@@ -1271,7 +1271,7 @@ const Settings: React.FC = () => {
 
               {/* Regenerate recovery codes (cloud-only; app-sh lacks the mutation) */}
               {IS_CLOUD && is2FAEnabled && (
-                <div className="pt-sm border-t border-border">
+                <div className="border-t border-border">
                   <div className="flex items-center justify-between gap-md">
                     <div className="space-y-xs">
                       <Label className="text-muted-foreground uppercase text-xs tracking-wider">
@@ -1287,7 +1287,7 @@ const Settings: React.FC = () => {
                       onClick={openRegenDialog}
                       disabled={regenerateRecoveryCodes.isPending}
                     >
-                      <RotateCcw className="w-4 h-4 mr-xs" />
+                      <RotateCcw className="w-4 h-4" />
                       Regenerate
                     </Button>
                   </div>
@@ -1351,7 +1351,7 @@ const Settings: React.FC = () => {
                       onClick={handleCopyRegenCodes}
                       className="flex-1"
                     >
-                      <Copy className="w-4 h-4 mr-xs" />
+                      <Copy className="w-4 h-4" />
                       Copy
                     </Button>
                     <Button
@@ -1359,7 +1359,7 @@ const Settings: React.FC = () => {
                       onClick={handleDownloadRegenCodes}
                       className="flex-1"
                     >
-                      <Download className="w-4 h-4 mr-xs" />
+                      <Download className="w-4 h-4" />
                       Download
                     </Button>
                   </div>
@@ -1416,7 +1416,7 @@ const Settings: React.FC = () => {
                     }
                   >
                     {regenerateRecoveryCodes.isPending && (
-                      <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                      <Loader2 className="w-4 h-4 animate-spin" />
                     )}
                     Confirm
                   </Button>
@@ -1499,7 +1499,7 @@ const Settings: React.FC = () => {
                   disabled={apiKeysOps.isCreating || isLoading}
                 >
                   {apiKeysOps.isCreating && (
-                    <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                    <Loader2 className="w-4 h-4 animate-spin" />
                   )}
                   ADD API KEYS
                 </Button>
@@ -1508,12 +1508,12 @@ const Settings: React.FC = () => {
             <CardContent>
               {/* New API Key Display */}
               {apiKeysOps.newAPIKey && (
-                <div className="mb-sm md:mb-lg p-sm md:p-md rounded-lg bg-success/10 border border-success/20">
-                  <h3 className="font-semibold text-foreground mb-xs flex items-center gap-xs">
+                <div className="p-sm rounded-lg bg-success/10 border border-success/20">
+                  <h3 className="font-semibold text-foreground flex items-center gap-xs">
                     <Check className="w-4 h-4 text-success" />
                     New API Key Created
                   </h3>
-                  <p className="text-sm text-muted-foreground mb-sm">
+                  <p className="text-sm text-muted-foreground">
                     Save this API key now. You won't be able to see it again.
                   </p>
                   <div className="space-y-xs">
@@ -1539,7 +1539,7 @@ const Settings: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="mt-sm"
+                    className=""
                     onClick={apiKeysOps.resetCreate}
                   >
                     Dismiss
@@ -1551,7 +1551,7 @@ const Settings: React.FC = () => {
               <div className="overflow-x-auto">
                 {apiKeys.length === 0 && !isLoading ? (
                   <div className="text-center py-lg text-muted-foreground">
-                    <Key className="w-12 h-12 mx-auto mb-md opacity-50" />
+                    <Key className="w-12 h-12 mx-auto opacity-50" />
                     <p>No API keys found</p>
                     <p className="text-sm">
                       Create your first API key to get started
@@ -1744,7 +1744,7 @@ const Settings: React.FC = () => {
                 apiKeysOps.isChangingName ||
                 apiKeysOps.isChangingPaperContext ||
                 apiKeysOps.isChangingBotId) && (
-                <div className="flex items-center gap-xs text-muted-foreground mt-md">
+                <div className="flex items-center gap-xs text-muted-foreground">
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>
                     {apiKeysOps.isRenewing && 'Renewing API key...'}
@@ -1761,28 +1761,28 @@ const Settings: React.FC = () => {
 
               {/* Error Messages */}
               {apiKeysOps.createError && (
-                <div className="text-sm text-red-500 mt-md">
+                <div className="text-sm text-red-500">
                   Error creating API key: {apiKeysOps.createError.message}
                 </div>
               )}
               {apiKeysOps.renewError && (
-                <div className="text-sm text-red-500 mt-md">
+                <div className="text-sm text-red-500">
                   Error renewing API key: {apiKeysOps.renewError.message}
                 </div>
               )}
               {apiKeysOps.deleteError && (
-                <div className="text-sm text-red-500 mt-md">
+                <div className="text-sm text-red-500">
                   Error deleting API key: {apiKeysOps.deleteError.message}
                 </div>
               )}
               {apiKeysOps.changePaperContextError && (
-                <div className="text-sm text-red-500 mt-md">
+                <div className="text-sm text-red-500">
                   Error updating paper context:{' '}
                   {apiKeysOps.changePaperContextError.message}
                 </div>
               )}
               {apiKeysOps.changeBotIdError && (
-                <div className="text-sm text-red-500 mt-md">
+                <div className="text-sm text-red-500">
                   Error updating bot ID: {apiKeysOps.changeBotIdError.message}
                 </div>
               )}
@@ -1882,9 +1882,9 @@ const Settings: React.FC = () => {
                 <Label className="text-muted-foreground uppercase text-xs tracking-wider">
                   LICENSE KEY
                 </Label>
-                <div className="mt-xs">
+                <div className="">
                   {currentLicenseKey ? (
-                    <div className="space-y-xs md:space-y-sm">
+                    <div className="space-y-xs">
                       <div className="font-mono text-sm bg-muted p-sm rounded break-all">
                         {currentLicenseKey}
                       </div>
@@ -1926,12 +1926,12 @@ const Settings: React.FC = () => {
     <>
       {/* New License Key Display */}
       {licenseKeyOps.generateSuccess && licenseKeyOps.licenseKey && (
-        <div className="p-sm md:p-md rounded-lg bg-success/10 border border-success/20">
-          <h3 className="font-semibold text-foreground mb-xs flex items-center gap-xs">
+        <div className="p-sm rounded-lg bg-success/10 border border-success/20">
+          <h3 className="font-semibold text-foreground flex items-center gap-xs">
             <Check className="w-4 h-4 text-success" />
             New License Key Generated
           </h3>
-          <p className="text-sm text-muted-foreground mb-sm">
+          <p className="text-sm text-muted-foreground">
             Your new license key has been generated successfully.
           </p>
           <Button
@@ -1951,7 +1951,7 @@ const Settings: React.FC = () => {
           disabled={licenseKeyOps.isGenerating || isLoading}
         >
           {licenseKeyOps.isGenerating && (
-            <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+            <Loader2 className="w-4 h-4 animate-spin" />
           )}
           {currentLicenseKey
             ? 'REGENERATE LICENSE KEY'
@@ -2006,7 +2006,7 @@ const Settings: React.FC = () => {
               <Label className="text-muted-foreground uppercase text-xs tracking-wider">
                 Type
               </Label>
-              <div className="mt-md overflow-x-auto">
+              <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="border-b">
@@ -2198,14 +2198,14 @@ const Settings: React.FC = () => {
       default:
         return (
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold mb-xs md:mb-md">
+            <h1 className="text-2xl md:text-3xl font-bold">
               {settingsSections.find((s) => s.id === activeSection)?.title ||
                 'Settings'}
             </h1>
             <Card>
-              <CardContent className="p-md md:p-lg text-center">
-                <SettingsIcon className="w-16 h-16 text-muted-foreground mx-auto mb-xs md:mb-md" />
-                <p className="text-muted-foreground mb-xs md:mb-md">
+              <CardContent className="p-md text-center">
+                <SettingsIcon className="w-16 h-16 text-muted-foreground mx-auto" />
+                <p className="text-muted-foreground">
                   This section is currently under development.
                 </p>
                 <Button

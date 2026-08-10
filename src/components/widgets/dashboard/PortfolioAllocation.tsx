@@ -641,7 +641,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
           ...(onTabMove && { onTabMove }),
         }}
       >
-        <div className="flex flex-col h-full p-xs sm:p-sm lg:p-md bg-card">
+        <div className="flex flex-col h-full p-xs bg-card">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="animate-pulse text-muted-foreground">
@@ -692,7 +692,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
           }),
         }}
       >
-        <div className="flex flex-col h-full p-xs sm:p-sm lg:p-md bg-card">
+        <div className="flex flex-col h-full p-xs bg-card">
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center">
               <div className="text-muted-foreground mb-2">
@@ -708,7 +708,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
   }
 
   const content = (
-    <div className="flex flex-col h-full p-xs sm:p-sm lg:p-md bg-card">
+    <div className="flex flex-col h-full p-xs bg-card">
       {/* Chart Area */}
       <div className="flex-1 min-h-[180px] sm:min-h-[200px] lg:min-h-[220px] flex items-center justify-center">
         <div className="relative w-full h-full max-w-full max-h-full">

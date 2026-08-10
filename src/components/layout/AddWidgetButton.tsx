@@ -35,7 +35,7 @@ const AddWidgetButton: React.FC<AddWidgetButtonProps> = ({
     <Button
       onClick={onClick}
       variant="outline"
-      className={`h-auto p-sm md:p-md flex-col gap-xs ${className}`}
+      className={`h-auto p-sm flex-col gap-xs ${className}`}
     >
       <Plus className="h-5 w-5" />
       {children || 'Add Widget'}

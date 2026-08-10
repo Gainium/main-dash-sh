@@ -280,19 +280,19 @@ const Login: React.FC = () => {
   return (
     <AuthPageShell>
       {mode === undefined ? (
-        <div className="flex flex-col items-center justify-center py-2xl gap-md text-muted-foreground">
+        <div className="flex flex-col items-center justify-center gap-md text-muted-foreground">
           <Loader2 className="w-6 h-6 animate-spin" />
           <p className="text-sm">Checking backend…</p>
         </div>
       ) : (
         <>
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground mb-xs">
+            <h1 className="text-2xl font-bold text-foreground">
               {heading}
             </h1>
             <p className="text-muted-foreground">{subheading}</p>
             {modeError && (
-              <p className="mt-xs text-xs text-amber-600 dark:text-amber-400">
+              <p className="text-xs text-amber-600 dark:text-amber-400">
                 {modeError}
               </p>
             )}
@@ -429,7 +429,7 @@ const Login: React.FC = () => {
                     type="file"
                     accept="image/*"
                     onChange={handleAvatarUpload}
-                    className="h-12 file:mr-md file:rounded file:border-0 file:bg-muted file:px-md file:py-xs file:text-sm cursor-pointer"
+                    className="h-12 file:rounded file:border-0 file:bg-muted file:text-sm cursor-pointer"
                   />
                 </div>
               </div>
@@ -574,7 +574,7 @@ const Login: React.FC = () => {
                       onClick={() => setMagicOpen(true)}
                       className="w-full h-11"
                     >
-                      <Mail className="w-4 h-4 mr-xs" />
+                      <Mail className="w-4 h-4" />
                       Continue with email link
                     </Button>
                   </>
@@ -712,7 +712,7 @@ const Login: React.FC = () => {
                       className="flex-1"
                     >
                       {passwordReset.isPending && (
-                        <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                        <Loader2 className="w-4 h-4 animate-spin" />
                       )}
                       Send reset link
                     </Button>

@@ -2062,7 +2062,7 @@ const TradingBots: React.FC = () => {
     return (
       <MainLayout pageTitle="Trading Bots" activePage="/bot">
         <WidgetContainer layout="flex" verticalGap>
-          <Widget className="p-sm md:p-md text-card-foreground" noPadding>
+          <Widget className="p-sm text-card-foreground" noPadding>
             <div className="space-y-sm">
               <h1 className="text-2xl font-bold">Trading Bots</h1>
               <p className="text-muted-foreground">{reason}</p>
@@ -2129,7 +2129,7 @@ const TradingBots: React.FC = () => {
           {/* Active Trading Bots - Full Height */}
           <motion.div {...TRADING_BOTS_WIDGET_MOTION}>
             <Widget
-              className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+              className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
               overflow="auto"
             >
@@ -2139,7 +2139,7 @@ const TradingBots: React.FC = () => {
               >
                 <div className="flex flex-col h-full min-h-[500px]">
                   <motion.div
-                    className="mb-md shrink-0"
+                    className="shrink-0"
                     {...TRADING_BOTS_HEADER_MOTION}
                   >
                     {/* Small screens: title and New on the same row */}
@@ -2157,7 +2157,7 @@ const TradingBots: React.FC = () => {
                         {readOnly ? (
                           <span title="Creating bots is not available in demo mode">
                             <MotionButton variant="default" disabled={true}>
-                              <Plus className="w-4 h-4 mr-xs" />
+                              <Plus className="w-4 h-4" />
                               New
                             </MotionButton>
                           </span>
@@ -2167,7 +2167,7 @@ const TradingBots: React.FC = () => {
                             onClick={handleCreateBot}
                             className="fx-glow"
                           >
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         )}
@@ -2185,7 +2185,7 @@ const TradingBots: React.FC = () => {
                     </div>
 
                     {/* Large screens: title, stats and button on a single row */}
-                    <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                    <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                       <div className="flex items-center gap-xs">
                         <h2 className="font-semibold text-xl">Trading Bots</h2>
                         <StaleIndicator componentId="trading-bots" />
@@ -2207,7 +2207,7 @@ const TradingBots: React.FC = () => {
                         {readOnly ? (
                           <span title="Creating bots is not available in demo mode">
                             <MotionButton variant="default" disabled={true}>
-                              <Plus className="w-4 h-4 mr-xs" />
+                              <Plus className="w-4 h-4" />
                               New
                             </MotionButton>
                           </span>
@@ -2217,7 +2217,7 @@ const TradingBots: React.FC = () => {
                             onClick={handleCreateBot}
                             className="fx-glow"
                           >
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         )}

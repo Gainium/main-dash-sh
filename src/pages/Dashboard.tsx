@@ -118,9 +118,9 @@ const Dashboard: React.FC<DashboardProps> = ({ tourMode = false }) => {
         >
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <p className="text-muted-foreground mb-md">No dashboard found</p>
+              <p className="text-muted-foreground">No dashboard found</p>
               <Button onClick={() => setCreateDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-xs" />
+                <Plus className="h-4 w-4" />
                 Create Dashboard
               </Button>
             </div>

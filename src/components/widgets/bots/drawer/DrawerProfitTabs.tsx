@@ -938,7 +938,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
 
 
   return (
-    <div className="space-y-5 sm:space-y-lg @container">
+    <div className="space-y-5 @container">
       {/* Grid Info Section - Only for Grid bots */}
       {botType === 'grid' &&
         rawBot &&

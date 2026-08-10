@@ -95,6 +95,7 @@ export default tseslint.config(
       'react-hooks/refs': 'off',
       // Custom spacing rules
       'spacing/no-hardcoded-font-size': 'warn',
+      'spacing/no-unknown-spacing-token': 'error',
       // Every recharts series must set isAnimationActive explicitly (default
       // false) — mid-animation unmount crashes React #185. See the rule doc
       // and core/src/components/trades/TradeCard.tsx.

@@ -660,7 +660,7 @@ const TabsList = React.forwardRef<
       'relative inline-flex h-11 items-center justify-center rounded-lg bg-inner-container p-1.5 text-muted-foreground';
 
     const baseOutlined =
-      'relative inline-flex h-11 items-center justify-start bg-transparent p-0 text-muted-foreground border-b-2 border-border overflow-visible mb-sm';
+      'relative inline-flex h-11 items-center justify-start bg-transparent p-0 text-muted-foreground border-b-2 border-border overflow-visible';
 
     const listBaseClass = variant === 'outlined' ? baseOutlined : baseDefault;
 

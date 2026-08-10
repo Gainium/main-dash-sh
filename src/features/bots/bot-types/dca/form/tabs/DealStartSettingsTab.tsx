@@ -9,7 +9,7 @@ import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/t
 // keystrokes via the shared comparator.
 export const DealStartSettingsTab = React.memo<BotFormTabComponentProps>(
   () => (
-    <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+    <div className="space-y-md">
       <DealStartSettings />
     </div>
   ),

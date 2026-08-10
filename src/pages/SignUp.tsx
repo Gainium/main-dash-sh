@@ -54,7 +54,7 @@ const SignUp: React.FC = () => {
   return (
     <AuthPageShell>
       <div className="text-center mb-6">
-        <h1 className="text-2xl font-bold text-foreground mb-xs">
+        <h1 className="text-2xl font-bold text-foreground">
           Create your account
         </h1>
         <p className="text-muted-foreground">

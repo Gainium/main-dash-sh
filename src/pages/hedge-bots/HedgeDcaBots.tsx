@@ -801,7 +801,7 @@ const HedgeDcaBots = () => {
         >
           <motion.div {...HEDGE_BOTS_WIDGET_MOTION}>
             <Widget
-              className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+              className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
               overflow="auto"
             >
@@ -811,7 +811,7 @@ const HedgeDcaBots = () => {
               >
               <div className="flex h-full min-h-[500px] flex-col">
                 <motion.div
-                  className="mb-md shrink-0"
+                  className="shrink-0"
                   {...HEDGE_BOTS_HEADER_MOTION}
                 >
                   {/* Small screens: title + New stacked, stats row below */}
@@ -825,7 +825,7 @@ const HedgeDcaBots = () => {
                       {readOnly ? (
                         <span title="Creating bots is not available in demo mode">
                           <MotionButton variant="default" disabled={true}>
-                            <Plus className="mr-xs h-4 w-4" />
+                            <Plus className="h-4 w-4" />
                             New
                           </MotionButton>
                         </span>
@@ -834,7 +834,7 @@ const HedgeDcaBots = () => {
                           variant="default"
                           onClick={() => navigate('/hedge/bot/new')}
                         >
-                          <Plus className="mr-xs h-4 w-4" />
+                          <Plus className="h-4 w-4" />
                           New
                         </MotionButton>
                       )}
@@ -850,7 +850,7 @@ const HedgeDcaBots = () => {
                   </div>
 
                   {/* Large screens: title, stats and button on a single row */}
-                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                  <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                     <h2 className="text-xl font-semibold">Hedge DCA Bots</h2>
                     <div className="min-w-0 flex justify-end px-md">
                       <BotListStatsBoxes
@@ -867,7 +867,7 @@ const HedgeDcaBots = () => {
                       {readOnly ? (
                         <span title="Creating bots is not available in demo mode">
                           <MotionButton variant="default" disabled={true}>
-                            <Plus className="mr-xs h-4 w-4" />
+                            <Plus className="h-4 w-4" />
                             New
                           </MotionButton>
                         </span>
@@ -876,7 +876,7 @@ const HedgeDcaBots = () => {
                           variant="default"
                           onClick={() => navigate('/hedge/bot/new')}
                         >
-                          <Plus className="mr-xs h-4 w-4" />
+                          <Plus className="h-4 w-4" />
                           New
                         </MotionButton>
                       )}

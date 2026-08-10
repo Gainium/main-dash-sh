@@ -23,7 +23,7 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
         }
       : {};
 
-    // When position is used, apply InnerCard styling (p-sm md:p-md, space-y-sm md:space-y-md, rounded-lg)
+    // When position is used, apply InnerCard styling (p-sm, space-y-sm, rounded-lg)
     // Otherwise, use the original Card styling.
     // Padding uses --spacing-* tokens so it shrinks in compact mode.
     // No border by default — surface contrast (bg-card vs page bg) is the
@@ -33,8 +33,8 @@ const Card = React.forwardRef<HTMLDivElement, CardProps>(
     // scrolls instead of blowing out the layout. Without it, grid/flex items
     // default to `min-width: min-content` and burst past the viewport.
     const cardClasses = position
-      ? 'rounded-lg p-sm md:p-md space-y-sm md:space-y-md min-w-0'
-      : `bg-card text-card-foreground flex flex-col min-w-0 ${compact ? 'gap-0' : 'gap-md lg:gap-lg'} rounded-xl py-md md:py-lg`;
+      ? 'rounded-lg p-sm space-y-sm min-w-0'
+      : `bg-card text-card-foreground flex flex-col min-w-0 ${compact ? 'gap-0' : 'gap-md'} rounded-xl py-md`;
 
     return (
       <div
@@ -62,7 +62,7 @@ function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
     <div
       data-slot="card-header"
       className={cn(
-        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-md md:px-lg has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-md',
+        '@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-1.5 px-md has-data-[slot=card-action]:grid-cols-[1fr_auto]',
         className
       )}
       {...props}
@@ -107,7 +107,7 @@ function CardContent({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-content"
-      className={cn('px-md md:px-lg', className)}
+      className={cn('px-md', className)}
       {...props}
     />
   );
@@ -117,7 +117,7 @@ function CardFooter({ className, ...props }: React.ComponentProps<'div'>) {
   return (
     <div
       data-slot="card-footer"
-      className={cn('flex items-center px-md md:px-lg [.border-t]:pt-md', className)}
+      className={cn('flex items-center px-md', className)}
       {...props}
     />
   );

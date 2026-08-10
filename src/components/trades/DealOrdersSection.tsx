@@ -170,7 +170,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
         'rounded-lg overflow-hidden transition-colors',
         // Card view sits flush against the toolbar otherwise — give the first
         // card the same breathing room above it as the gap between cards.
-        index === 0 && 'mt-md',
+        index === 0 && '',
         isSmart ? 'bg-muted/25' : 'bg-muted/40'
       )}
     >
@@ -255,7 +255,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
 
       {/* Expanded Details */}
       {isExpanded && (
-        <div className="px-md pb-md pt-sm bg-background/60">
+        <div className="px-md bg-background/60">
           <div className="space-y-md">
             {/* Progress Bar for Partial Fills */}
             {order.status === 'partial' && (
@@ -332,7 +332,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
             </div>
 
             {/* Order ID */}
-            <div className="flex items-center justify-between pt-sm">
+            <div className="flex items-center justify-between">
               <div className="flex flex-col flex-1 min-w-0">
                 <span className="text-xs text-muted-foreground mb-1">
                   Order ID
@@ -372,7 +372,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
 
             {/* Cancel action — only for cancellable open orders */}
             {cancellable && (
-              <div className="flex justify-end pt-sm">
+              <div className="flex justify-end">
                 <Button
                   variant="outline"
                   size="sm"
@@ -741,7 +741,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
 
   return (
     <Card className="p-lg">
-      <div className="flex items-center gap-xs mb-md">
+      <div className="flex items-center gap-xs">
         <ShoppingCart className="w-5 h-5 text-muted-foreground" />
         <h3 className="text-lg font-semibold">Orders</h3>
       </div>
@@ -751,7 +751,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           value={activeTab}
           onValueChange={(v) => setActiveTab(v as 'pending' | 'completed')}
         >
-          <TabsList className="grid w-full grid-cols-2 mb-md">
+          <TabsList className="grid w-full grid-cols-2">
             <TabsTrigger value="pending">Pending ({pendingCount})</TabsTrigger>
             <TabsTrigger value="completed">
               Completed ({completedCount})

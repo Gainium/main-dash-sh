@@ -542,7 +542,7 @@ export const FullscreenWidgetOverlay: React.FC<
               }, 1000);
             }}
           >
-            <div className="flex items-center space-x-xs sm:space-x-md">
+            <div className="flex items-center space-x-xs">
               <Monitor className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground" />
               <div className="flex flex-col">
                 <h1 className="text-base sm:text-lg font-semibold text-foreground flex items-center gap-xs">
@@ -630,7 +630,7 @@ export const FullscreenWidgetOverlay: React.FC<
               </div>
             </div>
 
-            <div className="flex items-center space-x-1 sm:space-x-xs">
+            <div className="flex items-center space-x-1">
               {/* Navigation Controls */}
               {canNavigate && (
                 <div className="flex items-center space-x-1 mr-2 sm:mr-4">
@@ -656,7 +656,7 @@ export const FullscreenWidgetOverlay: React.FC<
               )}
 
               {/* Close and Menu Buttons */}
-              <div className="flex items-center space-x-1 sm:space-x-xs">
+              <div className="flex items-center space-x-1">
                 {/* Widget Options Button (Cog) */}
                 {hasWidgetOptions && onWidgetSettings && (
                   <Button

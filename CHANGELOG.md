@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.43.0] - 2026-08-09
+
+### Added
+
+- Add Funds and Reduce Funds now work on a multi-deal selection, not just one deal at a time. Select the deals, pick the amount once, and it is applied to each of them — available in the bot details drawer, the Trading page Trades tab, the Trading Terminal and the Open Orders widget. Both actions previously answered with "Coming soon".
+
+### Changed
+
+- The funds dialog says how many deals it is about to act on, and spells out that the amount entered is applied to each selected deal rather than split between them. The asset picker only names the pair's base and quote assets when every selected deal shares them.
+- The bulk Add/Reduce Funds actions only appear when at least one selected deal can actually take a funds adjustment, and deals in the selection that can't (closed, cancelled, or combo) are skipped with a note instead of failing.
+
+## [2.42.33] - 2026-08-07
+
+### Fixed
+
+- Responsive spacing now actually applies. Layouts that were meant to breathe more on wider screens — and directional margins and padding throughout the app — were written against spacing classes the stylesheet never generated, so they quietly did nothing. The spacing scale now covers every direction and every breakpoint.
+- Light and dark styling now follows the theme you pick in the app rather than your operating system's appearance setting. If your device was set to dark while the app was set to light (or the reverse), some text and highlight colours were taken from the wrong theme.
+
+### Changed
+
+- Spacing tokens (`xs`/`sm`/`md`/`lg`/`xl`) keep tracking the Comfortable/Compact setting, and now do so across every spacing utility rather than a partial subset.
+
 ## [2.42.32] - 2026-08-07
 
 ### Fixed

@@ -1150,7 +1150,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                   }
 
                   return (
-                    <div className="mt-xs">
+                    <div className="">
                       <HelpArticlePill url={helpPath} />
                     </div>
                   );
@@ -1414,7 +1414,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                     {formData.useApproveBuilderFees && <li>Approve builder fees</li>}
                   </ul>
 
-                  <div className="flex gap-sm mt-sm">
+                  <div className="flex gap-sm">
                     <Button
                       type="button"
                       variant="outline"
@@ -1603,7 +1603,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
           {/* Sub-account toggle for Hyperliquid (only when API keys are shown) */}
           {isHyperliquid && showHyperliquidKeys && (
-            <div className="flex items-center gap-sm mt-md">
+            <div className="flex items-center gap-sm">
               <Switch
                 id="subaccount"
                 checked={formData.subaccount || false}
@@ -1785,7 +1785,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
       {/* Form Actions - Hidden when Hyperliquid uses Web3 wallet flow */}
       {showHyperliquidKeys && (
-        <div className="flex flex-col sm:flex-row justify-end gap-xs sm:gap-sm pt-4 border-t">
+        <div className="flex flex-col sm:flex-row justify-end gap-xs pt-4 border-t">
           <Button
             type="button"
             variant="outline"

@@ -72,7 +72,7 @@ export function UpdatesTab() {
     return (
       <Card compact className="p-md text-destructive">
         Failed to load updates: {(error as Error).message}
-        <div className="mt-sm">
+        <div className="">
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             Retry
           </Button>

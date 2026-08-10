@@ -145,7 +145,7 @@ const APIKeysSection = () => {
     apiKeysOps.isChangingBotId;
 
   return (
-    <div className="p-sm md:p-lg max-w-6xl">
+    <div className="p-sm max-w-6xl">
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
@@ -161,14 +161,14 @@ const APIKeysSection = () => {
               disabled={apiKeysOps.isCreating}
             >
               {apiKeysOps.isCreating ? (
-                <Loader2 className="mr-xs h-4 w-4 animate-spin" />
+                <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <Plus className="mr-xs h-4 w-4" />
+                <Plus className="h-4 w-4" />
               )}
               Add API key
             </Button>
           </CardTitle>
-          <p className="mt-xs text-sm text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             API keys let external apps act on your account. The secret is shown
             only once — copy it somewhere safe.
           </p>
@@ -176,7 +176,7 @@ const APIKeysSection = () => {
         <CardContent>
           {apiKeys.length === 0 ? (
             <div className="rounded-md bg-muted px-md py-xl text-center">
-              <KeyIcon className="mx-auto mb-sm h-10 w-10 text-muted-foreground opacity-60" />
+              <KeyIcon className="mx-auto h-10 w-10 text-muted-foreground opacity-60" />
               <p className="text-sm font-medium">No API keys yet</p>
               <p className="text-xs text-muted-foreground">
                 Click <span className="font-medium">Add API key</span> to

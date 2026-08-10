@@ -1281,13 +1281,13 @@ const GridBots: React.FC = () => {
           }}
         >
           <Widget
-            className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+            className="p-sm text-card-foreground flex-1 min-h-[500px]"
             noPadding
             overflow="auto"
           >
             <div className="flex flex-col h-full min-h-[500px]">
               <motion.div
-                className="mb-md shrink-0"
+                className="shrink-0"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 }}
@@ -1307,7 +1307,7 @@ const GridBots: React.FC = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       </span>
@@ -1316,7 +1316,7 @@ const GridBots: React.FC = () => {
                         variant="default"
                         onClick={() => navigate('/grid/new')}
                       >
-                        <Plus className="w-4 h-4 mr-xs" />
+                        <Plus className="w-4 h-4" />
                         New
                       </MotionButton>
                     )}
@@ -1335,7 +1335,7 @@ const GridBots: React.FC = () => {
                 </div>
 
                 {/* Large screens: title, stats and button on a single row */}
-                <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                   <div className="flex items-center gap-sm">
                     <div className="flex items-center gap-xs">
                       <h2 className="font-semibold text-xl">
@@ -1358,7 +1358,7 @@ const GridBots: React.FC = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       </span>
@@ -1367,7 +1367,7 @@ const GridBots: React.FC = () => {
                         variant="default"
                         onClick={() => navigate('/grid/new')}
                       >
-                        <Plus className="w-4 h-4 mr-xs" />
+                        <Plus className="w-4 h-4" />
                         New
                       </MotionButton>
                     )}

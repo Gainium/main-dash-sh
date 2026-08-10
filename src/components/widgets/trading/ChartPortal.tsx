@@ -59,7 +59,7 @@ const ChartPortal: React.FC<ChartPortalProps> = ({
   // Chart content component
   const chartContent = (
     <div
-      className={`fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 md:p-sm ${zIndexClass}`}
+      className={`fixed inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 ${zIndexClass}`}
       onClick={handleBackdropClick}
     >
       <div

@@ -58,7 +58,7 @@ export const TemplatesPopover: React.FC<TemplatesPopoverProps> = ({
             className="w-full justify-start text-muted-foreground"
             disabled={templates.length === 0}
           >
-            <BookMarked className="mr-xs h-4 w-4" />
+            <BookMarked className="h-4 w-4" />
             {templates.length > 0
               ? `Use a saved template (${templates.length})`
               : 'No saved templates'}
