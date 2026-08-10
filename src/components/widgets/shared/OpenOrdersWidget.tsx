@@ -1852,6 +1852,76 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const selectedStatusLabel =
     statusFilter === 'open' ? openOptionLabel : closedOptionLabel;
 
+  // The status <Select> is handed to DataTable as `firstToolbarActions` /
+  // `firstToolbarActionsCompact`. Both are deps of the `buttonConfigs` useMemo
+  // in ToolbarButtonRow, whose result is the `buttons` prop of the React.memo'd
+  // ResponsiveButtonRow — so inline JSX here produced a fresh element identity
+  // on EVERY render of this widget, rebuilt the button array and defeated that
+  // memo. On /bot?view=deals the deal stores are written once per socket event
+  // (`bot deal update` / `data update` arrive ~30x/s on an account with active
+  // deals), which is what RenderLoopTripwire reported as "ResponsiveButtonRow —
+  // 26 renders in 769ms". Memoised on the primitives the markup actually reads,
+  // so the element changes when the labels/counts change and not before.
+  // `setStatusFilter` is a stable useCallback over a zustand action
+  // (`useTableCustomState`), so it is safe as a dep. Same shape TopDeals
+  // already uses for its own toolbar slot (`metricSelectFull`/`Compact`).
+  const statusToggleFull = useMemo(
+    () =>
+      enableStatusToggle ? (
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as 'open' | 'closed')}
+        >
+          <SelectTrigger className="h-9 w-40">
+            <SelectValue placeholder={selectedStatusLabel} />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="open">{openOptionLabel}</SelectItem>
+            <SelectItem value="closed">{closedOptionLabel}</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : undefined,
+    [
+      enableStatusToggle,
+      statusFilter,
+      setStatusFilter,
+      selectedStatusLabel,
+      openOptionLabel,
+      closedOptionLabel,
+    ]
+  );
+
+  const statusToggleCompact = useMemo(
+    () =>
+      enableStatusToggle ? (
+        <Select
+          value={statusFilter}
+          onValueChange={(value) => setStatusFilter(value as 'open' | 'closed')}
+        >
+          <SelectTrigger className="h-9 w-24">
+            <SelectValue
+              placeholder={
+                statusFilter === 'open' ? `${openCount}` : `${closedCount}`
+              }
+            />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="open">{openOptionLabel}</SelectItem>
+            <SelectItem value="closed">{closedOptionLabel}</SelectItem>
+          </SelectContent>
+        </Select>
+      ) : undefined,
+    [
+      enableStatusToggle,
+      statusFilter,
+      setStatusFilter,
+      openCount,
+      closedCount,
+      openOptionLabel,
+      closedOptionLabel,
+    ]
+  );
+
   // Define default bulk actions if none provided
   const addToJournalBulk = useTradeJournalStore((state) => state.addTrade);
   const mergeSmartOrdersMutation = useMergeSmartOrders();
@@ -3382,48 +3452,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             openDetailsRef.current(row);
           }
         }}
-        firstToolbarActions={
-          enableStatusToggle ? (
-            <Select
-              value={statusFilter}
-              onValueChange={(value) =>
-                setStatusFilter(value as 'open' | 'closed')
-              }
-            >
-              <SelectTrigger className="h-9 w-40">
-                <SelectValue placeholder={selectedStatusLabel} />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="open">{openOptionLabel}</SelectItem>
-                <SelectItem value="closed">{closedOptionLabel}</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : undefined
-        }
-        firstToolbarActionsCompact={
-          enableStatusToggle ? (
-            <Select
-              value={statusFilter}
-              onValueChange={(value) =>
-                setStatusFilter(value as 'open' | 'closed')
-              }
-            >
-              <SelectTrigger className="h-9 w-24">
-                <SelectValue
-                  placeholder={
-                    statusFilter === 'open'
-                      ? `${openCount}`
-                      : `${closedCount}`
-                  }
-                />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="open">{openOptionLabel}</SelectItem>
-                <SelectItem value="closed">{closedOptionLabel}</SelectItem>
-              </SelectContent>
-            </Select>
-          ) : undefined
-        }
+        firstToolbarActions={statusToggleFull}
+        firstToolbarActionsCompact={statusToggleCompact}
         enableGlobalFilter={true}
         enableColumnFilters={true}
         enableSorting={true}
