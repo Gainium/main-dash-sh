@@ -238,7 +238,7 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
           className="w-full h-11 pointer-events-none group-hover:bg-accent group-hover:text-accent-foreground"
         >
           <GoogleGlyph />
-          <span className="ml-xs">Continue with Google</span>
+          <span className="">Continue with Google</span>
         </Button>
         <div className="absolute inset-0 opacity-[0.001] overflow-hidden">
           <GoogleLogin

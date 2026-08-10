@@ -118,14 +118,14 @@ const DiscordCallback: React.FC = () => {
       <div className="w-full max-w-md">
         <Card className="border-0 shadow-xl">
           <div className="p-xl">
-            <div className="text-center mb-md">
-              <div className="inline-flex items-center gap-xs mb-md">
+            <div className="text-center">
+              <div className="inline-flex items-center gap-xs">
                 <LogoLockup className="w-50 h-8" />
               </div>
             </div>
 
             {isWorking ? (
-              <div className="flex flex-col items-center justify-center py-2xl gap-md text-muted-foreground">
+              <div className="flex flex-col items-center justify-center gap-md text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <p className="text-sm">Signing you in with Discord…</p>
               </div>

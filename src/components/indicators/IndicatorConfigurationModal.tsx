@@ -508,7 +508,7 @@ export const IndicatorConfigurationModal: React.FC<
               </ScrollArea>
 
               <DialogFooter className="gap-sm border-t border-border/60 px-6 pt-4 pb-6">
-                <div className="flex w-full flex-col-reverse gap-sm sm:flex-row sm:justify-end sm:gap-xs">
+                <div className="flex w-full flex-col-reverse gap-sm sm:flex-row sm:justify-end">
                   <Button
                     type="button"
                     variant="outline"

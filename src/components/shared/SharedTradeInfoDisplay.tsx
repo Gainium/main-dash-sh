@@ -525,7 +525,7 @@ export const SharedTradeInfoDisplay: React.FC<SharedTradeInfoDisplayProps> = ({
         }
         className="flex-1 flex flex-col overflow-hidden"
       >
-        <div className={showBackButton && onBack ? 'px-md pt-sm' : 'mb-md'}>
+        <div className={showBackButton && onBack ? 'px-md' : ''}>
           <div className="flex items-center gap-sm">
             <div className="flex-1">
               <TabsList className="w-full grid grid-cols-4">
@@ -855,7 +855,7 @@ export const SharedTradeInfoDisplay: React.FC<SharedTradeInfoDisplayProps> = ({
             {/* Tags */}
             {onUpdateTrade && (
               <Section title="Tags" icon={Tag}>
-                <div className="space-y-sm pb-sm">
+                <div className="space-y-sm">
                   <div className="flex flex-wrap gap-xs mb-2">
                     {(trade.tags || []).map((tag, idx) => {
                       const tagInfo = tagSuggestions.find((t) => t.tag === tag);

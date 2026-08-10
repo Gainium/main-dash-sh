@@ -25,6 +25,11 @@ interface CreateSharedDealBulkActionsOptions<T extends SharedDealActionRow> {
   onCancel: (selectedDeals: T[]) => Promise<void> | void;
   onClose: (selectedDeals: T[]) => Promise<void> | void;
   canMoveToTerminal: (deal: T) => boolean;
+  /**
+   * Whether a deal can take a funds adjustment (see `canAdjustDealFunds`).
+   * Omit to always offer the Add/Reduce Funds actions.
+   */
+  canAdjustFunds?: (deal: T) => boolean;
   getSymbol: (deal: T) => string;
 }
 
@@ -41,8 +46,15 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
     onCancel,
     onClose,
     canMoveToTerminal,
+    canAdjustFunds,
     getSymbol,
   } = options;
+
+  // Offer the funds actions only while at least one selected deal can take
+  // one — the flow itself skips the rest and says so.
+  const showAdjustFunds = canAdjustFunds
+    ? { shouldShow: (selectedDeals: T[]) => selectedDeals.some(canAdjustFunds) }
+    : {};
 
   return [
     {
@@ -80,12 +92,14 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
       label: 'Add Funds',
       icon: PlusCircle,
       onAction: onAddFunds,
+      ...showAdjustFunds,
     },
     {
       id: 'reduce-funds',
       label: 'Reduce Funds',
       icon: MinusCircle,
       onAction: onReduceFunds,
+      ...showAdjustFunds,
     },
     {
       id: 'edit',

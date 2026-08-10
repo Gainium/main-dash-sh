@@ -10,7 +10,7 @@ export const GridBasicSettingsTab = memo<BotFormTabComponentProps>(({
   mode,
   exchangesData,
 }) => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+  <div className="space-y-md">
     <GridBasicSettings
       currentExchange={currentExchange}
       {...(typeof exchangesLoading === 'boolean' ? { exchangesLoading } : {})}

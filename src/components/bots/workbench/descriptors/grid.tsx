@@ -37,16 +37,16 @@ function GridShareTabs({
         <TabsTrigger value="bt-equity">Equity Curve</TabsTrigger>
         <TabsTrigger value="bt-stats">Stats</TabsTrigger>
       </TabsList>
-      <TabsContent value="bt-overview" className="mt-md">
+      <TabsContent value="bt-overview" className="">
         <GridBacktestOverviewTab backtest={backtest} />
       </TabsContent>
-      <TabsContent value="bt-transactions" className="mt-md">
+      <TabsContent value="bt-transactions" className="">
         <GridBacktestTransactionsTab backtest={backtest} />
       </TabsContent>
-      <TabsContent value="bt-equity" className="mt-md">
+      <TabsContent value="bt-equity" className="">
         <GridBacktestEquityCurveTab backtest={backtest} />
       </TabsContent>
-      <TabsContent value="bt-stats" className="mt-md">
+      <TabsContent value="bt-stats" className="">
         <GridBacktestStatsTab backtest={backtest} />
       </TabsContent>
     </Tabs>

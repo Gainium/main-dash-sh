@@ -12,7 +12,7 @@ const EmptyStateExchanges: React.FC<EmptyStateExchangesProps> = ({
   onAddExchange,
 }) => {
   return (
-    <div className={`col-span-full p-sm md:p-lg ${className}`}>
+    <div className={`col-span-full p-sm ${className}`}>
       <div className="flex flex-col items-center justify-center gap-md py-16">
         <div className="flex items-center justify-center w-16 h-16 rounded-full bg-muted text-muted-foreground">
           <Plus className="w-6 h-6" />

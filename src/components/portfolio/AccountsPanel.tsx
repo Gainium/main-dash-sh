@@ -214,7 +214,7 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
             variant="ghost"
             size="sm"
             onClick={() => setAddExchangeDialog(true)}
-            className="h-8 w-8 p-0 sm:h-9 sm:w-9 sm:p-xs"
+            className="h-8 w-8 p-0 sm:h-9 sm:w-9"
             disabled={readOnly}
             title={
               readOnly
@@ -227,7 +227,7 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
           <Button
             variant="ghost"
             size="sm"
-            className="h-8 w-8 p-0 sm:h-9 sm:w-9 sm:p-xs"
+            className="h-8 w-8 p-0 sm:h-9 sm:w-9"
             onClick={() => handleRefreshAll()}
             disabled={isUpdatingBalance || loadingUuids.includes('ALL')}
             title="Refresh balances"
@@ -239,11 +239,11 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
         </div>
       </div>
 
-      <div className="space-y-1.5 sm:space-y-xs flex-1 min-h-0 overflow-y-auto">
+      <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto">
         {exchanges.map((exchange) => (
           <div
             key={exchange.id}
-            className={`group p-xs sm:p-sm rounded-lg cursor-pointer transition-colors ${
+            className={`group p-xs rounded-lg cursor-pointer transition-colors ${
               selectedExchanges.includes(exchange.id)
                 ? 'bg-inner-container'
                 : 'hover:bg-card/50'

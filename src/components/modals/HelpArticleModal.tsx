@@ -224,7 +224,7 @@ const ArticleSkeleton: React.FC = () => (
     <Skeleton className="h-7 w-3/4" />
     <Skeleton className="h-4 w-full" />
     <Skeleton className="h-4 w-5/6" />
-    <div className="space-y-xs mt-md">
+    <div className="space-y-xs">
       {Array.from({ length: 6 }).map((_, i) => (
         <Skeleton
           key={i}
@@ -288,7 +288,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
         zIndex={90}
         className="max-w-2xl max-h-[80vh] flex flex-col p-0 overflow-hidden"
       >
-        <DialogHeader className="glass-surface sticky top-0 z-10 rounded-t-lg px-md pt-8 pb-sm border-b border-border shrink-0">
+        <DialogHeader className="glass-surface sticky top-0 z-10 rounded-t-lg px-md pt-8 border-b border-border shrink-0">
           <div className="flex items-start justify-between gap-sm">
             <div className="flex items-center gap-xs min-w-0">
               <BookOpen className="w-5 h-5 text-muted-foreground shrink-0" />
@@ -308,7 +308,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
 
           {/* Meta: date + categories */}
           {metadata && (
-            <div className="flex flex-wrap items-center gap-sm mt-xs text-sm text-muted-foreground">
+            <div className="flex flex-wrap items-center gap-sm text-sm text-muted-foreground">
               {metadata.publishedAt && (
                 <span className="flex items-center gap-xs">
                   <Calendar className="w-3 h-3" />
@@ -340,7 +340,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
                 <p className="text-sm text-destructive font-medium">
                   Failed to load article
                 </p>
-                <p className="text-sm text-destructive/80 mt-xs">{error}</p>
+                <p className="text-sm text-destructive/80">{error}</p>
               </div>
             </div>
           )}
@@ -352,7 +352,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
                 <div className="flex items-start gap-sm p-sm bg-muted/30 border border-primary/20 rounded-lg">
                   <BookOpen className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-foreground mb-xs">TL;DR</p>
+                    <p className="font-semibold text-foreground">TL;DR</p>
                     <p className="text-foreground/80 leading-relaxed">
                       {metadata.tldr}
                     </p>

@@ -1,7 +1,7 @@
 import { AuthEnvWrapper } from '@/lib/auth';
 import { logger } from '@/lib/loggerInstance';
 import { queryClient } from '@/lib/queryClient';
-import { useAuthStore } from '@/stores/authStore';
+import { startSessionWatchdog, useAuthStore } from '@/stores/authStore';
 import React, {
   createContext,
   useCallback,
@@ -45,6 +45,12 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   useEffect(() => {
     initializeAuth();
   }, [initializeAuth]);
+
+  // `initializeAuth` above only runs on mount. The watchdog keeps checking
+  // for the rest of the tab's life, so a session that expires (or a boot
+  // validation that never got an answer) ends at the login screen instead of
+  // leaving every widget to render its own error.
+  useEffect(() => startSessionWatchdog(), []);
 
   // `AuthEnvWrapper` is registered at boot by `main.tsx`. The inner
   // `AuthContext` is mounted the same regardless of which wrapper is used.

@@ -38,7 +38,7 @@ export const RecalculateAcrossPairsButton: React.FC<RecalculateButtonProps> = ({
       className="h-7 text-xs"
     >
       <RefreshCw
-        className={`mr-xs h-3.5 w-3.5 ${multiPairLoading ? 'animate-spin' : ''}`}
+        className={`h-3.5 w-3.5 ${multiPairLoading ? 'animate-spin' : ''}`}
       />
       {multiPairLoading
         ? `Calibrating ${submittedSymbols?.length ?? pairList.length} pairs…`

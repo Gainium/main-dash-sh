@@ -191,10 +191,34 @@ export function useUserFees() {
         const queuedResults = await Promise.allSettled(queuedRequests);
         const allFees: UserFeeEntry[] = [];
         // Add results from queued requests
+        const rejections: unknown[] = [];
         for (const result of queuedResults) {
           if (result.status === 'fulfilled') {
             allFees.push(...result.value); // exchangeUUID placeholder
+          } else {
+            rejections.push(result.reason);
           }
+        }
+
+        // A rejected request is NOT the same as "this pair has no fee", and
+        // swallowing it here made the two indistinguishable to callers: a
+        // timed-out lookup came back as an absent entry, and `useUserFee` then
+        // told the user "User fee not found for BTCUSDT" — a definitive claim
+        // about their account that was simply false. Seen 2026-08-06 while the
+        // bot service was restarting; it never appeared before or after.
+        //
+        // If every request failed and nothing was served from cache, surface it
+        // as the failure it is so the caller can say "couldn't check" instead of
+        // "not found". Partial success still returns what we have.
+        if (
+          rejections.length > 0 &&
+          rejections.length === queuedResults.length &&
+          allFees.length === 0
+        ) {
+          const first = rejections[0];
+          throw first instanceof Error
+            ? first
+            : new Error(String(first ?? 'user fee lookup failed'));
         }
 
         // Add cached fees for remaining symbols

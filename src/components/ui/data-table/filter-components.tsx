@@ -126,20 +126,20 @@ const NumberRangeFilterInput: React.FC<{
   };
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 w-full min-w-0">
       <Input
         type="number"
         value={String(minValue ?? '')}
         onChange={(e) => handleMinChange(e.target.value)}
         placeholder="Min"
-        className="h-8 text-xs flex-1 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-8 text-xs flex-1 min-w-0 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <Input
         type="number"
         value={String(maxValue ?? '')}
         onChange={(e) => handleMaxChange(e.target.value)}
         placeholder="Max"
-        className="h-8 text-xs flex-1 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-8 text-xs flex-1 min-w-0 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </div>
   );
@@ -161,20 +161,20 @@ const DateRangeFilterInput: React.FC<{
   };
 
   return (
-    <div className="flex gap-1">
+    <div className="flex gap-1 w-full min-w-0">
       <Input
         type="date"
         value={String(startDate ?? '')}
         onChange={(e) => handleStartDateChange(e.target.value)}
         placeholder="From"
-        className="h-8 text-xs flex-1 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-8 text-xs flex-1 min-w-0 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <Input
         type="date"
         value={String(endDate ?? '')}
         onChange={(e) => handleEndDateChange(e.target.value)}
         placeholder="To"
-        className="h-8 text-xs flex-1 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        className="h-8 text-xs flex-1 min-w-0 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </div>
   );
@@ -355,18 +355,22 @@ const MultiSelectFilterInput: React.FC<{
   };
 
   return (
-    <div className="flex flex-wrap items-center gap-1 min-h-8">
+    // Single row, never wrapping: this renders inside a fixed-height table
+    // filter cell whose width is the column width, so wrapping would push the
+    // chips out of the cell. Chips shrink and truncate instead.
+    <div className="flex flex-nowrap items-center gap-1 h-8 w-full min-w-0 overflow-hidden">
       {/* Selected values */}
       {values.length > 0 &&
         values.map((val: string, index: number) => (
           <Badge
             key={index}
             variant="secondary"
-            className="text-xs px-2 py-0 h-5 cursor-pointer hover:bg-destructive/20 whitespace-nowrap"
+            className="text-xs px-2 py-0 h-5 cursor-pointer hover:bg-destructive/20 min-w-0 shrink"
             onClick={() => removeValue(val)}
+            title={`${val} — click to remove`}
           >
-            {val}
-            <X className="h-3 w-3 ml-1" />
+            <span className="truncate">{val}</span>
+            <X className="h-3 w-3 shrink-0" />
           </Badge>
         ))}
 
@@ -375,7 +379,11 @@ const MultiSelectFilterInput: React.FC<{
         onOpenChange={setDropdownOpen}
       >
         <PopoverTrigger asChild>
-          <div className="relative flex-1 min-w-16">
+          {/* Grows to fill the row when nothing is selected, but `shrink-0` +
+              `min-w-8` pins it at chevron width once chips appear — so the
+              chips absorb the shrinking and stay readable instead of the
+              (empty) text field holding space they need. */}
+          <div className="relative flex-1 min-w-6 shrink-0">
             <Input
               type="text"
               value={inputValue}
@@ -789,13 +797,15 @@ export const ColumnFilter: React.FC<{
               <Button
                 variant="ghost"
                 size="sm"
-                className="h-8 text-xs px-2 py-1 rounded-none border-0 bg-muted/60 hover:bg-muted/80 min-w-fit whitespace-nowrap shrink-0"
-                title="Change filter operator"
+                className="h-8 text-xs px-1.5 py-1 rounded-none border-0 bg-muted/60 hover:bg-muted/80 min-w-fit whitespace-nowrap shrink-0"
+                title={`Change filter operator${
+                  selectedOperator ? ` (${selectedOperator.label})` : ''
+                }`}
               >
                 {selectedOperator
                   ? selectedOperator.displayLabel || selectedOperator.label
                   : 'Filter'}
-                <ChevronDown className="h-3 w-3 ml-1" />
+                <ChevronDown className="h-3 w-3 ml-0.5" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
@@ -819,10 +829,12 @@ export const ColumnFilter: React.FC<{
           </DropdownMenu>
 
           {/* Separator */}
-          <div className="w-px bg-border my-1"></div>
+          <div className="w-px bg-border my-1 shrink-0"></div>
 
-          {/* Filter input */}
-          <div className="flex-1">
+          {/* Filter input. min-w-0 is what lets it shrink below its intrinsic
+              width — without it the input overflows the bordered container in
+              any column narrower than its content. */}
+          <div className="flex-1 min-w-0">
             <FilterComponent
               value={currentFilter.value}
               onChange={handleValueChange}
@@ -873,7 +885,7 @@ export const ColumnFilter: React.FC<{
         <Button
           variant="ghost"
           onClick={clearFilter}
-          className="h-8 w-8 p-0 shrink-0"
+          className="h-8 w-6 p-0 shrink-0"
           title="Clear filter"
         >
           <X className="h-3 w-3" />

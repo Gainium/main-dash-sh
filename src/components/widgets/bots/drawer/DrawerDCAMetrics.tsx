@@ -275,7 +275,7 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
       maxSize={{ w: 12, h: 16 }}
       hasOptions={false}
     >
-      <div className="p-sm md:p-md space-y-md">
+      <div className="p-sm space-y-md">
         {/* Configured projection — coverage / avg down power / capital needed */}
         <div className="grid grid-cols-3 gap-sm">
           {projectionTiles.map((tile) => {

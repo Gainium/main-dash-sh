@@ -119,7 +119,7 @@ export const ExperimentalFeaturesTab = React.memo<BotFormTabComponentProps>(({
   }, [mode]);
 
   return (
-    <div className="space-y-lg sm:space-y-xl lg:space-y-10">
+    <div className="space-y-lg lg:space-y-10">
       <ExperimentalFeatures
         currentExchange={currentExchange}
         formData={formData}

@@ -47,7 +47,7 @@ export const QuickFilters: React.FC<QuickFiltersProps> = ({
       animate={{ opacity: 1, height: 'auto' }}
       exit={{ opacity: 0, height: 0 }}
       transition={{ duration: 0.3, ease: 'easeInOut' }}
-      className="overflow-hidden mb-md shrink-0"
+      className="overflow-hidden shrink-0"
     >
       <div className="bg-card border border-border rounded-lg shadow-sm p-2 flex flex-wrap items-center gap-4">
         {/* Header Section */}

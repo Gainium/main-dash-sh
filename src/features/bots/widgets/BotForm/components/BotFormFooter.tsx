@@ -729,6 +729,10 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       !!user &&
       credits.total > 0 &&
       credits.total > availableCredits
+    // Every reason the button can be disabled needs a sentence, or it just
+    // looks broken. `readOnly` and `insufficientCredits` had one; the two most
+    // common cases did not, so the usual experience of a greyed-out Save was no
+    // explanation at all.
     const submitTitle = readOnly
       ? 'Saving bots is not available in demo mode'
       : insufficientCredits
@@ -739,7 +743,13 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
             availableCredits,
             2,
           )} available.`
-        : undefined
+        : shouldDisplayErrorSummary
+          ? 'Some settings need fixing before this can be saved — see the errors above.'
+          : submitDisabled && !submitIsPending
+            ? mode === 'edit'
+              ? 'No changes to save yet — edit a setting to enable this.'
+              : 'Complete the required settings to continue.'
+            : undefined
 
     const normalizedStatus = useMemo(
       () => (botStatus ? botStatus.toLowerCase() : undefined),

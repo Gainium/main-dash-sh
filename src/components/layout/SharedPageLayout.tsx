@@ -24,7 +24,7 @@ interface SharedPageLayoutProps {
  */
 const SharedPageLayout: React.FC<SharedPageLayoutProps> = ({ children }) => (
   <div className="min-h-screen flex flex-col bg-background">
-    <header className="sticky top-0 z-50 flex h-14 items-center justify-between gap-md px-md md:px-lg bg-[var(--surface-base)] backdrop-blur supports-[backdrop-filter]:bg-[var(--surface-base)]/85">
+    <header className="sticky top-0 z-50 flex h-14 items-center justify-between gap-md px-md bg-[var(--surface-base)] backdrop-blur supports-[backdrop-filter]:bg-[var(--surface-base)]/85">
       <Link
         to="/"
         aria-label="Gainium home"

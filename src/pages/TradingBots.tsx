@@ -551,6 +551,8 @@ const TradingBots: React.FC = () => {
     bots: dcaBots,
     isLoading: botsLoading,
     isError: botsError,
+    error: botsErrorObj,
+    refetch: refetchBots,
     data: _rawBotData,
   } = useDcaBots(useDcaBotsOptions);
 
@@ -2041,14 +2043,36 @@ const TradingBots: React.FC = () => {
     );
   }
 
-  if (botsError) {
+  // Only replace the whole page when there is genuinely nothing to show.
+  //
+  // The list is hydrated from a persisted store, so a failed *refetch* normally
+  // still has a complete set of bots behind it. Blanking that to a bare error
+  // string threw away the user's entire page for a transient backend blip and
+  // read as breakage — observed 2026-08-06 during a bot-worker restart, where
+  // the backend was fine and the bots were all trading. If we have bots, show
+  // them; the data is a few seconds stale at worst.
+  if (botsError && !dcaBots?.length) {
+    // Prefer the real reason. The query layer already produces a specific,
+    // calm message for the restart case ("The bot service may be busy or
+    // restarting — please try again in a moment"), which is far more use than
+    // a generic failure line.
+    const reason =
+      botsErrorObj?.message?.trim() || 'Error loading trading bots';
+
     return (
       <MainLayout pageTitle="Trading Bots" activePage="/bot">
         <WidgetContainer layout="flex" verticalGap>
-          <Widget className="p-sm md:p-md text-card-foreground" noPadding>
-            <div className="space-y-xs">
+          <Widget className="p-sm text-card-foreground" noPadding>
+            <div className="space-y-sm">
               <h1 className="text-2xl font-bold">Trading Bots</h1>
-              <p>Error loading trading bots</p>
+              <p className="text-muted-foreground">{reason}</p>
+              <p className="text-sm text-muted-foreground">
+                Your bots keep trading regardless — this only affects loading
+                the list here.
+              </p>
+              <Button variant="outline" size="sm" onClick={() => refetchBots()}>
+                Retry
+              </Button>
             </div>
           </Widget>
         </WidgetContainer>
@@ -2105,7 +2129,7 @@ const TradingBots: React.FC = () => {
           {/* Active Trading Bots - Full Height */}
           <motion.div {...TRADING_BOTS_WIDGET_MOTION}>
             <Widget
-              className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+              className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
               overflow="auto"
             >
@@ -2115,7 +2139,7 @@ const TradingBots: React.FC = () => {
               >
                 <div className="flex flex-col h-full min-h-[500px]">
                   <motion.div
-                    className="mb-md shrink-0"
+                    className="shrink-0"
                     {...TRADING_BOTS_HEADER_MOTION}
                   >
                     {/* Small screens: title and New on the same row */}
@@ -2133,7 +2157,7 @@ const TradingBots: React.FC = () => {
                         {readOnly ? (
                           <span title="Creating bots is not available in demo mode">
                             <MotionButton variant="default" disabled={true}>
-                              <Plus className="w-4 h-4 mr-xs" />
+                              <Plus className="w-4 h-4" />
                               New
                             </MotionButton>
                           </span>
@@ -2143,7 +2167,7 @@ const TradingBots: React.FC = () => {
                             onClick={handleCreateBot}
                             className="fx-glow"
                           >
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         )}
@@ -2161,7 +2185,7 @@ const TradingBots: React.FC = () => {
                     </div>
 
                     {/* Large screens: title, stats and button on a single row */}
-                    <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                    <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                       <div className="flex items-center gap-xs">
                         <h2 className="font-semibold text-xl">Trading Bots</h2>
                         <StaleIndicator componentId="trading-bots" />
@@ -2183,7 +2207,7 @@ const TradingBots: React.FC = () => {
                         {readOnly ? (
                           <span title="Creating bots is not available in demo mode">
                             <MotionButton variant="default" disabled={true}>
-                              <Plus className="w-4 h-4 mr-xs" />
+                              <Plus className="w-4 h-4" />
                               New
                             </MotionButton>
                           </span>
@@ -2193,7 +2217,7 @@ const TradingBots: React.FC = () => {
                             onClick={handleCreateBot}
                             className="fx-glow"
                           >
-                            <Plus className="w-4 h-4 mr-xs" />
+                            <Plus className="w-4 h-4" />
                             New
                           </MotionButton>
                         )}

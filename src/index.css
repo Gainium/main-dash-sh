@@ -1,5 +1,22 @@
 @import 'tailwindcss';
 
+/* ─────────────────────────────────────────────────────────────────────────
+   THIS FILE *IS* THE TAILWIND CONFIG.
+   Tailwind v4 is loaded through @tailwindcss/postcss with no `@config`
+   directive, so a `tailwind.config.js` would never be read. Everything the
+   app needs from the theme — colours, type scale, the spacing scale, custom
+   variants — has to be declared here or it silently does not exist: an
+   undeclared utility emits no CSS and no warning.
+   `npm run verify:css` compiles this file and asserts the contract below.
+   ───────────────────────────────────────────────────────────────────────── */
+
+/* The theme is chosen in-app and applied as `data-theme` on <html>
+   (see lib/themeManager.ts). Without this variant Tailwind falls back to its
+   default `@media (prefers-color-scheme: dark)`, which tracks the OS instead
+   of the user's choice — so `dark:` utilities would go missing for anyone
+   whose OS setting differs from their app theme. */
+@custom-variant dark ([data-theme='dark'] &);
+
 /* Text truncation utilities */
 .truncate-text {
   overflow: hidden;
@@ -208,6 +225,128 @@
   --brand-secondary: 0.719 0.169 13.44;
   --ai-assistant-start: 0.679 0.238 328.36;
   --ai-assistant-end: 0.516 0.238 294.84;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────
+   DENSITY-AWARE SPACING SCALE — xs · sm · md · lg · xl
+   ─────────────────────────────────────────────────────────────────────────
+   The values live at runtime in `:root` and are re-declared by
+   `.spacing-comfortable` / `.spacing-compact` further down, so switching
+   density restyles the app instantly. Utilities MUST therefore reference
+   `var(--spacing-*)` rather than bake a value in — `@theme inline` is what
+   guarantees that.
+
+   Why the `--space-*` indirection instead of declaring `--spacing-*`
+   directly in @theme?  `--spacing-*` is Tailwind's own namespace, and it
+   also backs `max-w-*`, `w-*`, `h-*`, `size-*` and `basis-*`. Declaring
+   `--spacing-md` there rewrites `max-w-md` from `--container-md` (28rem) to
+   the spacing token (1.5rem) — it would collapse every `max-w-md` container
+   in the app. Keeping our scale in a private namespace avoids the clash.
+
+   Why `@utility` instead of plain classes in `@layer utilities`?  Because
+   hand-written classes cannot take variants: `md:p-md`, `sm:gap-xs` and
+   `hover:mb-lg` never compile at all. `@utility` registers them with
+   Tailwind so every variant, including responsive ones, works.
+
+   Both properties are asserted by `npm run verify:css`. If you add a family
+   here, add it to that script's FAMILIES list too. */
+@theme inline {
+  --space-xs: var(--spacing-xs);
+  --space-sm: var(--spacing-sm);
+  --space-md: var(--spacing-md);
+  --space-lg: var(--spacing-lg);
+  --space-xl: var(--spacing-xl);
+}
+
+/* Margin */
+@utility m-* {
+  margin: --value(--space-*);
+}
+@utility mx-* {
+  margin-inline: --value(--space-*);
+}
+@utility my-* {
+  margin-block: --value(--space-*);
+}
+@utility mt-* {
+  margin-top: --value(--space-*);
+}
+@utility mr-* {
+  margin-right: --value(--space-*);
+}
+@utility mb-* {
+  margin-bottom: --value(--space-*);
+}
+@utility ml-* {
+  margin-left: --value(--space-*);
+}
+@utility ms-* {
+  margin-inline-start: --value(--space-*);
+}
+@utility me-* {
+  margin-inline-end: --value(--space-*);
+}
+
+/* Padding */
+@utility p-* {
+  padding: --value(--space-*);
+}
+@utility px-* {
+  padding-inline: --value(--space-*);
+}
+@utility py-* {
+  padding-block: --value(--space-*);
+}
+@utility pt-* {
+  padding-top: --value(--space-*);
+}
+@utility pr-* {
+  padding-right: --value(--space-*);
+}
+@utility pb-* {
+  padding-bottom: --value(--space-*);
+}
+@utility pl-* {
+  padding-left: --value(--space-*);
+}
+@utility ps-* {
+  padding-inline-start: --value(--space-*);
+}
+@utility pe-* {
+  padding-inline-end: --value(--space-*);
+}
+
+/* Gap */
+@utility gap-* {
+  gap: --value(--space-*);
+}
+@utility gap-x-* {
+  column-gap: --value(--space-*);
+}
+@utility gap-y-* {
+  row-gap: --value(--space-*);
+}
+
+/* space-x / space-y — deliberately mirrors Tailwind's own implementation
+   (`:where(& > :not(:last-child))` + the reverse custom property) so that
+   `space-y-md` and `space-y-4` compose and cascade identically. */
+@utility space-y-* {
+  :where(& > :not(:last-child)) {
+    --tw-space-y-reverse: 0;
+    margin-block-start: calc(--value(--space-*) * var(--tw-space-y-reverse));
+    margin-block-end: calc(
+      --value(--space-*) * calc(1 - var(--tw-space-y-reverse))
+    );
+  }
+}
+@utility space-x-* {
+  :where(& > :not(:last-child)) {
+    --tw-space-x-reverse: 0;
+    margin-inline-start: calc(--value(--space-*) * var(--tw-space-x-reverse));
+    margin-inline-end: calc(
+      --value(--space-*) * calc(1 - var(--tw-space-x-reverse))
+    );
+  }
 }
 
 @layer theme {
@@ -1195,175 +1334,11 @@
     --panel-gap: var(--spacing-xs);
   }
 
-  /* Custom spacing utility classes for dynamic spacing */
-  /* Padding utilities */
-  .p-xs {
-    padding: var(--spacing-xs);
-  }
-  .p-sm {
-    padding: var(--spacing-sm);
-  }
-  .p-md {
-    padding: var(--spacing-md);
-  }
-  .p-lg {
-    padding: var(--spacing-lg);
-  }
-  .p-xl {
-    padding: var(--spacing-xl);
-  }
-
-  .px-xs {
-    padding-left: var(--spacing-xs);
-    padding-right: var(--spacing-xs);
-  }
-  .px-sm {
-    padding-left: var(--spacing-sm);
-    padding-right: var(--spacing-sm);
-  }
-  .px-md {
-    padding-left: var(--spacing-md);
-    padding-right: var(--spacing-md);
-  }
-  .px-lg {
-    padding-left: var(--spacing-lg);
-    padding-right: var(--spacing-lg);
-  }
-  .px-xl {
-    padding-left: var(--spacing-xl);
-    padding-right: var(--spacing-xl);
-  }
-
-  .py-xs {
-    padding-top: var(--spacing-xs);
-    padding-bottom: var(--spacing-xs);
-  }
-  .py-sm {
-    padding-top: var(--spacing-sm);
-    padding-bottom: var(--spacing-sm);
-  }
-  .py-md {
-    padding-top: var(--spacing-md);
-    padding-bottom: var(--spacing-md);
-  }
-  .py-lg {
-    padding-top: var(--spacing-lg);
-    padding-bottom: var(--spacing-lg);
-  }
-  .py-xl {
-    padding-top: var(--spacing-xl);
-    padding-bottom: var(--spacing-xl);
-  }
-
-  /* Margin utilities */
-  .m-xs {
-    margin: var(--spacing-xs);
-  }
-  .m-sm {
-    margin: var(--spacing-sm);
-  }
-  .m-md {
-    margin: var(--spacing-md);
-  }
-  .m-lg {
-    margin: var(--spacing-lg);
-  }
-  .m-xl {
-    margin: var(--spacing-xl);
-  }
-
-  .mx-xs {
-    margin-left: var(--spacing-xs);
-    margin-right: var(--spacing-xs);
-  }
-  .mx-sm {
-    margin-left: var(--spacing-sm);
-    margin-right: var(--spacing-sm);
-  }
-  .mx-md {
-    margin-left: var(--spacing-md);
-    margin-right: var(--spacing-md);
-  }
-  .mx-lg {
-    margin-left: var(--spacing-lg);
-    margin-right: var(--spacing-lg);
-  }
-  .mx-xl {
-    margin-left: var(--spacing-xl);
-    margin-right: var(--spacing-xl);
-  }
-
-  .my-xs {
-    margin-top: var(--spacing-xs);
-    margin-bottom: var(--spacing-xs);
-  }
-  .my-sm {
-    margin-top: var(--spacing-sm);
-    margin-bottom: var(--spacing-sm);
-  }
-  .my-md {
-    margin-top: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-  }
-  .my-lg {
-    margin-top: var(--spacing-lg);
-    margin-bottom: var(--spacing-lg);
-  }
-  .my-xl {
-    margin-top: var(--spacing-xl);
-    margin-bottom: var(--spacing-xl);
-  }
-
-  /* Gap utilities */
-  .gap-xs {
-    gap: var(--spacing-xs);
-  }
-  .gap-sm {
-    gap: var(--spacing-sm);
-  }
-  .gap-md {
-    gap: var(--spacing-md);
-  }
-  .gap-lg {
-    gap: var(--spacing-lg);
-  }
-  .gap-xl {
-    gap: var(--spacing-xl);
-  }
-
-  /* Space-y utilities (vertical spacing between child elements) */
-  .space-y-xs > * + * {
-    margin-top: var(--spacing-xs);
-  }
-  .space-y-sm > * + * {
-    margin-top: var(--spacing-sm);
-  }
-  .space-y-md > * + * {
-    margin-top: var(--spacing-md);
-  }
-  .space-y-lg > * + * {
-    margin-top: var(--spacing-lg);
-  }
-  .space-y-xl > * + * {
-    margin-top: var(--spacing-xl);
-  }
-
-  /* Space-x utilities (horizontal spacing between child elements) */
-  .space-x-xs > * + * {
-    margin-left: var(--spacing-xs);
-  }
-  .space-x-sm > * + * {
-    margin-left: var(--spacing-sm);
-  }
-  .space-x-md > * + * {
-    margin-left: var(--spacing-md);
-  }
-  .space-x-lg > * + * {
-    margin-left: var(--spacing-lg);
-  }
-  .space-x-xl > * + * {
-    margin-left: var(--spacing-xl);
-  }
+  /* NOTE: the named spacing utilities (p-md, gap-xs, space-y-lg, mt-sm, ...)
+     used to be hand-written here as plain classes. They now come from the
+     @utility rules near the top of this file, which additionally makes every
+     variant (md:p-md, sm:gap-xs, hover:mb-lg) compile — those silently did
+     nothing while the utilities lived in a @layer. Do not re-add them here. */
 
   /* Visual effects utilities */
   .visual-effects-enabled {

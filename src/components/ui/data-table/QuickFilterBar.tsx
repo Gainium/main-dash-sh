@@ -472,8 +472,18 @@ export function QuickFilterBar<TData>({
 
   return (
     <>
-      <div className="bg-background border-b border-border">
-        <div className="flex items-center gap-2 px-4 py-3 flex-wrap">
+      {/* Sits on the same inner-fill surface as the cards/rows it filters, so it
+          reads as part of the list rather than as a separate chrome strip.
+          Bottom-only margin: the toolbar above already ends with its own
+          padding, so a symmetric margin here would read as a bigger gap above
+          than below. The value comes from the spacing scale (comfortable /
+          compact) rather than a fixed px — the single-side `mb-*` token classes
+          don't exist in this codebase, only `m-*`/`mx-*`/`my-*`. */}
+      <div
+        className="bg-muted rounded-lg shrink-0"
+        style={{ marginBottom: 'var(--spacing-xs)' }}
+      >
+        <div className="flex items-center gap-2 px-md py-sm flex-wrap">
           {/* Add Filter Button with Badge */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

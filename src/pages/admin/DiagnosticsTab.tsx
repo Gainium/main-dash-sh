@@ -96,7 +96,7 @@ export function DiagnosticsTab() {
     return (
       <Card compact className="p-md text-destructive">
         Failed to run diagnostics: {(error as Error).message}
-        <div className="mt-sm">
+        <div className="">
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             Retry
           </Button>

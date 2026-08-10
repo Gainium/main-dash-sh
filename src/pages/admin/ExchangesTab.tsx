@@ -111,7 +111,7 @@ export function ExchangesTab() {
     return (
       <Card compact className="p-md text-destructive">
         Failed to load exchange config: {(error as Error).message}
-        <div className="mt-sm">
+        <div className="">
           <Button size="sm" variant="outline" onClick={() => refetch()}>
             Retry
           </Button>
@@ -184,7 +184,7 @@ export function ExchangesTab() {
           const someOn = variants.some((v) => draft?.has(v));
           return (
             <Card key={group.label} compact className="px-md py-sm">
-              <div className="flex items-center justify-between gap-sm mb-sm">
+              <div className="flex items-center justify-between gap-sm">
                 <div>
                   <div className="font-semibold text-sm">{group.label}</div>
                   {group.hint ? (
@@ -224,7 +224,7 @@ export function ExchangesTab() {
         })}
       </div>
 
-      <div className="flex items-center gap-sm sticky bottom-0 py-sm bg-background/95 backdrop-blur border-t -mx-lg px-lg">
+      <div className="flex items-center gap-sm sticky bottom-0 py-sm bg-background/95 backdrop-blur border-t px-lg">
         <Button onClick={onSave} disabled={!dirty || save.isPending}>
           {save.isPending ? (
             <Loader2 className="w-4 h-4 animate-spin mr-2" />

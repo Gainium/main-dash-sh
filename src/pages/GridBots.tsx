@@ -23,7 +23,6 @@ import {
   Archive,
   Edit,
   ExternalLink,
-  Filter,
   Grid3x3,
   MoreHorizontal,
   Play,
@@ -57,7 +56,6 @@ import {
   BotStatusConfirmationModal,
   DeleteConfirmationModal,
 } from '../components/modals';
-import { Badge } from '../components/ui/badge';
 import BotsSkeleton from '../components/ui/BotsPageSkeleton';
 import { Button } from '../components/ui/button';
 import {
@@ -197,10 +195,6 @@ const GridBots: React.FC = () => {
   const statusToggleMutation = useBotStatusToggle(BotTypesEnum.grid);
   const restartMutation = useBotRestart();
 
-  const [showFilters, setShowFilters] = useState(false);
-  const [currentViewMode, setCurrentViewMode] = useState<'table' | 'cards'>(
-    'cards'
-  );
   const [showArchived, setShowArchived] = useState(false);
   const [activeFilters] = useState<GridActiveFilters>({
     status: [],
@@ -1126,14 +1120,6 @@ const GridBots: React.FC = () => {
 
   // Filter functionality is now handled by the native QuickFilterBar component
 
-  const activeFiltersCount = useMemo(
-    () =>
-      activeFilters.status.length +
-      activeFilters.exchange.length +
-      (activeFilters.profitability !== 'all' ? 1 : 0),
-    [activeFilters]
-  );
-
   const filteredData = useMemo(() => {
     let data = transformedBots;
 
@@ -1295,13 +1281,13 @@ const GridBots: React.FC = () => {
           }}
         >
           <Widget
-            className="p-sm md:p-md text-card-foreground flex-1 min-h-[500px]"
+            className="p-sm text-card-foreground flex-1 min-h-[500px]"
             noPadding
             overflow="auto"
           >
             <div className="flex flex-col h-full min-h-[500px]">
               <motion.div
-                className="mb-md shrink-0"
+                className="shrink-0"
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.3, delay: 0.5 }}
@@ -1321,7 +1307,7 @@ const GridBots: React.FC = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       </span>
@@ -1330,7 +1316,7 @@ const GridBots: React.FC = () => {
                         variant="default"
                         onClick={() => navigate('/grid/new')}
                       >
-                        <Plus className="w-4 h-4 mr-xs" />
+                        <Plus className="w-4 h-4" />
                         New
                       </MotionButton>
                     )}
@@ -1349,7 +1335,7 @@ const GridBots: React.FC = () => {
                 </div>
 
                 {/* Large screens: title, stats and button on a single row */}
-                <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center sm:gap-xs w-full">
+                <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                   <div className="flex items-center gap-sm">
                     <div className="flex items-center gap-xs">
                       <h2 className="font-semibold text-xl">
@@ -1372,7 +1358,7 @@ const GridBots: React.FC = () => {
                     {readOnly ? (
                       <span title="Creating bots is not available in demo mode">
                         <MotionButton variant="default" disabled={true}>
-                          <Plus className="w-4 h-4 mr-xs" />
+                          <Plus className="w-4 h-4" />
                           New
                         </MotionButton>
                       </span>
@@ -1381,7 +1367,7 @@ const GridBots: React.FC = () => {
                         variant="default"
                         onClick={() => navigate('/grid/new')}
                       >
-                        <Plus className="w-4 h-4 mr-xs" />
+                        <Plus className="w-4 h-4" />
                         New
                       </MotionButton>
                     )}
@@ -1451,8 +1437,6 @@ const GridBots: React.FC = () => {
                     />
                   }
                   className="h-full min-h-[400px]"
-                  onViewModeChange={setCurrentViewMode}
-                  onColumnFiltersVisibilityChange={setShowFilters}
                   enableQuickFilterBar={true}
                   quickFilterBarStorageKey="grid-bots-filters"
                   onRowClick={(bot) => handleSelectBot(bot.id)}
@@ -1529,60 +1513,6 @@ const GridBots: React.FC = () => {
                             },
                           },
                         ]
-                  }
-                  firstToolbarActions={
-                    currentViewMode === 'cards' && (
-                      <Button
-                        variant={
-                          showFilters || activeFiltersCount > 0
-                            ? 'default'
-                            : 'ghost'
-                        }
-                        size="sm"
-                        onClick={() => setShowFilters((prev) => !prev)}
-                        className="h-9 gap-2 px-3 relative"
-                        title={showFilters ? 'Hide filters' : 'Show filters'}
-                      >
-                        <Filter className="h-4 w-4" />
-                        <span>Filters</span>
-                        {activeFiltersCount > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="ml-1 h-5 min-w-5 rounded-full px-1.5 text-xs"
-                          >
-                            {activeFiltersCount}
-                          </Badge>
-                        )}
-                      </Button>
-                    )
-                  }
-                  firstToolbarActionsCompact={
-                    currentViewMode === 'cards' && (
-                      <Button
-                        variant={
-                          showFilters || activeFiltersCount > 0
-                            ? 'default'
-                            : 'ghost'
-                        }
-                        size="icon"
-                        onClick={() => setShowFilters((prev) => !prev)}
-                        className="h-9 w-9 relative"
-                        title={showFilters ? 'Hide filters' : 'Show filters'}
-                        aria-label={
-                          showFilters ? 'Hide filters' : 'Show filters'
-                        }
-                      >
-                        <Filter className="h-4 w-4" />
-                        {activeFiltersCount > 0 && (
-                          <Badge
-                            variant="default"
-                            className="absolute -top-2 -right-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-                          >
-                            {activeFiltersCount}
-                          </Badge>
-                        )}
-                      </Button>
-                    )
                   }
                   customToolbarActions={
                     <Button

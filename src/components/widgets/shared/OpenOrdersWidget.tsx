@@ -28,6 +28,11 @@ import {
 /* import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api'; */
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
+import {
+    canAdjustDealFunds,
+    useBulkAdjustFunds,
+    type BulkAdjustFundsTarget,
+} from '@/components/deals/actions/useBulkAdjustFunds';
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
@@ -387,6 +392,15 @@ const mapOpenTradeTypeToBotType = (
 
 const MOVE_TO_TERMINAL_WARNING =
   'After moving deals to terminal, the bot may immediately start new deals if slots are available (especially with ASAP start conditions). To avoid this, adjust max open deals or max deals per pair before confirming.';
+
+const toAdjustFundsTarget = (trade: OpenTrade): BulkAdjustFundsTarget => ({
+  dealId: trade.id,
+  botId: trade.botId,
+  status: trade.status,
+  type: trade.type,
+  baseAsset: trade.baseAsset,
+  quoteAsset: trade.quoteAsset,
+});
 
 const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   trade,
@@ -1846,6 +1860,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const [closeDialogOpen, setCloseDialogOpen] = useState<OpenTrade[]>([]);
   const [moveBulkDialogOpen, setMoveBulkDialogOpen] = useState<OpenTrade[]>([]);
   const moveDealToTerminalMutation = useMoveDealToTerminal();
+  const { open: openBulkAdjustFunds, dialog: bulkAdjustFundsDialog } =
+    useBulkAdjustFunds();
 
   const canMoveTradeToTerminal = useCallback((trade: OpenTrade): boolean => {
     return (
@@ -1989,19 +2005,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           }
         },
         onAddFunds: (selectedTrades) => {
-          logger.info(`${LOG_PREFIX}: Bulk add funds`, {
-            count: selectedTrades.length,
-          });
-          toast.info(
-            `Add funds to ${selectedTrades.length} trade(s) (Coming soon)`
-          );
+          openBulkAdjustFunds('add', selectedTrades.map(toAdjustFundsTarget));
         },
         onReduceFunds: (selectedTrades) => {
-          logger.info(`${LOG_PREFIX}: Bulk reduce funds`, {
-            count: selectedTrades.length,
-          });
-          toast.info(
-            `Reduce funds from ${selectedTrades.length} trade(s) (Coming soon)`
+          openBulkAdjustFunds(
+            'reduce',
+            selectedTrades.map(toAdjustFundsTarget)
           );
         },
         onEdit: (selectedTrades) => {
@@ -2042,6 +2051,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           setCloseDialogOpen(selectedTrades);
         },
         canMoveToTerminal: canMoveTradeToTerminal,
+        canAdjustFunds: (trade) => canAdjustDealFunds(toAdjustFundsTarget(trade)),
         getSymbol: (trade) => trade.symbol,
       }),
     // Depend on the stable `mutateAsync` method, not the react-query mutation
@@ -2054,6 +2064,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       addToJournalBulk,
       mergeSmartOrdersMutation.mutateAsync,
       canMoveTradeToTerminal,
+      openBulkAdjustFunds,
       handleEdit,
       allKnownDeals,
     ]
@@ -3479,6 +3490,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         ignoreOptions={[CloseDCATypeEnum.leave]}
         mode="deal"
       />
+      {bulkAdjustFundsDialog}
       <ConfirmationDialog
         open={!!moveBulkDialogOpen.length}
         onOpenChange={() => setMoveBulkDialogOpen([])}

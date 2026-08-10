@@ -65,7 +65,7 @@ const BotsSkeleton: React.FC<BotsSkeletonProps> = ({
               </div>
             </div>
 
-            <div className="p-sm md:p-md space-y-sm">
+            <div className="p-sm space-y-sm">
               {Array.from({ length: rowCount }).map((_, index) => (
                 <div key={`skeleton-row-${index}`} className="animate-pulse">
                   <div className="flex items-center space-x-md p-3 md:p-4 border rounded-lg">

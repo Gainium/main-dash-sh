@@ -10,7 +10,7 @@ export const DCASettingsTab = React.memo<BotFormTabComponentProps>(({
   errors,
   handleUpdateBalances,
 }) => (
-  <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+  <div className="space-y-md">
     <DCASettings
       currentExchange={currentExchange}
       formData={formData}

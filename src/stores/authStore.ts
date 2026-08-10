@@ -8,7 +8,10 @@ import { pouchDBSync } from '@/lib/pouchdbSync';
 import { priceCache } from '@/lib/priceCache';
 import { queryClient } from '@/lib/queryClient';
 import { RealAuthService } from '@/lib/realAuthService';
-import { setSessionDeadHandler } from '@/lib/api/GraphQLClient';
+import {
+  isSessionDeadMessage,
+  setSessionDeadHandler,
+} from '@/lib/api/GraphQLClient';
 import { useUIStore } from '@/stores/uiStore';
 import { indexedDBStorage } from '@/lib/zustand-indexeddb-storage';
 
@@ -70,6 +73,16 @@ const clearSessionScopedData = async () => {
   await Promise.all([priceCache.clearCache(), queryClient.clear()]);
 };
 
+/**
+ * Set when boot validation could not reach a verdict (client timeout, network
+ * blip, 5xx) and the session was kept on the benefit of the doubt. The
+ * watchdog at the bottom of this file keeps asking until the backend answers
+ * — see `startSessionWatchdog` for why a one-shot check isn't enough.
+ */
+let sessionUnverified = false;
+/** Throttle for the watchdog's network revalidation attempts. */
+let lastRevalidateAt = 0;
+
 export const useAuthStore = create<AuthStore>()(
   devtools(
     persist(
@@ -93,6 +106,7 @@ export const useAuthStore = create<AuthStore>()(
               isAuthenticated: true,
               isLoading: false,
             });
+            sessionUnverified = false;
 
             bindAccountScopedStores(user.id);
 
@@ -164,7 +178,17 @@ export const useAuthStore = create<AuthStore>()(
                 return;
               } catch (error) {
                 removeTokenFromCookie();
-                logger.error('Failed to process cookie token:', error);
+                // A rejected cookie token says nothing about the STORED
+                // session — they are different tokens, which is why the
+                // session-dead handler deliberately ignores this rejection.
+                // Fall through to the stored-token validation below; it is
+                // the only thing allowed to end the current session.
+                const reason =
+                  error instanceof Error ? error.message : 'Unknown error';
+                logger.error('Failed to process cookie token:', {
+                  reason,
+                  tokenRejectedByBackend: isSessionDeadMessage(reason),
+                });
               }
             }
 
@@ -173,6 +197,7 @@ export const useAuthStore = create<AuthStore>()(
               // Check if token is expired first (client-side check)
               if (get().isTokenExpired()) {
                 logger.info('Stored token is expired, clearing auth state');
+                sessionUnverified = false;
                 set({
                   user: null,
                   tokens: null,
@@ -208,6 +233,7 @@ export const useAuthStore = create<AuthStore>()(
 
               if (validation.ok) {
                 // Token is valid, restore auth state with fresh user data
+                sessionUnverified = false;
                 set({
                   isAuthenticated: true,
                   isLoading: false,
@@ -234,6 +260,7 @@ export const useAuthStore = create<AuthStore>()(
                 logger.info('Stored token rejected by server, clearing auth', {
                   reason: validation.reason,
                 });
+                sessionUnverified = false;
                 set({
                   user: null,
                   tokens: null,
@@ -246,8 +273,14 @@ export const useAuthStore = create<AuthStore>()(
               // Indeterminate failure (client timeout, network error, 5xx):
               // we never learned whether the token is valid, so KEEP the
               // session. Wiping it here is what used to log users out of
-              // prod whenever the API had a bad moment. Queries retry on
-              // their own; the next boot revalidates.
+              // prod whenever the API had a bad moment.
+              //
+              // "The next boot revalidates" is not enough on its own: a user
+              // who doesn't reload sits on an authenticated shell where every
+              // widget renders its own "Error Loading …" forever. Flag the
+              // session so the watchdog keeps asking until the backend gives
+              // a verdict.
+              sessionUnverified = true;
               logger.warn(
                 'Token validation inconclusive (network/server issue), keeping session',
                 { reason: validation.reason }
@@ -282,6 +315,7 @@ export const useAuthStore = create<AuthStore>()(
 
         logout: async () => {
           const { tokens } = get();
+          sessionUnverified = false;
 
           // Call logout API if we have a token
           if (tokens?.accessToken) {
@@ -457,3 +491,120 @@ setSessionDeadHandler((rejectedToken) => {
   }
   void useAuthStore.getState().logout();
 });
+
+/**
+ * End a session we know is dead, WITHOUT calling `logout()`.
+ *
+ * `logout()` fires the `deleteToken` mutation, and the backend tracks tokens
+ * server-side — revoking is permanent. The watchdog's verdicts come from this
+ * client's clock (`expiresAt`) or from a token the backend has already
+ * refused, so there is nothing left worth revoking and a clock-skew false
+ * positive must not be able to kill a token that was actually still good.
+ */
+const clearDeadSession = async (reason: string): Promise<void> => {
+  const { tokens, isAuthenticated } = useAuthStore.getState();
+  if (!tokens?.accessToken && !isAuthenticated) return;
+
+  logger.info('Ending dead session', { reason });
+  sessionUnverified = false;
+  analyticsReset();
+  useAuthStore.setState({
+    user: null,
+    tokens: null,
+    isAuthenticated: false,
+    isLoading: false,
+  });
+  await clearSessionScopedData();
+};
+
+/** How long the watchdog waits between network revalidation attempts. */
+const REVALIDATE_MIN_INTERVAL_MS = 20_000;
+
+/**
+ * One watchdog pass. Cheap and network-free unless the session is flagged
+ * unverified.
+ */
+export const revalidateSession = async (): Promise<void> => {
+  const state = useAuthStore.getState();
+  if (!state.tokens?.accessToken) return;
+
+  // Local certainty first: `expiresAt` is decoded from the JWT, so an expired
+  // token ends the session even when the backend is unreachable. This is the
+  // same rule `initializeAuth` applies at boot — the watchdog just keeps
+  // applying it for as long as the tab stays open.
+  if (state.isTokenExpired()) {
+    await clearDeadSession('access token expired');
+    return;
+  }
+
+  // A session the backend has confirmed is fine needs no polling: a mid-session
+  // revocation still arrives through the session-dead handler above, on the
+  // very next query. Only an unresolved boot validation is worth re-asking.
+  if (!sessionUnverified || !state.isAuthenticated) return;
+
+  const now = Date.now();
+  if (now - lastRevalidateAt < REVALIDATE_MIN_INTERVAL_MS) return;
+  lastRevalidateAt = now;
+
+  const validation = await RealAuthService.validateTokenDetailed(
+    state.tokens.accessToken,
+    { timeoutMs: 15_000 }
+  );
+
+  if (validation.ok) {
+    sessionUnverified = false;
+    useAuthStore.setState({ user: validation.user });
+    return;
+  }
+
+  if (validation.definitive) {
+    await clearDeadSession(validation.reason);
+    return;
+  }
+
+  logger.debug('Session revalidation still inconclusive, will retry', {
+    reason: validation.reason,
+  });
+};
+
+/** How often the watchdog re-checks while the tab is open. */
+const WATCHDOG_INTERVAL_MS = 30_000;
+
+/**
+ * Start the session watchdog. Mounted once by `AuthProvider`.
+ *
+ * `initializeAuth` runs exactly once per page load, which left two ways for a
+ * dead session to outlive its own death in an open tab:
+ *
+ *  1. The token's `exp` passes while the tab is open. Nothing re-read
+ *     `expiresAt`, so the app kept firing doomed requests and the user saw a
+ *     grid of "Error Loading …" cards instead of the login screen.
+ *  2. Boot validation came back indeterminate and the session was kept on the
+ *     benefit of the doubt — correct, but terminal. Nothing ever asked again.
+ *
+ * Both end the same way for the user, and neither is recoverable without a
+ * manual reload. The watchdog re-checks on a timer, when the tab becomes
+ * visible again, and when the browser comes back online — the last two being
+ * exactly the moments a laptop wakes up to a session that expired while it
+ * was asleep.
+ */
+export const startSessionWatchdog = (): (() => void) => {
+  if (typeof window === 'undefined') return () => {};
+
+  const tick = () => {
+    void revalidateSession();
+  };
+  const onVisibilityChange = () => {
+    if (document.visibilityState === 'visible') tick();
+  };
+
+  const intervalId = window.setInterval(tick, WATCHDOG_INTERVAL_MS);
+  document.addEventListener('visibilitychange', onVisibilityChange);
+  window.addEventListener('online', tick);
+
+  return () => {
+    window.clearInterval(intervalId);
+    document.removeEventListener('visibilitychange', onVisibilityChange);
+    window.removeEventListener('online', tick);
+  };
+};

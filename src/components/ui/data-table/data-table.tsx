@@ -1250,12 +1250,15 @@ function ToolbarButtonRow<TData>({
   const buttonConfigs = useMemo((): ResponsiveButtonConfig[] => {
     const configs: ResponsiveButtonConfig[] = [];
 
-    // Filter toggle button
-    // Hide filter button in card view when enableQuickFilterBar is true to avoid duplicate icons
+    // Filter toggle button.
+    // The QuickFilterBar renders outside the table body, so it works the same in
+    // card view as in table view — the toggle has to be reachable in both. The
+    // per-column filter row and the `quickFilters` chips are view-specific, so
+    // those two only offer the button in the view that can render them.
     const showFilter =
-      ((enableColumnFilters && viewMode === 'table') ||
-        (quickFilters && viewMode === 'cards')) &&
-      !(enableQuickFilterBar && viewMode === 'cards');
+      enableQuickFilterBar ||
+      (enableColumnFilters && viewMode === 'table') ||
+      (!!quickFilters && viewMode === 'cards');
     if (showFilter) {
       const activeFilterCount = countActiveFilters(columnFilters);
       const isFilterActive =
@@ -4052,7 +4055,7 @@ function DataTableComponent<TData, TValue>(
                                 {hotButtonFilters.title}
                               </span>
                             </div>
-                            <div className="flex flex-wrap items-center gap-md lg:gap-lg">
+                            <div className="flex flex-wrap items-center gap-md">
                               {hotButtonFilters.filters.map((filter) => (
                                 <div
                                   key={filter.columnId}

@@ -200,7 +200,7 @@ export default function UIShowcase() {
               <h1 className="text-3xl font-bold text-foreground">
                 UI Component Showcase
               </h1>
-              <p className="text-muted-foreground mt-xs">
+              <p className="text-muted-foreground">
                 A comprehensive display of all available UI components and their
                 variants
               </p>
@@ -212,10 +212,10 @@ export default function UIShowcase() {
         </div>
       </div>
 
-      <div className="container mx-auto px-lg py-lg space-y-xs2">
+      <div className="container mx-auto px-lg py-lg ">
         {/* Buttons Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Buttons
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -265,7 +265,7 @@ export default function UIShowcase() {
                 <div className="flex flex-wrap gap-xs">
                   <Button disabled>Disabled</Button>
                   <Button>
-                    <Download className="h-4 w-4 mr-xs" />
+                    <Download className="h-4 w-4" />
                     With Icon
                   </Button>
                 </div>
@@ -276,7 +276,7 @@ export default function UIShowcase() {
 
         {/* Form Elements Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Form Elements
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -378,7 +378,7 @@ export default function UIShowcase() {
               </CardHeader>
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Switch Sizes
                   </Label>
                   <div className="flex items-center gap-md">
@@ -412,7 +412,7 @@ export default function UIShowcase() {
                   </div>
                 </div>
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Switch States
                   </Label>
                   <div className="flex items-center gap-md">
@@ -451,7 +451,7 @@ export default function UIShowcase() {
                   <Label htmlFor="checkbox2">Disabled checkbox</Label>
                 </div>
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Radio Group
                   </Label>
                   <RadioGroup
@@ -562,7 +562,7 @@ export default function UIShowcase() {
 
         {/* Slider Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Sliders
           </h2>
           <Card className="max-w-2xl">
@@ -600,7 +600,7 @@ export default function UIShowcase() {
 
         {/* Badges and Chips Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Badges &amp; Chips
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
@@ -633,7 +633,7 @@ export default function UIShowcase() {
                   </Badge>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Subscription plan — sm
                   </Label>
                   <div className="flex flex-wrap items-center gap-xs">
@@ -655,7 +655,7 @@ export default function UIShowcase() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Subscription plan — md
                   </Label>
                   <div className="flex flex-wrap items-center gap-xs">
@@ -677,7 +677,7 @@ export default function UIShowcase() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Subscription plan — lg (used on plan cards)
                   </Label>
                   <div className="flex flex-wrap items-center gap-xs">
@@ -709,7 +709,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Basic Variants
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -738,7 +738,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Chip Styles
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -758,10 +758,10 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Key rotation
                     </Label>
-                    <p className="text-xs text-muted-foreground mb-xs">
+                    <p className="text-xs text-muted-foreground">
                       Shown on an exchange connection whose API key still needs
                       replacing. Compact variant is for dense rows.
                     </p>
@@ -779,10 +779,10 @@ export default function UIShowcase() {
 
         {/* Bot Type Icons Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Bot Type Icons
           </h2>
-          <p className="text-sm text-muted-foreground mb-lg">
+          <p className="text-sm text-muted-foreground">
             Custom marks for each strategy. Each icon visually encodes the bot's
             mechanic: DCA's averaged-down entries and recovery, the grid's
             staggered orders, Combo's hybrid (DCA over grid), Terminal's
@@ -866,7 +866,7 @@ export default function UIShowcase() {
 
         {/* Custom Chips Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Custom Chips &amp; Icons
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -878,7 +878,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Bot Types
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -894,7 +894,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Different Styles
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -922,7 +922,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Icon Only
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -960,7 +960,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Popular Exchanges
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -972,7 +972,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Different Styles
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -995,7 +995,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Stacked Layout
                     </Label>
                     <div className="space-y-xs">
@@ -1025,7 +1025,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Status Chips - All States
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -1042,7 +1042,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Status Chip Styles
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -1054,7 +1054,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Status Chip Sizes
                     </Label>
                     <div className="flex flex-wrap gap-xs items-center">
@@ -1066,7 +1066,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Dot Only Mode
                     </Label>
                     <div className="flex flex-wrap gap-xs items-center">
@@ -1078,7 +1078,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Strategy Chips - All Strategies
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -1089,7 +1089,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Strategy Chip Styles
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -1117,7 +1117,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Time Chips - Sizes
                     </Label>
                     <div className="flex flex-wrap gap-xs items-center">
@@ -1135,7 +1135,7 @@ export default function UIShowcase() {
 
         {/* Coin Icons & Pairs Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Coin Icons &amp; Pairs
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
@@ -1149,7 +1149,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Different Sizes
                     </Label>
                     <div className="flex flex-wrap items-center gap-sm">
@@ -1160,7 +1160,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Popular Coins
                     </Label>
                     <div className="flex flex-wrap gap-xs">
@@ -1185,7 +1185,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Horizontal Layout
                     </Label>
                     <div className="space-y-xs">
@@ -1196,7 +1196,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Vertical Layout
                     </Label>
                     <div className="flex gap-md">
@@ -1214,7 +1214,7 @@ export default function UIShowcase() {
                   </div>
 
                   <div>
-                    <Label className="text-sm font-medium mb-xs block">
+                    <Label className="text-sm font-medium block">
                       Without Text
                     </Label>
                     <div className="flex gap-sm">
@@ -1243,7 +1243,7 @@ export default function UIShowcase() {
 
         {/* Progress Components */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Progress Indicators
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -1310,7 +1310,7 @@ export default function UIShowcase() {
               </CardHeader>
               <CardContent className="space-y-md">
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     Basic ProfitValue
                   </Label>
                   <div className="space-y-xs">
@@ -1335,7 +1335,7 @@ export default function UIShowcase() {
                 <Separator />
 
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     ProfitAndPerc - Position Right (Default)
                   </Label>
                   <div className="space-y-xs">
@@ -1364,7 +1364,7 @@ export default function UIShowcase() {
                 </div>
 
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     ProfitAndPerc - Position Bottom
                   </Label>
                   <div className="flex flex-wrap gap-md">
@@ -1386,7 +1386,7 @@ export default function UIShowcase() {
                 </div>
 
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     ProfitAndPerc - Size Variations
                   </Label>
                   <div className="flex flex-wrap gap-md items-center">
@@ -1424,7 +1424,7 @@ export default function UIShowcase() {
                 </div>
 
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     ProfitAndPerc - Privacy Mode
                   </Label>
                   <div className="space-y-xs">
@@ -1445,7 +1445,7 @@ export default function UIShowcase() {
                 </div>
 
                 <div className="space-y-sm">
-                  <Label className="text-sm font-medium mb-xs block">
+                  <Label className="text-sm font-medium block">
                     ProfitAndPerc - Hide Percentage
                   </Label>
                   <div className="space-y-xs">
@@ -1472,7 +1472,7 @@ export default function UIShowcase() {
 
         {/* Cards Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Cards
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -1519,7 +1519,7 @@ export default function UIShowcase() {
 
         {/* Tabs Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">Tabs</h2>
+          <h2 className="text-2xl font-semibold text-foreground">Tabs</h2>
           <Card className="max-w-2xl">
             <CardHeader>
               <CardTitle>Tab Navigation</CardTitle>
@@ -1560,7 +1560,7 @@ export default function UIShowcase() {
 
         {/* Tooltips Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Tooltips
           </h2>
           <Card className="max-w-2xl">
@@ -1574,21 +1574,21 @@ export default function UIShowcase() {
               <div className="flex flex-wrap gap-md">
                 <Tooltip tooltip="Click to view user information">
                   <Button variant="outline">
-                    <User className="h-4 w-4 mr-xs" />
+                    <User className="h-4 w-4" />
                     User Info
                   </Button>
                 </Tooltip>
 
                 <Tooltip tooltip="Open application settings">
                   <Button variant="outline">
-                    <Settings className="h-4 w-4 mr-xs" />
+                    <Settings className="h-4 w-4" />
                     Settings
                   </Button>
                 </Tooltip>
 
                 <Tooltip tooltip="View your messages and notifications">
                   <Button variant="outline">
-                    <Mail className="h-4 w-4 mr-xs" />
+                    <Mail className="h-4 w-4" />
                     Messages
                   </Button>
                 </Tooltip>
@@ -1599,7 +1599,7 @@ export default function UIShowcase() {
 
         {/* Icons Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Icons
           </h2>
           <Card>
@@ -1644,7 +1644,7 @@ export default function UIShowcase() {
 
         {/* Separators */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Separators
           </h2>
           <Card className="max-w-2xl">
@@ -1664,7 +1664,7 @@ export default function UIShowcase() {
 
         {/* Dialog, Popover, DropdownMenu Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Overlays &amp; Menus
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -1785,27 +1785,27 @@ export default function UIShowcase() {
                   <DropdownMenuTrigger asChild>
                     <Button variant="outline">
                       Options
-                      <ChevronDown className="h-4 w-4 ml-xs" />
+                      <ChevronDown className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent className="w-56">
                     <DropdownMenuLabel>My Account</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem>
-                      <User className="mr-xs h-4 w-4" />
+                      <User className="h-4 w-4" />
                       Profile
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <Settings className="mr-xs h-4 w-4" />
+                      <Settings className="h-4 w-4" />
                       Settings
                     </DropdownMenuItem>
                     <DropdownMenuItem>
-                      <Mail className="mr-xs h-4 w-4" />
+                      <Mail className="h-4 w-4" />
                       Messages
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem className="text-destructive">
-                      <Lock className="mr-xs h-4 w-4" />
+                      <Lock className="h-4 w-4" />
                       Log out
                     </DropdownMenuItem>
                   </DropdownMenuContent>
@@ -1817,7 +1817,7 @@ export default function UIShowcase() {
 
         {/* Color Palette Section */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Complete Color Palette
           </h2>
 
@@ -1972,7 +1972,7 @@ export default function UIShowcase() {
 
                 {/* Nested-surface demo */}
                 <div>
-                  <h4 className="text-sm font-medium mb-sm">
+                  <h4 className="text-sm font-medium">
                     Nested demo (proposed)
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
@@ -1981,14 +1981,14 @@ export default function UIShowcase() {
                       className="p-md rounded-lg"
                       style={{ background: 'var(--color-background)' }}
                     >
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-xs">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         Current
                       </p>
                       <div
                         className="p-md rounded-md"
                         style={{ background: 'var(--color-card)' }}
                       >
-                        <p className="text-sm font-medium mb-xs">Outer card</p>
+                        <p className="text-sm font-medium">Outer card</p>
                         <div
                           className="p-sm rounded-md"
                           style={{ background: 'var(--color-muted)' }}
@@ -2004,7 +2004,7 @@ export default function UIShowcase() {
                       className="surf-preview p-md rounded-lg"
                       style={{ background: 'var(--preview-base)' }}
                     >
-                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground mb-xs">
+                      <p className="text-[10px] uppercase tracking-wide text-muted-foreground">
                         Proposed
                       </p>
                       <div
@@ -2014,7 +2014,7 @@ export default function UIShowcase() {
                           boxShadow: 'var(--preview-shadow)',
                         }}
                       >
-                        <p className="text-sm font-medium mb-xs">Outer card</p>
+                        <p className="text-sm font-medium">Outer card</p>
                         <div
                           className="p-sm rounded-md"
                           style={{ background: 'var(--preview-muted)' }}
@@ -2083,7 +2083,7 @@ export default function UIShowcase() {
                 {/* Do / Don't */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                   <div className="bg-success/10 p-md rounded-md">
-                    <p className="text-success font-medium mb-sm">
+                    <p className="text-success font-medium">
                       ✓ Use borders for
                     </p>
                     <ul className="text-sm space-y-1 text-foreground/90">
@@ -2096,7 +2096,7 @@ export default function UIShowcase() {
                     </ul>
                   </div>
                   <div className="bg-destructive/10 p-md rounded-md">
-                    <p className="text-destructive font-medium mb-sm">
+                    <p className="text-destructive font-medium">
                       ✗ Don't add borders to
                     </p>
                     <ul className="text-sm space-y-1 text-foreground/90">
@@ -2369,7 +2369,7 @@ export default function UIShowcase() {
               <CardContent className="space-y-lg">
                 {/* Text colors */}
                 <div>
-                  <h4 className="text-lg font-medium mb-sm">Text Colors</h4>
+                  <h4 className="text-lg font-medium">Text Colors</h4>
                   <div className="space-y-xs">
                     <p className="text-foreground">
                       Primary text (text-foreground)
@@ -2390,7 +2390,7 @@ export default function UIShowcase() {
 
                 {/* Background combinations */}
                 <div>
-                  <h4 className="text-lg font-medium mb-sm">
+                  <h4 className="text-lg font-medium">
                     Background Combinations
                   </h4>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
@@ -2434,7 +2434,7 @@ export default function UIShowcase() {
 
                 {/* Gradient examples */}
                 <div>
-                  <h4 className="text-lg font-medium mb-sm">
+                  <h4 className="text-lg font-medium">
                     Gradient Examples
                   </h4>
                   <div className="space-y-md">
@@ -2451,7 +2451,7 @@ export default function UIShowcase() {
                       <p className="text-gradient-purple font-semibold text-2xl">
                         Brand Gradient Text
                       </p>
-                      <p className="text-muted-foreground text-sm mt-xs">
+                      <p className="text-muted-foreground text-sm">
                         text-gradient-purple
                       </p>
                     </div>
@@ -2464,7 +2464,7 @@ export default function UIShowcase() {
 
         {/* Typography Examples */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Typography
           </h2>
           <Card>
@@ -2519,7 +2519,7 @@ export default function UIShowcase() {
 
         {/* Alerts & Notifications */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Alerts &amp; Notifications
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-xl">
@@ -2631,7 +2631,7 @@ export default function UIShowcase() {
 
         {/* Layout & Utility Components */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Layout &amp; Utility Components
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-xl">
@@ -2678,7 +2678,7 @@ export default function UIShowcase() {
                       />
                     </Button>
                   </CollapsibleTrigger>
-                  <CollapsibleContent className="mt-md space-y-xs">
+                  <CollapsibleContent className="space-y-xs">
                     <p className="text-sm text-muted-foreground">
                       This is collapsible content. You can put any content here
                       that you want to show or hide.
@@ -2774,7 +2774,7 @@ export default function UIShowcase() {
               </CardHeader>
               <CardContent>
                 <Widget className="p-md">
-                  <h4 className="font-semibold text-foreground mb-xs">
+                  <h4 className="font-semibold text-foreground">
                     Widget Content
                   </h4>
                   <p className="text-sm text-muted-foreground">
@@ -2788,7 +2788,7 @@ export default function UIShowcase() {
 
         {/* Specialized Components */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Specialized Components
           </h2>
           <div className="space-y-xl">
@@ -2879,14 +2879,14 @@ export default function UIShowcase() {
               </CardHeader>
               <CardContent className="space-y-md">
                 <div>
-                  <Label className="mb-xs block">Connected State</Label>
+                  <Label className="block">Connected State</Label>
                   <LiveUpdateIndicator
                     isConnected={true}
                     lastUpdateTime={new Date()}
                   />
                 </div>
                 <div>
-                  <Label className="mb-xs block">Disconnected State</Label>
+                  <Label className="block">Disconnected State</Label>
                   <LiveUpdateIndicator
                     isConnected={false}
                     lastUpdateTime={null}
@@ -2899,11 +2899,11 @@ export default function UIShowcase() {
 
         {/* Glassmorphic Surfaces */}
         <section>
-          <h2 className="text-2xl font-semibold mb-lg text-foreground">
+          <h2 className="text-2xl font-semibold text-foreground">
             Glassmorphic Surfaces
           </h2>
 
-          <div className="flex flex-wrap gap-xs mb-md">
+          <div className="flex flex-wrap gap-xs">
             <Button
               variant={visualEffects ? 'default' : 'outline'}
               size="sm"
@@ -2931,7 +2931,7 @@ export default function UIShowcase() {
             <div className="relative grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-md">
               {/* Dropdown Menu */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Dropdown Menu
                 </div>
                 <DropdownMenu
@@ -2963,7 +2963,7 @@ export default function UIShowcase() {
 
               {/* Popover */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Popover
                 </div>
                 <Popover
@@ -2976,7 +2976,7 @@ export default function UIShowcase() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent align="start">
-                    <p className="text-sm text-foreground mb-sm">
+                    <p className="text-sm text-foreground">
                       Glass popover content sitting on the patterned panel.
                     </p>
                     <Button size="sm">Action</Button>
@@ -2986,7 +2986,7 @@ export default function UIShowcase() {
 
               {/* Select */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Select
                 </div>
                 <Select
@@ -3009,7 +3009,7 @@ export default function UIShowcase() {
 
               {/* Tooltip stage */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Tooltip (stage)
                 </div>
                 <div className="flex items-start gap-xs">
@@ -3026,12 +3026,12 @@ export default function UIShowcase() {
 
               {/* Dialog stage */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Dialog (stage)
                 </div>
                 <div className="flex items-start gap-xs">
                   <div className="glass-surface rounded-lg shadow-2xl ring-1 ring-border/60 p-sm w-[200px]">
-                    <div className="text-sm font-semibold text-foreground mb-xs">
+                    <div className="text-sm font-semibold text-foreground">
                       Dialog title
                     </div>
                     <div className="text-xs text-muted-foreground">
@@ -3062,11 +3062,11 @@ export default function UIShowcase() {
 
               {/* Drawer stage */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Detail Drawer (stage)
                 </div>
                 <div className="glass-surface border-l border-border shadow-2xl ring-1 ring-border/60 rounded-r-lg p-sm w-[220px] h-[120px]">
-                  <div className="text-sm font-semibold text-foreground mb-xs">
+                  <div className="text-sm font-semibold text-foreground">
                     Drawer panel
                   </div>
                   <div className="text-xs text-muted-foreground">
@@ -3077,7 +3077,7 @@ export default function UIShowcase() {
 
               {/* Styled popover stage */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Styled Popover (stage)
                 </div>
                 <div className="glass-surface rounded-xl shadow-2xl ring-1 ring-border/60 p-1 w-[200px]">
@@ -3096,7 +3096,7 @@ export default function UIShowcase() {
 
               {/* Navigation menu stage */}
               <div>
-                <div className="text-xs uppercase tracking-wider text-white/90 mb-xs drop-shadow">
+                <div className="text-xs uppercase tracking-wider text-white/90 drop-shadow">
                   Navigation Menu (stage)
                 </div>
                 <div className="glass-surface text-popover-foreground rounded-md ring-1 ring-border/60 shadow-2xl p-sm w-[240px]">
@@ -3119,7 +3119,7 @@ export default function UIShowcase() {
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground mt-md">
+          <p className="text-sm text-muted-foreground">
             Vivid diagonal stripes so blur and surface contrast read clearly.
             Toggle visual effects to A/B opaque vs glass; toggle pattern opacity
             to see how each surface looks against bright or dim

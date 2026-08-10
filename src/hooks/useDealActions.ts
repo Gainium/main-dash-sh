@@ -159,8 +159,18 @@ export function useCloseDCADeal() {
   });
 }
 
+interface UseAdjustFundsOptions {
+  /**
+   * Suppress this mutation's own per-deal toasts. Bulk callers await every
+   * deal and report a single aggregated result, so without this one bulk
+   * action would fire one toast per selected deal.
+   */
+  silent?: boolean;
+}
+
 // Hook for adjusting funds in DCA deals
-export function useAdjustFunds() {
+export function useAdjustFunds(options?: UseAdjustFundsOptions) {
+  const silent = options?.silent ?? false;
   const { tokens } = useAuthStore();
 
   // Get the paper context from the UI store (live/paper trading mode)
@@ -173,9 +183,10 @@ export function useAdjustFunds() {
   );
 
   return useMutation<DealResponse, Error, AdjustFundsInput>({
-    // The call sites fire this mutation without awaiting it, so surface
-    // failures through the global error net rather than at the call site.
-    meta: { errorToast: true },
+    // The single-deal call sites fire this mutation without awaiting it, so
+    // surface failures through the global error net rather than at the call
+    // site. Silent (bulk) callers report their own aggregate instead.
+    ...(silent ? {} : { meta: { errorToast: true } }),
     mutationFn: async (input) => {
       logger.info('[useAdjustFunds] Adjust DCA Deals funds:', input);
 
@@ -218,6 +229,9 @@ export function useAdjustFunds() {
         mode: variables.mode,
         response,
       });
+      if (silent) {
+        return;
+      }
       // The OK response only means the request was QUEUED — the order is
       // placed on the exchange later and may still be rejected there (that
       // rejection arrives asynchronously as a `bot sends message` error,

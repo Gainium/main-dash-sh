@@ -82,7 +82,7 @@ export const QuickInputFormButtons: React.FC<QuickInputFormButtonsProps> = ({
 
   return (
     <div
-      className={cn('grid gap-xs sm:gap-sm', gridColsClass, className)}
+      className={cn('grid gap-xs', gridColsClass, className)}
       role="group"
       aria-label="Quick input options"
     >

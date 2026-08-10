@@ -1,7 +1,7 @@
 {
   "name": "@gainium/main-dash-sh",
   "private": false,
-  "version": "2.42.27",
+  "version": "2.43.0",
   "description": "Gainium self-hosted dashboard. React + TS UI with feature flags and a license-key gate for premium features.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
@@ -25,7 +25,8 @@
     "test:matrix": "playwright test --config=playwright.unit.config.ts -g AggregationMatrix",
     "test:ui": "playwright test --ui",
     "test:auth": "playwright test --config=playwright.unit.config.ts tests/authStore.unit.test.js",
-    "prepare": "husky"
+    "prepare": "husky",
+    "verify:css": "node scripts/verify-css-contract.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

@@ -179,7 +179,7 @@ const SessionsCard: React.FC = () => {
         )}
 
         {otherCount > 0 && (
-          <div className="pt-sm">
+          <div className="">
             <Button
               variant="outline"
               className="text-destructive hover:text-destructive"
@@ -187,9 +187,9 @@ const SessionsCard: React.FC = () => {
               onClick={() => setConfirmOpen(true)}
             >
               {isLoggingOutOthers ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-xs" />
+                <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
-                <LogOut className="w-4 h-4 mr-xs" />
+                <LogOut className="w-4 h-4" />
               )}
               Log out all other sessions
             </Button>

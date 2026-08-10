@@ -234,7 +234,7 @@ export const SuccessFeedbackModal: React.FC<SuccessFeedbackModalProps> = ({
 
           {/* Next Steps */}
           {allActions.length > 0 && (
-            <Card className="p-sm sm:p-md bg-muted/20">
+            <Card className="p-sm bg-muted/20">
               <div className="flex items-center gap-xs mb-3">
                 <ArrowRight className="w-4 h-4 text-muted-foreground" />
                 <span className="text-sm font-medium">

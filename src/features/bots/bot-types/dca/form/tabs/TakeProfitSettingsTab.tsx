@@ -10,7 +10,7 @@ import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/t
 // re-render the whole Take Profit section.
 export const TakeProfitSettingsTab = React.memo<BotFormTabComponentProps>(
   () => (
-    <div className="space-y-md sm:space-y-lg lg:space-y-xl">
+    <div className="space-y-md">
       <TakeProfitSettings />
     </div>
   ),

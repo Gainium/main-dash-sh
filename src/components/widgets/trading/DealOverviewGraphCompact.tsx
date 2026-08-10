@@ -1423,7 +1423,7 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
           : null}
       </div>
       {indicatorMode && (
-        <div className="px-sm pb-sm">
+        <div className="px-sm">
           <div className="rounded bg-muted/50 border border-border/50 px-sm py-xs text-xs text-muted-foreground">
             Separation shown is the minimum % from previous order. Actual
             separation will depend on indicator signals at runtime.

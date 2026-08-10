@@ -1,5 +1,51 @@
 # Changelog
 
+## [2.43.0] - 2026-08-09
+
+### Added
+
+- Add Funds and Reduce Funds now work on a multi-deal selection, not just one deal at a time. Select the deals, pick the amount once, and it is applied to each of them — available in the bot details drawer, the Trading page Trades tab, the Trading Terminal and the Open Orders widget. Both actions previously answered with "Coming soon".
+
+### Changed
+
+- The funds dialog says how many deals it is about to act on, and spells out that the amount entered is applied to each selected deal rather than split between them. The asset picker only names the pair's base and quote assets when every selected deal shares them.
+- The bulk Add/Reduce Funds actions only appear when at least one selected deal can actually take a funds adjustment, and deals in the selection that can't (closed, cancelled, or combo) are skipped with a note instead of failing.
+
+## [2.42.33] - 2026-08-07
+
+### Fixed
+
+- Responsive spacing now actually applies. Layouts that were meant to breathe more on wider screens — and directional margins and padding throughout the app — were written against spacing classes the stylesheet never generated, so they quietly did nothing. The spacing scale now covers every direction and every breakpoint.
+- Light and dark styling now follows the theme you pick in the app rather than your operating system's appearance setting. If your device was set to dark while the app was set to light (or the reverse), some text and highlight colours were taken from the wrong theme.
+
+### Changed
+
+- Spacing tokens (`xs`/`sm`/`md`/`lg`/`xl`) keep tracking the Comfortable/Compact setting, and now do so across every spacing utility rather than a partial subset.
+
+## [2.42.32] - 2026-08-07
+
+### Fixed
+
+- An expired session now returns you to the login screen instead of leaving the app open on a page where every panel reads "Error Loading …". Sign-in was only ever checked once, when the tab was first opened, so a session that ran out — or one the app couldn't confirm because the connection dropped at that moment — stayed on screen until you reloaded by hand.
+
+## [2.42.31] - 2026-08-07
+
+### Fixed
+
+- Filters now work the same way in card view as in table view on every bot list. The Filters button was missing on the Hedge DCA and Hedge Combo pages, did nothing on the Grid and Combo pages, and was hidden entirely in card view on All Trades — all four now open the same "Add filter" bar, where you can stack conditions and save filter sets.
+- The filter bar now sits on the same surface as the cards and rows it filters, instead of a full-width strip with a hard bottom edge.
+- Column filters in table view no longer spill out of their column. The operator, the selected values and the clear button stay on one line and shrink to fit, so a narrow column shows a shortened value instead of a broken cell.
+
+### Fixed
+
+- A disabled Save button on the bot form now explains why it is disabled instead of giving no reason.
+
+## [2.42.28] - 2026-08-06
+
+### Fixed
+
+- The Trading Bots page no longer blanks to a bare error when a refresh fails — your bots stay on screen, and when there is genuinely nothing to show it explains why and offers a retry.
+
 ## [2.42.27] - 2026-08-06
 
 ### Added
