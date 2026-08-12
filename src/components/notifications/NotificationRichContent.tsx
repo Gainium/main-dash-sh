@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import DOMPurify from 'dompurify';
 import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 
 /**
  * `http(s)://…` runs, so a notification that cites a help page renders a real
@@ -68,6 +68,14 @@ export const NotificationRichContent: React.FC<
   const hasHtmlContent = Boolean(notification.htmlDescription);
   const messageContent = notification.message ?? '';
 
+  // Sanitised once per message rather than on every render: this component is
+  // rendered for every row of the notification list, and each re-render would
+  // otherwise re-parse the whole string.
+  const sanitizedMessage = useMemo(
+    () => (hasHtmlContent ? DOMPurify.sanitize(messageContent) : ''),
+    [hasHtmlContent, messageContent]
+  );
+
   const shouldShowToggle =
     !disableClamp && messageContent.length > clampLines * 90;
 
@@ -84,7 +92,7 @@ export const NotificationRichContent: React.FC<
           {hasHtmlContent ? (
             <div
               className={messageClass}
-              dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(messageContent) }}
+              dangerouslySetInnerHTML={{ __html: sanitizedMessage }}
               style={{ cursor: 'text' }}
             />
           ) : (
