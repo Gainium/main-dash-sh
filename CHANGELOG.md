@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.6] - 2026-08-12
+
+### Fixed
+
+- The Profit Currency buttons in a DCA bot's settings are no longer greyed out when the bot has open deals. They now stay editable, with a notice explaining that the change applies to new deals and that running deals keep the currency they entered with — the behavior (and the wording) the previous dashboard had.
+
 ## [2.43.5] - 2026-08-12
 
 ### Changed

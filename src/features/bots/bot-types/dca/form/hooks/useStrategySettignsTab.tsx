@@ -978,10 +978,22 @@ export const useStrategySettingsTab = ({
     activeDealsCount > 0 ||
     (isExistingBot && (useMulti || isComboBot));
 
+  // Profit currency stays editable while deals are open — V1 never gated it on
+  // active deals (main-dash `components/StrategySettings.tsx`), it just warned
+  // "Profit currency change will apply to new deals only"
+  // (main-dash `useSettingsComponent.ts`). The backend keeps each running
+  // deal's own `settings.profitCurrency`, so only new deals pick the change up.
   const profitCurrencyDisabled =
-    profitCurrencyLocked ||
-    activeDealsCount > 0 ||
-    (isExistingBot && isComboBot);
+    profitCurrencyLocked || (isExistingBot && isComboBot);
+
+  // Restores the V1 notice V2 dropped: the buttons work, but the change only
+  // reaches deals opened from now on.
+  const profitCurrencyNotice =
+    !profitCurrencyDisabled && activeDealsCount > 0
+      ? `This bot has ${activeDealsCount} active deal${
+          activeDealsCount === 1 ? '' : 's'
+        }. Changes apply to new deals; the profit currency of running deals stays as is.`
+      : null;
   const shouldShowDirectionControl = !isHedgeContext;
 
   const handleBaseOrderSizeChange = useCallback(
@@ -1595,6 +1607,7 @@ export const useStrategySettingsTab = ({
     showBaseOrderSection,
     directionDisabled,
     profitCurrencyDisabled,
+    profitCurrencyNotice,
     riskReductionDisabledReason,
     riskReductionDisplayValue,
     riskReductionSliderValue,

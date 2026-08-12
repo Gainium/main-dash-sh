@@ -72,6 +72,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
     showBaseOrderSection,
     directionDisabled,
     profitCurrencyDisabled,
+    profitCurrencyNotice,
     riskReductionDisabledReason,
     riskReductionDisplayValue,
     riskReductionSliderValue,
@@ -273,18 +274,23 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
             tooltip="Choose quote currency if you expect the pair to move sideways or down and you want to make profit in quote currency. Choose the base currency if you expect the pair to move sideways or up and you want to make profit in base currency."
             tooltipURL="/help/profit-in-base-and-quote"
           >
-            <TerminalButtonStack
-              value={profitCurrency}
-              onValueChange={(value) =>
-                updateFormData('profitCurrency', value as 'base' | 'quote')
-              }
-              options={[
-                { value: 'base', label: displayBaseAsset },
-                { value: 'quote', label: displayQuoteAsset },
-              ]}
-              className="w-full"
-              disabled={profitCurrencyDisabled}
-            />
+            <div className="space-y-xs">
+              <TerminalButtonStack
+                value={profitCurrency}
+                onValueChange={(value) =>
+                  updateFormData('profitCurrency', value as 'base' | 'quote')
+                }
+                options={[
+                  { value: 'base', label: displayBaseAsset },
+                  { value: 'quote', label: displayQuoteAsset },
+                ]}
+                className="w-full"
+                disabled={profitCurrencyDisabled}
+              />
+              {profitCurrencyNotice && (
+                <SettingsAlert variant="info" title={profitCurrencyNotice} />
+              )}
+            </div>
           </SettingsRow>
         )}
 
