@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.3] - 2026-08-12
+
+### Changed
+
+- OKX Europe X-Perp futures are now beta-gated: only beta testers (Alpha group) can add EU futures connections or see EU futures accounts in the bot form; everyone else gets the spot-only behavior with a "beta, coming soon" notice in the add-exchange dialog.
+
 ## [2.43.1] - 2026-08-12
 
 ### Fixed
