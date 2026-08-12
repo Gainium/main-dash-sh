@@ -213,6 +213,25 @@ export function useBotActions(
   const restartMutation = useBotRestart();
   const deleteMutation = useBotDelete();
 
+  // React Query's `useMutation` returns `{ ...result, mutate, mutateAsync }` —
+  // a fresh object literal on EVERY render. So a `useCallback` that lists the
+  // mutation OBJECT in its deps never actually memoises: it hands back a new
+  // function each render, and that instability fans out to every memoised
+  // consumer. On the bot detail drawer, `bot` is replaced on each socket
+  // stats/deal tick (~26x/s); `restart` being new each tick recomputed
+  // `footerActionButtons`, which re-rendered the memoised ResponsiveButtonRow
+  // at the same rate (RenderLoopTripwire "26 renders in 820ms" on
+  // /combo/view + /grid/view — bug #381; #355 patched a call site instead of
+  // this hook, which is why it came back on a different surface).
+  //
+  // `mutate` is bound once in the MutationObserver's constructor and handed
+  // through unchanged, so it IS referentially stable — depend on it, not on
+  // its wrapper. Everything else these callbacks read off the mutation object
+  // (`isPending`) is consumed at render time, not inside the callback.
+  const restartMutate = restartMutation.mutate;
+  const statusToggleMutate = statusToggleMutation.mutate;
+  const deleteMutateAsync = deleteMutation.mutateAsync;
+
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
@@ -238,14 +257,14 @@ export function useBotActions(
 
   // --- Restart ---
   const restart = useCallback(() => {
-    restartMutation.mutate(
+    restartMutate(
       { id: botId, type: botType },
       {
         onSuccess: () => toast.success(`Bot "${botName}" restarted successfully`),
         onError: () => toast.error(`Failed to restart bot "${botName}"`),
       }
     );
-  }, [restartMutation, botId, botType, botName]);
+  }, [restartMutate, botId, botType, botName]);
 
   // --- Status toggle (modal → mutation) ---
   const openStatusModal = useCallback(() => setStatusModalOpen(true), []);
@@ -273,7 +292,7 @@ export function useBotActions(
         return;
       }
 
-      statusToggleMutation.mutate(
+      statusToggleMutate(
         {
           id: botId,
           status: targetStatus,
@@ -301,7 +320,7 @@ export function useBotActions(
         }
       );
     },
-    [status, onToggleStatus, statusToggleMutation, botId, isGrid, botName]
+    [status, onToggleStatus, statusToggleMutate, botId, isGrid, botName]
   );
 
   // --- Delete (modal → mutation → optional success modal) ---
@@ -309,7 +328,7 @@ export function useBotActions(
 
   const confirmDelete = useCallback(async () => {
     try {
-      await deleteMutation.mutateAsync({ id: botId, type: botType });
+      await deleteMutateAsync({ id: botId, type: botType });
       setDeleteModalOpen(false);
       if (showSuccessModal) {
         setSuccessType('delete');
@@ -320,7 +339,7 @@ export function useBotActions(
       // user can retry or cancel.
       logger.error('[useBotActions] Delete failed', error);
     }
-  }, [deleteMutation, botId, botType, showSuccessModal]);
+  }, [deleteMutateAsync, botId, botType, showSuccessModal]);
 
   // --- Share Configuration (clipboard) ---
   const shareConfig = useCallback(async () => {

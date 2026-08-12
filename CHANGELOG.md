@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.1] - 2026-08-12
+
+### Fixed
+
+- The bot action buttons (Start/Stop, Restart, Edit) no longer re-render on every live update. On a busy bot the bot details drawer rebuilt its whole action bar on each price/deal tick, which made the drawer sluggish and could trip React's update-depth limit and blank the page.
+
 ## [2.43.0] - 2026-08-09
 
 ### Added
