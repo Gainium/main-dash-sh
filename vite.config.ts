@@ -2,7 +2,7 @@ import react from '@vitejs/plugin-react';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, type Plugin } from 'vite';
+import { defineConfig, loadEnv, type Plugin } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -214,6 +214,50 @@ const mockApiPlugin = (): Plugin => {
   };
 };
 
+/**
+ * Fail a production build when the API endpoint is not configured.
+ *
+ * `VITE_API_ENDPOINT` is read in ~90 places, each with its own `||` fallback,
+ * and the fallbacks do not agree: 79 use `http://localhost:4000`, seven use
+ * `https://api.gainium.io`, one uses `http://localhost:7500`. None of them is
+ * the self-hosted API port, so a build with no `.env` produces a bundle that
+ * looks fine and talks to the wrong host.
+ *
+ * The failure that motivated this is quiet in the worst way. A self-hosted
+ * build without `.env` sends auth to Gainium's cloud, where the operator's
+ * local account does not exist and `checkUserExist` — a field only app-sh
+ * exposes — 400s. What reaches the user is "cannot log in" plus a GraphQL
+ * validation error naming a field they have never heard of, with nothing
+ * pointing at the missing variable that caused it.
+ *
+ * Dev is left alone: `vite dev` against the mock API plugin above is a
+ * legitimate no-endpoint setup. Only `vite build` is gated, because that is
+ * the artefact that gets deployed and outlives the shell that built it.
+ */
+const requireApiEndpoint = (): Plugin => ({
+  name: 'require-api-endpoint',
+  apply: 'build',
+  config(_config, { mode }) {
+    const endpoint = loadEnv(mode, process.cwd(), 'VITE_').VITE_API_ENDPOINT;
+    if (endpoint && endpoint.trim()) {
+      return;
+    }
+    throw new Error(
+      [
+        'VITE_API_ENDPOINT is not set.',
+        '',
+        'A production build needs it: the per-call fallbacks scattered through',
+        'src/ point at three different hosts, none of them the self-hosted API,',
+        'so building without it yields a bundle that silently talks to the',
+        'wrong backend instead of failing here.',
+        '',
+        'Copy .env.example to .env and set VITE_API_ENDPOINT (self-hosted',
+        'default: http://localhost:7503), or pass it in the build environment.',
+      ].join('\n')
+    );
+  },
+});
+
 // https://vite.dev/config/
 export default defineConfig({
   define: {
@@ -236,6 +280,7 @@ export default defineConfig({
     },
   },
   plugins: [
+    requireApiEndpoint(),
     react(),
     mockApiPlugin(),
     VitePWA({
