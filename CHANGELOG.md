@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.4] - 2026-08-12
+
+### Fixed
+
+- The backtest History table on the bot create/edit pages no longer rebuilds its toolbar on every live update. The backtest list was handed back as a brand-new list on each render, so the whole History panel — and its Filter / Resize / Columns toolbar — was rebuilt on every price and deal tick, making the page sluggish and risking React's update-depth limit blanking it.
+
 ## [2.43.3] - 2026-08-12
 
 ### Changed

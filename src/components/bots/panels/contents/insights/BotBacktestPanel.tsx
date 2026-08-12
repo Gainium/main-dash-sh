@@ -365,7 +365,14 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         );
       }
     },
-    [exportBacktestsMutation]
+    // Stable `.mutateAsync`, not the whole react-query mutation object, which
+    // is fresh on every render. Depending on the object rebuilt this callback
+    // each render, which churned `backtestColumns` / `insightsTabs` and with
+    // them the DataTable's `bulkActions`, re-rendering the memoised
+    // ResponsiveButtonRow on every tick (RenderLoopTripwire). Same fix as
+    // useBotActions / BotForm.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [exportBacktestsMutation.mutateAsync]
   );
 
   // Handle delete confirmation
@@ -401,7 +408,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         );
       }
     },
-    [buildShareUrl, shareBacktestMutation, descriptor.kind]
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [buildShareUrl, shareBacktestMutation.mutateAsync, descriptor.kind]
   );
 
   const handleLoadBacktestDetails = useCallback(
@@ -424,7 +433,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         setResultsModalOpen(true);
       }
     },
-    [loadBacktestDetailsMutation, mode, onActiveInsightsTabChange]
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadBacktestDetailsMutation.mutateAsync, mode, onActiveInsightsTabChange]
   );
 
   const handleImportAsPaper = useCallback(
@@ -452,7 +463,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         );
       }
     },
-    [importAsPaperMutation, descriptor.kind]
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [importAsPaperMutation.mutateAsync, descriptor.kind]
   );
 
   // Confirm delete
@@ -508,7 +521,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         }
       );
     },
-    [setBacktestNoteMutation, descriptor.noteType]
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [setBacktestNoteMutation.mutate, descriptor.noteType]
   );
 
   // Per-type column set — the shared panel never imports a column module
@@ -567,7 +582,9 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
           });
       }
     },
-    [loadBacktestDetailsMutation]
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [loadBacktestDetailsMutation.mutateAsync]
   );
 
   useEffect(() => {

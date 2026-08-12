@@ -122,17 +122,19 @@ export function useDcaBacktests(_filter?: BacktestsFilter): UseBacktestsResult {
     return merged;
   }, [backtestsArray, local.backtests]);
 
-  // Apply client-side filtering if needed
-  const filteredBacktests = mergedBacktests.filter(
-    (_backtest: DCABacktestingResultHistory) => {
-      // Apply any necessary filtering here
-      return true;
-    }
-  );
-
   // Create display names for backtests using the requested format: {start-date} to {end-date} - {coin}
+  // Maps `mergedBacktests` directly, like the sibling useGridBacktests. There
+  // used to be a `filteredBacktests = mergedBacktests.filter(() => true)` step
+  // here: a no-op placeholder, but `.filter` allocates a NEW array every render
+  // even when it keeps everything (and even when the list is empty). It was
+  // this memo's only dependency, so the memo never hit and `backtests` got a
+  // fresh identity on every render — which rebuilt BotBacktestPanel's
+  // `insightsTabs` (and with it the backtest DataTable's `bulkActions`), so the
+  // memoised ResponsiveButtonRow re-rendered on every tick
+  // (RenderLoopTripwire on /bot/edit, /combo/edit). Re-add filtering INSIDE
+  // this memo if it is ever needed.
   const transformedBacktests = useMemo(() => {
-    return filteredBacktests.map((backtest: DCABacktestingResultHistory) => {
+    return mergedBacktests.map((backtest: DCABacktestingResultHistory) => {
       const startDate = backtest.duration?.firstDataTime
         ? new Date(backtest.duration.firstDataTime).toLocaleDateString(
             'en-US',
@@ -160,7 +162,7 @@ export function useDcaBacktests(_filter?: BacktestsFilter): UseBacktestsResult {
         displayName: `${startDate} to ${endDate} - ${coin}`,
       };
     });
-  }, [filteredBacktests]);
+  }, [mergedBacktests]);
 
   // Enhanced logging for debugging
   logger.debug('[useDcaBacktests] Summary:', {
