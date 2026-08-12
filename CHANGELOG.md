@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.5] - 2026-08-12
+
+### Changed
+
+- The DCA orders step is no longer capped at a flat 10%. The ceiling now follows what the deal can actually trade: shorts can go up to 500% per step (price has no upper bound, so a spike can be covered with 3-5 orders), while longs are held to the 100%-from-entry envelope — 33.3% on a 3-order ladder, 20% on 5, and just under 100% for indicator- and custom-spaced ladders, which chain off the previous order instead of off entry. The step still can't go below the exchange/fee minimum, and the helper line under the field says which limit is binding. Applies to the Scaled step, each indicator's "Minimum % from last filled order", each Custom ladder level, and the ATR/ADR minimum-deviation guard — in the bot form and in backtests alike.
+
 ## [2.43.4] - 2026-08-12
 
 ### Fixed

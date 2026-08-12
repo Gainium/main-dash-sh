@@ -91,6 +91,11 @@ import {
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
+    describeStepCeiling,
+    MAX_DCA_ORDER_STEP_PERCENT,
+    resolveStepSliderMax,
+} from '@/utils/bots/dca/ranges';
+import {
     buildSmartOrdersHelperMessage,
     deriveSmartOrdersRange,
 } from '@/utils/bots/dca/smart-orders';
@@ -115,7 +120,6 @@ import type { TerminalControlsToolkit } from '../hooks/useTerminalControls.types
 import { DcaOrderSizingControl } from './DcaOrderSizingControl';
 
 const MINIMUM_DEVIATION_MIN = 0;
-const MINIMUM_DEVIATION_MAX = 10;
 
 // Cloning a start-DCA indicator needs several distinct ids in one call, so the
 // `dca-indicator-${Date.now()}` scheme would collide. Same shape as the helper
@@ -125,11 +129,14 @@ const createDcaIndicatorId = () =>
     ? crypto.randomUUID()
     : `dca-indicator-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 
-const clampMinimumDeviation = (value: number) =>
-  Math.min(MINIMUM_DEVIATION_MAX, Math.max(MINIMUM_DEVIATION_MIN, value));
+// The guard is a FLOOR on ATR/ADR spacing, so it can never sensibly exceed the
+// widest step the ladder itself allows — it rides the same dynamic ceiling
+// rather than the flat 10% it used to carry.
+const clampMinimumDeviation = (value: number, max: number) =>
+  Math.min(max, Math.max(MINIMUM_DEVIATION_MIN, value));
 
-const formatMinimumDeviation = (value: number) =>
-  formatNumericInput(clampMinimumDeviation(value), 2);
+const formatMinimumDeviation = (value: number, max: number) =>
+  formatNumericInput(clampMinimumDeviation(value, max), 2);
 
 const normalizeCloseCondition = (
   value?: BotFormData['dca']['dealCloseCondition'] | string | null
@@ -543,10 +550,10 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   const stepRange = tradingContext.ranges.step;
   const stepRangeMin = stepRange.min;
   const stepRangeMax = stepRange.max;
-  const stepSliderMax =
-    typeof stepRangeMax === 'number' && Number.isFinite(stepRangeMax)
-      ? stepRangeMax
-      : stepRangeMin + 10;
+  const stepSliderMax = useMemo(
+    () => resolveStepSliderMax(stepRange, step),
+    [stepRange, step]
+  );
   const stepScaleRange = tradingContext.ranges.stepScale;
   const stepScaleRangeMin = stepScaleRange.min;
   const stepScaleRangeMax = stepScaleRange.max;
@@ -656,10 +663,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     [ordersRange]
   );
 
-  const stepHelperMessage = useMemo(
-    () => formatRange(stepRange, { unit: '%', precision: 2 }),
-    [stepRange]
-  );
+  const stepHelperMessage = useMemo(() => {
+    const base = formatRange(stepRange, { unit: '%', precision: 2 });
+    const reason = describeStepCeiling(stepRange);
+    return reason ? `${base}. ${reason}` : base;
+  }, [stepRange]);
 
   const stepScaleHelperMessage = useMemo(
     () => formatRange(stepScaleRange),
@@ -841,13 +849,30 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     [updateFormData]
   );
 
+  const minimumDeviationMax = useMemo(
+    () =>
+      typeof stepRangeMax === 'number' && Number.isFinite(stepRangeMax)
+        ? stepRangeMax
+        : MAX_DCA_ORDER_STEP_PERCENT,
+    [stepRangeMax]
+  );
+
+  const minimumDeviationSliderMax = useMemo(
+    () =>
+      resolveStepSliderMax(
+        { min: MINIMUM_DEVIATION_MIN, max: minimumDeviationMax },
+        minimumDeviation
+      ),
+    [minimumDeviationMax, minimumDeviation]
+  );
+
   const minimumDeviationNumeric = useMemo(() => {
     const parsed = Number.parseFloat(minimumDeviation ?? '');
     if (!Number.isFinite(parsed)) {
       return MINIMUM_DEVIATION_MIN;
     }
-    return clampMinimumDeviation(parsed);
-  }, [minimumDeviation]);
+    return clampMinimumDeviation(parsed, minimumDeviationMax);
+  }, [minimumDeviation, minimumDeviationMax]);
 
   const handleMinimumDeviationSliderChange = useCallback(
     (value: number) => {
@@ -857,9 +882,12 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
       if (!Number.isFinite(value)) {
         return;
       }
-      updateFormData('minimumDeviation', formatMinimumDeviation(value));
+      updateFormData(
+        'minimumDeviation',
+        formatMinimumDeviation(value, minimumDeviationMax)
+      );
     },
-    [isMinimumDeviationVarBound, updateFormData]
+    [isMinimumDeviationVarBound, minimumDeviationMax, updateFormData]
   );
 
   const handleMinimumDeviationInputChange = useCallback(
@@ -875,9 +903,12 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
       if (!Number.isFinite(numericValue)) {
         return;
       }
-      updateFormData('minimumDeviation', formatMinimumDeviation(numericValue));
+      updateFormData(
+        'minimumDeviation',
+        formatMinimumDeviation(numericValue, minimumDeviationMax)
+      );
     },
-    [isMinimumDeviationVarBound, updateFormData]
+    [isMinimumDeviationVarBound, minimumDeviationMax, updateFormData]
   );
 
   const applyMinimumDeviationVariable = useCallback(
@@ -889,9 +920,12 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
       if (!Number.isFinite(numericValue)) {
         return;
       }
-      updateFormData('minimumDeviation', formatMinimumDeviation(numericValue));
+      updateFormData(
+        'minimumDeviation',
+        formatMinimumDeviation(numericValue, minimumDeviationMax)
+      );
     },
-    [updateFormData]
+    [minimumDeviationMax, updateFormData]
   );
 
   const comboSpacing = useMemo(() => {
@@ -1205,7 +1239,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
         {showMinimumDeviationGuard ? (
           <SettingsRow
             name="Minimum deviation guard"
-            tooltip={`Prevents ATR/ADR-based scaling from stacking orders closer than ${MINIMUM_DEVIATION_MIN}%–${MINIMUM_DEVIATION_MAX}%.`}
+            tooltip={`Prevents ATR/ADR-based scaling from stacking orders closer than ${MINIMUM_DEVIATION_MIN}%–${minimumDeviationMax}%.`}
           >
             <div className="flex w-full flex-col gap-sm">
               <div className="px-2">
@@ -1213,7 +1247,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                   value={minimumDeviationNumeric}
                   onChange={handleMinimumDeviationSliderChange}
                   min={MINIMUM_DEVIATION_MIN}
-                  max={MINIMUM_DEVIATION_MAX}
+                  max={minimumDeviationSliderMax}
                   step={0.1}
                   className="w-full"
                   disabled={isMinimumDeviationVarBound}
@@ -1232,7 +1266,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                   value={minimumDeviation ?? ''}
                   onChange={handleMinimumDeviationInputChange}
                   min={MINIMUM_DEVIATION_MIN}
-                  max={MINIMUM_DEVIATION_MAX}
+                  max={minimumDeviationMax}
                   step={0.1}
                   precision={2}
                   className="w-full"
@@ -2102,10 +2136,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
   const stepRange = tradingContext.ranges.step;
   const stepRangeMin = stepRange.min;
   const stepRangeMax = stepRange.max;
-  const stepSliderMax =
-    typeof stepRangeMax === 'number' && Number.isFinite(stepRangeMax)
-      ? stepRangeMax
-      : stepRangeMin + 10;
 
   const clampIndicatorStep = useCallback(
     (value: number): number => {
@@ -2122,10 +2152,11 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     [stepRangeMax, stepRangeMin]
   );
 
-  const stepHelperMessage = useMemo(
-    () => formatRange(stepRange, { unit: '%', precision: 2 }),
-    [stepRange]
-  );
+  const stepHelperMessage = useMemo(() => {
+    const base = formatRange(stepRange, { unit: '%', precision: 2 });
+    const reason = describeStepCeiling(stepRange);
+    return reason ? `${base}. ${reason}` : base;
+  }, [stepRange]);
 
   const dcaIndicators = useMemo(
     () =>
@@ -2171,7 +2202,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                 onUpdateIndicatorParams={handleIndicatorParamsChange}
                 stepRangeMin={stepRangeMin}
                 stepRangeMax={stepRangeMax}
-                stepSliderMax={stepSliderMax}
                 stepHelperMessage={stepHelperMessage}
                 clampStep={clampIndicatorStep}
                 onRemove={removeIndicator}
@@ -2286,7 +2316,6 @@ interface CustomDcaOrderRowProps {
   currencyLabel: string;
   stepRangeMin: number;
   stepRangeMax: number | null;
-  stepSliderMax: number;
   stepHelperMessage: string;
   clampStep: (value: number) => number;
   onRemove: (id: string) => void;
@@ -2309,7 +2338,6 @@ const CustomDcaOrderRow = React.memo<CustomDcaOrderRowProps>(({
   tradingContext,
   stepRangeMin,
   stepRangeMax,
-  stepSliderMax,
   stepHelperMessage,
   clampStep,
   onRemove,
@@ -2343,6 +2371,14 @@ const CustomDcaOrderRow = React.memo<CustomDcaOrderRowProps>(({
       Number.isFinite(numericValue) ? numericValue : stepRangeMin
     );
   }, [clampStep, order.step, stepRangeMin]);
+
+  // Per row: the slider only widens past the comfortable range when THIS
+  // order's step needs the room, so a 40% level doesn't coarsen its siblings.
+  const stepSliderMax = useMemo(
+    () =>
+      resolveStepSliderMax({ min: stepRangeMin, max: stepRangeMax }, order.step),
+    [stepRangeMin, stepRangeMax, order.step]
+  );
 
   const stepError = errors[`dcaCustom.${order.uuid}.step`] ?? null;
 
@@ -2647,7 +2683,6 @@ interface TechnicalIndicatorCardProps {
   ) => void;
   stepRangeMin: number;
   stepRangeMax: number | null;
-  stepSliderMax: number;
   stepHelperMessage: string;
   clampStep: (value: number) => number;
   onRemove: (id: string) => void;
@@ -2673,7 +2708,6 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
   onUpdateIndicatorParams,
   stepRangeMin,
   stepRangeMax,
-  stepSliderMax,
   stepHelperMessage,
   clampStep,
   onRemove,
@@ -2698,6 +2732,17 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
     }
     return clampStep(numericValue);
   }, [clampStep, indicator.minPercFromLast, stepRangeMin]);
+
+  // Per indicator level: widen the slider only as far as this level's own value
+  // needs, so one deep level doesn't make the shallow ones undraggable.
+  const stepSliderMax = useMemo(
+    () =>
+      resolveStepSliderMax(
+        { min: stepRangeMin, max: stepRangeMax },
+        indicator.minPercFromLast
+      ),
+    [stepRangeMin, stepRangeMax, indicator.minPercFromLast]
+  );
 
   const minPercVariablePath = useMemo(
     () =>
@@ -2994,10 +3039,6 @@ const CustomDCA: React.FC<DCASectionProps> = ({
   const stepRange = tradingContext.ranges.step;
   const stepRangeMin = stepRange.min;
   const stepRangeMax = stepRange.max;
-  const stepSliderMax =
-    typeof stepRangeMax === 'number' && Number.isFinite(stepRangeMax)
-      ? stepRangeMax
-      : stepRangeMin + 10;
 
   const clampCustomStep = useCallback(
     (value: number): number => {
@@ -3014,10 +3055,11 @@ const CustomDCA: React.FC<DCASectionProps> = ({
     [stepRangeMax, stepRangeMin]
   );
 
-  const stepHelperMessage = useMemo(
-    () => formatRange(stepRange, { unit: '%', precision: 2 }),
-    [stepRange]
-  );
+  const stepHelperMessage = useMemo(() => {
+    const base = formatRange(stepRange, { unit: '%', precision: 2 });
+    const reason = describeStepCeiling(stepRange);
+    return reason ? `${base}. ${reason}` : base;
+  }, [stepRange]);
 
   useEffect(() => {
     if (!showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change) {
@@ -3303,7 +3345,6 @@ const CustomDCA: React.FC<DCASectionProps> = ({
                 currencyLabel={currencyLabel}
                 stepRangeMin={stepRangeMin}
                 stepRangeMax={stepRangeMax}
-                stepSliderMax={stepSliderMax}
                 stepHelperMessage={stepHelperMessage}
                 clampStep={clampCustomStep}
                 onRemove={removeCustomOrder}

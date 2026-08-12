@@ -11,6 +11,7 @@ import {
   MIN_DCA_TP,
   MIN_DCA_TP_NEW,
   MIN_DCA_VOLUME_SCALE,
+  StrategyEnum,
 } from '@/types';
 
 import {
@@ -159,7 +160,41 @@ const SMART_ORDERS_MAX_PATHS = [
   'maximumActiveOrdersCount',
 ];
 
-const DEFAULT_STEP_MAX_PERCENT = 10;
+/**
+ * A long deal cannot travel further than 100% from entry — price 0 is the
+ * floor. Both ladder builders (`core/src/bot/dcaHelper.ts` in main-app and the
+ * mirrored `@gainium/backtester` helper) `break` the moment a projected price
+ * hits `<= 0`, so anything past that envelope is silently dropped instead of
+ * traded. Shorts have no such ceiling: price can spike arbitrarily far above
+ * entry, which is exactly the case a flat cap was blocking.
+ */
+const LONG_MAX_TOTAL_DEVIATION_PERCENT = 100;
+
+/**
+ * Indicator- and custom-ladder steps chain multiplicatively off the *previous
+ * order's* price (`price = prev * (1 ∓ step)`), so the cumulative distance is
+ * `1 - Π(1 - stepᵢ)` and can never reach 100% on its own. Only a single step of
+ * >= 100% would drive a long straight to price 0, so the per-step ceiling is
+ * the only thing that has to hold.
+ */
+const LONG_MAX_CHAINED_STEP_PERCENT = 99;
+
+/**
+ * Shorts are mathematically unbounded, but a slider needs an endpoint and a
+ * fat-fingered 5,000% ladder helps nobody. 500% == a 6x spike covered by a
+ * single step, which is well past any real use case.
+ */
+const SHORT_MAX_STEP_PERCENT = 500;
+
+/**
+ * Slider ceiling for the common case. The *input* accepts the whole resolved
+ * range; the slider only widens past this once the current value needs it, so
+ * picking 1% by dragging stays possible on a bot whose ceiling is 500%.
+ */
+export const STEP_SLIDER_COMFORT_MAX_PERCENT = 10;
+
+/** Fallback ceiling when the range has no finite max (defensive; shouldn't happen). */
+export const MAX_DCA_ORDER_STEP_PERCENT = SHORT_MAX_STEP_PERCENT;
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   value !== null && typeof value === 'object' && !Array.isArray(value);
@@ -471,28 +506,150 @@ const resolveOrdersCountRange = (formData: BotFormData): RangeBounds => {
   };
 };
 
+/**
+ * `Σ ratio^k` for k in [0, count) — how many times the base step fits into the
+ * ladder once `stepScale` compounding is applied.
+ */
+const geometricSum = (ratio: number, count: number): number => {
+  if (!Number.isFinite(count) || count <= 0) {
+    return 0;
+  }
+  if (!Number.isFinite(ratio) || ratio <= 0 || Math.abs(ratio - 1) < 1e-9) {
+    return count;
+  }
+  return (ratio ** count - 1) / (ratio - 1);
+};
+
+export type StepCeilingReason =
+  /** Short deal — price can spike arbitrarily, so only a sanity cap applies. */
+  | 'short-unbounded'
+  /** Long, multiplicative ladder — a single step just has to stay under 100%. */
+  | 'long-chained'
+  /** Long, additive ladder — the whole ladder must fit inside 100% of entry. */
+  | 'long-envelope'
+  /** The envelope squeezed the ceiling below the exchange/fee minimum step. */
+  | 'exchange-minimum';
+
+interface StepCeiling {
+  value: number;
+  reason: StepCeilingReason;
+}
+
+/**
+ * The largest per-order step that can actually be traded, given the deal's
+ * direction and how its ladder is chained. Replaces the old flat 10% cap, which
+ * was the same number whether the bot was a 3-order short or a 100-order long.
+ */
+const resolveStepCeiling = (
+  formData: BotFormData,
+  minPercent: number
+): StepCeiling => {
+  const isComboBot = formData.type === BotTypesEnum.combo;
+  const settings = isComboBot ? formData.combo : formData.dca;
+
+  const applyMinimum = (ceiling: StepCeiling): StepCeiling =>
+    ceiling.value < minPercent
+      ? { value: minPercent, reason: 'exchange-minimum' }
+      : ceiling;
+
+  if (settings.strategy === StrategyEnum.short) {
+    return applyMinimum({
+      value: SHORT_MAX_STEP_PERCENT,
+      reason: 'short-unbounded',
+    });
+  }
+
+  const dcaCondition = settings.dcaCondition || DCAConditionEnum.percentage;
+  if (
+    dcaCondition === DCAConditionEnum.indicators ||
+    dcaCondition === DCAConditionEnum.custom
+  ) {
+    return applyMinimum({
+      value: LONG_MAX_CHAINED_STEP_PERCENT,
+      reason: 'long-chained',
+    });
+  }
+
+  // Scaled / dynamicAr ladders are additive off the ENTRY price
+  // (`price -= entry * step * stepScale^(i-1)`), so the full ladder — not just
+  // one step — has to fit inside the 100% envelope.
+  const ordersCount = normalizeNumericCandidate(settings.ordersCount) ?? 1;
+  const stepScale = normalizeNumericCandidate(settings.stepScale) ?? 1;
+  const ladderMultiple = geometricSum(stepScale, Math.max(1, ordersCount));
+
+  return applyMinimum({
+    value:
+      ladderMultiple > 0
+        ? LONG_MAX_TOTAL_DEVIATION_PERCENT / ladderMultiple
+        : LONG_MAX_TOTAL_DEVIATION_PERCENT,
+    reason: 'long-envelope',
+  });
+};
+
 const resolveStepRange = (formData: BotFormData): RangeBounds => {
   const makerFee = resolveMakerFee(formData);
   const baseMinPercent = Math.max(MIN_DCA_ORDER_STEP, makerFee * 2) * 100;
+  const ceiling = resolveStepCeiling(formData, baseMinPercent);
   const range = resolveNumericRange(formData, {
     field: 'step',
     baseMin: baseMinPercent,
-    baseMax: DEFAULT_STEP_MAX_PERCENT,
+    baseMax: ceiling.value,
     precision: 2,
     minPaths: STEP_MIN_PATHS,
     maxPaths: STEP_MAX_PATHS,
     minTransform: convertDecimalToPercent,
     maxTransform: convertDecimalToPercent,
     absoluteMin: MIN_DCA_ORDER_STEP * 100,
-    absoluteMax: DEFAULT_STEP_MAX_PERCENT,
+    absoluteMax: ceiling.value,
   });
 
   return {
     ...range,
     metadata: {
       makerFee,
+      ceilingReason: ceiling.reason,
     },
   };
+};
+
+/**
+ * Why the step ceiling sits where it does, phrased for the form's helper line.
+ * Returns `null` when the ceiling isn't the interesting part of the range.
+ */
+export const describeStepCeiling = (range: RangeBounds): string | null => {
+  switch (range.metadata?.['ceilingReason'] as StepCeilingReason | undefined) {
+    case 'long-envelope':
+      return 'Capped so the whole ladder stays within 100% of entry — raise it by using fewer orders or a smaller step scale.';
+    case 'long-chained':
+      return 'A long can only fall 100% to zero, so each step stays below that.';
+    case 'exchange-minimum':
+      return 'This many orders at this step scale already span 100% of entry, so the step is pinned to the exchange minimum — cut the orders count or the step scale to free it up.';
+    case 'short-unbounded':
+      return 'Shorts can run past 100% — price has no ceiling.';
+    default:
+      return null;
+  }
+};
+
+/**
+ * Display ceiling for a step slider. Keeps the handle usable at everyday values
+ * while still letting a bot configured with a big step render correctly — the
+ * NumberInput next to it always accepts the full `range.max`.
+ */
+export const resolveStepSliderMax = (
+  range: Pick<RangeBounds, 'min' | 'max'>,
+  currentValue?: number | string | null
+): number => {
+  const hardMax =
+    typeof range.max === 'number' && Number.isFinite(range.max)
+      ? range.max
+      : range.min + STEP_SLIDER_COMFORT_MAX_PERCENT;
+  const parsed = normalizeNumericCandidate(currentValue ?? undefined);
+  const comfortable = Math.max(
+    STEP_SLIDER_COMFORT_MAX_PERCENT,
+    parsed !== undefined ? parsed : 0
+  );
+  return Math.max(range.min, Math.min(hardMax, comfortable));
 };
 
 const resolveScaleRange = (

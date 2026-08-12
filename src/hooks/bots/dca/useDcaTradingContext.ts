@@ -7,6 +7,7 @@ import { useBalanceStore } from '@/stores/live/balanceStore';
 import type { BotFormData } from '@/types/bots/form';
 import type { DcaBot } from '@/types/dcaBot';
 import {
+  MAX_DCA_ORDER_STEP_PERCENT,
   resolveDcaRanges,
   type DcaDerivedRanges,
   type RangeBounds,
@@ -128,9 +129,12 @@ const DEFAULT_ORDERS_RANGE = buildDefaultRange({
   max: MAX_DCA_ORDERS,
 });
 
+// Only used when `resolveStepRange` couldn't produce a finite bound. It must
+// not be tighter than the real ceiling, or it would silently re-impose the flat
+// cap that `resolveStepCeiling` exists to replace.
 const DEFAULT_STEP_RANGE = buildDefaultRange({
   min: 0.1,
-  max: 10,
+  max: MAX_DCA_ORDER_STEP_PERCENT,
 });
 
 const DEFAULT_STEP_SCALE_RANGE = buildDefaultRange({
