@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.9] - 2026-08-13
+
+### Fixed
+
+- The terminal's Amount field shows the real asset badge for non-crypto markets. Indices, tokenized stocks, metals and FX rendered as a plain first-letter tile there — a Hyperliquid builder-dex market like `xyz:SP500` showed an "X" — because the field asked the crypto icon host for a symbol it has no entry for.
+
 ## [2.43.8] - 2026-08-13
 
 ### Fixed

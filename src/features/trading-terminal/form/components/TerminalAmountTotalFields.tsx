@@ -7,6 +7,7 @@ import {
   type PrecisionGuard,
 } from '@/features/bots/shared/utils/order-guard';
 import { OrderSizeTypeEnum } from '@/types';
+import type { AssetClass } from '@/hooks/useTradingPairs';
 import { Lock } from 'lucide-react';
 import React, { useState } from 'react';
 
@@ -39,6 +40,15 @@ export interface TerminalAmountTotalFieldsProps {
   maxTotal: string;
   baseAsset: string;
   quoteAsset: string;
+  /**
+   * Base asset's normalized class + venue, resolved by the parent via
+   * `useResolvePairAsset`. Without them the Amount icon falls through to the
+   * crypto coin host, which has no entry for a non-crypto base — an index
+   * (`xyz:SP500`), a tokenized stock or a metal then renders as a first-letter
+   * tile. `undefined` keeps the previous crypto behavior.
+   */
+  baseAssetClass?: AssetClass | undefined;
+  baseAssetExchange?: string | undefined;
   coinm: boolean;
   providerIsBybit: boolean;
   /** USD equivalent of the Amount field (base -> quote -> USD). */
@@ -91,6 +101,8 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
   maxTotal,
   baseAsset,
   quoteAsset,
+  baseAssetClass,
+  baseAssetExchange,
   coinm,
   providerIsBybit,
   usdEquivalent,
@@ -185,7 +197,14 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
           }
           currency={baseAsset}
           unitLabel={baseAsset}
-          coinIcon={<CoinIcon symbol={baseAsset} size="w-6 h-6" />}
+          coinIcon={
+            <CoinIcon
+              symbol={baseAsset}
+              size="w-6 h-6"
+              assetClass={baseAssetClass}
+              exchange={baseAssetExchange}
+            />
+          }
           disableBalanceValidation={disableBalanceValidation || !amountActive}
           errorField="terminalAmount"
           navId="baseOrderSize"

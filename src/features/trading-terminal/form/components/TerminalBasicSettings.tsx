@@ -50,6 +50,7 @@ import React, {
 } from 'react';
 import { Label } from '@/components/ui/label';
 import ExchangeSelector from '@/features/bots/bot-types/dca/form/components/exchangeSelector';
+import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 
 // Local helper component to handle limit price input without causing render storms
 const LimitPriceInput: React.FC<{
@@ -370,6 +371,22 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     handleRefreshBalances,
   } = useStrategySettingsTab(strategyTabProps);
 
+  // The Amount field's coin icon needs the base asset's class to resolve: the
+  // crypto coin host has no entry for an index, a tokenized stock or a metal,
+  // so without this a Hyperliquid builder-dex base like `xyz:SP500` renders as
+  // a first-letter tile. Resolved here rather than in the field component so
+  // that component stays presentational.
+  const resolvePairAsset = useResolvePairAsset();
+  const baseAssetMeta = useMemo(
+    () =>
+      resolvePairAsset(
+        currentExchange?.provider,
+        displayBaseAsset,
+        displayQuoteAsset
+      ),
+    [resolvePairAsset, currentExchange?.provider, displayBaseAsset, displayQuoteAsset]
+  );
+
   // Legacy parity (Import deal type): the import flow declares a position
   // already held at a known entry price, so it always uses a limit order
   // with an explicit price. Force Limit + Use Limit Price and seed the
@@ -689,6 +706,8 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                     maxTotal={maxTotal}
                     baseAsset={displayBaseAsset}
                     quoteAsset={displayQuoteAsset}
+                    baseAssetClass={baseAssetMeta.assetClass}
+                    baseAssetExchange={baseAssetMeta.exchange}
                     coinm={!!coinm}
                     providerIsBybit={providerIsBybit}
                     usdEquivalent={amountUsdEquivalent}
