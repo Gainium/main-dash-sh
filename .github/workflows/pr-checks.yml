@@ -45,3 +45,11 @@ jobs:
       - name: Verify CSS contract
         if: always()
         run: npm run verify:css
+
+      # A bot-form control that reads one form field and writes another is
+      # valid TypeScript and clean lint — the field just silently snaps back
+      # to the other field's value. This pairs every controlled input's
+      # value/onChange and fails when they disagree.
+      - name: Verify form bindings
+        if: always()
+        run: npm run verify:forms

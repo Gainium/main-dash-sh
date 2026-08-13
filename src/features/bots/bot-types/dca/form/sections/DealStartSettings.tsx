@@ -380,7 +380,7 @@ export const DealStartSettings: React.FC = () => {
     'dynamicPriceFilterDeviation'
   );
   const cooldownAfterDealStopInterval = useBotFormSelector(
-    'cooldownAfterDealStartInterval'
+    'cooldownAfterDealStopInterval'
   );
   const cooldownAfterDealStopOption = useBotFormSelector(
     'cooldownAfterDealStopOption'

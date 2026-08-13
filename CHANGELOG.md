@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.43.7] - 2026-08-13
+
+### Fixed
+
+- A DCA bot's "Cooldown after deal close" interval no longer reverts to the "Cooldown after deal start" interval. The field displayed the start cooldown's value, so any number entered appeared to snap back to 1 after saving.
+
+### Added
+
+- `npm run verify:forms` checks every bot-form control for a value that reads one form field while its handler writes another — the defect above, which type-check and lint both accept. It runs in CI alongside the type-check, lint, and CSS-contract steps.
+
 ## [2.43.6] - 2026-08-12
 
 ### Fixed
