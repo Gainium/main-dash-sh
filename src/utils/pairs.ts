@@ -64,6 +64,24 @@ export const isTokenizedStockPair = (pair: string): boolean =>
   /[A-Z]x(?:[-/]|USD|USDT|USDC|EUR|GBP|$)/.test(pair || '');
 
 /**
+ * Strip the builder-dex prefix from a base asset, leaving the clean underlying.
+ *
+ * Hyperliquid HIP-3 markets are minted by a builder dex whose id prefixes the
+ * base — `xyz:SP500`, `flx:NVDA`, `para:AVGO`. The prefix identifies the venue
+ * that listed the market, not the asset, so it is noise wherever the ASSET is
+ * what matters: icon lookup (`/images/index/SP500.svg`) and the short unit
+ * label next to an amount field. A colon only ever appears in these bases.
+ *
+ * Do NOT use this to build anything sent to an exchange or used as a pair key —
+ * the prefix is part of the market's identity there, and two dexes can list the
+ * same underlying.
+ */
+export const stripDexPrefix = (symbol: string): string => {
+  const s = symbol || '';
+  return s.includes(':') ? s.slice(s.indexOf(':') + 1) : s;
+};
+
+/**
  * Map an exchange **balance/ledger** asset code to its tradeable **pair base**
  * (`baseAsset.name` on the loaded trading pairs), so a holding can be looked up
  * via `useResolvePairAsset` for its asset class + display name. Mirrors the

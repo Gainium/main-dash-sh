@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.10] - 2026-08-13
+
+### Changed
+
+- Amount and Total fields label a Hyperliquid builder-dex market by its underlying asset — `xyz:SP500` now reads `SP500`, with the full symbol on hover. The prefix names the dex that listed the market rather than the asset, and it pushed the label over the value.
+
 ## [2.43.9] - 2026-08-13
 
 ### Fixed

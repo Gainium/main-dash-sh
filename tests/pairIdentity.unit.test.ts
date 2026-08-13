@@ -5,6 +5,7 @@ import {
   normalizePairKey,
   resolvePairSelectionSymbol,
   resolveStoredPairSymbol,
+  stripDexPrefix,
 } from '@/utils/pairs';
 
 /**
@@ -128,5 +129,38 @@ test.describe('resolveStoredPairSymbol', () => {
     expect(
       resolveStoredPairSymbol('AAPLx-USD', meta('AAPLx-USD', 'AAPLx', 'USD'))
     ).toBe('AAPLXUSD');
+  });
+});
+
+/**
+ * The `dex:` prefix on Hyperliquid HIP-3 bases names the builder dex that
+ * listed the market, not the asset. It drives icon lookup (`xyz:SP500` →
+ * `/images/index/SP500.svg`) and the unit label next to an amount field, where
+ * the fixed padding means a long label overruns the value.
+ */
+test.describe('stripDexPrefix', () => {
+  test('a builder-dex base yields the clean underlying', () => {
+    expect(stripDexPrefix('xyz:SP500')).toBe('SP500');
+    expect(stripDexPrefix('flx:NVDA')).toBe('NVDA');
+    expect(stripDexPrefix('para:AVGO')).toBe('AVGO');
+  });
+
+  test('a plain base is returned untouched', () => {
+    // No colon => nothing to strip. Casing must survive: venues are
+    // case-sensitive on the tokenized-stock `x`.
+    expect(stripDexPrefix('BTC')).toBe('BTC');
+    expect(stripDexPrefix('AAPLx')).toBe('AAPLx');
+    expect(stripDexPrefix('BRK.B')).toBe('BRK.B');
+  });
+
+  test('empty and nullish input degrade to an empty string', () => {
+    expect(stripDexPrefix('')).toBe('');
+    expect(stripDexPrefix(undefined as unknown as string)).toBe('');
+  });
+
+  test('only the first colon delimits the prefix', () => {
+    // Defensive: the underlying keeps any remaining colon rather than being
+    // truncated to its last segment.
+    expect(stripDexPrefix('xyz:A:B')).toBe('A:B');
   });
 });

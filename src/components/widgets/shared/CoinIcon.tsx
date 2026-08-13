@@ -1,4 +1,7 @@
 import type { AssetClass } from '@/hooks/useTradingPairs';
+// Hyperliquid HIP-3 builder-dex bases carry a `dex:` prefix (`xyz:AAPL`), which
+// is stripped so the clean underlying drives icon resolution.
+import { stripDexPrefix } from '@/utils/pairs';
 import React, { useState, useEffect } from 'react';
 
 export interface CoinIconProps {
@@ -37,13 +40,6 @@ export interface CoinIconProps {
  * perps live on `bybitLinear`). `exchange` absent => only the safe lower-case
  * strips apply.
  */
-// Hyperliquid HIP-3 builder-dex bases carry a `dex:` prefix (`xyz:AAPL`,
-// `flx:NVDA`, `para:AVGO`). Strip it so the clean underlying (ticker / metal /
-// FX / index code) drives icon resolution. Colons only ever appear in these
-// builder-dex bases.
-const stripDexPrefix = (s: string): string =>
-  s.includes(':') ? s.slice(s.indexOf(':') + 1) : s;
-
 const normalizeStockTicker = (symbol: string, exchange?: string): string => {
   const s = stripDexPrefix(symbol || '');
   // Normalize the venue: lower-case and drop the `paper` prefix so paper twins

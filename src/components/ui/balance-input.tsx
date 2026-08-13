@@ -3,6 +3,7 @@ import { useComponentError } from '@/hooks/bots/useComponentError';
 import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useBalanceStore } from '@/stores/live/balanceStore';
 import type { OrderSizeTypeEnum } from '@/types';
+import { stripDexPrefix } from '@/utils/pairs';
 import {
   formatBalance as formatBalanceUtil,
   formatPercentage,
@@ -531,8 +532,18 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
                   unitLabel ? (
                     <span className="flex items-center gap-1.5">
                       {coinIcon || defaultCoinIcon}
-                      <span className="text-xs font-semibold text-muted-foreground">
-                        {unitLabel}
+                      {/* The left padding reserved for this adornment is fixed,
+                          so a long label runs into the value. Hyperliquid's
+                          builder-dex bases (`xyz:SP500`) are the common case:
+                          the `dex:` prefix names the venue that listed the
+                          market, not the asset, and is the least useful part of
+                          the label here. Show the underlying and keep the full
+                          symbol on hover. */}
+                      <span
+                        className="text-xs font-semibold text-muted-foreground"
+                        title={unitLabel}
+                      >
+                        {stripDexPrefix(unitLabel)}
                       </span>
                     </span>
                   ) : (
