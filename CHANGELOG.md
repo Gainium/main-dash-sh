@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.12] - 2026-08-13
+
+### Fixed
+
+- Amount and Total fields keep the asset label clear of the value for long tickers. The label had a fixed amount of room, so anything past about seven characters — `FARTCOIN`, `1000PEPE`, `XYZ:SP500` — printed over the number. Labels that already fit are unaffected.
+
 ## [2.43.11] - 2026-08-13
 
 ### Fixed

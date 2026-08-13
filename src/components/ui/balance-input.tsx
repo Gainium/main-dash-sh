@@ -4,12 +4,20 @@ import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useBalanceStore } from '@/stores/live/balanceStore';
 import type { OrderSizeTypeEnum } from '@/types';
 import { stripDexPrefix } from '@/utils/pairs';
+import { adornmentPaddingLeft } from './adornment-padding';
 import {
   formatBalance as formatBalanceUtil,
   formatPercentage,
 } from '@/utils/numberFormatter';
 import { RefreshCw } from 'lucide-react';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { cn } from '../../lib/utils';
 import { Button } from './button';
 import { Input } from './input';
@@ -128,6 +136,41 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
   const prevBalanceRef = React.useRef<number | undefined>(undefined);
   const [isEditing, setIsEditing] = useState(false);
   const [containerRef, containerWidth] = useContainerWidth();
+
+  // Width of the icon + unit label, so the input's left padding can clear it.
+  //
+  // Measured on ref attach and again whenever the label changes, rather than
+  // left to the ResizeObserver alone: observer callbacks are delivered as part
+  // of the document's rendering steps, so a background or hidden tab delivers
+  // none. The label changes when the user switches pair — exactly the moment
+  // the padding has to be right — and that is a React render we can hook
+  // synchronously. The observer stays for the cases a render doesn't cover
+  // (font-size and zoom changes).
+  const adornmentNodeRef = useRef<HTMLDivElement | null>(null);
+  const [adornmentWidth, setAdornmentWidth] = useState(0);
+
+  const measureAdornment = useCallback(() => {
+    const node = adornmentNodeRef.current;
+    if (node) {
+      setAdornmentWidth(Math.ceil(node.getBoundingClientRect().width));
+    }
+  }, []);
+
+  const adornmentRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      adornmentNodeRef.current = node;
+      if (!node) return;
+      setAdornmentWidth(Math.ceil(node.getBoundingClientRect().width));
+      const observer = new ResizeObserver(measureAdornment);
+      observer.observe(node);
+      return () => observer.disconnect();
+    },
+    [measureAdornment]
+  );
+
+  useLayoutEffect(() => {
+    measureAdornment();
+  }, [unitLabel, measureAdornment]);
 
   // Subscribe to balance store loading state using the selector
   const isBalanceLoading = useBalanceStore((state) => state.loading);
@@ -525,27 +568,37 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
                 className={cn(
                   'w-full text-base font-semibold text-foreground [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none',
                   'pr-1',
-                  // Make room for the icon + unit label on the left.
+                  // Floor, and the value used until the adornment is measured.
                   unitLabel && 'pl-[4.5rem]'
                 )}
+                // The adornment is absolutely positioned over the input, so
+                // only this padding keeps the value clear of it — see
+                // `adornmentPaddingLeft` for why it is computed rather than
+                // fixed, and what it guarantees.
+                style={
+                  unitLabel
+                    ? { paddingLeft: adornmentPaddingLeft(adornmentWidth) }
+                    : undefined
+                }
                 startAdornment={
                   unitLabel ? (
-                    <span className="flex items-center gap-1.5">
+                    <div
+                      ref={adornmentRef}
+                      className="flex items-center gap-1.5"
+                    >
                       {coinIcon || defaultCoinIcon}
-                      {/* The left padding reserved for this adornment is fixed,
-                          so a long label runs into the value. Hyperliquid's
-                          builder-dex bases (`xyz:SP500`) are the common case:
-                          the `dex:` prefix names the venue that listed the
-                          market, not the asset, and is the least useful part of
-                          the label here. Show the underlying and keep the full
-                          symbol on hover. */}
+                      {/* Hyperliquid builder-dex bases (`xyz:SP500`) carry a
+                          `dex:` prefix naming the venue that listed the market,
+                          not the asset — the least useful part of the label in
+                          a field with room for one word. Show the underlying,
+                          keep the full symbol on hover. */}
                       <span
                         className="text-xs font-semibold text-muted-foreground"
                         title={unitLabel}
                       >
                         {stripDexPrefix(unitLabel)}
                       </span>
-                    </span>
+                    </div>
                   ) : (
                     coinIcon || defaultCoinIcon
                   )
