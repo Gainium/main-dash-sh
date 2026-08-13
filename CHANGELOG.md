@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.11] - 2026-08-13
+
+### Fixed
+
+- A paper account funded in a non-dollar asset can be created again. The starting balance was checked against a flat $100 minimum whatever the asset, so funding a COIN-M futures account — which is margined in the base coin — with 0.2 BTC was rejected as below $100. The minimum and maximum now scale to the asset being funded, and the message names it.
+
 ## [2.43.10] - 2026-08-13
 
 ### Changed

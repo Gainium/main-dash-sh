@@ -978,6 +978,51 @@ export const getPaperTradingAssets = (
   return paperTradingAssets[exchangeName] || paperTradingAssets['binance'];
 };
 
+/** Fallback when the selected asset has no entry (USD stablecoin scale). */
+const FALLBACK_SUGGESTED_BALANCE = 10000;
+/** A bound is this many times away from the asset's suggested balance. */
+const BOUND_RATIO = 100;
+
+/**
+ * Sane balance bounds for funding a paper account, in units of the asset being
+ * funded rather than assumed dollars.
+ *
+ * These used to be a flat 100 / 1,000,000 with a "$" in the message, which
+ * silently assumed every top-up asset was a stablecoin. A COIN-M futures
+ * account is margined in the base coin, so funding one with 0.2 BTC — about
+ * $12k — was rejected for being "below $100" and the account could not be
+ * created at all.
+ *
+ * Scale off the asset's own suggested starting balance instead, which the list
+ * above already carries per asset (USD 10000, BTC 1, ETH 10). For a USD asset
+ * this reproduces the previous 100 / 1,000,000 exactly; BTC gets 0.01 / 100.
+ *
+ * Deliberately no price lookup: form validation should not depend on a feed
+ * that can be slow, stale, or unavailable — a user must never be blocked from
+ * creating a paper account because a price failed to load. The bounds only
+ * need to bracket the right order of magnitude.
+ */
+export const paperBalanceBounds = (
+  assetSymbol: string | undefined,
+  assets: PaperTradingAsset[]
+): { min: number; max: number; asset: string } => {
+  const asset = assetSymbol || assets[0]?.symbol || 'USDT';
+  const suggested = parseFloat(
+    assets.find((a) => a.symbol === asset)?.defaultBalance ?? ''
+  );
+  const base =
+    Number.isFinite(suggested) && suggested > 0
+      ? suggested
+      : FALLBACK_SUGGESTED_BALANCE;
+  return { min: base / BOUND_RATIO, max: base * BOUND_RATIO, asset };
+};
+
+/** Render a derived bound without float noise (0.01, not 0.010000000000002). */
+export const formatBound = (value: number): string =>
+  Number(value.toPrecision(12)).toLocaleString('en-US', {
+    maximumFractionDigits: 8,
+  });
+
 /**
  * Brand key for the paper-asset lists, origin-aware: an OKX account on the
  * Europe origin (my.okx.com) trades a venue with no USDT at all, so its

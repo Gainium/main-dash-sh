@@ -48,7 +48,9 @@ import {
   getPaperSubAccountLabel,
   getPaperTradingAssets,
   getSubAccountTopUpAssets,
+  formatBound,
   isPaperExchange,
+  paperBalanceBounds,
   requiresPassphrase,
   supportsHostSelection,
   supportsKeyTypes,
@@ -791,16 +793,18 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         }
 
         const balance = parseFloat(formData.stablecoinBalance);
+        const { min, max, asset } = paperBalanceBounds(
+          formData.coinToTopUp,
+          paperTradingAssets
+        );
         if (isNaN(balance)) {
           newErrors.stablecoinBalance = 'Balance must be a valid number';
         } else if (balance < 0) {
           newErrors.stablecoinBalance = 'Balance must be a positive number';
-        } else if (balance < 100) {
-          newErrors.stablecoinBalance =
-            'Minimum balance is $100 for meaningful testing';
-        } else if (balance > 1000000) {
-          newErrors.stablecoinBalance =
-            'Maximum balance is $1,000,000 for paper trading';
+        } else if (balance < min) {
+          newErrors.stablecoinBalance = `Minimum balance is ${formatBound(min)} ${asset} for meaningful testing`;
+        } else if (balance > max) {
+          newErrors.stablecoinBalance = `Maximum balance is ${formatBound(max)} ${asset} for paper trading`;
         }
       }
     }
