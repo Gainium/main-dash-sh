@@ -1428,10 +1428,12 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         fieldsSkipped.push('maxDealsPerHigherTimeframe');
       }
     } else {
-      fieldsSkipped.push(
-        'useMaxDealsPerHigherTimeframe',
-        'maxDealsPerHigherTimeframe'
-      );
+      // Must be emitted explicitly: mapFormDataToBackend spreads
+      // DCA_FORM_DEFAULTS (where this flag defaults to true) under the mapped
+      // fields, so omitting it here re-enables the limiter on every save.
+      dcaFields['useMaxDealsPerHigherTimeframe'] = false;
+      fieldsMapped.push('useMaxDealsPerHigherTimeframe');
+      fieldsSkipped.push('maxDealsPerHigherTimeframe');
     }
 
     return {
@@ -3663,10 +3665,11 @@ export const mapStartFields = (formData: BotFormData): FieldMappingResult => {
         fieldsSkipped.push('maxDealsPerHigherTimeframe');
       }
     } else {
-      fieldsSkipped.push(
-        'useMaxDealsPerHigherTimeframe',
-        'maxDealsPerHigherTimeframe'
-      );
+      // Same reason as in mapDcaFields: the DCA_FORM_DEFAULTS spread would
+      // otherwise turn the limiter back on whenever the user disables it.
+      startFields['useMaxDealsPerHigherTimeframe'] = false;
+      fieldsMapped.push('useMaxDealsPerHigherTimeframe');
+      fieldsSkipped.push('maxDealsPerHigherTimeframe');
     }
 
     return {

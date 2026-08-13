@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.16] - 2026-08-14
+
+### Fixed
+
+- "Limit deals per higher timeframe bar" can be switched off. Turning it off and saving left it on: the save payload only carried the setting while it was enabled, so the form's default — which is on — showed through and was written back to the bot every time.
+
 ## [2.43.15] - 2026-08-13
 
 ### Added
