@@ -3417,12 +3417,20 @@ export const mapExperimentalFields = (
       }
       addField('feeOrder', forcedOff ? false : feeOrder === true);
     } else {
-      skipField(
-        'feeOrder',
-        feeOrder === true
-          ? 'feeOrder is not supported for this bot configuration and was dropped from the payload.'
-          : undefined
-      );
+      // Not merely skipped: mapFormDataToBackend builds the payload as
+      // `{ ...DCA_FORM_DEFAULTS, ...mappedFields }` and feeOrder defaults to
+      // true there, so leaving the hole open made every save of a DCA bot (or
+      // of a combo bot on futures — both configurations hide the toggle) write
+      // `feeOrder: true` over whatever the bot actually had. That is not inert:
+      // the DCA engine places separate fee orders and adjusts its balance
+      // accounting off this flag. Echo what the form is holding — which is what
+      // the bot has stored — so an untouchable setting survives the save.
+      addField('feeOrder', feeOrder === true);
+      if (feeOrder === true) {
+        warnings.push(
+          'feeOrder is not editable for this bot configuration; the stored value was preserved.'
+        );
+      }
     }
 
     const autoRebalancingSupported = isComboBot && !isFutures;

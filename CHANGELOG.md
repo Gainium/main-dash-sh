@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.17] - 2026-08-14
+
+### Fixed
+
+- Saving a DCA bot, or a combo bot on a futures account, no longer switches "Include fees in order calculation" on behind your back. The setting is only shown for combo bots on spot; everywhere else the save payload fell back to the form's default — which is on — and wrote it over whatever the bot had. On DCA bots that is a live setting: the bot places separate fee orders and accounts for the fee balance when it is on.
+
 ## [2.43.16] - 2026-08-14
 
 ### Fixed
