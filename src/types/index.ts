@@ -3564,10 +3564,6 @@ export enum WebhookActionEnum {
   addFunds = 'addFunds',
   reduceFunds = 'reduceFunds',
   changePairs = 'changePairs',
-  enterLong = 'enterLong',
-  enterShort = 'enterShort',
-  exitLong = 'exitLong',
-  exitShort = 'exitShort',
 }
 
 export enum PairsToSetMode {

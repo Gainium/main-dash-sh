@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.14] - 2026-08-13
+
+### Removed
+
+- The webhook configuration modal no longer offers "Enter Long", "Enter Short", "Exit Long" and "Exit Short" for futures and COIN-M bots. The platform has never acted on those four signals — sending one returned a success response and did nothing. Direction is a bot setting, so "Start Deal" already opens in the bot's configured direction and "Close Deal" already exits it.
+
 ## [2.43.13] - 2026-08-13
 
 ### Fixed

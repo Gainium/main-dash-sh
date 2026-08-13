@@ -15,14 +15,6 @@ export enum WebhookActionEnum {
   reduceFunds = 'reduceFunds',
   /** Change pairs */
   changePairs = 'changePairs',
-  /** Enter long position */
-  enterLong = 'enterLong',
-  /** Enter short position */
-  enterShort = 'enterShort',
-  /** Exit long position */
-  exitLong = 'exitLong',
-  /** Exit short position */
-  exitShort = 'exitShort',
 }
 
 export enum PairsToSetMode {
@@ -89,16 +81,6 @@ export const WEBHOOK_ACTION_CATEGORIES: WebhookActionCategory[] = [
     name: 'Symbol Management',
     description: 'Change trading pairs for multi-symbol bots',
     actions: [WebhookActionEnum.changePairs],
-  },
-  {
-    name: 'Position Control',
-    description: 'Enter and exit long/short positions',
-    actions: [
-      WebhookActionEnum.enterLong,
-      WebhookActionEnum.enterShort,
-      WebhookActionEnum.exitLong,
-      WebhookActionEnum.exitShort,
-    ],
   },
 ];
 

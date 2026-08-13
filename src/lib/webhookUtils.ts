@@ -74,14 +74,6 @@ export function generateWebhookPayload(
         pairsToSetMode: options.pairsToSetMode || PairsToSetMode.replace,
       };
 
-    case WebhookActionEnum.enterLong:
-    case WebhookActionEnum.enterShort:
-    case WebhookActionEnum.exitLong:
-    case WebhookActionEnum.exitShort:
-      return options.symbol
-        ? { ...basePayload, symbol: options.symbol }
-        : basePayload;
-
     default:
       return basePayload;
   }
@@ -154,7 +146,6 @@ export function getWebhookActionAvailability(
   terminal?: boolean
 ): WebhookActionAvailability[] {
   const options = computeWebhookOptions(bot, combo);
-  const settings = bot.settings;
   const actions: WebhookActionAvailability[] = [];
 
   // Open deal
@@ -229,16 +220,6 @@ export function getWebhookActionAvailability(
       enabled: false,
       disabledReason: 'Enable multi-pair to use this',
     });
-  }
-
-  // Position control for futures/margin bots
-  if (settings?.futures || settings?.coinm) {
-    actions.push(
-      { action: WebhookActionEnum.enterLong, enabled: true },
-      { action: WebhookActionEnum.enterShort, enabled: true },
-      { action: WebhookActionEnum.exitLong, enabled: true },
-      { action: WebhookActionEnum.exitShort, enabled: true }
-    );
   }
 
   return actions;
@@ -345,10 +326,6 @@ export function formatActionName(action: WebhookActionEnum): string {
     [WebhookActionEnum.addFunds]: 'Add Funds',
     [WebhookActionEnum.reduceFunds]: 'Reduce Funds',
     [WebhookActionEnum.changePairs]: 'Change Pairs',
-    [WebhookActionEnum.enterLong]: 'Enter Long',
-    [WebhookActionEnum.enterShort]: 'Enter Short',
-    [WebhookActionEnum.exitLong]: 'Exit Long',
-    [WebhookActionEnum.exitShort]: 'Exit Short',
   };
 
   return actionNames[action] || action;
@@ -368,10 +345,6 @@ export function getActionDescription(action: WebhookActionEnum): string {
     [WebhookActionEnum.reduceFunds]: 'Reduce funds from bot or deal',
     [WebhookActionEnum.changePairs]:
       'Change trading pairs for multi-symbol bot',
-    [WebhookActionEnum.enterLong]: 'Enter a long position',
-    [WebhookActionEnum.enterShort]: 'Enter a short position',
-    [WebhookActionEnum.exitLong]: 'Exit a long position',
-    [WebhookActionEnum.exitShort]: 'Exit a short position',
   };
 
   return descriptions[action] || 'Webhook action';
