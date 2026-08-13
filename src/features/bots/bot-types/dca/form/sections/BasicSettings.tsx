@@ -1,3 +1,4 @@
+import { Chip } from '@/components/ui/chip';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { Switch } from '@/components/ui/switch';
@@ -196,6 +197,22 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
           trailing={
             isComboBot ? null : (
               <div className="flex items-center gap-xs">
+                {/* Multi-pair selections scroll out of view once the picker
+                    grows, so surface the running count next to the toggle. */}
+                {useMulti && pairs.length > 0 && (
+                  <Chip
+                    variant={limitReached ? 'warning' : 'primary'}
+                    chipStyle="soft"
+                    size="xs"
+                    title={
+                      limitReached
+                        ? `Pair limit reached (${pairs.length})`
+                        : `${pairs.length} pairs selected`
+                    }
+                  >
+                    {pairs.length} {pairs.length === 1 ? 'pair' : 'pairs'}
+                  </Chip>
+                )}
                 <Label
                   htmlFor="multi-pair-switch"
                   className="text-xs text-muted-foreground"

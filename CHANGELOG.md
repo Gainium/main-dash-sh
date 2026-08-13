@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.15] - 2026-08-13
+
+### Added
+
+- The bot form shows how many trading pairs are selected. With multiple pairs enabled, a count chip sits next to the Single/Multiple switch and turns amber once the plan's pair limit is reached, so the total is visible without scrolling the picker.
+
 ## [2.43.14] - 2026-08-13
 
 ### Removed
