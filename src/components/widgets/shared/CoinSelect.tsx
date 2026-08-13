@@ -133,12 +133,18 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   const starredPairIds = useStarredPairsStore((s) => s.starredPairIds);
   const toggleStarredPair = useStarredPairsStore((s) => s.toggleStarredPair);
 
-  // The quote/base constraint is always enforced while a pair is selected
-  // — there is no "show all" bypass, because mixing quotes (long) or bases
-  // (short) is invalid. To change the locked asset the user clears the
-  // selection via the chip's ✕, which removes the anchor; the full list
-  // reopens for a fresh first pick and the filter re-arms from it.
-  const filterActive = Boolean(pairFilter);
+  // The quote/base constraint applies to ADDING a pair alongside the existing
+  // ones — mixing quotes (long) or bases (short) within one bot is invalid.
+  // It must NOT apply to REPLACING the only pair: the replacement becomes the
+  // sole pair, so there is nothing left for it to be consistent with, and
+  // arming the anchor there left the user staring at "No items found" for a
+  // pair the exchange plainly lists.
+  //
+  // While it is armed, the non-matching candidates are shown DISABLED rather
+  // than hidden (each row explains itself on hover) — a hidden row is
+  // indistinguishable from a pair the venue doesn't offer. To change the
+  // anchored asset the user clears the selection via the chip's ✕.
+  const filterActive = Boolean(pairFilter) && replacingSymbol === null;
 
   const {
     pairsByExchange,
@@ -234,20 +240,25 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     return items.sort((a, b) => a.symbol.localeCompare(b.symbol));
   }, [isPairsMode, pairsByExchange]);
 
-  // Constrain candidates to those sharing the anchor asset (quote for
-  // longs, base for shorts) with the current selection. The already-
-  // selected pair is always in `pairItems`, so the filtered set is never
-  // empty while a pair is selected — no fallback-to-all (which would let
-  // the user add a mismatched-quote pair).
+  // Mark candidates that don't share the anchor asset (quote for longs, base
+  // for shorts/coinm) with the current selection. They stay in the list but
+  // become unpickable and carry the reason as a tooltip — removing them
+  // outright made a valid, listed pair look like it wasn't offered at all.
   const filteredPairItems = useMemo(() => {
     if (!pairFilter || !filterActive) {
       return pairItems;
     }
     const anchor = pairFilter.anchor.toUpperCase();
-    return pairItems.filter((item) => {
+    const dimensionLabel = pairFilter.dimension === 'base' ? 'base' : 'quote';
+    const reason =
+      `This bot's pairs all share the ${dimensionLabel} asset ${anchor}. ` +
+      `Remove the ${anchor} chip above to start over with a different one.`;
+    return pairItems.map((item) => {
       const asset =
         pairFilter.dimension === 'base' ? item.baseAsset : item.quoteAsset;
-      return asset?.toUpperCase() === anchor;
+      return asset?.toUpperCase() === anchor
+        ? item
+        : { ...item, disabledReason: reason };
     });
   }, [pairItems, pairFilter, filterActive]);
 
@@ -336,6 +347,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
             : {}),
           ...(item.subtitle ? { subtitle: item.subtitle } : {}),
           ...(item.isHelper ? { isHelper: true } : {}),
+          ...(item.disabledReason
+            ? { disabledReason: item.disabledReason }
+            : {}),
           // Spread all provider fields (price, marketCap, volume, the
           // change windows, volatility, rsi, roi). Undefined values are
           // harmless — every consumer guards with `!= null`.
@@ -506,7 +520,14 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     const item = itemLookup[symbol];
 
     if (isPairsMode) {
-      const [baseAsset = '?', quoteAsset = '?'] = symbol.split('-');
+      // Prefer the item's own assets. Splitting the selection symbol on `-`
+      // only works for reconstructable pairs (`BTC-USDT`); a contract pair IS
+      // its native symbol (`BTCUSD_260925`, `BTCMU26`), which has no `-` — the
+      // split handed the whole symbol to the base icon and `?` to the quote,
+      // so every COIN-M chip rendered as a blank coin plus a question mark.
+      const [splitBase = '?', splitQuote = '?'] = symbol.split('-');
+      const baseAsset = item?.baseAsset ?? splitBase;
+      const quoteAsset = item?.quoteAsset ?? splitQuote;
       const label = item?.name ?? `${baseAsset}/${quoteAsset}`;
       const pairBody = (
         <>
@@ -706,6 +727,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
         {...(filterActive && pairFilter
           ? {
               activeFilterLabel: pairFilter.anchor,
+              activeFilterHint: `This bot's pairs all share the ${
+                pairFilter.dimension === 'base' ? 'base' : 'quote'
+              } asset ${pairFilter.anchor}. Pairs outside it are greyed out; clear this to start over.`,
               ...(onClearSelection ? { onClearFilter: onClearSelection } : {}),
             }
           : {})}

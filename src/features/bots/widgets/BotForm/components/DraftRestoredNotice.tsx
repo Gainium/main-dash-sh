@@ -38,22 +38,43 @@ export const DraftRestoredNotice: React.FC<DraftRestoredNoticeProps> = ({
   if (savedAt === null) return null;
 
   return (
+    // The notice lives in the builder's right-hand panel, which is narrow on a
+    // laptop and narrower still on mobile — so the copy and the two buttons
+    // must be a vertical stack that wraps, not inline siblings. As bare
+    // `<span>`s they ran together with no breathing room and the buttons
+    // overflowed the panel instead of wrapping onto their own line.
     <Alert className="mb-4">
       <History className="h-5 w-5 text-muted-foreground" />
-      <AlertTitle>Restored your unsaved bot</AlertTitle>
-      <AlertDescription>
-        <span>
-          We brought back the settings you were editing {relativeAge(savedAt, Date.now())}.
-          They were never saved, so nothing is running yet.
-        </span>
-        <span className="flex gap-xs">
-          <Button size="sm" variant="secondary" onClick={onKeep}>
+      <AlertTitle className="text-balance">
+        Restored your unsaved bot
+      </AlertTitle>
+      <AlertDescription className="space-y-sm">
+        <p>
+          We brought back the settings you were editing{' '}
+          {relativeAge(savedAt, Date.now())}. They were never saved, so nothing
+          is running yet.
+        </p>
+        {/* `flex-1 basis-32` seats the two side by side whenever the panel can
+            fit both, and drops them to full-width rows when it can't — rather
+            than letting them overflow or land at two ragged widths. */}
+        <div className="flex flex-wrap gap-xs">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={onKeep}
+            className="flex-1 basis-32"
+          >
             Keep editing
           </Button>
-          <Button size="sm" variant="ghost" onClick={onDiscard}>
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={onDiscard}
+            className="flex-1 basis-32"
+          >
             Start fresh
           </Button>
-        </span>
+        </div>
       </AlertDescription>
     </Alert>
   );

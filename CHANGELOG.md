@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.43.13] - 2026-08-13
+
+### Fixed
+
+- The pair picker tells contract markets apart. A COIN-M or dated-futures venue lists several markets that are all `BASE / QUOTE` — Binance COIN-M has `BTCUSD_PERP`, `BTCUSD_260925` and `BTCUSD_261225`, Bybit linear has nine BTC/USDT contracts — and the picker showed only base and quote, so they rendered as identical repeated rows with no way to tell which contract you were selecting. Each now carries its exchange symbol.
+- Searching a pair by its concatenated symbol finds it. The rows were matched against `ETH/BTC` and `ETH-BTC` only, so typing `ETHBTC` — the form the bot stores, and the one the old dashboard showed — returned nothing. On a venue with dated futures, searching `BTCUSDT` returned the eight `BTCUSDT-<expiry>` contracts and hid the actual BTCUSDT perpetual.
+- Pairs that don't match the bot's quote (or base, for short and COIN-M bots) are greyed out with an explanation instead of being removed from the list. Hiding them was indistinguishable from the exchange not listing the pair at all.
+- Replacing a bot's only trading pair offers every pair the exchange lists. The quote/base constraint that applies when *adding* a pair alongside others was also applied when swapping the single pair out — leaving "No items found" for pairs the venue plainly offers, even though the replacement becomes the only pair and has nothing to be consistent with.
+- Selected-pair chips on COIN-M and other contract markets show their coin icons again, instead of a blank coin and a question mark.
+- The "Restored your unsaved bot" notice spaces its text and buttons properly and stops overflowing the builder's side panel on narrow screens.
+
 ## [2.43.12] - 2026-08-13
 
 ### Fixed

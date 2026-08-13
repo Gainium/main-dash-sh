@@ -3,6 +3,10 @@ import React, { useDeferredValue, useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { type AssetClass } from '../../../hooks/useTradingPairs';
 import { formatExchangeProvider } from '../../../utils/exchangeUtils';
+import {
+  isPairSymbolReconstructable,
+  normalizePairKey,
+} from '../../../utils/pairs';
 import { Chip } from '../../ui/chip';
 import { Checkbox } from '../../ui/checkbox';
 import ProfitLossPercChip from '../../ui/chip/ProfitLossPercChip';
@@ -60,7 +64,36 @@ interface ListItem {
   rsi?: number;
   roi?: number;
   isFavorite?: boolean;
+  /**
+   * Why this item can't be picked right now (e.g. its quote asset doesn't
+   * match the bot's already-anchored quote). Present => the row renders dimmed
+   * and inert, with this string as its tooltip, instead of being hidden.
+   * Hiding a candidate outright reads as "the exchange doesn't list it";
+   * showing it disabled says "it exists, here's why you can't have it yet".
+   */
+  disabledReason?: string;
 }
+
+/**
+ * The exchange-native symbol to show next to the base ticker, or null when the
+ * row's identity is fully described by `BASE / QUOTE`.
+ *
+ * Contract markets put the distinguishing component in the symbol alone — a
+ * COIN-M venue lists `BTCUSD_PERP`, `BTCUSD_260925` and `BTCUSD_261225`, all
+ * of which are BTC/USD. Rendering only base + quote collapsed every expiry
+ * into visually identical rows, so the picker looked like it was repeating
+ * itself and the user had no way to tell which contract they were selecting.
+ */
+const contractSymbolFor = (item: ListItem): string | null => {
+  if (!item.baseAsset || !item.quoteAsset) return null;
+  return isPairSymbolReconstructable(
+    item.symbol,
+    item.baseAsset,
+    item.quoteAsset
+  )
+    ? null
+    : item.symbol;
+};
 
 export interface ListModalSortOption {
   value: string;
@@ -88,8 +121,10 @@ interface ListModalProps {
   onToggleFavorite?: (symbol: string) => void;
   /** 'multi' shows a Done button; 'single' closes on pick (replace flow). */
   selectionMode?: 'single' | 'multi';
-  /** Active quote/base filter shown as a removable chip by the title. */
+  /** Active quote/base anchor shown as a removable chip by the title. */
   activeFilterLabel?: string;
+  /** Tooltip for that chip — say what the anchor does, not just what it is. */
+  activeFilterHint?: string;
   onClearFilter?: () => void;
   /**
    * Asset-class filter. When `assetClassOptions` has >= 2 entries, a row of
@@ -300,6 +335,8 @@ const ListModalRow = React.memo<ListModalRowProps>(
   ({ item, isSelected, enableFavorites, onToggle, onToggleFavorite }) => {
     const [expanded, setExpanded] = useState(false);
     const isPair = Boolean(item.baseAsset && item.quoteAsset);
+    const contractSymbol = contractSymbolFor(item);
+    const isDisabled = Boolean(item.disabledReason);
     const canFavorite =
       enableFavorites &&
       Boolean(onToggleFavorite) &&
@@ -339,156 +376,194 @@ const ListModalRow = React.memo<ListModalRowProps>(
       ].some((v) => v != null);
     const icon = renderItemIcon(item);
 
+    // A disabled row has to say why on hover, and the native `title` attribute
+    // is too slow and too quiet to count as an explanation — use the app's own
+    // tooltip. `triggerClassName` keeps the wrapper full-width; the default
+    // `inline-block` would shrink every disabled row to its content.
+    const withTooltip = (row: React.ReactNode) =>
+      isDisabled ? (
+        <Tooltip
+          tooltip={item.disabledReason as string}
+          side="top"
+          triggerClassName="block w-full"
+        >
+          {row}
+        </Tooltip>
+      ) : (
+        row
+      );
+
     return (
       <div
         className={`rounded-lg transition-colors ${
-          isSelected
-            ? 'bg-primary/10'
-            : item.isHelper
-              ? 'bg-primary/5 hover:bg-primary/10'
-              : 'bg-muted hover:bg-muted/60'
+          isDisabled
+            ? 'bg-muted/40'
+            : isSelected
+              ? 'bg-primary/10'
+              : item.isHelper
+                ? 'bg-primary/5 hover:bg-primary/10'
+                : 'bg-muted hover:bg-muted/60'
         }`}
+        {...(isDisabled ? { 'aria-disabled': true } : {})}
       >
-        <div
-          className="flex items-center gap-sm p-sm cursor-pointer"
-          onClick={() => onToggle(item.symbol)}
-        >
-          {/* Favorite star */}
-          {canFavorite && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onToggleFavorite?.(item.symbol);
-              }}
-              aria-label={
-                item.isFavorite
-                  ? `Unfavorite ${item.name}`
-                  : `Favorite ${item.name}`
-              }
-              aria-pressed={item.isFavorite}
-              className={`shrink-0 transition-colors ${
-                item.isFavorite
-                  ? 'text-warning'
-                  : 'text-muted-foreground/40 hover:text-warning'
-              }`}
-            >
-              <Star
-                className="h-4 w-4"
-                fill={item.isFavorite ? 'currentColor' : 'none'}
-              />
-            </button>
-          )}
+        {withTooltip(
+          <div
+            className={`flex items-center gap-sm p-sm ${
+              isDisabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+            }`}
+            onClick={() => {
+              if (isDisabled) return;
+              onToggle(item.symbol);
+            }}
+          >
+            {/* Favorite star */}
+            {canFavorite && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onToggleFavorite?.(item.symbol);
+                }}
+                aria-label={
+                  item.isFavorite
+                    ? `Unfavorite ${item.name}`
+                    : `Favorite ${item.name}`
+                }
+                aria-pressed={item.isFavorite}
+                className={`shrink-0 transition-colors ${
+                  item.isFavorite
+                    ? 'text-warning'
+                    : 'text-muted-foreground/40 hover:text-warning'
+                }`}
+              >
+                <Star
+                  className="h-4 w-4"
+                  fill={item.isFavorite ? 'currentColor' : 'none'}
+                />
+              </button>
+            )}
 
-          {/* Icon - only render if present */}
-          {icon && <div className="shrink-0">{icon}</div>}
+            {/* Icon - only render if present */}
+            {icon && <div className="shrink-0">{icon}</div>}
 
-          {/* Content + metric chips. They stack (name on top, chips wrap
-              below) until the MODAL — not the viewport — is wide enough to
-              seat them side by side. The threshold is in `em` on purpose: it
-              resolves against the rendered text size, so if the browser
-              inflates the type (a minimum-font-size setting) the row stacks
-              instead of squeezing the name out. The name also keeps a `ch`
-              floor so it can never shrink to an unreadable sliver. */}
-          <div className="flex-1 min-w-0 flex flex-col gap-1 @min-[28em]:flex-row @min-[28em]:items-center @min-[28em]:justify-between">
-            <div className="min-w-[7ch]">
-              {isPair ? (
-                <>
-                  <div className="text-foreground font-semibold text-sm truncate leading-tight">
-                    {item.baseAsset}
-                  </div>
-                  {/* Human-readable base-asset name next to the quote ticker
-                      (e.g. "Apple Inc. · USD"); falls back to the quote only
-                      when the name is unresolved. */}
-                  <div className="text-muted-foreground text-xs truncate leading-tight">
-                    {item.baseDisplayName
-                      ? `${item.baseDisplayName} · ${item.quoteAsset}`
-                      : item.quoteAsset}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="text-foreground font-medium text-sm truncate">
-                    {item.isExchange
-                      ? item.name // exchanges: name only, no parentheses
-                      : item.icon === ''
-                        ? item.name // text-only mode
-                        : `${item.name} (${item.symbol})`}
-                  </div>
-                  {subtitleText && (
-                    <div className="text-muted-foreground text-xs truncate">
-                      {subtitleText}
+            {/* Content + metric chips. They stack (name on top, chips wrap
+                below) until the MODAL — not the viewport — is wide enough to
+                seat them side by side. The threshold is in `em` on purpose: it
+                resolves against the rendered text size, so if the browser
+                inflates the type (a minimum-font-size setting) the row stacks
+                instead of squeezing the name out. The name also keeps a `ch`
+                floor so it can never shrink to an unreadable sliver. */}
+            <div className="flex-1 min-w-0 flex flex-col gap-1 @min-[28em]:flex-row @min-[28em]:items-center @min-[28em]:justify-between">
+              <div className="min-w-[7ch]">
+                {isPair ? (
+                  <>
+                    <div className="flex items-baseline gap-1.5 min-w-0">
+                      <span className="text-foreground font-semibold text-sm truncate leading-tight">
+                        {item.baseAsset}
+                      </span>
+                      {/* Contract markets (`BTCUSD_261225`, `BTCUSDT-25SEP26`,
+                          `BTCMU26`) are all `BASE / QUOTE` — the expiry lives in
+                          the native symbol alone, so without it every contract
+                          on the venue renders as the same row. */}
+                      {contractSymbol && (
+                        <span className="text-muted-foreground text-xs font-mono truncate leading-tight">
+                          {contractSymbol}
+                        </span>
+                      )}
+                    </div>
+                    {/* Human-readable base-asset name next to the quote ticker
+                        (e.g. "Apple Inc. · USD"); falls back to the quote only
+                        when the name is unresolved. */}
+                    <div className="text-muted-foreground text-xs truncate leading-tight">
+                      {item.baseDisplayName
+                        ? `${item.baseDisplayName} · ${item.quoteAsset}`
+                        : item.quoteAsset}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="text-foreground font-medium text-sm truncate">
+                      {item.isExchange
+                        ? item.name // exchanges: name only, no parentheses
+                        : item.icon === ''
+                          ? item.name // text-only mode
+                          : `${item.name} (${item.symbol})`}
+                    </div>
+                    {subtitleText && (
+                      <div className="text-muted-foreground text-xs truncate">
+                        {subtitleText}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+
+              {/* Curated ROI + 24h change. Narrow modal: a wrapping row under
+                  the name. Wide enough: a right-aligned column (ROI over 24h). */}
+              {(showRoi || show24h) && (
+                <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 @min-[28em]:flex-col @min-[28em]:items-end @min-[28em]:gap-1">
+                  {showRoi && (
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="Best curated-strategy ROI"
+                    >
+                      <span className="text-xs text-muted-foreground">ROI</span>
+                      <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success tabular-nums">
+                        {formatRoi(item.roi as number)}
+                      </span>
                     </div>
                   )}
-                </>
+                  {show24h && (
+                    <div
+                      className="flex items-center gap-1.5"
+                      title="24h price change"
+                    >
+                      <span className="text-xs text-muted-foreground">24h</span>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
+                          (item.change24h as number) >= 0
+                            ? 'bg-success/10 text-success'
+                            : 'bg-destructive/10 text-destructive'
+                        }`}
+                      >
+                        {(item.change24h as number) >= 0 ? '+' : ''}
+                        {(item.change24h as number).toFixed(2)}%
+                      </span>
+                    </div>
+                  )}
+                </div>
               )}
             </div>
 
-            {/* Curated ROI + 24h change. Narrow modal: a wrapping row under
-                the name. Wide enough: a right-aligned column (ROI over 24h). */}
-            {(showRoi || show24h) && (
-              <div className="flex shrink-0 flex-row flex-wrap items-center gap-2 @min-[28em]:flex-col @min-[28em]:items-end @min-[28em]:gap-1">
-                {showRoi && (
-                  <div
-                    className="flex items-center gap-1.5"
-                    title="Best curated-strategy ROI"
-                  >
-                    <span className="text-xs text-muted-foreground">ROI</span>
-                    <span className="rounded-full bg-success/10 px-2 py-0.5 text-xs font-semibold text-success tabular-nums">
-                      {formatRoi(item.roi as number)}
-                    </span>
-                  </div>
-                )}
-                {show24h && (
-                  <div
-                    className="flex items-center gap-1.5"
-                    title="24h price change"
-                  >
-                    <span className="text-xs text-muted-foreground">24h</span>
-                    <span
-                      className={`rounded-full px-2 py-0.5 text-xs font-semibold tabular-nums ${
-                        (item.change24h as number) >= 0
-                          ? 'bg-success/10 text-success'
-                          : 'bg-destructive/10 text-destructive'
-                      }`}
-                    >
-                      {(item.change24h as number) >= 0 ? '+' : ''}
-                      {(item.change24h as number).toFixed(2)}%
-                    </span>
-                  </div>
-                )}
-              </div>
+            {/* Selection checkbox */}
+            <Checkbox
+              checked={isSelected}
+              tabIndex={-1}
+              className="shrink-0 pointer-events-none"
+              aria-hidden
+            />
+
+            {/* Expand chevron — reveals volume / change windows / RSI / etc. */}
+            {hasDetails && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setExpanded((v) => !v);
+                }}
+                aria-label={expanded ? 'Hide details' : 'Show details'}
+                aria-expanded={expanded}
+                className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    expanded ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
             )}
           </div>
-
-          {/* Selection checkbox */}
-          <Checkbox
-            checked={isSelected}
-            tabIndex={-1}
-            className="shrink-0 pointer-events-none"
-            aria-hidden
-          />
-
-          {/* Expand chevron — reveals volume / change windows / RSI / etc. */}
-          {hasDetails && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setExpanded((v) => !v);
-              }}
-              aria-label={expanded ? 'Hide details' : 'Show details'}
-              aria-expanded={expanded}
-              className="shrink-0 text-muted-foreground hover:text-foreground transition-colors"
-            >
-              <ChevronDown
-                className={`h-4 w-4 transition-transform ${
-                  expanded ? 'rotate-180' : ''
-                }`}
-              />
-            </button>
-          )}
-        </div>
+        )}
 
         {/* Expanded detail — inset card so it reads as a distinct block.
             Uses numeric grid gaps: gap-x-md/gap-y-* (axis-named tokens)
@@ -578,6 +653,7 @@ export const ListModal: React.FC<ListModalProps> = ({
   onToggleFavorite,
   selectionMode = 'single',
   activeFilterLabel,
+  activeFilterHint,
   onClearFilter,
   assetClassOptions,
   selectedAssetClass = 'all',
@@ -645,13 +721,31 @@ export const ListModal: React.FC<ListModalProps> = ({
       .filter((word) => word.length > 0);
 
     return classFiltered.filter((item) => {
-      // Combine all searchable text into one string
-      const searchableText = [item.name, item.symbol, item.subtitle || '']
+      // Combine all searchable text into one string. The separator-stripped
+      // forms matter: a pair is displayed as `ETH/BTC` and identified as
+      // `ETH-BTC`, but users type — and the bot form STORES — the concatenated
+      // `ETHBTC`, which matches neither. Before this, searching `BTCUSDT` on a
+      // venue with dated futures returned the eight `BTCUSDT-<expiry>`
+      // contracts (whose native symbol contains that literal string) and hid
+      // the actual BTCUSDT perpetual.
+      const searchableText = [
+        item.name,
+        item.symbol,
+        normalizePairKey(item.name),
+        normalizePairKey(item.symbol),
+        item.subtitle || '',
+      ]
         .join(' ')
         .toLowerCase();
 
-      // All search words must appear somewhere in the combined text
-      return searchWords.every((word) => searchableText.includes(word));
+      // All search words must appear somewhere in the combined text. Each word
+      // is also tried separator-stripped, so `eth/btc`, `eth-btc` and `ethbtc`
+      // are interchangeable in the query as well as in the haystack.
+      return searchWords.every(
+        (word) =>
+          searchableText.includes(word) ||
+          searchableText.includes(normalizePairKey(word).toLowerCase())
+      );
     });
   }, [
     deferredItems,
@@ -666,7 +760,8 @@ export const ListModal: React.FC<ListModalProps> = ({
   // Apply the active sort (and optional favorites-first float). The `ALL`
   // header pseudo-item, when present, always stays pinned at the very top.
   const sortedItems = useMemo(() => {
-    if (!showSort && !favoritesFirst) return filteredItems;
+    const hasDisabled = filteredItems.some((i) => i.disabledReason);
+    if (!showSort && !favoritesFirst && !hasDisabled) return filteredItems;
 
     const header = filteredItems.filter((i) => i.symbol === 'ALL');
     const rest = filteredItems.filter((i) => i.symbol !== 'ALL');
@@ -675,13 +770,25 @@ export const ListModal: React.FC<ListModalProps> = ({
       rest.sort((a, b) => compareBy(a, b, sortMode));
     }
 
+    let ordered = rest;
     if (favoritesFirst) {
-      const fav = rest.filter((i) => i.isFavorite);
-      const non = rest.filter((i) => !i.isFavorite);
-      return [...header, ...fav, ...non];
+      ordered = [
+        ...rest.filter((i) => i.isFavorite),
+        ...rest.filter((i) => !i.isFavorite),
+      ];
     }
 
-    return [...header, ...rest];
+    // Unpickable rows sink below everything selectable — they stay visible
+    // (and explain themselves on hover) without pushing real candidates
+    // off-screen.
+    if (hasDisabled) {
+      ordered = [
+        ...ordered.filter((i) => !i.disabledReason),
+        ...ordered.filter((i) => i.disabledReason),
+      ];
+    }
+
+    return [...header, ...ordered];
   }, [filteredItems, showSort, sortMode, favoritesFirst]);
 
   // Close on Escape for a better keyboard UX (hook called unconditionally)
@@ -732,7 +839,10 @@ export const ListModal: React.FC<ListModalProps> = ({
               {activeFilterLabel && (
                 <span
                   className="inline-flex shrink-0 items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground"
-                  title={`Showing pairs matching ${activeFilterLabel}`}
+                  title={
+                    activeFilterHint ??
+                    `Pairs outside ${activeFilterLabel} can't be added to this bot`
+                  }
                 >
                   {activeFilterLabel}
                   {onClearFilter && (

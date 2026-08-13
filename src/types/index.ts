@@ -4970,6 +4970,10 @@ export interface CoinListItem {
   // Canonical/curated-listing flag (HL spot only; missing elsewhere =>
   // canonical). Drives the picker's "Canonical only" toggle.
   isCanonical?: boolean;
+  // Why this candidate can't be picked in the current context (e.g. its quote
+  // asset doesn't match the bot's anchored quote). Present => the picker shows
+  // the row dimmed and inert with this as its tooltip, rather than hiding it.
+  disabledReason?: string;
   // Optional market-data enrichment (cloud only — populated from the
   // screener + curated-presets via the pairMarketData provider). All
   // optional so sh and coins-mode are unaffected.
