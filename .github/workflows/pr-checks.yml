@@ -53,3 +53,9 @@ jobs:
       - name: Verify form bindings
         if: always()
         run: npm run verify:forms
+
+      # These are pure-function tests — none request Playwright's page/browser
+      # fixture, so no browser download is needed.
+      - name: Unit tests
+        if: always()
+        run: npm run test:unit

@@ -28,6 +28,7 @@ import {
   ScaleDcaTypeEnum,
   StartConditionEnum,
   StrategyEnum,
+  TerminalDealTypeEnum,
   VolumeValueEnum,
   type BotSettings,
   type BotStatus,
@@ -961,6 +962,13 @@ export const mapBotSettingsToFormData = (
     botStart: getValue<BotStartTypeEnum>('botStart', BotStartTypeEnum.manual),
     stopType: getValue<CloseDCATypeEnum>('stopType', CloseDCATypeEnum.leave),
     stopStatus: getValue<BotStatus>('stopStatus', 'closed'),
+    // mapBasicFields writes this into every payload; without the matching read
+    // a terminal deal saved as `simple` reopened as `smart`, which changes
+    // which TP/SL controls the form offers.
+    terminalDealType: getValue<TerminalDealTypeEnum>(
+      'terminalDealType',
+      TerminalDealTypeEnum.smart
+    ),
     startBotPriceCondition: getValue<IndicatorStartConditionEnum>(
       'startBotPriceCondition',
       IndicatorStartConditionEnum.gt

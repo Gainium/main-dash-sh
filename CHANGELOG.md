@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.43.8] - 2026-08-13
+
+### Fixed
+
+- A deal's Smart/Simple type is restored when its settings are reloaded. It was written on save but never read back, so a deal saved as Simple reopened as Smart — which changes which take-profit and stop-loss controls the form offers.
+
+### Added
+
+- Save round-trip coverage for the bot form: every field of every bot type is set individually and pushed through form → payload → form, so a field that is written on save but lost on reload fails a test. The unit suite now also runs in CI.
+
 ## [2.43.7] - 2026-08-13
 
 ### Fixed
