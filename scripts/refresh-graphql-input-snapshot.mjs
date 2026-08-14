@@ -29,11 +29,21 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO = resolve(HERE, '..');
 const OUT = resolve(REPO, 'tests/fixtures/graphql-bot-input-fields.json');
 
-/** The inputs a bot save can target, keyed by the mutation that takes them. */
+/**
+ * The inputs a bot save can target, keyed by the mutation that takes them.
+ *
+ * Both halves of the save path are here on purpose. The change-inputs guard a
+ * payload that `useFormHandlers` strips through a deny-list first. The
+ * create-inputs guard one that is sent VERBATIM — create has no deny-list at
+ * all, so it is the more exposed of the two: a form field that no create-input
+ * declares does not degrade, it fails every bot creation with BAD_USER_INPUT.
+ */
 const INPUTS = {
   changeDCABotInput: 'changeDCABot',
   changeComboBotInput: 'changeComboBot',
   changeBotInput: 'changeBot',
+  createDCABotInput: 'createDCABot',
+  createComboBotInput: 'createComboBot',
 };
 
 const CANDIDATES = [
@@ -105,9 +115,10 @@ const { commit, describe } = gitInfo();
 const snapshot = {
   $comment:
     'GENERATED — do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. ' +
-    'Declared input fields of the bot-change mutations in main-app. Consumed by ' +
-    'tests/botSavePayloadSchema.unit.test.ts to prove no save payload carries an ' +
-    'undeclared field (prod Apollo rejects those with BAD_USER_INPUT).',
+    'Declared input fields of the bot change/create mutations in main-app. ' +
+    'Consumed by tests/botSavePayloadSchema.unit.test.ts and ' +
+    'tests/botFormCreateMode.unit.test.ts to prove no save or create payload ' +
+    'carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).',
   source: {
     repo: 'main-app',
     path: 'core/src/graphql/schema.ts',

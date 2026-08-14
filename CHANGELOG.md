@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.26] - 2026-08-14
+
+### Added
+
+- Test coverage for creating a bot. Everything that checked the bot form's save path — including the 163-field round-trip probe — only ever exercised editing an existing bot, and creating one runs different code: the payload is assembled from a different base, empty values are handled differently, and the backend stores a new bot exactly as sent instead of merging it over what was already there. A setting could therefore be correct when you edit a bot and wrong when you create one, with nothing to catch it. The suite now checks every setting both ways and requires them to agree, and a browser test creates a bot through the real form and confirms it comes back with the settings that were chosen. No discrepancy was found.
+- The build-time guard against sending the backend a field it does not accept now covers bot creation as well as saving. Creation is the more exposed of the two — nothing filters the payload before it is sent, so one undeclared field would stop anyone from creating a bot at all.
+
 ## [2.43.25] - 2026-08-14
 
 ### Fixed
