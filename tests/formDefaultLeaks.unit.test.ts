@@ -16,18 +16,26 @@ import {
 import type { BotFormData } from '@/types/bots/form';
 
 /**
- * `mapFormDataToBackend` returns `{ ...DCA_FORM_DEFAULTS, pair, name,
- * ...mappedFields }`. A field a mapper pushes to `fieldsSkipped` instead of
- * assigning therefore ships the FORM DEFAULT to the backend — not "nothing".
- * For every default that is truthy, a skip is a silent write.
+ * `mapFormDataToBackend` USED TO return `{ ...DCA_FORM_DEFAULTS, pair, name,
+ * ...mappedFields }`. A field a mapper pushed to `fieldsSkipped` instead of
+ * assigning therefore shipped the FACTORY DEFAULT to the backend — not
+ * "nothing". For every default that is truthy, a skip was a silent write, and
+ * six of them reached customers before the pattern was recognised.
  *
- * cdde20a fixed the first instance (`useMaxDealsPerHigherTimeframe`); these
- * cover the rest of the truthy defaults that some configuration skips.
+ * Each was fixed by hand-writing "echo what the form is holding" into the one
+ * mapper that had the hole. The fallback layer is now the live form slice
+ * (`{ ...DCA_FORM_DEFAULTS, ...formData[dca|combo], ...mappedFields }`), which
+ * generalises those point-fixes: an unmapped field is a no-op write of the
+ * value the user is looking at, instead of a reset to the factory value.
  *
- * The generic probe in botFormRoundTrip.unit.test.ts cannot catch this class:
- * a payload carrying a value other than the one set is booked as "the forward
- * mapper normalized it", which is exactly what legitimate gating looks like.
- * Hence named tests.
+ * The tests below are the named regressions for the six. They are kept — and
+ * must keep passing — because they assert the OUTCOME (the user's value
+ * survives), not the mechanism, so they hold whichever layer supplies it.
+ *
+ * The generic probe in botFormRoundTrip.unit.test.ts could not catch this
+ * class: a payload carrying a value other than the one set was booked as "the
+ * forward mapper normalized it", which is exactly what legitimate gating looks
+ * like. Hence named tests, plus the structural pin at the bottom of this file.
  */
 
 const buildFormData = (
@@ -181,6 +189,115 @@ test.describe('dynamicArLockValue is honoured in the branch that uses it', () =>
       });
 
       expect(payload['dynamicArLockValue']).toBe(value);
+    });
+  }
+});
+
+/**
+ * The structural pin — the whole point of the six fixes above.
+ *
+ * Every test before this one names ONE field. That is how the bug class was
+ * being worked: a customer reports a field that reverts, the mapper gap is
+ * found, a test is added. Six rounds of that, and the seventh was still
+ * waiting, because the defect was never in any individual mapper — it was in
+ * the payload's fallback layer.
+ *
+ * These two tests assert the layer directly and without naming fields: take
+ * EVERY field no mapper writes, give each a value different from the factory
+ * default, and require the payload to carry the form's value. That is a
+ * statement about the mechanism, so it covers the fields nobody has reported
+ * yet — including any added after this was written.
+ *
+ * If someone restores a factory-default fallback, this fails with the full
+ * list of fields it would silently revert, rather than waiting for a report.
+ */
+test.describe('no mapper gap can revert a field to its factory default', () => {
+  /**
+   * Gates that cannot be flipped on without a structured fixture (an indicator
+   * list, a TP/SL target array). Flipping them just re-tests the mapper's
+   * validation, which the named tests above already cover. Same exclusion the
+   * round-trip probe makes for the same reason.
+   */
+  const NEEDS_FIXTURE = new Set([
+    'useRiskReward',
+    'useMultiTp',
+    'useMultiSl',
+    'useFixedTPPrices',
+    'useFixedSLPrices',
+  ]);
+
+  /**
+   * Removed from the payload on purpose, so "absent" is the correct outcome
+   * here and not a revert — neither `change*BotInput` accepts them.
+   * map-form-data-to-payload.ts strips both; botFormRoundTrip's VERDICT table
+   * classifies them `by-design`.
+   */
+  const STRIPPED_BY_DESIGN = new Set(['useExperimental', 'avgPrice']);
+
+  /** A value valid for the field's type but different from `current`. */
+  const distinctFrom = (current: unknown): unknown | undefined => {
+    if (typeof current === 'boolean') return !current;
+    if (typeof current === 'number') return current + 7;
+    if (typeof current === 'string') {
+      if (current.trim() !== '' && !isNaN(Number(current))) {
+        return String(Number(current) + 7);
+      }
+      // A non-numeric string is an enum member; the mapper may validate it, so
+      // a made-up value is not safe. Covered by the round-trip probe instead.
+      return undefined;
+    }
+    return undefined;
+  };
+
+  for (const type of [BotTypesEnum.dca, BotTypesEnum.combo] as const) {
+    const defaults =
+      type === BotTypesEnum.combo ? COMBO_FORM_DEFAULTS : DCA_FORM_DEFAULTS;
+
+    test(`${type}: a field no mapper writes still ships the form's value`, () => {
+      const result = mapFormDataToPayload(buildFormData(type, {}), {
+        mode: 'edit',
+      });
+      expect(result.success, JSON.stringify(result.errors)).toBe(true);
+
+      const mapped = new Set<string>(
+        (result.mappingResult?.debugInfo?.fieldsMapped ?? []) as string[]
+      );
+
+      // Everything the mappers leave to the fallback layer.
+      const unmapped = Object.entries(defaults).filter(
+        ([key]) =>
+          !mapped.has(key) &&
+          !NEEDS_FIXTURE.has(key) &&
+          !STRIPPED_BY_DESIGN.has(key)
+      );
+      expect(
+        unmapped.length,
+        'no unmapped fields to probe — the baseline changed'
+      ).toBeGreaterThan(0);
+
+      const overrides: Record<string, unknown> = {};
+      for (const [key, value] of unmapped) {
+        const probe = distinctFrom(value);
+        if (probe !== undefined) overrides[key] = probe;
+      }
+
+      const payload = payloadFor(type, overrides);
+      // `'8'` and `8` are the same saved value — mapFormDataToPayload coerces
+      // the two order counts to numbers on the way out. Compare loosely so a
+      // deliberate coercion doesn't read as a revert; a revert to the factory
+      // default fails this comparison either way.
+      const payloadFor_ = (key: string) => String(payload[key]);
+      const reverted = Object.entries(overrides)
+        .filter(([key, probe]) => payloadFor_(key) !== String(probe))
+        .map(
+          ([key, probe]) =>
+            `${key}: form held ${JSON.stringify(probe)}, payload carried ${JSON.stringify(payload[key])} (factory default is ${JSON.stringify(defaults[key as keyof typeof defaults])})`
+        );
+
+      expect(
+        reverted,
+        `these fields were reverted on the way to the backend — a user's edit to any of them is silently lost:\n${reverted.join('\n')}`
+      ).toEqual([]);
     });
   }
 });

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.20] - 2026-08-14
+
+### Fixed
+
+- Bot settings you cannot see are no longer reset when you save. A setting the bot form did not explicitly handle on save was sent to the backend as its factory default rather than left alone, so saving any part of a bot could quietly change an unrelated setting back to the stock value. This is the shared cause of the last six "I changed it, it didn't stick" fixes; the form now sends what it is actually showing you.
+- The Risk:Reward stop-loss type and its fixed value survive a page reload. 2.43.19 made them save correctly, but the bot form never read them back, so they showed the default again the next time the bot was opened.
+
 ## [2.43.19] - 2026-08-14
 
 ### Fixed

@@ -4351,10 +4351,30 @@ export const mapFormDataToBackend = (
     .flat()
     .map((p) => formData.pairMetadata[p]?.pair || p);
 
+  // The payload's fallback layer — what a field is worth when no mapper wrote
+  // it. This used to be DCA_FORM_DEFAULTS alone, which made an ordinary mapper
+  // gap into silent data loss: the field did not arrive ABSENT, it arrived as
+  // the FACTORY DEFAULT and overwrote whatever the user had. Six fields reached
+  // customers that way (useMaxDealsPerHigherTimeframe, feeOrder, closeOrderType,
+  // fixedSlPrice, the bot-controller AND/OR logics, rrSlType), each fixed by
+  // hand-writing "echo what the form is holding" into the one mapper that had
+  // the hole. This generalizes that fix: the fallback is the live form slice,
+  // which is both what the user is looking at and — for a field they never
+  // touched — what the inbound mapper read off the bot. So an unmapped field is
+  // now a no-op write instead of a reset.
+  //
+  // DCA_FORM_DEFAULTS stays UNDERNEATH the slice on purpose. It guarantees the
+  // payload's key set is exactly what it was before this change, even when a
+  // partially-built formData reaches the mapper (the hedge Quick form's leg
+  // seeds do exactly that). Only the VALUES of unmapped fields move.
+  const formSlice =
+    formData.type === BotTypesEnum.combo ? formData.combo : formData.dca;
+
   return {
     success: allErrors.length === 0,
     data: {
       ...DCA_FORM_DEFAULTS,
+      ...formSlice,
       pair: [formData.pair]
         .flat()
         .map((p) => formData.pairMetadata[p]?.pair || p),

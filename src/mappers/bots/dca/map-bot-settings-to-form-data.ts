@@ -25,6 +25,7 @@ import {
   OrderTypeEnum,
   PairPrioritizationEnum,
   RiskSlTypeEnum,
+  RRSlTypeEnum,
   ScaleDcaTypeEnum,
   StartConditionEnum,
   StrategyEnum,
@@ -874,6 +875,15 @@ export const mapBotSettingsToFormData = (
     riskMaxSl: getString('riskMaxSl', '-100'),
     riskMinPositionSize: getString('riskMinPositionSize', '0'),
     riskMaxPositionSize: getString('riskMaxPositionSize', '-1'),
+    // The reverse half of the 2.43.19 fix. That release taught the forward
+    // mapper to write these two, but nothing here ever read them back, so the
+    // value saved correctly and then showed as the default on the next load —
+    // the same "it didn't stick" symptom, one direction over.
+    rrSlType: getValue<RRSlTypeEnum>('rrSlType', RRSlTypeEnum.indicator),
+    rrSlFixedValue: getString('rrSlFixedValue', '2'),
+    // No control writes this, which is exactly why it must be read: without it
+    // a stored `true` is reset on every save of an unrelated field.
+    ignoreStartDeals: getBoolean('ignoreStartDeals', false),
     multiTp: normalizedMultiTpTargets,
     multiSl: normalizedMultiSlTargets,
     useMultiTp: resolvedUseMultipleTpTargets,

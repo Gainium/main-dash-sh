@@ -276,27 +276,34 @@ const sameValue = (a: unknown, b: unknown): boolean => {
 };
 
 /**
- * Fields that NO mapper writes — the ones that silently revert on save.
+ * Fields that NO mapper writes — i.e. the mappers' coverage gap.
  *
- * The payload is assembled as `{ ...DCA_FORM_DEFAULTS, ...finalData }`, so a
- * field the mappers skip does not arrive absent: it arrives as the FACTORY
- * DEFAULT, overwriting whatever the user chose. `debugInfo.fieldsMapped` is
- * literally `Object.keys(finalData)`, so anything missing from it is a field
- * whose edits cannot survive a save in this configuration.
+ * READ THIS BEFORE INTERPRETING THE LIST. It used to mean "the fields that
+ * silently revert on save", because the payload was assembled as
+ * `{ ...DCA_FORM_DEFAULTS, ...finalData }` — a field the mappers skipped did
+ * not arrive absent, it arrived as the FACTORY DEFAULT and overwrote whatever
+ * the user chose. That is no longer so: the fallback layer is now the live
+ * form slice, so an unmapped field ships the value the user is looking at.
+ * The revert is prevented structurally, and pinned by the "no mapper gap can
+ * revert a field to its factory default" test in formDefaultLeaks.unit.test.ts.
  *
- * Most entries here are legitimate — the feature is gated off in this baseline
- * and the UI hides the control to match (combo-only fields on a DCA bot, hodl
- * scheduling on an ASAP bot, Risk:Reward while it is disabled). A field is a
- * BUG when its control is reachable in a configuration where the mapper does
- * not write it. `closeOrderType` was exactly that: TakeProfitSettings offers it
- * for every non-combo, non-hedge bot with no dependence on the close condition,
+ * So this list is now a COVERAGE pin, not a bug list. Being on it means only
+ * that no mapper normalizes or validates the field — its value is passed
+ * through. `debugInfo.fieldsMapped` is literally `Object.keys(finalData)`, so
+ * anything missing from it is a field the mappers leave to the fallback.
+ *
+ * It still earns its place. A field arriving here means it lost its mapper,
+ * and with it any gating, coercion or validation that mapper performed — which
+ * is a real regression even though the user's value now survives.
+ * `closeOrderType` was the motivating case: TakeProfitSettings offers it for
+ * every non-combo, non-hedge bot with no dependence on the close condition,
  * while the mapper only wrote it under `techInd`/`dynamicAr` — so on the
  * default take-profit condition a user's MARKET was rewritten to LIMIT.
  *
  * This list is pinned in BOTH directions on purpose. A new entry means a field
- * just stopped being persisted. A removed entry means one was fixed and the
- * list should shrink to record it. Do not "update the pin" to make the suite
- * pass without establishing which of the two happened.
+ * just lost its mapper. A removed entry means one gained one and the list
+ * should shrink to record it. Do not "update the pin" to make the suite pass
+ * without establishing which of the two happened.
  */
 /**
  * Verdict for every field in NEVER_MAPPED, established by driving
@@ -304,6 +311,10 @@ const sameValue = (a: unknown, b: unknown): boolean => {
  * `debugInfo.fieldsMapped` and the mapper's own errors:
  *
  *   'bug'       — control is reachable, no validation error, value discarded.
+ *                 Since the fallback layer became the form slice, a gap alone
+ *                 no longer discards the value, so this verdict now means the
+ *                 field needs the mapper's normalization/gating and isn't
+ *                 getting it — not merely that no mapper writes it.
  *   'by-design' — deliberately stripped before the payload is built.
  *   'no-ui'     — nothing in the app writes it; not user-reachable.
  *   'gated:x'   — the mapper writes it once x is active, and the UI only
@@ -318,8 +329,13 @@ const VERDICT: Record<string, string> = {
   //     startBotLogic and stopBotLogic are written unconditionally and have
   //     left this list entirely. ---
   fixedSlPrice: 'gated:useFixedSLPrices — was unmapped entirely until 2.43.19',
-  rrSlType: 'gated:useRiskReward — was unmapped entirely until 2.43.19',
-  rrSlFixedValue: 'gated:useRiskReward — was unmapped entirely until 2.43.19',
+  // 2.43.19 fixed only the forward direction for these two: they reached the
+  // payload but map-bot-settings-to-form-data had no read, so the value saved
+  // and then came back as the default on the next load. The reverse read was
+  // added in 2.43.20 alongside the fallback-layer fix.
+  rrSlType: 'gated:useRiskReward — forward mapped 2.43.19, reverse read 2.43.20',
+  rrSlFixedValue:
+    'gated:useRiskReward — forward mapped 2.43.19, reverse read 2.43.20',
 
   // --- Deliberately not sent. ---
   avgPrice: 'by-design: deal-edit breakeven override, stripped in map-form-data-to-payload',
@@ -328,7 +344,8 @@ const VERDICT: Record<string, string> = {
 
   // --- No control writes these. ---
   autoRebalancing: 'no-ui: nothing in the app sets it',
-  ignoreStartDeals: 'no-ui: nothing in the app sets it',
+  ignoreStartDeals:
+    'no-ui: nothing in the app sets it, but the reverse mapper reads it (2.43.20) so a stored value is no longer reset by an unrelated save',
 
   // --- Correctly gated (verified by running the mapper with the gate on). ---
   useRiskReward: 'gated:useRiskReward + a riskReward indicator',
