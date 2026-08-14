@@ -298,6 +298,86 @@ const sameValue = (a: unknown, b: unknown): boolean => {
  * list should shrink to record it. Do not "update the pin" to make the suite
  * pass without establishing which of the two happened.
  */
+/**
+ * Verdict for every field in NEVER_MAPPED, established by driving
+ * `mapFormDataToBackend` with each field's feature switched ON and checking
+ * `debugInfo.fieldsMapped` and the mapper's own errors:
+ *
+ *   'bug'       — control is reachable, no validation error, value discarded.
+ *   'by-design' — deliberately stripped before the payload is built.
+ *   'no-ui'     — nothing in the app writes it; not user-reachable.
+ *   'gated:x'   — the mapper writes it once x is active, and the UI only
+ *                 offers the control there. Correct.
+ *
+ * Every pinned field must appear here — the suite fails otherwise, so a field
+ * cannot join the list without someone deciding which of the four it is.
+ */
+const VERDICT: Record<string, string> = {
+  // --- Confirmed bugs: reachable, silent, value lost. Three features. ---
+  useFixedSLPrices: 'bug: fixed-SL price, the TP twin maps and this half does not',
+  fixedSlPrice: 'bug: same feature as useFixedSLPrices',
+  startBotLogic: 'bug: bot-controller AND/OR, startDealLogic maps and this does not',
+  stopBotLogic: 'bug: same feature as startBotLogic',
+  rrSlType: 'bug: Risk:Reward SL type, set at RiskRewardSettings.tsx:814',
+  rrSlFixedValue: 'bug: same feature as rrSlType',
+
+  // --- Deliberately not sent. ---
+  avgPrice: 'by-design: deal-edit breakeven override, stripped in map-form-data-to-payload',
+  useExperimental: 'by-design: stripped alongside avgPrice',
+  importFrom: 'by-design: client-only record of the preset a form was seeded from',
+
+  // --- No control writes these. ---
+  autoRebalancing: 'no-ui: nothing in the app sets it',
+  ignoreStartDeals: 'no-ui: nothing in the app sets it',
+
+  // --- Correctly gated (verified by running the mapper with the gate on). ---
+  useRiskReward: 'gated:useRiskReward + a riskReward indicator',
+  riskSlType: 'gated:useRiskReward',
+  riskSlAmountPerc: 'gated:useRiskReward',
+  riskSlAmountValue: 'gated:useRiskReward',
+  riskUseTpRatio: 'gated:useRiskReward',
+  riskTpRatio: 'gated:useRiskReward',
+  riskMinSl: 'gated:useRiskReward',
+  riskMaxSl: 'gated:useRiskReward',
+  riskMinPositionSize: 'gated:useRiskReward',
+  riskMaxPositionSize: 'gated:useRiskReward',
+  minOpenDeal: 'gated:useStaticPriceFilter',
+  maxOpenDeal: 'gated:useStaticPriceFilter',
+  volumeTop: 'gated:volumeValue=custom',
+  relativeVolumeTop: 'gated:relativeVolumeValue=custom',
+  dynamicPriceFilterOverValue: 'gated:direction=over (symmetric with UnderValue)',
+  baseOrderPrice: 'gated:useLimitPrice',
+  startBotPriceCondition: 'gated:botActualStart=price',
+  startBotPriceValue: 'gated:botActualStart=price',
+  stopBotPriceCondition: 'gated:botStart=price',
+  stopBotPriceValue: 'gated:botStart=price',
+  closeDealType: 'gated:dealCloseCondition=techInd|dynamicAr, UI in those panels',
+  stopDealLogic: 'gated:dealCloseCondition=techInd, UI behind isTechIndicatorClose',
+  dynamicArLockValue: 'gated:dealCloseCondition=dynamicAr',
+
+  // --- Correctly gated, read from the mapper guard rather than executed. ---
+  stopDealSlLogic: 'gated:SL close condition — guard read, not executed',
+  multiTp: 'gated:useMultiTp — guard read, not executed',
+  multiSl: 'gated:useMultiSl — guard read, not executed',
+  dcaCustom: 'gated:dcaCondition=custom — guard read, not executed',
+  hodlAt: 'gated:scheduled start condition — guard read, not executed',
+  hodlDay: 'gated:scheduled start condition — guard read, not executed',
+  hodlHourly: 'gated:scheduled start condition — guard read, not executed',
+  hodlNextBuy: 'gated:scheduled start condition — guard read, not executed',
+  gridLevel: 'gated:combo/smart-grid bot — guard read, not executed',
+  baseStep: 'gated:combo/smart-grid bot — guard read, not executed',
+  baseGridLevels: 'gated:combo/smart-grid bot — guard read, not executed',
+  useActiveMinigrids: 'gated:combo bot — guard read, not executed',
+  comboActiveMinigrids: 'gated:combo bot — guard read, not executed',
+  comboSmartGridsCount: 'gated:combo bot — guard read, not executed',
+  comboUseSmartGrids: 'gated:combo bot — guard read, not executed',
+  comboTpBase: 'gated:combo bot — guard read, not executed',
+  comboTpLimit: 'gated:combo bot — guard read, not executed',
+  comboSlLimit: 'gated:combo bot — guard read, not executed',
+  fixedTpPrice: 'gated:useFixedTPPrices (combo list only)',
+  remainderFullAmount: 'gated:combo remainder handling — guard read, not executed',
+};
+
 const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
   dca: [
     'avgPrice', 'autoRebalancing', 'baseGridLevels', 'baseOrderPrice',
@@ -500,6 +580,16 @@ for (const { section, defaults } of SECTIONS) {
         expect(
           removed,
           `these fields are persisted now; shrink NEVER_MAPPED.${section} to record the fix:\n${removed.join('\n')}`
+        ).toEqual([]);
+      });
+
+      test('every field that does not persist carries a verdict', () => {
+        // Without this, a field can be added to the pin to make the suite pass
+        // and never be looked at again — which is how closeOrderType survived.
+        const unclassified = NEVER_MAPPED[section].filter((k) => !VERDICT[k]);
+        expect(
+          unclassified,
+          `classify these in VERDICT (bug / by-design / no-ui / gated:x):\n${unclassified.join('\n')}`
         ).toEqual([]);
       });
     }
