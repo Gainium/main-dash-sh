@@ -1245,6 +1245,23 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const [openDetailDrawerTrade, setOpenDetailDrawerTrade] = useState<
     DCADeals[] | null
   >(null);
+  // The raw deal we hand the edit drawer carries no bot type of its own (see
+  // the `botType` prop on DealEditDrawer), so capture it from the row being
+  // edited — the transformed row is the only place the deal's engine is known
+  // on this side. Without it the drawer defaults every deal to DCA and a
+  // combo save goes out as the DCA mutation, which reads a different
+  // collection and fails with "Deal not found".
+  const [editDrawerBotType, setEditDrawerBotType] = useState<
+    BotTypesEnum | undefined
+  >(undefined);
+  const openEditDrawerFor = useCallback((deal: DCADeals, tradeType: string) => {
+    setEditDrawerBotType(
+      mapOpenTradeTypeToBotType(tradeType, botTypeOverrideRef.current)
+    );
+    // Read through `botTypeOverrideRef` (not the prop) so this callback stays
+    // dependency-free and doesn't rebuild the column definitions each render.
+    setOpenDetailDrawerTrade([deal]);
+  }, []);
 
   // Read-only "Trade Details" drawer (separate from the editable
   // DealEditDrawer that openDetailDrawerTrade above feeds). Card body click
@@ -1258,6 +1275,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
   const handleCloseEditDrawer = useCallback(() => {
     setOpenDetailDrawerTrade(null);
+    setEditDrawerBotType(undefined);
   }, []);
   const showEditDrawer = useMemo(
     () => openDetailDrawerTrade !== null,
@@ -1308,13 +1326,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         activeDealsRaw.find((d) => d._id === dealId) ||
         allKnownDeals.find((d) => d._id === dealId);
       if (find) {
-        setOpenDetailDrawerTrade([find]);
+        openEditDrawerFor(find, trade.type);
         return;
       }
 
       openEditInBotDrawer(trade);
     },
-    [activeDealsRaw, allKnownDeals, openEditInBotDrawer]
+    [activeDealsRaw, allKnownDeals, openEditInBotDrawer, openEditDrawerFor]
   );
   handleEditRef.current = handleEdit;
   /*   const graphQueryKey = enableStatusToggle ? 'dcaDealList' : 'getDCADeals';
@@ -3110,7 +3128,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                   activeDealsRaw.find((d) => d._id === dealId) ||
                   allKnownDeals.find((d) => d._id === dealId);
                 if (find) {
-                  setOpenDetailDrawerTrade([find]);
+                  openEditDrawerFor(find, t.type);
                   return;
                 }
 
@@ -3164,6 +3182,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     handleSaveNote,
     handleEdit,
     allKnownDeals,
+    openEditDrawerFor,
   ]);
 
   // Wrapper component to adapt props for TradeCard.
@@ -3419,6 +3438,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         open={showEditDrawer}
         onClose={handleCloseEditDrawer}
         trade={openDetailDrawerTrade}
+        botType={editDrawerBotType}
       >
         <div />
       </DealEditDrawer>

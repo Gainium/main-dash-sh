@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.27] - 2026-08-14
+
+### Fixed
+
+- Editing a deal that belongs to a combo bot now works. Saving one failed every time with "Failed to edit deal": the drawer treated every deal as a DCA deal, so the change was sent to the wrong place and the deal could not be found. Combo deals were effectively uneditable from the deal drawer.
+- The combo grid settings — including "DCA grid levels" — are now shown when editing a combo bot's deal. The drawer previously rendered the plain-DCA settings for every deal, so these were missing entirely and the per-deal grid level could not be changed. The legacy dashboard shows this field read-only; here it can be edited.
+
 ## [2.43.26] - 2026-08-14
 
 ### Added

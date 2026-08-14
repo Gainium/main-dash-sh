@@ -92,9 +92,38 @@ interface DealEditDrawerProps {
   open: boolean;
   onClose: () => void;
   trade: DCADeals[] | null;
+  /**
+   * Bot type of the deal(s) being edited, supplied by the caller.
+   *
+   * Deals reach this drawer raw from `useDcaDeals` / `useBotSpecificDeals`,
+   * and the raw deal carries no comboness: `DCADeals.combo` is declared but
+   * no query selects it and nothing writes it, and the embedded `dcaBot`
+   * projection has only `settings`/`symbol`/`exchange` — no `type`. So the
+   * drawer cannot derive this itself; the caller (which knows the bot) has
+   * to tell it, exactly as legacy main-dash passes `combo` into
+   * `DcaDealEditDrawer`.
+   *
+   * Getting this wrong is not cosmetic: it selects the form slice
+   * (`formData.combo` vs `formData.dca`) AND the save mutation, and the two
+   * mutations read different Mongo collections (`comboDeal` vs `dcaDeal`),
+   * so a combo deal saved through the DCA mutation fails outright with
+   * "Deal not found".
+   */
+  botType?: BotTypesEnum;
   /** When true, renders form content directly without a DetailDrawer wrapper (for embedding inline in another drawer) */
   inline?: boolean;
 }
+
+/**
+ * Collapse any bot type onto the two slices this form actually has.
+ * Hedge legs follow their underlying engine — mirrors `transformDeal` in
+ * `types/dcaDeal.ts`, which treats `combo` and `hedgeCombo` alike. Grid and
+ * terminal deals are DCA-shaped, matching the previous default.
+ */
+const toDealFormBotType = (botType?: BotTypesEnum): BotTypesEnum =>
+  botType === BotTypesEnum.combo || botType === BotTypesEnum.hedgeCombo
+    ? BotTypesEnum.combo
+    : BotTypesEnum.dca;
 
 const mapFromDataToDealSettings = (
   formData: BotFormData,
@@ -156,15 +185,17 @@ const mapFromDataToDealSettings = (
     // old value.
     //
     // `gridLevel` is here because DCASettings renders the combo "DCA grid
-    // levels" input under `isComboBot` with no deal-edit guard. NOTE: that
-    // branch does not currently fire in THIS drawer — `botType` below is
-    // derived from `trade[0].combo`, which nothing in the codebase ever sets,
-    // so `formData.type` is always `dca` here and the control never appears.
-    // Keeping `gridLevel` listed is still correct (and harmless: the deal and
-    // its bot agree on the value, so the diff below drops it), but the field
-    // is not reachable until that is fixed. See
-    // tests-e2e/specs/deal-edit-gridlevel.e2e.test.ts, which fails on exactly
-    // that precondition.
+    // levels" input under `isComboBot` with no deal-edit guard. That branch
+    // now fires: the drawer takes its bot type from the caller's `botType`
+    // prop, so `formData.type` is `combo` for a combo deal. (It never fired
+    // while the type was derived from `trade[0].combo` — a field nothing
+    // selects or writes.) The backend accepts it: `gridLevel: String` is
+    // declared on `comboDealSettingsInputSet`. Covered by
+    // tests-e2e/specs/deal-edit-gridlevel.e2e.test.ts.
+    //
+    // Note this is deliberately MORE permissive than legacy main-dash, which
+    // renders the same input disabled under `props.isDealEdit && combo`
+    // (DcaModeSettings.tsx). Per-deal grid levels are editable here.
     'gridLevel',
     'useFixedTPPrices',
     'useFixedSLPrices',
@@ -241,7 +272,7 @@ const mapFromDataToDealSettings = (
 };
 
 export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
-  ({ children, onClose, trade, inline = false }) => {
+  ({ children, onClose, trade, botType, inline = false }) => {
     const {
       formData,
       isFieldLocked,
@@ -253,12 +284,25 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       features,
       setFormData,
     } = useBotFormState();
+    // Must match the outer `DealEditDrawer`'s resolution exactly — that one
+    // seeds `BotFormProvider` (and therefore `formData.type`), this one picks
+    // the balances/mutation context. A disagreement would seed one slice and
+    // save the other.
+    const resolvedBotType = useMemo(
+      () =>
+        botType !== undefined
+          ? toDealFormBotType(botType)
+          : trade?.[0]?.combo
+            ? BotTypesEnum.combo
+            : BotTypesEnum.dca,
+      [botType, trade]
+    );
     const useBotFromMutationOptions: UseBotFormMutationsOptions = useMemo(
       () => ({
         mode: trade?.length === 1 ? 'deal-edit' : 'deal-mass-edit',
-        botType: trade?.[0]?.combo ? BotTypesEnum.combo : BotTypesEnum.dca,
+        botType: resolvedBotType,
       }),
-      [trade]
+      [trade, resolvedBotType]
     );
     const { getBalances } = useBotFormMutations(useBotFromMutationOptions);
     // Tracks which deal(s) the form is currently seeded from. The effect
@@ -362,7 +406,10 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
     const toggleSectionCollapsed = useCallback((id: string) => {
       setCollapsedSections((prev) => ({ ...prev, [id]: !prev[id] }));
     }, []);
-    const isCombo = useMemo(() => !!trade?.[0]?.combo, [trade]);
+    const isCombo = useMemo(
+      () => resolvedBotType === BotTypesEnum.combo,
+      [resolvedBotType]
+    );
 
     const handleDrawerOpenChange = useCallback(
       (nextOpen: boolean) => {
@@ -1017,9 +1064,15 @@ export const DealEditDrawer: React.FC<DealEditDrawerProps> = React.memo(
       () => import.meta.env['VITE_BOT_FORM_DEBUG'] === 'true',
       []
     );
+    // Keep in lockstep with `resolvedBotType` in DealEditDrawerInner.
     const botType = useMemo(
-      () => (props.trade?.[0]?.combo ? BotTypesEnum.combo : BotTypesEnum.dca),
-      [props.trade]
+      () =>
+        props.botType !== undefined
+          ? toDealFormBotType(props.botType)
+          : props.trade?.[0]?.combo
+            ? BotTypesEnum.combo
+            : BotTypesEnum.dca,
+      [props.botType, props.trade]
     );
     const resolvedExperience: BotExperienceDescriptor = useMemo(
       () => tryGetBotExperience(botType) ?? getBotExperience(BotTypesEnum.dca),

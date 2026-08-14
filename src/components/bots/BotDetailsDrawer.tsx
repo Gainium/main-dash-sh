@@ -1997,6 +1997,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   open
                   onClose={handleBackToBot}
                   trade={editingTrade}
+                  botType={type}
                   inline
                 >
                   <div />
