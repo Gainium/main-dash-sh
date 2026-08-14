@@ -1444,7 +1444,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                         step={0.1}
                         precision={2}
                         className="w-full"
-                        disabled={isStepVarBound}
+                        // Read-only while editing a deal, same rule and same
+                        // reason as the grid-level input above: legacy disables
+                        // both under `props.isDealEdit && combo`. This block is
+                        // combo-only, so `isDealEdit` alone is that condition.
+                        disabled={isStepVarBound || isDealEdit}
                         endAdornment={unitAdornment('%')}
                       />
                     </FieldVariableBinding>

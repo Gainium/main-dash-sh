@@ -423,7 +423,13 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
             currency={isPercentageMode ? '%' : currencyLabel}
             balanceCurrency={balanceCurrency}
             balanceAmount={balanceAmount}
-            disabled={isVarBound}
+            // Read-only when editing a COMBO deal, matching legacy main-dash
+            // (`disabled || !useDca || (isDealEdit && combo)` on the order-size
+            // input in DcaModeSettings.tsx). A combo deal's order size is what
+            // funds its already-placed minigrid; a plain DCA deal's is not, and
+            // legacy leaves that one editable — so this is deliberately gated
+            // on combo rather than on deal-edit alone.
+            disabled={isVarBound || (isDealEdit && isComboBot)}
             showRefreshButton={shouldShowRefresh}
             coinIcon={coinIconElement}
             unitLabel={isPercentageMode ? '%' : coinIconSymbol}

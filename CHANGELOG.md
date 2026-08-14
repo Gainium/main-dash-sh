@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.29] - 2026-08-14
+
+### Changed
+
+- Editing a combo bot's deal now matches the old dashboard field for field: order size, "DCA grid range" and "DCA grid levels" are read-only there, because they describe the minigrid that was already placed when the deal opened. Everything the old dashboard lets you change on a deal — DCA orders, volume and step scale, minimum deviation, take-profit and stop-loss — is still editable. Editing a plain DCA deal is unchanged, including its order size.
+
 ## [2.43.28] - 2026-08-14
 
 ### Changed

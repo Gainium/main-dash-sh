@@ -17,12 +17,21 @@ import { captureMutation } from '../helpers/form';
  *    `entityNotFound('Deal')`. Combo deals were not partially broken to edit,
  *    they were uneditable. The drawer now takes the type from its caller.
  *
- * 2. DCA GRID LEVELS ARE READ-ONLY HERE (legacy parity).
- *    Legacy main-dash disables both the slider and the input under
- *    `props.isDealEdit && combo` (DcaModeSettings.tsx). The redesign briefly
- *    diverged and left it editable; it no longer does. `gridLevel` stays in
- *    DealEditDrawer's `keys` array on purpose — see the comment there — so
- *    re-enabling the control can't silently make it unsaveable again.
+ * 2. THE COMBO GRID FIELDS ARE READ-ONLY HERE (legacy parity).
+ *    Legacy main-dash disables three inputs under `props.isDealEdit && combo`
+ *    (DcaModeSettings.tsx): order size, orders step, and DCA minigrid levels —
+ *    the values that describe the minigrid already placed when the deal opened.
+ *    Everything else legacy leaves editable in this drawer stays editable here:
+ *    DCA orders, volume/step scale, minimum deviation, the TP/SL values.
+ *
+ *    Note the condition is `isDealEdit && combo`, not `isDealEdit`. On a plain
+ *    DCA deal legacy leaves order size editable, so the third test below pins
+ *    that half — dropping the combo half of the gate would silently freeze
+ *    order size on every DCA deal edit, which no combo-only spec would catch.
+ *
+ *    `gridLevel` stays in DealEditDrawer's `keys` array on purpose — see the
+ *    comment there — so re-enabling a control can't silently make it
+ *    unsaveable again.
  *
  * The drawer is reached by deep link: `/combo/view/<botId>?tab=deals&
  * editDealId=<dealId>`. That link is consumed by DrawerDealsTable's
@@ -80,6 +89,9 @@ let targetSymbol = '';
 let originalGridLevel: string | null = null;
 let originalOrdersCount: string | null = null;
 let searchNote = '';
+let dcaBotId: string | null = null;
+let dcaDealId: string | null = null;
+let dcaSearchNote = '';
 
 test.beforeAll(async () => {
   // Find an EXISTING combo bot with an open deal. Never start a bot to make
@@ -117,6 +129,25 @@ test.beforeAll(async () => {
       break;
     }
   }
+
+  // A plain DCA deal for the non-combo half of the gate. Read-only — this
+  // fixture is never edited or saved, so it needs no restore.
+  const dcaDeals = await gql<{
+    dcaDealList?: {
+      data?: { result?: { _id: string; botId?: string }[] };
+    };
+  }>(
+    `query($input: getDcaDealListInput) {
+      dcaDealList(input: $input) { status data { result { _id botId } } }
+    }`,
+    { input: { status: ['open'] } }
+  ).catch(() => null);
+  const dcaDeal = dcaDeals?.dcaDealList?.data?.result?.find((d) => d.botId);
+  dcaBotId = dcaDeal?.botId ?? null;
+  dcaDealId = dcaDeal?._id ?? null;
+  dcaSearchNote = dcaDealId
+    ? `using DCA bot ${dcaBotId} deal ${dcaDealId}`
+    : 'no open DCA deal found';
 });
 
 test.afterAll(async () => {
@@ -167,7 +198,17 @@ const requireFixture = (): void => {
   ).not.toBeNull();
 };
 
-test('the combo deal-edit drawer renders DCA grid levels seeded and read-only', async ({
+/**
+ * The order-size field has no id of its own: `DcaOrderSizingControl` renders a
+ * `BalanceInput`, which does not forward one (its `<Label htmlFor=
+ * "scaled-order-size">` points at an id nothing carries). It is the only
+ * number input in the DCA section, so scope the selector there rather than to
+ * the whole drawer — the TP/SL fields are text+range pairs.
+ */
+const orderSizeInput = (page: Page): Locator =>
+  page.locator('#section-dca input[type="number"]');
+
+test('the combo deal-edit drawer renders the grid fields seeded and read-only', async ({
   page,
 }) => {
   requireFixture();
@@ -187,8 +228,34 @@ test('the combo deal-edit drawer renders DCA grid levels seeded and read-only', 
   // otherwise "it rendered" would prove nothing about which deal we opened.
   await expect(gridInput).toHaveValue(String(parseInt(original, 10)));
 
-  // Legacy parity: read-only while editing a deal.
+  // Legacy parity: all three are read-only while editing a combo deal.
   await expect(gridInput).toBeDisabled();
+  await expect(page.locator('#combo-DCA-step')).toBeDisabled();
+  await expect(orderSizeInput(page)).toBeDisabled();
+
+  // The controls legacy leaves alone must stay alone — otherwise "parity"
+  // could be reached by disabling the whole section.
+  await expect(page.locator('#dca-orders')).toBeEnabled();
+});
+
+test('a plain DCA deal keeps its order size editable', async ({ page }) => {
+  expect(
+    dcaDealId,
+    `no DCA bot with an OPEN deal on this account (${dcaSearchNote}), so the non-combo half of ` +
+      `the \`isDealEdit && combo\` gate cannot be checked.`
+  ).not.toBeNull();
+
+  await page.goto(`/bot/view/${dcaBotId}?tab=deals&editDealId=${dcaDealId}`, {
+    waitUntil: 'domcontentloaded',
+  });
+  await expect(page.getByRole('heading', { name: 'Edit Deal' })).toBeVisible({
+    timeout: 60_000,
+  });
+
+  // Legacy gates order size on `isDealEdit && combo`, so a DCA deal keeps it.
+  await expect(orderSizeInput(page)).toBeEnabled();
+  // And the combo-only fields aren't here at all.
+  await expect(page.locator('#combo-DCA-grid-levels')).toHaveCount(0);
 });
 
 test('saving a combo deal goes out as changeComboDealSettings and omits gridLevel', async ({

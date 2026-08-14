@@ -196,9 +196,10 @@ const mapFromDataToDealSettings = (
     // The input itself is now READ-ONLY in this drawer, matching legacy
     // main-dash (`props.isDealEdit && combo` in DcaModeSettings.tsx), so in
     // practice `gridLevel` never differs from the original and never ships.
-    // The key stays listed on purpose: if the control is ever re-enabled for
-    // deal edit, dropping it here would make it silently unsaveable again —
-    // exactly the failure this array exists to prevent.
+    // The same is true of `orderSize` and `step` above, which legacy gates on
+    // the same condition. All three stay listed on purpose: if a control is
+    // ever re-enabled for deal edit, dropping its key here would make it
+    // silently unsaveable — exactly the failure this array exists to prevent.
     'gridLevel',
     'useFixedTPPrices',
     'useFixedSLPrices',
