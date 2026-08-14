@@ -46,6 +46,27 @@ interface ChartDataPoint {
 const hasChart = (stats?: BotStats | null): stats is BotStats =>
   Array.isArray(stats?.chart) && stats.chart.length > 1;
 
+/**
+ * Stronger test: the series carries the values this widget actually PLOTS.
+ *
+ * `BotStats['chart']` types all four fields as required, but GraphQL only
+ * returns what the caller selected, and the list payload's slice
+ * (`listChartStatsFragment`, GraphQLQueries-fragments.ts) selects just
+ * `equity` + `time`. So "has a chart" is NOT "has the three series" — gating
+ * the by-id `getDCABot` fetch on `hasChart` alone let that equity-only slice
+ * satisfy it, the fetch never fired, and Realized Profit / Buy & Hold were
+ * plotted as flat $0 lines (which also dragged the shared equity axis down to
+ * zero). Anything that decides whether we still NEED the full payload has to
+ * ask this instead.
+ */
+const hasFullChart = (stats?: BotStats | null): stats is BotStats =>
+  hasChart(stats) &&
+  stats.chart.some(
+    (point) =>
+      typeof point?.realizedProfit === 'number' ||
+      typeof point?.buyAndHold === 'number'
+  );
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
@@ -204,7 +225,9 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
   const { shareId } = useShareContext();
   const listStats = (bot as DCABot)?.stats as BotStats | undefined;
   const needsStatsFetch =
-    Boolean(actualBotId) && !hasChart(liveStats) && !hasChart(listStats);
+    Boolean(actualBotId) &&
+    !hasFullChart(liveStats) &&
+    !hasFullChart(listStats);
   const { bot: fetchedBot } = useSharedBot({
     botId: actualBotId ?? '',
     type: botTypeEnum,
@@ -248,10 +271,17 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     // source's chart with another's (or with a missing one, which defaults to
     // 0) subtracts the wrong seed and plots the starting balance itself as
     // "realized profit" — off by the whole account size.
-    const stats =
-      [liveStats, listStats, (fetchedBot as DCABot | undefined)?.stats].find(
-        hasChart
-      ) ?? undefined;
+    //
+    // Prefer a source that carries all three series; only fall back to an
+    // equity-only one (the list slice, while the by-id fetch is still in
+    // flight or if it came back empty) so the equity area keeps rendering
+    // instead of blanking the panel.
+    const sources = [
+      liveStats,
+      listStats,
+      (fetchedBot as DCABot | undefined)?.stats,
+    ];
+    const stats = sources.find(hasFullChart) ?? sources.find(hasChart);
 
     const chartSource =
       stats?.chart ??
@@ -278,14 +308,19 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
               ? new Date(t).getTime() || Number.parseInt(t, 10) || NaN
               : NaN;
 
+        // A series the payload does not carry stays `undefined`, NOT 0:
+        // recharts then draws nothing for it and leaves it out of the axis
+        // domain, whereas a 0 is indistinguishable from a real break-even
+        // value — it plots a false flat line and pins the shared equity axis
+        // to zero.
         return {
-          equity: typeof point.equity === 'number' ? point.equity : 0,
+          equity: typeof point.equity === 'number' ? point.equity : undefined,
           realizedProfit:
             typeof point.realizedProfit === 'number'
               ? point.realizedProfit - realizedOffset
-              : 0,
+              : undefined,
           buyAndHold:
-            typeof point.buyAndHold === 'number' ? point.buyAndHold : 0,
+            typeof point.buyAndHold === 'number' ? point.buyAndHold : undefined,
           time: timeValue,
           formattedTime: new Date(timeValue).toLocaleDateString(),
         };

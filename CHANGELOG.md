@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.30] - 2026-08-14
+
+### Fixed
+
+- Bot drawer: the Performance chart plotted only the equity line — Realized Profit and Buy & Hold were drawn as flat $0 lines (and flattened the equity axis with them). Both series are now fetched and plotted again, and a series the bot has no data for is left off the chart instead of being drawn at zero.
+
 ## [2.43.29] - 2026-08-14
 
 ### Changed
