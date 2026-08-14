@@ -33,6 +33,7 @@ import {
   OrderTypeEnum,
   PairPrioritizationEnum,
   RiskSlTypeEnum,
+  RRSlTypeEnum,
   StartConditionEnum,
   StrategyEnum,
   TerminalDealTypeEnum,
@@ -1487,6 +1488,12 @@ export const mapTpSlFields = (
   const fixedTpPrice = isComboBot
     ? formData.combo.fixedTpPrice
     : formData.dca.fixedTpPrice;
+  const _useFixedSLPrices = isComboBot
+    ? formData.combo.useFixedSLPrices
+    : formData.dca.useFixedSLPrices;
+  const fixedSlPrice = isComboBot
+    ? formData.combo.fixedSlPrice
+    : formData.dca.fixedSlPrice;
   const dealCloseCondition = isComboBot
     ? formData.combo.dealCloseCondition
     : formData.dca.dealCloseCondition;
@@ -1936,6 +1943,8 @@ export const mapTpSlFields = (
         | 'tpPerc'
         | 'useFixedTPPrices'
         | 'fixedTpPrice'
+        | 'useFixedSLPrices'
+        | 'fixedSlPrice'
         | 'dealCloseCondition'
         | 'closeByTimer'
         | 'closeByTimerValue'
@@ -2019,6 +2028,48 @@ export const mapTpSlFields = (
       fieldsSkipped.push('fixedTpPrice');
     } else {
       fieldsSkipped.push('fixedTpPrice');
+    }
+
+    // The stop-loss half of fixed prices, mirroring the take-profit block
+    // above. It had no mapping at all — neither field was even read from the
+    // form — so StopLossSettings could switch the SL to a fixed price and the
+    // payload still carried the defaults (`useFixedSLPrices: false`,
+    // `fixedSlPrice: ''`), silently discarding it.
+    fieldsProcessed.push('useFixedSLPrices');
+    const useFixedSLPrices = Boolean(_useFixedSLPrices);
+    tpSlFields['useFixedSLPrices'] = useFixedSLPrices;
+    fieldsMapped.push('useFixedSLPrices');
+
+    fieldsProcessed.push('fixedSlPrice');
+    const fixedSlPriceValue = sanitizeNumericField(
+      'fixedSlPrice',
+      fixedSlPrice,
+      {
+        allowNegative: false,
+        skipOnEmpty: !useFixedSLPrices,
+        min: 0,
+      }
+    );
+
+    if (fixedSlPriceValue !== undefined) {
+      if (useFixedSLPrices && Number(fixedSlPriceValue) === 0) {
+        warnings.push(
+          'Fixed SL price must be greater than 0 when price mode is enabled; disabling fixed SL mode.'
+        );
+        tpSlFields['useFixedSLPrices'] = false;
+        fieldsSkipped.push('fixedSlPrice');
+      } else {
+        tpSlFields['fixedSlPrice'] = fixedSlPriceValue;
+        fieldsMapped.push('fixedSlPrice');
+      }
+    } else if (useFixedSLPrices) {
+      warnings.push(
+        'useFixedSLPrices enabled but no valid fixedSlPrice provided; disabling fixed SL mode.'
+      );
+      tpSlFields['useFixedSLPrices'] = false;
+      fieldsSkipped.push('fixedSlPrice');
+    } else {
+      fieldsSkipped.push('fixedSlPrice');
     }
 
     // Deal close condition selection
@@ -2602,6 +2653,12 @@ export const mapRiskRewardFields = (
   const riskMaxPositionSize = isComboBot
     ? formData.combo.riskMaxPositionSize
     : formData.dca.riskMaxPositionSize;
+  const rrSlType = isComboBot
+    ? formData.combo.rrSlType
+    : formData.dca.rrSlType;
+  const rrSlFixedValue = isComboBot
+    ? formData.combo.rrSlFixedValue
+    : formData.dca.rrSlFixedValue;
   const indicators = isComboBot
     ? formData.combo.indicators
     : formData.dca.indicators;
@@ -2633,6 +2690,8 @@ export const mapRiskRewardFields = (
         | 'riskMinSl'
         | 'riskMinPositionSize'
         | 'riskMaxPositionSize'
+        | 'rrSlType'
+        | 'rrSlFixedValue'
       >
     > = {};
 
@@ -2656,6 +2715,35 @@ export const mapRiskRewardFields = (
     // Risk:Reward enabled flag
     riskRewardFields['useRiskReward'] = useRiskReward;
     fieldsMapped.push('useRiskReward');
+
+    // How the Risk:Reward stop loss is derived, and its value when fixed.
+    // RiskRewardSettings offers both (the selector at line ~814, the value via
+    // updateFormData) but neither had a mapping, so picking `fixed` was
+    // replaced by the default `indicator` on save — and the value with `2`.
+    // The rest of the risk family below was mapped correctly all along.
+    fieldsProcessed.push('rrSlType', 'rrSlFixedValue');
+    const normalizedRrSlType = Object.values(RRSlTypeEnum).includes(
+      rrSlType as RRSlTypeEnum
+    )
+      ? (rrSlType as RRSlTypeEnum)
+      : RRSlTypeEnum.indicator;
+    riskRewardFields['rrSlType'] = normalizedRrSlType;
+    fieldsMapped.push('rrSlType');
+
+    // `sanitizeNumericField` is local to mapTpSlFields, and the value is a
+    // signed string on the settings type, so validate it directly here.
+    const rrSlFixedRaw = `${rrSlFixedValue ?? ''}`.trim();
+    if (rrSlFixedRaw !== '' && Number.isFinite(Number(rrSlFixedRaw))) {
+      riskRewardFields['rrSlFixedValue'] = rrSlFixedRaw;
+      fieldsMapped.push('rrSlFixedValue');
+    } else {
+      if (normalizedRrSlType === RRSlTypeEnum.fixed) {
+        warnings.push(
+          `Risk:Reward SL type is "fixed" but rrSlFixedValue is not a number ("${rrSlFixedValue}"); leaving it unchanged.`
+        );
+      }
+      fieldsSkipped.push('rrSlFixedValue');
+    }
 
     // Risk type validation
     const normalizedRiskType = (() => {
@@ -2920,6 +3008,12 @@ export const mapBotControllerFields = (
     ? formData.combo.botActualStart
     : formData.dca.botActualStart;
   const botStart = isComboBot ? formData.combo.botStart : formData.dca.botStart;
+  const startBotLogic = isComboBot
+    ? formData.combo.startBotLogic
+    : formData.dca.startBotLogic;
+  const stopBotLogic = isComboBot
+    ? formData.combo.stopBotLogic
+    : formData.dca.stopBotLogic;
   const stopType = isComboBot ? formData.combo.stopType : formData.dca.stopType;
   const stopStatus = isComboBot
     ? formData.combo.stopStatus
@@ -3191,6 +3285,8 @@ export const mapBotControllerFields = (
         | 'useBotController'
         | 'botActualStart'
         | 'botStart'
+        | 'startBotLogic'
+        | 'stopBotLogic'
         | 'stopType'
         | 'stopStatus'
         | 'startBotPriceCondition'
@@ -3312,6 +3408,22 @@ export const mapBotControllerFields = (
     controllerFields['useCloseAfterXopen'] = useCloseAfterXopen;
     controllerFields['closeAfterXopen'] = _closeAfterXopen;
     fieldsMapped.push('useCloseAfterXopen', 'closeAfterXopen');
+
+    // AND/OR for the start-bot and stop-bot indicator lists. BotControllerSettings
+    // renders both selects whenever the controller is on, but neither field had
+    // any mapping — not even a read from the form — so switching either to OR
+    // was replaced by the default `and` on save. Mapped unconditionally here,
+    // like the closeAfterX group above: the controller being off is already
+    // handled by the early return at the top of this mapper.
+    const validLogic = new Set<string>(Object.values(IndicatorsLogicEnum));
+    fieldsProcessed.push('startBotLogic', 'stopBotLogic');
+    controllerFields['startBotLogic'] = validLogic.has(startBotLogic ?? '')
+      ? startBotLogic
+      : IndicatorsLogicEnum.and;
+    controllerFields['stopBotLogic'] = validLogic.has(stopBotLogic ?? '')
+      ? stopBotLogic
+      : IndicatorsLogicEnum.and;
+    fieldsMapped.push('startBotLogic', 'stopBotLogic');
 
     return {
       success: true,

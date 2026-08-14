@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.43.19] - 2026-08-14
+
+### Fixed
+
+- A fixed stop-loss price is saved. Switching the stop loss to a fixed price and entering one was discarded on save — the take-profit equivalent worked, the stop-loss half was never sent.
+- The AND/OR choice for the Bot Controller's start and stop indicator lists is saved. Either one set to OR reverted to AND.
+- The Risk:Reward stop-loss type and its fixed value are saved. Choosing a fixed stop loss reverted to the indicator-derived one.
+
 ## [2.43.18] - 2026-08-14
 
 ### Fixed

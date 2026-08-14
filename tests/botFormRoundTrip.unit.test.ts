@@ -313,13 +313,13 @@ const sameValue = (a: unknown, b: unknown): boolean => {
  * cannot join the list without someone deciding which of the four it is.
  */
 const VERDICT: Record<string, string> = {
-  // --- Confirmed bugs: reachable, silent, value lost. Three features. ---
-  useFixedSLPrices: 'bug: fixed-SL price, the TP twin maps and this half does not',
-  fixedSlPrice: 'bug: same feature as useFixedSLPrices',
-  startBotLogic: 'bug: bot-controller AND/OR, startDealLogic maps and this does not',
-  stopBotLogic: 'bug: same feature as startBotLogic',
-  rrSlType: 'bug: Risk:Reward SL type, set at RiskRewardSettings.tsx:814',
-  rrSlFixedValue: 'bug: same feature as rrSlType',
+  // --- Were bugs; mapped as of 2.43.19, so they now behave like any other
+  //     gated field: written once their feature is on. useFixedSLPrices,
+  //     startBotLogic and stopBotLogic are written unconditionally and have
+  //     left this list entirely. ---
+  fixedSlPrice: 'gated:useFixedSLPrices — was unmapped entirely until 2.43.19',
+  rrSlType: 'gated:useRiskReward — was unmapped entirely until 2.43.19',
+  rrSlFixedValue: 'gated:useRiskReward — was unmapped entirely until 2.43.19',
 
   // --- Deliberately not sent. ---
   avgPrice: 'by-design: deal-edit breakeven override, stripped in map-form-data-to-payload',
@@ -389,10 +389,10 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'minOpenDeal', 'multiSl', 'multiTp', 'relativeVolumeTop', 'riskMaxPositionSize',
     'riskMaxSl', 'riskMinPositionSize', 'riskMinSl', 'riskSlAmountPerc',
     'riskSlAmountValue', 'riskSlType', 'riskTpRatio', 'riskUseTpRatio',
-    'rrSlFixedValue', 'rrSlType', 'startBotLogic', 'startBotPriceCondition',
-    'startBotPriceValue', 'stopBotLogic', 'stopBotPriceCondition',
+    'rrSlFixedValue', 'rrSlType', 'startBotPriceCondition',
+    'startBotPriceValue', 'stopBotPriceCondition',
     'stopBotPriceValue', 'stopDealLogic', 'stopDealSlLogic', 'useActiveMinigrids',
-    'useExperimental', 'useFixedSLPrices', 'useRiskReward', 'volumeTop',
+    'useExperimental', 'useRiskReward', 'volumeTop',
   ].sort(),
   combo: [
     'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
@@ -402,10 +402,10 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'multiSl', 'multiTp', 'relativeVolumeTop', 'remainderFullAmount',
     'riskMaxPositionSize', 'riskMaxSl', 'riskMinPositionSize', 'riskMinSl',
     'riskSlAmountPerc', 'riskSlAmountValue', 'riskSlType', 'riskTpRatio',
-    'riskUseTpRatio', 'rrSlFixedValue', 'rrSlType', 'startBotLogic',
-    'startBotPriceCondition', 'startBotPriceValue', 'stopBotLogic',
+    'riskUseTpRatio', 'rrSlFixedValue', 'rrSlType',
+    'startBotPriceCondition', 'startBotPriceValue',
     'stopBotPriceCondition', 'stopBotPriceValue', 'stopDealLogic',
-    'stopDealSlLogic', 'useExperimental', 'useFixedSLPrices', 'useRiskReward',
+    'stopDealSlLogic', 'useExperimental', 'useRiskReward',
     'volumeTop',
   ].sort(),
 };
