@@ -1151,7 +1151,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     const botExchange = bot?.exchangeUUID;
     if (botExchange && bot?.settings?.pair) {
       for (const symbol of [bot.settings.pair].flat()) {
-        if (symbol) targets.add(`${botExchange} ${symbol}`);
+        if (symbol) targets.add(`${botExchange}\u001f${symbol}`);
       }
     }
     for (const deal of botDeals) {
@@ -1159,9 +1159,15 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         (deal as DCADeals | ComboDeal).exchangeUUID || botExchange;
       const dealSymbol = deal.symbol?.symbol;
       if (dealExchange && dealSymbol) {
-        targets.add(`${dealExchange} ${dealSymbol}`);
+        targets.add(`${dealExchange}\u001f${dealSymbol}`);
       }
     }
+    // Separator is U+001F (unit separator), not NUL: an exchange UUID and a
+    // symbol can never contain it, and unlike a literal NUL it keeps this file
+    // plain text. A NUL here made `grep` classify the whole file as binary and
+    // silently report no matches for every symbol in it, which is how two
+    // separate investigations concluded the `?editDealId=` deep link below was
+    // dead code.
     return Array.from(targets).sort().join('\n');
   }, [bot?.exchangeUUID, bot?.settings?.pair, botDeals]);
 
@@ -1173,7 +1179,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     // Rebuild the exchange -> symbols map from the stable key.
     const exchangeSymbolMap = new Map<string, Set<string>>();
     for (const entry of feeTargetsKey.split('\n')) {
-      const sep = entry.indexOf(' ');
+      const sep = entry.indexOf('\u001f');
       if (sep < 0) continue;
       const exchange = entry.slice(0, sep);
       const symbol = entry.slice(sep + 1);

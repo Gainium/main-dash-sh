@@ -193,9 +193,12 @@ const mapFromDataToDealSettings = (
     // declared on `comboDealSettingsInputSet`. Covered by
     // tests-e2e/specs/deal-edit-gridlevel.e2e.test.ts.
     //
-    // Note this is deliberately MORE permissive than legacy main-dash, which
-    // renders the same input disabled under `props.isDealEdit && combo`
-    // (DcaModeSettings.tsx). Per-deal grid levels are editable here.
+    // The input itself is now READ-ONLY in this drawer, matching legacy
+    // main-dash (`props.isDealEdit && combo` in DcaModeSettings.tsx), so in
+    // practice `gridLevel` never differs from the original and never ships.
+    // The key stays listed on purpose: if the control is ever re-enabled for
+    // deal edit, dropping it here would make it silently unsaveable again —
+    // exactly the failure this array exists to prevent.
     'gridLevel',
     'useFixedTPPrices',
     'useFixedSLPrices',

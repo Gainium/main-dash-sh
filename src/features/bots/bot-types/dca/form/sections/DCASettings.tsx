@@ -1388,7 +1388,13 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                         max={200}
                         step={1}
                         className="w-full"
-                        disabled={isGridLevelVarBound}
+                        // Read-only when editing a deal, matching legacy
+                        // main-dash: DcaModeSettings disables this input under
+                        // `props.isDealEdit && combo`. The minigrid is laid out
+                        // when the deal opens, so changing its level count
+                        // mid-deal has no coherent meaning for the orders
+                        // already placed.
+                        disabled={isGridLevelVarBound || isDealEdit}
                       />
                     </FieldVariableBinding>
                   </div>
