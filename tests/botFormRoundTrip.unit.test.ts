@@ -276,6 +276,61 @@ const sameValue = (a: unknown, b: unknown): boolean => {
 };
 
 /**
+ * Fields that NO mapper writes — the ones that silently revert on save.
+ *
+ * The payload is assembled as `{ ...DCA_FORM_DEFAULTS, ...finalData }`, so a
+ * field the mappers skip does not arrive absent: it arrives as the FACTORY
+ * DEFAULT, overwriting whatever the user chose. `debugInfo.fieldsMapped` is
+ * literally `Object.keys(finalData)`, so anything missing from it is a field
+ * whose edits cannot survive a save in this configuration.
+ *
+ * Most entries here are legitimate — the feature is gated off in this baseline
+ * and the UI hides the control to match (combo-only fields on a DCA bot, hodl
+ * scheduling on an ASAP bot, Risk:Reward while it is disabled). A field is a
+ * BUG when its control is reachable in a configuration where the mapper does
+ * not write it. `closeOrderType` was exactly that: TakeProfitSettings offers it
+ * for every non-combo, non-hedge bot with no dependence on the close condition,
+ * while the mapper only wrote it under `techInd`/`dynamicAr` — so on the
+ * default take-profit condition a user's MARKET was rewritten to LIMIT.
+ *
+ * This list is pinned in BOTH directions on purpose. A new entry means a field
+ * just stopped being persisted. A removed entry means one was fixed and the
+ * list should shrink to record it. Do not "update the pin" to make the suite
+ * pass without establishing which of the two happened.
+ */
+const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
+  dca: [
+    'avgPrice', 'autoRebalancing', 'baseGridLevels', 'baseOrderPrice',
+    'baseStep', 'closeDealType', 'comboActiveMinigrids', 'comboSlLimit',
+    'comboSmartGridsCount', 'comboTpBase', 'comboTpLimit', 'comboUseSmartGrids',
+    'dcaCustom', 'dynamicArLockValue', 'dynamicPriceFilterOverValue',
+    'fixedSlPrice', 'fixedTpPrice', 'gridLevel', 'hodlAt', 'hodlDay',
+    'hodlHourly', 'hodlNextBuy', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal',
+    'minOpenDeal', 'multiSl', 'multiTp', 'relativeVolumeTop', 'riskMaxPositionSize',
+    'riskMaxSl', 'riskMinPositionSize', 'riskMinSl', 'riskSlAmountPerc',
+    'riskSlAmountValue', 'riskSlType', 'riskTpRatio', 'riskUseTpRatio',
+    'rrSlFixedValue', 'rrSlType', 'startBotLogic', 'startBotPriceCondition',
+    'startBotPriceValue', 'stopBotLogic', 'stopBotPriceCondition',
+    'stopBotPriceValue', 'stopDealLogic', 'stopDealSlLogic', 'useActiveMinigrids',
+    'useExperimental', 'useFixedSLPrices', 'useRiskReward', 'volumeTop',
+  ].sort(),
+  combo: [
+    'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
+    'dcaCustom', 'dynamicArLockValue', 'dynamicPriceFilterOverValue',
+    'fixedSlPrice', 'fixedTpPrice', 'hodlAt', 'hodlDay', 'hodlHourly',
+    'hodlNextBuy', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal', 'minOpenDeal',
+    'multiSl', 'multiTp', 'relativeVolumeTop', 'remainderFullAmount',
+    'riskMaxPositionSize', 'riskMaxSl', 'riskMinPositionSize', 'riskMinSl',
+    'riskSlAmountPerc', 'riskSlAmountValue', 'riskSlType', 'riskTpRatio',
+    'riskUseTpRatio', 'rrSlFixedValue', 'rrSlType', 'startBotLogic',
+    'startBotPriceCondition', 'startBotPriceValue', 'stopBotLogic',
+    'stopBotPriceCondition', 'stopBotPriceValue', 'stopDealLogic',
+    'stopDealSlLogic', 'useExperimental', 'useFixedSLPrices', 'useRiskReward',
+    'volumeTop',
+  ].sort(),
+};
+
+/**
  * Fields absent from the payload under the all-gates-on baseline. See the
  * "set of fields not reaching the payload" test for what this list is for.
  * Regenerate by running with UPDATE_PIN=1 and pasting the logged output.
@@ -408,6 +463,47 @@ for (const { section, defaults } of SECTIONS) {
      * (futures, hodl scheduling, combo-only fields). It exists so that a field
      * silently FALLING OUT of the payload shows up as a diff in review.
      */
+    if (section !== 'grid') {
+      /**
+       * The check that would have caught the `closeOrderType` report.
+       *
+       * An earlier version of this file compared the probe value against the
+       * payload and, when they differed, concluded the forward mapper had
+       * "normalized" the value and treated it as correct gating. That bucket
+       * silently swallowed every field in the list above — including
+       * `closeOrderType`, which reached a customer. Whether a value was
+       * legitimately gated or silently dropped is NOT decidable by comparing
+       * values, because both look identical from the outside: the payload
+       * carries the default either way.
+       *
+       * `debugInfo.fieldsMapped` decides it directly — it names the fields a
+       * mapper actually wrote — so the set is pinned instead of inferred.
+       */
+      test('the set of fields no mapper writes is unchanged', () => {
+        const trip = mapFormDataToPayload(buildFormData(section, defaults), {
+          mode: 'edit',
+        });
+        expect(trip.success, JSON.stringify(trip.errors)).toBe(true);
+
+        const mapped = new Set(trip.mappingResult?.debugInfo?.fieldsMapped ?? []);
+        const never = Object.keys(defaults)
+          .filter((k) => !mapped.has(k))
+          .sort();
+
+        const added = never.filter((k) => !NEVER_MAPPED[section].includes(k));
+        const removed = NEVER_MAPPED[section].filter((k) => !never.includes(k));
+
+        expect(
+          added,
+          `these fields stopped being persisted — a user's edit to them is now silently reverted on save:\n${added.join('\n')}`
+        ).toEqual([]);
+        expect(
+          removed,
+          `these fields are persisted now; shrink NEVER_MAPPED.${section} to record the fix:\n${removed.join('\n')}`
+        ).toEqual([]);
+      });
+    }
+
     test('the set of fields not reaching the payload is unchanged', () => {
       const trip = roundTrip(section, buildFormData(section, defaults));
       expect(trip.ok, JSON.stringify(!trip.ok && trip.errors)).toBe(true);

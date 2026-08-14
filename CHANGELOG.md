@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.18] - 2026-08-14
+
+### Fixed
+
+- "Close order type" keeps the order type you pick. Setting it to Market and saving reverted it to Limit on every bot whose deal-close condition was the default take profit — which is most of them. The setting is offered regardless of close condition, but it was only being saved for the technical-indicator and dynamic ATR/ADR conditions.
+
 ## [2.43.17] - 2026-08-14
 
 ### Fixed

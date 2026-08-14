@@ -2161,20 +2161,6 @@ export const mapTpSlFields = (
         fieldsMapped.push('closeDealType');
       }
 
-      fieldsProcessed.push('closeOrderType');
-      const allowedOrderTypes = new Set<string>(Object.values(OrderTypeEnum));
-      const orderType = closeOrderType ?? OrderTypeEnum.limit;
-      if (allowedOrderTypes.has(orderType)) {
-        tpSlFields['closeOrderType'] = orderType;
-        fieldsMapped.push('closeOrderType');
-      } else {
-        warnings.push(
-          `Unsupported closeOrderType "${closeOrderType}"; defaulting to limit`
-        );
-        tpSlFields['closeOrderType'] = OrderTypeEnum.limit;
-        fieldsMapped.push('closeOrderType');
-      }
-
       const closeIndicators = Array.isArray(indicators)
         ? indicators.filter(
             (i) =>
@@ -2222,20 +2208,6 @@ export const mapTpSlFields = (
         fieldsMapped.push('closeDealType');
       }
 
-      fieldsProcessed.push('closeOrderType');
-      const allowedOrderTypes = new Set<string>(Object.values(OrderTypeEnum));
-      const orderType = closeOrderType ?? OrderTypeEnum.limit;
-      if (allowedOrderTypes.has(orderType)) {
-        tpSlFields['closeOrderType'] = orderType;
-        fieldsMapped.push('closeOrderType');
-      } else {
-        warnings.push(
-          `Unsupported closeOrderType "${closeOrderType}"; defaulting to limit`
-        );
-        tpSlFields['closeOrderType'] = OrderTypeEnum.limit;
-        fieldsMapped.push('closeOrderType');
-      }
-
       fieldsProcessed.push('dynamicArLockValue');
       const dynamicArLockValue =
         typeof _dynamicArLockValue === 'boolean' ? _dynamicArLockValue : true;
@@ -2273,9 +2245,30 @@ export const mapTpSlFields = (
       fieldsSkipped.push(
         'stopDealLogic',
         'closeDealType',
-        'closeOrderType',
         'dynamicArLockValue'
       );
+    }
+
+    // Close order type is offered for every non-combo, non-hedge bot with no
+    // dependence on the close condition (TakeProfitSettings), so it has to be
+    // mapped unconditionally. It used to be written only inside the technical-
+    // indicator and dynamic-AR branches; on the default take-profit condition
+    // it fell into `fieldsSkipped`, and since the payload is built as
+    // `{ ...DCA_FORM_DEFAULTS, ...finalData }` a skipped field does not stay
+    // absent — it comes back as the factory default. So a user who chose MARKET
+    // had it silently rewritten to LIMIT on save.
+    fieldsProcessed.push('closeOrderType');
+    const allowedOrderTypes = new Set<string>(Object.values(OrderTypeEnum));
+    const orderType = closeOrderType ?? OrderTypeEnum.limit;
+    if (allowedOrderTypes.has(orderType)) {
+      tpSlFields['closeOrderType'] = orderType;
+      fieldsMapped.push('closeOrderType');
+    } else {
+      warnings.push(
+        `Unsupported closeOrderType "${closeOrderType}"; defaulting to limit`
+      );
+      tpSlFields['closeOrderType'] = OrderTypeEnum.limit;
+      fieldsMapped.push('closeOrderType');
     }
 
     fieldsProcessed.push('comboTpLimit');
