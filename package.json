@@ -1,7 +1,7 @@
 {
   "name": "@gainium/main-dash-sh",
   "private": false,
-  "version": "2.43.22",
+  "version": "2.43.23",
   "description": "Gainium self-hosted dashboard. React + TS UI with feature flags and a license-key gate for premium features.",
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
@@ -27,7 +27,8 @@
     "test:auth": "playwright test --config=playwright.unit.config.ts tests/authStore.unit.test.js",
     "prepare": "husky",
     "verify:css": "node scripts/verify-css-contract.mjs",
-    "verify:forms": "node scripts/verify-form-bindings.mjs src"
+    "verify:forms": "node scripts/verify-form-bindings.mjs src",
+  "snapshot:graphql": "node scripts/refresh-graphql-input-snapshot.mjs"
   },
   "dependencies": {
     "@dnd-kit/core": "^6.3.1",

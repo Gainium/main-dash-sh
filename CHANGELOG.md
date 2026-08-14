@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.23] - 2026-08-14
+
+### Added
+
+- Build-time guard against a bot save that carries a field the backend does not accept. Saving a bot sends only the fields the API declares, and the list of what to leave out was maintained by hand in three places — so adding a new setting to the bot form could break saving for every bot of that type at once. The test suite now checks this on every build.
+
 ## [2.43.22] - 2026-08-14
 
 ### Fixed

@@ -25,6 +25,7 @@ import {
   type MapGridFormDataToPayloadResult,
   type UpdateDCABotPayload,
 } from '@/mappers/bots/dca/map-form-data-to-payload';
+import { stripUndeclaredUpdateFields } from '@/mappers/bots/dca/update-payload-denylist';
 import {
   BotTypesEnum,
   ExchangeIntervals,
@@ -363,30 +364,26 @@ export const useFormHandlers = (
       }
 
       const updatePayloadBase = payloadResult.updatePayload ?? {};
+      /** What actually went on the wire, for the success log below. */
+      let sentSettings: Record<string, unknown> = updatePayloadBase;
 
       if (!bot) {
         throw new Error('Missing bot reference for update');
       }
 
+      // Drop the fields the target change-input does not declare. Apollo
+      // rejects an undeclared input field outright (BAD_USER_INPUT) and fails
+      // the whole mutation, so this has to happen before every save. The lists
+      // are shared with HedgeBotEditLayout and held to main-app's real schema
+      // by tests/botSavePayloadSchema.unit.test.ts — add a form field the
+      // schema has never heard of and that test tells you, instead of every
+      // save of that bot type breaking in production.
       if (formData.type === BotTypesEnum.dca) {
-        const upb = updatePayloadBase as UpdateDCABotPayload;
-        if (!useMulti) {
-          delete upb.pair;
-        }
-        delete upb.gridLevel;
-        delete upb.useMulti;
-        delete upb.baseStep;
-        delete upb.baseGridLevels;
-        delete upb.useActiveMinigrids;
-        delete upb.comboActiveMinigrids;
-        delete upb.feeOrder;
-        delete upb.type;
-        delete upb.useLimitPrice;
-        delete upb.terminalDealType;
-        delete upb.comboSlLimit;
-        delete upb.comboTpLimit;
-        //@ts-expect-error -- ignore ---
-        delete upb.useExperimental;
+        const upb = stripUndeclaredUpdateFields(
+          updatePayloadBase as Record<string, unknown>,
+          { botType: 'dca', stripPair: !useMulti }
+        ) as UpdateDCABotPayload;
+        sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
           id: bot._id,
           settings: upb,
@@ -394,14 +391,11 @@ export const useFormHandlers = (
         });
       }
       if (formData.type === BotTypesEnum.combo) {
-        const upb = updatePayloadBase as UpdateDCABotPayload;
-        delete upb.useMulti;
-        delete upb.type;
-        delete upb.useLimitPrice;
-        delete upb.terminalDealType;
-        //@ts-expect-error -- ignore ---
-        delete upb.useExperimental;
-        delete upb.pair;
+        const upb = stripUndeclaredUpdateFields(
+          updatePayloadBase as Record<string, unknown>,
+          { botType: 'combo', stripPair: true }
+        ) as UpdateDCABotPayload;
+        sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
           id: bot._id,
           settings: upb,
@@ -427,7 +421,7 @@ export const useFormHandlers = (
       toast.success('Bot updated successfully!');
       logger.info('[BotForm] Bot updated successfully', {
         botId: bot._id,
-        fields: Object.keys(updatePayloadBase),
+        fields: Object.keys(sentSettings),
       });
     } catch (error: unknown) {
       const err = error as Error;

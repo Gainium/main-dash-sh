@@ -93,6 +93,7 @@ import {
 import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
+import { stripUndeclaredUpdateFields } from '@/mappers/bots/dca/update-payload-denylist';
 import { useAuthStore } from '@/stores/authStore';
 import {
   useBotTemplatesStore,
@@ -885,33 +886,15 @@ export const HedgeBotEditLayout: React.FC = () => {
         const stripPerLeg = (
           payload: Record<string, unknown>,
           legSettings: Record<string, unknown> | undefined | null
-        ): Record<string, unknown> => {
-          const next = { ...payload };
-          // Always-strip: form/import-only fields no change-input accepts.
-          delete next['useMulti'];
-          delete next['type'];
-          delete next['useLimitPrice'];
-          delete next['terminalDealType'];
-          delete next['useExperimental'];
-          delete next['importFrom'];
-          // Strip pair on non-multi legs (default for hedge bots).
-          if (!(legSettings && legSettings['useMulti'])) {
-            delete next['pair'];
-          }
-          if (botType === BotTypesEnum.hedgeDca) {
-            // Strip combo-only fields when the leg goes through
-            // changeDCABot. Matches the dca branch of useFormHandlers.
-            delete next['gridLevel'];
-            delete next['baseStep'];
-            delete next['baseGridLevels'];
-            delete next['useActiveMinigrids'];
-            delete next['comboActiveMinigrids'];
-            delete next['feeOrder'];
-            delete next['comboSlLimit'];
-            delete next['comboTpLimit'];
-          }
-          return next;
-        };
+        ): Record<string, unknown> =>
+          stripUndeclaredUpdateFields(payload, {
+            // A hedgeDca leg is delegated to changeDCABot, a hedgeCombo leg to
+            // changeComboBot, so each leg strips exactly what the standalone
+            // flow for that bot type strips.
+            botType: botType === BotTypesEnum.hedgeDca ? 'dca' : 'combo',
+            // Strip pair on non-multi legs (the default for hedge bots).
+            stripPair: !(legSettings && legSettings['useMulti']),
+          });
 
         const longSettingsRaw = longBot.settings as unknown as
           | Record<string, unknown>
