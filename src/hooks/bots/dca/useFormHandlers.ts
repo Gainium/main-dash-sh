@@ -403,11 +403,13 @@ export const useFormHandlers = (
         });
       }
       if (formData.type === BotTypesEnum.grid) {
-        const upb = updatePayloadBase as UpdateDCABotPayload;
-        //@ts-expect-error -- ignore ---
-        delete upb.updatedBudget;
-        //@ts-expect-error -- ignore ---
-        delete upb.newProfit;
+        const upb = stripUndeclaredUpdateFields(
+          updatePayloadBase as Record<string, unknown>,
+          // `changeBot` ignores `pair` rather than rejecting it, so unlike the
+          // DCA and combo branches grid leaves it in place.
+          { botType: 'grid', stripPair: false }
+        ) as UpdateDCABotPayload;
+        sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
           id: bot._id,
           settings: upb,

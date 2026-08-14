@@ -7,17 +7,26 @@ import { test, expect } from '@playwright/test';
 import {
   COMBO_FORM_DEFAULTS,
   DCA_FORM_DEFAULTS,
+  GRID_FORM_DEFAULTS,
   SHARED_FORM_DEFAULTS,
 } from '@/contexts/bots/form/formDefaults';
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
 import {
   DECLARED_BY_COMBO_ONLY,
   UNDECLARED_BY_ALL_INPUTS,
+  UNDECLARED_GRID_FORM_FIELDS,
   denylistFor,
   stripUndeclaredUpdateFields,
   type UpdatePayloadBotType,
 } from '@/mappers/bots/dca/update-payload-denylist';
-import { BotTypesEnum, StartConditionEnum, TerminalDealTypeEnum } from '@/types';
+import { mapGridFormDataToPayload } from '@/mappers/bots/grid/map-grid-form-data-to-payload';
+import {
+  BotMarginTypeEnum,
+  BotTypesEnum,
+  StartConditionEnum,
+  StrategyEnum,
+  TerminalDealTypeEnum,
+} from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 /**
@@ -63,6 +72,7 @@ const snapshot: Snapshot = JSON.parse(
 const INPUT_FOR: Record<UpdatePayloadBotType, string> = {
   dca: 'changeDCABotInput',
   combo: 'changeComboBotInput',
+  grid: 'changeBotInput',
 };
 
 const declaredFields = (botType: UpdatePayloadBotType): Set<string> =>
@@ -138,6 +148,69 @@ const CONFIGS: { name: string; overrides: Record<string, unknown> }[] = [
 ];
 
 const BOT_TYPES: UpdatePayloadBotType[] = ['dca', 'combo'];
+
+/**
+ * Grid is a separate mapper (`mapGridFormDataToPayload`) against a much smaller
+ * input — 42 fields against DCA's 163 — and it validates the price range, so a
+ * bare-defaults payload is rejected outright rather than mapped. Every config
+ * therefore starts from a coherent range instead of `GRID_FORM_DEFAULTS`.
+ */
+const gridBaseline = (): Record<string, unknown> => ({
+  ...GRID_FORM_DEFAULTS,
+  lowPrice: 100,
+  topPrice: 200,
+  levels: 10,
+  gridStep: 1,
+  budget: 1000,
+});
+
+const GRID_CONFIGS: { name: string; overrides: Record<string, unknown> }[] = [
+  { name: 'plain range', overrides: {} },
+  {
+    name: 'take-profit + stop-loss on',
+    overrides: { tpSl: true, sl: true, tpSlLimit: true, slLimit: true },
+  },
+  { name: 'start price', overrides: { useStartPrice: true, startPrice: '150' } },
+  {
+    name: 'futures',
+    overrides: {
+      futures: true,
+      leverage: 5,
+      marginType: BotMarginTypeEnum.cross,
+      strategy: StrategyEnum.short,
+    },
+  },
+  {
+    name: 'orders in advance',
+    overrides: { useOrderInAdvance: true, ordersInAdvance: 6 },
+  },
+  { name: 'arithmetic grid', overrides: { gridType: 'arithmetic', feeOrder: false } },
+];
+
+/** Grid equivalent of `wirePayload`, through the grid mapper. */
+const gridWirePayload = (
+  overrides: Record<string, unknown>
+): Record<string, unknown> => {
+  const formData = {
+    ...SHARED_FORM_DEFAULTS,
+    type: BotTypesEnum.grid,
+    exchangeUUID: 'exchange-uuid',
+    dca: { ...DCA_FORM_DEFAULTS },
+    combo: { ...COMBO_FORM_DEFAULTS },
+    grid: { ...gridBaseline(), ...overrides },
+  } as unknown as BotFormData;
+
+  const result = mapGridFormDataToPayload(formData, { mode: 'edit' });
+  expect(
+    result.success,
+    `grid mapper rejected the payload: ${(result.errors ?? []).join('; ')}`
+  ).toBe(true);
+
+  return stripUndeclaredUpdateFields(
+    (result.updatePayload ?? {}) as Record<string, unknown>,
+    { botType: 'grid', stripPair: false }
+  );
+};
 
 /** Run one configuration through the real save path, up to the mutation call. */
 const wirePayload = (
@@ -217,6 +290,65 @@ for (const botType of BOT_TYPES) {
   });
 }
 
+test.describe(`grid save payload vs ${INPUT_FOR.grid}`, () => {
+  for (const { name, overrides } of GRID_CONFIGS) {
+    test(`${name}: every key is declared`, () => {
+      const declared = declaredFields('grid');
+      const undeclared = Object.keys(gridWirePayload(overrides)).filter(
+        (k) => !declared.has(k)
+      );
+
+      expect(
+        undeclared,
+        `These keys reach the ${INPUT_FOR.grid} mutation but are not declared ` +
+          `by it, so prod Apollo will reject the whole save with ` +
+          `BAD_USER_INPUT — every grid bot save breaks.\n\n` +
+          `Fix: if the field should persist, declare it in main-app ` +
+          `core/src/graphql/schema.ts and re-run ` +
+          `scripts/refresh-graphql-input-snapshot.mjs. If it is client-only, ` +
+          `add it to the deny-list in ` +
+          `src/mappers/bots/dca/update-payload-denylist.ts.\n\n` +
+          `Undeclared: ${undeclared.join(', ')}`
+      ).toEqual([]);
+    });
+  }
+
+  /**
+   * The grid mapper does not emit `updatedBudget` / `newProfit` today, so the
+   * subset assertions above never exercise their strip. The grid branch carried
+   * those two deletes anyway, because `useFormHandlers` accepts a custom
+   * `payloadMapper` that can pass them through. Assert the strip directly so it
+   * cannot quietly decay into a no-op, and pin that `pair` survives — grid is
+   * the one bot type that keeps it.
+   */
+  test('grid bookkeeping flags are stripped when a payload does carry them', () => {
+    const stripped = stripUndeclaredUpdateFields(
+      {
+        budget: 1000,
+        updatedBudget: true,
+        newProfit: true,
+        pair: 'BTC/USDT',
+      },
+      { botType: 'grid', stripPair: false }
+    );
+    expect(Object.keys(stripped).sort()).toEqual(['budget', 'pair']);
+  });
+
+  // Vacuity guard, as above. changeBotInput is only 42 fields wide and the
+  // baseline reaches 34, so the floor is set well under that.
+  test('the configurations actually exercise the payload', () => {
+    const union = new Set<string>();
+    for (const { overrides } of GRID_CONFIGS) {
+      for (const key of Object.keys(gridWirePayload(overrides))) union.add(key);
+    }
+    expect(
+      union.size,
+      `Only ${union.size} keys emitted across all grid configurations — the ` +
+        `subset assertions above are passing vacuously.`
+    ).toBeGreaterThan(25);
+  });
+});
+
 /**
  * The deny-list carries a claim about WHY each field is on it. If main-app ever
  * declares one of them, the entry becomes dead weight that silently drops a
@@ -251,13 +383,31 @@ test.describe('deny-list rationale still matches the schema', () => {
     ).toEqual([]);
   });
 
-  test('pair is declared by both, so stripping it is behavioural', () => {
-    // Documents the one deny-list entry that is NOT schema-driven: both
-    // resolvers reject a pair change on a non-multi bot, and that rejection
-    // kills every sibling field in the same payload.
-    expect(declaredFields('dca').has('pair')).toBe(true);
-    expect(declaredFields('combo').has('pair')).toBe(true);
+  test('the grid-form fields are declared by no change-input', () => {
+    const nowDeclared: string[] = [];
+    for (const field of UNDECLARED_GRID_FORM_FIELDS) {
+      for (const [input, { fields }] of Object.entries(snapshot.inputs)) {
+        if (fields.includes(field)) nowDeclared.push(`${field} (now in ${input})`);
+      }
+    }
+    expect(
+      nowDeclared,
+      'updatedBudget / newProfit are stripped from grid saves as undeclared, ' +
+        'but the schema now declares them — the strip is silently discarding a ' +
+        'field the backend would accept.'
+    ).toEqual([]);
+  });
+
+  test('pair is declared everywhere, so stripping it is behavioural', () => {
+    // Documents the one deny-list entry that is NOT schema-driven: the DCA and
+    // combo resolvers reject a pair change on a non-multi bot, and that
+    // rejection kills every sibling field in the same payload. Grid's
+    // changeBot ignores pair instead, which is why grid never strips it.
+    for (const botType of ['dca', 'combo', 'grid'] as const) {
+      expect(declaredFields(botType).has('pair')).toBe(true);
+    }
     expect(denylistFor('dca', true)).toContain('pair');
     expect(denylistFor('dca', false)).not.toContain('pair');
+    expect(denylistFor('grid', false)).not.toContain('pair');
   });
 });

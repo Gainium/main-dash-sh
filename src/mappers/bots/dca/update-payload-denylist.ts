@@ -1,9 +1,10 @@
 /**
  * The fields a bot-update payload must NOT carry.
  *
- * The bot form is mapped by `mapFormDataToPayload`, which emits every field the
- * form knows about. The GraphQL change-mutations accept a strictly smaller set:
- * `changeDCABotInput` declares 163 fields, `changeComboBotInput` 175. Apollo
+ * The bot form is mapped by `mapFormDataToPayload` (or `mapGridFormDataToPayload`
+ * for grid), which emits every field the form knows about. The GraphQL
+ * change-mutations accept a strictly smaller set: `changeDCABotInput` declares
+ * 163 fields, `changeComboBotInput` 175, and grid's `changeBotInput` 42. Apollo
  * rejects an undeclared input field outright — `BAD_USER_INPUT`, the whole
  * mutation fails — so the extra keys have to be removed before the call.
  *
@@ -15,9 +16,9 @@
  * `tests/fixtures/graphql-bot-input-fields.json`. Add a field here and the
  * guard goes green again; that test failing is the intended way to find out.
  *
- * Lives in one module because there are three call sites that must agree:
- * `useFormHandlers` (dca + combo branches) and `HedgeBotEditLayout` (per leg).
- * They were three hand-maintained copies and had already drifted on
+ * Lives in one module because there are four call sites that must agree:
+ * `useFormHandlers` (dca, combo and grid branches) and `HedgeBotEditLayout`
+ * (per leg). They were hand-maintained copies and had already drifted on
  * `importFrom`.
  */
 
@@ -57,7 +58,22 @@ export const DECLARED_BY_COMBO_ONLY = [
   'comboTpLimit',
 ] as const;
 
-export type UpdatePayloadBotType = 'dca' | 'combo';
+/**
+ * Grid-form bookkeeping flags that `changeBotInput` does not declare.
+ *
+ * Both live in `GRID_FORM_DEFAULTS` and both default to `true`. They tell the
+ * order-preview and backtest maths how to read `budget` (net vs gross of fees)
+ * rather than describing anything the bot stores, and the backtest path sets
+ * `updatedBudget: true` explicitly. The grid mapper does not emit either today,
+ * so stripping them is defensive — but a custom `payloadMapper` can pass one
+ * through, which is exactly what the grid branch was already guarding against.
+ */
+export const UNDECLARED_GRID_FORM_FIELDS = [
+  'updatedBudget',
+  'newProfit',
+] as const;
+
+export type UpdatePayloadBotType = 'dca' | 'combo' | 'grid';
 
 export interface StripUndeclaredOptions {
   /** Which change-input the payload is bound for. */
@@ -65,10 +81,12 @@ export interface StripUndeclaredOptions {
   /**
    * Drop `pair` as well.
    *
-   * `pair` IS declared by both inputs, so this is a behavioural choice, not a
-   * schema one: both resolvers reject a pair change on a non-multi bot with
-   * "Cannot change pair for non-multi pairs bot", and that rejection kills
-   * every sibling field in the same payload. Callers pass `!useMulti`.
+   * `pair` IS declared by all three inputs, so this is a behavioural choice,
+   * not a schema one: the DCA and combo resolvers reject a pair change on a
+   * non-multi bot with "Cannot change pair for non-multi pairs bot", and that
+   * rejection kills every sibling field in the same payload. DCA and combo
+   * callers pass `!useMulti`; grid passes `false`, because `changeBot` ignores
+   * `pair` entirely rather than rejecting it.
    */
   stripPair: boolean;
 }
@@ -80,6 +98,7 @@ export const denylistFor = (
 ): string[] => [
   ...UNDECLARED_BY_ALL_INPUTS,
   ...(botType === 'dca' ? DECLARED_BY_COMBO_ONLY : []),
+  ...(botType === 'grid' ? UNDECLARED_GRID_FORM_FIELDS : []),
   ...(stripPair ? ['pair'] : []),
 ];
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.24] - 2026-08-14
+
+### Added
+
+- Extend the bot-save guard to grid bots. The check added in 2.43.23 covered DCA and combo bots; grid bots save through a different, much smaller API and were still unguarded, so adding a setting to the grid form could have broken saving for every grid bot with nothing to catch it.
+
 ## [2.43.23] - 2026-08-14
 
 ### Added
