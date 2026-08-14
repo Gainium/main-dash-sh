@@ -4,6 +4,12 @@ import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import { useAuthStore } from '@/stores/authStore';
 import { logger } from '@/lib/loggerInstance';
 import { serializeCrashMeta } from '@/lib/crashBreadcrumbs';
+import {
+  HISTORY_LEN,
+  WINDOW_MS,
+  isReportableBurst,
+  renderLimit,
+} from './renderLoopTripwire.rules';
 
 /**
  * Render-loop tripwire.
@@ -28,21 +34,7 @@ import { serializeCrashMeta } from '@/lib/crashBreadcrumbs';
  *                      captured — never full objects.
  */
 
-// >WINDOW_LIMIT renders within WINDOW_MS marks a window as "elevated". React's
-// own limit is ~50 nested updates; 25/1s is well inside that so we still report
-// before the crash.
-const WINDOW_MS = 1000;
-const WINDOW_LIMIT = 25;
-// Require the elevated rate to persist across at least this many CONSECUTIVE
-// windows before reporting. A single mount/hydration burst reliably settles
-// within ~1s (one window) — investigation confirmed ResponsiveButtonRow etc.
-// always settle — so a one-off spike no longer trips the wire. A genuine
-// runaway loop keeps blowing past WINDOW_LIMIT window after window, so it still
-// trips almost immediately (a real infinite loop exceeds the limit far faster
-// than one window, so requiring 2 barely delays real-loop detection).
-const CONSECUTIVE_WINDOWS = 2;
-// How many render diffs to keep for the report.
-const HISTORY_LEN = 10;
+const limitForEnv = (): number => renderLimit(Boolean(import.meta.env.DEV));
 
 // Session-scoped dedupe: at most one report per componentName per page load.
 const reportedComponents = new Set<string>();
@@ -52,9 +44,17 @@ type ChangedKeys = Array<{ key: string; from: string; to: string }>;
 interface TripwireState {
   windowStart: number;
   count: number;
+  // Renders in the CURRENT window that changed no props (see SELF_DRIVEN_RATIO).
+  selfDriven: number;
   // Number of consecutive closed windows whose render count exceeded
   // WINDOW_LIMIT. Reset to 0 whenever a window closes under the limit.
   elevatedWindows: number;
+  // Renders in the window that closed most recently, so the report can state the
+  // burst that actually happened. The message used to print `count`, which at
+  // the moment of tripping is always WINDOW_LIMIT + 1 — every report this wire
+  // ever sent read "26 renders", and eight issue titles quoted that constant as
+  // if it were a measurement.
+  lastWindowCount: number;
   prevProps: Record<string, unknown> | undefined;
   history: ChangedKeys[];
   disarmed: boolean;
@@ -113,7 +113,9 @@ export function useRenderLoopTripwire(
   const stateRef = useRef<TripwireState>({
     windowStart: 0,
     count: 0,
+    selfDriven: 0,
     elevatedWindows: 0,
+    lastWindowCount: 0,
     prevProps: undefined,
     history: [],
     disarmed: false,
@@ -137,36 +139,47 @@ export function useRenderLoopTripwire(
 
     const now = Date.now();
 
-    // Record which props changed since the previous render.
+    // Record which props changed since the previous render. `hadPrev` is read
+    // BEFORE prevProps is overwritten: the old code assigned first and then
+    // tested the value it had just written, which is always truthy, so the very
+    // first render — where diffProps returns [] because there is nothing to
+    // compare against — was pushed as a genuine "(no prop change)" entry. That
+    // is cosmetic in the history, but SELF_DRIVEN_RATIO now counts the same
+    // signal, so the phantom has to go.
+    const hadPrev = state.prevProps !== undefined;
     const changed = diffProps(state.prevProps, props);
     state.prevProps = props;
-    if (state.prevProps) {
+    if (hadPrev) {
       state.history.push(changed);
       if (state.history.length > HISTORY_LEN) state.history.shift();
+      if (changed.length === 0) state.selfDriven += 1;
     }
 
+    const limit = limitForEnv();
+
     // Fixed-window render counter. When a window closes, decide whether it was
-    // "elevated" (over WINDOW_LIMIT) and carry a consecutive-elevated streak so
-    // a single settling burst doesn't trip the wire.
+    // "elevated" (over the limit) and carry a consecutive-elevated streak so a
+    // single settling burst doesn't trip the wire.
     if (now - state.windowStart > WINDOW_MS) {
       // The window that just closed had `state.count` renders in it.
-      if (state.count > WINDOW_LIMIT) {
+      if (state.count > limit) {
         state.elevatedWindows += 1;
       } else {
         state.elevatedWindows = 0;
       }
+      state.lastWindowCount = state.count;
       state.windowStart = now;
       state.count = 1;
+      state.selfDriven = 0;
       return;
     }
     state.count += 1;
 
-    // Trip only once the current window is itself elevated AND at least one
-    // prior consecutive window was already elevated — i.e. the burst is
-    // SUSTAINED, not a one-off mount/hydration spike that settles within a
-    // single window. A genuine runaway loop satisfies this almost immediately.
-    if (state.count <= WINDOW_LIMIT) return;
-    if (state.elevatedWindows < CONSECUTIVE_WINDOWS - 1) return;
+    // Elevated, sustained across consecutive windows, and mostly self-driven —
+    // see renderLoopTripwire.rules.ts, where all three live together with the
+    // measurements that set them. A genuine runaway satisfies all three almost
+    // immediately; fast-arriving data satisfies only the first.
+    if (!isReportableBurst(state, limit)) return;
 
     // Tripped. Disarm immediately so the report path runs exactly once, even
     // if it throws or the loop keeps going.
@@ -178,7 +191,13 @@ export function useRenderLoopTripwire(
 
     try {
       const token = useAuthStore.getState().tokens?.accessToken;
-      const message = `[RenderLoopTripwire] ${componentName} — ${state.count} renders in ${now - state.windowStart}ms`;
+      // State the sustained burst, not the trip constant: the previous window
+      // is what established the streak, and `selfDriven` is the discriminator
+      // the triage downstream actually needs.
+      const message =
+        `[RenderLoopTripwire] ${componentName} — ${state.count} renders in ${now - state.windowStart}ms` +
+        ` (prior window ${state.lastWindowCount}; ${state.selfDriven}/${state.count} with no prop change` +
+        `${import.meta.env.DEV ? '; DEV build, StrictMode doubles this' : ''})`;
       const stack =
         `Changed prop keys per render (oldest → newest):\n` +
         history
