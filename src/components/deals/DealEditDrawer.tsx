@@ -150,12 +150,21 @@ const mapFromDataToDealSettings = (
     'coinm',
     'marginType',
     'leverage',
-    // Reachable in this drawer (DCASettings renders the combo grid-level input
-    // for any combo bot, with no deal-edit guard) but missing from this list,
-    // so the edit was dropped on the floor: the drawer closed as if it had
-    // saved and the deal kept its old grid level. This array is the only thing
-    // that decides what reaches the editDeal mutation, so a field the UI can
-    // change and this list omits is silently unsaveable.
+    // This array is the only thing that decides what reaches the editDeal
+    // mutation, so a field the UI can change and this list omits is silently
+    // unsaveable — the drawer closes as if it had saved and the deal keeps its
+    // old value.
+    //
+    // `gridLevel` is here because DCASettings renders the combo "DCA grid
+    // levels" input under `isComboBot` with no deal-edit guard. NOTE: that
+    // branch does not currently fire in THIS drawer — `botType` below is
+    // derived from `trade[0].combo`, which nothing in the codebase ever sets,
+    // so `formData.type` is always `dca` here and the control never appears.
+    // Keeping `gridLevel` listed is still correct (and harmless: the deal and
+    // its bot agree on the value, so the diff below drops it), but the field
+    // is not reachable until that is fixed. See
+    // tests-e2e/specs/deal-edit-gridlevel.e2e.test.ts, which fails on exactly
+    // that precondition.
     'gridLevel',
     'useFixedTPPrices',
     'useFixedSLPrices',
@@ -174,6 +183,29 @@ const mapFromDataToDealSettings = (
     'dcaVolumeRequiredChangeRef',
     'dcaVolumeMaxValue',
     'dcaVolumeRequiredChange',
+    // ── Declared on DCADealsSettings but DELIBERATELY absent from this list.
+    // Checked 2026-08-14; don't re-derive, and don't add them "for symmetry".
+    //
+    // `scaleDcaType` — DCASettings renders its control inside a
+    //   `{!isComboBot && !isDealEdit && …}` guard, so it is unreachable in
+    //   both `deal-edit` and `deal-mass-edit`.
+    //
+    // `useRiskReward`, `riskUseTpRatio` — written only by RiskRewardSettings,
+    //   which is mounted only by RiskRewardSettingsTab, which appears only in
+    //   the full bot-form tab registries (bot-types/{dca,combo}/form/tabs).
+    //   This drawer builds its own `visibleDescriptors` — a literal
+    //   `useMemo(…, [])` of exactly strategy / take-profit / stop-loss / dca,
+    //   with no branch on mode — so there is no Risk:Reward section in either
+    //   drawer mode. (`sectionToggleMap` still maps 'risk-reward' →
+    //   'useRiskReward'; that entry is dead, no descriptor has that id.)
+    //   Confirmed in the running app against a real open deal: the drawer
+    //   renders those four sections and no Risk:Reward anywhere.
+    //
+    //   Adding them would be a behaviour change, not a fix. `useRiskReward`
+    //   IS set per-deal (types/dcaDeal.ts reads `deal.settings.useRiskReward`
+    //   as `riskBased`), so on a risk-based deal whose bot has it off, the
+    //   diff below would find new ≠ original and start shipping
+    //   `useRiskReward` on every save of a control the user cannot see.
   ].filter((k) =>
     isMultiple ? k !== 'baseOrderSize' && k !== 'orderSize' : true
   ) as (keyof DCADealsSettings)[];
