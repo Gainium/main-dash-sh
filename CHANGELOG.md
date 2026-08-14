@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.43.22] - 2026-08-14
+
+### Fixed
+
+- Indicator settings are no longer stripped when a bot uses indicators for more than one purpose. On a bot combining, say, start-DCA-by-indicator with indicator-based deal closing, saving quietly discarded the options you had left at their defaults on one of the two indicators — a moving-average indicator could lose its MA types and lengths and come back re-tuned to a different period.
+- The Enter Market Timeout toggle stays on after a reload. It saved correctly but always reappeared switched off, with the seconds still filled in — and a later save of anything else then turned the feature off for real.
+- Grid bots remember their direction. A Short grid bot always reloaded as Long, so cloning one produced a bot trading the opposite way with no warning.
+- "DCA grid levels" can be changed from the deal-edit drawer on a combo bot. The drawer closed as though it had saved, but the new value was never sent.
+
 ## [2.43.21] - 2026-08-14
 
 ### Fixed

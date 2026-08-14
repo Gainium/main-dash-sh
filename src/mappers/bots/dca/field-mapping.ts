@@ -4292,6 +4292,18 @@ export const mapFormDataToBackend = (
     { name: 'Indicator Groups', mapper: mapIndicatorGroupsFields },
   ];
 
+  /**
+   * The raw form entry for each indicator, by uuid, used to tell a mapper's
+   * real contribution apart from its passthrough. See the merge below.
+   */
+  const rawIndicatorJson = new Map(
+    (
+      (formData.type === BotTypesEnum.combo
+        ? formData.combo.indicators
+        : formData.dca.indicators) ?? []
+    ).map((i) => [i.uuid, JSON.stringify(i)])
+  );
+
   for (const { name, mapper } of mappers) {
     const result = mapper(formData, vars);
     allResults.push(result);
@@ -4299,14 +4311,50 @@ export const mapFormDataToBackend = (
     if (result.success && result.data) {
       const { indicators, ...rest } = result.data;
       Object.assign(finalData, rest);
-      finalData.indicators = [
-        ...new Map(
-          [...(finalData.indicators || []), ...(indicators || [])].map((i) => [
-            i.uuid,
-            i,
-          ])
-        ).values(),
-      ];
+
+      /**
+       * Merge each mapper's indicator contribution.
+       *
+       * Every per-role mapper emits the FULL indicator list: the entries for
+       * the role it owns, serialized and gap-filled, and every other role's
+       * entry passed straight through untouched (the `?? i` / `: indicator`
+       * at each of the four emit sites). Merging those with "last writer
+       * wins" therefore let one mapper's incidental RAW copy overwrite
+       * another's serialized one — so an indicator kept its gap-fill only
+       * when its role happened to be owned by the last mapper to run.
+       *
+       * A bot with indicators in two roles — start-by-indicator plus
+       * indicator-based closing, say, which is an ordinary setup — silently
+       * saved the earlier role's indicator stripped of every field the user
+       * had not touched. A MAR lost mar1type, mar1length, mar2type,
+       * mar2length, the percentile trio and the trendFilter quartet. That is
+       * not cosmetic: indicatorCatalog.ts records that a MAR saved without
+       * mar1length is re-tuned from a 20-period base MA to a 10, which is
+       * exactly why the gap-fill exists.
+       *
+       * So a mapper may only overwrite an entry it actually CHANGED. An entry
+       * byte-identical to the raw form entry is that mapper's passthrough and
+       * carries no information about the indicator — it must not displace a
+       * serialization some other mapper already produced. First writer still
+       * wins for a uuid nobody has claimed, which keeps the set of indicators
+       * in the payload exactly what it was before.
+       */
+      const merged = new Map(
+        (finalData.indicators ?? []).map((i) => [i.uuid, i])
+      );
+      for (const indicator of indicators ?? []) {
+        const existing = merged.get(indicator.uuid);
+        if (existing) {
+          const raw = rawIndicatorJson.get(indicator.uuid);
+          const isPassthrough =
+            raw !== undefined && JSON.stringify(indicator) === raw;
+          if (isPassthrough) {
+            continue;
+          }
+        }
+        merged.set(indicator.uuid, indicator);
+      }
+      finalData.indicators = [...merged.values()];
     }
 
     finalData.indicators = (finalData.indicators ?? []).map((i) => {

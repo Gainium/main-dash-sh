@@ -545,8 +545,17 @@ export const mapBotSettingsToFormData = (
     } as const;
   };
 
-  const { seconds: enterMarketTimeoutSeconds } =
-    resolveEnterMarketTimeoutSeconds();
+  // `enabled` used to be computed here and then dropped on the floor: the
+  // destructure took only `seconds`, and nothing else assigned
+  // `useLimitTimeout`, so it always fell through to the form default (false).
+  // The Enter Market Timeout toggle therefore read back OFF on every load while
+  // its seconds field still showed the saved value — and because the save
+  // payload falls back to the live form slice, the next unrelated save wrote
+  // that false back and genuinely disabled the feature.
+  const {
+    seconds: enterMarketTimeoutSeconds,
+    enabled: enterMarketTimeoutEnabled,
+  } = resolveEnterMarketTimeoutSeconds();
 
   const normalizeOrderSizeSelection = (
     value: unknown
@@ -741,6 +750,7 @@ export const mapBotSettingsToFormData = (
     useLimitPrice: getBoolean('useLimitPrice', false),
     notUseLimitReposition: getBoolean('notUseLimitReposition', false),
     limitTimeout: enterMarketTimeoutSeconds,
+    useLimitTimeout: enterMarketTimeoutEnabled,
     useRiskReduction: riskReductionEnabled,
     riskReductionValue,
     useReinvest: reinvestEnabled,

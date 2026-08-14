@@ -150,6 +150,13 @@ const mapFromDataToDealSettings = (
     'coinm',
     'marginType',
     'leverage',
+    // Reachable in this drawer (DCASettings renders the combo grid-level input
+    // for any combo bot, with no deal-edit guard) but missing from this list,
+    // so the edit was dropped on the floor: the drawer closed as if it had
+    // saved and the deal kept its old grid level. This array is the only thing
+    // that decides what reaches the editDeal mutation, so a field the UI can
+    // change and this list omits is silently unsaveable.
+    'gridLevel',
     'useFixedTPPrices',
     'useFixedSLPrices',
     'dcaCondition',

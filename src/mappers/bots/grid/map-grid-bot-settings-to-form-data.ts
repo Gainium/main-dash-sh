@@ -7,8 +7,8 @@ import {
   BotMarginTypeEnum,
   BotTypesEnum,
   ExchangeEnum,
-  FuturesStrategyEnum,
   InitialPriceFromEnum,
+  StrategyEnum,
   type Currency,
   type TpSlAction,
 } from '@/types';
@@ -398,10 +398,16 @@ export const mapGridBotSettingsToFormData = (
     }
   }
 
+  // This block used to test `strategy` and then assign `futuresStrategy` — two
+  // separate defects in one copy-paste. `grid.strategy` was read nowhere in the
+  // whole settings -> form path, so a short grid bot always came back Long;
+  // cloning one silently produced a bot pointing the opposite way. And the
+  // assignment itself was both redundant (the shared grid block in
+  // map-bot-settings-to-form-data.ts already reads `futuresStrategy` properly)
+  // and harmful, since a payload carrying `strategy` but no `futuresStrategy`
+  // wrote `undefined` over that correct value.
   if (typeof botSettings['strategy'] === 'string') {
-    formData.grid.futuresStrategy = botSettings[
-      'futuresStrategy'
-    ] as FuturesStrategyEnum;
+    formData.grid.strategy = botSettings['strategy'] as StrategyEnum;
   }
 
   if (typeof botSettings['futures'] === 'boolean') {
