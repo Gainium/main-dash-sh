@@ -799,6 +799,12 @@ export const mapBotSettingsToFormData = (
     tpPerc: getString('tpPerc') || '0',
     useFixedTPPrices: getBoolean('useFixedTPPrices', false),
     fixedTpPrice: getString('fixedTpPrice', ''),
+    // The stop-loss twin of the two above. 2.43.19 taught the forward mapper to
+    // write these — the take-profit half had always worked and the stop-loss
+    // half was never sent — but the read back was missed in the same way, so a
+    // fixed stop-loss price saved correctly and then showed empty on reload.
+    useFixedSLPrices: getBoolean('useFixedSLPrices', false),
+    fixedSlPrice: getString('fixedSlPrice', ''),
     comboTpLimit: getBoolean('comboTpLimit', true),
     comboTpBase: (() => {
       const rawValue = getString('comboTpBase', ComboTpBase.full);

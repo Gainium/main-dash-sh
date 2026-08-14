@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.21] - 2026-08-14
+
+### Fixed
+
+- A fixed stop-loss price survives a page reload. 2.43.19 made it save correctly, but the bot form never read it back, so the price showed as empty and the mode as off the next time the bot was opened — the take-profit equivalent had always been read.
+
 ## [2.43.20] - 2026-08-14
 
 ### Fixed

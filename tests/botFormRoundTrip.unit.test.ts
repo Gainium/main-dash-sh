@@ -11,7 +11,13 @@ import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
 import { mapGridBotSettingsToFormData } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import { mapGridFormDataToPayload } from '@/mappers/bots/grid/map-grid-form-data-to-payload';
-import { BotTypesEnum } from '@/types';
+import {
+  BotStartTypeEnum,
+  BotTypesEnum,
+  DCAConditionEnum,
+  IndicatorAction,
+  IndicatorEnum,
+} from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 /**
@@ -26,10 +32,19 @@ import type { BotFormData } from '@/types/bots/form';
  * Method: build a baseline with every feature gate ON (so gated fields actually
  * serialize), then for each field set it to a distinctive value on its own, run
  * the round trip, and assert the value comes back. One probe per field keeps a
- * failure attributable to that field instead of to some upstream toggle.
+ * failure attributable to that field instead of to some upstream toggle. Fields
+ * the baseline cannot reach on its own — a gate it has to leave off, a
+ * structured fixture the mapper validates against — get a PROBE_COMPANIONS
+ * entry that is applied alongside the probe.
  *
  * A field that legitimately does not round-trip belongs in KNOWN_NOT_PERSISTED
  * with the reason. Anything not listed there is expected to survive.
+ *
+ * Coverage is currently total for the flat fields: 163 of 163 probed for both
+ * DCA and combo, none skipped, none rejected, none normalized away. That is
+ * enforced, not just observed — see the blind-spot guard at the end of the
+ * first test. `indicators`/`indicatorGroups` are the deliberate exception and
+ * belong to the indicator-specific suites.
  */
 
 type Section = 'dca' | 'combo' | 'grid';
@@ -58,10 +73,73 @@ const siblingEnumValue = (current: string): string | undefined => {
 };
 
 /**
- * Fields whose value cannot be probed generically. A union type that is not a
- * TS enum has no member list to draw a sibling from, so the value is named here.
+ * Shaped fixtures for the structured fields. Kept minimal — each is the
+ * smallest value the mapper accepts, so a probe failure points at the field
+ * rather than at the fixture.
+ */
+const RR_INDICATOR = {
+  uuid: 'rr-probe-1',
+  type: IndicatorEnum.atr,
+  indicatorAction: IndicatorAction.riskReward,
+  timeframe: '1h',
+  period: '14',
+};
+
+/**
+ * MultiTP = { uuid, target, amount }; the two amounts must total 100.
+ *
+ * `target` is written to three decimals on the take-profit side (not the
+ * stop-loss side), so it is given here already formatted. Otherwise the probe
+ * lands in the "normalized" bucket, which skips the reverse-direction check —
+ * i.e. picking a value the mapper reformats would silently buy back the blind
+ * spot this fixture exists to close.
+ */
+const MULTI_TARGETS = [
+  { uuid: 'mt-probe-1', target: '1.500', amount: '60' },
+  { uuid: 'mt-probe-2', target: '3', amount: '40' },
+];
+
+/** DCACustom = { uuid, step, size }. */
+const DCA_CUSTOM_STEPS = [
+  { uuid: 'dc-probe-1', step: '1.5', size: '15' },
+  { uuid: 'dc-probe-2', step: '3', size: '30' },
+];
+
+/**
+ * Fields whose value cannot be probed generically: a union that is not a TS
+ * enum has no member list to draw a sibling from, an empty-string default gives
+ * the generic probe nothing to vary, and a structured array cannot be invented.
+ * Each is named here instead. The blind-spot guard at the end of the first test
+ * requires this list to stay exhaustive.
  */
 const PROBE_OVERRIDES: Record<string, unknown> = {
+  // Structured fields — no generic probe can invent these, so they are named.
+  multiTp: MULTI_TARGETS,
+  multiSl: MULTI_TARGETS,
+  dcaCustom: DCA_CUSTOM_STEPS,
+  // Empty-string defaults. probeValue skips an empty default because it has no
+  // basis for a value; these are the values the controls actually accept.
+  fixedTpPrice: '31000',
+  fixedSlPrice: '25000',
+  minOpenDeal: '100',
+  maxOpenDeal: '200',
+  startBotPriceValue: '100',
+  stopBotPriceValue: '200',
+  // Only 'tp' and 'avg' are valid here; the generic sibling lookup finds
+  // 'techInd' in an unrelated enum and the mapper corrects it back, which reads
+  // as a normalization rather than the pass it should be.
+  dcaVolumeRequiredChangeRef: 'avg',
+  // 'inherit' is normalized to 'isolated' whatever futures is set to, so probe
+  // the one value that survives.
+  marginType: 'cross',
+  // Gates whose companion fixture makes them reachable.
+  useRiskReward: true,
+  useMultiTp: true,
+  useMultiSl: true,
+  useFixedTPPrices: true,
+  useFixedSLPrices: true,
+  dcaCondition: DCAConditionEnum.custom,
+
   profitCurrency: 'base',
   orderFixedIn: 'base',
   orderSizeReference: 'cost',
@@ -87,16 +165,59 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
 };
 
 /**
- * Gates that cannot be turned on without a structured fixture (an indicator
- * list, TP/SL targets). Probing them just re-tests the mapper's validation.
+ * Extra form state to set alongside a probe, so the probed field is actually
+ * reachable: its feature gate on, and any structured fixture the mapper
+ * validates against present.
+ *
+ * This exists because the single shared baseline cannot satisfy every field at
+ * once — some gates are mutually exclusive (Risk:Reward forces multi-SL off),
+ * and some need a fixture that would distort unrelated probes. Companions are
+ * applied ON TOP of `{ ...baseline, [key]: probeValue }`, so they win over the
+ * baseline's "all gates on" pass.
+ *
+ * The fields here were previously unreachable and simply skipped. That mattered
+ * more than it looks: of the six bugs that reached customers, `fixedSlPrice`
+ * was one, the bot-controller price values sit beside the two logic fields that
+ * were another, and the Risk:Reward SL type is behind `useRiskReward`. The
+ * probe's blind spot and the bug history were the same set — a field nothing
+ * can probe is a field nobody checks.
  */
-const NEEDS_FIXTURE: Record<string, string> = {
-  useRiskReward: 'requires at least one indicator',
-  dcaCondition: 'the sibling value (technical indicators) requires an indicator',
-  useMultiTp: 'requires a multiTp target array',
-  useMultiSl: 'requires a multiSl target array',
-  useFixedTPPrices: 'requires a fixed TP price list',
-  useFixedSLPrices: 'requires a fixed SL price list',
+const PROBE_COMPANIONS: Record<string, Record<string, unknown>> = {
+  // --- Gates that need a structured fixture ---
+  useRiskReward: { indicators: [RR_INDICATOR] },
+  useMultiTp: { useTp: true, multiTp: MULTI_TARGETS },
+  // Risk:Reward forces multi-SL off in the mapper, so it has to be off here.
+  useMultiSl: { useSl: true, useRiskReward: false, multiSl: MULTI_TARGETS },
+  useFixedTPPrices: { fixedTpPrice: '31000' },
+  useFixedSLPrices: { useSl: true, fixedSlPrice: '25000' },
+  dcaCondition: { dcaCustom: DCA_CUSTOM_STEPS },
+
+  // --- Structured arrays, probed via their own gate ---
+  multiTp: { useTp: true, useMultiTp: true },
+  multiSl: { useSl: true, useRiskReward: false, useMultiSl: true },
+  dcaCustom: { useDca: true, dcaCondition: DCAConditionEnum.custom },
+
+  // --- Futures-only fields. The baseline is spot (`futures` is not a `use*`
+  //     flag, so the all-gates-on pass misses it), which meant leverage and
+  //     margin type were normalized away on every run and never actually
+  //     round-tripped. ---
+  marginType: { futures: true },
+  leverage: { futures: true },
+
+  // --- Empty-string defaults: the value alone is not enough, the gate that
+  //     reveals the control has to be on too. ---
+  fixedTpPrice: { useFixedTPPrices: true },
+  fixedSlPrice: { useSl: true, useFixedSLPrices: true },
+  minOpenDeal: { useStaticPriceFilter: true },
+  maxOpenDeal: { useStaticPriceFilter: true },
+  startBotPriceValue: {
+    useBotController: true,
+    botActualStart: BotStartTypeEnum.price,
+  },
+  stopBotPriceValue: {
+    useBotController: true,
+    botStart: BotStartTypeEnum.price,
+  },
 };
 
 /**
@@ -106,11 +227,13 @@ const NEEDS_FIXTURE: Record<string, string> = {
  */
 const KNOWN_NOT_PERSISTED: Record<string, string> = {
   // Client-only form state — never sent to the backend.
+  // indicators/indicatorGroups stay out: unlike the three below they are not a
+  // flat list the mapper passes through — entries come from a catalog with
+  // per-type coercion, groups are pruned against the active close conditions,
+  // and the two are cross-referenced by groupId. A generic probe would assert
+  // the fixture, not the field. The indicator-specific tests own them.
   indicators: 'structured; probed by the indicator-specific tests',
   indicatorGroups: 'structured; probed by the indicator-specific tests',
-  multiTp: 'structured array; needs a shaped fixture',
-  multiSl: 'structured array; needs a shaped fixture',
-  dcaCustom: 'structured array; needs a shaped fixture',
   importFrom: 'client-only: names the preset a form was seeded from',
   askToReset: 'client-only: controls a confirmation dialog',
   dcaOrderGuard: 'client-only: guards DCA order edits mid-session',
@@ -146,7 +269,6 @@ const probeValue = (
   key: string,
   current: unknown
 ): { value: unknown } | { skip: string } => {
-  if (key in NEEDS_FIXTURE) return { skip: NEEDS_FIXTURE[key] };
   if (key in PROBE_OVERRIDES) return { value: PROBE_OVERRIDES[key] };
   if (typeof current === 'boolean') return { value: !current };
   if (typeof current === 'number') {
@@ -433,21 +555,30 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
  * Regenerate by running with UPDATE_PIN=1 and pasting the logged output.
  */
 const NOT_IN_PAYLOAD: Record<Section, string[]> = {
-  // All six are empty-string defaults: the mapper omits an unset optional
-  // rather than sending "".
+  // Six empty-string defaults — the mapper omits an unset optional rather than
+  // sending "" — plus the three structured arrays, which are empty until their
+  // gate is on (useMultiTp/useMultiSl, dcaCondition=custom). All nine are
+  // absent because this baseline leaves them unset, not because they cannot be
+  // sent: each is probed with a fixture in the round-trip test above.
   dca: [
+    'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
     'maxOpenDeal',
     'minOpenDeal',
+    'multiSl',
+    'multiTp',
     'startBotPriceValue',
     'stopBotPriceValue',
   ],
   combo: [
+    'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
     'maxOpenDeal',
     'minOpenDeal',
+    'multiSl',
+    'multiTp',
     'startBotPriceValue',
     'stopBotPriceValue',
   ],
@@ -498,7 +629,11 @@ for (const { section, defaults } of SECTIONS) {
           continue;
         }
 
-        const formData = buildFormData(section, { ...defaults, [key]: probe.value });
+        const formData = buildFormData(section, {
+          ...defaults,
+          [key]: probe.value,
+          ...(PROBE_COMPANIONS[key] ?? {}),
+        });
         const trip = roundTrip(section, formData);
         if (!trip.ok) {
           rejected.push(`${key}: ${trip.errors.join('; ')}`);
@@ -543,6 +678,15 @@ for (const { section, defaults } of SECTIONS) {
       if (rejected.length) {
         console.log(`[${section}] rejected:\n  ${rejected.join('\n  ')}`);
       }
+      // Printed, not just counted. This is the bucket that hid closeOrderType:
+      // "the forward mapper normalized it" and "the forward mapper silently
+      // dropped it" are indistinguishable from the outside, so the contents
+      // have to be readable in CI output for anyone to notice a new entry.
+      if (normalized.length) {
+        console.log(
+          `[${section}] normalized by the forward mapper (read these):\n  ${normalized.join('\n  ')}`
+        );
+      }
       if (drift.length) {
         console.log(`[${section}] KNOWN DRIFT (not failed):\n  ${drift.join('\n  ')}`);
       }
@@ -550,6 +694,30 @@ for (const { section, defaults } of SECTIONS) {
       expect(
         failures,
         `the payload carried the edited value but the form did not get it back:\n${failures.join('\n')}`
+      ).toEqual([]);
+
+      /**
+       * The blind-spot guard, and the reason the rest of this file can be
+       * trusted.
+       *
+       * Every assertion above only covers fields the probe could actually
+       * reach. A field it cannot value — an empty-string default, a union with
+       * no sibling to draw from, a structured array — used to be pushed here
+       * and silently dropped from the run. That bucket held 12 fields per bot
+       * type, and it was not a random 12: `fixedSlPrice` was in it, and so were
+       * the bot-controller price values and everything behind `useRiskReward`
+       * — three of the six defects that reached customers hid exactly where
+       * nothing was looking.
+       *
+       * It is empty now, and it stays empty: a new field that the generic
+       * probe cannot value fails here until someone gives it a PROBE_OVERRIDE
+       * and, if it is gated, a PROBE_COMPANIONS entry. Being unable to test a
+       * field is treated as a defect in its own right, because historically
+       * that is what it was.
+       */
+      expect(
+        skipped,
+        `these fields could not be probed, so nothing above covers them — give each a PROBE_OVERRIDES value (and a PROBE_COMPANIONS entry if it is gated):\n${skipped.join('\n')}`
       ).toEqual([]);
     });
 
