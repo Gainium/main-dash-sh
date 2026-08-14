@@ -75,6 +75,21 @@ const INPUT_FOR: Record<UpdatePayloadBotType, string> = {
   grid: 'changeBotInput',
 };
 
+/**
+ * Only the change-inputs constrain an update payload.
+ *
+ * The snapshot also carries the create-inputs, which are a DIFFERENT contract:
+ * create sends its payload verbatim with no deny-list, and `createDCABotInput`
+ * legitimately declares `useMulti`, `type`, `useLimitPrice`, `terminalDealType`
+ * and `importFrom` — the very fields an update has to strip. So the rationale
+ * checks below must ask "declared by no CHANGE-input", not "by no input at
+ * all", or they would fail on a correct schema.
+ */
+const CHANGE_INPUTS = Object.values(INPUT_FOR);
+
+const declaredByAnyChangeInput = (field: string): string[] =>
+  CHANGE_INPUTS.filter((input) => snapshot.inputs[input].fields.includes(field));
+
 const declaredFields = (botType: UpdatePayloadBotType): Set<string> =>
   new Set(snapshot.inputs[INPUT_FOR[botType]].fields);
 
@@ -357,12 +372,9 @@ test.describe(`grid save payload vs ${INPUT_FOR.grid}`, () => {
  */
 test.describe('deny-list rationale still matches the schema', () => {
   test('the always-stripped fields are declared by no change-input', () => {
-    const nowDeclared: string[] = [];
-    for (const field of UNDECLARED_BY_ALL_INPUTS) {
-      for (const [input, { fields }] of Object.entries(snapshot.inputs)) {
-        if (fields.includes(field)) nowDeclared.push(`${field} (now in ${input})`);
-      }
-    }
+    const nowDeclared = UNDECLARED_BY_ALL_INPUTS.flatMap((field) =>
+      declaredByAnyChangeInput(field).map((input) => `${field} (now in ${input})`)
+    );
     expect(
       nowDeclared,
       'These are stripped from every save as undeclared, but the schema now ' +
@@ -384,12 +396,9 @@ test.describe('deny-list rationale still matches the schema', () => {
   });
 
   test('the grid-form fields are declared by no change-input', () => {
-    const nowDeclared: string[] = [];
-    for (const field of UNDECLARED_GRID_FORM_FIELDS) {
-      for (const [input, { fields }] of Object.entries(snapshot.inputs)) {
-        if (fields.includes(field)) nowDeclared.push(`${field} (now in ${input})`);
-      }
-    }
+    const nowDeclared = UNDECLARED_GRID_FORM_FIELDS.flatMap((field) =>
+      declaredByAnyChangeInput(field).map((input) => `${field} (now in ${input})`)
+    );
     expect(
       nowDeclared,
       'updatedBudget / newProfit are stripped from grid saves as undeclared, ' +

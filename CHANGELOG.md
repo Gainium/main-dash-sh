@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.25] - 2026-08-14
+
+### Fixed
+
+- Scope the bot-save guard's schema checks to the save mutations. They also inspected the bot-creation mutations, which legitimately accept several of the fields a save has to leave out, so the guard would have reported a correct schema as broken.
+
 ## [2.43.24] - 2026-08-14
 
 ### Added
