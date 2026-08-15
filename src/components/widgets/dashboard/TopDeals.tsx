@@ -1,8 +1,17 @@
 import { useComboDeals } from '@/hooks/useComboDeals';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
+import { useUserFees } from '@/hooks/useUserFeesService';
+import getLatestPrices, { getLocalPrices } from '@/helper/price';
+import { logger } from '@/lib/loggerInstance';
 import { useUIStore } from '@/stores/uiStore';
 import { useTableCustomState } from '@/stores/tablePreferencesStore';
-import { BotTypesEnum, type ComboDeals, type DCADeals } from '@/types';
+import {
+  BotTypesEnum,
+  type AllFees,
+  type ComboDeals,
+  type DCADeals,
+  type Prices,
+} from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import {
   transformDealToTrade,
@@ -10,7 +19,7 @@ import {
 } from '@/types/dcaDeal';
 import { buildBotViewRouteFromType } from '@/utils/bots/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import React, { useCallback, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CARD_VIEW_COLUMNS } from '../../../config/responsive';
 import { formatCurrency } from '@/lib/utils';
@@ -55,6 +64,10 @@ const METRIC_OPTIONS: { value: TopDealsMetric; label: string }[] = [
 ];
 
 const ACTIVE_STATUSES = new Set(['open', 'start', 'error']);
+
+// Matches the throttle the bot Deals tab (DrawerDealsTable) and the hedge
+// unrealized-P&L map use, so the overview strip re-renders at the same cadence.
+const PRICE_UPDATE_THROTTLE_MS = 10_000;
 
 // Stable row-id accessor. Hoisted to module scope so its identity never
 // changes — an inline `(row) => row.id` would defeat DataTable's React.memo.
@@ -127,16 +140,102 @@ const TopDeals: React.FC<TopDealsProps> = ({
 
   const isLoading = (dcaLoading || comboLoading) && !dcaDeals.length;
 
+  // Live prices + per-symbol fees. transformDealToTrade only computes the
+  // fee-net unrealized P&L when it is GIVEN both; with empty arrays it falls
+  // back to the server's `stats.unrealizedProfit`, which is gross of fees. That
+  // is why this card used to disagree with the bot's Deals tab (which feeds the
+  // same transform real prices+fees) by ~2x the exchange fee on the deal's
+  // cost. Source both the same way DrawerDealsTable does so the two views are
+  // identical by construction, for every bot type.
+  const [prices, setPrices] = useState<Prices>(() => getLocalPrices());
+  const lastPriceUpdateRef = useRef(0);
+
+  useEffect(() => {
+    const unsubscribe = getLatestPrices((result) => {
+      if (result.status !== 'OK' || !result.data) return;
+      const now = Date.now();
+      // Take the first payload immediately, then throttle re-renders.
+      if (
+        lastPriceUpdateRef.current === 0 ||
+        now - lastPriceUpdateRef.current > PRICE_UPDATE_THROTTLE_MS
+      ) {
+        setPrices(result.data);
+        lastPriceUpdateRef.current = now;
+      }
+    }, false); // false = don't load binance US
+    return unsubscribe;
+  }, []);
+
+  const [fees, setFees] = useState<AllFees>([]);
+  const { fetchMultipleFees } = useUserFees();
+
+  // Fees are needed for every symbol shown, which is the union of the deals'
+  // own symbols — a deal can outlive its pair being removed from the bot's
+  // settings. Encoded as a stable string key so the fetch effect only re-runs
+  // when the target set actually changes (same pattern as DrawerDealsTable).
+  const feeTargetsKey = useMemo(() => {
+    const targets = new Set<string>();
+    for (const deal of [...dcaDeals, ...comboDeals] as DCADeals[]) {
+      const exchange = deal.exchangeUUID || deal.exchange;
+      const symbol = deal.symbol?.symbol;
+      if (exchange && symbol) targets.add(`${exchange}\u001f${symbol}`);
+    }
+    return Array.from(targets).sort().join('\n');
+  }, [dcaDeals, comboDeals]);
+
+  useEffect(() => {
+    if (!feeTargetsKey) return;
+    const exchangeSymbolMap = new Map<string, Set<string>>();
+    for (const entry of feeTargetsKey.split('\n')) {
+      const sep = entry.indexOf('\u001f');
+      if (sep < 0) continue;
+      const exchange = entry.slice(0, sep);
+      const symbol = entry.slice(sep + 1);
+      if (!exchangeSymbolMap.has(exchange)) {
+        exchangeSymbolMap.set(exchange, new Set());
+      }
+      exchangeSymbolMap.get(exchange)?.add(symbol);
+    }
+    let cancelled = false;
+    fetchMultipleFees({ exchangeSymbolMap })
+      .then((res) => {
+        if (cancelled) return;
+        // `maker` to match the Deals tab's fee basis exactly.
+        setFees(
+          (res || []).map((r) => ({
+            exchange: r.exchangeUUID,
+            symbol: r.symbol,
+            fee: r.maker,
+          }))
+        );
+      })
+      .catch((error) => {
+        logger.error('[TopDeals] Error fetching fees:', error);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [feeTargetsKey, fetchMultipleFees]);
+
   const rankedDeals = useMemo(() => {
     // Reuse the canonical deal→trade transformer (same one the Trading page
-    // and bot drawers use). Passing empty prices/fees makes it fall back to the
-    // backend's `stats.unrealizedProfit`, so we don't need a live price feed
-    // for a compact overview strip.
-    const toTrade = (deal: DCADeals | ComboDeals, type: BotTypesEnum) =>
-      transformDealToTrade(deal, [], [], {
+    // and bot drawers use), fed the same live prices + fees the Deals tab uses
+    // so both render the identical fee-net unrealized P&L.
+    const canComputeLive = prices.length > 0 && fees.length > 0;
+    const toTrade = (deal: DCADeals | ComboDeals, type: BotTypesEnum) => {
+      const bot = {
         type,
         name: deal.botName ?? '',
-      } as unknown as DrawerBot);
+      } as unknown as DrawerBot;
+      if (canComputeLive) {
+        const live = transformDealToTrade(deal, fees, prices, bot);
+        // A symbol with no price or no fee collapses the live formula to
+        // undefined, which would render as $0. Keep the server value in that
+        // case — stale-but-close beats a confident zero.
+        if (live.unrealizedProfit !== undefined) return live;
+      }
+      return transformDealToTrade(deal, [], [], bot);
+    };
 
     const rows = [
       ...dcaDeals.map((d) => toTrade(d, BotTypesEnum.dca)),
@@ -154,7 +253,7 @@ const TopDeals: React.FC<TopDealsProps> = ({
           (t.cost ?? 0) > 0
       )
       .sort((a, b) => metricValue(b, metric) - metricValue(a, metric));
-  }, [dcaDeals, comboDeals, metric]);
+  }, [dcaDeals, comboDeals, metric, prices, fees]);
 
   const handleOpenBot = useCallback(
     (trade: TransformedTrade) => {

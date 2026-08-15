@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.43.31] - 2026-08-15
+
+### Fixed
+
+- Overview "Top Deals": a deal's unrealized P&L is now worked out the same way as on the bot's own Deals tab — from the live price and net of the exchange fees to open and close the position. The widget was showing the fee-free figure the server reports, so the same deal could read as a small profit on the Overview and a loss inside the bot. Deals are also ranked by that corrected value now.
+
 ## [2.43.30] - 2026-08-14
 
 ### Fixed
