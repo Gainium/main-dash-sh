@@ -7,20 +7,19 @@
 
 const looksLikeBase64 = (s: string) => /^[A-Za-z0-9_-]+$/.test(s);
 
-// Operators whose value is an ARRAY, not a scalar. `String(['a','b'])` would
-// flatten these to "a,b" and read back as one string, which silently breaks
-// the filter: `isAnyOf` then looks for a cell containing the literal
-// "a,b" (matches nothing) and `between` bails out of its Array.isArray guard
-// (matches everything). Each element is encoded separately so a comma inside
-// a value survives as %2C and the join stays unambiguous.
+// Operators whose value is an ARRAY, not a scalar. Only needed now to read
+// LEGACY links, written before values carried a type marker; new links encode
+// arrays as JSON so the shape is explicit.
 const MULTI_VALUE_OPERATORS = new Set(['isAnyOf', 'isNoneOf', 'between']);
 
+const NO_VALUE_OPERATORS = new Set(['isEmpty', 'isNotEmpty']);
+
 /**
- * Read the value part of a multi-value filter back into an array.
- * Handles both the current format (each element encoded, joined with a literal
- * `,`) and legacy links written before that fix, where the whole array was
- * flattened with `String()` and encoded once, so the separators arrived as
- * `%2C` and the elements as one blob.
+ * Read the value part of a legacy multi-value filter back into an array.
+ * Handles both the pre-JSON format (each element encoded, joined with a literal
+ * `,`) and older links still, where the whole array was flattened with
+ * `String()` and encoded once, so the separators arrived as `%2C` and the
+ * elements as one blob.
  */
 const parseMultiValue = (raw?: string): string[] => {
   if (!raw) return [];
@@ -29,44 +28,104 @@ const parseMultiValue = (raw?: string): string[] => {
   return decoded.includes(',') ? decoded.split(',') : [decoded];
 };
 
+// Non-string filter values (numbers, booleans, arrays) must survive the round
+// trip as their original type — filter-logic picks the numeric-vs-date branch
+// of `between` off `typeof value[0] === 'number'`, so stringifying [10, 20]
+// would silently turn a number range into a date comparison. Those are written
+// as JSON behind a `~` marker; plain strings stay unwrapped so shared links
+// remain readable. A string that itself starts with `~` is JSON-encoded too, so
+// the marker is never ambiguous.
+const JSON_VALUE_MARKER = '~';
+
+const encodeFilterValue = (value: unknown): string => {
+  if (value === undefined || value === null) return '';
+  if (typeof value === 'string' && !value.startsWith(JSON_VALUE_MARKER)) {
+    return encodeURIComponent(value);
+  }
+  return JSON_VALUE_MARKER + encodeURIComponent(JSON.stringify(value));
+};
+
+const decodeFilterValue = (
+  raw: string | undefined,
+  operator: string
+): unknown => {
+  if (raw === undefined || raw === '') {
+    return MULTI_VALUE_OPERATORS.has(operator) ? [] : '';
+  }
+  if (raw.startsWith(JSON_VALUE_MARKER)) {
+    try {
+      return JSON.parse(decodeURIComponent(raw.slice(1)));
+    } catch {
+      return decodeURIComponent(raw.slice(1));
+    }
+  }
+  // Legacy link: arrays were comma-joined, everything else was a bare string.
+  return MULTI_VALUE_OPERATORS.has(operator)
+    ? parseMultiValue(raw)
+    : decodeURIComponent(raw);
+};
+
+/**
+ * Split `id:operator:value` without touching separators inside the value — the
+ * value is percent/JSON encoded, but the id and operator never contain a `:`,
+ * so only the first two colons are significant.
+ */
+const splitSegment = (
+  segment: string
+): { id: string; operator?: string; raw?: string } => {
+  const firstColon = segment.indexOf(':');
+  if (firstColon === -1) return { id: segment };
+  const id = segment.slice(0, firstColon);
+  const rest = segment.slice(firstColon + 1);
+  const secondColon = rest.indexOf(':');
+  if (secondColon === -1) return { id, operator: rest };
+  return {
+    id,
+    operator: rest.slice(0, secondColon),
+    raw: rest.slice(secondColon + 1),
+  };
+};
+
+/**
+ * Flatten one column filter into its individual conditions. A column's filter
+ * value is normally an ARRAY of `{operator, value}` conditions — the shape the
+ * quick-filter UI writes, ANDed together by the filter fn — but legacy state
+ * can hold a single condition object or a bare string.
+ */
+const conditionsOf = (
+  value: unknown
+): { operator: string; value?: unknown }[] => {
+  const list = Array.isArray(value) ? value : [value];
+  return list.flatMap((entry) => {
+    if (
+      typeof entry === 'string' ||
+      typeof entry === 'number' ||
+      typeof entry === 'boolean'
+    ) {
+      return [{ operator: 'contains', value: entry }];
+    }
+    if (entry && typeof entry === 'object' && 'operator' in entry) {
+      const cond = entry as { operator: unknown; value?: unknown };
+      return [{ operator: String(cond.operator), value: cond.value }];
+    }
+    return [];
+  });
+};
+
 export const serializeFilters = (filters: unknown) => {
   if (!Array.isArray(filters) || filters.length === 0) return '';
-  const parts = (filters as any[]).map((f) => {
-    if (!f || typeof f !== 'object') return '';
+  const parts = (filters as any[]).flatMap((f) => {
+    if (!f || typeof f !== 'object') return [];
     const id = String(f.id ?? '');
-    let operator: string | undefined;
-    let value: unknown;
-    // Column filter could be a string (legacy) or object
-    if (
-      typeof f.value === 'string' ||
-      typeof f.value === 'number' ||
-      typeof f.value === 'boolean'
-    ) {
-      operator = 'contains';
-      value = f.value;
-    } else if (
-      f.value &&
-      typeof f.value === 'object' &&
-      'operator' in f.value
-    ) {
-      operator = String(f.value.operator);
-      value = (f.value as any).value;
-    }
-
-    if (!operator) return id;
-
-    // Operators like isEmpty/isNotEmpty don't need a value
-    if (operator === 'isEmpty' || operator === 'isNotEmpty') {
-      return `${id}:${operator}`;
-    }
-
-    const valueStr =
-      value === undefined || value === null
-        ? ''
-        : Array.isArray(value)
-          ? value.map((v) => encodeURIComponent(String(v))).join(',')
-          : encodeURIComponent(String(value));
-    return `${id}:${operator}:${valueStr}`;
+    if (!id) return [];
+    // A condition we can't describe is dropped rather than written as a bare
+    // `id`. That valueless token used to read back as a filter with no value,
+    // which wiped the real filters on the next load.
+    return conditionsOf(f.value).map(({ operator, value }) =>
+      NO_VALUE_OPERATORS.has(operator)
+        ? `${id}:${operator}`
+        : `${id}:${operator}:${encodeFilterValue(value)}`
+    );
   });
   return parts.filter(Boolean).join('|');
 };
@@ -76,22 +135,27 @@ export const deserializeFilters = <T>(v: string | null): T | null => {
   // Try human-readable format first (presence of ':' or '|')
   if (v.includes(':') || v.includes('|')) {
     try {
-      const parts = v
-        .split('|')
-        .map((p) => {
-          const [id, operator, raw] = p.split(':');
-          if (!operator) return null;
-          if (operator === 'isEmpty' || operator === 'isNotEmpty') {
-            return { id, value: { operator } };
-          }
-          const value = MULTI_VALUE_OPERATORS.has(operator)
-            ? parseMultiValue(raw)
-            : raw
-              ? decodeURIComponent(raw)
-              : '';
-          return { id, value: { operator, value } };
-        })
-        .filter(Boolean);
+      // Conditions are emitted one per segment, so several segments can share a
+      // column id; regroup them into that column's array of conditions.
+      const byColumn = new Map<
+        string,
+        { operator: string; value?: unknown }[]
+      >();
+      for (const segment of v.split('|')) {
+        const { id, operator, raw } = splitSegment(segment);
+        if (!id || !operator) continue;
+        const condition = NO_VALUE_OPERATORS.has(operator)
+          ? { operator }
+          : { operator, value: decodeFilterValue(raw, operator) };
+        const existing = byColumn.get(id);
+        if (existing) existing.push(condition);
+        else byColumn.set(id, [condition]);
+      }
+      if (byColumn.size === 0) return null;
+      const parts = Array.from(byColumn, ([id, conditions]) => ({
+        id,
+        value: conditions,
+      }));
       return parts as unknown as T;
     } catch {
       // fallthrough to other strategies

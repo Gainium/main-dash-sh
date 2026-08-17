@@ -82,7 +82,7 @@ import {
 } from './filter-logic';
 import { QuickFilterBar } from './QuickFilterBar';
 import { QuickFilters, type QuickFilterConfig } from './QuickFilters';
-import { deserialize, serialize } from './urlSync';
+import { deserializeFilters, deserializeSorting, serialize } from './urlSync';
 
 import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -233,6 +233,33 @@ export interface BulkAction<TData> {
   /** Optional function to determine if this action should be shown based on selected rows */
   shouldShow?: (selectedRows: TData[]) => boolean;
 }
+
+/**
+ * Shape guards for table state restored from the URL. The URL is user-editable
+ * and can also carry params written by an older build, so anything read out of
+ * it is validated before it replaces the persisted preferences — applying a
+ * half-parsed value is how filters got wiped on every reload.
+ */
+const isColumnFiltersState = (parsed: unknown): parsed is ColumnFiltersState =>
+  Array.isArray(parsed) &&
+  parsed.length > 0 &&
+  parsed.every(
+    (entry) =>
+      !!entry &&
+      typeof entry === 'object' &&
+      typeof (entry as { id?: unknown }).id === 'string' &&
+      'value' in (entry as object)
+  );
+
+const isSortingState = (parsed: unknown): parsed is SortingState =>
+  Array.isArray(parsed) &&
+  parsed.length > 0 &&
+  parsed.every(
+    (entry) =>
+      !!entry &&
+      typeof entry === 'object' &&
+      typeof (entry as { id?: unknown }).id === 'string'
+  );
 
 // Fuzzy filter function
 const fuzzyFilter = (
@@ -2363,16 +2390,22 @@ function DataTableComponent<TData, TValue>(
       const globalStr = params.get(globalParamKey);
 
       if (filtersStr) {
-        const parsed = deserialize<ColumnFiltersState>(filtersStr);
-        if (Array.isArray(parsed)) {
+        // Parse with the filter-specific reader, not the sniffing `deserialize`:
+        // a filters param that doesn't look like filters would otherwise fall
+        // through to the sorting reader, which accepts ANY token and returns
+        // `[{ id, desc }]`. That passed the Array.isArray check below and was
+        // written back as the column filters — i.e. every reload silently
+        // cleared the table's filters.
+        const parsed = deserializeFilters<ColumnFiltersState>(filtersStr);
+        if (isColumnFiltersState(parsed)) {
           setColumnFilters(parsed);
           setShowColumnFilters(true);
         }
       }
 
       if (sortStr) {
-        const parsed = deserialize<SortingState>(sortStr);
-        if (Array.isArray(parsed)) {
+        const parsed = deserializeSorting<SortingState>(sortStr);
+        if (isSortingState(parsed)) {
           setSorting(parsed);
         }
       }

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.43.32] - 2026-08-17
+
+### Fixed
+
+- Table filters no longer disappear when a page reloads. Any table's filters were written into the address bar in a form that couldn't be read back, and on the next load that unreadable value overwrote the filters you had set. Most visible on the bots pages, where pressing the "B" navigation shortcut while already on the page reloads it and cleared the filters every time. Filters now survive a reload, and a link you copy from the address bar reproduces them for whoever opens it — including numeric ranges and multi-value filters, which previously came back wrong.
+- Mobile bottom bar: a dashboard added to the bar stayed until the next launch and then vanished, along with anything else added after it. Items are now restored exactly as saved.
+
 ## [2.43.31] - 2026-08-15
 
 ### Fixed

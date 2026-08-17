@@ -241,6 +241,56 @@ const allAvailableItems = stripCloudOnly([
   ...customNavItems,
 ]);
 
+// Icons are functions, so they can't be persisted — rehydration has to look
+// each item's icon back up. Items whose id isn't in the static registry get a
+// per-category icon instead of being dropped: the customization panel also
+// offers items generated at runtime (one per saved dashboard, ids like
+// `dashboard-<id>`), and those are never in `allAvailableItems`. Dropping them
+// deleted that part of the user's bottom-nav customization on every reload.
+const FALLBACK_ICONS: Record<string, NavItem['icon']> = {
+  custom: Sparkle,
+  dashboards: LayoutDashboard,
+  bots: Bot,
+  core: PieChart,
+  tools: Settings,
+};
+
+const DEFAULT_FALLBACK_ICON = Sparkle;
+
+/**
+ * Rebuild a persisted nav item, restoring its icon. Returns null only for
+ * entries we genuinely can't render: no id, a cloud-only route in an sh build,
+ * or nothing to navigate to (neither a registry entry nor an `href`).
+ */
+const restoreNavItem = (persistedItem: Partial<NavItem>): NavItem | null => {
+  if (!persistedItem?.id) return null;
+
+  const originalItem =
+    allAvailableItems.find((item) => item.id === persistedItem.id) ||
+    (persistedItem.id === 'more' ? moreNavItem : null);
+
+  if (originalItem) {
+    return { ...persistedItem, icon: originalItem.icon } as NavItem;
+  }
+
+  // In the sh build cloud-only routes are stripped from the registry on
+  // purpose — those must stay dropped rather than fall through below.
+  if (!IS_CLOUD && CLOUD_ONLY_NAV_IDS.has(persistedItem.id)) return null;
+
+  // Runtime-registered item (dashboards, user-created custom links). Keep it as
+  // long as it can still navigate somewhere.
+  if (!persistedItem.href) return null;
+
+  const category = persistedItem.category ?? 'custom';
+  return {
+    id: persistedItem.id,
+    label: persistedItem.label || 'Custom',
+    href: persistedItem.href,
+    icon: FALLBACK_ICONS[category] ?? DEFAULT_FALLBACK_ICON,
+    category,
+  } as NavItem;
+};
+
 export const useBottomNavStore = create<BottomNavState>()(
   devtools(
     persist(
@@ -382,29 +432,9 @@ export const useBottomNavStore = create<BottomNavState>()(
           }
 
           const restoredItems = persistedItems
-            .map((persistedItem: Partial<NavItem>) => {
-              // Find the original item to restore the icon
-              const originalItem =
-                allAvailableItems.find(
-                  (item) => item.id === persistedItem.id
-                ) || (persistedItem.id === 'more' ? moreNavItem : null);
-
-              // Only return if we found the original item (skip deleted/renamed items)
-              // If original item not found, try to restore custom items
-              if (!originalItem && persistedItem.category === 'custom') {
-                return {
-                  id: persistedItem.id as string,
-                  label: (persistedItem.label as string) || 'Custom',
-                  href: (persistedItem.href as string) || '/',
-                  icon: Sparkle,
-                  category: 'custom',
-                } as NavItem;
-              }
-
-              return originalItem
-                ? ({ ...persistedItem, icon: originalItem.icon } as NavItem)
-                : null;
-            })
+            .map((persistedItem: Partial<NavItem>) =>
+              restoreNavItem(persistedItem)
+            )
             .filter(
               (item): item is NavItem =>
                 item !== null && item.icon !== undefined
@@ -428,28 +458,9 @@ export const useBottomNavStore = create<BottomNavState>()(
 
           // Restore available items: combine current available items and persisted ones
           const restoredAvailable = (persistedAvailable || [])
-            .map((persistedItem: Partial<NavItem>) => {
-              const originalItem = allAvailableItems.find(
-                (item) => item.id === persistedItem.id
-              );
-
-              if (originalItem) {
-                return { ...persistedItem, icon: originalItem.icon } as NavItem;
-              }
-
-              // Restore custom items that were added by the user
-              if (persistedItem.category === 'custom') {
-                return {
-                  id: persistedItem.id as string,
-                  label: (persistedItem.label as string) || 'Custom',
-                  href: (persistedItem.href as string) || '/',
-                  icon: Sparkle,
-                  category: 'custom',
-                } as NavItem;
-              }
-
-              return null;
-            })
+            .map((persistedItem: Partial<NavItem>) =>
+              restoreNavItem(persistedItem)
+            )
             .filter((i): i is NavItem => !!i);
 
           // Merge restored available items with current ones, avoiding duplicates
