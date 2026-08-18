@@ -1,9 +1,10 @@
 import {
   ExchangeWebSocketService,
+  isPriceStreamSupported,
   type PriceUpdate,
   type TradingPair,
 } from '@/services/ExchangeWebSocketService';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 // Custom hook for deep equality comparison
 function useDeepMemo<T>(value: T): T {
@@ -166,12 +167,26 @@ export function usePriceStream(
     [enableStream]
   );
 
+  // Pairs whose exchange has no public price stream we implement. These can
+  // never produce a price, so the UI must show a terminal state rather than
+  // an indefinite "Connecting...". Keyed like `prices`.
+  const unsupportedPairs = useMemo(() => {
+    const keys = new Set<string>();
+    stablePairs.forEach((pair) => {
+      if (!isPriceStreamSupported(pair.exchange)) {
+        keys.add(`${pair.pair}_${pair.exchange}`);
+      }
+    });
+    return keys;
+  }, [stablePairs]);
+
   return {
     prices,
     connectionStatus,
     connectedExchanges,
     getPriceForPair,
     subscribe,
+    unsupportedPairs,
     isConnected: connectionStatus === 'connected',
   };
 }

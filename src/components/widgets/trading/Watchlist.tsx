@@ -97,12 +97,10 @@ const Watchlist: React.FC<WatchlistProps> = ({
   }, [pairsByExchange, storedPairs]);
 
   // Setup price streaming
-  const { prices, connectionStatus, isConnected } = usePriceStream(
-    selectedPairs,
-    {
+  const { prices, connectionStatus, isConnected, unsupportedPairs } =
+    usePriceStream(selectedPairs, {
       enableStream: true,
-    }
-  );
+    });
 
   // Handle adding a new pair
   const handlePairAdd = useCallback(
@@ -119,10 +117,16 @@ const Watchlist: React.FC<WatchlistProps> = ({
     [storedPairs, setStoredPairs]
   );
 
-  // Handle removing a pair
+  // Handle removing a pair. Match on pair AND exchange: the same symbol can be
+  // watched on several exchanges (e.g. ALGOUSDT on binance and bybitLinear),
+  // and matching by symbol alone removed every one of them at once.
   const handlePairRemove = useCallback(
-    (pairSymbol: string) => {
-      setStoredPairs(storedPairs.filter((p) => p.pair !== pairSymbol));
+    (pairSymbol: string, exchange: ExchangeEnum) => {
+      setStoredPairs(
+        storedPairs.filter(
+          (p) => !(p.pair === pairSymbol && p.exchange === exchange)
+        )
+      );
     },
     [storedPairs, setStoredPairs]
   );
@@ -197,6 +201,9 @@ const Watchlist: React.FC<WatchlistProps> = ({
                     key={`${pair.exchange}-${pair.pair}`}
                     pair={pair}
                     priceData={prices[`${pair.pair}_${pair.exchange}`]}
+                    isStreamUnavailable={unsupportedPairs.has(
+                      `${pair.pair}_${pair.exchange}`
+                    )}
                     onRemove={handlePairRemove}
                     isRemovable={selectedPairs.length > 1}
                     onClick={handlePairClick}

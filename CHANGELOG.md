@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.43.33] - 2026-08-18
+
+### Fixed
+
+- Watchlist widget: pairs added from a futures market (e.g. Bybit Linear/Inverse, Binance USD-M/COIN-M) sat on "Connecting..." forever and never showed a price — only three spot exchanges could ever connect, so every other market the pair picker offers was permanently stuck. Those pairs now stream live prices, and a pair on an exchange we have no price feed for says "Price unavailable" instead of pretending to connect.
+- Watchlist widget: a pair added to an already-running watchlist did not start streaming until the connection happened to drop and re-establish.
+- Watchlist widget: Bybit rows showed a 24h change roughly 100x too small.
+- Watchlist widget: removing a pair also removed the same symbol on every other exchange. Only the row you pick is removed now.
+- Watchlist widget: the remove (X) button only appeared on hover, so it was invisible on phones and tablets and watchlist entries could not be deleted there. It is now always shown when hovering isn't possible.
+
 ## [2.43.32] - 2026-08-17
 
 ### Fixed

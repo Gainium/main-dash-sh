@@ -4,6 +4,7 @@ import { ProfitLossPercChip } from '@/components/ui/chip';
 import type { TradingPair } from '@/hooks/useTradingPairs';
 import { cn } from '@/lib/utils';
 import type { PriceUpdate } from '@/services/ExchangeWebSocketService';
+import type { ExchangeEnum } from '@/types';
 import { X } from 'lucide-react';
 import React from 'react';
 import CoinPair from '../shared/CoinPair';
@@ -11,7 +12,9 @@ import CoinPair from '../shared/CoinPair';
 export interface PriceRowProps {
   pair: TradingPair;
   priceData?: PriceUpdate;
-  onRemove: (pair: string) => void;
+  /** No public price stream exists for this pair's exchange. */
+  isStreamUnavailable?: boolean;
+  onRemove: (pair: string, exchange: ExchangeEnum) => void;
   isRemovable?: boolean;
   onClick?: (pair: TradingPair) => void;
   isActive?: boolean;
@@ -20,6 +23,7 @@ export interface PriceRowProps {
 const PriceRow: React.FC<PriceRowProps> = ({
   pair,
   priceData,
+  isStreamUnavailable = false,
   onRemove,
   isRemovable = true,
   onClick,
@@ -70,6 +74,10 @@ const PriceRow: React.FC<PriceRowProps> = ({
         className={cn(
           'relative flex items-center justify-between transition-all py-2 px-3',
           'hover:bg-muted/50 cursor-pointer',
+          // On touch the remove button is always visible (see below), so
+          // reserve exactly its gutter (24px button + right-2) instead of
+          // letting it sit on top of the price.
+          isRemovable && '[@media(hover:none)]:pr-8',
           priceDirection === 'up' && 'bg-[oklch(var(--profit))]/5',
           priceDirection === 'down' && 'bg-[oklch(var(--loss))]/5'
         )}
@@ -84,7 +92,7 @@ const PriceRow: React.FC<PriceRowProps> = ({
           />
           <div className="flex flex-col min-w-0">
             <div className="font-medium text-sm truncate">{pair.pair}</div>
-            <div className="text-xs text-muted-foreground capitalize font-medium">
+            <div className="text-xs text-muted-foreground capitalize font-medium truncate">
               {pair.exchange}
             </div>
           </div>
@@ -136,9 +144,13 @@ const PriceRow: React.FC<PriceRowProps> = ({
               </div>
             </>
           ) : (
-            // Loading/No Data State
+            // Loading / no-data state. "Connecting..." is only honest while a
+            // price can still arrive; for an exchange we have no stream for it
+            // would hang there forever, so say so instead.
             <div className="text-right">
-              <div className="text-sm text-muted-foreground">Connecting...</div>
+              <div className="text-sm text-muted-foreground">
+                {isStreamUnavailable ? 'Price unavailable' : 'Connecting...'}
+              </div>
             </div>
           )}
         </div>
@@ -148,15 +160,20 @@ const PriceRow: React.FC<PriceRowProps> = ({
           <Button
             variant="ghost"
             size="sm"
+            aria-label={`Remove ${pair.pair}`}
             className={cn(
               'absolute top-1/2 right-2 transform -translate-y-1/2 h-6 w-6 p-0',
               'opacity-0 translate-x-2 group-hover/row:opacity-100 group-hover/row:translate-x-0',
+              // Tailwind gates hover variants behind `(hover: hover)`, so on a
+              // touch device the group-hover rule never matches and this stayed
+              // invisible — there was no way to remove a pair on mobile.
+              '[@media(hover:none)]:opacity-100 [@media(hover:none)]:translate-x-0',
               'transition-all duration-200 bg-background/90 backdrop-blur-sm',
               'hover:bg-destructive hover:text-destructive-foreground z-10'
             )}
             onClick={(e) => {
               e.stopPropagation();
-              onRemove(pair.pair);
+              onRemove(pair.pair, pair.exchange);
             }}
           >
             <X className="h-4 w-4" />
