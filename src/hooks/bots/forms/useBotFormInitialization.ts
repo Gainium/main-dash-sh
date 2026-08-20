@@ -145,6 +145,23 @@ export const useBotFormInitialization = (
           ...mappingResult.formData,
         };
 
+        // `pairPrecisionMap` is DERIVED from the live exchange pair lookup, not
+        // from the bot's saved settings — the mappers can only seed it as `{}`.
+        // Spreading that empty seed over the form state wiped a map the lookup
+        // had already resolved whenever it won the race (a plain cache-warmth
+        // coin flip), and the lookup's one-shot dedupe ref meant it was never
+        // re-written: `createOrderGuard` then produced a guard with no
+        // `decimals`/`min`, so every DCA order amount field fell back to 2
+        // decimals and rendered a saved 0.00011 BTC order size as "0".
+        // Keep whatever the lookup already resolved; the empty seed only wins
+        // when there is nothing to keep.
+        if (
+          Object.keys(mappingResult.formData.pairPrecisionMap ?? {}).length ===
+          0
+        ) {
+          nextFormState.pairPrecisionMap = previous.pairPrecisionMap;
+        }
+
         nextFormState.originalBot =
           nextFormState.type === BotTypesEnum.dca
             ? {
