@@ -70,6 +70,24 @@ const WINDOW_DAYS_BY_FILTER: Record<string, number | null> = {
 /** Timeframe 3 is the all-time aggregate: a single row summing every deal. */
 const TOTAL_TIMEFRAME = 3;
 
+/**
+ * Smallest baseline that can carry a percentage, in USD.
+ *
+ * `periodStart` is derived as `allTimeTotal - change`, i.e. the difference of
+ * two aggregates that the backend and this widget sum independently (all deals
+ * vs. the per-bucket subtotals). When the selected window already covers the
+ * user's whole history those are the SAME real number, so the difference should
+ * be 0 — but the two float summations add in different orders and land up to a
+ * few ULPs apart. The leftover (e.g. -5.68e-14) is numerical noise, not a
+ * baseline, and dividing by it produced a -722,195,614,853,520,000.00% badge.
+ *
+ * Half a cent is the natural floor: anything below it renders as "$0.00" in the
+ * Period Start stat, so it cannot be a meaningful denominator either way. This
+ * is deliberately an absolute threshold — it stays safely above the ULP of even
+ * a trillion-dollar total (~1e-4) while never swallowing a real balance.
+ */
+const MIN_BASELINE_USD = 0.005;
+
 export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   widgetId = 'accumulated-profit',
   isEditable = false,
@@ -167,7 +185,7 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       return {
         currentTotal: 0,
         change: 0,
-        changePercent: 0,
+        changePercent: null as number | null,
         periodStart: 0,
         chartData: [],
       };
@@ -198,8 +216,19 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
     // cumulative profit instead of restarting from zero each period.
     const change = buckets.reduce((sum, bucket) => sum + bucket.profit, 0);
     const currentTotal = allTimeTotal;
-    const periodStart = currentTotal - change;
-    const changePercent = periodStart !== 0 ? (change / periodStart) * 100 : 0;
+    const rawPeriodStart = currentTotal - change;
+
+    // A baseline below half a cent means the window covers everything the user
+    // ever earned, so there is nothing to measure the change against — the
+    // remainder is float noise (see MIN_BASELINE_USD). Growth from a zero
+    // baseline has no percentage, so report it as unavailable rather than
+    // dividing by the noise (astronomical %) or by exactly 0 (a flat "0.00%"
+    // that reads as "no change" next to a very much non-zero Change).
+    const hasBaseline = Math.abs(rawPeriodStart) >= MIN_BASELINE_USD;
+
+    // Collapse the noise so the Period Start stat shows "$0.00", not "-$0.00".
+    const periodStart = hasBaseline ? rawPeriodStart : 0;
+    const changePercent = hasBaseline ? (change / rawPeriodStart) * 100 : null;
 
     let accumulated = periodStart;
     const chartData = buckets.map((bucket) => {
@@ -253,19 +282,25 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       ...(privacyMode && { textValue: '***' }),
       ...(!privacyMode && {
         badge: {
-          value: accumulatedProfitData.changePercent,
+          value: accumulatedProfitData.changePercent ?? 0,
+          ...(accumulatedProfitData.changePercent === null && {
+            textValue: '—',
+          }),
         },
       }),
     });
 
-    // Fourth stat - Performance
+    // Fourth stat - Performance. Driven by the profit actually earned in the
+    // period, not by the percentage: the percentage is unavailable whenever
+    // there is no baseline, and it inverts sign with a float residue — which is
+    // how a +$410.52 period came to be labelled "Falling".
+    const isRising = accumulatedProfitData.change >= 0;
     stats.push({
       label: 'Performance',
       subLabel: `${timeFilter} period`,
       value: 0, // Not used since we have textValue
-      textValue:
-        accumulatedProfitData.changePercent >= 0 ? 'Rising' : 'Falling',
-      icon: accumulatedProfitData.changePercent >= 0 ? '📈' : '📉',
+      textValue: isRising ? 'Rising' : 'Falling',
+      icon: isRising ? '📈' : '📉',
     });
 
     return stats;
@@ -408,7 +443,9 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
     secondary: 'USD',
     change: {
       value: privacyMode ? '***' : accumulatedProfitData.change,
-      percentage: privacyMode ? '***' : accumulatedProfitData.changePercent,
+      percentage: privacyMode
+        ? '***'
+        : (accumulatedProfitData.changePercent ?? '—'),
       isPositive: accumulatedProfitData.change >= 0,
     },
   };

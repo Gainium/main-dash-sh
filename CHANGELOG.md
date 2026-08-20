@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.44.1] - 2026-08-20
+
+### Fixed
+
+- Accumulated Profit: the All period no longer shows a nonsensical change percentage. When the selected period already covers everything you have ever earned there is no earlier balance to compare against, so the widget now shows "—" instead of a huge number such as -722,195,614,853,520,000.00%. Period Start no longer reads "-$0.00", and the Rising/Falling label now follows the profit actually made in the period, so a period that gained money is never labelled "Falling".
+
 ## [2.44.0] - 2026-08-20
 
 ### Added
