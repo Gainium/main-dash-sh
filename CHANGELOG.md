@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.44.2] - 2026-08-20
+
+### Fixed
+
+- DCA bots: the "DCA order amount" field no longer rounds what you type down to 0 on pairs quoted in BTC or ETH (e.g. ETH/BTC on Bybit, where the exchange minimum is 0.000065 BTC). The field now accepts as many decimals as the pair actually needs, and the 25% / 50% / 75% buttons fill in a real amount instead of 0.
+
 ## [2.44.1] - 2026-08-20
 
 ### Fixed

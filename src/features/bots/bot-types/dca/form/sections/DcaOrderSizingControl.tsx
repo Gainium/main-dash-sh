@@ -232,19 +232,24 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
     [orderSizeValue, updateOrderSize]
   );
 
+  // How many decimals the amount field accepts. `dcaOrderGuard` already
+  // carries them per order-size reference (`createOrderGuard`: quote ->
+  // the pair's price precision, base -> the exchange's base step, usd ->
+  // 2), and the Strategy tab's Base Order Size input reads its `precision`
+  // from that very guard. Hardcoding 2 here rounded every BTC/ETH-quoted
+  // amount to 0 as it was typed — on Bybit ETH/BTC the exchange minimum
+  // is 0.000065 BTC, so no valid order size survived the field, and the
+  // 25/50/75% buttons filled in "0" too.
+  // The constants stay as a FLOOR so a coarse pair (or a guard that
+  // hasn't loaded yet) can never make the field less precise than before.
+  const guardPrecision = formData.dcaOrderGuard?.decimals;
   const precision = useMemo(() => {
-    switch (orderSizeType) {
-      case 'base':
-        return 6;
-      case 'usd':
-        return 2;
-      case 'percFree':
-      case 'percTotal':
-        return 2;
-      default:
-        return 2;
+    const floor = orderSizeType === 'base' ? 6 : 2;
+    if (typeof guardPrecision !== 'number' || !Number.isFinite(guardPrecision)) {
+      return floor;
     }
-  }, [orderSizeType]);
+    return Math.min(8, Math.max(floor, guardPrecision));
+  }, [guardPrecision, orderSizeType]);
   const isDealEdit = useMemo(
     () => mode === 'deal-edit' || mode === 'deal-mass-edit',
     [mode]
