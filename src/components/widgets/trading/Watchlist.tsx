@@ -164,8 +164,12 @@ const Watchlist: React.FC<WatchlistProps> = ({
   return (
     <WidgetWrapper {...wrapperProps}>
       <div className="h-full flex flex-col">
-        {/* Prices List */}
-        <div className="flex-1 overflow-hidden mb-4">
+        {/* Prices List. The widget has a fixed height from the dashboard grid
+            while this list grows with every pair added, so the overflow has to
+            scroll: with `overflow-hidden` the rows past the widget's bottom
+            edge were silently sliced off, and their remove (X) — and the Add
+            Pair cell — could not be reached at all. */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar mb-4">
           {pairsLoading ? (
             <div className="flex items-center justify-center h-32">
               <div className="text-muted-foreground">Loading pairs...</div>

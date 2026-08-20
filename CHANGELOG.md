@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.44.3] - 2026-08-20
+
+### Fixed
+
+- Watchlist widget: with enough pairs to fill the widget, the last row was sliced off at the widget's bottom edge and the "Add Pair" button disappeared entirely — nothing could be scrolled, so those rows (and their remove X) were unreachable. The list now scrolls.
+
 ## [2.44.2] - 2026-08-20
 
 ### Fixed
