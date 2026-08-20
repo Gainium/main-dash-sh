@@ -2,7 +2,9 @@
 // Usage: shared trades/deals table used by the Trading page Trades tab,
 // the Trading dashboard Open Orders widget wrapper, and the Trading Terminal panel.
 // Not used in the bot drawer (see DrawerDealsTable for drawer deals UI).
+import { dealStartBlockedSummary } from '@/lib/utils/dealStartBlocked';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
 import {
     AdjustFundsDialog,
     ChangeDcaLevelsDialog,
@@ -56,6 +58,7 @@ import {
     DCADealStatusEnum,
     type AddFundsSettings,
     type DCADeals,
+    type DealStartBlock,
     type GetLatestPricesResult,
     type Prices,
 } from '@/types';
@@ -73,6 +76,7 @@ import {
     ExternalLink,
     MinusCircle,
     MoreHorizontal,
+    PauseCircle,
     PlusCircle,
     Receipt,
     RotateCcw,
@@ -2359,9 +2363,30 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         accessorKey: 'status',
         header: 'Status',
         meta: { filterType: 'array' },
-        cell: ({ getValue }) => {
+        cell: ({ getValue, row }) => {
           const status = getValue() as string;
-          return <StatusChip status={status} size="xs" />;
+          const chip = <StatusChip status={status} size="xs" />;
+          // A deal the venue refused to open looks identical to one that is
+          // simply waiting: same status, no orders, all-zero numbers. This is
+          // the list a user scans when a signal produced nothing, so the reason
+          // has to be reachable from the row itself.
+          const startBlocked = (
+            row.original as { startBlocked?: DealStartBlock }
+          ).startBlocked;
+          if (!startBlocked?.reason) {
+            return chip;
+          }
+          return (
+            <HelpTooltip tooltip={dealStartBlockedSummary(startBlocked)}>
+              <span
+                className="relative inline-flex items-center gap-0.5"
+                data-testid="deal-start-blocked-dot"
+              >
+                {chip}
+                <PauseCircle className="size-3 text-amber-500" />
+              </span>
+            </HelpTooltip>
+          );
         },
       },
       {

@@ -1,6 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 // Usage: bot details drawer deals table (active/closed tabs) rendered via DrawerWidgetRenderer.
 // Not used by the Trading page or the Trading Terminal; those use OpenOrdersWidget.
+import { dealStartBlockedSummary } from '@/lib/utils/dealStartBlocked';
+import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
@@ -12,6 +14,7 @@ import {
     Handshake,
     MinusCircle,
     MoreHorizontal,
+    PauseCircle,
     Plus,
     PlusCircle,
     RotateCcw,
@@ -2061,7 +2064,27 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         header: 'Status',
         cell: ({ row }) => {
           const trade = row.original;
-          return <StatusChip status={trade.status} size="sm" dotOnly={true} />;
+          const chip = (
+            <StatusChip status={trade.status} size="sm" dotOnly={true} />
+          );
+          // A deal whose opening order the venue refused reads as an ordinary
+          // pending deal here - same chip, no orders, all-zero numbers. The dot
+          // alone cannot say that, so hang the reason off it: this table is
+          // where a user scans for the deal that "did nothing".
+          if (!trade.startBlocked?.reason) {
+            return chip;
+          }
+          return (
+            <HelpTooltip tooltip={dealStartBlockedSummary(trade.startBlocked)}>
+              <span
+                className="relative inline-flex items-center gap-0.5"
+                data-testid="deal-start-blocked-dot"
+              >
+                {chip}
+                <PauseCircle className="size-3 text-amber-500" />
+              </span>
+            </HelpTooltip>
+          );
         },
         enableSorting: true,
         enableColumnFilter: true,

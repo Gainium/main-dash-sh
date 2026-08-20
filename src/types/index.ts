@@ -3272,6 +3272,37 @@ export type DCADeals = {
   flags?: DCADealFlags[];
   closeTrigger?: DCACloseTriggerEnum;
   parentBotId?: string;
+  /** Why a created deal has never opened. See {@link DealStartBlock}. */
+  startBlocked?: DealStartBlock;
+};
+
+/**
+ * Why a deal that exists has never been opened: the venue refused its opening
+ * order, or one of our pre-send guards held it back on the venue's behalf.
+ *
+ * A deal is created before its base order reaches the exchange, so a refusal
+ * leaves it sitting with no orders. Present only while the deal is unstarted;
+ * cleared as soon as an opening order is accepted. Descriptive - the deal is
+ * NOT in an error state, and for a Binance Quantitative Rules cooldown it will
+ * open itself once the restriction lifts.
+ */
+export type DealStartBlock = {
+  /** User-facing reason the opening order was not accepted. */
+  reason?: string;
+  /** Bot-error subType the reason classified as, e.g. `Exchange rules`. */
+  subType?: string;
+  /** ms epoch of the first refusal in this run of refusals. */
+  since?: number;
+  /** ms epoch of the most recent refusal. */
+  lastAttempt?: number;
+  /** How many opening attempts have been refused since `since`. */
+  attempts?: number;
+  /** ms epoch the restriction is expected to lift, when the venue grades it. */
+  retryAfter?: number;
+  /** Restriction scope where the venue distinguishes one, e.g. `account`. */
+  scope?: string;
+  /** Restriction level where the venue grades one (Binance QR 1 | 2 | 3). */
+  level?: number;
 };
 
 export enum DCACloseTriggerEnum {

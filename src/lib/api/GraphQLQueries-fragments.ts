@@ -850,6 +850,16 @@ comboSmartGridsCount
 `;
 
 const dcaDealFragment = `
+startBlocked {
+  reason
+  subType
+  since
+  lastAttempt
+  attempts
+  retryAfter
+  scope
+  level
+}
 paperContext
 flags
 closeTrigger
@@ -1076,6 +1086,16 @@ fixedSlPrice
             `;
 
 const comboDealFragment = `
+startBlocked {
+  reason
+  subType
+  since
+  lastAttempt
+  attempts
+  retryAfter
+  scope
+  level
+}
 paperContext
 parentBotId
 note

@@ -20,6 +20,7 @@ import {
   type AllFees,
   type ComboDeals,
   type DCADeals,
+  type DealStartBlock,
   type Prices,
 } from '.';
 import type { DrawerBot } from './bots/drawer';
@@ -150,6 +151,11 @@ export type TransformedTrade = {
   trailingMode?: string;
   exitPrice?: number;
   compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
+  /**
+   * Why this deal exists but has never opened - the venue refused its opening
+   * order. Absent on every normal deal.
+   */
+  startBlocked?: DealStartBlock;
 };
 
 export const transformDealToTrade = (
@@ -508,6 +514,7 @@ export const transformDealToTrade = (
     initialBalances: deal.initialBalances,
     currentBalances: deal.currentBalances,
     closeTrigger: deal.closeTrigger,
+    startBlocked: deal.startBlocked,
     closePrice: deal.lastPrice,
     gridProfit: deal.profit?.gridProfit,
     gridProfitUsd: deal.profit?.gridProfitUsd,

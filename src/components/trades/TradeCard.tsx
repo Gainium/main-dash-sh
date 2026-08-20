@@ -76,6 +76,7 @@ import {
     DropdownMenuTrigger,
 } from '../ui/dropdown-menu';
 import { Tooltip as HelpTooltip } from '../ui/tooltip';
+import { DealStartBlockedNotice } from '../deals/DealStartBlockedNotice';
 import CoinPair from '../widgets/shared/CoinPair';
 import { TradeDetailDrawer } from './TradeDetailDrawer';
 
@@ -1928,37 +1929,47 @@ export const TradeCard: React.FC<TradeCardProps> = React.memo((props) => {
     [getBotTypeForChip, trade.type]
   );
   const cardContent = useMemo(
-    () =>
-      enableEnhancedView ? (
-        <EnhancedCard
-          {...props}
-          tradingPair={tradingPair}
-          symbolAssets={symbolAssets}
-          botTypeForChip={tradeType}
-          isLongTrade={isLongTrade}
-          avgPriceLabel={avgPriceLabel}
-          avgPriceDisplay={avgPriceDisplay}
-          initialPriceLabel={initialPriceLabel}
-          initialPriceDisplay={initialPriceDisplay}
-          currentPriceDisplay={currentPriceDisplay}
-          currentPrice={currentPrice}
+    () => (
+      <>
+        {/* Above the numbers, because when a deal has never opened the numbers
+            are all zero and the reason is the only thing worth reading. */}
+        <DealStartBlockedNotice
+          startBlocked={trade.startBlocked}
+          className="mb-2"
         />
-      ) : (
-        <div className="p-md">
-          <SimpleCard
+        {enableEnhancedView ? (
+          <EnhancedCard
             {...props}
             tradingPair={tradingPair}
             symbolAssets={symbolAssets}
             botTypeForChip={tradeType}
+            isLongTrade={isLongTrade}
             avgPriceLabel={avgPriceLabel}
             avgPriceDisplay={avgPriceDisplay}
             initialPriceLabel={initialPriceLabel}
             initialPriceDisplay={initialPriceDisplay}
             currentPriceDisplay={currentPriceDisplay}
+            currentPrice={currentPrice}
           />
-        </div>
-      ),
+        ) : (
+          <div className="p-md">
+            <SimpleCard
+              {...props}
+              tradingPair={tradingPair}
+              symbolAssets={symbolAssets}
+              botTypeForChip={tradeType}
+              avgPriceLabel={avgPriceLabel}
+              avgPriceDisplay={avgPriceDisplay}
+              initialPriceLabel={initialPriceLabel}
+              initialPriceDisplay={initialPriceDisplay}
+              currentPriceDisplay={currentPriceDisplay}
+            />
+          </div>
+        )}
+      </>
+    ),
     [
+      trade.startBlocked,
       enableEnhancedView,
       props,
       tradingPair,

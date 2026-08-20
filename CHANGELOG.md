@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.44.0] - 2026-08-20
+
+### Added
+
+- A deal that was created but never opened now says why. When the exchange refuses the order that opens a deal, the deal is already listed — with no orders, no entry price and no profit — and until now nothing on it explained the refusal; the bot's warning went to the notification bell, which names neither the deal nor the pair and collapses hours of repeats into one line. Nor could the exchange's own order history explain it: the orders were never sent, so nothing about them was ever recorded there. The deal now carries the exchange's reason, when it will be retried, and whether the restriction covers one pair or the whole account, shown on the deal card and behind the status dot in the deals tables. It is presented as waiting, not as an error, because that is what it is — these deals open by themselves once the exchange accepts the order.
+
 ## [2.43.33] - 2026-08-18
 
 ### Fixed
