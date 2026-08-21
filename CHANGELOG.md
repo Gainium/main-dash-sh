@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.44.4] - 2026-08-21
+
+### Fixed
+
+- Bot details drawer (Settings tab): the "DCA order amount" no longer reads 0 on pairs quoted in BTC or ETH. A bot saved with a 0.00011 BTC DCA order size showed 0 in the drawer while Base Order Size on the same panel correctly showed 0.00011.
+
 ## [2.44.3] - 2026-08-20
 
 ### Fixed

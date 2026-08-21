@@ -240,14 +240,23 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
   // amount to 0 as it was typed — on Bybit ETH/BTC the exchange minimum
   // is 0.000065 BTC, so no valid order size survived the field, and the
   // 25/50/75% buttons filled in "0" too.
-  // The constants stay as a FLOOR so a coarse pair (or a guard that
-  // hasn't loaded yet) can never make the field less precise than before.
+  // The constants stay as a FLOOR so a coarse pair can never make the field
+  // less precise than the guard alone would allow.
+  // When the guard carries NO decimals there is nothing to floor, so leave
+  // `precision` undefined and let `BalanceInput`'s own 8-dp default apply —
+  // the same thing the Strategy tab's Base Order Size does (it spreads
+  // `precision` only when `baseOrderGuard.decimals` is a number). Falling
+  // back to the constants there re-created the original bug wherever the
+  // guard is decimals-less: the read-only bot drawer stubs `pairMetadata`
+  // empty and makes no network requests, so `createOrderGuard` yields
+  // `{label, unit}` only, and a saved 0.00011 BTC amount rendered as "0"
+  // while Base Order Size on the same panel showed 0.00011.
   const guardPrecision = formData.dcaOrderGuard?.decimals;
   const precision = useMemo(() => {
-    const floor = orderSizeType === 'base' ? 6 : 2;
     if (typeof guardPrecision !== 'number' || !Number.isFinite(guardPrecision)) {
-      return floor;
+      return undefined;
     }
+    const floor = orderSizeType === 'base' ? 6 : 2;
     return Math.min(8, Math.max(floor, guardPrecision));
   }, [guardPrecision, orderSizeType]);
   const isDealEdit = useMemo(
