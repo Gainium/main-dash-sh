@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.45.2] - 2026-08-21
+
+### Fixed
+
+- OKX Europe paper accounts no longer offer "USD" as funding (no such asset on the EU venue); X-Perp paper margin defaults to USDC, matching the USDC-quoted X-Perp pairs, so paper bots can actually open deals (reported by discord2020, forum topic 4925).
+- X-Perp pair parsing fallback reports USDC as the quote, consistent with pair metadata.
+
 ## [2.45.1] - 2026-08-21
 
 ### Fixed

@@ -211,12 +211,19 @@ export const extractPairAssets = (symbol: string) => {
   if (symbol.includes('-')) {
     const parts = symbol.split('-');
     // OKX X-Perp pairs carry a contract-family suffix after the quote asset
-    // (`BTC-USD_UM_XPERP`) — strip it here so display/icon lookups get the
-    // real quote (`USD`), not `USD_UM_XPERP`. The full literal string (with
+    // (`BTC-USD_UM_XPERP`) — strip it here so display/icon lookups get a real
+    // asset, not `USD_UM_XPERP`. The `USD` in the instId is OKX's unified-
+    // margin label; the pair is USDC-quoted (that's what the connector/pairs
+    // collection say and what EU accounts hold), so report USDC here too so
+    // this fallback agrees with pair metadata. The full literal string (with
     // suffix) is still what's sent to the exchange API; callers use `pair`
     // directly for that, not this reconstruction.
+    const isXperp = /_UM_XPERP$/i.test(symbol);
     const quotePart = (parts[1] || '').split('_')[0];
-    return { baseAsset: parts[0], quoteAsset: quotePart };
+    return {
+      baseAsset: parts[0],
+      quoteAsset: isXperp && quotePart.toUpperCase() === 'USD' ? 'USDC' : quotePart,
+    };
   }
 
   const upperSymbol = symbol.toUpperCase();

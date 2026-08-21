@@ -842,11 +842,12 @@ export const paperTradingAssets: Record<string, PaperTradingAsset[]> = {
     { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
   ],
   // OKX Europe (okxSource=my): no USDT at all on the EU venue. Spot quotes
-  // EUR/USDC; X-Perp futures settle in USD.
+  // EUR/USDC; X-Perp futures are USDC-quoted. (No "USD" — OKX's unified-margin
+  // label, not an asset anyone holds; a USD-funded paper account can't trade
+  // anything on the EU venue.)
   okxEu: [
     { symbol: 'USDC', name: 'USD Coin', defaultBalance: USD_BAL },
     { symbol: 'EUR', name: 'Euro', defaultBalance: USD_BAL },
-    { symbol: 'USD', name: 'US Dollar', defaultBalance: USD_BAL },
   ],
   // USDT 881 · BTC 64 · USDC 59 · ETH 25
   kucoin: [
@@ -1143,12 +1144,10 @@ const LINEAR_MARGIN_ASSETS_BY_BRAND: Record<string, PaperTradingAsset[]> = {
     { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
     { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
   ],
-  // OKX Europe X-Perps settle in USD; margin is multi-asset but never USDT
-  // (no USDT on the EU venue at all).
-  okxEu: [
-    { symbol: 'USD', name: 'US Dollar', defaultBalance: '10000' },
-    { symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' },
-  ],
+  // OKX Europe X-Perps are USDC-quoted (the connector maps them so — OKX's own
+  // settleCcy says "USD", the unified-margin label, which nobody holds). Paper
+  // margin must match the pair quote or no deal can ever start, so USDC only.
+  okxEu: [{ symbol: 'USDC', name: 'USD Coin', defaultBalance: '10000' }],
 };
 const DEFAULT_LINEAR_MARGIN_ASSETS: PaperTradingAsset[] = [
   { symbol: 'USDT', name: 'Tether USD', defaultBalance: '10000' },
