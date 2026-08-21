@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.8] - 2026-08-21
+
+### Fixed
+
+- Bot form → DCA overview: the Table view lists every order in the ladder again. It stopped after 10 rows with no way to reach the rest, so a 32-order DCA bot showed 10 orders in the table while the Graph beside it drew all 32 and the Coverage / Avg Down Power / Total Funds tiles were calculated from all 32. Any table rendered without its pagination footer was truncated the same way — the journal's execution list was cut off at 10 too.
+
 ## [2.45.7] - 2026-08-21
 
 ### Fixed

@@ -2842,6 +2842,24 @@ function DataTableComponent<TData, TValue>(
     ];
   }, [effectivePinnedColumns, columnOrder, defaultColumnOrder, selectionColumn]);
 
+  // `showPagination={false}` hides the footer — and with it every control that
+  // could reach page 2 — but the pagination row model still slices to
+  // `pageSize` (10 by default). The tail of the data was therefore rendered
+  // nowhere and there was no affordance saying so: the bot form's DCA overview
+  // listed 10 orders of a 33-order ladder while the graph next to it and the
+  // Coverage / Total Funds tiles were computed from all of them.
+  // Without a footer there is no page to turn, so the page IS the whole table.
+  // (`pages/Exchanges.tsx` already worked around this per-call-site with
+  // `initialPageSize={9999}`; that only helps tables the user has never
+  // rendered, because a persisted preference wins over the initial size.)
+  const effectivePagination = useMemo(
+    () =>
+      showPagination
+        ? pagination
+        : { pageIndex: 0, pageSize: Math.max(data.length, 1) },
+    [showPagination, pagination, data.length]
+  );
+
   const table = useReactTable({
     data,
     columns: enhancedColumns,
@@ -2851,7 +2869,7 @@ function DataTableComponent<TData, TValue>(
       columnVisibility,
       globalFilter,
       columnOrder: effectiveColumnOrder,
-      pagination,
+      pagination: effectivePagination,
       grouping,
       expanded,
       rowSelection, // CRITICAL: Must be in state for bulk actions
