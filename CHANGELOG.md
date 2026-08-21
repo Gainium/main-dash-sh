@@ -2,6 +2,9 @@
 
 ## [2.45.3] - 2026-08-21
 
+### Fixed
+
+- Bot form balance ("BAL") for a futures account that shares its API key with a spot account (OKX / Bybit unified accounts, incl. OKX Europe X-Perps) no longer shows 0 — the form now reads the shared balance pool stored under the linked spot account, as the legacy dashboard did.
 ### Changed
 
 - DCA/Combo bots: the orders-count limit now budgets **orders resting on the exchange**, not ladder depth. Previously "DCA orders" was capped at 200 ÷ max open deals whether or not smart orders were on — a bot with 5 concurrent deals could not describe a ladder deeper than 40, which blocked migrating deep-ladder strategies from other platforms. With smart orders on, only `activeOrdersCount` levels rest on the exchange, so the ladder now runs to the full 200 and the exchange budget is enforced on the smart-orders count instead.

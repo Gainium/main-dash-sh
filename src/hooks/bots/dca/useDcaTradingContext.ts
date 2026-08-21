@@ -4,6 +4,7 @@ import getLatestPrices, { getLocalPrices } from '@/helper/price';
 //import { usePriceStream } from '@/hooks/usePriceStream';
 import type { TradingPair } from '@/hooks/useTradingPairs';
 import { useBalanceStore } from '@/stores/live/balanceStore';
+import { useExchangesStore } from '@/stores/exchangesStore';
 import type { BotFormData } from '@/types/bots/form';
 import type { DcaBot } from '@/types/dcaBot';
 import {
@@ -339,10 +340,23 @@ export const useDcaTradingContext = (
     return asset || undefined;
   }, [activePair?.quoteAsset?.name, fallbackSymbol?.quoteAsset]);
 
+  // A futures leg that shares its key with a spot leg (OKX / Bybit unified
+  // accounts) is `linkedTo` that leg and the backend stores the shared
+  // balance pool only under the source uuid (the engine resolves the link
+  // when it checks funds; the legacy dashboard did too). Accept rows tagged
+  // with either uuid so a linked leg doesn't read "BAL 0" — e.g. a live
+  // balance push arrives tagged with the source leg.
+  const linkedSourceUUID = useExchangesStore(
+    (state) => state.exchanges[formData.exchangeUUID ?? '']?.linkedTo
+  );
   const balanceMap = React.useMemo(() => {
     const map = new Map<string, BalanceSnapshot>();
     balances
-      .filter((balance) => balance.exchangeUUID === formData.exchangeUUID)
+      .filter(
+        (balance) =>
+          balance.exchangeUUID === formData.exchangeUUID ||
+          (!!linkedSourceUUID && balance.exchangeUUID === linkedSourceUUID)
+      )
       .forEach((balance) => {
         if (!balance?.asset) {
           return;
@@ -370,7 +384,7 @@ export const useDcaTradingContext = (
         });
       });
     return map;
-  }, [balances, formData.exchangeUUID]);
+  }, [balances, formData.exchangeUUID, linkedSourceUUID]);
   const isDealEdit = useMemo(
     () => options?.mode === 'deal-edit' || options?.mode === 'deal-mass-edit',
     [options?.mode]
