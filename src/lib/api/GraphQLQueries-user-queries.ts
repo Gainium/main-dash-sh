@@ -762,7 +762,10 @@ export const userQueries = {
   },
 
   // Password and timezone queries
-  changePassword: (input: { password: string }) => {
+  changePassword: (input: {
+    password: string;
+    currentPassword: string;
+  }) => {
     const query = `mutation changePassword($input: changePasswordInput!) { 
                     changePassword(input: $input) {
                         status

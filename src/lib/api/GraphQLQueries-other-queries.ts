@@ -1894,7 +1894,10 @@ export const otherQueries = {
     return { query, variables };
   },
 
-  changePassword: (input: { password: string }) => {
+  // NOTE: `GraphQLQueries.ts` spreads `otherQueries` AFTER `userQueries`, so
+  // THIS definition is the live one and the identical entry in
+  // GraphQLQueries-user-queries.ts is shadowed. Keep the two in step.
+  changePassword: (input: { password: string; currentPassword: string }) => {
     const query = `mutation changePassword($input: changePasswordInput!) { 
   changePassword(input: $input) {
   status

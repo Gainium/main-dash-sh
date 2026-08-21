@@ -7,6 +7,12 @@ import { logger } from '@/lib/loggerInstance';
 
 export interface PasswordChangeInput {
   password: string;
+  /**
+   * The account's CURRENT password. Required by the backend since
+   * GHSA-4m6h-m5mj-733x: a session token alone used to be enough to set a new
+   * password, which made any leaked token a full account takeover.
+   */
+  currentPassword: string;
 }
 
 export interface PasswordValidation {
@@ -14,6 +20,8 @@ export interface PasswordValidation {
   hasNumber: boolean;
   hasCapital: boolean;
   passwordsMatch: boolean;
+  /** The current-password box is non-empty. Correctness is checked server-side. */
+  currentPasswordProvided: boolean;
 }
 
 /**
@@ -21,13 +29,15 @@ export interface PasswordValidation {
  */
 export function validatePassword(
   password: string,
-  confirmPassword: string
+  confirmPassword: string,
+  currentPassword = ''
 ): PasswordValidation {
   return {
     minLength: password.length >= 6,
     hasNumber: /\d/.test(password),
     hasCapital: /[A-Z]/.test(password),
     passwordsMatch: password === confirmPassword && password.length > 0,
+    currentPasswordProvided: currentPassword.length > 0,
   };
 }
 

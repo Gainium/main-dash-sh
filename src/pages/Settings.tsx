@@ -433,6 +433,7 @@ const Settings: React.FC = () => {
     useLocalUserSettingsStore();
 
   // Password visibility states
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
@@ -443,6 +444,7 @@ const Settings: React.FC = () => {
   const [weekStart, setWeekStart] = useState('');
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [invoiceAddress, setInvoiceAddress] = useState('');
@@ -509,7 +511,8 @@ const Settings: React.FC = () => {
   // Password validation using the hook
   const passwordValidation = passwordOps.validatePassword(
     newPassword,
-    confirmPassword
+    confirmPassword,
+    currentPassword
   );
 
   // Form submission handler - sends a single mutation with all changed fields
@@ -552,9 +555,10 @@ const Settings: React.FC = () => {
     if (!Object.values(passwordValidation).every(Boolean)) return;
 
     passwordOps.changePassword(
-      { password: newPassword },
+      { password: newPassword, currentPassword },
       {
         onSuccess: () => {
+          setCurrentPassword('');
           setNewPassword('');
           setConfirmPassword('');
           toast.success('Password changed');
@@ -983,6 +987,38 @@ const Settings: React.FC = () => {
             <CardContent className="space-y-md">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
                 <div className="space-y-xs">
+                  <div>
+                    <Label
+                      htmlFor="current-password"
+                      className="text-muted-foreground uppercase text-xs tracking-wider"
+                    >
+                      CURRENT PASSWORD
+                    </Label>
+                    <div className="relative mt-1">
+                      <Input
+                        id="current-password"
+                        type={showCurrentPassword ? 'text' : 'password'}
+                        autoComplete="current-password"
+                        value={currentPassword}
+                        onChange={(e) => setCurrentPassword(e.target.value)}
+                        className="pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setShowCurrentPassword(!showCurrentPassword)
+                        }
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                      >
+                        {showCurrentPassword ? (
+                          <EyeOff className="w-4 h-4" />
+                        ) : (
+                          <Eye className="w-4 h-4" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
                   <div>
                     <Label
                       htmlFor="new-password"

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.45.0] - 2026-08-21
+
+### Changed
+
+- The Change Password form now asks for your current password, and requires it. This pairs with main-app 2.82.0 / core 1.52.0, where the backend started requiring it (GHSA-4m6h-m5mj-733x). **Both must be upgraded together** — an older dashboard against the new backend cannot change a password, and this dashboard against an older backend will be told the field is unknown.
+- Changing your password now signs out your other sessions; the session you changed it from stays signed in.
+
 ## [2.44.4] - 2026-08-21
 
 ### Fixed
