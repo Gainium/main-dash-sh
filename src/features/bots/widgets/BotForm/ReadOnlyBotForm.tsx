@@ -397,11 +397,12 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
         </div>
       )}
 
-      <fieldset
-        disabled
-        className="m-0 border-0 p-0 space-y-xl px-4 sm:px-6 pt-4 pb-20"
-        aria-disabled="true"
-      >
+      {/* The read-only lock is applied per section BODY, not around the whole
+          form: a `<fieldset disabled>` natively disables every descendant form
+          control, which also killed the section header's own collapse button.
+          Keeping the headers outside the fieldsets leaves them interactive
+          while every input inside a section stays locked. */}
+      <div className="space-y-xl px-4 sm:px-6 pt-4 pb-20">
         {visibleDescriptors.map((descriptor) => {
           const SectionComponent = descriptor.Component;
           const toggleField = sectionToggleMap[
@@ -492,14 +493,21 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                 </div>
               </div>
 
-              {/* Section content */}
+              {/* Section content – locked */}
               {!isSectionCollapsed(descriptor.id) && (
-                <SectionComponent {...baseComponentProps} />
+                <fieldset disabled className="m-0 min-w-0 border-0 p-0">
+                  {/* `disabled` alone already exposes every contained control
+                      as disabled to assistive tech. No `aria-disabled` here:
+                      the body also holds display-only controls (the pairs
+                      "+ Load all" expander) that stay operable, so asserting
+                      the whole group is disabled would be a lie. */}
+                  <SectionComponent {...baseComponentProps} />
+                </fieldset>
               )}
             </div>
           );
         })}
-      </fieldset>
+      </div>
     </div>
   );
 };

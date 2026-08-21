@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.1] - 2026-08-21
+
+### Fixed
+
+- Bot details drawer (Settings tab): on a multi-pair bot the "+ Load all (N more)" link now works. It did nothing at all, so on a bot with 18 pairs only the first 10 were ever visible and the remaining 8 could not be reached from the drawer at all. The section collapse chevrons on the same panel were dead for the same reason and now work too.
+
 ## [2.45.0] - 2026-08-21
 
 ### Changed

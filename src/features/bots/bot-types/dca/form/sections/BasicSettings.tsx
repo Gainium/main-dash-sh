@@ -160,6 +160,10 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
 
   const PAIRS_PREVIEW_LIMIT = 10;
   const [showAllLockedPairs, setShowAllLockedPairs] = useState(false);
+  const toggleShowAllLockedPairs = useCallback(
+    () => setShowAllLockedPairs((v) => !v),
+    []
+  );
 
   return (
     <>
@@ -286,15 +290,28 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                       })}
                     </div>
                     {pairs.length > PAIRS_PREVIEW_LIMIT && (
-                      <button
-                        type="button"
-                        onClick={() => setShowAllLockedPairs((v) => !v)}
-                        className="text-xs text-muted-foreground underline transition-colors hover:text-foreground"
+                      // Display-only expander: it reveals pairs already on the
+                      // bot, it never edits the form. Deliberately NOT a
+                      // <button> — this block also renders inside the bot
+                      // drawer's read-only `<fieldset disabled>`, which
+                      // natively disables every descendant form control and
+                      // left the pairs past the preview limit unreachable.
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={toggleShowAllLockedPairs}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleShowAllLockedPairs();
+                          }
+                        }}
+                        className="inline-block cursor-pointer text-xs text-muted-foreground underline transition-colors hover:text-foreground"
                       >
                         {showAllLockedPairs
                           ? 'Show less'
                           : `+ Load all (${pairs.length - PAIRS_PREVIEW_LIMIT} more)`}
-                      </button>
+                      </span>
                     )}
                   </>
                 ) : (
