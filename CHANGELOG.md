@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.6] - 2026-08-21
+
+### Fixed
+
+- Settings → Personal Data: your saved nickname shows up again after a reload. It was stored correctly all along, but the Settings page never asked the API for it, so the Nickname box came back blank on every visit and looked as though the save had been lost.
+
 ## [2.45.5] - 2026-08-21
 
 ### Fixed

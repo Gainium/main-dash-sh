@@ -39,6 +39,15 @@ const LICENSE_KEY_SELECTION = IS_CLOUD
                                   isPremium
                                 }`;
 
+// Public display name, edited in Settings → Personal data. Cloud-only on the
+// READ side: app-sh accepts `nickname` on `userSettingsInput` (the mutation)
+// but its `user` output type has no such field, so selecting it on
+// self-hosted would 400 the whole `userSettings` payload. `CLOUD_USER_FIELDS`
+// below already carries it for the `user` query; `userSettings` — the query
+// the Settings page actually fetches — needs its own gated selection, or the
+// saved nickname reads back as `undefined` and the input renders empty.
+const NICKNAME_SELECTION = IS_CLOUD ? 'nickname' : '';
+
 // `deletedAt` / `deletedScheduledAt` track pending account-delete
 // requests. Cloud-only feature; app-sh doesn't expose either field, so
 // requesting them would 400. Sh's build skips them.
@@ -383,6 +392,7 @@ export const userQueries = {
                                 weekStart
                                 name
                                 lastName
+                                ${NICKNAME_SELECTION}
                                 picture
                                 ${OTP_SELECTION}
                                 ${LICENSE_KEY_SELECTION}
