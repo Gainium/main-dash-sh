@@ -39,8 +39,9 @@ import {
 } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import {
   aggregatePrecisionConstraints,
-  computeStepDecimals,
   createOrderGuard,
+  formatNumberWithTrim,
+  resolveOrderSizeDecimals,
 } from '@/features/bots/shared/utils/order-guard';
 import {
   computeInvestmentDivisor,
@@ -174,8 +175,14 @@ const LegPresetApplier: React.FC<{
       setFormData((prev) => {
         const prevDca = prev.dca;
         const currentInvestment = computeInvestmentFromDca(prevDca);
-        const precision =
-          prevDca.orderSizeType === OrderSizeTypeEnum.base ? 8 : 2;
+        // Derive from the pair's real order-size scale; the old base?8:2
+        // ternary rounded quote-denominated sizes to 2dp, zeroing sub-0.01
+        // sizes on BTC-/ETH-quoted pairs (bug #467).
+        const prevPair = Array.isArray(prev.pair) ? prev.pair[0] : prev.pair;
+        const precision = resolveOrderSizeDecimals(
+          prevDca.orderSizeType,
+          prevPair ? prev.pairPrecisionMap?.[prevPair] : undefined
+        );
         const merged = {
           ...nextDca,
           strategy: prevDca.strategy,
@@ -454,12 +461,14 @@ export const HedgeQuickInvestment: React.FC = () => {
   const firstPair = Array.isArray(formData.pair)
     ? formData.pair[0]
     : formData.pair;
-  const precision = useMemo(() => {
-    if (unit !== OrderSizeTypeEnum.base) return 2;
-    const info = firstPair ? formData.pairPrecisionMap?.[firstPair] : undefined;
-    const baseDec = computeStepDecimals(info?.baseStep);
-    return Math.min(8, Math.max(2, baseDec ?? 6));
-  }, [unit, firstPair, formData.pairPrecisionMap]);
+  const precision = useMemo(
+    () =>
+      resolveOrderSizeDecimals(
+        unit,
+        firstPair ? formData.pairPrecisionMap?.[firstPair] : undefined
+      ),
+    [unit, firstPair, formData.pairPrecisionMap]
+  );
 
   const investment = computeInvestmentFromDca(dcaState);
   // Distributing a total into per-order sizes rounds each order to `precision`,
@@ -516,7 +525,7 @@ export const HedgeQuickInvestment: React.FC = () => {
   const investmentAlerts = useMemo<BotFormAlert[]>(() => {
     if (orderMinimum === null) return [];
     const alerts: BotFormAlert[] = [];
-    const fmt = (n: number) => n.toFixed(precision);
+    const fmt = (n: number) => formatNumberWithTrim(n, precision);
     const minLabel = `${orderMinimum}${orderMinUnit ? ` ${orderMinUnit}` : ''}`;
     const navId = `hedge-investment-${strategy}`;
     if (baseOrderBelowMin) {
@@ -624,7 +633,7 @@ export const HedgeQuickInvestment: React.FC = () => {
         />
         {minInvestment !== null && (
           <p className="text-xs text-muted-foreground">
-            Min to run: {minInvestment.toFixed(precision)}
+            Min to run: {formatNumberWithTrim(minInvestment, precision)}
             {orderMinUnit ? ` ${orderMinUnit}` : ''}
           </p>
         )}

@@ -28,8 +28,9 @@ import type { BotFormAlert, BotFormErrors } from '@/types/bots/form';
 import { computePlannedDeviation } from '@/utils/bots/dca/capital-summary';
 import {
   aggregatePrecisionConstraints,
-  computeStepDecimals,
   createOrderGuard,
+  formatNumberWithTrim,
+  resolveOrderSizeDecimals,
 } from '@/features/bots/shared/utils/order-guard';
 
 import { PresetsPicker } from './components/PresetsPicker';
@@ -152,16 +153,19 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   const isBaseRef = dcaState.orderSizeType === OrderSizeTypeEnum.base;
   const displayAsset = isBaseRef ? baseAsset : quoteAsset;
 
-  // Investment decimals: stablecoin-style quotes get 2 decimals; for
-  // base assets the exchange's baseStep already encodes how granular
-  // the coin is (BTC ~5-8, DOGE/SHIB ~0), so cheap coins naturally
-  // cap at 2 while expensive ones get the precision they need.
-  const displayPrecision = useMemo(() => {
-    if (!isBaseRef) return 2;
-    const info = formData.pairPrecisionMap?.[firstPair];
-    const baseDec = computeStepDecimals(info?.baseStep);
-    return Math.min(8, Math.max(2, baseDec ?? 6));
-  }, [isBaseRef, firstPair, formData.pairPrecisionMap]);
+  // Investment decimals, derived from the asset the investment is actually
+  // denominated in. Assuming 2 for every quote asset is only true for
+  // stablecoins — on a BTC- or ETH-quoted pair it rounds the value we WRITE
+  // into baseOrderSize/orderSize, so a sub-0.01 investment was saved as
+  // "0.00" (bug #467).
+  const displayPrecision = useMemo(
+    () =>
+      resolveOrderSizeDecimals(
+        dcaState.orderSizeType,
+        formData.pairPrecisionMap?.[firstPair]
+      ),
+    [dcaState.orderSizeType, firstPair, formData.pairPrecisionMap]
+  );
   const displayStep = useMemo(
     () => Math.pow(10, -displayPrecision),
     [displayPrecision]
@@ -211,7 +215,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   const investmentAlerts = useMemo<BotFormAlert[]>(() => {
     if (orderMinimum === null || !selectedPreset) return [];
     const alerts: BotFormAlert[] = [];
-    const fmt = (n: number) => n.toFixed(displayPrecision);
+    const fmt = (n: number) => formatNumberWithTrim(n, displayPrecision);
     const minLabel = `${orderMinimum}${orderMinUnit ? ` ${orderMinUnit}` : ''}`;
     if (baseOrderBelowMin) {
       alerts.push({
@@ -439,7 +443,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
         : '—',
       totalFunds:
         investment > 0
-          ? `${investment.toFixed(displayPrecision)}${displayAsset ? ` ${displayAsset}` : ''}`
+          ? `${formatNumberWithTrim(investment, displayPrecision)}${displayAsset ? ` ${displayAsset}` : ''}`
           : '—',
     };
   }, [
@@ -519,7 +523,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
           />
           {minInvestment !== null && (
             <p className="text-xs text-muted-foreground">
-              Min to run: {minInvestment.toFixed(displayPrecision)}
+              Min to run: {formatNumberWithTrim(minInvestment, displayPrecision)}
               {displayAsset ? ` ${displayAsset}` : ''}
             </p>
           )}

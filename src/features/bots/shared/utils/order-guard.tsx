@@ -41,6 +41,30 @@ export const computeStepDecimals = (
   return decimals > 0 ? decimals : undefined;
 };
 
+/** Decimal places for an order-size / investment figure denominated in
+ *  `orderSizeType`.
+ *
+ *  Base sizes take their scale from the exchange's amount step. Quote sizes
+ *  take theirs from the exchange's minimum QUOTE amount (`quoteAsset.minAmount`)
+ *  — the only quote-denominated scale the pair metadata carries, since
+ *  `quoteAsset` has no `step`. On bybit ETHBTC that is 0.000065 BTC => 6
+ *  decimals; on any USDT pair it is a whole number => the 2-decimal floor,
+ *  so stablecoin pairs are unaffected.
+ *
+ *  Deliberately NOT `pricePrecision`: that is the scale of the PRICE, not of
+ *  the order size. Prod SHIBUSDT/PEPEUSDT carry `pricePrecision: 9`, which
+ *  would pad every USDT figure out to nine decimals (bug #467). */
+export const resolveOrderSizeDecimals = (
+  orderSizeType: BotFormData['dca']['orderSizeType'] | undefined,
+  info: PairPrecisionInfo | undefined
+): number => {
+  const scale =
+    orderSizeType === 'base'
+      ? (computeStepDecimals(info?.baseStep) ?? 6)
+      : (computeStepDecimals(info?.minQuoteAmount) ?? 2);
+  return Math.min(8, Math.max(2, scale));
+};
+
 export const formatNumberWithTrim = (
   value: number,
   decimals?: number
@@ -57,8 +81,13 @@ export const formatNumberWithTrim = (
   }
 
   const fixed = value.toFixed(decimals);
+  // Strip trailing zeros, not just an all-zero fraction: `/\.0+$/` left
+  // "1.500000" and "0.002000" padded, which is what made a higher-precision
+  // asset unreadable (bug #467). Matches BalanceInput's `formatNumber`.
+  // The `includes('.')` guard is load-bearing — without it `/0+$/` would
+  // turn an integer like "1200" into "12".
   return fixed.includes('.')
-    ? fixed.replace(/\.0+$/, '').replace(/\.$/, '')
+    ? fixed.replace(/0+$/, '').replace(/\.$/, '')
     : fixed;
 };
 

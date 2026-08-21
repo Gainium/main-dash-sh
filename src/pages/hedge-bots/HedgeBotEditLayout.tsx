@@ -64,6 +64,7 @@ import {
   computeInvestmentFromDca,
   distributeInvestmentToDca,
 } from '@/features/bots/widgets/BotForm/components/quickSetupPresets';
+import { resolveOrderSizeDecimals } from '@/features/bots/shared/utils/order-guard';
 import {
   HEDGE_QUICK_PRESETS,
   getHedgeLegDcaState,
@@ -106,7 +107,6 @@ import { useUIStore } from '@/stores/uiStore';
 import {
   BotTypesEnum,
   ExchangeIntervals,
-  OrderSizeTypeEnum,
   StrategyEnum,
   type ComboBot,
   type DCABot,
@@ -1494,11 +1494,22 @@ export const HedgeBotEditLayout: React.FC = () => {
       // redistributing it over the preset's new orders ladder (mirrors the
       // standalone Quick form's preset applier). Also keep the leg's base/quote
       // unit, which the preset defaults would otherwise reset.
-      const preserveSizing = (dca: BotFormData['dca']) => {
+      const preserveSizing = (
+        dca: BotFormData['dca'],
+        legForm: Partial<BotFormData> | undefined
+      ) => {
         if (!presetDca) return {};
         const total = computeInvestmentFromDca(dca);
-        const precision =
-          dca.orderSizeType === OrderSizeTypeEnum.base ? 8 : 2;
+        // Derive from the leg pair's real order-size scale; the old base?8:2
+        // ternary rounded quote-denominated sizes to 2dp, zeroing sub-0.01
+        // sizes on BTC-/ETH-quoted pairs (bug #467).
+        const legPair = Array.isArray(legForm?.pair)
+          ? legForm.pair[0]
+          : legForm?.pair;
+        const precision = resolveOrderSizeDecimals(
+          dca.orderSizeType,
+          legPair ? legForm?.pairPrecisionMap?.[legPair] : undefined
+        );
         const merged = { ...dca, ...presetDca } as BotFormData['dca'];
         const { baseOrderSize, orderSize } = distributeInvestmentToDca(
           total,
@@ -1531,7 +1542,10 @@ export const HedgeBotEditLayout: React.FC = () => {
           dca: {
             ...baseDca,
             ...(presetDca ?? {}),
-            ...preserveSizing(baseDca),
+            ...preserveSizing(
+              baseDca,
+              longLive ?? (existing as Partial<BotFormData>)
+            ),
             strategy: StrategyEnum.long,
           },
         } as Partial<BotFormData>;
@@ -1550,7 +1564,10 @@ export const HedgeBotEditLayout: React.FC = () => {
           dca: {
             ...baseDca,
             ...(presetDca ?? {}),
-            ...preserveSizing(baseDca),
+            ...preserveSizing(
+              baseDca,
+              shortLive ?? (existing as Partial<BotFormData>)
+            ),
             strategy: StrategyEnum.short,
           },
         } as Partial<BotFormData>;

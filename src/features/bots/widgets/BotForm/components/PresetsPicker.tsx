@@ -25,10 +25,29 @@ import {
   TemplatesPopover,
 } from './quick-setup/shared';
 import { DCA_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
+import { resolveOrderSizeDecimals } from '@/features/bots/shared/utils/order-guard';
+import type { PairPrecisionInfo } from '@/types/bots';
 
 type PendingSource =
   | { kind: 'preset'; id: string }
   | { kind: 'template'; id: string };
+
+/** Order-size decimals for the slice being rewritten, resolved against the
+ *  first selected pair — the same source the Quick form's investment field
+ *  uses, so a preset/template swap can't re-round sizes the form accepted. */
+const resolveOrderSizePrecision = (
+  formData: {
+    pair?: string | string[];
+    pairPrecisionMap?: Record<string, PairPrecisionInfo>;
+  },
+  slice: QuickSetupDcaLike
+): number => {
+  const pair = Array.isArray(formData.pair) ? formData.pair[0] : formData.pair;
+  return resolveOrderSizeDecimals(
+    slice.orderSizeType,
+    pair ? formData.pairPrecisionMap?.[pair] : undefined
+  );
+};
 
 interface PresetsPickerProps {
   /**
@@ -139,7 +158,14 @@ export const PresetsPicker: React.FC<PresetsPickerProps> = ({
       const prevSlice = prev[slice] as QuickSetupDcaLike;
       const currentInvestment = computeInvestmentFromDca(prevSlice);
       const nextDca = getPresetDcaState(preset, marketStats);
-      const sizes = distributeInvestmentToDca(currentInvestment, nextDca);
+      // Carry the investment across at the pair's real order-size scale.
+      // Omitting this fell back to 2 decimals — which zeroed sub-0.01 sizes
+      // on BTC-/ETH-quoted pairs AND in base mode (bug #467).
+      const sizes = distributeInvestmentToDca(
+        currentInvestment,
+        nextDca,
+        resolveOrderSizePrecision(prev, prevSlice)
+      );
       return {
         ...prev,
         [slice]: {
@@ -260,7 +286,11 @@ export const PresetsPicker: React.FC<PresetsPickerProps> = ({
             baseOrderSize: String(mergedDca.baseOrderSize),
             orderSize: String(mergedDca.orderSize),
           }
-        : distributeInvestmentToDca(currentInvestment, mergedDca);
+        : distributeInvestmentToDca(
+            currentInvestment,
+            mergedDca,
+            resolveOrderSizePrecision(prev, prevSlice)
+          );
       return {
         ...prev,
         ...template.formData,
