@@ -476,10 +476,8 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   );
   const isDealMassEdit = useMemo(() => mode === 'deal-mass-edit', [mode]);
   const { alerts } = useBotFormState();
-  const dealCloseCondition = useBotFormSelector('dealCloseCondition');
   const useTp = useBotFormSelector('useTp');
   const useMultiTp = useBotFormSelector('useMultiTp');
-  const orderSizeType = useBotFormSelector('orderSizeType');
   const scaleDcaType = useBotFormSelector('scaleDcaType');
   const step = useBotFormSelector('step');
   const stepScale = useBotFormSelector('stepScale');
@@ -489,18 +487,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   const gridLevel = useBotFormSelector('gridLevel');
   const comboActiveMinigrids = useBotFormSelector('comboActiveMinigrids');
   const comboSmartGridsCount = useBotFormSelector('comboSmartGridsCount');
-  const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
   const strategy = useBotFormSelector('strategy');
   const useActiveMinigrids = useBotFormSelector('useActiveMinigrids');
   const comboUseSmartGrids = useBotFormSelector('comboUseSmartGrids');
-  const showVolumeControls = canDisplayRequiredChange({
-    dealCloseCondition,
-    useTp,
-    useMultiTp,
-    orderSizeType,
-  });
   const useDca = useBotFormSelector('useDca');
   const indicators = useBotFormSelector('indicators');
   const { currentExchange } = useBotFormQuery();
@@ -1069,12 +1060,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     },
     [isComboSmartGridsVarBound, totalOrdersCount, updateFormData]
   );
-
-  useEffect(() => {
-    if (!showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change) {
-      updateFormData('dcaVolumeBaseOn', 'scaled');
-    }
-  }, [showVolumeControls, dcaVolumeBaseOn, updateFormData]);
 
   const handleSliderChange = useCallback(
     (field: Fields, rawValue: number) => {
@@ -1908,11 +1893,14 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     useMultiTp,
     orderSizeType,
   });
-  useEffect(() => {
-    if (!showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change) {
-      updateFormData('dcaVolumeBaseOn', 'scaled');
-    }
-  }, [showVolumeControls, dcaVolumeBaseOn, updateFormData]);
+  // Legacy `showVolumeOption` (main-dash `DcaModeSettings.tsx`): a stored
+  // `dcaVolumeBaseOn: 'change'` only hides the per-level order size while the
+  // "Volume based on" control is reachable. When it is not, the setting is
+  // inert for the engine too, so the size the bot actually trades stays
+  // visible instead of being silently dropped from the card.
+  const showVolumeOption =
+    !showVolumeControls ||
+    (dcaVolumeBaseOn ?? DCAVolumeType.scale) === DCAVolumeType.scale;
 
   // When any custom order has a fixed price set, compute its step % relative to previous
   // orders so that both manual edits and picker selections keep step in sync.
@@ -2226,6 +2214,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                 onRefreshBalances={handleRefreshBalances}
                 updateFieldError={updateFieldError}
                 mode={mode}
+                showVolumeOption={showVolumeOption}
               />
             ))}
           </MasonryLayout>
@@ -2710,6 +2699,18 @@ interface TechnicalIndicatorCardProps {
     message?: string | undefined
   ) => void;
   mode: BotFormMode;
+  /**
+   * Whether this DCA level's own order size is in play. Mirrors legacy
+   * `showVolumeOption` (main-dash `components/DcaModeSettings.tsx`,
+   * `DCATechnicalIndicators`): the per-level size is hidden only when the
+   * "Volume based on" control is actually reachable AND set to `change`.
+   * A stored `dcaVolumeBaseOn: 'change'` on a bot that cannot use it (e.g.
+   * one that closes on indicators rather than a fixed TP) is inert — the
+   * engine ignores it under the same condition (`useVolumeChange` in
+   * main-app `core/src/bot/dcaHelper.ts`) and trades the per-level size —
+   * so that size must still be shown.
+   */
+  showVolumeOption: boolean;
 }
 
 const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
@@ -2731,11 +2732,11 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
   canTriggerBalanceRefresh,
   onRefreshBalances,
   mode,
+  showVolumeOption,
   //updateFieldError,
 }) => {
   const orderSizeReference = formData.orderSizeReference || 'notional';
   const futures = useBotFormSelector('futures');
-  const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
   const { currentExchange } = useBotFormQuery();
   const minPercError =
     errors[`dcaIndicators.${indicator.uuid}.minPercFromLast`] ?? null;
@@ -2969,7 +2970,7 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
         <p className="text-xs text-muted-foreground">{stepHelperMessage}</p>
       </div>
 
-      {(dcaVolumeBaseOn ?? DCAVolumeType.scale) === DCAVolumeType.scale && (
+      {showVolumeOption && (
         <div className="space-y-sm rounded-md border border-border/60 bg-card p-md">
           {futures && (
             <div className="space-y-xs">
@@ -3038,21 +3039,13 @@ const CustomDCA: React.FC<DCASectionProps> = ({
 }) => {
   const isComboBot = useMemo(() => formData.type === 'combo', [formData.type]);
   const { coordinates, setCoordinates } = useTradingTerminalUtils();
-  const dealCloseCondition = useBotFormSelector('dealCloseCondition');
   const useTp = useBotFormSelector('useTp');
   const useMultiTp = useBotFormSelector('useMultiTp');
   const orderSizeType = useBotFormSelector('orderSizeType');
-  const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
   const dcaCustom = useBotFormSelector('dcaCustom');
   const strategy = useBotFormSelector('strategy');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
-  const showVolumeControls = canDisplayRequiredChange({
-    dealCloseCondition,
-    useTp,
-    useMultiTp,
-    orderSizeType,
-  });
   const stepRange = tradingContext.ranges.step;
   const stepRangeMin = stepRange.min;
   const stepRangeMax = stepRange.max;
@@ -3077,12 +3070,6 @@ const CustomDCA: React.FC<DCASectionProps> = ({
     const reason = describeStepCeiling(stepRange);
     return reason ? `${base}. ${reason}` : base;
   }, [stepRange]);
-
-  useEffect(() => {
-    if (!showVolumeControls && dcaVolumeBaseOn === DCAVolumeType.change) {
-      updateFormData('dcaVolumeBaseOn', 'scaled');
-    }
-  }, [showVolumeControls, dcaVolumeBaseOn, updateFormData]);
 
   // Track last processed coordinates to prevent duplicate processing
   const lastProcessedCoordinatesRef = useRef<string | null>(null);

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.5] - 2026-08-21
+
+### Fixed
+
+- Indicator-triggered DCA: each DCA level's "DCA order amount" is shown again — in the bot Settings view as well as the editor — on bots that close their deal on indicators rather than on a fixed take profit. Those bots carry a stored "volume based on required change" flag that the trading engine ignores, but the form was hiding the per-level amount because of it, so the volume the bot actually trades (and any global variable bound to it) was invisible and uneditable.
+
 ## [2.45.4] - 2026-08-21
 
 ### Fixed
