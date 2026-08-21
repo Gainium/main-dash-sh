@@ -804,16 +804,18 @@ export const TakeProfitSettings: React.FC = () => {
     () => [IndicatorEnum.atr, IndicatorEnum.adr] as IndicatorEnum[],
     []
   );
-  const dynamicArInvalidCount = useMemo(() => {
-    if (!isDynamicArClose) {
-      return 0;
-    }
-
-    return closeIndicators.filter(
-      (indicator) =>
-        !dynamicArAllowedTypes.includes(indicator.type as IndicatorEnum)
-    ).length;
-  }, [closeIndicators, dynamicArAllowedTypes, isDynamicArClose]);
+  // The take-profit close indicators dynamic AR can actually USE — the same
+  // rule validation and the payload mapper apply. Switching close condition is
+  // deliberately lossless, so this section may still hold the Indicators tab's
+  // grouped entries; listing those under Dynamic ATR/ADR put configuration the
+  // mode never reads in front of the user, flagged as an error.
+  const dynamicArIndicators = useMemo<IndicatorConfig[]>(
+    () =>
+      closeIndicators.filter((i) =>
+        isCloseIndicatorUsedByCondition(i, CloseConditionEnum.dynamicAr)
+      ),
+    [closeIndicators]
+  );
 
   /* useEffect(() => {
     if (!isDynamicArClose) {
@@ -2119,19 +2121,7 @@ export const TakeProfitSettings: React.FC = () => {
 
   const renderDynamicArExtras = useCallback(
     (indicator: IndicatorConfig) => {
-      const isAllowed = dynamicArAllowedTypes.includes(
-        indicator.type as IndicatorEnum
-      );
-
-      if (!isAllowed) {
-        return (
-          <SettingsAlert
-            variant="error"
-            title={`${indicator.type} isn't supported for Dynamic ATR/ADR. Remove it and add an ATR or ADR indicator instead.`}
-          />
-        );
-      }
-
+      // Only ATR/ADR reach the list, so every card gets the factor config.
       return (
         <DynamicArIndicatorConfig
           indicator={indicator}
@@ -2147,7 +2137,6 @@ export const TakeProfitSettings: React.FC = () => {
       );
     },
     [
-      dynamicArAllowedTypes,
       currentExchange?.provider,
       handleChangeIndicatorParams,
       handleDynamicArFactorChange,
@@ -2953,7 +2942,7 @@ export const TakeProfitSettings: React.FC = () => {
                   }
                 >
                   <IndicatorList
-                    indicators={closeIndicators}
+                    indicators={dynamicArIndicators}
                     onRemove={handleRemoveIndicator}
                     onSelectType={handleSelectIndicatorType}
                     renderExtras={renderDynamicArExtras}
@@ -2997,7 +2986,7 @@ export const TakeProfitSettings: React.FC = () => {
                     </Select>
                   </div>
 
-                  {closeIndicators.length === 0 ? (
+                  {dynamicArIndicators.length === 0 ? (
                     <Alert
                       variant="destructive"
                       className="border-destructive/40 bg-destructive/10"
@@ -3009,22 +2998,6 @@ export const TakeProfitSettings: React.FC = () => {
                         Dynamic ATR/ADR requires at least one ATR or ADR
                         indicator. Add an indicator to compute take profit
                         distance.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-
-                  {dynamicArInvalidCount > 0 ? (
-                    <Alert
-                      variant="destructive"
-                      className="border-destructive/40 bg-destructive/10"
-                    >
-                      <AlertTitle className="text-sm font-semibold">
-                        Unsupported indicator detected
-                      </AlertTitle>
-                      <AlertDescription className="text-xs leading-relaxed">
-                        Remove non-ATR/ADR indicators ({dynamicArInvalidCount}{' '}
-                        found) or switch the close condition. Dynamic ATR/ADR
-                        supports only ATR and ADR types.
                       </AlertDescription>
                     </Alert>
                   ) : null}

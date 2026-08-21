@@ -5,7 +5,7 @@
  * Behavior mirrors the original inline block in TakeProfitSettings.tsx
  * (`isDynamicArClose && !isDealEdit` → SettingsRow with Add button,
  * description, IndicatorList, "When indicators trigger close by" Select
- * and two conditional alerts). All section-specific bits (filter,
+ * and the empty-section alert). All section-specific bits (filter,
  * indicator creation, copy text, navigation id) are driven by props.
  *
  * The component owns its own indicator-selector instance and favorites,
@@ -21,7 +21,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import SettingsAlert from '@/components/ui/SettingsAlert';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
@@ -32,6 +31,7 @@ import {
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { useIndicatorSelector } from '@/hooks/useIndicatorSelector';
 import {
+  CloseConditionEnum,
   CloseDCATypeEnum,
   IndicatorAction,
   IndicatorEnum,
@@ -40,18 +40,16 @@ import {
   type ExchangeInUser,
 } from '@/types';
 import {
+  DYNAMIC_AR_ALLOWED_TYPES,
   buildIndicatorConfig,
+  isCloseIndicatorOfSection,
+  isCloseIndicatorUsedByCondition,
   sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
 import { getIndicatorDefaultParams } from '@/types/indicators/indicatorLogic';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import React, { useCallback, useMemo } from 'react';
-
-const DYNAMIC_AR_ALLOWED_TYPES: IndicatorEnum[] = [
-  IndicatorEnum.atr,
-  IndicatorEnum.adr,
-];
 
 /**
  * Clamp a free-form dynamic-AR factor input to the [0.1, 10] band the
@@ -115,25 +113,20 @@ export const DynamicArIndicatorPanel: React.FC<
     isIndicatorMutating,
   } = useFavoriteIndicators();
 
-  // Filter to this section's close-deal indicators (any type — the
-  // "unsupported indicator" alert below uses the same set to count
-  // non-ATR/ADR strays so the user knows to clean them up).
+  // This section's close-deal indicators that dynamic AR can actually USE —
+  // the same pair of rules validation and the payload mapper apply. Switching
+  // close condition is deliberately lossless, so the section may still hold
+  // the Indicators tab's grouped entries; matching on action+section alone
+  // listed those here too, under a mode that never reads them.
   const closeIndicators = useMemo<IndicatorConfig[]>(
     () =>
       indicators.filter(
         (i) =>
-          i.indicatorAction === IndicatorAction.closeDeal &&
-          i.section === section
+          isCloseIndicatorOfSection(i, section) &&
+          isCloseIndicatorUsedByCondition(i, CloseConditionEnum.dynamicAr)
       ),
     [indicators, section]
   );
-
-  const dynamicArInvalidCount = useMemo(() => {
-    return closeIndicators.filter(
-      (indicator) =>
-        !DYNAMIC_AR_ALLOWED_TYPES.includes(indicator.type as IndicatorEnum)
-    ).length;
-  }, [closeIndicators]);
 
   const indicatorLimitReached = useMemo(
     () => indicators.length >= indicatorsLimit,
@@ -292,17 +285,7 @@ export const DynamicArIndicatorPanel: React.FC<
 
   const renderExtras = useCallback(
     (indicator: IndicatorConfig) => {
-      const isAllowed = DYNAMIC_AR_ALLOWED_TYPES.includes(
-        indicator.type as IndicatorEnum
-      );
-      if (!isAllowed) {
-        return (
-          <SettingsAlert
-            variant="error"
-            title={`${indicator.type} isn't supported for Dynamic ATR/ADR. Remove it and add an ATR or ADR indicator instead.`}
-          />
-        );
-      }
+      // Only ATR/ADR reach the list, so every card gets the factor config.
       return (
         <DynamicArIndicatorConfig
           indicator={indicator}
@@ -423,22 +406,6 @@ export const DynamicArIndicatorPanel: React.FC<
             </AlertTitle>
             <AlertDescription className="text-xs leading-relaxed">
               {missingAlertDescription}
-            </AlertDescription>
-          </Alert>
-        ) : null}
-
-        {dynamicArInvalidCount > 0 ? (
-          <Alert
-            variant="destructive"
-            className="border-destructive/40 bg-destructive/10"
-          >
-            <AlertTitle className="text-sm font-semibold">
-              Unsupported indicator detected
-            </AlertTitle>
-            <AlertDescription className="text-xs leading-relaxed">
-              Remove non-ATR/ADR indicators ({dynamicArInvalidCount} found) or
-              switch the close condition. Dynamic ATR/ADR supports only ATR and
-              ADR types.
             </AlertDescription>
           </Alert>
         ) : null}

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.7] - 2026-08-21
+
+### Fixed
+
+- Bot form → Take Profit and Stop Loss → Dynamic ATR/ADR: the panel no longer lists indicators that belong to the Indicators close type. They were shown side by side with the ATR/ADR ones and flagged with a "… isn't supported for Dynamic ATR/ADR" error — on take profit that happened just by opening the tab on a bot closing by indicators, and on stop loss after visiting Indicators first, even where no stop-loss indicator was saved at all. Both panels now show only the ATR/ADR indicators the mode actually uses, which is what the bot saves and trades on.
+
 ## [2.45.6] - 2026-08-21
 
 ### Fixed
