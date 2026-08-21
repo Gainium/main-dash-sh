@@ -25,6 +25,7 @@ import {
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import {
   MAX_DCA_ORDERS,
+  MAX_RESTING_EXCHANGE_ORDERS,
   MAX_DCA_STEP_SCALE,
   MAX_DCA_VOLUME_SCALE,
   MIN_DCA_ORDERS,
@@ -149,7 +150,7 @@ const DEFAULT_VOLUME_SCALE_RANGE = buildDefaultRange({
 
 const DEFAULT_SMART_ORDERS_RANGE = buildDefaultRange({
   min: MIN_DCA_ORDERS,
-  max: MAX_DCA_ORDERS,
+  max: MAX_RESTING_EXCHANGE_ORDERS,
 });
 
 const ensureRangeBounds = (

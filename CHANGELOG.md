@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.45.3] - 2026-08-21
+
+### Changed
+
+- DCA/Combo bots: the orders-count limit now budgets **orders resting on the exchange**, not ladder depth. Previously "DCA orders" was capped at 200 ÷ max open deals whether or not smart orders were on — a bot with 5 concurrent deals could not describe a ladder deeper than 40, which blocked migrating deep-ladder strategies from other platforms. With smart orders on, only `activeOrdersCount` levels rest on the exchange, so the ladder now runs to the full 200 and the exchange budget is enforced on the smart-orders count instead.
+
+### Fixed
+
+- Smart orders count on a **multi-pair** bot was budgeted against "max open deals" instead of "max deals per pair" — the setting such a bot does not use. It now divides by the same setting the rest of the form does.
+- The smart-orders helper text no longer prints its range twice ("From 1 to 40 • From 1 to 40 (…)").
+
 ## [2.45.2] - 2026-08-21
 
 ### Fixed

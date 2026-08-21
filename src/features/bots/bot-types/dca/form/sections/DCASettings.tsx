@@ -292,7 +292,14 @@ const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
       combinedSmartOrdersRange
     );
 
-    if (!segments.includes(derivedMessage)) {
+    // The derived message opens with its own "From x to y", so an identical
+    // backend segment would render the range twice ("From 1 to 40 • From 1 to
+    // 40 (…)"). Compare on the prefix, not the whole string — the explanatory
+    // tail makes an exact-equality check never match.
+    if (!segments.some((segment) => derivedMessage.startsWith(segment))) {
+      segments.push(derivedMessage);
+    } else {
+      segments.length = 0;
       segments.push(derivedMessage);
     }
 

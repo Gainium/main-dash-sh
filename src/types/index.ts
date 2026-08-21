@@ -81,7 +81,27 @@ export const CLEAR_GLOBAL_VARIABLES = 'CLEAR_GLOBAL_VARIABLES';
 export const MIN_DCA_TP = 0.001;
 export const MIN_DCA_TP_NEW = 0.01;
 export const MIN_DCA_ORDERS = 1;
+/**
+ * Ceiling on a DCA/Combo ladder's *depth* — how many orders the plan describes.
+ * Mirrors the flat `ordersCount` max in main-app's v2 validator
+ * (`core/src/server/v2/validators/bots/config.ts`), which is the authority.
+ * Ladder depth on its own costs nothing on the exchange: with smart orders on,
+ * only `activeOrdersCount` levels ever rest there.
+ */
 export const MAX_DCA_ORDERS = 200;
+/**
+ * Ceiling on the orders a bot may have *resting on the exchange at any one
+ * moment*, summed across its concurrent deals. This is the real constraint —
+ * venues cap open orders per symbol (Binance's `MAX_NUM_ORDERS` filter, Bybit's
+ * 500 conditional/TP-SL/active ceiling, Kraken's `EOrder:Orders limit
+ * exceeded`), and blowing through it makes the bot fail to place orders rather
+ * than fail to save.
+ *
+ * Deliberately a separate constant from `MAX_DCA_ORDERS`: they happen to share
+ * a value today, but they constrain different things and should be free to
+ * diverge (ideally this one becomes per-symbol, read from `exchangeLimits`).
+ */
+export const MAX_RESTING_EXCHANGE_ORDERS = 200;
 export const MIN_DCA_ORDER_STEP = 0.001;
 export const MIN_COMBO_ORDER_STEP = 0.003;
 export const MAX_DCA_ORDER_STEP = Infinity;

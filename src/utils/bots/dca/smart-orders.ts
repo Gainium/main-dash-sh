@@ -1,4 +1,8 @@
-import { MAX_DCA_ORDERS, MIN_DCA_ORDERS, type DCABotSettings } from '@/types';
+import {
+  MAX_RESTING_EXCHANGE_ORDERS,
+  MIN_DCA_ORDERS,
+  type DCABotSettings,
+} from '@/types';
 
 export type SmartOrdersLimitSource =
   | 'ordersCount'
@@ -75,7 +79,12 @@ export const deriveSmartOrdersRange = (
   const planDenominator = formData.useMulti
     ? maxDealsPerPair
     : maxNumberOfOpenDeals;
-  const rawPlanCeiling = Math.floor(MAX_DCA_ORDERS / planDenominator);
+  // Smart orders are what actually rests on the exchange, so THIS is where the
+  // resting-order budget is spent: `activeOrdersCount` levels per deal, times
+  // the deals that can run at once. `ordersCount` no longer pays into it.
+  const rawPlanCeiling = Math.floor(
+    MAX_RESTING_EXCHANGE_ORDERS / planDenominator
+  );
   const planCeiling = rawPlanCeiling > 0 ? rawPlanCeiling : MIN_DCA_ORDERS;
 
   const effectiveCustomCeiling =
@@ -129,9 +138,9 @@ export const buildSmartOrdersHelperMessage = (
 
   switch (range.limitSource) {
     case 'maxDealsPerPair':
-      return `${base} (limited by max deals per pair setting)`;
+      return `${base} (max deals per pair × active orders must stay within the exchange's ${MAX_RESTING_EXCHANGE_ORDERS} open-order limit)`;
     case 'maxNumberOfOpenDeals':
-      return `${base} (limited by max open deals setting)`;
+      return `${base} (max open deals × active orders must stay within the exchange's ${MAX_RESTING_EXCHANGE_ORDERS} open-order limit)`;
     case 'customOrders':
       return `${base} (limited by defined custom orders)`;
     case 'ordersCount':

@@ -4,6 +4,7 @@ import {
   DCAConditionEnum,
   MAX_DCA_ORDERS,
   MAX_DCA_STEP_SCALE,
+  MAX_RESTING_EXCHANGE_ORDERS,
   MAX_DCA_VOLUME_SCALE,
   MIN_DCA_ORDER_STEP,
   MIN_DCA_ORDERS,
@@ -476,13 +477,29 @@ const resolveOrdersCountRange = (formData: BotFormData): RangeBounds => {
     : formData.dca.maxNumberOfOpenDeals;
   const maxDealsPerPair = normalizeNumericCandidate(_maxDealsPerPair) ?? 1;
   const maxOpenDeals = normalizeNumericCandidate(maxNumberOfOpenDeals) ?? 1;
+  // `-1` means "unlimited" for both deal settings. There is no finite budget to
+  // divide in that case, so it falls back to 1 — the ladder keeps the full
+  // depth and the exchange's own limit is the backstop.
   const denominator = useMulti
     ? Math.max(1, maxDealsPerPair)
     : Math.max(1, maxOpenDeals);
-  const planCeilingRaw = MAX_DCA_ORDERS / denominator;
+  const planCeilingRaw = MAX_RESTING_EXCHANGE_ORDERS / denominator;
   const planCeiling = Math.max(MIN_DCA_ORDERS, Math.floor(planCeilingRaw));
 
-  const baseMax = planCeiling;
+  /**
+   * Ladder depth is only charged against the exchange's open-order budget when
+   * every level rests there at once — i.e. when smart orders are OFF. With
+   * smart orders ON the engine slices the resting set to `activeOrdersCount`
+   * per deal (main-app `core/src/bot/dcaHelper.ts`, the `!all && useSmartOrders`
+   * branch), so the budget is enforced on `activeOrdersCount` instead (see
+   * `deriveSmartOrdersRange`) and `ordersCount` is free to run to the full
+   * ladder ceiling.
+   *
+   * `validateDca` has always exempted smart-order bots from the plan ceiling;
+   * before this, the ceiling was still applied here, so the input clamped to
+   * `planCeiling` and the exemption could never be reached from the UI.
+   */
+  const baseMax = useSmartOrders ? MAX_DCA_ORDERS : planCeiling;
 
   const range = resolveNumericRange(formData, {
     field: 'ordersCount',
@@ -691,7 +708,12 @@ const resolveSmartOrdersRangeBounds = (formData: BotFormData): RangeBounds => {
     ordersCount: ordersCount,
     dcaCondition: dcaCondition || DCAConditionEnum.percentage,
     dcaCustom: dcaCustom || [],
-    useMulti: !useMulti,
+    // NOT `!useMulti`. `useMulti` is the multi-pair toggle, and a multi-pair bot
+    // caps concurrency with `maxDealsPerPair` while a single-pair bot uses
+    // `maxNumberOfOpenDeals` — which is the mapping `deriveSmartOrdersRange`,
+    // `resolveOrdersCountRange` and `validateDca` all use. Inverting it here
+    // divided the budget by the setting the bot isn't even using.
+    useMulti: useMulti,
     maxDealsPerPair: maxDealsPerPair || '1',
     maxNumberOfOpenDeals: maxNumberOfOpenDeals || '1',
   });
@@ -704,7 +726,7 @@ const resolveSmartOrdersRangeBounds = (formData: BotFormData): RangeBounds => {
     minPaths: SMART_ORDERS_MIN_PATHS,
     maxPaths: SMART_ORDERS_MAX_PATHS,
     absoluteMin: MIN_DCA_ORDERS,
-    absoluteMax: MAX_DCA_ORDERS,
+    absoluteMax: MAX_RESTING_EXCHANGE_ORDERS,
   });
 
   const appliedOverrides = [...range.appliedOverrides];

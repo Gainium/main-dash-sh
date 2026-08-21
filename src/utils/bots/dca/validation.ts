@@ -16,6 +16,7 @@ import {
   IndicatorSection,
   MAX_DCA_ORDER_STEP,
   MAX_DCA_ORDERS,
+  MAX_RESTING_EXCHANGE_ORDERS,
   MAX_DCA_VOLUME_SCALE,
   MIN_DCA_ORDER_STEP,
   MIN_DCA_ORDERS,
@@ -892,13 +893,23 @@ export const hotValidateDcaFormData = ({
   if (parseInt(ordersCount) < MIN_DCA_ORDERS) {
     errors['ordersCount'] = `Orders count must be more than ${MIN_DCA_ORDERS}`;
   }
+  // How many orders one deal may rest on the exchange, given how many deals can
+  // run at once. Without smart orders every ladder level rests, so ladder depth
+  // is what has to fit; with them on, only `activeOrdersCount` does (below).
   const maxOrders = Math.floor(
     useMulti
-      ? MAX_DCA_ORDERS / Math.max(1, +(maxDealsPerPair || '1'))
-      : MAX_DCA_ORDERS / Math.max(1, +(maxNumberOfOpenDeals || '1'))
+      ? MAX_RESTING_EXCHANGE_ORDERS / Math.max(1, +(maxDealsPerPair || '1'))
+      : MAX_RESTING_EXCHANGE_ORDERS / Math.max(1, +(maxNumberOfOpenDeals || '1'))
   );
-  if (!useSmartOrders && parseInt(ordersCount) > maxOrders) {
-    errors['ordersCount'] = `Orders count must be less than ${maxOrders}`;
+  if (parseInt(ordersCount) > MAX_DCA_ORDERS) {
+    errors['ordersCount'] =
+      `Orders count must be ${MAX_DCA_ORDERS} or less.`;
+  } else if (!useSmartOrders && parseInt(ordersCount) > maxOrders) {
+    const concurrency = useMulti
+      ? 'max deals per pair'
+      : 'max open deals';
+    errors['ordersCount'] =
+      `Without smart orders every level rests on the exchange, so orders count × ${concurrency} must stay within the exchange's ${MAX_RESTING_EXCHANGE_ORDERS} open-order limit — ${maxOrders} or fewer here. Enable smart orders to run a deeper ladder.`;
   }
   if (parseInt(activeOrdersCount) < MIN_DCA_ORDERS) {
     errors['activeOrdersCount'] =
@@ -957,7 +968,7 @@ export const hotValidateDcaFormData = ({
     );
     if (parseInt(activeOrdersCount) > maxActiveOrders) {
       errors['activeOrdersCount'] =
-        `Active orders count must be less than ${maxActiveOrders}`;
+        `Active orders count must be ${maxActiveOrders} or less — these rest on the exchange, and every concurrent deal places its own set.`;
     }
   }
   if (
