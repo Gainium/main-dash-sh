@@ -13,6 +13,7 @@ import {
     useRestoreDeal,
 } from '@/hooks/useDealActions';
 import { useDealOrders } from '@/hooks/useDealOrders';
+import { useLongPressMenu } from '@/hooks/useLongPressMenu';
 import { useDealPriceHistory } from '@/hooks/useDealPriceHistory';
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
@@ -400,6 +401,27 @@ const EnhancedCard = React.memo(
         toast.error('Failed to add deal to journal');
       }
     };
+    // Mobile: a long press anywhere on the card opens the actions menu
+    // directly — the floating ⋮ pill is a small target on touch.
+    const {
+      open: actionsMenuOpen,
+      setOpen: setActionsMenuOpen,
+      shouldSuppressClick,
+      longPressHandlers,
+    } = useLongPressMenu();
+
+    // The card's own onClick lives on the parent <Card>; swallow the click
+    // the browser synthesises after a long press before it bubbles there.
+    const handleCardContentClick = useCallback(
+      (e: React.MouseEvent) => {
+        if (shouldSuppressClick()) {
+          e.stopPropagation();
+          e.preventDefault();
+        }
+      },
+      [shouldSuppressClick]
+    );
+
     // Hook for theme colors
     const colors = useChartColors();
 
@@ -994,14 +1016,22 @@ const EnhancedCard = React.memo(
               : null
           }
         />
-        <CardContent className="p-md relative" style={{ isolation: 'isolate' }}>
+        <CardContent
+          className="p-md relative"
+          style={{ isolation: 'isolate' }}
+          onClickCapture={handleCardContentClick}
+          {...longPressHandlers}
+        >
           {/* Floating actions — hover-reveal on desktop, always visible on
               mobile (matches BotCard / WidgetWrapper pattern) */}
           <div
             className={cn(
               'absolute right-2 top-2 flex items-center gap-1 rounded-md border border-border/60 bg-muted/95 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all duration-200 ease-out z-10',
               'opacity-100 translate-x-0 pointer-events-auto',
-              'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover/card:pointer-events-auto sm:group-hover/card:opacity-100 sm:group-hover/card:translate-x-0 sm:group-focus-within/card:pointer-events-auto sm:group-focus-within/card:opacity-100 sm:group-focus-within/card:translate-x-0'
+              'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover/card:pointer-events-auto sm:group-hover/card:opacity-100 sm:group-hover/card:translate-x-0 sm:group-focus-within/card:pointer-events-auto sm:group-focus-within/card:opacity-100 sm:group-focus-within/card:translate-x-0',
+              // An open menu pins the pill in place in every breakpoint.
+              actionsMenuOpen &&
+                'sm:pointer-events-auto sm:opacity-100 sm:translate-x-0'
             )}
           >
             {/* Terminal deals live in the terminal — they have no bot page
@@ -1024,7 +1054,10 @@ const EnhancedCard = React.memo(
                   <ExternalLink className="w-4 h-4 text-muted-foreground" />
                 </button>
               )}
-            <DropdownMenu>
+            <DropdownMenu
+              open={actionsMenuOpen}
+              onOpenChange={setActionsMenuOpen}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"

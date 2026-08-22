@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.10] - 2026-08-22
+
+### Added
+
+- Bot and deal cards: a long press on the card opens its actions menu directly, on every bot type (DCA, Grid, Combo, Hedge) and on deal cards. Reaching an action on touch no longer means hitting the small "⋮" button in the corner.
+
 ## [2.45.9] - 2026-08-21
 
 ### Fixed

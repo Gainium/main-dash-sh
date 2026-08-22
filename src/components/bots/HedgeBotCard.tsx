@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { BotActionsMenuItems } from '@/components/bots/BotActionsMenuItems';
 import { BotActionsModals } from '@/components/bots/BotActionsModals';
 import { useBotActions } from '@/hooks/useBotActions';
+import { useLongPressMenu } from '@/hooks/useLongPressMenu';
 import { Button } from '@/components/ui/button';
 import {
   BotTypeChip,
@@ -299,9 +300,21 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
     },
   });
 
+  // Mobile: a long press anywhere on the card opens the actions menu directly
+  // (the floating pill's target is small on touch).
+  const {
+    open: actionsMenuOpen,
+    setOpen: setActionsMenuOpen,
+    shouldSuppressClick,
+    longPressHandlers,
+  } = useLongPressMenu();
+
   // Click anywhere on the card body → open the drawer (view), matching the
   // regular trading-bots card. The dropdown's "Edit" item opens the full page.
-  const handleCardClick = () => navigate(viewPath);
+  const handleCardClick = () => {
+    if (shouldSuppressClick()) return;
+    navigate(viewPath);
+  };
 
   return (
     <motion.div
@@ -316,6 +329,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
       whileTap="tap"
       variants={cardHoverVariants}
       onClick={handleCardClick}
+      {...longPressHandlers}
       className={`group min-h-[120px] cursor-pointer touch-manipulation rounded-lg border-none bg-transparent p-0 shadow-none transition-colors duration-200 ${
         isSelected ? 'ring-2 ring-primary/20' : 'hover:bg-accent/5'
       }`}
@@ -333,7 +347,10 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
             className={cn(
               'absolute right-2 top-2 flex items-center gap-1 rounded-md border border-border/60 bg-muted/95 px-1 py-0.5 shadow-sm backdrop-blur-sm transition-all duration-200 ease-out z-10',
               'opacity-100 translate-x-0 pointer-events-auto',
-              'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0'
+              'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0',
+              // An open menu pins the pill in place in every breakpoint.
+              actionsMenuOpen &&
+                'sm:pointer-events-auto sm:opacity-100 sm:translate-x-0'
             )}
           >
             <button
@@ -347,7 +364,10 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
             >
               <ExternalLink className="h-4 w-4 text-muted-foreground" />
             </button>
-            <DropdownMenu>
+            <DropdownMenu
+              open={actionsMenuOpen}
+              onOpenChange={setActionsMenuOpen}
+            >
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"
