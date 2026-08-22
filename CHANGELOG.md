@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.9] - 2026-08-21
+
+### Fixed
+
+- Exchanges page: a futures account that shares its API key with a spot account (OKX / Bybit unified accounts, incl. OKX Europe X-Perps) showed a $0.00 balance and an empty allocation. The card now reads the shared balance pool recorded under the linked spot account, matching the balance the API already reports for it.
+
 ## [2.45.8] - 2026-08-21
 
 ### Fixed

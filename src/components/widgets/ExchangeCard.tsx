@@ -89,6 +89,20 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
   isRefreshing = false,
 }) => {
   const { exchanges } = useTransformedExchangesFromContext();
+  // A futures leg that shares its API key with a spot account (OKX / Bybit
+  // unified accounts, incl. OKX Europe X-Perps) is `linkedTo` that account,
+  // and the shared balance pool is only ever recorded under the SOURCE uuid —
+  // the snapshot builder skips linked legs outright
+  // (`core/src/utils/user.ts`: `.filter((ue) => !ue.linkedTo)`). Filtering the
+  // snapshot by this card's own uuid therefore matched nothing and the card
+  // read $0.00 with an empty allocation, while the backend's own `balance`
+  // field (and the legacy dashboard) resolve the link. Resolve it here too.
+  // Returns a primitive, so subscribing to the store costs no extra renders.
+  const balanceUuid = useExchangesStore((s) =>
+    exchangeId === 'ALL'
+      ? exchangeId
+      : (s.exchanges[exchangeId]?.linkedTo ?? '') || exchangeId
+  );
   const { data: p } = useGraphQL<PortfolioQuery>(
     'getPortfolioByUser',
     GraphQlQuery.getPortfolioByUser()
@@ -131,7 +145,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
       };
     }
 
-    const exchangeIds = [exchangeId];
+    const exchangeIds = [balanceUuid];
     const showAllExchanges = exchangeId === 'ALL';
 
     // Process snapshots: filter assets by exchange if necessary
@@ -216,7 +230,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
       .slice(0, 10);
 
     return { currentValue, changeValue, changePercent, chartData, breakdown };
-  }, [snapshots, exchangeId]);
+  }, [snapshots, exchangeId, balanceUuid]);
 
   const exchange =
     exchanges.find((e) => e.id === exchangeId) || exchanges[0] || null;
