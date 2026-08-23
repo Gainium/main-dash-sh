@@ -450,8 +450,21 @@ export const createDatafeed = (): IBasicDataFeed => ({
     }
 
     if (!symbol) {
+      // `currentSymbol` is a module-level global written by whichever chart
+      // last rendered, so it is only a valid answer when it IS the pair
+      // TradingView just asked for — it then carries the exchange-native
+      // `code`/`wsCode` the dynamic fallback below cannot infer. Handing it
+      // back for a DIFFERENT pair silently renders another market's candles
+      // and pins the chart there: every corrective `setSymbol` re-enters
+      // this branch and is substituted again. Charts that pass no
+      // `availableSymbols` (the bot/deal drawer market chart) hit this
+      // branch on every single resolve, so the substitution is not an edge
+      // case for them — bug #479.
       symbol =
-        availableSymbols.find((s) => pairMatches(s.pair)) || currentSymbol;
+        availableSymbols.find((s) => pairMatches(s.pair)) ??
+        (currentSymbol && pairMatches(currentSymbol.pair)
+          ? currentSymbol
+          : undefined);
     }
 
     // If still no symbol found, create a dynamic one

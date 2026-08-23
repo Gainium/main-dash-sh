@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.45.11] - 2026-08-23
+
+### Fixed
+
+- Bot and deal drawers: the price chart sometimes showed a completely different coin's candles than the bot it was opened for, and clicking a deal never corrected it. The chart now always plots the pair it was asked for instead of falling back to whichever pair another chart had loaded last.
+
 ## [2.45.10] - 2026-08-22
 
 ### Added
