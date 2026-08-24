@@ -94,12 +94,17 @@ const NumberInput = React.memo(
 
     const hasStart = Boolean(startAdornment);
 
+    // Nearly every field built on this input is a price, amount or percentage,
+    // so the mobile keypad must offer a decimal separator: `numeric` renders a
+    // digits-only keypad, leaving no way to type "0.5" on a phone. The handful
+    // of whole-number fields (grid levels, active orders) pass
+    // inputMode="numeric" themselves, and `{...props}` below overrides this.
     if (showControls) {
       return (
         <div className="relative flex items-center">
           <input
             type="text"
-            inputMode="numeric"
+            inputMode="decimal"
             value={displayValue}
             onChange={handleInputChange}
             onBlur={handleBlur}
@@ -176,7 +181,7 @@ const NumberInput = React.memo(
         <div className="relative flex items-center">
           <input
             type="text"
-            inputMode="numeric"
+            inputMode="decimal"
             value={displayValue}
             onChange={handleInputChange}
             onBlur={handleBlur}
@@ -221,7 +226,7 @@ const NumberInput = React.memo(
     return (
       <input
         type="text"
-        inputMode="numeric"
+        inputMode="decimal"
         value={displayValue}
         onChange={handleInputChange}
         onBlur={handleBlur}

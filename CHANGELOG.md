@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.46.1] - 2026-08-24
+
+### Fixed
+
+- Number fields on mobile now offer a decimal point. Prices, amounts and scale
+  fields (for example the Trading Terminal's Import "Purchased Price") opened a
+  digits-only keypad on phones, so a decimal value could only be pasted in from
+  elsewhere. Integer-only fields such as grid levels and active orders keep the
+  whole-number keypad.
+
 ## [2.46.0] - 2026-08-24
 
 ### Changed
