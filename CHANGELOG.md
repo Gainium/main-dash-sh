@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.46.3] - 2026-08-24
+
+### Fixed
+
+- The Trading Terminal's percentage buttons now use the full amount they
+  advertise. "100%" resolved to 99.925% of the stated "Max amount" because the
+  trading fee was subtracted a second time, so every preset came up slightly
+  short. Importing an existing position is also no longer capped below the
+  balance actually held: an import places no order, so no fee is charged and
+  the whole free balance can be imported — previously a 100% import left a
+  sliver of the coin behind that had to be sold by hand on the exchange.
+
 ## [2.46.2] - 2026-08-24
 
 ### Fixed
