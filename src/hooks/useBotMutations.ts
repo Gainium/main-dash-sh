@@ -1069,7 +1069,20 @@ export function useBotUpdate(type: BotTypesEnum) {
     },
     onSuccess: (data, { id }) => {
       logger.info(`[BotMutations] Successfully updated bot ${id}`);
-      toast.success('Bot settings updated successfully');
+      // Deal-based bots apply a settings save to NEW deals only — deals that
+      // are already running keep the settings they opened with, and keep their
+      // resting orders. Say so on every save, because the old behaviour was the
+      // opposite and users reasonably expect an edit to reach live deals.
+      // A grid bot has no per-deal settings, so it keeps the plain message.
+      // Forum #5044.
+      if (type === BotTypesEnum.grid) {
+        toast.success('Bot settings updated successfully');
+      } else {
+        toast.success(
+          'Bot settings saved. They apply to new deals only — deals already running keep their current settings and orders. To change a running deal, use the menu on that deal.',
+          { duration: 8000 }
+        );
+      }
 
       // No need to invalidate - WebSocket will push the updated bot to stores
     },

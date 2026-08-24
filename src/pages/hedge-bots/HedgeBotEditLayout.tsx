@@ -942,9 +942,18 @@ export const HedgeBotEditLayout: React.FC = () => {
         throw new Error(payload?.reason || 'Mutation returned NOTOK');
       }
 
-      toast.success(
-        mode === 'create' ? 'Hedge bot created' : 'Hedge bot updated'
-      );
+      // Both hedge legs delegate to changeDCABot / changeComboBot, which apply
+      // a settings save to NEW deals only — running deals keep their settings
+      // and their resting orders. Same notice as the standalone bot form.
+      // Forum #5044.
+      if (mode === 'create') {
+        toast.success('Hedge bot created');
+      } else {
+        toast.success(
+          'Hedge bot updated. Settings apply to new deals only — deals already running keep their current settings and orders. To change a running deal, use the menu on that deal.',
+          { duration: 8000 }
+        );
+      }
 
       // After create, navigate to the new bot's edit page. After edit,
       // refetch the hedge bot so each leg's `initialBot` reference

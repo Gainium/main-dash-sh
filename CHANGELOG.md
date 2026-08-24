@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.46.0] - 2026-08-24
+
+### Changed
+
+- Saving a bot's settings now tells you what the save actually does: settings apply to new deals only, deals already running keep their current settings and orders, and to change one of those you use the menu on that deal. This matches the backend change in main-app 2.83.0 — a save no longer re-targets or re-places anything on a deal that is already open. Shown on DCA, Combo and Hedge saves; a Grid bot has no per-deal settings and keeps the plain confirmation.
+
 ## [2.45.11] - 2026-08-23
 
 ### Fixed
