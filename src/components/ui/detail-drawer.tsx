@@ -799,7 +799,16 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2, ease: 'easeOut' }}
           className={cn(
-            'fixed inset-0 z-40 backdrop-blur-sm',
+            // z-[55] puts the drawer in the modal band: ABOVE the app's own
+            // chrome layer (z-50 — mobile bottom nav, sticky page headers, and
+            // the `mobileFullscreen` BotPanelLayout overlay that the Trading
+            // Terminal and the bot edit pages render at `fixed inset-0 z-50
+            // bg-background`), and BELOW dialogs (z-60) and dropdown menus
+            // (z-[70]) so anything opened FROM the drawer still stacks on top.
+            // At z-40 the drawer mounted with content but was painted under
+            // that opaque overlay, so "Edit" on a terminal deal looked like a
+            // no-op on phones.
+            'fixed inset-0 z-[55] backdrop-blur-sm',
             fullWidth ? 'bg-transparent backdrop-blur-none' : 'bg-black/50'
           )}
           onClick={handleBackdropClick}

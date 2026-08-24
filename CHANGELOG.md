@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.46.2] - 2026-08-24
+
+### Fixed
+
+- Detail drawers now open above the full-screen mobile layout. On phones, "Edit"
+  in a deal's ⋮ menu on the Trading Terminal (and the same drawers on the bot
+  edit pages) closed the menu and appeared to do nothing — the drawer was
+  opening behind the full-screen panel layout.
+
 ## [2.46.1] - 2026-08-24
 
 ### Fixed
