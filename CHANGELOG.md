@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.48.2] - 2026-08-25
+
+### Fixed
+
+- The Portfolio Value chart's tooltip reported the wrong day and value on the
+  12M range — hovering the latest point at $141k showed the 1st of the month at
+  $115k. The X axis was keyed on the visible label, which repeats (every 12M
+  point is just "Aug"), and the tooltip resolves its row by matching that label,
+  so it always found the month's first point. The axis is now keyed per point.
+  This also fixes the same mismatch on any range where several points share one
+  label, such as multiple snapshots within a single day.
+
 ## [2.48.1] - 2026-08-25
 
 ### Fixed

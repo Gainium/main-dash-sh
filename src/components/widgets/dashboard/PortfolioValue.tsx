@@ -787,6 +787,20 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     }
     // For shorter periods like 3d, keep all points as it's a short timeframe
 
+    // Give every point a unique X key. Recharts (>=3) resolves the tooltip
+    // payload for an axis-type tooltip by looking up the FIRST row whose XAxis
+    // dataKey equals the hovered tick's value — `findEntryInArray` in
+    // `combineTooltipPayload` — NOT by the hovered index. `date` is a display
+    // label and repeats: on 12M every point is just "Aug"/"Jul"/…, and on the
+    // intraday filters every point of a day shares one "Aug 24". So hovering
+    // anywhere inside a repeated label showed the first row carrying it (12M
+    // hover at $141k reported Aug 1 / $115k). Key the axis on the row index
+    // instead and render `date` through the axis tickFormatter.
+    finalChartData = finalChartData.map((point, index) => ({
+      ...point,
+      xIndex: index,
+    }));
+
     // Calculate current value and change
     const currentValue =
       finalChartData.length > 0
@@ -1041,7 +1055,10 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                   })}
                 </defs>
                 <XAxis
-                  dataKey="date"
+                  dataKey="xIndex"
+                  tickFormatter={(value: number) =>
+                    portfolioData.chartData[value]?.date ?? ''
+                  }
                   axisLine={false}
                   tickLine={false}
                   tick={{
