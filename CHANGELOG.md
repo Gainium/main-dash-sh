@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.47.1] - 2026-08-25
+
+### Fixed
+
+- Portfolio balances widget: restore the production build. `Asset.usdValue`
+  became `string | null` in 2.46.4, which intersected with the widget's own
+  `string | number` override down to `string`, so `tsc -b` rejected every row
+  the widget builds.
+
 ## [2.47.0] - 2026-08-25
 
 ### Added

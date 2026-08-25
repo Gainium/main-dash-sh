@@ -57,9 +57,14 @@ export interface PortfolioBalancesProps {
   menuActions?: WidgetMenuActions;
 }
 
-type BalanceRow = Asset & {
+// `usdValue` is *replaced*, not intersected: `Asset.usdValue` is
+// `string | null` (the venue publishes no rate), and intersecting that with
+// `string | number` collapses to `string` — which neither an `Asset` handed in
+// via `propData` nor the computed numeric valuation below can satisfy. Omit it
+// from the base and widen it here to cover both sources.
+type BalanceRow = Omit<Asset, 'usdValue'> & {
   total?: string | number;
-  usdValue?: string | number;
+  usdValue?: string | number | null;
   // No price source could value this holding - neither the venue's own rate
   // table nor the screener. Distinct from a genuine zero.
   priceUnavailable?: boolean;
@@ -136,7 +141,9 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
   }, []);
 
   const getRowTotals = useCallback(
-    (row: Asset) => {
+    // Takes the table's own row shape: every caller passes a `BalanceRow`, and
+    // a plain `Asset` still satisfies it.
+    (row: BalanceRow) => {
       const free = parseMaybeNumber(row.free);
       const locked = parseMaybeNumber(row.locked);
       const total =
