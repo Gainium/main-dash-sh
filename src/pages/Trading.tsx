@@ -74,6 +74,10 @@ import {
 import { useUIStore } from '../stores/uiStore';
 import { useBotStatsStore } from '../stores/live';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
+import {
+  ACTIVE_ONLY_DEFAULT_STATUSES,
+  dealStatusGroup,
+} from '@/lib/utils/dealStatusFilter';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import type { BotStatus, DCADeals, Prices } from '../types';
 import {
@@ -1174,8 +1178,30 @@ const Trading: React.FC = () => {
 
   // Filter trades based on showClosedTrades
   const filteredTrades = useMemo(() => {
-    const openStatuses = ['open', 'active', 'range', 'monitoring'];
-    const closedStatuses = ['closed', 'error', 'stopped', 'completed'];
+    // DCA / combo / terminal deals reach this list from hooks that send NO
+    // status filter, so the backend applies its active-only default
+    // (`open`/`start`/`error` — ACTIVE_ONLY_DEFAULT_STATUSES). The open view
+    // must therefore accept every one of those or an active deal silently
+    // disappears from Trades while the Bots tab still counts it: a single
+    // `start` deal is what made 50 active pairs render as 49 (bug #505).
+    //
+    // Grid bots enter the same list carrying their raw BOT status and are
+    // already filtered server-side via `gridBotStatus`, so their statuses are
+    // unioned in separately. `error` deliberately appears in BOTH groups: an
+    // errored DEAL is still active, while an errored GRID BOT is fetched as
+    // part of the closed set.
+    const openStatuses = [
+      ...ACTIVE_ONLY_DEFAULT_STATUSES,
+      'active',
+      'range',
+      'monitoring',
+    ];
+    const closedStatuses = [
+      ...(dealStatusGroup(DCADealStatusEnum.closed) ?? []),
+      'error',
+      'stopped',
+      'completed',
+    ];
 
     if (showClosedTrades) {
       return allTradesUnfiltered.filter((trade) =>

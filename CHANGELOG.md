@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.48.4] - 2026-08-25
+
+### Fixed
+
+- The Trades tab on Trading / All Trading no longer under-counts active deals.
+  Deals that were still opening (`start`) or had errored (`error`) were dropped
+  from the list even though the Bots tab counted them, so a bot with 50 active
+  pairs could show only 49 trades. The tab now keeps every deal status the
+  backend actually returns for the open view.
+
 ## [2.48.3] - 2026-08-25
 
 ### Fixed
