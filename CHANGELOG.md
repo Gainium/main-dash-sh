@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.47.6] - 2026-08-25
+
+### Fixed
+
+- Collapsing a sidebar group that contained the page you were on did nothing:
+  the chevron flipped direction but the group stayed expanded. Viewing a
+  dashboard kept the Dashboards group permanently open, and the same applied
+  to the Trading and Tools section headers. An explicit collapse is now
+  respected; groups still auto-expand by default to reveal the current page
+  until you toggle them yourself. The chevron also points the right way on
+  first load, and collapsing now takes one click instead of two.
+
 ## [2.47.5] - 2026-08-25
 
 ### Fixed

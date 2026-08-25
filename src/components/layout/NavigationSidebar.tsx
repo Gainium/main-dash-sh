@@ -54,7 +54,6 @@ import { TradingModeIcon } from '../common/TradingModeIcon';
 import {
   getNavigationSections,
   type NavigationItem,
-  type NavigationSection,
 } from './navigationConfig';
 import SidebarNavEditor, {
   type EditorItem,
@@ -195,8 +194,15 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
     (s) => s.navigationSidebarSections
   );
   const navigationSubmenuItems = useUIStore((s) => s.navigationSubmenuItems);
-  const toggleNavigationSection = useUIStore((s) => s.toggleNavigationSection);
-  const toggleNavigationSubmenu = useUIStore((s) => s.toggleNavigationSubmenu);
+  // Explicit setters, not the raw toggles: a group the user has never
+  // touched is absent from the store, so `!undefined` resolves to "open"
+  // and the first click on an already-open group does nothing visible.
+  const setNavigationSectionOpen = useUIStore(
+    (s) => s.setNavigationSectionOpen
+  );
+  const setNavigationSubmenuOpen = useUIStore(
+    (s) => s.setNavigationSubmenuOpen
+  );
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
   const tradingMode = useUIStore((s) => s.tradingMode);
   const navigationSidebarPinned = useUIStore((s) => s.navigationSidebarPinned);
@@ -364,7 +370,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   const openSubmenus = navigationSubmenuItems;
 
   const toggleSection = (sectionKey: string) => {
-    toggleNavigationSection(sectionKey);
+    setNavigationSectionOpen(sectionKey, !(openSections[sectionKey] ?? true));
   };
 
   const isExpanded = isMobileVariant
@@ -482,22 +488,18 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
 
   // Helper function to check if a section should be visible
   // Corrected: sections always visible when not hovering (to show icons), controlled by state when hovering
-  const isSectionVisible = (sectionKey: string, section: NavigationSection) => {
+  const isSectionVisible = (sectionKey: string) => {
     // Sections the user hasn't explicitly toggled stay open. Without this
     // fallback any section whose key isn't in `defaultNavigationSections`
     // would collapse on hover even though the icons show while collapsed.
     const isOpen = openSections[sectionKey] ?? true;
-    const hasActiveChild = section.items.some((item: NavigationItem) => {
-      const isItemActiveNow = isItemActive(item);
-      const hasActiveSubChild =
-        item.children &&
-        item.children.some((child: NavigationItem) => isItemActive(child));
-      return isItemActiveNow || hasActiveSubChild;
-    });
 
     if (isExpanded) {
-      // When expanded (hovered or pinned), show sections based on their state or if they have active children
-      return isOpen || hasActiveChild;
+      // When expanded (hovered or pinned), the user's explicit toggle is
+      // authoritative. This used to OR in "has an active child", which
+      // pinned the section holding the current page permanently open --
+      // the chevron flipped but the section never collapsed.
+      return isOpen;
     } else {
       // When collapsed (not hovered), keep sections open so icons are visible
       return true;
@@ -513,8 +515,11 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
       item.children.some((child: NavigationItem) => isItemActive(child));
 
     if (isExpanded) {
-      // When expanded (hovered or pinned), show submenus based on their state or if they have active children
-      return isOpen || hasActiveChild;
+      // When expanded (hovered or pinned), an explicit user toggle wins;
+      // auto-opening on an active child is only the DEFAULT for a submenu
+      // the user has never touched. This used to OR the two, so the group
+      // holding the current page could never be collapsed.
+      return isOpen ?? Boolean(hasActiveChild);
     } else {
       // When collapsed (not hovered), hide all submenus to save space
       return false;
@@ -971,7 +976,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                             toggleSection(section.id)
                           }
                         >
-                          {openSections[section.id] ? (
+                          {(openSections[section.id] ?? true) ? (
                             <ChevronDown className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
                           ) : (
                             <ChevronRight className="w-4 h-4 text-muted-foreground hover:text-foreground transition-colors" />
@@ -985,7 +990,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                   <div
                     className={`overflow-hidden transition-all duration-300 ease-in-out ${
                       section.title
-                        ? isSectionVisible(section.id, section)
+                        ? isSectionVisible(section.id)
                           ? 'max-h-[2000px] opacity-100'
                           : 'max-h-0 opacity-0'
                         : 'max-h-[2000px] opacity-100'
@@ -994,10 +999,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                     <div
                       className={`${section.title ? 'mt-2' : 'mt-0'} transform transition-transform duration-300 ease-in-out ${
                         section.title
-                          ? isSectionVisible(
-                              section.id,
-                              section
-                            )
+                          ? isSectionVisible(section.id)
                             ? 'translate-y-0'
                             : '-translate-y-2'
                           : 'translate-y-0'
@@ -1022,7 +1024,11 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                         const itemKey = item.label
                           .toLowerCase()
                           .replace(/\s+/g, '-');
-                        const isSubmenuOpen = openSubmenus[itemKey];
+                        // Mirror `isSubmenuVisible`'s default so the chevron
+                        // direction matches what is actually rendered before
+                        // the user has ever toggled this group.
+                        const isSubmenuOpen =
+                          openSubmenus[itemKey] ?? hasActiveChild;
                         const shortcutId = getShortcutIdForItem(item);
 
                         // Recent-visits behavior for top-level bot items
@@ -1109,7 +1115,10 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                 onClick={(e) => {
                                   if (hasSubmenu && !item.href) {
                                     e.preventDefault();
-                                    toggleNavigationSubmenu(itemKey);
+                                    setNavigationSubmenuOpen(
+                                      itemKey,
+                                      !isSubmenuOpen
+                                    );
                                     return;
                                   }
                                   if (shortcutId)
@@ -1142,7 +1151,10 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                       onClick={(e) => {
                                         if (hasSubmenu && !item.href) {
                                           e.preventDefault();
-                                          toggleNavigationSubmenu(itemKey);
+                                          setNavigationSubmenuOpen(
+                                            itemKey,
+                                            !isSubmenuOpen
+                                          );
                                           return;
                                         }
                                         if (shortcutId)
@@ -1200,7 +1212,10 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                       <button
                                         onClick={(e) => {
                                           e.preventDefault();
-                                          toggleNavigationSubmenu(itemKey);
+                                          setNavigationSubmenuOpen(
+                                            itemKey,
+                                            !isSubmenuOpen
+                                          );
                                         }}
                                         data-size="icon"
                                         className="flex items-center justify-center w-4 h-4 hover:bg-muted/50 rounded transition-colors duration-200"
