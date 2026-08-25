@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import React from 'react';
 import {
   BarChart,
@@ -25,12 +26,17 @@ const BuyAndHoldChart: React.FC<BuyAndHoldChartProps> = ({
   data,
   height = 300,
 }) => {
-  // Transform data for the chart
-  const chartData = data.map((item, index) => ({
-    name: item.name || `Backtest ${index + 1}`,
-    strategy: item.annualizedReturn || 0,
-    buyAndHold: item.buyAndHoldReturn || 0,
-  }));
+  // Two backtests can carry the same name, and recharts resolves an axis
+  // tooltip by matching the axis value — so a duplicate name would show the
+  // first one's bars for both. Key the axis on the row index instead
+  // (`withAxisIndex`) and render the name through the tick/label formatters.
+  const chartData = withAxisIndex(
+    data.map((item, index) => ({
+      name: item.name || `Backtest ${index + 1}`,
+      strategy: item.annualizedReturn || 0,
+      buyAndHold: item.buyAndHoldReturn || 0,
+    }))
+  );
 
   return (
     <div className="w-full">
@@ -46,7 +52,7 @@ const BuyAndHoldChart: React.FC<BuyAndHoldChartProps> = ({
         >
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis
-            dataKey="name"
+            {...axisIndexProps(chartData, (item) => item.name)}
             angle={-45}
             textAnchor="end"
             height={80}
@@ -65,6 +71,7 @@ const BuyAndHoldChart: React.FC<BuyAndHoldChartProps> = ({
           />
           <Tooltip
             content={<CustomTooltip />}
+            labelFormatter={(value: number) => chartData[value]?.name ?? ''}
             cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
           />
           <Legend />

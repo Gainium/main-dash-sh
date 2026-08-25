@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { Target, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
 import React, { useMemo } from 'react';
 import {
@@ -71,12 +72,17 @@ export const ProfitInsights: React.FC<ProfitInsightsProps> = ({
   formatAmount,
   formatDateTime,
 }) => {
+  // `label` is a formatted timestamp and can repeat across points; recharts
+  // resolves an axis tooltip by matching the axis value, so key the axis on
+  // the row index instead — see `withAxisIndex`.
   const chartData = useMemo(
     () =>
-      data.map((point) => ({
-        ...point,
-        label: formatDateTime(point.time),
-      })),
+      withAxisIndex(
+        data.map((point) => ({
+          ...point,
+          label: formatDateTime(point.time),
+        }))
+      ),
     [data, formatDateTime]
   );
 
@@ -195,7 +201,7 @@ export const ProfitInsights: React.FC<ProfitInsightsProps> = ({
                   vertical={false}
                 />
                 <XAxis
-                  dataKey="label"
+                  {...axisIndexProps(chartData, (point) => point.label)}
                   tick={{
                     fill: 'oklch(var(--muted-foreground))',
                     fontSize: 10,

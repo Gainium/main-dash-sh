@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import React from 'react';
 import {
   BarChart,
@@ -32,14 +33,19 @@ const PerformanceMetricsChart: React.FC<PerformanceMetricsChartProps> = ({
   data,
   height = 300,
 }) => {
-  // Transform data for the chart
-  const chartData = data.map((item, index) => ({
-    name: item.name || `Backtest ${index + 1}`,
-    sharpe: item.sharpe || 0,
-    sortino: item.sortino || 0,
-    cwr: item.cwr || 0,
-    profitFactor: item.profitFactor || 0,
-  }));
+  // Two backtests can carry the same name, and recharts resolves an axis
+  // tooltip by matching the axis value — so a duplicate name would show the
+  // first one's bars for both. Key the axis on the row index instead
+  // (`withAxisIndex`) and render the name through the tick/label formatters.
+  const chartData = withAxisIndex(
+    data.map((item, index) => ({
+      name: item.name || `Backtest ${index + 1}`,
+      sharpe: item.sharpe || 0,
+      sortino: item.sortino || 0,
+      cwr: item.cwr || 0,
+      profitFactor: item.profitFactor || 0,
+    }))
+  );
 
   const metrics = [
     { key: 'sharpe', name: 'Sharpe Ratio', color: COLORS.sharpe },
@@ -62,7 +68,7 @@ const PerformanceMetricsChart: React.FC<PerformanceMetricsChartProps> = ({
         >
           <CartesianGrid strokeDasharray="3 3" className="opacity-30" />
           <XAxis
-            dataKey="name"
+            {...axisIndexProps(chartData, (item) => item.name)}
             angle={-45}
             textAnchor="end"
             height={80}
@@ -73,6 +79,7 @@ const PerformanceMetricsChart: React.FC<PerformanceMetricsChartProps> = ({
           <YAxis fontSize={12} className="text-muted-foreground" />
           <Tooltip
             content={<CustomTooltip />}
+            labelFormatter={(value: number) => chartData[value]?.name ?? ''}
             cursor={{ fill: 'rgba(0, 0, 0, 0.1)' }}
           />
 

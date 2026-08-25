@@ -1,4 +1,5 @@
 import { cardHoverVariants } from '@/lib/animations/variants';
+import { AXIS_INDEX_KEY, withAxisIndex } from '@/lib/charts/axisIndex';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
@@ -183,11 +184,15 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
         .filter((p) => Number.isFinite(p.time) && Number.isFinite(p.equity))
         .sort((a, b) => (a.time as number) - (b.time as number));
 
-      return sanitized.map((p) => ({
-        time: p.time as number,
-        equity: p.equity as number,
-        formattedTime: new Date(p.time as number).toLocaleDateString(),
-      }));
+      // `formattedTime` is a day string, so an intraday equity series repeats
+      // it — key the axis on the row index instead (see `withAxisIndex`).
+      return withAxisIndex(
+        sanitized.map((p) => ({
+          time: p.time as number,
+          equity: p.equity as number,
+          formattedTime: new Date(p.time as number).toLocaleDateString(),
+        }))
+      );
     }
 
     /*  if (!botDeals || botDeals.length === 0) return [];
@@ -675,15 +680,21 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                           />
                         </linearGradient>
                       </defs>
-                      <XAxis dataKey="formattedTime" hide />
+                      <XAxis dataKey={AXIS_INDEX_KEY} hide />
                       <YAxis domain={['auto', 'auto']} hide />
                       <Tooltip
-                        content={({ active, payload, label }) => {
+                        content={({ active, payload }) => {
                           if (active && payload && payload.length) {
                             return (
                               <div className="bg-popover rounded-lg shadow-lg p-2">
                                 <p className="text-xs text-muted-foreground">
-                                  {label}
+                                  {
+                                    (
+                                      payload[0]?.payload as
+                                        | { formattedTime?: string }
+                                        | undefined
+                                    )?.formattedTime
+                                  }
                                 </p>
                                 <p className="text-sm font-semibold">
                                   Bot Equity: $

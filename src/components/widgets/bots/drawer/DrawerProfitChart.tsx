@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { BarChart3 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import {
@@ -348,7 +349,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       difference,
       differencePercent,
       avgDaily,
-      chartData,
+      // `date` is a display label ("Aug 24", "W34") that repeats across years
+      // and buckets; recharts resolves an axis tooltip by matching the axis
+      // value, so the axis is keyed on the row index — see `withAxisIndex`.
+      chartData: withAxisIndex(chartData),
     };
   }, [botDeals, bot, timeFilter, showBuyAndHold]);
 
@@ -526,7 +530,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                   opacity={0.3}
                 />
                 <XAxis
-                  dataKey="date"
+                  {...axisIndexProps(
+                    currentProfitData.chartData,
+                    (point) => point.date
+                  )}
                   axisLine={false}
                   tickLine={false}
                   tick={{

@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { useMemo } from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -66,7 +67,7 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
 
     if (step === 0) {
       categories.push({ name: `= ${math.round(min)}%`, value: 100 });
-      return categories;
+      return withAxisIndex(categories);
     }
 
     for (let i = min; i <= max + step / 2; i += step) {
@@ -89,7 +90,10 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
       });
     }
 
-    return categories;
+    // Bucket edges are rounded for display, so two adjacent buckets can carry
+    // the same label on a narrow return range — key the axis on the row index
+    // (`withAxisIndex`) or the tooltip resolves to the first of them.
+    return withAxisIndex(categories);
   }, [backtest.deals]);
 
   const periodicStats = useMemo(
@@ -123,7 +127,10 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
                 >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis
-                    dataKey="name"
+                    {...axisIndexProps(
+                      returnDistribution,
+                      (bucket) => bucket.name
+                    )}
                     angle={-45}
                     textAnchor="end"
                     height={80}
@@ -140,6 +147,9 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
                       <CustomTooltip
                         valueFormatter={(value, name) => [`${value}%`, name]}
                       />
+                    }
+                    labelFormatter={(value: number) =>
+                      returnDistribution[value]?.name ?? ''
                     }
                   />
                   <Bar

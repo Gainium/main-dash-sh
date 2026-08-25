@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
 import type { GridCurrency } from '@/types/bots/grid/data';
@@ -256,15 +257,20 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
     enabled: !!actualBotId,
   });
 
-  // Build chart data mapped to the selected currency, with empty-day fill
+  // Build chart data mapped to the selected currency, with empty-day fill.
+  // `date` is a display label ("Aug 24", "Aug", "2026-W34") that can repeat
+  // across the range, and recharts resolves an axis tooltip by matching the
+  // axis value — so the axis is keyed on the row index (`withAxisIndex`).
   const chartData = useMemo(
     () =>
-      buildChartData(
-        profitEntries,
-        currency,
-        profitCurrency,
-        latestPrice,
-        TIMEFRAME_MAP[timeframe]
+      withAxisIndex(
+        buildChartData(
+          profitEntries,
+          currency,
+          profitCurrency,
+          latestPrice,
+          TIMEFRAME_MAP[timeframe]
+        )
       ),
     [profitEntries, currency, profitCurrency, latestPrice, timeframe]
   );
@@ -443,7 +449,7 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                   opacity={0.3}
                 />
                 <XAxis
-                  dataKey="date"
+                  {...axisIndexProps(chartData, (point) => point.date)}
                   axisLine={false}
                   tickLine={false}
                   tick={{

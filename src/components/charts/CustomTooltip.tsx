@@ -57,9 +57,11 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({
 
   // Default label formatter that handles dates automatically
   const defaultLabelFormatter = (labelValue: unknown): React.ReactNode => {
-    if (!labelValue) return '';
-
-    // First, check if any payload has raw date data we can use instead of the formatted label
+    // The payload check runs FIRST: charts that key their X axis on the row
+    // index (see `withAxisIndex` — recharts resolves an axis tooltip by
+    // matching the axis value, so repeated labels resolve to the wrong row)
+    // hand us a numeric label, and index 0 is falsy. Bailing on falsy before
+    // reading the row's own date blanked the date line on the first point.
     if (payload && payload.length > 0) {
       const firstPayload = payload[0];
       const payloadData = firstPayload.payload;
@@ -85,6 +87,8 @@ const CustomTooltip: React.FC<CustomTooltipProps> = ({
         }
       }
     }
+
+    if (labelValue == null || labelValue === '') return '';
 
     const labelStr = String(labelValue);
 

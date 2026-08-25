@@ -1,4 +1,5 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import {
     AdjustFundsDialog,
     ChangeDcaLevelsDialog,
@@ -551,7 +552,11 @@ const EnhancedCard = React.memo(
       let si = 0;
       let cost = 0;
       let qty = 0;
-      return priceData.map((p) => {
+      // `time` is a display label ("14:30" intraday, "Aug 24" otherwise) and
+      // repeats across days/years, so the axis is keyed on the row index
+      // instead — see `withAxisIndex`.
+      return withAxisIndex(
+        priceData.map((p) => {
         let buyFilledHere = false;
         while (fi < fills.length && fills[fi].ts <= p.ts) {
           cost += fills[fi].price * fills[fi].qty;
@@ -570,13 +575,14 @@ const EnhancedCard = React.memo(
         // One marker per candle per side (i.e. per level-per-bar already, since a
         // candle carries a single price): drawing every candle's fill is the
         // accurate representation and never drops a bar.
-        return {
-          ...p,
-          tp,
-          fillMarker: buyFilledHere ? p.price : null,
-          sellMarker: sellFilledHere ? p.price : null,
-        };
-      });
+          return {
+            ...p,
+            tp,
+            fillMarker: buyFilledHere ? p.price : null,
+            sellMarker: sellFilledHere ? p.price : null,
+          };
+        })
+      );
     }, [priceData, orders, topLine, trade.entryPrice, trade.avgPrice]);
 
     // Y-axis domain. Zoom from the TOP anchor (entry / TP / evolving TP / candle
@@ -1422,7 +1428,7 @@ const EnhancedCard = React.memo(
                             stroke: 'var(--color-muted-foreground)',
                             strokeDasharray: '3 3',
                           }}
-                          content={({ active, payload, label }) => {
+                          content={({ active, payload }) => {
                             if (!active || !payload || payload.length === 0) {
                               return null;
                             }
@@ -1433,11 +1439,11 @@ const EnhancedCard = React.memo(
                               payload[0];
                             const price = Number(pricePoint?.value);
                             if (!Number.isFinite(price)) return null;
+                            // The axis is keyed on the row index, so read the
+                            // display time off the row rather than the label.
                             const when =
-                              (typeof label === 'string' && label) ||
                               (pricePoint?.payload as { time?: string })
-                                ?.time ||
-                              '';
+                                ?.time || '';
                             const pnl = isLongTrade
                               ? (price - avgEntry) * positionSize
                               : (avgEntry - price) * positionSize;
@@ -1485,7 +1491,7 @@ const EnhancedCard = React.memo(
                         />
 
                         <XAxis
-                          dataKey="time"
+                          {...axisIndexProps(chartData, (point) => point.time)}
                           axisLine={false}
                           tickLine={false}
                           tick={{

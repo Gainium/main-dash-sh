@@ -366,7 +366,14 @@ export const Profit: React.FC<ProfitProps> = ({
                   (24 * 60 * 60 * 1000)
               );
               const weekNum = Math.max(1, Math.floor(daysDiff / 7) + 1);
-              timeSeries.push({ date: `${year}-${weekNum}`, value: 0 });
+              // Same guard as the trailing fill below: our week arithmetic and
+              // the backend's week key can name the same week, and a repeated
+              // `date` makes the chart's tooltip resolve to the first row
+              // carrying it rather than the hovered one.
+              const weekDate = `${year}-${weekNum}`;
+              if (!timeSeries.find((entry) => entry.date === weekDate)) {
+                timeSeries.push({ date: weekDate, value: 0 });
+              }
             }
 
             timeSeries.push({ date: item.date, value: getValue(item) });

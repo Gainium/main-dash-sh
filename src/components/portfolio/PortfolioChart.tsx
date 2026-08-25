@@ -1,3 +1,4 @@
+import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { ProfitBadge, ProfitValue } from '@/components/ui/ProfitValue';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api';
@@ -83,24 +84,28 @@ export const PortfolioChart: React.FC = () => {
       return [];
     }
 
-    // Convert snapshots to chart data
-    return snapshots
-      .slice(-30)
-      .map((snapshot) => {
-        // Show last 30 data points
-        const date = new Date(snapshot.updateTime);
-        const dateString = date.toLocaleDateString('en-US', {
-          month: 'short',
-          day: 'numeric',
-        });
+    // `date` is a "Aug 24" display label and repeats whenever two snapshots
+    // land on the same day, so the axis is keyed on the row index instead —
+    // see `withAxisIndex`.
+    return withAxisIndex(
+      snapshots
+        .slice(-30)
+        .map((snapshot) => {
+          // Show last 30 data points
+          const date = new Date(snapshot.updateTime);
+          const dateString = date.toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+          });
 
-        return {
-          date: dateString,
-          value: snapshot.totalUsd,
-          updateTime: snapshot.updateTime,
-        };
-      })
-      .sort((a, b) => a.updateTime - b.updateTime);
+          return {
+            date: dateString,
+            value: snapshot.totalUsd,
+            updateTime: snapshot.updateTime,
+          };
+        })
+        .sort((a, b) => a.updateTime - b.updateTime)
+    );
   };
 
   const statsData = getPortfolioStats();
@@ -221,7 +226,7 @@ export const PortfolioChart: React.FC = () => {
                   </linearGradient>
                 </defs>
                 <XAxis
-                  dataKey="date"
+                  {...axisIndexProps(chartData, (point) => point.date)}
                   axisLine={false}
                   tickLine={false}
                   tick={{

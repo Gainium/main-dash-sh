@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.48.3] - 2026-08-25
+
+### Fixed
+
+- Swept the rest of the charts for the same wrong-point tooltip fixed in 2.48.2.
+  Recharts matches a hovered tooltip to its row by the X axis value, so any
+  chart whose axis label repeats reported the first row carrying that label
+  instead of the one under the cursor. Corrected on the bot card equity
+  sparkline (one label per day, many points per day), the deal price chart
+  (a time of day recurs every day), the bot and grid profit charts, grid profit
+  insights, the backtest return distribution and buy-and-hold / performance
+  comparisons (two backtests can share a name), the report histogram, the
+  manual-backtesting equity curve, the Fear & Greed chart, and the portfolio
+  page chart. Weekly profit no longer emits a duplicate week when filling gaps.
+- Chart tooltips no longer drop the date line on the first point of a series.
+
 ## [2.48.2] - 2026-08-25
 
 ### Fixed
