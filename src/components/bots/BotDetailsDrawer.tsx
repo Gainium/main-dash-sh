@@ -104,6 +104,12 @@ import StaleIndicator from '../widgets/shared/StaleIndicator';
 import { BotErrorWarningAlert } from './BotErrorWarningAlert';
 import { getDrawerWidgetsForBot } from './drawerWidgetConfig';
 import { UnfoldingChartPanel } from './panels/contents';
+import { TVChartPicker } from '@/components/widgets/shared/TradingViewChart';
+import type { TradingViewChartRef } from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
+import {
+  TradingTerminalUtilsProvider,
+  useTradingTerminalUtils,
+} from '@/context/TradingTerminalUtilsContext';
 import HedgeOverviewPanel from './panels/HedgeOverviewPanel';
 import { HedgeSharedSettingsCard } from './panels/HedgeSharedSettingsCard';
 import { useHedgeDeals } from '@/hooks/useHedgeDeals';
@@ -263,7 +269,7 @@ type BotTab =
   | 'settings'
   | 'webhook';
 
-export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
+const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
   ({
     bot,
     type,
@@ -282,6 +288,17 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     fullWidth = false,
   }) => {
     const privacyMode = useMemo(() => _privacyMode ?? false, [_privacyMode]);
+    // Chart-price picking. The provider is mounted by the exported wrapper
+    // below so that BOTH panels sit under it: the left panel owns the chart and
+    // the right panel hosts the Edit Deal form whose bullseyes drive it. A
+    // provider mounted inside either panel alone would leave the other reading
+    // a different context and the picker would never fire.
+    const chartWidgetRef = useRef<TradingViewChartRef | null>(null);
+    const {
+      activePickerField,
+      handleChartPick,
+      onActiveChanged: onPickerActiveChanged,
+    } = useTradingTerminalUtils();
     const isHedge = !!hedge;
     const isGrid = useMemo(() => type === BotTypesEnum.grid, [type]);
     // View state: 'bot' or 'trade' or 'edit-deal'
@@ -292,6 +309,9 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     );
     const [editingTrade, setEditingTrade] = useState<DCADeals[] | null>(null);
     const [chartTrade, setChartTrade] = useState<TradeDetails | null>(null);
+    // Declared with the other view state: `handleEditDeal` (above the old
+    // declaration site) points the chart at the edited deal's pair.
+    const [dealSymbol, setDealSymbol] = useState<string | null>(null);
 
     // Hedge bots reuse this drawer with `legSwitcher` swapping the `bot`
     // prop between the long and short leg (different `_id`s). When that
@@ -767,7 +787,21 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const handleEditDeal = useCallback((deal: DCADeals[]) => {
       setEditingTrade(deal);
       setViewMode('edit-deal');
-      setChartTrade(null);
+      // Keep the chart annotated with the deal being edited, and point it at
+      // that deal's pair. This used to clear `chartTrade`, which made
+      // `chartDealId` empty — so the effect below wiped `exampleOrdersStore`
+      // and the Edit Deal view sat next to a bare chart: no entry, no TP/SL,
+      // nothing to drag. A mass edit has no single deal to plot, so it still
+      // clears.
+      if (deal.length === 1 && deal[0]) {
+        setChartTrade({ id: deal[0]._id } as TradeDetails);
+        const symbol = deal[0].symbol?.symbol;
+        if (symbol) {
+          setDealSymbol(symbol);
+        }
+      } else {
+        setChartTrade(null);
+      }
     }, []);
 
     // Bot status management
@@ -841,7 +875,6 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       handleDrawerOpenChange(false);
     };
 
-    const [dealSymbol, setDealSymbol] = useState<string | null>(null);
     const isMobile = useMediaQuery('(max-width: 767px)');
     const dealWidget = useMemo(
       () => drawerWidgets.filter((w) => w.type === 'drawer-deals-table'),
@@ -1138,9 +1171,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           .filter((o) => {
             // Grid bots don't have deals — show all orders on the chart
             if (isGrid) return true;
-            return chartTrade?.id
-              ? o.dealId === chartTrade.id
-              : o.dealId === selectedTrade?.id;
+            return o.dealId === chartDealId;
           })
           .map((o) => ({
             qty: +o.origQty,
@@ -1165,13 +1196,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           })),
         ...dealProjectedOrders,
       ],
-      [
-        pendingOrders,
-        selectedTrade?.id,
-        chartTrade?.id,
-        isGrid,
-        dealProjectedOrders,
-      ]
+      [pendingOrders, chartDealId, isGrid, dealProjectedOrders]
     );
 
     const chartTransactions = useMemo(
@@ -1180,9 +1205,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
           .filter((o) => {
             // Grid bots don't have deals — show all transactions on the chart
             if (isGrid) return true;
-            return chartTrade?.id
-              ? o.dealId === chartTrade.id
-              : o.dealId === selectedTrade?.id;
+            return o.dealId === chartDealId;
           })
           .map((o) => ({
             price: +o.price,
@@ -1191,7 +1214,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
             id: o.id,
             time: o.time,
           })),
-      [completedOrders, selectedTrade?.id, chartTrade?.id, isGrid]
+      [completedOrders, chartDealId, isGrid]
     );
 
     // Breakeven line for the selected deal. Grid bots use their own
@@ -1200,23 +1223,44 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const chartAvgPrices = useMemo<AvgPrice[]>(() => {
       if (isGrid) return [];
       const target = chartTrade ?? selectedTrade;
-      if (!target?.avgPrice || target.avgPrice <= 0) return [];
+      // `chartTrade` is often a bare `{ id }` stub (auto-select, and the
+      // edit-deal handler), so read the breakeven off the store copy first and
+      // fall back to the TradeDetails only when there is no store entry.
+      const avgPrice = chartRawDeal?.avgPrice ?? target?.avgPrice;
+      if (!avgPrice || avgPrice <= 0) return [];
+      const rawSymbol = chartRawDeal?.symbol?.symbol ?? target?.symbol;
       const symbol =
-        typeof target.symbol === 'string'
-          ? target.symbol
-          : target.symbol.symbol;
+        typeof rawSymbol === 'string' ? rawSymbol : rawSymbol?.symbol;
+      if (!symbol) return [];
       return [
         {
-          price: target.avgPrice,
+          price: avgPrice,
           label: 'Breakeven',
           symbol,
         },
       ];
-    }, [isGrid, chartTrade, selectedTrade]);
+    }, [isGrid, chartTrade, selectedTrade, chartRawDeal]);
+
+    // The Edit Deal form only takes over the chart's order lines when it is
+    // actually feeding them — which needs the chart panel to be there. With the
+    // left panel collapsed there is no chart, `chartSync` is off, and the form
+    // pushes nothing; suppressing our own write in that case would leave the
+    // lines frozen. One flag drives both sides so they cannot disagree.
+    const dealEditFeedsChart =
+      viewMode === 'edit-deal' && !isLeftPanelCollapsed;
 
     useEffect(() => {
-      if (isGrid || chartTrade || selectedTrade) {
-        exampleOrdersStore.setOrders(chartOrders);
+      if (isGrid || chartDealId) {
+        // While the Edit Deal form is open it owns `orders`: it recomputes them
+        // from the settings being typed (BotFormProvider `feedChart`), so the
+        // lines track the form instead of the deal's saved state. Writing our
+        // static set here would race that recompute and the lines would flicker
+        // back to the saved values on every keystroke. `transactions` and
+        // `avgPrices` survive the recompute, so they stay ours — the fills and
+        // the breakeven line keep showing.
+        if (!dealEditFeedsChart) {
+          exampleOrdersStore.setOrders(chartOrders);
+        }
         exampleOrdersStore.setTransactions(chartTransactions);
         exampleOrdersStore.setAvgPrices(chartAvgPrices);
       } else {
@@ -1231,8 +1275,8 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       };
     }, [
       isGrid,
-      chartTrade,
-      selectedTrade,
+      chartDealId,
+      dealEditFeedsChart,
       chartOrders,
       chartTransactions,
       chartAvgPrices,
@@ -1311,10 +1355,27 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
               enabled
               className="h-full"
               overrideSymbol={dealSymbol}
+              chartRef={chartWidgetRef}
+            />
+            {/* Makes the TP/SL bullseyes in the Edit Deal form resolve a click
+                on THIS chart to a price. Only armed while a picker is active,
+                so normal chart interaction is untouched. */}
+            <TVChartPicker
+              chartRef={chartWidgetRef}
+              isActive={!!activePickerField}
+              onPick={handleChartPick}
+              onActiveChange={onPickerActiveChanged}
             />
           </div>
         ),
-      [isLeftPanelCollapsed, bot, dealSymbol]
+      [
+        isLeftPanelCollapsed,
+        bot,
+        dealSymbol,
+        activePickerField,
+        handleChartPick,
+        onPickerActiveChanged,
+      ]
     );
 
     const leftPanelClassName = useMemo(
@@ -2050,6 +2111,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   trade={editingTrade}
                   botType={type}
                   inline
+                  chartSync={dealEditFeedsChart}
                 >
                   <div />
                 </DealEditDrawer>
@@ -2224,4 +2286,17 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
       </DetailDrawer>
     );
   }
+);
+
+/**
+ * The drawer, wrapped in the chart-picker context.
+ *
+ * `TradingTerminalUtilsProvider` has to sit ABOVE the drawer's two panels: the
+ * bullseye lives in the Edit Deal form (right panel) and the chart it picks
+ * from is the left panel. They only talk if they share one provider.
+ */
+export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = (props) => (
+  <TradingTerminalUtilsProvider>
+    <BotDetailsDrawerInner {...props} />
+  </TradingTerminalUtilsProvider>
 );

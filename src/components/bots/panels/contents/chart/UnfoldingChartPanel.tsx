@@ -3,6 +3,7 @@ import {
   useEffect,
   useMemo,
   useState,
+  type Ref,
   /*  type ReactElement, */
 } from 'react';
 
@@ -30,7 +31,9 @@ import {
   YAxis,
 } from 'recharts';
 
-import TradingViewChart from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
+import TradingViewChart, {
+  type TradingViewChartRef,
+} from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import {
   ExchangeIntervals,
@@ -55,6 +58,13 @@ export interface UnfoldingChartPanelProps {
   onPanelMenuChange?: (menu: PanelMenuConfig | null) => void;
   overrideSymbol?: string | null;
   overrideExchange?: string | null;
+  /**
+   * Handle on the underlying TradingView widget. The bot drawer needs it to
+   * mount a `TVChartPicker` over this chart so the TP/SL bullseyes in the Edit
+   * Deal form can resolve a click to a price. Only set when the market chart
+   * (not the equity/recharts fallback) is what's rendered.
+   */
+  chartRef?: Ref<TradingViewChartRef>;
 }
 
 const DEFAULT_TIMEFRAME: TimeframeKey = 'all';
@@ -138,6 +148,7 @@ const UnfoldingChartPanel = ({
   onPanelMenuChange,
   overrideSymbol,
   overrideExchange,
+  chartRef,
 }: UnfoldingChartPanelProps) => {
   const resolvedBotIdentifier = botId ?? bot?.id ?? null;
   const persistenceKey = getTimeframeStorageKey(resolvedBotIdentifier);
@@ -703,6 +714,7 @@ const UnfoldingChartPanel = ({
           <div className="flex h-full flex-col">
             <div className="h-full flex-1">
               <TradingViewChart
+                ref={chartRef}
                 symbol={marketChartSymbol}
                 interval={interval}
                 onIntervalChange={handleIntervalChange}

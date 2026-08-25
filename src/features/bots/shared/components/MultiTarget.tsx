@@ -33,7 +33,15 @@ type MultiTargetProps = {
   minSlToUse: number;
   totalTargets: number;
   previousTargetValue?: number;
-  isTerminal?: boolean;
+  /**
+   * Enables the absolute-price row: a price input for the target plus the
+   * chart bullseye picker. This is a CAPABILITY, not a bot type — it is on
+   * wherever the form has a single meaningful reference price and a chart to
+   * pick from (the Trading Terminal, and editing one specific deal). Callers
+   * derive it once (see `supportsPriceTargets` in TakeProfit/StopLossSettings)
+   * rather than each passing their own mode boolean.
+   */
+  showPriceTargets?: boolean;
   currentPrice?: number;
   handleTargetFixedChange?: (index: number, value: number | string) => void;
   isTargetFixedBound?: boolean;
@@ -62,7 +70,7 @@ const MultiTarget = ({
   minSlToUse,
   totalTargets,
   previousTargetValue,
-  isTerminal = false,
+  showPriceTargets = false,
   currentPrice = 0,
   handleTargetFixedChange,
   isTargetFixedBound = false,
@@ -161,7 +169,7 @@ const MultiTarget = ({
       />
 
       {/* Row 1.5: Fixed Price Input (Terminal bots only) */}
-      {isTerminal &&
+      {showPriceTargets &&
         typeof handleTargetFixedChange === 'function' &&
         fixedPath && (
           <InputButtonsSlider
@@ -176,7 +184,7 @@ const MultiTarget = ({
             endAdornment={
               <span className="inline-flex items-center gap-2">
                 {unitAdornment(priceUnit ?? 'Price')}
-                {isTerminal &&
+                {showPriceTargets &&
                   fixedPath &&
                   setActivePickerField &&
                   typeof handleTargetFixedChange === 'function' && (

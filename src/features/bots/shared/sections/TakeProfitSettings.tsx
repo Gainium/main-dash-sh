@@ -261,6 +261,17 @@ export const TakeProfitSettings: React.FC = () => {
   const formExchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
   const formUserFee = useBotFormTopLevelSelector('userFee');
   const formTerminal = useBotFormTopLevelSelector('terminal');
+
+  // Absolute-price targets (price input + chart bullseye picker) are a
+  // CAPABILITY, not a bot type: they need one meaningful reference price and a
+  // chart to pick from. The Trading Terminal has both, and so does editing ONE
+  // specific deal (its average price is the reference, and the bot drawer puts
+  // a chart next to the form). `deal-mass-edit` is excluded — many deals share
+  // no single reference price. Derived once here so leaf components take a
+  // single flag instead of accumulating one boolean per calling mode.
+  const supportsPriceTargets = formTerminal || mode === 'deal-edit';
+  /** Exactly one deal (not the mass-edit form), which has one reference price. */
+  const isSingleDealEdit = mode === 'deal-edit';
   const { coordinates, setCoordinates } = useTradingTerminalUtils();
   const { currentExchange } = useBotFormQuery();
   const startOrderType = useBotFormSelector('startOrderType');
@@ -283,6 +294,7 @@ export const TakeProfitSettings: React.FC = () => {
   const useRiskReward = useBotFormSelector('useRiskReward');
   const riskUseTpRatio = useBotFormSelector('riskUseTpRatio');
   const useFixedTPPrices = useBotFormSelector('useFixedTPPrices');
+  const dealAvgPrice = useBotFormSelector('avgPrice');
   const closeByTimerValue = useBotFormSelector('closeByTimerValue');
   const closeByTimer = useBotFormSelector('closeByTimer');
   const trailingTpPerc = useBotFormSelector('trailingTpPerc');
@@ -420,6 +432,17 @@ export const TakeProfitSettings: React.FC = () => {
   }, [contextFallbackLimitPrice, contextLimitPrice, startBotPriceValue]);
 
   const currentPrice = useMemo(() => {
+    // Editing ONE deal: its targets are measured from the deal's average
+    // (breakeven) price, not from the market. Using latestKnownPrice here
+    // would render a price that disagrees with the % the bot actually acts
+    // on, and would convert a picked/dragged price into the wrong %.
+    if (isSingleDealEdit) {
+      const avg = Number(dealAvgPrice);
+      if (Number.isFinite(avg) && avg > 0) {
+        return avg;
+      }
+    }
+
     const resolved = resolveTpReferencePrice(latestKnownPrice, {
       shouldUseLimitPrice,
       limitOrderPrice:
@@ -434,6 +457,8 @@ export const TakeProfitSettings: React.FC = () => {
 
     return resolved;
   }, [
+    isSingleDealEdit,
+    dealAvgPrice,
     latestKnownPrice,
     shouldUseLimitPrice,
     limitOrderPriceCandidate,
@@ -727,20 +752,49 @@ export const TakeProfitSettings: React.FC = () => {
 
     return '';
   }, [minTpRange]);
-  const multiTargets = useMemo(
-    () =>
-      useMultiTp
-        ? (multiTp ?? [])
-        : [
-            {
-              uuid: 'single-target',
-              target: tpPerc || '0',
-              amount: '100',
-              fixed: useFixedTPPrices ? fixedTpPrice : undefined,
-            },
-          ],
-    [multiTp, useMultiTp, tpPerc, useFixedTPPrices, fixedTpPrice]
-  );
+  const multiTargets = useMemo(() => {
+    const base = useMultiTp
+      ? (multiTp ?? [])
+      : [
+          {
+            uuid: 'single-target',
+            target: tpPerc || '0',
+            amount: '100',
+            fixed: useFixedTPPrices ? fixedTpPrice : undefined,
+          },
+        ];
+
+    if (!supportsPriceTargets || currentPrice <= 0) {
+      return base;
+    }
+
+    // Show the target's absolute price from the moment the form opens, not
+    // only after the user nudges the %. `fixed` is only WRITTEN when the user
+    // edits the price directly, so a stored target that has never been touched
+    // has none — deriving it here keeps "what price is my TP?" answerable
+    // without mutating form state just to render a number.
+    return base.map((entry) =>
+      entry.fixed
+        ? entry
+        : {
+            ...entry,
+            fixed: calculateValueFromPercent(
+              isShort,
+              entry.target || '0',
+              currentPrice
+            ),
+          }
+    );
+  }, [
+    multiTp,
+    useMultiTp,
+    tpPerc,
+    useFixedTPPrices,
+    fixedTpPrice,
+    supportsPriceTargets,
+    currentPrice,
+    isShort,
+  ]);
 
   const lastSingleTargetPercentageRef = useRef<string | null>(null);
 
@@ -1246,7 +1300,7 @@ export const TakeProfitSettings: React.FC = () => {
         }
 
         // For terminal bots, recalculate fixed price from percentage
-        if (formTerminal && currentPrice > 0) {
+        if (supportsPriceTargets && currentPrice > 0) {
           const computedFixed = calculateValueFromPercent(
             isShort,
             formattedPercentage,
@@ -1276,7 +1330,7 @@ export const TakeProfitSettings: React.FC = () => {
       // When there's only one target, sync with legacy single target value
       if (clamped.length === 1 && clamped[0]) {
         updateFormData('tpPerc', clamped[0].target);
-        if (formTerminal) {
+        if (supportsPriceTargets) {
           updateFormData('useFixedTPPrices', true);
           updateFormData('fixedTpPrice', clamped[0].fixed || '');
         }
@@ -1285,7 +1339,7 @@ export const TakeProfitSettings: React.FC = () => {
     [
       boundPercentagePaths,
       currentPrice,
-      formTerminal,
+      supportsPriceTargets,
       isShort,
       minTpToUse,
       multiTargets,
@@ -1332,8 +1386,8 @@ export const TakeProfitSettings: React.FC = () => {
         return;
       }
 
-      // For terminal bots only
-      if (!formTerminal) {
+      // Absolute-price editing only (terminal / single-deal edit).
+      if (!supportsPriceTargets) {
         return;
       }
 
@@ -1380,7 +1434,7 @@ export const TakeProfitSettings: React.FC = () => {
     },
     [
       currentPrice,
-      formTerminal,
+      supportsPriceTargets,
       isShort,
       minTpToUse,
       multiTargets,
@@ -2736,7 +2790,7 @@ export const TakeProfitSettings: React.FC = () => {
                             minSlToUse={minTpToUse}
                             totalTargets={multiTargets.length}
                             previousTargetValue={previousTargetValue}
-                            isTerminal={formTerminal}
+                            showPriceTargets={supportsPriceTargets}
                             currentPrice={currentPrice}
                             handleTargetFixedChange={handleTargetFixedChange}
                             isTargetFixedBound={isTargetFixedBound}

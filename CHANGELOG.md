@@ -1,5 +1,30 @@
 # Changelog
 
+## [2.48.0] - 2026-08-25
+
+### Added
+
+- Editing one deal now works against the chart the way the Trading Terminal
+  does: each take-profit and stop-loss target shows its absolute price
+  alongside the %, carries a bullseye that picks a price straight off the
+  chart, and draws a line you can drag. Targets stay percentages off the
+  deal's average price — the price field, the chart line and the % always
+  agree, and dragging or picking converts back to the % the bot acts on.
+
+### Fixed
+
+- The bot drawer's Edit Deal view showed a bare chart: opening it cleared the
+  selected deal, so no entry, TP/SL or breakeven was plotted at all. It now
+  keeps the chart on the deal being edited, on that deal's pair.
+
+### Changed
+
+- `MultiTarget`'s `isTerminal` prop is now `showPriceTargets`, and the
+  Take Profit / Stop Loss sections derive one `supportsPriceTargets` capability
+  (terminal OR single-deal edit) instead of each caller passing its own mode
+  boolean. Adding a third context that needs price targets is now a one-line
+  change in those two sections.
+
 ## [2.47.6] - 2026-08-25
 
 ### Fixed

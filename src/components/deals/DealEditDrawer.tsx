@@ -10,7 +10,12 @@ import {
   DetailDrawerHeader,
   DetailDrawerTrigger,
 } from '@/components/ui/detail-drawer';
-import { TradingTerminalUtilsProvider } from '@/context/TradingTerminalUtilsContext';
+import {
+  TradingTerminalUtilsContext,
+  TradingTerminalUtilsProvider,
+} from '@/context/TradingTerminalUtilsContext';
+import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
+import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { useLiveUpdate } from '@/contexts/LiveUpdateContext';
 import {
   BotFormProvider,
@@ -52,7 +57,9 @@ import { cn } from '@/lib/utils';
 import { isActiveDeal } from '@/lib/utils/unrealizedPnL';
 import {
   BotTypesEnum,
+  DCAOrderTypeEnum,
   ExchangeEnum,
+  StrategyEnum,
   type ComboBotSettings,
   type DCABotSettings,
   type DCADeals,
@@ -112,6 +119,15 @@ interface DealEditDrawerProps {
   botType?: BotTypesEnum;
   /** When true, renders form content directly without a DetailDrawer wrapper (for embedding inline in another drawer) */
   inline?: boolean;
+  /**
+   * Set when this form is mounted next to a chart that should track it (the
+   * bot drawer's Edit Deal view). Turns on the example-orders feed so the
+   * TP/SL lines follow what the user types, wires the chart-line drag handler
+   * back into the form, and lets the bullseye pickers resolve against the
+   * host's chart. Off everywhere else — most mounts have no chart, and the
+   * feed would clobber whatever the host page had plotted.
+   */
+  chartSync?: boolean;
 }
 
 /**
@@ -276,7 +292,7 @@ const mapFromDataToDealSettings = (
 };
 
 export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
-  ({ children, onClose, trade, botType, inline = false }) => {
+  ({ children, onClose, trade, botType, inline = false, chartSync = false }) => {
     const {
       formData,
       isFieldLocked,
@@ -288,6 +304,87 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       features,
       setFormData,
     } = useBotFormState();
+    // --- Chart sync (Edit Deal inside the bot drawer) ----------------------
+    //
+    // Three things have to line up for the chart to behave the way it does in
+    // the Trading Terminal:
+    //
+    //  1. The example-orders projection has to be anchored at the DEAL's
+    //     average (breakeven) price, not the market price. A deal's TP/SL are
+    //     percentages off its entry, so anchoring at market would draw the
+    //     lines somewhere the bot will never act.
+    //  2. Dragging a line has to write back to the form.
+    //  3. `feedChart` on the provider (above) lets the form push its settings
+    //     at all; without it the store is never recomputed and the lines are
+    //     frozen at whatever the host plotted.
+    const dealChartStore = useExampleOrdersStore();
+    const dealSlice =
+      formData.type === BotTypesEnum.combo ? formData.combo : formData.dca;
+    const dealReferencePrice = useMemo(() => {
+      const override = Number(dealSlice?.avgPrice);
+      if (Number.isFinite(override) && override > 0) return override;
+      const computed = Number(trade?.[0]?.avgPrice);
+      return Number.isFinite(computed) && computed > 0 ? computed : 0;
+    }, [dealSlice?.avgPrice, trade]);
+
+    useEffect(() => {
+      if (!chartSync || dealReferencePrice <= 0) return;
+      dealChartStore.setContext({ inputLatestPrice: dealReferencePrice });
+    }, [chartSync, dealReferencePrice, dealChartStore]);
+
+    // Keep the drag handler behind a ref so the store gets ONE stable callback.
+    // multiTp / multiSl are fresh arrays every keystroke; handing the store a
+    // new function each time would re-fire the setContext effect and race the
+    // provider's own settings push. Same reasoning as BotForm's dragHandlerRef.
+    const dealDragRef = useRef<ExampleOrdersStoreContext['onDrag']>(undefined);
+    dealDragRef.current = (price, type, index) => {
+      if (!chartSync || dealReferencePrice <= 0) return;
+      const long = dealSlice?.strategy !== StrategyEnum.short;
+      // Deal targets stay PERCENTAGES off the deal's breakeven — the same unit
+      // the form and the backend already use. Converting here (rather than
+      // flipping useFixedTPPrices/useFixedSLPrices from a drag) means a drag
+      // lands exactly where dropped without changing what the setting means.
+      const perc = ((price - dealReferencePrice) / dealReferencePrice) * 100 * (long ? 1 : -1);
+      if (!Number.isFinite(perc)) return;
+
+      if (type === DCAOrderTypeEnum.tp) {
+        const target = Math.abs(perc).toFixed(2);
+        if (typeof index !== 'undefined' && dealSlice?.useMultiTp) {
+          updateFormData(
+            'multiTp',
+            (dealSlice.multiTp || []).map((tp, i) =>
+              i === index ? { ...tp, target } : tp
+            )
+          );
+        } else {
+          updateFormData('tpPerc', target);
+        }
+      }
+
+      if (type === DCAOrderTypeEnum.sl) {
+        // slPerc is stored negative (a stop is always adverse to the entry).
+        const signed = (-Math.abs(perc)).toFixed(2);
+        if (typeof index !== 'undefined' && dealSlice?.useMultiSl) {
+          updateFormData(
+            'multiSl',
+            (dealSlice.multiSl || []).map((sl, i) =>
+              i === index ? { ...sl, target: signed } : sl
+            )
+          );
+        } else {
+          updateFormData('slPerc', signed);
+        }
+      }
+    };
+
+    useEffect(() => {
+      if (!chartSync) return;
+      dealChartStore.setContext({
+        onDrag: (price, type, index, meta) =>
+          dealDragRef.current?.(price, type, index, meta),
+      });
+    }, [chartSync, dealChartStore]);
+
     // Must match the outer `DealEditDrawer`'s resolution exactly — that one
     // seeds `BotFormProvider` (and therefore `formData.type`), this one picks
     // the balances/mutation context. A disagreement would seed one slice and
@@ -1087,23 +1184,35 @@ export const DealEditDrawer: React.FC<DealEditDrawerProps> = React.memo(
       [resolvedExperience]
     );
     const defaultTab: BotFormTabId = useMemo(() => 'strategy', []);
+    const hasAncestorPicker = !!React.useContext(TradingTerminalUtilsContext);
     if (!props.trade || !props.open || props.trade.length === 0) {
       return null;
     }
+    // Reuse an ancestor's picker context when there is one. The bullseye only
+    // works if the FORM and the CHART read the same provider, and the chart
+    // lives outside this component (it's the bot drawer's left panel). Mounting
+    // our own provider unconditionally would give the form a second, isolated
+    // context and the picker would silently never fire. Standalone mounts (no
+    // ancestor, no chart) still get their own.
+    const PickerBoundary = hasAncestorPicker
+      ? React.Fragment
+      : TradingTerminalUtilsProvider;
+
     return (
-      <TradingTerminalUtilsProvider>
+      <PickerBoundary>
         <BotFormRegistryContext.Provider value={contextValue}>
           <BotFormProvider
             mode={mode}
             botType={botType}
             defaultTab={defaultTab}
+            feedChart={props.chartSync ?? false}
           >
             <BotFormQueryProvider mode={mode} debug={debugEnabled}>
               <DealEditDrawerInner {...props} />
             </BotFormQueryProvider>
           </BotFormProvider>
         </BotFormRegistryContext.Provider>
-      </TradingTerminalUtilsProvider>
+      </PickerBoundary>
     );
   }
 );

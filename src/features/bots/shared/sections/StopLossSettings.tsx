@@ -139,7 +139,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
   const { coordinates, setCoordinates } = useTradingTerminalUtils();
   const tradingContext = useDcaTradingContext(formData, { bot: null });
   const { latestPrice } = tradingContext;
-  const currentPrice = latestPrice || 0;
+  const marketPrice = latestPrice || 0;
   const strategy = useBotFormSelector('strategy');
   const multiSl = useBotFormSelector('multiSl');
   const moveSL = useBotFormSelector('moveSL');
@@ -163,6 +163,26 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
     mode,
   } = useBotFormState();
   const isDealEdit = mode === 'deal-edit' || mode === 'deal-mass-edit';
+  /** Exactly one deal (not the mass-edit form), which has one reference price. */
+  const isSingleDealEdit = mode === 'deal-edit';
+  // See TakeProfitSettings: absolute-price targets are a capability (one
+  // reference price + a chart to pick from), not a bot type.
+  const supportsPriceTargets = formData.terminal || isSingleDealEdit;
+  const dealAvgPrice = useBotFormSelector('avgPrice');
+  // Editing ONE deal: targets are measured from the deal's average
+  // (breakeven) price, not the market — see the slValidation comment below,
+  // which skips the market-price check for exactly this reason. Anchoring the
+  // reference price here is what makes the displayed price, the chart line and
+  // the % agree with what the bot acts on.
+  const currentPrice = useMemo(() => {
+    if (isSingleDealEdit) {
+      const avg = Number(dealAvgPrice);
+      if (Number.isFinite(avg) && avg > 0) {
+        return avg;
+      }
+    }
+    return marketPrice;
+  }, [isSingleDealEdit, dealAvgPrice, marketPrice]);
   // Legacy terminal Import max-SL clamp (index.tsx:5469-5487). Returns the
   // (negative) least-aggressive SL allowed for an imported position; floors at
   // MIN_DCA_TP * 100 * -1 otherwise. The redesign SL section works in
@@ -196,20 +216,46 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
   // Track the last single target percentage for seeding new targets
   const lastSingleTargetPercentageRef = useRef<string | null>(null);
 
-  const multiTargets = useMemo(
-    () =>
-      useMultiSl
-        ? (multiSl ?? [])
-        : [
-            {
-              uuid: 'single-sl-target',
-              target: slPerc || '0',
-              amount: '100',
-              fixed: useFixedSLPrices ? fixedSlPrice : undefined,
-            },
-          ],
-    [multiSl, useMultiSl, slPerc, useFixedSLPrices, fixedSlPrice]
-  );
+  const multiTargets = useMemo(() => {
+    const base = useMultiSl
+      ? (multiSl ?? [])
+      : [
+          {
+            uuid: 'single-sl-target',
+            target: slPerc || '0',
+            amount: '100',
+            fixed: useFixedSLPrices ? fixedSlPrice : undefined,
+          },
+        ];
+
+    if (!supportsPriceTargets || currentPrice <= 0) {
+      return base;
+    }
+
+    // See TakeProfitSettings: derive the absolute price for display so it is
+    // there on open, without writing to form state just to render a number.
+    return base.map((entry) =>
+      entry.fixed
+        ? entry
+        : {
+            ...entry,
+            fixed: calculateValueFromPercent(
+              isShort,
+              entry.target || '0',
+              currentPrice
+            ),
+          }
+    );
+  }, [
+    multiSl,
+    useMultiSl,
+    slPerc,
+    useFixedSLPrices,
+    fixedSlPrice,
+    supportsPriceTargets,
+    currentPrice,
+    isShort,
+  ]);
   const hasConfiguredTargets = useMemo(
     () => hasConfiguredMultiSlTargets(multiTargets),
     [multiTargets]
@@ -756,7 +802,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
 
       // For terminal bots, calculate and update fixed price when percentage changes
       let fixedPrice: string | undefined = target.fixed;
-      if (formData.terminal && currentPrice > 0) {
+      if (supportsPriceTargets && currentPrice > 0) {
         const calculatedFixed = calculateValueFromPercent(
           isShort,
           sanitized.toString(),
@@ -778,7 +824,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
       // shown by the terminal reflects this percentage immediately.
       if (targets.length === 1) {
         updateFormData('slPerc', sanitized.toString());
-        if (formData.terminal && fixedPrice !== undefined) {
+        if (supportsPriceTargets && fixedPrice !== undefined) {
           updateFormData('useFixedSLPrices', true);
           updateFormData('fixedSlPrice', fixedPrice);
         }
@@ -787,7 +833,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
     [
       boundPercentagePaths,
       multiTargets,
-      formData.terminal,
+      supportsPriceTargets,
       currentPrice,
       isShort,
 
@@ -1134,7 +1180,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
 
     // For terminal bots, also apply the fixed price and enable fixed-price mode
     // so the UI shows the corresponding price immediately.
-    if (formData.terminal && currentPrice > 0) {
+    if (supportsPriceTargets && currentPrice > 0) {
       const calculatedFixed = calculateValueFromPercent(
         isShort,
         percentage.toString(),
@@ -1242,7 +1288,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
                     applyVariableToMultiTarget={applyVariableToMultiTarget}
                     minSlToUse={minSlToUse}
                     totalTargets={multiTargets.length}
-                    isTerminal={formData.terminal}
+                    showPriceTargets={supportsPriceTargets}
                     currentPrice={currentPrice}
                     handleTargetFixedChange={handleTargetFixedChange}
                     isTargetFixedBound={isTargetFixedBound}

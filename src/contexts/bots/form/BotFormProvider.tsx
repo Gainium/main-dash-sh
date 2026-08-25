@@ -278,6 +278,19 @@ interface BotFormProviderProps {
    * shared globals — byte-identical to the historical behaviour.
    */
   isolateStores?: boolean;
+  /**
+   * Opt a deal-edit form INTO the example-orders (chart) pipeline.
+   *
+   * Deal-edit normally skips it: most mounts of this form have no chart next
+   * to them, and pushing settings would clobber whatever the host page had
+   * plotted. The bot drawer's Edit Deal view DOES have a chart, and the user
+   * expects the TP/SL lines to track what they type — so it turns this on. The
+   * host must then stop calling `setOrders()` itself, because any
+   * `setContext()` recomputes `orders` from the form and would race with it.
+   * `transactions` and `avgPrices` are untouched by the recompute and stay the
+   * host's to own.
+   */
+  feedChart?: boolean;
 }
 
 const createDefaultFormState = (
@@ -780,8 +793,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     [mode]
   );
   const isSkipExampleOrders = useMemo(
-    () => isDealEdit || isSettingsReadonly,
-    [isDealEdit, isSettingsReadonly]
+    () => (isDealEdit && !props.feedChart) || isSettingsReadonly,
+    [isDealEdit, isSettingsReadonly, props.feedChart]
   );
   useEffect(() => {
     if (isSkipExampleOrders) return;
