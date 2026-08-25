@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.47.4] - 2026-08-25
+
+### Fixed
+
+- More menus and dialogs that opened behind the detail drawer, completing the
+  2.47.2 sweep. The bot `⋮` menu in the drawer header, the same menu on every
+  bot card and bot list row (Trading, Grid, Combo, Hedge), and the profit-chart
+  filter dialog inside the bot drawer all pinned themselves below the drawer's
+  `z-[55]`.
+
 ## [2.47.3] - 2026-08-25
 
 ### Fixed

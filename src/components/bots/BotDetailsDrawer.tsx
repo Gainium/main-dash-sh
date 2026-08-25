@@ -1590,7 +1590,7 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                         </DropdownMenuTrigger>
                         <BotActionsMenuItems
                           align="end"
-                          className="w-56 z-50"
+                          className="w-56"
                           viewOnly={viewOnly}
                           hideLifecycleActions
                           bot={{

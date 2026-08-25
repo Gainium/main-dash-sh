@@ -259,7 +259,7 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
         </DropdownMenuTrigger>
         <BotActionsMenuItems
           align="end"
-          className="w-56 z-50"
+          className="w-56"
           bot={botActionsMenuItems}
           {...botActions.menuProps}
         />

@@ -101,7 +101,7 @@ export const HedgeBotActionsCell: React.FC<HedgeBotActionsCellProps> = ({
         </DropdownMenuTrigger>
         <BotActionsMenuItems
           align="end"
-          className="z-50 w-56"
+          className="w-56"
           bot={{
             id: bot._id,
             name,
