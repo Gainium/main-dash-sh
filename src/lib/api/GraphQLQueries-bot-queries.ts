@@ -38,7 +38,26 @@ import {
   comboBotByIdSettingsFragment,
   botSettings,
   sharedSettings,
+  statsFragment,
+  symbolsStatsFragment,
 } from './GraphQLQueries-fragments';
+
+/**
+ * Stats-only selection for the live-bot Statistics tab.
+ *
+ * The bot detail drawer normally renders a bot taken from the LIST query, and
+ * `dcaBotListFragment` deliberately strips `stats` down to a chart-only slice
+ * (the full block is ~2.5 MB on a 482-bot account). So `stats.numerical` — the
+ * whole Statistics tab — is simply absent on that path.
+ *
+ * Rather than un-strip the list payload, the Statistics tab fetches the same
+ * `stats`/`symbolStats` fields for the ONE bot being looked at, lazily, when
+ * the tab is opened. Same root queries as `getDCABot` & friends, just a much
+ * smaller selection set.
+ */
+const statsOnlySelection = `_id
+            stats ${statsFragment}
+            symbolStats ${symbolsStatsFragment}`;
 
 const botWebhookOptionsFragment = `
   trigger
@@ -205,6 +224,54 @@ export const botQueries = {
                         status
                         reason
                         data {${hedgeComboBotFragment}}
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getDCABotStats: (input: { id: string; shareId?: string }) => {
+    const query = `query getDCABot($input: getBotInput!) {
+                    getDCABot(input: $input) {
+                        status
+                        reason
+                        data {${statsOnlySelection}}
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getComboBotStats: (input: { id: string; shareId?: string }) => {
+    const query = `query getComboBot($input: getBotInput!) {
+                    getComboBot(input: $input) {
+                        status
+                        reason
+                        data {${statsOnlySelection}}
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getHedgeComboBotStats: (input: { id: string; shareId?: string }) => {
+    const query = `query getHedgeComboBot($input: getBotInput!) {
+                    getHedgeComboBot(input: $input) {
+                        status
+                        reason
+                        data {${statsOnlySelection}}
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getHedgeDCABotStats: (input: { id: string; shareId?: string }) => {
+    const query = `query getHedgeDCABot($input: getBotInput!) {
+                    getHedgeDCABot(input: $input) {
+                        status
+                        reason
+                        data {${statsOnlySelection}}
                     }
                 }`;
     const variables = { input };

@@ -1,6 +1,9 @@
-import { Card } from '@/components/ui/card';
-import { ProfitLossPercChip } from '@/components/ui/chip';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
+import {
+  StatItem,
+  StatItemWithChip,
+  StatsSection,
+} from '@/components/widgets/bots/statsPrimitives';
 import type { DCABacktestingResultHistory } from '@/types';
 import {
   Activity,
@@ -14,78 +17,6 @@ import React from 'react';
 interface BacktestStatsTabProps {
   backtest: DCABacktestingResultHistory;
 }
-
-interface StatItemProps {
-  label: string;
-  value: string | number;
-  valueClassName?: string;
-  info?: React.ReactNode;
-}
-
-const StatItem: React.FC<StatItemProps> = ({
-  label,
-  value,
-  valueClassName,
-  info,
-}) => (
-  <div className="flex items-start justify-between gap-sm">
-    <span className="text-sm text-muted-foreground flex items-center gap-1">
-      {label}
-      {info && <span className="inline-flex">{info}</span>}
-    </span>
-    <span
-      className={`text-sm font-medium text-right ${valueClassName || 'text-foreground'}`}
-    >
-      {value}
-    </span>
-  </div>
-);
-
-interface StatItemWithChipProps {
-  label: string;
-  value: number | null | undefined;
-  additionalText?: string;
-}
-
-const StatItemWithChip: React.FC<StatItemWithChipProps> = ({
-  label,
-  value,
-  additionalText,
-}) => (
-  <div className="flex items-start justify-between gap-sm">
-    <span className="text-sm text-muted-foreground">{label}</span>
-    <div className="flex items-center gap-xs">
-      {additionalText && (
-        <span className="text-sm font-medium text-foreground">
-          {additionalText}
-        </span>
-      )}
-      {value !== null && value !== undefined && (
-        <ProfitLossPercChip value={value} size="xs" showSign={false} />
-      )}
-    </div>
-  </div>
-);
-
-interface StatsSectionProps {
-  title: string;
-  icon?: React.ComponentType<{ className?: string }>;
-  children: React.ReactNode;
-}
-
-const StatsSection: React.FC<StatsSectionProps> = ({
-  title,
-  icon: Icon,
-  children,
-}) => (
-  <Card position={2} className="p-md">
-    <div className="flex items-center gap-xs mb-4">
-      {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
-      <h3 className="text-sm font-semibold text-foreground">{title}</h3>
-    </div>
-    {children}
-  </Card>
-);
 
 const formatDuration = (
   duration: { d?: string; h?: string; min?: string; s?: string } | undefined

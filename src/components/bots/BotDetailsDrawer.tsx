@@ -35,6 +35,10 @@ import {
   isBotRestartable,
 } from '@/utils/botStatusUtils';
 import { cn } from '@/lib/utils';
+import {
+  BotStatsTab,
+  type BotStatsTabProps,
+} from '@/components/widgets/bots/stats';
 import { isReadOnly } from '@/lib/demoMode';
 import { getOrderTypeLabel } from '@/utils/mapOrderName';
 import { motion } from 'framer-motion';
@@ -251,7 +255,13 @@ const mapDrawerBotTypeToBotType = (type: BotTypesEnum): BotType => {
 
 const statusNew = { status: 'NEW', autoPaginate: true };
 const statusFilled = { status: 'FILLED', autoPaginate: true };
-type BotTab = 'deals' | 'performance' | 'events' | 'settings' | 'webhook';
+type BotTab =
+  | 'deals'
+  | 'performance'
+  | 'stats'
+  | 'events'
+  | 'settings'
+  | 'webhook';
 
 export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
   ({
@@ -310,8 +320,19 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
     const validTabs: BotTab[] = useMemo(
       () =>
         (
-          ['performance', 'deals', 'events', 'settings', 'webhook'] as BotTab[]
-        ).filter((t) => (isGrid ? t !== 'deals' && t !== 'webhook' : true)),
+          [
+            'performance',
+            'deals',
+            'stats',
+            'events',
+            'settings',
+            'webhook',
+          ] as BotTab[]
+          // Grid bots have no deals, no webhooks, and the backend produces no
+          // `stats` block for them — so those three tabs never apply.
+        ).filter((t) =>
+          isGrid ? t !== 'deals' && t !== 'webhook' && t !== 'stats' : true
+        ),
       [isGrid]
     );
     const activeTab: BotTab = useMemo(
@@ -1605,7 +1626,10 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                   {/* Tabs (only in bot view) - Responsive tabs that convert to dropdown on mobile */}
                   <div className="flex items-center">
                     <TabsList
-                      className="grid w-full grid-cols-5"
+                      className={cn(
+                        'grid w-full',
+                        isGrid ? 'grid-cols-3' : 'grid-cols-6'
+                      )}
                       breakpoint={640}
                       value={activeTab}
                       onValueChange={handleTabChange}
@@ -1613,6 +1637,9 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                       <TabsTrigger value="performance">Overview</TabsTrigger>
                       {!isGrid && (
                         <TabsTrigger value="deals">Deals</TabsTrigger>
+                      )}
+                      {!isGrid && (
+                        <TabsTrigger value="stats">Stats</TabsTrigger>
                       )}
                       <TabsTrigger value="events">Events</TabsTrigger>
                       <TabsTrigger value="settings">Settings</TabsTrigger>
@@ -1762,6 +1789,30 @@ export const BotDetailsDrawer: React.FC<BotDetailsDrawerProps> = React.memo(
                     </div>
                   </motion.div>
                 </TabsContent>
+
+                {/* Statistics — the redesign's port of legacy main-dash's
+                    "Bot Statistics" widget, rendered with the backtest-results
+                    templates. Grid bots have no stats block, hence the gate.
+                    `active` keeps the (separate) full-stats fetch from firing
+                    until the tab is actually opened. */}
+                {!isGrid && (
+                  <TabsContent value="stats" className="mt-0">
+                    <motion.div
+                      key="stats-tab"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <BotStatsTab
+                        botId={bot._id}
+                        botType={type}
+                        bot={bot as unknown as BotStatsTabProps['bot']}
+                        active={activeTab === 'stats'}
+                      />
+                    </motion.div>
+                  </TabsContent>
+                )}
 
                 <TabsContent value="events" className="mt-0">
                   <motion.div

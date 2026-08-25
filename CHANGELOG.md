@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.47.0] - 2026-08-25
+
+### Added
+
+- Bot details drawer: a **Stats** tab for DCA, Combo and Hedge bots, giving a
+  running bot the same statistics view a backtest gets. Overview shows the
+  confidence grade, net result, avg daily return, open P&L, max equity
+  drawdown, deal durations and the win-rate / profit-factor donuts; Stats shows
+  the General, Winners, Losers, Performance Ratios and DCA Usage breakdowns.
+  Multi-pair bots also get a per-pair table. Grid bots are unaffected — the
+  backend produces no statistics block for them.
+
 ## [2.46.4] - 2026-08-25
 
 ### Fixed
