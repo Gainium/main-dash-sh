@@ -1,7 +1,6 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 /* import { type DCADeals } from '@/hooks/useDcaDeals'; */
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useUsdRate } from '@/hooks/useUsdRate';
 import { GraphQlQuery } from '@/lib/api';
@@ -17,13 +16,14 @@ import {
   type PortfolioQuery,
   type ScreenerCoinData,
 } from '@/types';
+import { useAllScreenerCoins } from '@/hooks/useScreenerCoins';
 import { extractPairAssets } from '@/utils/pairs';
 import {
   buildScreenerSymbolMap,
   findBestScreenerMatch,
   findPortfolioAssetBySymbol,
 } from '@/utils/portfolioScreenerMatching';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import React, {
   useCallback,
   useEffect,
@@ -130,50 +130,11 @@ export interface TreemapBaseProps {
   >;
 }
 
-// Screener data (market prices/changes)
-const useScreenerData = () => {
-  return useQuery({
-    queryKey: ['screener', 'all'],
-    queryFn: async () => {
-      const apiEndpoint =
-        import.meta.env.VITE_API_ENDPOINT || 'https://api.gainium.io';
-      const pageSize = 100;
-      const maxPages = 50;
-      let currentPage = 0;
-      const allResults: ApiScreenerCoin[] = [];
-
-      do {
-        const response = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
-          method: 'POST',
-          body: JSON.stringify({ page: currentPage, pageSize }),
-          headers: { 'Content-type': 'application/json' },
-        });
-
-        if (!response.ok) {
-          throw new Error(
-            `Failed to fetch screener data (page ${currentPage}): ${response.status} ${response.statusText}`
-          );
-        }
-
-        const result = await response.json();
-        if (result.status === StatusEnum.notok) {
-          throw new Error(`API Error: ${result.reason}`);
-        }
-
-        const pageItems: ApiScreenerCoin[] = result.data?.result || [];
-        allResults.push(...pageItems);
-        currentPage += 1;
-        if (pageItems.length < pageSize || currentPage >= maxPages) break;
-        // eslint-disable-next-line no-constant-condition
-      } while (true);
-
-      return { status: StatusEnum.ok, data: { result: allResults } } as const;
-    },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-    retry: 3,
-  });
-};
+// Screener data. Market mode charts the WHOLE coin universe, so this is the
+// paged fetch — it used to share the `['screener','all']` key with the
+// portfolio widgets' single clamped page, which meant whichever mounted first
+// decided whether this widget saw ~950 coins or 100. See useScreenerCoins.
+const useScreenerData = useAllScreenerCoins;
 
 interface NodeContentProps {
   x: number;
@@ -648,7 +609,7 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
     isLoading: isScreenerLoading,
     error: screenerError,
   } = useScreenerData();
-  const cached = queryClient.getQueryData(['screener', 'all']) as
+  const cached = queryClient.getQueryData(['screener', 'universe']) as
     | { status: StatusEnum; data?: { result?: ApiScreenerCoin[] } }
     | undefined;
   const screenerCoins: ScreenerCoinData[] = useMemo(() => {

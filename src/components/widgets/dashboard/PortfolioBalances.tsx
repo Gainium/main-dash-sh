@@ -1,13 +1,12 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type Asset, type ScreenerCoinData } from '@/types';
+import { useTopScreenerCoins } from '@/hooks/useScreenerCoins';
 import { formatPriceWithPrecision } from '@/utils/formatters';
 import {
   buildScreenerSymbolMap,
   findBestScreenerMatch,
 } from '@/utils/portfolioScreenerMatching';
-import { useQuery } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Plus } from 'lucide-react';
 import React, {
@@ -169,28 +168,12 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     [parseMaybeNumber]
   );
 
-  // Screener data to derive current prices
-  const { data: screenerResp, isLoading: isLoadingScreener } = useQuery({
-    queryKey: ['screener', 'all'],
-    queryFn: async () => {
-      const apiEndpoint =
-        import.meta.env.VITE_API_ENDPOINT || 'https://api.gainium.io';
-      const resp = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
-        method: 'POST',
-        body: JSON.stringify({ page: 0, pageSize: 500 }),
-        headers: { 'Content-type': 'application/json' },
-      });
-      if (!resp.ok) throw new Error('Failed screener');
-      const json = await resp.json();
-      if (json.status === StatusEnum.notok) throw new Error(json.reason);
-      return {
-        status: StatusEnum.ok,
-        data: { result: json.data?.result || [] },
-      };
-    },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-  });
+  // Coin metadata (names, categories, market-cap rank). Prices come from
+  // the venue via `getBalances(includeUsdValues)`; this is only a fallback
+  // and a source of display metadata. See useScreenerCoins for why this no
+  // longer shares a query key — or a 30s poll — with the market treemap.
+  const { data: screenerResp, isLoading: isLoadingScreener } =
+    useTopScreenerCoins();
 
   // Venue-published USD rates from getBalances(includeUsdValues), keyed by
   // exchange + asset with an asset-level fallback for rows that have lost their

@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.47.3] - 2026-08-25
+
+### Fixed
+
+- The market screener is no longer polled every 30 seconds by the dashboard.
+  Ten widgets each hand-rolled that query and all ten shared one React Query
+  key while asking for different things: three paged the whole coin universe
+  (~950 coins, ~2.6 MB) and seven asked for a single page (which the backend
+  clamps to 100). Because React Query dedupes by key, whichever widget mounted
+  first decided what every other one received — so the market treemap and the
+  market heatmap could silently chart 100 coins instead of the full universe,
+  and the portfolio widgets could pull 2.6 MB they had no use for. They now
+  share two explicit hooks, one per shape of request.
+- Screener data is fetched on a 15-minute cadence instead of every 30 seconds.
+  It is coin metadata — names, categories, market-cap rank — and since holdings
+  are priced from the venue's own rate (2.46.4), nothing here is on a market
+  clock any more. This was a public, unauthenticated endpoint being polled
+  twice a minute per open dashboard.
+
 ## [2.47.2] - 2026-08-25
 
 ### Fixed

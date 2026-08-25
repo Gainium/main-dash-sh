@@ -1,5 +1,4 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
-import { fetchWithTimeout } from '@/lib/fetchWithTimeout';
 // import { useDcaBots } from '@/hooks/useDcaBots';
 // import { useComboBots } from '@/hooks/useComboBots';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
@@ -9,6 +8,7 @@ import {
   type PortfolioQuery,
   type ScreenerCoinData,
 } from '@/types';
+import { useTopScreenerCoins } from '@/hooks/useScreenerCoins';
 import { formatPriceWithPrecision } from '@/utils/formatters';
 import {
   buildScreenerSymbolMap,
@@ -16,7 +16,6 @@ import {
 } from '@/utils/portfolioScreenerMatching';
 import { balanceAssetToPairBase } from '@/utils/pairs';
 import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
-import { useQuery } from '@tanstack/react-query';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Info, Plus } from 'lucide-react';
 import React, {
@@ -169,28 +168,12 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
   // default crypto behavior, so nothing else is affected.
   const resolvePairAsset = useResolvePairAsset();
 
-  // Screener data (used to derive current prices and coin metadata)
-  const { data: screenerResp, isLoading: isLoadingScreener } = useQuery({
-    queryKey: ['screener', 'all'],
-    queryFn: async () => {
-      const apiEndpoint =
-        import.meta.env.VITE_API_ENDPOINT || 'https://api.gainium.io';
-      const resp = await fetchWithTimeout(`${apiEndpoint}/api/screener`, {
-        method: 'POST',
-        body: JSON.stringify({ page: 0, pageSize: 500 }),
-        headers: { 'Content-type': 'application/json' },
-      });
-      if (!resp.ok) throw new Error('Failed screener');
-      const json = await resp.json();
-      if (json.status === StatusEnum.notok) throw new Error(json.reason);
-      return {
-        status: StatusEnum.ok,
-        data: { result: json.data?.result || [] },
-      };
-    },
-    staleTime: 5 * 60 * 1000,
-    refetchInterval: 30 * 1000,
-  });
+  // Coin metadata (names, categories, market-cap rank). Prices come from
+  // the venue via `getBalances(includeUsdValues)`; this is only a fallback
+  // and a source of display metadata. See useScreenerCoins for why this no
+  // longer shares a query key — or a 30s poll — with the market treemap.
+  const { data: screenerResp, isLoading: isLoadingScreener } =
+    useTopScreenerCoins();
 
   // Fetch raw balances to get accurate free/locked splits (prefer when
   // available) and, with `includeUsdValues`, the venue's own USD rate for each
