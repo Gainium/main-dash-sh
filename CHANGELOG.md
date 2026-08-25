@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.47.5] - 2026-08-25
+
+### Fixed
+
+- Terminal deals showed a Realized P&L of $0.00 on the trade card and in the
+  Trade Details drawer, even when the deal had closed at a real profit or loss
+  and the Orders tab listed the correct entry and exit prices. The realized
+  amount, and the per-asset base/quote breakdown in the drawer, now come from
+  the deal's own profit figures like every other deal table.
+
 ## [2.47.4] - 2026-08-25
 
 ### Fixed

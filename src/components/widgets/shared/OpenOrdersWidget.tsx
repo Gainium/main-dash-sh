@@ -1508,7 +1508,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               (Number(deal.initialBalances.base || 0) - currentBaseAmount) *
                 Number(currentMarketPrice)
           : undefined;
-      const realizedPnl = executionSummary?.realizedPnl ?? 0;
+      // Realized P&L comes from the backend's authoritative `deal.profit`, the
+      // same source `dcaDealToOpenTrade` / `comboDealToOpenTrade` use. Do NOT
+      // derive it from `executionSummary` (same trap as `avgPrice` below):
+      // `liveOrders` is filtered to OPEN statuses only, so the FILLED filter
+      // feeding `executions` can never match, the summary is always null, and
+      // `?? 0` silently overwrote every deal's real profit with 0.00.
+      const realizedPnl = Number(deal.profit?.totalUsd || 0);
       const usagePercentage = cost > 0 ? (value / cost) * 100 : 0;
 
       // Use createTime if available, otherwise generate realistic creation time
@@ -1585,10 +1591,10 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           },
         },
         profit: {
-          total: realizedPnl,
+          total: Number(deal.profit?.total || 0),
           totalUsd: realizedPnl,
-          pureBase: 0,
-          pureQuote: 0,
+          pureBase: Number(deal.profit?.pureBase || 0),
+          pureQuote: Number(deal.profit?.pureQuote || 0),
         },
         unrealizedProfit: unrealizedPnl,
         // The backend's `deal.avgPrice` is the authoritative running average and
