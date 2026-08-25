@@ -19,7 +19,8 @@
   drawdown, deal durations and the win-rate / profit-factor donuts; Stats shows
   the General, Winners, Losers, Performance Ratios and DCA Usage breakdowns.
   Multi-pair bots also get a per-pair table. Grid bots are unaffected — the
-  backend produces no statistics block for them.
+  backend produces no statistics block for them. Everything reads as one
+  scroll under the tab, with the grade and both dials on a single row.
 
 ## [2.46.4] - 2026-08-25
 

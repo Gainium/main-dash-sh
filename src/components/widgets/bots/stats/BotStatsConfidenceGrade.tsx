@@ -40,7 +40,7 @@ export const BotStatsConfidenceGrade: React.FC<
   const pos = Math.min(100, Math.max(0, (deals / FULL_CONFIDENCE_DEALS) * 100));
 
   return (
-    <div className="flex flex-col items-center rounded-xl bg-muted px-md py-sm">
+    <div className="flex h-full flex-col items-center justify-center rounded-xl bg-muted px-md py-sm">
       <div className="flex items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
         Confidence Grade
         <Tooltip

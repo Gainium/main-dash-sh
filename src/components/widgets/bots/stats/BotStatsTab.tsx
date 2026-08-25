@@ -3,9 +3,10 @@
  * legacy main-dash's full-width "Bot Statistics" widget on the bot page
  * (`components/dcabot/components/botStats.tsx`).
  *
- * Same two-view split as legacy — Overview (grade + KPIs + donuts) and Stats
- * (the metric cards) — rendered with the redesign's backtest-results
- * templates so a live bot and a backtest of the same strategy read the same.
+ * Everything legacy split across its own Overview / Stats switcher — grade,
+ * KPIs and donuts, then the metric cards — in ONE scroll, rendered with the
+ * redesign's backtest-results templates so a live bot and a backtest of the
+ * same strategy read the same.
  *
  * Data: `useBotFullStats`. The drawer's bot normally comes from the list
  * query, whose fragment strips `stats` to a chart-only slice, so the full
@@ -13,12 +14,11 @@
  * socket-pushed stats when the bot recomputes.
  */
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useBotFullStats } from '@/hooks/useBotFullStats';
 import { useShareContext } from '@/hooks/useShareContext';
 import type { BotTypesEnum } from '@/types';
-import { useMemo, useState, type FC } from 'react';
+import { useMemo, type FC } from 'react';
 
 import { BotStatsBreakdown } from './BotStatsBreakdown';
 import { BotStatsOverview } from './BotStatsOverview';
@@ -59,7 +59,6 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
   bot,
   active = true,
 }) => {
-  const [view, setView] = useState<'overview' | 'stats'>('overview');
   // Share-link visitors read the same stats without a token.
   const { shareId } = useShareContext();
 
@@ -105,26 +104,17 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
     );
   }
 
+  // One continuous view, NOT a nested tab set: this already sits behind the
+  // drawer's own "Stats" tab, and a second Overview/Stats switcher one level
+  // in read as a duplicate of the tab bar right above it. Legacy main-dash
+  // needed the switcher because its widget lived inline on the bot page with
+  // no tab of its own; here the drawer tab does that job.
   return (
-    <Tabs
-      value={view}
-      onValueChange={(v) => setView(v as 'overview' | 'stats')}
-      className="flex flex-col gap-md"
-    >
-      <TabsList className="grid w-full max-w-[280px] grid-cols-2">
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="stats">Stats</TabsTrigger>
-      </TabsList>
-
-      <TabsContent value="overview" className="mt-0 flex flex-col gap-md">
-        <BotStatsOverview vm={headline} />
-        {/* Per-pair breakdown only earns its space on multi-pair bots. */}
-        {symbolRows.length > 1 && <BotSymbolStatsTable rows={symbolRows} />}
-      </TabsContent>
-
-      <TabsContent value="stats" className="mt-0">
-        <BotStatsBreakdown vm={breakdown} />
-      </TabsContent>
-    </Tabs>
+    <div className="flex flex-col gap-md">
+      <BotStatsOverview vm={headline} />
+      <BotStatsBreakdown vm={breakdown} />
+      {/* Per-pair breakdown only earns its space on multi-pair bots. */}
+      {symbolRows.length > 1 && <BotSymbolStatsTable rows={symbolRows} />}
+    </div>
   );
 };

@@ -31,6 +31,12 @@ const fmtUsd = (v: number, d = 2): string =>
 const fmtPct = (v: number, d = 2): string =>
   (v > 0 ? '+' : '') + v.toFixed(d) + '%';
 
+/**
+ * Smaller than the backtest modal's 150px default: three of these sit across
+ * the drawer's ~600px column, where 150 + panel padding overflows.
+ */
+const DONUT_SIZE = 132;
+
 export interface BotStatsOverviewProps {
   vm: BotStatsHeadlineVM;
 }
@@ -81,62 +87,59 @@ export const BotStatsOverview: React.FC<BotStatsOverviewProps> = ({ vm }) => {
         <Kpi label="Bot Working Time" value={vm.workingTime} grey />
       </div>
 
-      {/* grade + donuts + metric list */}
-      <div className="flex flex-col gap-md @3xl:flex-row">
-        <div className="@3xl:w-[240px] @3xl:shrink-0">
-          <BotStatsConfidenceGrade
-            grade={vm.confidenceGrade}
-            deals={vm.closedDeals}
+      {/* Grade + the two dials on one row — equal-height grid cells, so the
+          short grade card stretches to match the dials instead of leaving a
+          column of dead space beside it. Stacks below a ~512px container. */}
+      <div className="grid gap-md @lg:grid-cols-3">
+        <BotStatsConfidenceGrade
+          grade={vm.confidenceGrade}
+          deals={vm.closedDeals}
+        />
+        <Panel title="Win Rate" className="items-center justify-center">
+          <Donut
+            value={`${winRate.toFixed(0)}%`}
+            label="Win Rate"
+            size={DONUT_SIZE}
+            // Open deals are excluded so the green arc matches the
+            // centered win-rate = wins / (wins + losses).
+            segments={[
+              { value: vm.wins, color: 'var(--color-profit)' },
+              { value: vm.losses, color: 'var(--color-loss)' },
+            ]}
           />
-        </div>
-
-        <div className="flex flex-1 flex-col gap-md">
-          <div className="flex flex-col gap-md @lg:flex-row">
-            <Panel title="Win Rate" className="flex-1 items-center">
-              <Donut
-                value={`${winRate.toFixed(0)}%`}
-                label="Win Rate"
-                // Open deals are excluded so the green arc matches the
-                // centered win-rate = wins / (wins + losses).
-                segments={[
-                  { value: vm.wins, color: 'var(--color-profit)' },
-                  { value: vm.losses, color: 'var(--color-loss)' },
-                ]}
-              />
-            </Panel>
-            <Panel title="Profit Factor" className="flex-1 items-center">
-              <Donut
-                value={profitFactorLabel}
-                label="Profit Factor"
-                segments={[
-                  { value: vm.wins, color: 'var(--color-profit)' },
-                  { value: vm.losses, color: 'var(--color-loss)' },
-                ]}
-              />
-            </Panel>
-          </div>
-
-          <Panel title="Performance Metrics">
-            <MetricRow k="Deals" v={vm.wins + vm.losses + vm.open} />
-            <MetricRow k="Winners" v={vm.wins} tone="up" />
-            <MetricRow k="Losers" v={vm.losses} tone="down" />
-            <MetricRow k="Open" v={vm.open} />
-            <div className="my-1.5 border-t border-border/60" />
-            <MetricRow k="Deals / day" v={vm.dealsPerDay.toFixed(2)} />
-            <MetricRow
-              k="Annualized Return"
-              v={vm.annualizedPerc !== null ? fmtPct(vm.annualizedPerc) : '—'}
-              tone={
-                vm.annualizedPerc === null
-                  ? 'neutral'
-                  : vm.annualizedPerc >= 0
-                    ? 'up'
-                    : 'down'
-              }
-            />
-          </Panel>
-        </div>
+        </Panel>
+        <Panel title="Profit Factor" className="items-center justify-center">
+          <Donut
+            value={profitFactorLabel}
+            label="Profit Factor"
+            size={DONUT_SIZE}
+            segments={[
+              { value: vm.wins, color: 'var(--color-profit)' },
+              { value: vm.losses, color: 'var(--color-loss)' },
+            ]}
+          />
+        </Panel>
       </div>
+
+      <Panel title="Performance Metrics">
+        <MetricRow k="Deals" v={vm.wins + vm.losses + vm.open} />
+        <MetricRow k="Winners" v={vm.wins} tone="up" />
+        <MetricRow k="Losers" v={vm.losses} tone="down" />
+        <MetricRow k="Open" v={vm.open} />
+        <div className="my-1.5 border-t border-border/60" />
+        <MetricRow k="Deals / day" v={vm.dealsPerDay.toFixed(2)} />
+        <MetricRow
+          k="Annualized Return"
+          v={vm.annualizedPerc !== null ? fmtPct(vm.annualizedPerc) : '—'}
+          tone={
+            vm.annualizedPerc === null
+              ? 'neutral'
+              : vm.annualizedPerc >= 0
+                ? 'up'
+                : 'down'
+          }
+        />
+      </Panel>
     </div>
   );
 };
