@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.47.2] - 2026-08-25
+
+### Fixed
+
+- Deal and order action menus opened behind the detail drawer. Five menus
+  pinned themselves to `z-50`, overriding the shared `z-[70]`; when 2.46.2
+  raised the drawer to `z-[55]` so it would sit above the mobile full-screen
+  layout, those menus fell below it. The bot drawer's Deals-tab `⋯` menu, the
+  Open Orders `⋯` menu, the deal card menu, the mobile global-variable card
+  menu and the navbar account menu now use the shared modal-band z-index.
+
 ## [2.47.1] - 2026-08-25
 
 ### Fixed

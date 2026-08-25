@@ -1070,7 +1070,7 @@ const EnhancedCard = React.memo(
               </DropdownMenuTrigger>
               <DropdownMenuContent
                 align="end"
-                className="w-56 z-50"
+                className="w-56"
                 onClick={(e) => e.stopPropagation()}
               >
                 <DropdownMenuItem onClick={viewDetails} disabled={terminal}>

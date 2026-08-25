@@ -585,7 +585,7 @@ const DealActionsMenu: React.FC<{
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 z-50">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem onClick={() => handleOpenDetailDrawer(trade)}>
             <Eye className="w-4 h-4 mr-2" />
             View Details

@@ -154,7 +154,7 @@ const MobileVariableCard: React.FC<MobileVariableCardProps> = ({
               <DropdownMenuContent
                 align="end"
                 side="bottom"
-                className="w-48 z-50"
+                className="w-48"
                 sideOffset={8}
                 onClick={(e) => e.stopPropagation()}
               >

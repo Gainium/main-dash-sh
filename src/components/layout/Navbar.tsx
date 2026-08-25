@@ -735,7 +735,7 @@ const Navbar: React.FC<NavbarProps> = ({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   align="end"
-                  className="z-50 w-64 max-h-[calc(100vh-4rem)] overflow-y-auto"
+                  className="w-64 max-h-[calc(100vh-4rem)] overflow-y-auto"
                 >
                   {/* User identity header */}
                   <div className="px-2 py-2.5">

@@ -787,7 +787,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
             <MoreHorizontal className="w-4 h-4" />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-56 z-50">
+        <DropdownMenuContent align="end" className="w-56">
           <DropdownMenuItem onClick={handleAddToJournal}>
             <BookOpen className="w-4 h-4 mr-2" />
             Add to Journal
