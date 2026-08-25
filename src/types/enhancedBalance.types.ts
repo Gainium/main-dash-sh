@@ -42,6 +42,12 @@ export interface EnhancedBalanceData {
   // Price information
   currentPrice: number;
   usdRate: string;
+  /**
+   * No price source could value this asset - neither the venue's own rate table
+   * nor the screener. Distinguishes "we could not price this" from a genuine
+   * zero, so the table can say so instead of rendering a confident $0.00.
+   */
+  priceUnavailable?: boolean;
 
   // Asset metadata
   categories?: string[];

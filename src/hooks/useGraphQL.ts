@@ -53,6 +53,15 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
      * caller-driven here rather than a field-name denylist.
      */
     requestTimeoutMs?: number | null;
+    /**
+     * A second query to try, once, if the server rejects the first one against
+     * its schema. Lets a dashboard select a field a newer backend added without
+     * breaking against an older one: a selection the schema does not have is a
+     * validation error that fails the WHOLE query, so without this the widget
+     * renders nothing at all rather than degrading. Only for additive
+     * selections — the fallback must ask for a subset of the primary.
+     */
+    fallbackQuery?: { query: string; variables?: TVars };
   }
 ) {
   // Get the authentication token from the auth store
@@ -60,6 +69,10 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
 
   // Get the paper context from the UI store (live/paper trading mode)
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  const fallbackQuery = (
+    options as { fallbackQuery?: { query: string; variables?: TVars } }
+  )?.fallbackQuery;
 
   const shareId = (options as { shareId?: string | null })?.shareId ?? null;
   const isShareMode = !!shareId;
@@ -188,16 +201,38 @@ export function useGraphQL<TData = unknown, TVars = unknown>(
             : undefined
         );
       } catch (e: unknown) {
-        console.error('[useGraphQL] Request error:', {
-          key,
-          message: e instanceof Error ? e.message : 'Unknown error',
-        });
-        throw e;
+        const message = e instanceof Error ? e.message : 'Unknown error';
+        // A schema rejection is not a transient failure and retrying the same
+        // document will never succeed — but a caller that offered a compatible
+        // document can still be served from this backend.
+        const rejectedBySchema =
+          /GRAPHQL_VALIDATION_FAILED|Cannot query field|Unknown argument|is not defined by type|Unknown type/i.test(
+            message
+          );
+        if (!fallbackQuery || !rejectedBySchema) {
+          console.error('[useGraphQL] Request error:', { key, message });
+          throw e;
+        }
+        logger.warn(
+          `[useGraphQL] ${key}: backend rejected the extended selection, falling back to the compatible one`,
+          { message }
+        );
+        result = await client.request<{
+          [K in string]: ReturnResult<TData>;
+        }>(
+          fallbackQuery.query,
+          fallbackQuery.variables,
+          resolvedTimeoutMs !== undefined
+            ? { timeoutMs: resolvedTimeoutMs }
+            : undefined
+        );
       }
 
       // Extract the GraphQL operation name from the query
       // Look for pattern: "query operationName" or "mutation operationName"
       const operationMatch = gql.query.match(/(?:query|mutation)\s+(\w+)/);
+      // (Both documents name the same operation and field, so parsing the
+      // primary is correct whichever one actually ran.)
       const operationName = operationMatch?.[1];
 
       // Try to find the field name in the query - look for field after the opening brace

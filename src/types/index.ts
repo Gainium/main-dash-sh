@@ -2636,6 +2636,13 @@ export type Asset = {
   exchange?: string;
   exchangeName?: string;
   exchangeUUID?: string;
+  /**
+   * Venue-derived USD valuation, only present when the caller asked for it with
+   * `getBalances(input: { includeUsdValues: true })`. `null` means the venue
+   * publishes no USD rate for the asset - NOT that it is worth zero.
+   */
+  price?: string | null;
+  usdValue?: string | null;
 };
 
 export type Profit = {

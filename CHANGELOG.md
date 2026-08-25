@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.46.4] - 2026-08-25
+
+### Fixed
+
+- Portfolio balances are now valued from the exchange's own USD rate instead of
+  by matching the exchange's ticker against the market screener's coin symbols.
+  That match was a guess, and a holding it could not resolve was priced at zero:
+  a coin renamed upstream (a venue still lists Toncoin as `TON` while the
+  screener carries the post-rebrand `gram`) or a long-tail listing the screener
+  does not carry rendered a real balance as `$0.00`, silently understating the
+  portfolio total. Requires main-app core >= 1.53.5, which supplies the rate via
+  `getBalances(input: { includeUsdValues: true })`; against an older backend the
+  widget falls back to the previous screener pricing rather than failing.
+- An asset that no source can price now says so instead of showing `$0.00`,
+  which read as a confident claim that a real holding was worthless.
+
 ## [2.46.3] - 2026-08-24
 
 ### Fixed

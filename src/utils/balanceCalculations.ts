@@ -70,12 +70,24 @@ const findUSDRate = (
   return priceData?.price ?? 0;
 };
 
+// Parse a rate that may arrive as a string, null or undefined (the GraphQL
+// `price` field is a String). Only a finite, strictly positive number counts as
+// a price - zero and missing both mean "not priced", never a valid valuation.
+const parseRate = (value: unknown): number | undefined => {
+  const parsed =
+    typeof value === 'number'
+      ? value
+      : Number.parseFloat(String(value ?? ''));
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
+};
+
 // Calculate USD prices for balance data
 const calculateUSDPrices = (
   balance: Partial<EnhancedBalanceData>,
-  prices: BalanceCalculationInput['prices'] = []
+  prices: BalanceCalculationInput['prices'] = [],
+  rateOverride?: number
 ) => {
-  const usdRate = findUSDRate(balance.token || '', prices);
+  const usdRate = rateOverride ?? findUSDRate(balance.token || '', prices);
 
   return {
     freeUsd: math.round((balance.free || 0) * usdRate, 2),
@@ -310,7 +322,15 @@ export const calculateEnhancedBalances = (
               : Infinity
             : math.round((totalRequired / total) * 100, 2);
 
-        const price = findUSDRate(balance.asset, prices);
+        // Prefer the venue's own rate for this exact holding, supplied by
+        // `getBalances(input: { includeUsdValues: true })`. The screener-derived
+        // `prices` list stays as a fallback only: it matches on coin symbol, so
+        // an asset the venue names differently from the screener (an upstream
+        // rebrand) or one the screener does not carry matches nothing and would
+        // otherwise be valued at 0 - indistinguishable from actually worthless.
+        const price =
+          parseRate(balance.price) ?? findUSDRate(balance.asset, prices);
+        const priceUnavailable = price <= 0;
 
         const baseBalance: Partial<EnhancedBalanceData> = {
           id: `${balance.asset.toLowerCase()}-${index}`,
@@ -328,6 +348,7 @@ export const calculateEnhancedBalances = (
           requiredRatio,
           currentPrice: price,
           usdRate: '0',
+          priceUnavailable,
           categories: getCategories(balance.asset, coins),
           marketCapCategory: getMarketCapCategory(balance.asset, coins),
           legend: assetLegend,
@@ -339,7 +360,8 @@ export const calculateEnhancedBalances = (
           ...baseBalance,
           ...calculateUSDPrices(
             baseBalance as Partial<EnhancedBalanceData>,
-            prices
+            prices,
+            price
           ),
         } as EnhancedBalanceData;
       })
@@ -485,6 +507,14 @@ export const calculateEnhancedBalances = (
           freeAndOverUsd: math.round(
             current.freeAndOverUsd + balance.freeAndOverUsd,
             2
+          ),
+
+          // A row priced by at least one venue carries that rate for the
+          // aggregate; the aggregate is only unpriced when every row feeding it
+          // was, so one unpriceable venue cannot zero out the whole holding.
+          currentPrice: current.currentPrice || balance.currentPrice,
+          priceUnavailable: Boolean(
+            current.priceUnavailable && balance.priceUnavailable
           ),
 
           // Combine legends
