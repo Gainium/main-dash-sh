@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.48.1] - 2026-08-25
+
+### Fixed
+
+- Dragging a take-profit or stop-loss line on the Edit Deal chart updated the %
+  for a moment and then snapped back to the old value. The drag wrote only the
+  percentage, but the section keeps that percentage derived from the target's
+  price whenever a fixed price is set — so the next render overwrote it. A drag
+  now goes through the same path as the chart bullseye, which writes the price,
+  the percentage and the flag together.
+
 ## [2.48.0] - 2026-08-25
 
 ### Added

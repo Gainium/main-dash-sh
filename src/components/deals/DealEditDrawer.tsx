@@ -13,6 +13,7 @@ import {
 import {
   TradingTerminalUtilsContext,
   TradingTerminalUtilsProvider,
+  useTradingTerminalUtils,
 } from '@/context/TradingTerminalUtilsContext';
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
@@ -59,7 +60,6 @@ import {
   BotTypesEnum,
   DCAOrderTypeEnum,
   ExchangeEnum,
-  StrategyEnum,
   type ComboBotSettings,
   type DCABotSettings,
   type DCADeals,
@@ -317,6 +317,8 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
     //  3. `feedChart` on the provider (above) lets the form push its settings
     //     at all; without it the store is never recomputed and the lines are
     //     frozen at whatever the host plotted.
+    const { setCoordinates: setDealPickCoordinates } =
+      useTradingTerminalUtils();
     const dealChartStore = useExampleOrdersStore();
     const dealSlice =
       formData.type === BotTypesEnum.combo ? formData.combo : formData.dca;
@@ -338,43 +340,42 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
     // provider's own settings push. Same reasoning as BotForm's dragHandlerRef.
     const dealDragRef = useRef<ExampleOrdersStoreContext['onDrag']>(undefined);
     dealDragRef.current = (price, type, index) => {
-      if (!chartSync || dealReferencePrice <= 0) return;
-      const long = dealSlice?.strategy !== StrategyEnum.short;
-      // Deal targets stay PERCENTAGES off the deal's breakeven — the same unit
-      // the form and the backend already use. Converting here (rather than
-      // flipping useFixedTPPrices/useFixedSLPrices from a drag) means a drag
-      // lands exactly where dropped without changing what the setting means.
-      const perc = ((price - dealReferencePrice) / dealReferencePrice) * 100 * (long ? 1 : -1);
-      if (!Number.isFinite(perc)) return;
+      if (!chartSync || !Number.isFinite(price) || price <= 0) return;
+
+      // A drag IS a chart pick — same event, different gesture. Both are
+      // handed to the section that owns the target, through the coordinate
+      // channel the bullseye already uses, so exactly one piece of code writes
+      // a chart-sourced price.
+      //
+      // Writing the % here instead (the obvious shortcut) is wrong and was the
+      // bug: TakeProfitSettings keeps `tpPerc` derived from `fixedTpPrice`
+      // whenever `useFixedTPPrices` is on, so a handler that set only the %
+      // got reverted by that effect on the very next render — the value
+      // flashed and snapped back. `handleTargetFixedChange` writes the price,
+      // the derived %, and the flag together, which is the only consistent
+      // state.
+      let pickerField: string | null = null;
 
       if (type === DCAOrderTypeEnum.tp) {
-        const target = Math.abs(perc).toFixed(2);
-        if (typeof index !== 'undefined' && dealSlice?.useMultiTp) {
-          updateFormData(
-            'multiTp',
-            (dealSlice.multiTp || []).map((tp, i) =>
-              i === index ? { ...tp, target } : tp
-            )
-          );
-        } else {
-          updateFormData('tpPerc', target);
-        }
+        const uuid =
+          typeof index === 'number' && dealSlice?.useMultiTp
+            ? dealSlice.multiTp?.[index]?.uuid
+            : 'single-target';
+        if (uuid) pickerField = `multiTp.${uuid}.fixed`;
+      } else if (type === DCAOrderTypeEnum.sl) {
+        const uuid =
+          typeof index === 'number' && dealSlice?.useMultiSl
+            ? dealSlice.multiSl?.[index]?.uuid
+            : 'single-sl-target';
+        if (uuid) pickerField = `multiSl.${uuid}.fixed`;
       }
 
-      if (type === DCAOrderTypeEnum.sl) {
-        // slPerc is stored negative (a stop is always adverse to the entry).
-        const signed = (-Math.abs(perc)).toFixed(2);
-        if (typeof index !== 'undefined' && dealSlice?.useMultiSl) {
-          updateFormData(
-            'multiSl',
-            (dealSlice.multiSl || []).map((sl, i) =>
-              i === index ? { ...sl, target: signed } : sl
-            )
-          );
-        } else {
-          updateFormData('slPerc', signed);
-        }
-      }
+      if (!pickerField) return;
+
+      // `time` only has to make each drop distinct — the consuming effect
+      // dedupes on `pickerField-time-price`, so dragging back to a price you
+      // already used would otherwise be swallowed.
+      setDealPickCoordinates({ time: Date.now(), price, pickerField });
     };
 
     useEffect(() => {
