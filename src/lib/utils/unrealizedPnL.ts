@@ -243,6 +243,19 @@ export const calculateUnrealizedPnL = (
     const isLong = !deal.strategy || deal.strategy === StrategyEnum.long;
 
     // Calculate unrealized PnL based on the formula from the guide
+    //
+    // POLICY — DO NOT "FIX" THIS TO qty * (price - avgPrice).
+    // This is the WHOLE DEAL's P&L, not the open position's mark-to-market:
+    // `quote` carries grid proceeds the deal has already banked. For a DCA deal
+    // the two coincide (it never sells mid-deal); a combo deal separates them on
+    // its first grid sell, and the column will then read higher than the
+    // exchange's unrealized figure by exactly the amount already realized.
+    // That is the definition, not an error — Gainium reports the bot's own
+    // books, never exchange settlement accounting. Reported and rejected as a
+    // not-bug (Claus #509, 2026-08-26) with a working patch attached.
+    // Consequence worth knowing: this column and grid profit must never be
+    // added — that double-counts everything the grid has banked.
+    // Read 0-knowledge/domain/pnl-accounting-policy.md before editing.
     const unrealizedPnL = isLong
       ? (deal.currentBalances.base * price +
           deal.currentBalances.quote -
