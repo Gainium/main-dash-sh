@@ -1,7 +1,7 @@
 import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   GraphQLClient,
   getGraphQLConfig,
@@ -164,6 +164,14 @@ export function useBotSpecificDeals(
   );
 
   const [intermediateDeals, setIntermediateDeals] = useState<DCADeals[]>([]);
+  // Mirrors `intermediateDeals` for the CURRENT auto-load run, keyed by _id.
+  // A ref (not state) because the effect below must read the accumulated size
+  // synchronously to decide whether the run actually covers every page it
+  // walked past before it may declare the run complete — and depending on
+  // `intermediateDeals` there would re-run the effect on every render (see the
+  // dependency note at the end of that effect). Reset wherever
+  // `intermediateDeals` is.
+  const accumulatedRef = useRef<Map<string, DCADeals>>(new Map());
   const [isLoadingComplete, setIsLoadingComplete] = useState(false);
   // Latches true once the first full load cycle (all auto-loader pages) for the
   // current filter has finished. Reset only when the filter changes — NOT by
@@ -179,9 +187,23 @@ export function useBotSpecificDeals(
       const total = response.data?.total || 0;
       const pageSize = filter.pageSize || 100;
 
-      setIntermediateDeals((prev) => [
-        ...new Map([...prev, ...apiDeals].map((d) => [d._id, d])).values(),
-      ]); // Deduplicate by _id
+      // The payload react-query hands back is NOT necessarily this page's.
+      // `lib/queryClient` sets a GLOBAL `placeholderData: (prev) => prev`, so
+      // the moment `currentPageLoading` changes the key, the PREVIOUS page's
+      // payload is replayed under the new key with a success status (and
+      // `isLoading` false) until the network answers. Folding that in as "the
+      // response for currentPageLoading" made the loader walk pages far faster
+      // than the network — it reached the last page holding only page 0 and
+      // committed that as the whole snapshot. The server echoes the page it
+      // served, so trust that. (`?? currentPageLoading` keeps a backend that
+      // omits the field on the old behaviour rather than dropping every page.)
+      const responsePage = response.data?.page ?? currentPageLoading;
+      if (responsePage !== currentPageLoading) return;
+
+      apiDeals.forEach((d) => {
+        if (d._id) accumulatedRef.current.set(d._id, d); // Deduplicate by _id
+      });
+      setIntermediateDeals(Array.from(accumulatedRef.current.values()));
 
       // Check if we should load more pages (only if query is not loading to ensure sequential loading)
       const shouldContinueLoading =
@@ -200,8 +222,17 @@ export function useBotSpecificDeals(
             setCurrentPageLoading(nextPage);
           }, 100);
         }
-      } else {
-        // All pages loaded - mark loading as complete
+      } else if (
+        accumulatedRef.current.size >=
+        currentPageLoading * pageSize + apiDeals.length
+      ) {
+        // Last page of the run AND the accumulator holds every page of it:
+        // pages before the current one are full by construction (that is the
+        // only reason the loader advanced), so a run that walked to page N
+        // must carry N*pageSize deals plus this page's. Short of that we
+        // skipped a page whose response has not landed yet — committing here
+        // is what let reconcileDeals' absence-delete prune real deals. Stay
+        // put; the outstanding page re-triggers this effect when it arrives.
         setIsLoadingComplete(true);
         setHasLoadedOnce(true);
       }
@@ -220,6 +251,17 @@ export function useBotSpecificDeals(
     loadedPages,
     filter.pageSize,
   ]);
+
+  // Get total from API response (for pagination). Declared before the commit
+  // effect below, which reads it to decide whether the snapshot is complete
+  // enough to absence-delete with.
+  const apiTotal = useMemo(() => {
+    if (queryResult.data && queryResult.data.status === 'OK') {
+      const response = queryResult.data as unknown as GetBotDealsResponse;
+      return response.data?.total || 0;
+    }
+    return 0;
+  }, [queryResult.data]);
 
   // Debounced store update - only update when loading is complete
   useEffect(() => {
@@ -241,6 +283,12 @@ export function useBotSpecificDeals(
               dealType,
               statuses: requestedStatusGroup(filter.status),
               botId: filter.botId,
+              // The display loader deliberately stops at `maxPages`, so on a
+              // bot with more deals than that the snapshot is page-capped and
+              // cannot vouch for the absence of anything beyond it. Merge, but
+              // don't absence-delete — that is exactly what `complete: false`
+              // is for.
+              complete: intermediateDeals.length >= apiTotal,
               snapshotAt: (queryResult.data as FetchStamped | null)
                 ?.__fetchedAt,
             },
@@ -249,6 +297,7 @@ export function useBotSpecificDeals(
           logger.info(
             `[useBotSpecificDeals] Updated store with ${intermediateDeals.length} ${dealType} deals for bot ${filter.botId}`
           );
+          accumulatedRef.current = new Map();
           setIntermediateDeals([]); // Clear intermediate deals after updating
           setIsLoadingComplete(false);
         }, 50); // 50ms debounce
@@ -265,6 +314,8 @@ export function useBotSpecificDeals(
             dealType,
             statuses: requestedStatusGroup(filter.status),
             botId: filter.botId,
+            // Only an empty snapshot the server agrees is empty may prune.
+            complete: apiTotal === 0,
             snapshotAt: (queryResult.data as FetchStamped | null)?.__fetchedAt,
           },
           { [filter.botId]: [] }
@@ -280,6 +331,7 @@ export function useBotSpecificDeals(
     dealType,
     filter.status,
     queryResult.data,
+    apiTotal,
   ]);
 
   // Log errors
@@ -290,19 +342,11 @@ export function useBotSpecificDeals(
     );
   }
 
-  // Get total from API response (for pagination)
-  const apiTotal = useMemo(() => {
-    if (queryResult.data && queryResult.data.status === 'OK') {
-      const response = queryResult.data as unknown as GetBotDealsResponse;
-      return response.data?.total || 0;
-    }
-    return 0;
-  }, [queryResult.data]);
-
   // Reset pagination state when filter changes
   useEffect(() => {
     setCurrentPageLoading(0);
     setLoadedPages(new Set([0]));
+    accumulatedRef.current = new Map();
     setIntermediateDeals([]); // Clear accumulated deals
     setCommittedDeals([]); // Drop the previous status's snapshot
     setIsLoadingComplete(false); // Reset loading completion state
@@ -323,6 +367,7 @@ export function useBotSpecificDeals(
     if (!filter.botId) return undefined;
     const intervalId = setInterval(() => {
       setLoadedPages(new Set([0]));
+      accumulatedRef.current = new Map();
       setIntermediateDeals([]);
       if (currentPageLoading !== 0) {
         // Off page 0 (multi-page bot): resetting the page changes the query

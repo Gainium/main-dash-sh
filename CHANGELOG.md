@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.48.7] - 2026-08-26
+
+### Fixed
+
+- DCA Analysis on the bot page no longer cycles between the correct "Finished
+  Deals by DCA Count" figures and much smaller ones. On a bot with more than one
+  page of deals the loader could commit a part-loaded snapshot, which deleted the
+  rest of that bot's deals from the local cache until the next 30s refresh. The
+  deals list in the bot drawer was affected the same way.
+- Bots with more deals than the deal view loads at once no longer have the
+  remainder dropped from the local cache by a refresh.
+
 ## [2.48.6] - 2026-08-26
 
 ### Fixed
