@@ -211,6 +211,38 @@ export const calculatePnlPercentage = (
   return (pnl / capital) * 100;
 };
 
+/**
+ * Total P&L for one deal — what the "Net P&L" column reports.
+ *
+ * `unrealizedProfit` is NOT the open position's mark-to-market. It is the whole
+ * deal's P&L: both producers compute `base*price + quote - initialQuote` (the
+ * client hook in `unrealizedPnL.ts`, and main-app's `stats.unrealizedProfit` in
+ * `dealMonitor.ts`), and grid sale proceeds land back in `quote`. So anything
+ * the deal has already banked is ALREADY inside it.
+ *
+ * Adding the realized figure on top therefore counts every banked grid sell
+ * twice. On a combo deal with an active grid that roughly doubles the number —
+ * one live deal read ~162 against a true total of ~80.
+ *
+ * While a deal is active its total IS `unrealizedProfit`; once it closes there
+ * is no position left and the total is the realized figure. (For active deals
+ * this makes Net P&L equal the Unrealized P&L column — they are genuinely the
+ * same quantity under this model; the columns only diverge once closed.)
+ *
+ * Do NOT "simplify" this back to `unrealized + realized`.
+ * See 0-knowledge/domain/pnl-accounting-policy.md.
+ */
+export const calculateDealNetPnl = ({
+  active,
+  unrealizedProfit,
+  realizedProfit,
+}: {
+  active?: boolean;
+  unrealizedProfit?: number | null;
+  realizedProfit?: number | null;
+}): number =>
+  active ? toFiniteNumber(unrealizedProfit) : toFiniteNumber(realizedProfit);
+
 export const calculatePnlPercentageNullable = (
   pnlUsd?: number | null,
   capitalUsd?: number | null

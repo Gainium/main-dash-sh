@@ -42,6 +42,7 @@ import { toast } from '@/lib/toast';
 import { formatTradingPair } from '@/lib/utils';
 import {
     calculateDealCost,
+    calculateDealNetPnl,
     calculateDealSize,
     calculateDealValue,
     calculatePnlPercentage,
@@ -2571,11 +2572,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       },
       {
         id: 'netPnl',
-        accessorFn: (row) => {
-          const unrealizedProfit = Number(row.unrealizedProfit || 0);
-          const realizedProfit = Number(row.profit?.totalUsd || 0);
-          return unrealizedProfit + realizedProfit;
-        },
+        accessorFn: (row) =>
+          calculateDealNetPnl({
+            active: row.active,
+            unrealizedProfit: row.unrealizedProfit,
+            realizedProfit: row.profit?.totalUsd,
+          }),
         header: 'Net P&L',
         meta: {
           filterType: 'number',
@@ -2600,9 +2602,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (row.original.active && pricesLoading) {
             return <Skeleton className="h-4 w-16" />;
           }
-          const unrealizedProfit = Number(row.original.unrealizedProfit || 0);
-          const realizedProfit = Number(row.original.profit?.totalUsd || 0);
-          const netPnl = unrealizedProfit + realizedProfit;
+          const netPnl = calculateDealNetPnl({
+            active: row.original.active,
+            unrealizedProfit: row.original.unrealizedProfit,
+            realizedProfit: row.original.profit?.totalUsd,
+          });
           const cost = Number(row.original.cost || 0);
           const percentage = calculatePnlPercentage(netPnl, cost);
           return (
@@ -2618,9 +2622,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       },
       {
         accessorFn: (row) => {
-          const unrealizedProfit = Number(row.unrealizedProfit || 0);
-          const realizedProfit = Number(row.profit?.totalUsd || 0);
-          const netPnl = unrealizedProfit + realizedProfit;
+          const netPnl = calculateDealNetPnl({
+            active: row.active,
+            unrealizedProfit: row.unrealizedProfit,
+            realizedProfit: row.profit?.totalUsd,
+          });
           const cost = Number(row.cost || 0);
           return calculatePnlPercentage(netPnl, cost);
         },
@@ -2631,9 +2637,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (row.original.active && pricesLoading) {
             return <Skeleton className="h-4 w-12" />;
           }
-          const unrealizedProfit = Number(row.original.unrealizedProfit || 0);
-          const realizedProfit = Number(row.original.profit?.totalUsd || 0);
-          const netPnl = unrealizedProfit + realizedProfit;
+          const netPnl = calculateDealNetPnl({
+            active: row.original.active,
+            unrealizedProfit: row.original.unrealizedProfit,
+            realizedProfit: row.original.profit?.totalUsd,
+          });
           const cost = Number(row.original.cost || 0);
           const percentage = calculatePnlPercentage(netPnl, cost);
           if (privacyMode) {

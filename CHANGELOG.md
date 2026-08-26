@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.48.6] - 2026-08-26
+
+### Fixed
+
+- The Net P&L column on the trades table no longer double-counts profit a deal
+  has already banked. Unrealized P&L already includes realized grid profit
+  while a deal is open, so adding the realized figure on top counted every
+  completed grid sell twice — one open combo deal read $163.01 against a true
+  $80.52. Deals that bank nothing before closing (plain DCA) were unaffected.
+
 ## [2.48.5] - 2026-08-26
 
 ### Fixed

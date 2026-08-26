@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 
 import {
   calculateDealCost,
+  calculateDealNetPnl,
   calculateDealValue,
   type DealMetricsInput,
 } from '@/lib/utils/tradingMetrics';
@@ -99,5 +100,72 @@ test.describe('tradingMetrics leverage handling', () => {
     expect(cost).toBeCloseTo(100, 6);
     expect(value).toBeCloseTo(500, 6);
     expect(value).toBeCloseTo(cost * 5, 6);
+  });
+});
+
+/**
+ * Regression tests for the "Net P&L" column double-count (Claus #509 fallout,
+ * 2026-08-26).
+ *
+ * The column computed `unrealizedProfit + realizedProfit`. But
+ * `unrealizedProfit` is not the open position's mark-to-market — both producers
+ * (`unrealizedPnL.ts` client-side and main-app `dealMonitor.stats`) compute
+ * `base*price + quote - initialQuote`, and grid sale proceeds land back in
+ * `quote`. So banked profit is already inside it, and adding the realized
+ * figure counted every grid sell twice.
+ *
+ * Numbers below are the real values from combo deal 6a8917a7…d9d
+ * (HYPE-USDC, hyperliquidLinear) read from prod on 2026-08-26.
+ */
+test.describe('calculateDealNetPnl — no double-count of banked grid profit', () => {
+  // deal total = 5.9 × 81.474 + 7761.63109 − 8162.38
+  const dealTotal = 79.9477;
+  // profit.gridProfit / profit.totalUsd on the same deal
+  const gridProfit = 82.4876;
+
+  test('active combo deal reports the deal total, not total + grid profit', () => {
+    const netPnl = calculateDealNetPnl({
+      active: true,
+      unrealizedProfit: dealTotal,
+      realizedProfit: gridProfit,
+    });
+
+    expect(netPnl).toBeCloseTo(dealTotal, 4);
+    // the bug: 79.95 + 82.49 ≈ 162.4, roughly double the true result
+    expect(netPnl).not.toBeCloseTo(dealTotal + gridProfit, 1);
+  });
+
+  test('closed deal falls back to the realized figure', () => {
+    // transforms zero `unrealizedProfit` on inactive deals; even if a stale
+    // value survives (the combo transform does not gate on active), an
+    // inactive deal must report realized only.
+    expect(
+      calculateDealNetPnl({
+        active: false,
+        unrealizedProfit: dealTotal,
+        realizedProfit: gridProfit,
+      })
+    ).toBeCloseTo(gridProfit, 4);
+  });
+
+  test('DCA deal that has banked nothing is unchanged by the fix', () => {
+    // an open DCA deal never sells mid-deal, so realized is 0 and the old and
+    // new forms agree — this is why the bug was invisible outside combo/grid.
+    expect(
+      calculateDealNetPnl({
+        active: true,
+        unrealizedProfit: 12.5,
+        realizedProfit: 0,
+      })
+    ).toBeCloseTo(12.5, 6);
+  });
+
+  test('missing/non-finite inputs collapse to 0 rather than NaN', () => {
+    expect(
+      calculateDealNetPnl({ active: true, unrealizedProfit: undefined })
+    ).toBe(0);
+    expect(
+      calculateDealNetPnl({ active: false, realizedProfit: null })
+    ).toBe(0);
   });
 });
