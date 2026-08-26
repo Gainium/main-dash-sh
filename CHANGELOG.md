@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.48.5] - 2026-08-26
+
+### Fixed
+
+- Volume Filter and Relative Volume Filter in DCA deal-start settings now
+  behave as the mutually exclusive pair they are meant to be. Deselecting
+  either one cleared both, and selecting one left the other selected, so a bot
+  could be saved with both filters on. Turning one on now clears the other, and
+  turning one off leaves the other untouched.
+
 ## [2.48.4] - 2026-08-25
 
 ### Fixed

@@ -166,15 +166,22 @@ export const handleSettingsUpdate = (
         updates.dca.activeOrdersCount = '1';
       }
     }
+    // Volume Filter and Relative Volume Filter are mutually exclusive: turning
+    // one ON clears the other, turning one OFF leaves the other alone. Legacy
+    // V1 (useSettingsComponent.ts:2549-2558) reassigns its local *before*
+    // testing it, so its guard reads the INCOMING value. Test the value we just
+    // wrote, not the pre-update `settings.*` — reading the stale value inverted
+    // the guard, so switching one OFF cleared both and switching one ON left
+    // both set (bug #507).
     if (field === 'useVolumeFilter') {
       updates.dca.useVolumeFilter = !!value;
-      updates.dca.useRelativeVolumeFilter = useVolumeFilter
+      updates.dca.useRelativeVolumeFilter = updates.dca.useVolumeFilter
         ? false
         : useRelativeVolumeFilter;
     }
     if (field === 'useRelativeVolumeFilter') {
       updates.dca.useRelativeVolumeFilter = !!value;
-      updates.dca.useVolumeFilter = useRelativeVolumeFilter
+      updates.dca.useVolumeFilter = updates.dca.useRelativeVolumeFilter
         ? false
         : useVolumeFilter;
     }
