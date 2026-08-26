@@ -11,3 +11,8 @@ node_modules/
 # Playwright unit/e2e run output
 test-results/
 playwright-report/
+
+# Playwright auth state (playwright.config.ts -> use.storageState).
+# This is a real session storage state (cookies/JWT) and this repo is public.
+# Scope to the .auth dir only, never the whole tests/ dir (see main-dash-redesign).
+tests/.auth/
