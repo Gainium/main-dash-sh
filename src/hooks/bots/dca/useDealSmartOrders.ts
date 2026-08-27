@@ -366,6 +366,12 @@ export function useDealSmartOrders({
         filled: 0,
         remaining: qty,
         total: qty * price,
+        // Epoch means "never placed" — a projected level has no creation time,
+        // but `ViewOrder.createTime` is a required string so it cannot simply be
+        // omitted. Renderers MUST treat <= 0 as absent rather than as a date:
+        // this string is truthy, so a plain `if (!createTime)` guard lets it
+        // through and the row displays "01/01/1970". See `formatOrderTime` in
+        // components/trades/DealOrdersSection.tsx.
         createTime: new Date(0).toISOString(),
         executedQuantity: 0,
         executedPrice: 0,

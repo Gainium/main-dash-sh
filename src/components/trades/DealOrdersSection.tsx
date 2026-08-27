@@ -21,8 +21,12 @@ import React, {
   useState,
 } from 'react';
 import logger from '../../lib/loggerInstance';
-import { formatCurrency } from '../../lib/utils';
-import { formatPriceWithPrecision } from '@/utils/formatters';
+import {
+  formatOrderTime,
+  formatPriceWithPrecision,
+  formatQuoteAmount,
+  quoteUnits,
+} from '@/utils/formatters';
 import { toast } from '@/lib/toast';
 import {
   StrategyEnum,
@@ -132,6 +136,17 @@ interface OrderCardContextValue {
   requestCancel: (order: OrderRowModel) => void;
   isCanceling: boolean;
 }
+
+/**
+ * A price rendered in the pair's own quote asset rather than a hardcoded "$".
+ * `formatPriceWithPrecision` keeps its adaptive-decimals behaviour; all this
+ * decides is the unit that goes around the number.
+ */
+const priceInQuote = (value: number, quoteAsset?: string | null): string => {
+  const { prefix, suffix } = quoteUnits(quoteAsset);
+  return formatPriceWithPrecision(value, prefix, suffix);
+};
+
 const OrderCardContext = createContext<OrderCardContextValue | null>(null);
 
 /**
@@ -222,7 +237,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
           {/* Center: Price & Amount */}
           <div className="hidden md:flex flex-col items-end">
             <span className="text-sm font-medium">
-              {formatPriceWithPrecision(order.price)}
+              {priceInQuote(order.price, order.quoteAsset)}
             </span>
             <span className="text-xs text-muted-foreground">
               {order.amount.toFixed(6)}
@@ -233,7 +248,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
           <div className="flex items-center gap-sm">
             <div className="flex flex-col items-end">
               <span className="text-sm font-semibold">
-                {formatCurrency(order.total)}
+                {formatQuoteAmount(order.total, order.quoteAsset)}
               </span>
               {order.status === 'partial' && !isSmart && (
                 <span className="text-xs text-muted-foreground">
@@ -282,7 +297,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                     Order Price
                   </span>
                   <span className="text-sm font-medium">
-                    {formatPriceWithPrecision(order.price)}
+                    {priceInQuote(order.price, order.quoteAsset)}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -305,7 +320,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                     Total Value
                   </span>
                   <span className="text-sm font-medium">
-                    {formatCurrency(order.total)}
+                    {formatQuoteAmount(order.total, order.quoteAsset)}
                   </span>
                 </div>
                 <div className="flex flex-col">
@@ -324,7 +339,7 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                         Avg. Executed Price
                       </span>
                       <span className="text-sm font-medium">
-                        {formatPriceWithPrecision(order.executedPrice)}
+                        {priceInQuote(order.executedPrice, order.quoteAsset)}
                       </span>
                     </div>
                   )}
@@ -357,14 +372,14 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
               <div className="flex flex-col">
                 <span className="text-muted-foreground">Created</span>
                 <span className="font-medium">
-                  {new Date(order.createTime).toLocaleString()}
+                  {formatOrderTime(order.createTime) ?? 'Not placed'}
                 </span>
               </div>
               {order.updateTime && (
                 <div className="flex flex-col">
                   <span className="text-muted-foreground">Updated</span>
                   <span className="font-medium">
-                    {new Date(order.updateTime).toLocaleString()}
+                    {formatOrderTime(order.updateTime) ?? '—'}
                   </span>
                 </div>
               )}
@@ -601,9 +616,9 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         header: 'PRICE',
         enableSorting: true,
         sortingFn: 'basic',
-        cell: ({ getValue }) => (
+        cell: ({ getValue, row }) => (
           <span className="text-sm tabular-nums">
-            {formatPriceWithPrecision(getValue() as number)}
+            {priceInQuote(getValue() as number, row.original.quoteAsset)}
           </span>
         ),
       },
@@ -638,9 +653,9 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         header: 'TOTAL',
         enableSorting: true,
         sortingFn: 'basic',
-        cell: ({ getValue }) => (
+        cell: ({ getValue, row }) => (
           <span className="text-sm font-medium tabular-nums">
-            {formatCurrency(getValue() as number)}
+            {formatQuoteAmount(getValue() as number, row.original.quoteAsset)}
           </span>
         ),
       },
@@ -650,12 +665,13 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         enableSorting: true,
         sortingFn: 'basic',
         cell: ({ getValue }) => {
-          const raw = getValue() as string | number | undefined;
-          if (!raw) return null;
-          const date = new Date(raw);
+          const when = formatOrderTime(getValue() as string | number | undefined);
+          if (!when) {
+            return null;
+          }
           return (
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {date.toLocaleString()}
+              {when}
             </span>
           );
         },
@@ -788,8 +804,9 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
                 cancelTarget.type === 'buy' ? 'buy' : 'sell'
               } order for ${cancelTarget.amount.toFixed(
                 6
-              )} @ ${formatPriceWithPrecision(
-                cancelTarget.price
+              )} @ ${priceInQuote(
+                cancelTarget.price,
+                cancelTarget.quoteAsset
               )}? This action cannot be undone.`
             : ''
         }

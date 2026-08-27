@@ -96,10 +96,11 @@ export function formatCurrency(value: number, currency = 'USD'): string {
  */
 export function formatPriceWithPrecision(
   price: number,
-  currencySymbol = '$'
+  currencySymbol = '$',
+  suffix = ''
 ): string {
   if (price == null || Number.isNaN(price)) {
-    return `${currencySymbol}0.00`;
+    return `${currencySymbol}0.00${suffix}`;
   }
 
   const abs = Math.abs(price);
@@ -120,7 +121,94 @@ export function formatPriceWithPrecision(
     });
   }
 
-  return `${currencySymbol}${formatted}`;
+  return `${currencySymbol}${formatted}${suffix}`;
+}
+
+/**
+ * How to render an amount denominated in a pair's QUOTE asset.
+ *
+ * Fiat and the dollar/euro stablecoins get their glyph as a prefix; anything
+ * else (BTC, ETH, SOL, …) gets its ticker appended instead, because a bare
+ * number and a wrong "$" are both worse than "0.0234 BTC". With no quote asset
+ * to go on we still say "$" — that is what every call site did unconditionally
+ * before, so an unknown pair is no worse off than it already was.
+ *
+ * This exists because the deal Orders table rendered a Kraken ETH-EUR ladder as
+ * "$2,067.50 / $1,521.81": `formatCurrency` hardcodes en-US/USD, and a user
+ * reading his own orders could not tell what currency the numbers were in.
+ */
+const QUOTE_GLYPHS: Record<string, string> = {
+  USD: '$',
+  USDT: '$',
+  USDC: '$',
+  BUSD: '$',
+  FDUSD: '$',
+  TUSD: '$',
+  USDE: '$',
+  DAI: '$',
+  EUR: '€',
+  EURC: '€',
+  EURT: '€',
+  GBP: '£',
+  JPY: '¥',
+  AUD: 'A$',
+  CAD: 'C$',
+  CHF: 'CHF ',
+  TRY: '₺',
+  BRL: 'R$',
+};
+
+export function quoteUnits(quoteAsset?: string | null): {
+  prefix: string;
+  suffix: string;
+} {
+  const code = (quoteAsset ?? '').trim().toUpperCase();
+  if (!code) {
+    return { prefix: '$', suffix: '' };
+  }
+  const glyph = QUOTE_GLYPHS[code];
+  return glyph ? { prefix: glyph, suffix: '' } : { prefix: '', suffix: ` ${code}` };
+}
+
+/**
+ * Render an order's timestamp, or `null` when the order has never been placed.
+ *
+ * A projected ("smart") ladder level has no creation time. `useDealSmartOrders`
+ * stamps it `new Date(0)` so the row still satisfies `ViewOrder.createTime`,
+ * which is a required string — so epoch is the marker for "not placed yet" and
+ * must never be rendered as a date. The deal Orders table used to guard with
+ * `if (!raw) return null`, which cannot catch it: `"1970-01-01T00:00:00.000Z"`
+ * is a truthy string, so every projected row displayed "01/01/1970, 01:00:00".
+ */
+export function formatOrderTime(
+  raw?: string | number | null
+): string | null {
+  if (!raw) {
+    return null;
+  }
+  const ms = new Date(raw).getTime();
+  if (!Number.isFinite(ms) || ms <= 0) {
+    return null;
+  }
+  return new Date(ms).toLocaleString();
+}
+
+/**
+ * Format a value that is denominated in a pair's quote asset (an order total,
+ * a cost, a notional). Use this instead of {@link formatCurrency} whenever the
+ * number belongs to a trading pair rather than to a usd-normalized stat.
+ */
+export function formatQuoteAmount(
+  value: number,
+  quoteAsset?: string | null,
+  decimals = 2
+): string {
+  const { prefix, suffix } = quoteUnits(quoteAsset);
+  const formatted = (Number.isFinite(value) ? value : 0).toLocaleString(
+    'en-US',
+    { minimumFractionDigits: decimals, maximumFractionDigits: decimals }
+  );
+  return `${prefix}${formatted}${suffix}`;
 }
 
 /**

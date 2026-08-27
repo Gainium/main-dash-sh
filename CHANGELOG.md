@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.49.2] - 2026-08-27
+
+### Fixed
+
+- A deal's order list showed amounts in dollars whatever the pair was actually
+  priced in — a EUR pair's orders read as "$1,521.81". Prices and totals now
+  carry the pair's own quote asset, and an asset with no currency symbol of its
+  own gets its ticker instead of a borrowed one.
+- Pending smart orders no longer show a placement time of "01/01/1970". They
+  have not been placed on the exchange yet, so the order list now leaves the
+  time blank rather than printing the epoch.
+
 ## [2.49.1] - 2026-08-27
 
 ### Fixed
