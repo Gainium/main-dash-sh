@@ -961,6 +961,8 @@ const EnhancedCard = React.memo(
           onConfirm={handleAdjustFundsConfirm}
           baseAsset={baseSymbol}
           quoteAsset={quoteSymbol}
+          symbol={symbolString}
+          exchange={trade.exchange}
         />
         <ConfirmationDialog
           open={cancelDialogOpen}

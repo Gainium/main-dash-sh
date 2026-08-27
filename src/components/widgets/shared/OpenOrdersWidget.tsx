@@ -776,6 +776,8 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         onConfirm={handleAdjustFundsConfirm}
         baseAsset={trade.baseAsset}
         quoteAsset={trade.quoteAsset}
+        symbol={trade.symbol}
+        exchange={trade.exchange}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

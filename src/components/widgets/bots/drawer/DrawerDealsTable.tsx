@@ -573,6 +573,8 @@ const DealActionsMenu: React.FC<{
         onConfirm={handleAdjustFundsConfirm}
         baseAsset={baseSymbol}
         quoteAsset={quoteSymbol}
+        symbol={symbolString}
+        exchange={trade.exchange}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
