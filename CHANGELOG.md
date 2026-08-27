@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.49.3] - 2026-08-27
+
+### Fixed
+
+- Chart autoscale no longer breaks when "use percentile" is enabled on an
+  indicator whose values are not in the 0-100 range. Momentum, MACD, Awesome
+  Oscillator, Bollinger Bands Width, Bollinger Bands %B, Keltner Channel %B and
+  the Volume Oscillator drew their percentile band at a fixed 0 and 100, which
+  dragged the pane's scale out to 0-100 and flattened the indicator into a line
+  along the bottom on any low-priced pair (PUMP, SOL). The band now follows the
+  indicator's own high and low over the percentile lookback.
+
 ## [2.49.2] - 2026-08-27
 
 ### Fixed

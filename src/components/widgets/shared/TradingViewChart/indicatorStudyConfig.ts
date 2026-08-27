@@ -233,7 +233,6 @@ const buildInputs = (
   type: IndicatorEnum | string
 ): TradingViewInput | null => {
   const percentileInputs = buildPercentileInputs(indicator);
-  console.log(indicator, type, percentileInputs);
   switch (type) {
     case IndicatorEnum.dc:
       return { in_0: toNumber(indicator.length, 20) };
@@ -606,14 +605,10 @@ const buildOverrides = (
     } else if (['cu', 'cd'].includes(condition)) {
       overrides['percentile.visible'] = true;
     }
-    /* // Hide the extreme threshold plots that are used for fill areas
-    // These have values of -10000 and 10000 which mess up the scale
-    overrides['plot_percentile_top.visible'] = false;
-    overrides['plot_percentile_bottom.visible'] = false;
-    overrides['plot_percentile_top.transparency'] = 100;
-    overrides['plot_percentile_bottom.transparency'] = 100;
-    overrides['plot_percentile_top.display'] = 0;
-    overrides['plot_percentile_bottom.display'] = 0; */
+    // NOTE: hiding the two fill-anchor plots does NOT keep them out of the
+    // pane's autoscale — TradingView scales on the values a study returns, not
+    // on plot visibility. The anchors are kept inside the study's own range in
+    // `customIndicators.js` (`percentileBand`) instead.
   }
 
   // Define oscillators that will use separate price scale
