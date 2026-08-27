@@ -742,7 +742,7 @@ export const TradingViewChartCore = forwardRef<
     // the currently visible range. On a high-frequency deal the full set can be
     // thousands of trades — each completed trade adds ~4-6 TradingView drawing
     // shapes, so plotting (and letting TradingView repaint) all of them froze the
-    // chart on every pan and on every live deal update (bug #9 / ClickUp 86ey529bk).
+    // chart on every pan and on every live deal update (bug #9).
     // This mirrors the visible-range filtering already used for order drawings and
     // past entries, and is re-run from reapplyRangeFilteredOverlays on pan/zoom so
     // the off-screen trades are never materialized as shapes.
