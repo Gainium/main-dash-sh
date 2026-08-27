@@ -1,12 +1,10 @@
-import { useBotSpecificDeals } from '@/hooks/useBotSpecificDeals';
+import {
+  useBotDcaUsage,
+  type DcaUsageBucket,
+} from '@/hooks/bots/dca/useBotDcaUsage';
 import { useBotDcaProjection } from '@/hooks/bots/dca/useBotDcaProjection';
 import { formatTotalFunds } from '@/utils/bots/dca/deal-summary';
-import {
-  BotTypesEnum,
-  DCADealStatusEnum,
-  DCAOrderTypeEnum,
-  type StrategyEnum,
-} from '@/types';
+import { BotTypesEnum, DCAOrderTypeEnum, type StrategyEnum } from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import {
   Activity,
@@ -102,161 +100,83 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
     ];
   }, [projection, bot?.settings, bot?.pair]);
 
-  const useDealsOpenInput = useMemo(
-    () => ({
-      botId: botId || '',
-      status: DCADealStatusEnum.open,
-      dealType: isComboBot ? ('combo' as const) : ('dca' as const),
-    }),
-    [botId, isComboBot]
-  );
-
-  const useDealsClosedInput = useMemo(
-    () => ({
-      botId: botId || '',
-      status: DCADealStatusEnum.closed,
-      dealType: isComboBot ? ('combo' as const) : ('dca' as const),
-    }),
-    [botId, isComboBot]
-  );
-
-  // Combine both live and paper deals for comprehensive analysis
-  const { deals: activeDealsData, isLoading: activeLoading } =
-    useBotSpecificDeals(useDealsOpenInput);
-
-  const { deals: closedDealsData, isLoading: closedLoading } =
-    useBotSpecificDeals(useDealsClosedInput);
-
-  const botDeals = React.useMemo(() => {
-    const result = [...activeDealsData, ...closedDealsData];
-    return result;
-  }, [activeDealsData, closedDealsData]);
+  // Deal-derived half: one server-side histogram instead of paging every deal
+  // document into the browser. See useBotDcaUsage for why.
+  const {
+    usage,
+    isLoading: usageLoading,
+    isError: usageError,
+  } = useBotDcaUsage({ botId, isComboBot });
 
   const riskMetrics = useMemo((): RiskMetricsData | null => {
-    if (!bot || !botDeals.length) return null;
+    if (!bot || !usage) return null;
 
-    const activeDeals = botDeals.filter(
-      (deal) =>
-        deal.status !== DCADealStatusEnum.canceled &&
-        deal.status !== DCADealStatusEnum.closed
-    );
-    const completedDeals = botDeals.filter(
-      (deal) =>
-        deal.status === DCADealStatusEnum.canceled ||
-        deal.status === DCADealStatusEnum.closed
-    );
+    // How many DCAs a deal can be said to have used is capped by the ladder it
+    // is measured against. The old per-deal fold used the projection engine's
+    // count for the bot's CURRENT settings, falling back to that deal's own
+    // `levels.all - 1` when the projection wasn't ready — so ceilings are
+    // per-bucket, not global, and both branches are reproduced here exactly.
+    const ceilingOf = (bucket: DcaUsageBucket) =>
+      configuredDcaCount > 0 ? configuredDcaCount : bucket.configured;
 
-    const getConfiguredDcas = (deal: (typeof botDeals)[number]) => {
-      // Prefer the engine-projected count for the bot's current config — it is
-      // correct for indicator/custom DCA where `ordersCount` is stale. Fall back
-      // to the deal's own level count only when the projection isn't ready.
-      if (configuredDcaCount > 0) {
-        return configuredDcaCount;
-      }
+    const fold = (buckets: DcaUsageBucket[]) => {
+      const byDcas = new Map<number, number>();
+      let deals = 0;
+      let usedTotal = 0;
+      let coverageTotal = 0;
+      let maxUsed = 0;
+      let maxConfigured = 0;
 
-      const configuredFromLevels = Math.max(0, (deal.levels?.all ?? 0) - 1);
-      return configuredFromLevels;
-    };
+      buckets.forEach((bucket) => {
+        const ceiling = ceilingOf(bucket);
+        const used = ceiling > 0 ? Math.min(bucket.dcas, ceiling) : bucket.dcas;
 
-    const getUsedDcas = (deal: (typeof botDeals)[number]) => {
-      const buyTransactions = deal.transactions?.buy;
-      const usedFromBuys =
-        typeof buyTransactions === 'number'
-          ? Math.max(0, Math.floor(buyTransactions) - 1)
-          : undefined;
+        byDcas.set(used, (byDcas.get(used) ?? 0) + bucket.deals);
+        deals += bucket.deals;
+        usedTotal += used * bucket.deals;
+        coverageTotal += ceiling > 0 ? (used / ceiling) * bucket.deals : 0;
+        maxUsed = Math.max(maxUsed, used);
+        maxConfigured = Math.max(maxConfigured, ceiling);
+      });
 
-      const fallbackFromLevels = Math.max(0, (deal.levels?.complete ?? 0) - 1);
-      const usedRaw = usedFromBuys ?? fallbackFromLevels;
-
-      return Math.min(usedRaw, getConfiguredDcas(deal));
-    };
-
-    const completedDcaCounts = completedDeals.map((deal) => getUsedDcas(deal));
-
-    const activeCoverageRatios = activeDeals
-      .map((deal) => {
-        const configuredDcas = getConfiguredDcas(deal);
-        const usedDcas = getUsedDcas(deal);
-
-        return configuredDcas > 0 ? usedDcas / configuredDcas : 0;
-      })
-      .filter((value) => Number.isFinite(value));
-
-    const finishedCoverageRatios = completedDeals
-      .map((deal) => {
-        const configuredDcas = getConfiguredDcas(deal);
-        const usedDcas = getUsedDcas(deal);
-
-        return configuredDcas > 0 ? usedDcas / configuredDcas : 0;
-      })
-      .filter((value) => Number.isFinite(value));
-
-    const finishedDistributionMap = completedDcaCounts.reduce(
-      (acc, dcaCount) => {
-        acc.set(dcaCount, (acc.get(dcaCount) ?? 0) + 1);
-        return acc;
-      },
-      new Map<number, number>()
-    );
-
-    const finishedDistribution = Array.from(finishedDistributionMap.entries())
-      .sort(([left], [right]) => left - right)
-      .map(([dcaCount, deals]) => ({
-        dcaCount,
+      return {
         deals,
-        percentage:
-          completedDeals.length > 0 ? (deals / completedDeals.length) * 100 : 0,
-      }));
+        avgUsed: deals > 0 ? usedTotal / deals : 0,
+        // Mean of the per-deal used/configured ratios — the same quantity the
+        // old fold averaged, not a ratio of the means.
+        coverage: deals > 0 ? (coverageTotal / deals) * 100 : 0,
+        maxUsed,
+        maxConfigured,
+        distribution: Array.from(byDcas.entries())
+          .sort(([left], [right]) => left - right)
+          .map(([dcaCount, count]) => ({
+            dcaCount,
+            deals: count,
+            percentage: deals > 0 ? (count / deals) * 100 : 0,
+          })),
+      };
+    };
 
-    const avgDcasFinished =
-      completedDcaCounts.length > 0
-        ? completedDcaCounts.reduce((sum, value) => sum + value, 0) /
-          completedDcaCounts.length
-        : 0;
-
-    const maxDcasFinished =
-      completedDcaCounts.length > 0 ? Math.max(...completedDcaCounts) : 0;
-
-    // Configured DCA orders for the bot's current settings, from the projection
-    // engine (correct for percentage / indicators / custom). Only when the
-    // projection isn't available do we fall back to the deals' own level counts.
-    const maxConfiguredDcas =
-      configuredDcaCount > 0
-        ? configuredDcaCount
-        : Math.max(
-            0,
-            ...activeDeals.map((deal) => getConfiguredDcas(deal)),
-            ...completedDeals.map((deal) => getConfiguredDcas(deal))
-          );
-
-    const avgFinishedDcaCoverage =
-      finishedCoverageRatios.length > 0
-        ? (finishedCoverageRatios.reduce((sum, value) => sum + value, 0) /
-            finishedCoverageRatios.length) *
-          100
-        : 0;
-
-    const avgActiveDcaCoverage =
-      activeCoverageRatios.length > 0
-        ? (activeCoverageRatios.reduce((sum, value) => sum + value, 0) /
-            activeCoverageRatios.length) *
-          100
-        : 0;
+    const finished = fold(usage.finished);
+    const active = fold(usage.active);
 
     return {
-      totalDeals: botDeals.length,
-      totalActiveDeals: activeDeals.length,
-      totalFinishedDeals: completedDeals.length,
-      avgDcasFinished,
-      maxDcasFinished,
-      maxConfiguredDcas,
-      avgFinishedDcaCoverage,
-      avgActiveDcaCoverage,
-      finishedDistribution,
+      totalDeals: finished.deals + active.deals,
+      totalActiveDeals: active.deals,
+      totalFinishedDeals: finished.deals,
+      avgDcasFinished: finished.avgUsed,
+      maxDcasFinished: finished.maxUsed,
+      maxConfiguredDcas:
+        configuredDcaCount > 0
+          ? configuredDcaCount
+          : Math.max(finished.maxConfigured, active.maxConfigured),
+      avgFinishedDcaCoverage: finished.coverage,
+      avgActiveDcaCoverage: active.coverage,
+      finishedDistribution: finished.distribution,
     };
-  }, [bot, botDeals, configuredDcaCount]);
+  }, [bot, usage, configuredDcaCount]);
 
-  const isLoadingDeals = activeLoading || closedLoading;
+  const isLoadingDeals = usageLoading;
 
   // The projection is config-based, so the section renders for any bot the
   // layout includes it for — even one with no deals yet. The deal-based
@@ -300,9 +220,11 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
           <div className="text-center text-muted-foreground py-6 text-sm">
             Loading DCA analysis...
           </div>
-        ) : !riskMetrics ? (
+        ) : !riskMetrics || riskMetrics.totalDeals === 0 ? (
           <div className="text-xs text-muted-foreground py-2">
-            Deal-level analysis appears once this bot opens deals.
+            {usageError
+              ? 'Deal-level analysis is unavailable right now.'
+              : 'Deal-level analysis appears once this bot opens deals.'}
           </div>
         ) : (
           <>

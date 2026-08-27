@@ -278,6 +278,48 @@ export const botQueries = {
     return { query, variables };
   },
 
+  /**
+   * DCA-usage histogram for the DCA Analysis widget — the deal-derived half.
+   *
+   * Replaces walking `getBotDeals` pages (100 full deal documents at a time,
+   * capped at 5 pages by the display loader) just to read one integer per
+   * deal. main-app folds it in Mongo over EVERY deal the bot has ever had, so
+   * the widget is no longer analysing whatever subset the loader happened to
+   * reach. Buckets are raw used-DCA counts; clamping them to the bot's current
+   * configured count stays on the client, in `useBotDcaProjection` territory.
+   */
+  getBotDcaUsage: (input: { id: string; shareId?: string }) => {
+    const query = `query getBotDcaUsage($input: getBotDealsStatsInput!) {
+                    getBotDcaUsage(input: $input) {
+                        status
+                        reason
+                        data {
+                            finished { dcas deals configured }
+                            active { dcas deals configured }
+                            maxConfiguredDcas
+                        }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getComboBotDcaUsage: (input: { id: string; shareId?: string }) => {
+    const query = `query getComboBotDcaUsage($input: getBotDealsStatsInput!) {
+                    getComboBotDcaUsage(input: $input) {
+                        status
+                        reason
+                        data {
+                            finished { dcas deals configured }
+                            active { dcas deals configured }
+                            maxConfiguredDcas
+                        }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   getMultiPairDCABot: (input: { id: string; shareId?: string }) => {
     const query = `query getMultiPairDCABot($input: getBotInput!) {
                     getMultiPairDCABot(input: $input) {

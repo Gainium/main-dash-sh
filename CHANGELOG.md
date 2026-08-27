@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.49.0] - 2026-08-27
+
+### Added
+
+- DCA Analysis on the bot page now covers every deal a bot has ever had. It
+  previously read whatever deals the page had already loaded, which stopped at
+  500 — so on a busy bot the figures described only the most recent slice of its
+  history.
+- The bot page no longer downloads a bot's deals in order to draw DCA Analysis,
+  so the section appears immediately and stops re-downloading them every 30
+  seconds.
+
 ## [2.48.7] - 2026-08-26
 
 ### Fixed
