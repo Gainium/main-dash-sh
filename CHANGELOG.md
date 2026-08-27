@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.49.1] - 2026-08-27
+
+### Fixed
+
+- DCA Analysis no longer shows the previous bot's deal counts after switching
+  bots. They were held, with no loading indicator, until the newly selected
+  bot's own figures arrived — which read as the numbers flickering between a
+  full and a partial count on a refresh cycle.
+
 ## [2.49.0] - 2026-08-27
 
 ### Added

@@ -81,6 +81,19 @@ export function useBotDcaUsage({
   const result = useGraphQL<DcaUsageData>(queryKey, built, {
     enabled: needFetch,
     shareId: shareId ?? null,
+    // Opt OUT of the global `placeholderData: (prev) => prev` default in
+    // lib/queryClient. That default is keyed on nothing: when the query key
+    // changes — which here means a DIFFERENT BOT — react-query replays the
+    // previous bot's payload under the new key, with a success status and
+    // `isLoading` false. The widget then renders another bot's deal counts as
+    // settled fact until the network answers, which on a slow response is
+    // several seconds of confidently wrong numbers and no spinner. It is the
+    // same trap that produced bug #510 one layer down.
+    //
+    // Nothing is lost by dropping it: when the key DOES have cached data,
+    // react-query serves that cache without consulting placeholderData at all.
+    // The only case this changes is the one it was getting wrong.
+    placeholderData: undefined,
   });
 
   return useMemo(() => {
