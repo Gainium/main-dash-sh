@@ -61,9 +61,9 @@ import { TradeCard } from '../../../trades/TradeCard';
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 import {
     canAdjustDealFunds,
-    useBulkAdjustFunds,
     type BulkAdjustFundsTarget,
-} from '@/components/deals/actions/useBulkAdjustFunds';
+} from '@/components/deals/actions/bulkAdjustFundsTargets';
+import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFunds';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
@@ -1511,6 +1511,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         typeof deal.symbol === 'string' ? undefined : deal.symbol.baseAsset,
       quoteAsset:
         typeof deal.symbol === 'string' ? undefined : deal.symbol.quoteAsset,
+      symbol:
+        typeof deal.symbol === 'string' ? deal.symbol : deal.symbol.symbol,
+      exchange: deal.exchange,
     }),
     [botId, isComboBot]
   );

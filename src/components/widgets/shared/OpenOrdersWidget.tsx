@@ -32,9 +32,9 @@ import { GraphQlQuery } from '@/lib/api'; */
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 import {
     canAdjustDealFunds,
-    useBulkAdjustFunds,
     type BulkAdjustFundsTarget,
-} from '@/components/deals/actions/useBulkAdjustFunds';
+} from '@/components/deals/actions/bulkAdjustFundsTargets';
+import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFunds';
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
@@ -405,6 +405,8 @@ const toAdjustFundsTarget = (trade: OpenTrade): BulkAdjustFundsTarget => ({
   type: trade.type,
   baseAsset: trade.baseAsset,
   quoteAsset: trade.quoteAsset,
+  symbol: trade.symbol,
+  exchange: trade.exchange,
 });
 
 const TradeTableActions: React.FC<TradeTableActionsProps> = ({

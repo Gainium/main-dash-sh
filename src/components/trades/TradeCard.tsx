@@ -706,15 +706,27 @@ const EnhancedCard = React.memo(
       : trade.unrealizedProfit || 0;
     const pnlBoxRoi = isClosedDeal ? realizedRoi : unrealizedRoi;
     const pnlBoxLabel = isClosedDeal ? 'Realized' : 'Unrealized';
-    const baseSymbol = useMemo(
-      () => (typeof trade.symbol === 'string' ? '' : trade.symbol.baseAsset),
-      [trade.symbol]
-    );
-
-    const quoteSymbol = useMemo(
-      () => (typeof trade.symbol === 'string' ? '' : trade.symbol.quoteAsset),
-      [trade.symbol]
-    );
+    // A deal's symbol reaches this card either as the full object or as a bare
+    // exchange string, depending on which list built it — the card view on the
+    // Deals page passes the string. Returning '' for that case left the
+    // Add/Reduce funds picker showing a generic "Base asset" / "Quote asset",
+    // which is how a user comes to mix the two up and reduce by a base amount
+    // they meant as quote. Split the string instead, and fall back to no label
+    // rather than a guessed one: an unnamed asset is recoverable, a wrongly
+    // named one is not.
+    const { baseSymbol, quoteSymbol } = useMemo(() => {
+      if (typeof trade.symbol !== 'string') {
+        return {
+          baseSymbol: trade.symbol.baseAsset,
+          quoteSymbol: trade.symbol.quoteAsset,
+        };
+      }
+      const parsed = extractPairAssets(trade.symbol);
+      return {
+        baseSymbol: parsed.baseAsset || '',
+        quoteSymbol: parsed.quoteAsset || '',
+      };
+    }, [trade.symbol]);
 
     const symbolString = useMemo(
       () =>

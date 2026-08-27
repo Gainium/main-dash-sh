@@ -12,38 +12,15 @@ import {
 import { useAdjustFunds } from '@/hooks/useDealActions';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
-import { DCADealStatusEnum, type AddFundsSettings } from '@/types';
+import { type AddFundsSettings } from '@/types';
+import {
+  canAdjustDealFunds,
+  sharedTargetValue,
+  type BulkAdjustFundsTarget,
+} from './bulkAdjustFundsTargets';
 import React, { useCallback, useMemo, useState } from 'react';
 
 const LOG_PREFIX = '[useBulkAdjustFunds]';
-
-/** A selected deal row reduced to what the adjust-funds flow needs. */
-export interface BulkAdjustFundsTarget {
-  dealId: string;
-  botId: string | undefined;
-  /** Deal status — only open deals can take a funds adjustment. */
-  status: string | undefined;
-  /** Bot type as rendered in the tables ('DCA', 'Combo', 'Grid', …). */
-  type: string | undefined;
-  baseAsset?: string | undefined;
-  quoteAsset?: string | undefined;
-}
-
-/** Combo legs are managed by the combo engine, not the deal funds mutation. */
-const COMBO_TYPES = new Set(['Combo', 'Hedge Combo']);
-
-/**
- * Same rule the per-row Add/Reduce Funds menu items apply: the deal must be
- * open, belong to a bot, and not be a combo deal.
- */
-export function canAdjustDealFunds(target: BulkAdjustFundsTarget): boolean {
-  return (
-    !!target.dealId &&
-    !!target.botId &&
-    !COMBO_TYPES.has(String(target.type ?? '')) &&
-    String(target.status ?? '').toLowerCase() === DCADealStatusEnum.open
-  );
-}
 
 export interface UseBulkAdjustFundsResult {
   /** Opens the dialog for the eligible subset of `selected`. */
@@ -101,14 +78,21 @@ export function useBulkAdjustFunds(): UseBulkAdjustFundsResult {
 
   // Naming the assets in the picker is only honest when every selected deal
   // shares the same pair; a mixed selection falls back to "Base/Quote asset".
-  const { baseAsset, quoteAsset } = useMemo(() => {
-    const bases = new Set(targets.map((target) => target.baseAsset ?? ''));
-    const quotes = new Set(targets.map((target) => target.quoteAsset ?? ''));
-    return {
-      baseAsset: bases.size === 1 ? [...bases][0] : undefined,
-      quoteAsset: quotes.size === 1 ? [...quotes][0] : undefined,
-    };
-  }, [targets]);
+  //
+  // The symbol and venue follow exactly the same rule, and for the same
+  // reason. This path is not only reached by multi-select: picking Add funds
+  // from a single row's menu in the table view arrives here with one target,
+  // and withholding the symbol there cost that user the market-price default
+  // the card view already gave them.
+  const { baseAsset, quoteAsset, symbol, exchange } = useMemo(
+    () => ({
+      baseAsset: sharedTargetValue(targets, (target) => target.baseAsset),
+      quoteAsset: sharedTargetValue(targets, (target) => target.quoteAsset),
+      symbol: sharedTargetValue(targets, (target) => target.symbol),
+      exchange: sharedTargetValue(targets, (target) => target.exchange),
+    }),
+    [targets]
+  );
 
   const handleConfirm = useCallback(
     async (settings: AddFundsSettings) => {
@@ -180,6 +164,8 @@ export function useBulkAdjustFunds(): UseBulkAdjustFundsResult {
       onConfirm={handleConfirm}
       baseAsset={baseAsset}
       quoteAsset={quoteAsset}
+      symbol={symbol}
+      exchange={exchange}
     />
   ) : null;
 
