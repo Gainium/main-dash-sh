@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.49.5] - 2026-08-27
+
+### Fixed
+
+- Williams %R with "use percentile" enabled always wasted half the indicator
+  pane. Its percentile band was drawn at a fixed 0 and 100, but Williams %R only
+  ever runs from -100 to 0, so the pane stretched to -100…100 and the indicator
+  was squeezed into the bottom half on every pair — including the ones that
+  looked fine for other indicators. The band now follows the indicator's own
+  high and low over the percentile lookback.
+- The Commodity Channel Index drew its percentile shading at a fixed 0 and 100
+  while CCI itself routinely swings past ±300, so the shaded band covered an
+  arbitrary slice of the pane and the CCI line sat outside its own band roughly
+  two thirds of the time. The shading now spans the indicator's own range.
+
 ## [2.49.3] - 2026-08-27
 
 ### Fixed
