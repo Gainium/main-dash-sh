@@ -30,6 +30,7 @@ import {
   type BotTypeId,
 } from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
+import { BotUsageCell } from '../components/bots/BotUsageCell';
 import { Skeleton } from '@/components/ui/skeleton';
 
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
@@ -43,7 +44,6 @@ import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
-import { DualArcProgressGauge } from '../components/ui/DualArcProgressGauge';
 import { MotionButton } from '../components/ui/MotionWrapper';
 import Widget from '../components/ui/widget';
 import getLatestPrices, { getLocalPrices } from '../helper/price';
@@ -582,6 +582,7 @@ const TradingBots: React.FC = () => {
     (botId: string) => originalBotMap.get(botId),
     [originalBotMap]
   );
+
 
   /* const getBotDeals = useCallback(
     (botId: string) => dealsByBotId.get(botId) ?? [],
@@ -1524,24 +1525,13 @@ const TradingBots: React.FC = () => {
         accessorFn: (row) => row.usageTotal || 0,
         header: 'USAGE',
         meta: { filterType: 'number' },
-        cell: ({ row }) => {
-          const usage = row.original.usageTotal;
-          return (
-            <div className="flex items-center justify-center">
-              <DualArcProgressGauge
-                size={40}
-                outerPercentage={usage || 0}
-                innerPercentage={0}
-                outerProgressColor="#10b981"
-                showInnerGauge={false}
-                displayMode="outer"
-                centerText={`${(usage || 0).toFixed(0)}%`}
-                label=""
-                animate={false}
-              />
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <BotUsageCell
+            botId={row.original.id}
+            usageTotal={row.original.usageTotal}
+            dealType="dca"
+          />
+        ),
       },
       {
         accessorKey: 'deals',

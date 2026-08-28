@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.50.8] - 2026-08-28
+
+### Fixed
+
+- The Usage ring on a DCA or Combo bot card was labelled with the bot's deal
+  counts — the same "1 / 35" already printed under **Deals — Open / Total**
+  further down the same card — so it read as "1 of 35 DCA orders" and said
+  nothing about usage. It now shows the DCA ladder: filled / total orders
+  across the bot's open deals, matching what the deal card and the deals table
+  have always printed under their own Usage rings. A bot with no open deal is
+  left unlabelled rather than reading `0/0`.
+- The USAGE column in the DCA and Combo bots tables showed only a percentage,
+  with no way to see how many safety orders had triggered. It now carries the
+  same filled / total DCA orders label, and a tooltip spelling it out.
+
 ## [2.50.7] - 2026-08-28
 
 ### Fixed

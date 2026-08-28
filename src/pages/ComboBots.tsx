@@ -48,6 +48,7 @@ import {
   type BotTypeId,
 } from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
+import { BotUsageCell } from '../components/bots/BotUsageCell';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
@@ -106,7 +107,6 @@ import { useComboBotStore } from '../stores/botWidgetsStoreFactory';
 import { useUIStore } from '../stores/uiStore';
 /* import type { DrawerBot } from '../types/bots/drawer'; */
 /* import { transformDcaBotToBot,  type ComboBot } from '../types/comboBot'; */
-import DualArcProgressGauge from '@/components/ui/DualArcProgressGauge';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -1299,24 +1299,13 @@ const ComboBots: React.FC = () => {
         accessorFn: (row) => row.usageTotal || 0,
         header: 'USAGE',
         meta: { filterType: 'number' },
-        cell: ({ row }) => {
-          const usage = row.original.usageTotal;
-          return (
-            <div className="flex items-center justify-center">
-              <DualArcProgressGauge
-                size={40}
-                outerPercentage={usage || 0}
-                innerPercentage={0}
-                outerProgressColor="#10b981"
-                showInnerGauge={false}
-                displayMode="outer"
-                centerText={`${(usage || 0).toFixed(0)}%`}
-                label=""
-                animate={false}
-              />
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <BotUsageCell
+            botId={row.original.id}
+            usageTotal={row.original.usageTotal}
+            dealType="combo"
+          />
+        ),
       },
       {
         accessorKey: 'deals',

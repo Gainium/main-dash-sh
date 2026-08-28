@@ -129,7 +129,7 @@ export interface UseDcaDealsOptions {
   enabled?: boolean;
 }
 
-const isTerminalDeal = (deal: Partial<DCADeals>): boolean => {
+export const isTerminalDeal = (deal: Partial<DCADeals>): boolean => {
   const directType = String(deal.type || '').toLowerCase();
   const hasTerminalSettings = Boolean(
     (deal.settings as { terminalDealType?: unknown } | undefined)
