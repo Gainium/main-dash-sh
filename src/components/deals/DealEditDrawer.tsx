@@ -18,6 +18,7 @@ import {
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { useLiveUpdate } from '@/contexts/LiveUpdateContext';
+import { mapFromDataToDealSettings } from '@/components/deals/dealEditSettingsDiff';
 import {
   BotFormProvider,
   useBotFormSelector,
@@ -60,10 +61,7 @@ import {
   BotTypesEnum,
   DCAOrderTypeEnum,
   ExchangeEnum,
-  type ComboBotSettings,
-  type DCABotSettings,
   type DCADeals,
-  type DCADealsSettings,
 } from '@/types';
 import type { BotFormData } from '@/types/bots';
 import { motion } from 'framer-motion';
@@ -140,156 +138,6 @@ const toDealFormBotType = (botType?: BotTypesEnum): BotTypesEnum =>
   botType === BotTypesEnum.combo || botType === BotTypesEnum.hedgeCombo
     ? BotTypesEnum.combo
     : BotTypesEnum.dca;
-
-const mapFromDataToDealSettings = (
-  formData: BotFormData,
-  isMultiple: boolean,
-  reset?: boolean,
-  originalTradeSettings?: DCADealsSettings
-) => {
-  const newState =
-    formData.type === BotTypesEnum.combo ? formData.combo : formData.dca;
-  const originalState =
-    originalTradeSettings ??
-    ((formData.originalBot?.type === formData.type
-      ? formData.originalBot.settings
-      : undefined) as DCABotSettings | ComboBotSettings | undefined);
-  const keys = [
-    'avgPrice',
-    'ordersCount',
-    'step',
-    'baseOrderPrice',
-    'useLimitPrice',
-    'startOrderType',
-    'tpPerc',
-    'profitCurrency',
-    'baseOrderSize',
-    'orderSize',
-    'useTp',
-    'useDca',
-    'useSmartOrders',
-    'activeOrdersCount',
-    'volumeScale',
-    'stepScale',
-    'minimumDeviation',
-    'useSl',
-    'slPerc',
-    'trailingSl',
-    'moveSL',
-    'moveSLTrigger',
-    'moveSLValue',
-    'moveSLForAll',
-    'trailingTp',
-    'trailingTpPerc',
-    'useMinTP',
-    'minTp',
-    'orderSizeType',
-    'useMultiSl',
-    'multiSl',
-    'useMultiTp',
-    'multiTp',
-    'dealCloseCondition',
-    'dealCloseConditionSL',
-    'closeDealType',
-    'futures',
-    'coinm',
-    'marginType',
-    'leverage',
-    // This array is the only thing that decides what reaches the editDeal
-    // mutation, so a field the UI can change and this list omits is silently
-    // unsaveable — the drawer closes as if it had saved and the deal keeps its
-    // old value.
-    //
-    // `gridLevel` is here because DCASettings renders the combo "DCA grid
-    // levels" input under `isComboBot` with no deal-edit guard. That branch
-    // now fires: the drawer takes its bot type from the caller's `botType`
-    // prop, so `formData.type` is `combo` for a combo deal. (It never fired
-    // while the type was derived from `trade[0].combo` — a field nothing
-    // selects or writes.) The backend accepts it: `gridLevel: String` is
-    // declared on `comboDealSettingsInputSet`. Covered by
-    // tests-e2e/specs/deal-edit-gridlevel.e2e.test.ts.
-    //
-    // The input itself is now READ-ONLY in this drawer, matching legacy
-    // main-dash (`props.isDealEdit && combo` in DcaModeSettings.tsx), so in
-    // practice `gridLevel` never differs from the original and never ships.
-    // The same is true of `orderSize` and `step` above, which legacy gates on
-    // the same condition. All three stay listed on purpose: if a control is
-    // ever re-enabled for deal edit, dropping its key here would make it
-    // silently unsaveable — exactly the failure this array exists to prevent.
-    'gridLevel',
-    'useFixedTPPrices',
-    'useFixedSLPrices',
-    'dcaCondition',
-    'closeByTimer',
-    'closeByTimerUnits',
-    'closeByTimerValue',
-    'dcaCustom',
-    'comboTpBase',
-    'fixedSlPrice',
-    'fixedTpPrice',
-    'comboUseSmartGrids',
-    'comboSmartGridsCount',
-    'baseSlOn',
-    'dcaVolumeBaseOn',
-    'dcaVolumeRequiredChangeRef',
-    'dcaVolumeMaxValue',
-    'dcaVolumeRequiredChange',
-    // ── Declared on DCADealsSettings but DELIBERATELY absent from this list.
-    // Checked 2026-08-14; don't re-derive, and don't add them "for symmetry".
-    //
-    // `scaleDcaType` — DCASettings renders its control inside a
-    //   `{!isComboBot && !isDealEdit && …}` guard, so it is unreachable in
-    //   both `deal-edit` and `deal-mass-edit`.
-    //
-    // `useRiskReward`, `riskUseTpRatio` — written only by RiskRewardSettings,
-    //   which is mounted only by RiskRewardSettingsTab, which appears only in
-    //   the full bot-form tab registries (bot-types/{dca,combo}/form/tabs).
-    //   This drawer builds its own `visibleDescriptors` — a literal
-    //   `useMemo(…, [])` of exactly strategy / take-profit / stop-loss / dca,
-    //   with no branch on mode — so there is no Risk:Reward section in either
-    //   drawer mode. (`sectionToggleMap` still maps 'risk-reward' →
-    //   'useRiskReward'; that entry is dead, no descriptor has that id.)
-    //   Confirmed in the running app against a real open deal: the drawer
-    //   renders those four sections and no Risk:Reward anywhere.
-    //
-    //   Adding them would be a behaviour change, not a fix. `useRiskReward`
-    //   IS set per-deal (types/dcaDeal.ts reads `deal.settings.useRiskReward`
-    //   as `riskBased`), so on a risk-based deal whose bot has it off, the
-    //   diff below would find new ≠ original and start shipping
-    //   `useRiskReward` on every save of a control the user cannot see.
-  ].filter((k) =>
-    isMultiple ? k !== 'baseOrderSize' && k !== 'orderSize' : true
-  ) as (keyof DCADealsSettings)[];
-  const result: Partial<DCADealsSettings> = keys.reduce((acc, key) => {
-    const k = key as keyof DCADealsSettings;
-    if (!(k in newState)) {
-      return acc;
-    }
-    const original =
-      originalState && k in originalState
-        ? originalState[k as keyof typeof originalState]
-        : undefined;
-    let newValue = newState[k as keyof typeof newState];
-    if (
-      newValue === original ||
-      (`${newValue}` === 'undefined' && `${original}` === 'null') ||
-      (`${original}` === 'undefined' && `${newValue}` === 'null') ||
-      ((typeof newValue === 'number' && typeof original === 'string') ||
-      (typeof newValue === 'string' && typeof original === 'number')
-        ? `${newValue}` === `${original}`
-        : false)
-    ) {
-      return acc;
-    }
-    if (typeof original === 'number' && typeof newValue === 'string') {
-      newValue = parseFloat(newValue);
-    }
-    //@ts-expect-error accumulator typing
-    acc[k] = reset ? (original ?? newValue) : (newValue ?? original);
-    return acc;
-  }, {} as DCADealsSettings);
-  return result;
-};
 
 export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
   ({ children, onClose, trade, botType, inline = false, chartSync = false }) => {

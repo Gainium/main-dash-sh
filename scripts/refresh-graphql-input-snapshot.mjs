@@ -30,13 +30,22 @@ const REPO = resolve(HERE, '..');
 const OUT = resolve(REPO, 'tests/fixtures/graphql-bot-input-fields.json');
 
 /**
- * The inputs a bot save can target, keyed by the mutation that takes them.
+ * The inputs a bot save or a deal edit can target, keyed by the mutation that
+ * takes them.
  *
  * Both halves of the save path are here on purpose. The change-inputs guard a
  * payload that `useFormHandlers` strips through a deny-list first. The
  * create-inputs guard one that is sent VERBATIM — create has no deny-list at
  * all, so it is the more exposed of the two: a form field that no create-input
  * declares does not degrade, it fails every bot creation with BAD_USER_INPUT.
+ *
+ * The two `…DealSettingsInputSet`s are the DEAL-edit side, added 2026-08-28
+ * after the same failure mode shipped there unguarded: DealEditDrawer's
+ * hand-curated `keys` array is shared by both bot types, so a combo-only key
+ * on it (`gridLevel`) went out on every DCA deal save and Apollo rejected the
+ * whole operation. Note these are nested one level down — the mutations take
+ * `{botId, dealId, settings}` and it is `settings` that is type-constrained —
+ * so the guard checks the emitted SETTINGS object against these sets.
  */
 const INPUTS = {
   changeDCABotInput: 'changeDCABot',
@@ -44,6 +53,8 @@ const INPUTS = {
   changeBotInput: 'changeBot',
   createDCABotInput: 'createDCABot',
   createComboBotInput: 'createComboBot',
+  dcaDealSettingsInputSet: 'changeDCADealSettings',
+  comboDealSettingsInputSet: 'changeComboDealSettings',
 };
 
 const CANDIDATES = [
@@ -115,10 +126,13 @@ const { commit, describe } = gitInfo();
 const snapshot = {
   $comment:
     'GENERATED — do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. ' +
-    'Declared input fields of the bot change/create mutations in main-app. ' +
-    'Consumed by tests/botSavePayloadSchema.unit.test.ts and ' +
-    'tests/botFormCreateMode.unit.test.ts to prove no save or create payload ' +
-    'carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).',
+    'Declared input fields of the bot change/create and deal-edit mutations ' +
+    'in main-app. ' +
+    'Consumed by tests/botSavePayloadSchema.unit.test.ts, ' +
+    'tests/botFormCreateMode.unit.test.ts and ' +
+    'tests/dealEditPayloadSchema.unit.test.ts to prove no save, create or ' +
+    'deal-edit payload carries an undeclared field (prod Apollo rejects those ' +
+    'with BAD_USER_INPUT).',
   source: {
     repo: 'main-app',
     path: 'core/src/graphql/schema.ts',

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.50.7] - 2026-08-28
+
+### Fixed
+
+- Editing a DCA deal failed outright. Every save — one deal or a bulk edit of
+  many, and whatever was actually changed — came back as
+  `Failed to edit deal: HTTP error! status: 400 … Field "gridLevel" is not
+  defined by type "dcaDealSettingsInputSet"`, so open DCA deals could not have
+  their take profit or stop loss turned off, or anything else adjusted.
+
+  The deal-edit drawer decides what to send from one hand-written list of
+  fields that is shared by both bot types. `gridLevel` is on it for the combo
+  "DCA grid levels" control, but it is declared only on the combo mutation's
+  input — and GraphQL rejects the whole operation over one undeclared field,
+  rather than ignoring it. It was reasoned safe because the control is
+  read-only while editing a deal, which holds for combo (where the value
+  matches the bot's and so never counts as a change) but not for DCA, where
+  nothing supplies the field at all and the drawer's own default therefore
+  looked like an edit on every save. It is now sent for combo deals only.
+
+  Combo deal edits were never affected.
+
 ## [2.50.6] - 2026-08-28
 
 ### Added
