@@ -3,9 +3,13 @@ import {
   useWidgetSettings,
   type ChartWidgetSettings,
 } from '../../../hooks/useWidgetSettings';
+import { usePriceStream } from '../../../hooks/usePriceStream';
 import logger from '../../../lib/loggerInstance';
+import type { TradingPair } from '../../../services/ExchangeWebSocketService';
 import { useWidgetSettingsStore } from '../../../stores/widgetSettingsStore';
 import { ExchangeEnum, type Symbols } from '../../../types';
+import { removePaperPrefix } from '../../../utils/exchangeUtils';
+import { formatQuoteAmount } from '../../../utils/formatters';
 import TradingViewChart from '../shared/TradingViewChart/TradingViewChart';
 import WidgetWrapper, { type WidgetMenuActions } from '../WidgetWrapper';
 import { getWidgetMetadata } from './index';
@@ -15,7 +19,6 @@ import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 export interface CoinChartWidgetSettings extends ChartWidgetSettings {
   symbol: string;
   interval: string;
-  buyPrice: number;
   layoutId: string | null;
   layoutName: string | null;
 }
@@ -32,9 +35,17 @@ export interface CoinChartProps {
   menuActions?: WidgetMenuActions;
   symbol?: string;
   interval?: string;
-  buyPrice?: number;
-  onBuyPriceChange?: (price: number) => void;
 }
+
+/**
+ * Compare two exchange names as the same venue. A paper account's pairs come
+ * back as `paperBinance` while the chart stores the symbol as `…@BINANCE`, and
+ * both mean the same market data.
+ */
+const venueKey = (exchange: string): string =>
+  removePaperPrefix(exchange as ExchangeEnum)
+    .toString()
+    .toUpperCase();
 
 const mapExchangeStringToEnum = (exchange: string): ExchangeEnum | null => {
   if (!exchange) {
@@ -57,8 +68,6 @@ const CoinChart: React.FC<CoinChartProps> = ({
   menuActions,
   symbol: propSymbol = 'BTCUSDT@BINANCE',
   interval: propInterval = '1D',
-  buyPrice: propBuyPrice = 50000,
-  onBuyPriceChange: _onBuyPriceChange,
 }) => {
   // Track if this is the initial load to prevent auto-save from overwriting saved settings
   const isInitialLoadRef = React.useRef(true);
@@ -132,8 +141,52 @@ const CoinChart: React.FC<CoinChartProps> = ({
     interval,
     layoutId,
   });
-  // Note: buyPrice functionality removed as TradingViewChart doesn't support it
-  // const [buyPrice, setBuyPrice] = usePersistedState('buyPrice', propBuyPrice);
+  // The chart's symbol is stored as `PAIR@EXCHANGE` (e.g. `BTCUSDT@BINANCE`).
+  const [symbolPair, symbolExchange] = useMemo(() => {
+    const [pairPart = '', exchangePart = ''] = symbol.split('@');
+    return [pairPart.toUpperCase(), venueKey(exchangePart)];
+  }, [symbol]);
+
+  // The pair record behind the header price. Streaming only needs pair +
+  // exchange, but the real record also carries the quote asset used to render
+  // the number in the right currency.
+  const streamPairs = useMemo<TradingPair[]>(() => {
+    if (!symbolPair || !symbolExchange || !pairsByExchange) {
+      return [];
+    }
+
+    for (const pairs of Object.values(pairsByExchange)) {
+      const match = pairs.find(
+        (pair) =>
+          pair.pair.toUpperCase() === symbolPair &&
+          venueKey(pair.exchange) === symbolExchange
+      );
+      if (match) {
+        return [match];
+      }
+    }
+
+    return [];
+  }, [pairsByExchange, symbolPair, symbolExchange]);
+
+  const { prices } = usePriceStream(streamPairs, { enableStream: true });
+
+  // Header price: the live last price for the charted pair, or nothing until
+  // the first tick arrives.
+  const priceLabel = useMemo(() => {
+    const streamPair = streamPairs[0];
+    if (!streamPair) {
+      return null;
+    }
+
+    const price = prices[`${streamPair.pair}_${streamPair.exchange}`]?.price;
+    if (price === undefined || !Number.isFinite(price)) {
+      return null;
+    }
+
+    const decimals = price >= 1 ? 2 : price >= 0.01 ? 4 : 8;
+    return formatQuoteAmount(price, streamPair.quoteAsset.name, decimals);
+  }, [prices, streamPairs]);
 
   const availableSymbols = useMemo<Symbols[]>(() => {
     if (!pairsByExchange) {
@@ -238,21 +291,14 @@ const CoinChart: React.FC<CoinChartProps> = ({
     [interval, setSetting, widgetId]
   );
 
-  // const handleBuyPriceChange = (newPrice: number) => {
-  //   setBuyPrice(newPrice);
-  //   if (onBuyPriceChange) {
-  //     onBuyPriceChange(newPrice);
-  //   }
-  // };
-
   return (
     <WidgetWrapper
       metadata={{
         ...getWidgetMetadata('coin-chart'),
         id: widgetId,
         value: {
-          primary: propBuyPrice || 0,
-          secondary: 'Buy Price',
+          primary: symbolPair || symbol,
+          ...(priceLabel ? { secondary: priceLabel } : {}),
         },
       }}
       isEditable={isEditable}
