@@ -432,7 +432,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
           ) : null}
 
           <div className="space-y-md">
-            <div className="grid gap-md sm:grid-cols-[2fr_1fr] sm:items-end">
+            {/* Top-aligned, like the order-type row below: the amount column
+                grows a line taller whenever the resolved-quantity preview is
+                showing, and bottom alignment pushed "Amount in" and its select
+                down out of line with the field beside them. */}
+            <div className="grid gap-md sm:grid-cols-[2fr_1fr] sm:items-start">
               <div className="space-y-xs">
                 <Label htmlFor="adjust-funds-amount">
                   {isPercent ? 'Percentage' : 'Quantity'}
