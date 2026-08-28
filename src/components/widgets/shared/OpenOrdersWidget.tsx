@@ -2469,7 +2469,20 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         ),
       },
       {
-        accessorKey: 'realizedProfitPercentage',
+        // Nothing in the platform produces a `realizedProfitPercentage` field:
+        // the rows come from `dcaDealToOpenTrade` / `transformDealToTrade`,
+        // which emit `profit`/`pnl`/`cost` and no percentage. The old
+        // `accessorKey` therefore read `undefined` for every row, so sorting
+        // and the number filter were both silent no-ops while the cell still
+        // rendered the right value off `row.original`. Derive it the same way
+        // the cell does — and keep the column `id` the accessorKey used to
+        // imply, so persisted visibility/order/width settings still resolve.
+        id: 'realizedProfitPercentage',
+        accessorFn: (row) =>
+          calculatePnlPercentage(
+            Number(row.profit?.totalUsd || 0),
+            Number(row.cost || 0)
+          ),
         header: 'Realized P&L, %',
         meta: { filterType: 'number' },
         enableHiding: true,

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.50.10] - 2026-08-28
+
+### Fixed
+
+- The "Realized P&L, %" column did not sort. Clicking its header on the
+  Trading Bots → Deals list (open or closed) and in the bot details drawer's
+  deals table left the rows in exactly the order they were already in, in both
+  directions. Filtering that column by a number was silently ignored for the
+  same reason. Sorting and filtering now use the percentage the column
+  displays.
+
 ## [2.50.9] - 2026-08-28
 
 ### Fixed

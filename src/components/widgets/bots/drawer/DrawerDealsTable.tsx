@@ -76,6 +76,7 @@ import {
 import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import {
+    calculatePnlPercentage,
     calculatePnlPercentageNullable,
     isMetricUnavailable,
     toSortableMetricValue,
@@ -2866,7 +2867,16 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       ReturnType<typeof transformDealToTradeWrapper>
     > = {
       id: 'realizedPnlPercentage',
-      accessorKey: 'realizedProfitPercentage',
+      // Same dead accessor as the shared OpenOrdersWidget column: nothing
+      // produces `realizedProfitPercentage` (`transformDealToTrade` emits
+      // `profit`/`pnl`/`cost`), so TanStack read `undefined` for every row and
+      // both the sort and the number filter were no-ops. Derive it with the
+      // existing `calculatePnlPercentage` helper — same formula the cell uses.
+      accessorFn: (row) =>
+        calculatePnlPercentage(
+          Number(row.profit?.totalUsd || row.pnl || 0),
+          Number(row.cost || 0)
+        ),
       header: 'Realized P&L, %',
       cell: ({ row }) => {
         const trade = row.original;
