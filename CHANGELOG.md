@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.50.9] - 2026-08-28
+
+### Fixed
+
+- A custom link added to the sidebar showed the recent-bots pills underneath
+  it whenever its URL started with a built-in bot page's path (e.g. a link to
+  `/bots`). The link inherited the Trading Bots category and repeated that
+  row's recent-bot shortcuts under itself. Custom links now never carry a
+  recents drop-down; the built-in Trading / Grid / Combo / Hedge bot rows keep
+  theirs.
+
 ## [2.50.8] - 2026-08-28
 
 ### Fixed

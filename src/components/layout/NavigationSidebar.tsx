@@ -126,7 +126,7 @@ const BOT_RECENT_CATEGORY_SET = new Set<PageCategory>([
 const getCategoryFromPath = (href: string): PageCategory | null => {
   const normalized = href.toLowerCase();
 
-  if (normalized.startsWith('/bot') || normalized.startsWith('/bot')) {
+  if (normalized.startsWith('/bot')) {
     return 'trading-bots';
   }
   if (normalized.startsWith('/grid')) {
@@ -1038,7 +1038,16 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                         const categoryForItem = item.href
                           ? getCategoryFromPath(item.href)
                           : null;
+                        // A user-created custom link carries whatever URL the
+                        // user typed, so one pointing at e.g. `/bots` would
+                        // otherwise match the built-in Trading Bots category
+                        // and render that category's recent-visit pills under
+                        // itself. Recents belong to the built-in bot rows only.
+                        const isCustomItem = Boolean(
+                          item.id && isCustomNavItemId(item.id)
+                        );
                         const itemSupportsRecents = Boolean(
+                          !isCustomItem &&
                           categoryForItem &&
                           BOT_RECENT_CATEGORY_SET.has(categoryForItem)
                         );
