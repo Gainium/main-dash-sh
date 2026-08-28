@@ -213,10 +213,6 @@ const PnlRangeTrack: React.FC<{
   const zeroPos = toPct(0);
   const isLoss = current < 0;
   const fmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
-  // Park the caption inside the track at the extremes instead of letting it
-  // hang past the card's padding.
-  const nowShift =
-    markerPos <= 18 ? '0%' : markerPos >= 82 ? '-100%' : '-50%';
   return (
     <div className="mt-2">
       <div className="flex justify-between text-[10px] leading-none text-muted-foreground">
@@ -260,19 +256,6 @@ const PnlRangeTrack: React.FC<{
       <div className="flex justify-between mt-1 text-[10px] font-medium tabular-nums leading-none">
         <span className="text-loss">{fmt(min)}</span>
         <span className="text-profit">{fmt(max)}</span>
-      </div>
-      {/* Live value, parked under the marker so the dot is readable without
-          cross-referencing the chip above the track. */}
-      <div className="relative h-3 mt-1">
-        <span
-          className="absolute top-0 whitespace-nowrap text-[10px] font-semibold leading-none tabular-nums"
-          style={{ left: `${markerPos}%`, transform: `translateX(${nowShift})` }}
-        >
-          <span className={isLoss ? 'text-loss' : 'text-profit'}>
-            {fmt(current)}
-          </span>{' '}
-          <span className="font-normal text-muted-foreground">now</span>
-        </span>
       </div>
     </div>
   );
