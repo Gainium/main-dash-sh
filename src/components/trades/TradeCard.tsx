@@ -565,18 +565,30 @@ const EnhancedCard = React.memo(
       [trade.type]
     );
 
-    // Evolving take-profit. As filled BUY orders (base + DCA safety orders) lower
-    // the average entry, the TP (= avg × (1 + tp%)) steps DOWN. We reconstruct
-    // that history per candle so the chart shows the TP dropping at each fill,
-    // with a marker at each fill. tp% is inferred from the current open TP sell
-    // vs the current average entry. Adds `tp` and `fillMarker` to each point.
+    // Evolving take-profit. As the averaging-in orders (base + DCA safety
+    // orders) fill, they move the average entry and the TP (= avg × (1 + tp%))
+    // steps with it. We reconstruct that history per candle so the chart shows
+    // the TP moving at each fill, with a marker at each fill. tp% is inferred
+    // from the current open TP order vs the current average entry. Adds `tp`
+    // and `fillMarker` to each point.
+    //
+    // DIRECTION MATTERS: a long averages in with BUYs, a short with SELLs.
+    // Hardcoding 'BUY' here (as this did until bug #553) left `fills` empty on
+    // every short — which zeroes `qty`, so `tp` stays null AND `fillMarker`
+    // stays null for every candle, and the card's sparkline renders as a bare
+    // price line with no fill dots and no TP curve. `isLongTrade` is the same
+    // prop the card already uses to label "Avg Sell Price" vs "Avg Buy Price".
     const chartData = useMemo(() => {
+      const entrySide = isLongTrade ? 'BUY' : 'SELL';
+      const exitSide = isLongTrade ? 'SELL' : 'BUY';
       const entry = Number(trade.entryPrice || trade.avgPrice || 0);
       const tpPct =
         typeof topLine === 'number' && entry > 0 ? topLine / entry - 1 : null;
       const fills = orders
         .filter(
-          (o) => o.side === 'BUY' && String(o.status).toUpperCase() === 'FILLED'
+          (o) =>
+            o.side === entrySide &&
+            String(o.status).toUpperCase() === 'FILLED'
         )
         .map((o) => ({
           ts: Number(o.updateTime || o.time || 0),
@@ -589,12 +601,14 @@ const EnhancedCard = React.memo(
         )
         .sort((a, b) => a.ts - b.ts);
 
-      // Filled SELL orders (for grid/combo sell markers). Timestamps only — we
-      // just mark the candle where a sell executed.
+      // Filled orders on the CLOSING side (for grid/combo exit markers).
+      // Timestamps only — we just mark the candle where one executed. Keyed off
+      // the deal's direction too, so a short grid/combo doesn't mark its own
+      // averaging-in sells as exits and double-dot them with `fillMarker`.
       const sellTimes = orders
         .filter(
           (o) =>
-            o.side === 'SELL' && String(o.status).toUpperCase() === 'FILLED'
+            o.side === exitSide && String(o.status).toUpperCase() === 'FILLED'
         )
         .map((o) => Number(o.updateTime || o.time || 0))
         .filter((ts) => ts > 0)
@@ -649,7 +663,14 @@ const EnhancedCard = React.memo(
           };
         })
       );
-    }, [priceData, orders, topLine, trade.entryPrice, trade.avgPrice]);
+    }, [
+      priceData,
+      orders,
+      topLine,
+      trade.entryPrice,
+      trade.avgPrice,
+      isLongTrade,
+    ]);
 
     // Y-axis domain. Zoom from the TOP anchor (entry / TP / evolving TP / candle
     // high, whichever is highest) to the BOTTOM anchor (lowest candle price or
@@ -1468,7 +1489,8 @@ const EnhancedCard = React.memo(
                           }}
                         />
 
-                        {/* Markers where a DCA / base buy order filled. */}
+                        {/* Markers where a DCA / base averaging order filled —
+                            BUYs on a long, SELLs on a short. */}
                         <Line
                           type="monotone"
                           dataKey="fillMarker"
