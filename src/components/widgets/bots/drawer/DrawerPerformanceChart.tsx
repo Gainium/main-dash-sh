@@ -70,6 +70,15 @@ const hasFullChart = (stats?: BotStats | null): stats is BotStats =>
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
+ * The backend keeps at most this many daily points (main-app
+ * `core/src/bot/dcaHelper.ts`: `if (stats.chart.length > 90) stats.chart.shift()`).
+ * A series at the cap MAY have been trimmed, so its first point is not
+ * necessarily the bot's first day — which is exactly what decides whether the
+ * leading edge may be seeded from `startBalance` (see `plottedChartData`).
+ */
+const CHART_POINT_CAP = 90;
+
+/**
  * `value` is a decimal ROI fraction (main-app `dcaHelper.ts`:
  * `perc = deal.profit.total / (usage * multiplier)`), NOT an amount — hence
  * the ×100. Timestamps are used raw: the legacy scatter pre-shifted them by
@@ -95,9 +104,13 @@ const buildDealReturnPoints = (
  *
  * That 90-point cap is also why the upper panel can start mid-chart under ALL:
  * its values are absolute (realized profit is seeded at the starting balance
- * and accumulated for the bot's whole life), so a trimmed series simply begins
- * at whatever P&L had accrued by then. The leading gap is the honest picture —
- * the deal-returns panel below still shows the deals from that period.
+ * and accumulated for the bot's whole life), so a TRIMMED series simply begins
+ * at whatever P&L had accrued by then. For that case the leading gap is the
+ * honest picture — the deal-returns panel below still shows the deals from that
+ * period, and `plottedChartData` deliberately leaves it alone rather than
+ * inventing months of flat equity. An UNTRIMMED series is a different story:
+ * there the gap is a sampling artifact of at most a day or two, and it IS
+ * filled — see `plottedChartData`.
  */
 const RANGES = [
   { key: '1M', label: '1M', days: 30 },
@@ -260,7 +273,11 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
   // so plotting it as equity/realized profit rendered a 1% deal as "$0.01".
   // That series is already shown correctly, as a percentage, by the sibling
   // "Deal Returns" widget (DrawerPnLScatterChart) directly below this one.
-  const chartData = useMemo(() => {
+  const {
+    points: chartData,
+    startBalanceUsd,
+    isTrimmed,
+  } = useMemo(() => {
     // The backend seeds the chart's `realizedProfit` at the starting balance and
     // accumulates realized PnL on top of it, so the series shares the equity
     // scale (a legacy single-axis trick). Recover the *true* realized profit by
@@ -331,7 +348,13 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
       // the lines zigzag and "Realized Profit" appears to fall over time.
       .sort((a: { time: number }, b: { time: number }) => a.time - b.time);
 
-    return sanitized;
+    return {
+      points: sanitized,
+      startBalanceUsd: realizedOffset,
+      // At the cap the series MAY have been shifted, so its first point is not
+      // provably the bot's first day. Anything below the cap was never trimmed.
+      isTrimmed: (chartSource?.length ?? 0) >= CHART_POINT_CAP,
+    };
   }, [listStats, initialChartData, liveStats, fetchedBot]);
 
   const isPositiveProfit = useMemo(() => {
@@ -365,10 +388,17 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
   /**
    * ONE domain for both panels — the union of what each has in range. The two
    * series come from different stores with different retention (90 daily
-   * points on the bot doc vs. up to 500 closed deals in `botProfitChart`), so
-   * the union is normally wider than the equity series. That is intended: the
-   * performance panel simply draws nothing before its first point, and the gap
-   * is the honest picture of how far our daily history goes back.
+   * points on the bot doc vs. up to 500 closed deals in `botProfitChart`) AND
+   * different sampling (the equity series is a once-daily MIDNIGHT snapshot,
+   * deals are stamped at their exact close time), so the union is normally
+   * wider than the equity series at BOTH ends.
+   *
+   * The dead space that left at each end was not "how far our history goes
+   * back" — it is a sampling artifact, and it is what bug #540 reported. So
+   * the union is NOT the thing to change here: `domain` stays
+   * the union so the two stacked panels remain time-aligned (reading a deal
+   * against the equity curve is the whole point of sharing an axis);
+   * `plottedChartData` below closes the gap instead.
    */
   const domain = useMemo<[number, number] | null>(() => {
     const times = [
@@ -382,6 +412,64 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
     // domain, which recharts renders as an empty plot.
     return min === max ? [min - DAY_MS, max + DAY_MS] : [min, max];
   }, [visibleChartData, visibleDealPoints]);
+
+  /**
+   * The series actually handed to recharts: `visibleChartData` carried out to
+   * the shared domain's edges so the Performance panel spans the same width as
+   * the Deal Returns panel below it (bug #540 — "space on either side of the
+   * trend data").
+   *
+   * This adds NO new domain: both endpoints land exactly on `domain`, so the
+   * lower panel's axis is untouched. Only two edges are synthesized, and only
+   * where the value is knowable:
+   *
+   * • TRAILING — carry the last measured sample forward. The gap here is
+   *   bounded by the daily cadence (the newest point is the midnight of the
+   *   last day that had a deal, so at most ~48h back), and a flat carry is the
+   *   conservative reading: it asserts no NEW information, not a new value.
+   *
+   * • LEADING — seed the bot's initial condition. At inception equity and
+   *   buy & hold are the starting balance and realized profit is 0, which is
+   *   exactly what main-app itself pushes as the first point
+   *   (`dcaHelper.ts`: equity/buyAndHold/realizedProfit = startBalance.usd,
+   *   which is also the offset already subtracted out above). Gated on
+   *   `!isTrimmed` — on a trimmed series the first point is mid-history and
+   *   the deal scatter can reach ~12 months further back, so seeding there
+   *   would draw months of flat equity that never happened. That gap stays.
+   *
+   * Fields absent from the payload stay `undefined` rather than becoming 0,
+   * for the same reason as in `chartData`: a 0 plots a false flat line and
+   * drags the shared equity axis to zero.
+   */
+  const plottedChartData = useMemo(() => {
+    if (!domain || visibleChartData.length === 0) return visibleChartData;
+    const [domainMin, domainMax] = domain;
+    const padded = [...visibleChartData];
+
+    const last = padded[padded.length - 1];
+    if (last.time < domainMax) {
+      padded.push({
+        ...last,
+        time: domainMax,
+        formattedTime: new Date(domainMax).toLocaleDateString(),
+      });
+    }
+
+    const first = padded[0];
+    if (first.time > domainMin && !isTrimmed && startBalanceUsd > 0) {
+      padded.unshift({
+        equity: typeof first.equity === 'number' ? startBalanceUsd : undefined,
+        realizedProfit:
+          typeof first.realizedProfit === 'number' ? 0 : undefined,
+        buyAndHold:
+          typeof first.buyAndHold === 'number' ? startBalanceUsd : undefined,
+        time: domainMin,
+        formattedTime: new Date(domainMin).toLocaleDateString(),
+      });
+    }
+
+    return padded;
+  }, [visibleChartData, domain, isTrimmed, startBalanceUsd]);
 
   const hasRealData = visibleChartData.length > 0;
   const hasAnyData = hasRealData || visibleDealPoints.length > 0;
@@ -523,7 +611,7 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
           {hasRealData && domain ? (
             <ResponsiveContainer width="100%" height="100%">
               <ComposedChart
-                data={visibleChartData}
+                data={plottedChartData}
                 margin={{ top: 1, right: 1, left: 1, bottom: 1 }}
               >
                 <defs>

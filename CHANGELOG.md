@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.49.6] - 2026-08-28
+
+### Fixed
+
+- The bot drawer's Performance chart left a band of empty space at both ends
+  instead of filling the plot. It shares one time axis with the Deal Returns
+  panel below it, but its equity, realized-profit and buy & hold lines are a
+  once-daily midnight snapshot, so they stopped short of an axis that runs to
+  the exact time of the first and last deal — on a four-day-old bot that left
+  roughly a quarter of the chart blank. The lines now reach both edges: the
+  leading edge is seeded from the bot's starting balance and the trailing edge
+  carries the last daily reading forward. Bots whose history is longer than the
+  90-day series the backend keeps still show the leading gap, because there the
+  missing stretch is real history rather than a sampling artifact.
+
 ## [2.49.5] - 2026-08-27
 
 ### Fixed
