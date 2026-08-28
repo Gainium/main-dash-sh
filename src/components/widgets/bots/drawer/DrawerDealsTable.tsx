@@ -78,7 +78,11 @@ import { useUserFees } from '@/hooks/useUserFeesService';
 import {
     calculatePnlPercentage,
     calculatePnlPercentageNullable,
+    dealGridProfitPercentageSortValue,
+    dealPercentStringSortValue,
+    dealWorkingTimeSortValue,
     isMetricUnavailable,
+    toDealSortEpochMs,
     toSortableMetricValue,
 } from '@/lib/utils/tradingMetrics';
 import { useAuthStore } from '@/stores/authStore';
@@ -2439,8 +2443,14 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'timeInLoss',
-        accessorKey: 'timeInLoss',
+        accessorFn: (row) => dealPercentStringSortValue(row.timeInLoss),
         header: 'Time In Loss',
+        // The accessor is numeric so the column SORTS by percentage; the
+        // filter keeps matching the rendered "12.3%" text it always did.
+        meta: {
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['timeInLoss'] as string) || '',
+        },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.timeInLoss || '';
@@ -2454,8 +2464,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'timeInProfit',
-        accessorKey: 'timeInProfit',
+        accessorFn: (row) => dealPercentStringSortValue(row.timeInProfit),
         header: 'Time In Profit',
+        meta: {
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['timeInProfit'] as string) || '',
+        },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.timeInProfit || '';
@@ -2469,8 +2483,14 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'workingTime',
-        accessorKey: 'workingTime',
+        accessorFn: (row) => dealWorkingTimeSortValue(row),
         header: 'Working Time',
+        // Numeric (minutes) accessor for sorting; the filter still matches the
+        // rendered "3D 4H" text.
+        meta: {
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['workingTime'] as string) || '',
+        },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.workingTime || '';
@@ -2596,13 +2616,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'gridProfitPercentage',
-        accessorFn: (row) => {
-          const type = row.type;
-          if (type !== 'Combo' && type !== 'Hedge Combo') return 0;
-          const gridProfitUsd = (row as any).gridProfitUsd || 0;
-          const cost = row.cost || 0;
-          return cost > 0 ? (gridProfitUsd / cost) * 100 : 0;
-        },
+        accessorFn: (row) => dealGridProfitPercentageSortValue(row as never),
         header: 'Grid Profit, %',
         cell: ({ row }) => {
           const type = row.original.type;
@@ -2648,7 +2662,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       },
       {
         id: 'updateTime',
-        accessorKey: 'updateTime',
+        accessorFn: (row) => toDealSortEpochMs((row as any).updateTime),
         header: 'Update Time',
         cell: ({ row }) => {
           const value = (row.original as any).updateTime;

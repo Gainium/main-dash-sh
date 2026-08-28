@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.50.11] - 2026-08-28
+
+### Fixed
+
+- Four more deal-table columns did not sort correctly, on the Trading Bots →
+  Deals list (open and closed) and in the bot details drawer's deals table.
+  "Grid Profit, %" did not sort at all. "Update Time" ordered deals by the text
+  of the displayed date, so December 2025 landed between January and August
+  2026. "Working Time" compared "3D 4H" with "4H" as text, ranking a three-day
+  deal as shorter than a four-hour one. "Time In Loss" and "Time In Profit"
+  compared percentages as text, ranking 12.3% below 9.5%. All of them now sort
+  by the underlying value; the displayed text and the column filters are
+  unchanged.
+
 ## [2.50.10] - 2026-08-28
 
 ### Fixed

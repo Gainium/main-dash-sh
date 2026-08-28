@@ -272,6 +272,70 @@ export const toSortableMetricValue = (
   return Number.isFinite(numericValue) ? numericValue : unavailableValue;
 };
 
+/**
+ * Sort accessors for the deal tables (Trading Bots → Deals and the bot
+ * drawer's Deals table).
+ *
+ * Follow-up to bug #561: those columns render a human-readable STRING —
+ * "3D 4H", "12.3%", a locale date — and the column defs sorted on that
+ * rendered text. So "3D 4H" ranked below "4H", 12.3% below 9.5%, and
+ * Jan 2026 below Dec 2025. Each accessor below returns the NUMBER the
+ * column is actually meant to be ordered by; every cell keeps rendering
+ * exactly what it rendered before.
+ */
+
+/** Epoch ms for a deal timestamp that may arrive as ms, ISO string or Date. */
+export const toDealSortEpochMs = (
+  value?: string | number | Date | null
+): number => {
+  if (value === null || value === undefined || value === '') return 0;
+  const epoch =
+    value instanceof Date ? value.getTime() : new Date(value).getTime();
+  return Number.isFinite(epoch) ? epoch : 0;
+};
+
+/**
+ * Working Time as total MINUTES, so the column orders by real elapsed time
+ * instead of comparing "3D 4H" with "4H" as text.
+ */
+export const dealWorkingTimeSortValue = (row: {
+  created?: number | null;
+  createdTime?: Date | string | null;
+}): number => {
+  const startedAt = row.created
+    ? toDealSortEpochMs(row.created)
+    : toDealSortEpochMs(row.createdTime);
+  if (!startedAt) return 0;
+  return Math.max(0, Date.now() - startedAt) / 60_000;
+};
+
+/**
+ * The numeric percentage behind a formatted "12.3%" cell (Time In Loss /
+ * Time In Profit). Unset cells render "-" and sort as unavailable, matching
+ * how `toSortableMetricValue` already treats missing metrics elsewhere.
+ */
+export const dealPercentStringSortValue = (value?: string | null): number => {
+  // NB: not `toSortableMetricValue(null)` — Number(null) is 0, which is
+  // finite, so an unset cell would sort as a real 0% rather than as missing.
+  if (!value || value === '-') return Number.NEGATIVE_INFINITY;
+  return toSortableMetricValue(Number.parseFloat(value));
+};
+
+/**
+ * Grid Profit as a percentage of deal cost. Only Combo / Hedge Combo deals
+ * render a value; everything else shows "-" and sorts as a neutral 0.
+ */
+export const dealGridProfitPercentageSortValue = (row: {
+  type?: string;
+  gridProfitUsd?: number | null;
+  cost?: number | null;
+}): number => {
+  if (row.type !== 'Combo' && row.type !== 'Hedge Combo') return 0;
+  const gridProfitUsd = Number(row.gridProfitUsd || 0);
+  const cost = Number(row.cost || 0);
+  return cost > 0 ? (gridProfitUsd / cost) * 100 : 0;
+};
+
 export const calculateUsagePercentage = (
   currentValue: number,
   maxValue: number

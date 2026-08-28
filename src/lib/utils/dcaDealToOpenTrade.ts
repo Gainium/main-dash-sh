@@ -167,8 +167,11 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     transactionsSell: deal.transactions?.sell ?? 0,
     transactionsTotal:
       (deal.transactions?.buy ?? 0) + (deal.transactions?.sell ?? 0),
+    // ISO string, same reason as closeTime below: the Update Time column
+    // re-parses this value (to render it and to sort on it) and a locale
+    // string gets misparsed by new Date(), swapping day/month.
     updateTime: deal.updateTime
-      ? new Date(deal.updateTime).toLocaleString()
+      ? new Date(deal.updateTime).toISOString()
       : undefined,
     // ISO string so the Close Time column re-parses it unambiguously;
     // a locale string gets misparsed by new Date() and swaps day/month.

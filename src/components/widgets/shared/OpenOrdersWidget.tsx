@@ -48,8 +48,12 @@ import {
     calculateDealValue,
     calculatePnlPercentage,
     calculatePnlPercentageNullable,
+    dealGridProfitPercentageSortValue,
+    dealPercentStringSortValue,
+    dealWorkingTimeSortValue,
     isLongStrategy,
     isMetricUnavailable,
+    toDealSortEpochMs,
     toSortableMetricValue,
 } from '@/lib/utils/tradingMetrics';
 import { useTableCustomState } from '@/stores/tablePreferencesStore';
@@ -1666,7 +1670,10 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         transactionsSell: deal.transactions?.sell ?? 0,
         transactionsTotal:
           (deal.transactions?.buy ?? 0) + (deal.transactions?.sell ?? 0),
-        updateTime: new Date(deal.updateTime).toLocaleString(),
+        // ISO string, same reason as closeTime below: the Update Time column
+        // re-parses this value (to render it and to sort on it) and a locale
+        // string gets misparsed by new Date(), swapping day/month.
+        updateTime: new Date(deal.updateTime).toISOString(),
         // ISO string so the Close Time column re-parses it unambiguously;
         // a locale string gets misparsed by new Date() and swaps day/month.
         closeTime: deal.closeTime
@@ -2868,33 +2875,52 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
       },
       {
-        accessorKey: 'timeInLoss',
+        id: 'timeInLoss',
+        accessorFn: (row) => dealPercentStringSortValue(row.timeInLoss),
         header: 'Time In Loss',
-        meta: { filterType: 'string' },
-        cell: ({ getValue }) => {
-          const value = getValue() as string;
+        // The accessor is numeric so the column SORTS by percentage; the
+        // filter keeps matching the rendered "12.3%" text it always did.
+        meta: {
+          filterType: 'string',
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['timeInLoss'] as string) || '',
+        },
+        cell: ({ row }) => {
+          const value = row.original.timeInLoss;
           if (!value || value === '-')
             return <span className="text-muted-foreground">-</span>;
           return value;
         },
       },
       {
-        accessorKey: 'timeInProfit',
+        id: 'timeInProfit',
+        accessorFn: (row) => dealPercentStringSortValue(row.timeInProfit),
         header: 'Time In Profit',
-        meta: { filterType: 'string' },
-        cell: ({ getValue }) => {
-          const value = getValue() as string;
+        meta: {
+          filterType: 'string',
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['timeInProfit'] as string) || '',
+        },
+        cell: ({ row }) => {
+          const value = row.original.timeInProfit;
           if (!value || value === '-')
             return <span className="text-muted-foreground">-</span>;
           return value;
         },
       },
       {
-        accessorKey: 'workingTime',
+        id: 'workingTime',
+        accessorFn: (row) => dealWorkingTimeSortValue(row),
         header: 'Working Time',
-        meta: { filterType: 'string' },
-        cell: ({ getValue }) => {
-          const value = getValue() as string;
+        // Numeric (minutes) accessor for sorting; the filter still matches the
+        // rendered "3D 4H" text.
+        meta: {
+          filterType: 'string',
+          getFilterValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['workingTime'] as string) || '',
+        },
+        cell: ({ row }) => {
+          const value = row.original.workingTime;
           if (!value) return <span className="text-muted-foreground">-</span>;
           return value;
         },
@@ -2997,7 +3023,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
       },
       {
-        accessorKey: 'gridProfitPercentage',
+        id: 'gridProfitPercentage',
+        accessorFn: (row) => dealGridProfitPercentageSortValue(row),
         header: 'Grid Profit, %',
         meta: { filterType: 'number' },
         enableHiding: true,
@@ -3044,11 +3071,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
       },
       {
-        accessorKey: 'updateTime',
+        id: 'updateTime',
+        accessorFn: (row) => toDealSortEpochMs(row.updateTime),
         header: 'Update Time',
         meta: { filterType: 'date' },
-        cell: ({ getValue }) => {
-          const value = getValue() as string;
+        cell: ({ row }) => {
+          const value = row.original.updateTime;
           if (!value) return <span className="text-muted-foreground">-</span>;
           const date = new Date(value);
           return (
