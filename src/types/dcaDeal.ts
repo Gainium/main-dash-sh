@@ -25,6 +25,10 @@ import {
 } from '.';
 import type { DrawerBot } from './bots/drawer';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import {
+  percentBasis,
+  type PercentBasis,
+} from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
 
 export type TradeChartPoint = {
   time: string;
@@ -92,6 +96,14 @@ export type TransformedTrade = {
       }
     | undefined;
   unrealizedProfit?: number | undefined;
+  /**
+   * What a percentage add/reduce resolves to for this deal, in base units.
+   * Derived here because this is the only place that already holds every input
+   * the engine reads (`lastPrice`, futures/coinm, leverage + margin type, and
+   * both balance snapshots); the deal shapes downstream carry none of them.
+   * Undefined when the deal has no usable position yet.
+   */
+  percentBasis?: PercentBasis | undefined;
   avgPrice?: number | undefined;
   levels: {
     complete: number;
@@ -156,6 +168,58 @@ export type TransformedTrade = {
    * order. Absent on every normal deal.
    */
   startBlocked?: DealStartBlock;
+};
+
+/**
+ * `percentBasis` for a raw deal record, deriving the futures/coinm/leverage
+ * inputs the same way the trade transform does.
+ *
+ * Exported because the Trading page builds its own flattened deal rows rather
+ * than going through `transformDealToTrade`, and both must hand the Add/Reduce
+ * funds dialog the same number — a preview that disagrees between the bot
+ * drawer and the trades table would be worse than no preview at all.
+ */
+export const percentBasisFromDeal = (deal: {
+  strategy?: string | undefined;
+  lastPrice?: number | undefined;
+  exchange?: ExchangeEnum | string | undefined;
+  usage?: { current?: { base?: number; quote?: number } } | undefined;
+  currentBalances?: { base?: number } | undefined;
+  initialBalances?: { base?: number } | undefined;
+  settings?:
+    | {
+        futures?: boolean | undefined;
+        coinm?: boolean | undefined;
+        leverage?: number | undefined;
+        marginType?: string | undefined;
+      }
+    | undefined;
+}): PercentBasis | null => {
+  const futures =
+    `${deal.settings?.futures}` !== 'null' && deal.settings?.futures !== undefined
+      ? !!deal.settings.futures
+      : isFuturesExchange((deal.exchange as ExchangeEnum) ?? ExchangeEnum.binance);
+  const coinm =
+    `${deal.settings?.coinm}` !== 'null' && deal.settings?.coinm !== undefined
+      ? !!deal.settings.coinm
+      : isCoinmExchange((deal.exchange as ExchangeEnum) ?? ExchangeEnum.binance);
+  const long = isLongStrategy(deal.strategy ?? '');
+
+  return percentBasis({
+    usageCurrentBase: deal.usage?.current?.base || 0,
+    usageCurrentQuote: deal.usage?.current?.quote || 0,
+    lastPrice: deal.lastPrice || 0,
+    // The position still on the books — the same expression the take-profit
+    // block uses.
+    remainingBase: long
+      ? deal.currentBalances?.base || 0
+      : (deal.initialBalances?.base || 0) - (deal.currentBalances?.base || 0),
+    long,
+    futures,
+    coinm,
+    leverage: deal.settings?.leverage,
+    marginType: deal.settings?.marginType,
+  });
 };
 
 export const transformDealToTrade = (
@@ -435,6 +499,10 @@ export const transformDealToTrade = (
     },
     ...(deal.funding && { funding: deal.funding }),
     avgPrice: deal.avgPrice || 0,
+    ...(() => {
+      const basis = percentBasisFromDeal(deal);
+      return basis ? { percentBasis: basis } : {};
+    })(),
     levels,
     riskBased: deal.settings?.useRiskReward,
     created: createTime,

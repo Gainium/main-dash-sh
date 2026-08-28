@@ -2,6 +2,7 @@
 //
 // Split out of `useBulkAdjustFunds` so they can be exercised without pulling a
 // React tree — and the logger's `import.meta.env` access — into the runner.
+import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
 import { DCADealStatusEnum } from '@/types';
 
 /** A selected deal row reduced to what the adjust-funds flow needs. */
@@ -17,6 +18,8 @@ export interface BulkAdjustFundsTarget {
   /** Exchange symbol and venue, used to seed the limit price from the market. */
   symbol?: string | undefined;
   exchange?: string | undefined;
+  /** Per-deal, so it is only passed on when exactly one deal is selected. */
+  percentBasis?: PercentBasis | undefined;
 }
 
 /**

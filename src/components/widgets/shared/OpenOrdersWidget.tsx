@@ -35,6 +35,7 @@ import {
     type BulkAdjustFundsTarget,
 } from '@/components/deals/actions/bulkAdjustFundsTargets';
 import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFunds';
+import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
@@ -247,6 +248,8 @@ export interface OpenTrade {
     };
     maxUsd?: number;
   };
+  /** Base a percentage add/reduce resolves to; see `percentBasis`. */
+  percentBasis?: PercentBasis | undefined;
   profit?: {
     total: number;
     totalUsd: number;
@@ -407,6 +410,7 @@ const toAdjustFundsTarget = (trade: OpenTrade): BulkAdjustFundsTarget => ({
   quoteAsset: trade.quoteAsset,
   symbol: trade.symbol,
   exchange: trade.exchange,
+  percentBasis: trade.percentBasis,
 });
 
 const TradeTableActions: React.FC<TradeTableActionsProps> = ({
@@ -780,6 +784,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         quoteAsset={trade.quoteAsset}
         symbol={trade.symbol}
         exchange={trade.exchange}
+        percentBasis={trade.percentBasis}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

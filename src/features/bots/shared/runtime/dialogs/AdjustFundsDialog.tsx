@@ -26,8 +26,11 @@ import {
   MAX_PERCENT,
   amountModeLabel,
   fromAmountMode,
+  percentClosesDeal,
+  resolvePercentQuantity,
   toAmountMode,
   type AmountMode,
+  type PercentBasis,
 } from './adjustFundsAmount';
 import {
   AddFundsTypeEnum,
@@ -79,6 +82,13 @@ interface AdjustFundsDialogBaseProps {
    */
   symbol?: string;
   exchange?: string;
+  /**
+   * What a percentage resolves to for this deal, so the dialog can show the
+   * base amount behind the percentage instead of leaving the user to work it
+   * out. Absent for a multi-deal selection, where each deal resolves
+   * differently and one number would be wrong for the rest.
+   */
+  percentBasis?: PercentBasis | undefined;
   /** Optional balance snapshot for quick reference */
   balances?: FundsBalanceSnapshot[];
   /**
@@ -169,6 +179,18 @@ const normalizeNumberString = (value: string) => {
 };
 
 /**
+ * Enough digits to be useful for both a ~1900-XPL position and a 0.0024-BTC
+ * one, without implying a precision the exchange will honour: the engine
+ * rounds to the pair's own base precision, which this dialog does not have.
+ * Every number built from this is therefore prefixed with "≈".
+ */
+const formatQty = (value: number) =>
+  value
+    .toFixed(value >= 1 ? 4 : 8)
+    .replace(/(\.\d*?)0+$/, '$1')
+    .replace(/\.$/, '');
+
+/**
  * Live market price for one symbol, or null when the caller did not say which
  * symbol this is for, or prices have not arrived yet.
  *
@@ -225,6 +247,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   quoteAsset,
   symbol,
   exchange,
+  percentBasis,
   balances,
   targetCount = 1,
 }) => {
@@ -257,6 +280,15 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   };
 
   const marketPrice = useMarketPrice(symbol, exchange);
+
+  // The base amount behind the percentage, computed exactly as the engine
+  // computes it — see `percentBasis`. Rendered only when every input was
+  // available; a confident "0" would read as "this order does nothing".
+  const resolvedQty = isPercent
+    ? resolvePercentQuantity(percentBasis, quantity)
+    : null;
+  const willCloseDeal =
+    mode === 'reduce' && percentClosesDeal(percentBasis, resolvedQty);
 
   React.useEffect(() => {
     if (open) {
@@ -419,6 +451,12 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                   showControls={false}
                   {...(isPercent ? { endAdornment: '%' } : {})}
                 />
+                {resolvedQty !== null ? (
+                  <p className="text-xs text-muted-foreground">
+                    ≈ {formatQty(resolvedQty)}
+                    {baseAsset ? ` ${baseAsset}` : ''}
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-xs">
@@ -535,9 +573,14 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 <p className="mt-1">
                   The percentage is taken from the position this deal currently
                   holds — not from your exchange balance.
-                  {mode === 'reduce'
-                    ? ` Reducing by ${MAX_PERCENT}% closes the deal.`
-                    : ''}
+                </p>
+              ) : null}
+              {willCloseDeal && percentBasis ? (
+                <p className="mt-1 text-warning">
+                  That is at or above the whole remaining position (
+                  {formatQty(percentBasis.remainingBase)}
+                  {baseAsset ? ` ${baseAsset}` : ''}), so this will close the
+                  deal rather than reduce it.
                 </p>
               ) : null}
             </div>

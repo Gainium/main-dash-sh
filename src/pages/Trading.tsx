@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
@@ -502,6 +503,10 @@ const Trading: React.FC = () => {
             id: actualDealId || `dca-${index}`,
             type: 'DCA',
             symbol: deal.symbol?.symbol || 'Unknown',
+            ...(() => {
+              const basis = percentBasisFromDeal(deal as never);
+              return basis ? { percentBasis: basis } : {};
+            })(),
             baseAsset: deal.symbol?.baseAsset || '',
             quoteAsset: deal.symbol?.quoteAsset || '',
             strategy: deal.strategy || 'DCA',
@@ -604,6 +609,10 @@ const Trading: React.FC = () => {
             id: (actualDealId as string | undefined) || `combo-${index}`,
             type: 'Combo',
             symbol: deal.symbol?.symbol || 'Unknown',
+            ...(() => {
+              const basis = percentBasisFromDeal(deal as never);
+              return basis ? { percentBasis: basis } : {};
+            })(),
             baseAsset: deal.symbol?.baseAsset || '',
             quoteAsset: deal.symbol?.quoteAsset || '',
             strategy: deal.strategy || 'Combo',
@@ -684,6 +693,10 @@ const Trading: React.FC = () => {
             id: actualDealId || `hedge-combo-${index}`,
             type: 'Hedge Combo',
             symbol: deal.symbol?.symbol || 'Unknown',
+            ...(() => {
+              const basis = percentBasisFromDeal(deal as never);
+              return basis ? { percentBasis: basis } : {};
+            })(),
             strategy: deal.strategy || 'Hedge Combo',
             status: deal.status || 'Unknown',
             exchange: deal.dcaBot?.exchange || deal.exchangeUUID || 'Unknown',
@@ -759,6 +772,10 @@ const Trading: React.FC = () => {
             id: actualDealId || `hedge-dca-${index}`,
             type: 'Hedge DCA',
             symbol: deal.symbol?.symbol || 'Unknown',
+            ...(() => {
+              const basis = percentBasisFromDeal(deal as never);
+              return basis ? { percentBasis: basis } : {};
+            })(),
             strategy: deal.strategy || 'Hedge DCA',
             status: deal.status || 'Unknown',
             exchange: deal.dcaBot?.exchange || deal.exchangeUUID || 'Unknown',
@@ -845,6 +862,10 @@ const Trading: React.FC = () => {
             id: actualDealId || `terminal-${index}`,
             type: 'Terminal',
             symbol: deal.symbol?.symbol || 'Unknown',
+            ...(() => {
+              const basis = percentBasisFromDeal(deal as never);
+              return basis ? { percentBasis: basis } : {};
+            })(),
             baseAsset: deal.symbol?.baseAsset || '',
             quoteAsset: deal.symbol?.quoteAsset || '',
             strategy: deal.strategy || 'Terminal',

@@ -84,12 +84,16 @@ export function useBulkAdjustFunds(): UseBulkAdjustFundsResult {
   // from a single row's menu in the table view arrives here with one target,
   // and withholding the symbol there cost that user the market-price default
   // the card view already gave them.
-  const { baseAsset, quoteAsset, symbol, exchange } = useMemo(
+  const { baseAsset, quoteAsset, symbol, exchange, percentBasis } = useMemo(
     () => ({
       baseAsset: sharedTargetValue(targets, (target) => target.baseAsset),
       quoteAsset: sharedTargetValue(targets, (target) => target.quoteAsset),
       symbol: sharedTargetValue(targets, (target) => target.symbol),
       exchange: sharedTargetValue(targets, (target) => target.exchange),
+      // Not collapsible like the rest: two deals on the same pair still hold
+      // different positions, so a percentage resolves to a different base
+      // amount for each. Only a single selection has one right answer.
+      percentBasis: targets.length === 1 ? targets[0]?.percentBasis : undefined,
     }),
     [targets]
   );
@@ -166,6 +170,7 @@ export function useBulkAdjustFunds(): UseBulkAdjustFundsResult {
       quoteAsset={quoteAsset}
       symbol={symbol}
       exchange={exchange}
+      percentBasis={percentBasis}
     />
   ) : null;
 

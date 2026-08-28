@@ -575,6 +575,7 @@ const DealActionsMenu: React.FC<{
         quoteAsset={quoteSymbol}
         symbol={symbolString}
         exchange={trade.exchange}
+        percentBasis={trade.percentBasis}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
@@ -1514,6 +1515,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       symbol:
         typeof deal.symbol === 'string' ? deal.symbol : deal.symbol.symbol,
       exchange: deal.exchange,
+      percentBasis: deal.percentBasis,
     }),
     [botId, isComboBot]
   );
