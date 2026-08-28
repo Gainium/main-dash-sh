@@ -20,6 +20,9 @@ interface DealOrdersDialogProps {
   symbol: string;
   exchange: string;
   orders?: ViewOrder[];
+  /** Orders still in flight — callers that fetch on open pass this so the
+      dialog doesn't claim "No orders found" before the query lands. */
+  isLoading?: boolean;
 }
 
 export const DealOrdersDialog: React.FC<DealOrdersDialogProps> = ({
@@ -30,6 +33,7 @@ export const DealOrdersDialog: React.FC<DealOrdersDialogProps> = ({
   symbol,
   exchange,
   orders = [],
+  isLoading = false,
 }) => {
   logger.debug('[DealOrdersDialog] Rendered with:', {
     open,
@@ -80,7 +84,11 @@ export const DealOrdersDialog: React.FC<DealOrdersDialogProps> = ({
           </DialogTitle>
         </DialogHeader>
 
-        {orders.length === 0 ? (
+        {isLoading && orders.length === 0 ? (
+          <div className="flex items-center justify-center p-8">
+            <span className="text-muted-foreground">Loading orders…</span>
+          </div>
+        ) : orders.length === 0 ? (
           <div className="flex items-center justify-center p-8">
             <span className="text-muted-foreground">No orders found</span>
           </div>

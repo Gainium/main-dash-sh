@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.50.3] - 2026-08-28
+
+### Changed
+
+- Deal cards: the P/L range bar under "Unrealized" now says what it is
+  measuring. The two ends carry "Worst" / "Best" captions, the live value is
+  printed under the marker, and the break-even hairline names the deal's
+  average price on hover — previously it was two unlabelled percentages and a
+  dot with nothing to read them against.
+- Deal cards: clicking the Usage ring opens that deal's order list, the same
+  as clicking the Usage ring in the deals table.
+
 ## [2.50.2] - 2026-08-28
 
 ### Fixed

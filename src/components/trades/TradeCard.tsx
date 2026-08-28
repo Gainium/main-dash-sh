@@ -60,6 +60,8 @@ import {
 import getLatestPrices from '../../helper/price';
 import { ConfirmationDialog } from '../ui';
 import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
+import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
+import { orderDataToViewOrder } from '@/utils/orders/viewOrder';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -186,6 +188,10 @@ const ReferenceLineLabel = (props: {
  * worst drawdown (left extreme) and best run-up (right extreme). The extremes
  * are the deal's max adverse / favorable excursion; the marker is the live P/L.
  * Renders nothing when neither extreme is known (no stats yet).
+ *
+ * Both extremes carry a caption and the live value is printed under the
+ * marker: bare numbers at each end read as an arbitrary range with nothing
+ * saying which end is which or where the dot sits (forum #4951).
  */
 const PnlRangeTrack: React.FC<{
   /** Current P/L as a percentage (unrealized or realized ROI). */
@@ -194,7 +200,9 @@ const PnlRangeTrack: React.FC<{
   drawdown: number;
   /** Best run-up magnitude (positive %). */
   runUp: number;
-}> = ({ current, drawdown, runUp }) => {
+  /** Average entry price, surfaced on the break-even tick's tooltip. */
+  avgPriceDisplay?: string | undefined;
+}> = ({ current, drawdown, runUp, avgPriceDisplay }) => {
   const min = -Math.abs(drawdown);
   const max = Math.abs(runUp);
   const span = max - min;
@@ -204,9 +212,18 @@ const PnlRangeTrack: React.FC<{
   const markerPos = toPct(current);
   const zeroPos = toPct(0);
   const isLoss = current < 0;
+  const fmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+  // Park the caption inside the track at the extremes instead of letting it
+  // hang past the card's padding.
+  const nowShift =
+    markerPos <= 18 ? '0%' : markerPos >= 82 ? '-100%' : '-50%';
   return (
     <div className="mt-2">
-      <div className="relative h-2.5">
+      <div className="flex justify-between text-[10px] leading-none text-muted-foreground">
+        <span>Worst</span>
+        <span>Best</span>
+      </div>
+      <div className="relative h-2.5 mt-1">
         {/* Track: loss-tinted up to break-even, profit-tinted beyond. */}
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden bg-muted">
           <div
@@ -218,11 +235,19 @@ const PnlRangeTrack: React.FC<{
             style={{ width: `${100 - zeroPos}%` }}
           />
         </div>
-        {/* Break-even tick. */}
+        {/* Break-even tick — the price the deal averages into, so name it on
+            hover rather than leaving an unexplained hairline. */}
         <div
-          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-px h-2.5 bg-border"
+          className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 flex w-2 justify-center"
           style={{ left: `${zeroPos}%` }}
-        />
+          title={
+            avgPriceDisplay
+              ? `Break-even — avg price ${avgPriceDisplay}`
+              : 'Break-even'
+          }
+        >
+          <div className="w-px h-2.5 bg-border" />
+        </div>
         {/* Current-P/L marker. */}
         <div
           className={cn(
@@ -233,8 +258,21 @@ const PnlRangeTrack: React.FC<{
         />
       </div>
       <div className="flex justify-between mt-1 text-[10px] font-medium tabular-nums leading-none">
-        <span className="text-loss">{min.toFixed(2)}%</span>
-        <span className="text-profit">+{max.toFixed(2)}%</span>
+        <span className="text-loss">{fmt(min)}</span>
+        <span className="text-profit">{fmt(max)}</span>
+      </div>
+      {/* Live value, parked under the marker so the dot is readable without
+          cross-referencing the chip above the track. */}
+      <div className="relative h-3 mt-1">
+        <span
+          className="absolute top-0 whitespace-nowrap text-[10px] font-semibold leading-none tabular-nums"
+          style={{ left: `${markerPos}%`, transform: `translateX(${nowShift})` }}
+        >
+          <span className={isLoss ? 'text-loss' : 'text-profit'}>
+            {fmt(current)}
+          </span>{' '}
+          <span className="font-normal text-muted-foreground">now</span>
+        </span>
       </div>
     </div>
   );
@@ -288,6 +326,7 @@ const EnhancedCard = React.memo(
     const [closeDialogOpen, setCloseDialogOpen] = useState(false);
     const [moveDialogOpen, setMoveDialogOpen] = useState(false);
     const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
+    const [ordersDialogOpen, setOrdersDialogOpen] = useState(false);
     const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
     const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
     const handleAddFunds = () => {
@@ -439,12 +478,25 @@ const EnhancedCard = React.memo(
 
     // Each open-deal card loads its own orders (the dashboard store isn't
     // pre-populated for all deals). Gate on showChart && active so closed or
-    // chart-less cards don't fire a query.
-    const ordersEnabled = Boolean(showChart && trade.active);
-    const { orders } = useDealOrders(
+    // chart-less cards don't fire a query — plus on demand once the usage
+    // gauge's orders dialog is opened, which is the only way a closed or
+    // chart-less card ever needs them.
+    const ordersEnabled = Boolean((showChart && trade.active) || ordersDialogOpen);
+    const { orders, isLoading: ordersLoading } = useDealOrders(
       ordersEnabled ? (trade.botId ?? '') : '',
       ordersEnabled ? (trade.id ?? '') : '',
       botType ?? BotTypesEnum.dca
+    );
+
+    // The orders dialog speaks `ViewOrder`; the deal query returns raw
+    // `OrderData`. Reuse the same mapper the drawer tables go through so both
+    // views label an order identically.
+    const ordersForDialog = useMemo(
+      () =>
+        ordersDialogOpen
+          ? orders.map((o) => orderDataToViewOrder(o, trade.exchange))
+          : [],
+      [ordersDialogOpen, orders, trade.exchange]
     );
 
     // Candle history + live `now` tail point for the sparkline.
@@ -966,6 +1018,16 @@ const EnhancedCard = React.memo(
     ]);
     return (
       <>
+        <DealOrdersDialog
+          open={ordersDialogOpen}
+          onClose={() => setOrdersDialogOpen(false)}
+          dealId={trade.id}
+          botId={trade.botId ?? ''}
+          symbol={symbolString}
+          exchange={trade.exchange}
+          orders={ordersForDialog}
+          isLoading={ordersLoading}
+        />
         <AdjustFundsDialog
           open={!!adjustFundsDialog}
           mode={adjustFundsDialog || 'add'}
@@ -1214,7 +1276,26 @@ const EnhancedCard = React.memo(
                   {/* Left side - Usage gauge (only meaningful when a DCA ladder
                       exists; a single-order deal would always read ~100%). */}
                   {hasDca && (
-                    <div className="shrink-0 w-20">
+                    <div
+                      className="shrink-0 w-20 cursor-pointer transition-opacity hover:opacity-80"
+                      role="button"
+                      tabIndex={0}
+                      title="View this deal's orders"
+                      // Same target as the deals table's usage ring: the ring
+                      // is the one place that says how many DCA levels have
+                      // filled, so it should open the list of them here too.
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOrdersDialogOpen(true);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setOrdersDialogOpen(true);
+                        }
+                      }}
+                    >
                       <div className="text-xs text-muted-foreground mb-2">
                         Usage
                       </div>
@@ -1252,6 +1333,7 @@ const EnhancedCard = React.memo(
                       current={pnlBoxRoi}
                       drawdown={trade.drawdown || 0}
                       runUp={trade.runUp || 0}
+                      avgPriceDisplay={avgPriceDisplay}
                     />
                   </div>
                 </div>
