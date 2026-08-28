@@ -161,6 +161,12 @@ export type TransformedTrade = {
   updateTime?: string;
   closeTime?: string;
   trailingMode?: string;
+  /**
+   * Price the armed trailing exit will fire at (`deal.trailingLevel`). 0 /
+   * absent means the engine has NOT armed trailing — it is the companion of
+   * `trailingMode`, and both must be truthy before a deal is really trailing.
+   */
+  trailingLevel?: number;
   exitPrice?: number;
   compoundBreakdown?: CompoundBreakdownEntry[] | undefined;
   /**
@@ -599,6 +605,7 @@ export const transformDealToTrade = (
       ? new Date(deal.closeTime as number).toISOString()
       : undefined,
     trailingMode: deal.trailingMode,
+    trailingLevel: deal.trailingLevel,
     takeProfitConfig: (deal as DCADeals).settings
       ? tpSLConfig((deal as DCADeals).settings, 'tp', combo)
       : '-',

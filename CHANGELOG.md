@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.50.6] - 2026-08-28
+
+### Added
+
+- Deals table and deal cards show a "Trailing TP" / "Trailing SL" marker under
+  the status dot while the bot is riding a trailing exit, with the current
+  trailing price on hover. Nothing said a deal was trailing before.
+- The deal chart draws the exits the bot manages itself, which never rest as
+  exchange orders and so were invisible: the live trailing take-profit /
+  stop-loss level, the price trailing take profit starts at, the stop loss, and
+  the price that triggers Move SL. A deal with trailing take profit on used to
+  show only its breakeven line.
+
 ## [2.50.5] - 2026-08-28
 
 ### Changed

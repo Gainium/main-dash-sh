@@ -83,6 +83,7 @@ import {
 import { useAuthStore } from '@/stores/authStore';
 import type { ViewOrder } from '@/types/bots';
 import { transformDealToTrade, type TransformedTrade } from '@/types/dcaDeal';
+import { TrailingBadge } from '@/components/trades/TrailingBadge';
 import { Button } from '../../../ui/button';
 import {
     ProfitAndPerc,
@@ -2071,26 +2072,45 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         header: 'Status',
         cell: ({ row }) => {
           const trade = row.original;
-          const chip = (
+          let chip = (
             <StatusChip status={trade.status} size="sm" dotOnly={true} />
           );
           // A deal whose opening order the venue refused reads as an ordinary
           // pending deal here - same chip, no orders, all-zero numbers. The dot
           // alone cannot say that, so hang the reason off it: this table is
           // where a user scans for the deal that "did nothing".
-          if (!trade.startBlocked?.reason) {
+          if (trade.startBlocked?.reason) {
+            chip = (
+              <HelpTooltip tooltip={dealStartBlockedSummary(trade.startBlocked)}>
+                <span
+                  className="relative inline-flex items-center gap-0.5"
+                  data-testid="deal-start-blocked-dot"
+                >
+                  {chip}
+                  <PauseCircle className="size-3 text-amber-500" />
+                </span>
+              </HelpTooltip>
+            );
+          }
+          // Trailing is invisible otherwise: the dot only says open/closed, and
+          // an armed trailing exit replaces the deal's TP/SL entirely, so
+          // without this the user cannot tell a deal is riding its best price.
+          if (!trade.trailingMode || !trade.trailingLevel) {
             return chip;
           }
           return (
-            <HelpTooltip tooltip={dealStartBlockedSummary(trade.startBlocked)}>
-              <span
-                className="relative inline-flex items-center gap-0.5"
-                data-testid="deal-start-blocked-dot"
-              >
-                {chip}
-                <PauseCircle className="size-3 text-amber-500" />
-              </span>
-            </HelpTooltip>
+            <div className="flex flex-col items-start gap-0.5">
+              {chip}
+              <TrailingBadge
+                mode={trade.trailingMode}
+                level={trade.trailingLevel}
+                quoteAsset={
+                  typeof trade.symbol === 'string'
+                    ? undefined
+                    : trade.symbol.quoteAsset
+                }
+              />
+            </div>
           );
         },
         enableSorting: true,

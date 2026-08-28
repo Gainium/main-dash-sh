@@ -61,6 +61,7 @@ import getLatestPrices from '../../helper/price';
 import { ConfirmationDialog } from '../ui';
 import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
+import { TrailingBadge } from './TrailingBadge';
 import { orderDataToViewOrder } from '@/utils/orders/viewOrder';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
@@ -1257,7 +1258,16 @@ const EnhancedCard = React.memo(
                 className="text-2xl font-bold"
                 layout="horizontal"
               />
-              <StatusChip status={trade.status} size="sm" dotOnly={true} />
+              {/* Status + trailing stack: an armed trailing exit replaces the
+                  deal's TP/SL, so the dot alone hides what will close it. */}
+              <div className="flex flex-col items-start gap-0.5">
+                <StatusChip status={trade.status} size="sm" dotOnly={true} />
+                <TrailingBadge
+                  mode={trade.trailingMode}
+                  level={trade.trailingLevel}
+                  quoteAsset={symbolAssets.quoteAsset}
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-xs flex-wrap">
@@ -1774,7 +1784,14 @@ const SimpleCard = React.memo(
                 showText={true}
                 className="text-2xl font-bold"
               />
-              <StatusChip status={trade.status} size="sm" dotOnly={true} />
+              <div className="flex flex-col items-start gap-0.5">
+                <StatusChip status={trade.status} size="sm" dotOnly={true} />
+                <TrailingBadge
+                  mode={trade.trailingMode}
+                  level={trade.trailingLevel}
+                  quoteAsset={symbolAssets.quoteAsset}
+                />
+              </div>
             </div>
 
             <div className="flex items-center gap-xs">

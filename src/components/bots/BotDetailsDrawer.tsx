@@ -22,6 +22,8 @@ import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
 import { indicatorStore } from '@/stores/indicatorStore';
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
+import { useUserFees } from '@/hooks/useUserFeesService';
+import { buildDealExitLines } from '@/utils/bots/dca/deal-exit-lines';
 import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
@@ -1135,6 +1137,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
 
     // Raw deal (not the lossy TradeDetails): the projection below measures from
     // `lastPrice` / `levels`, which only the store copy keeps socket-fresh.
+    const { getCachedFee } = useUserFees();
     const chartRawDeal = useDealStore((s) =>
       chartDealId ? (s.deals[bot._id]?.[chartDealId] ?? null) : null
     );
@@ -1164,6 +1167,30 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       isCombo: type === BotTypesEnum.combo,
       enabled: !isGrid && Boolean(chartDealId),
     });
+
+    // Fee for the deal's pair — the engine adds 2x taker to every TP/SL/trailing
+    // threshold, so the drawn lines only match the engine's if we do too.
+    const chartDealTakerFee =
+      getCachedFee(
+        bot?.exchangeUUID ?? chartRawDeal?.exchangeUUID ?? '',
+        chartRawDeal?.symbol?.symbol ?? ''
+      )?.taker ?? 0;
+
+    // Exits the engine manages itself (trailing TP/SL, move SL, an unrested
+    // stop loss) never appear as exchange orders, so without these the chart
+    // shows a trailing deal with nothing but its breakeven line.
+    const dealExitLines = useMemo(
+      () =>
+        isGrid
+          ? []
+          : buildDealExitLines(
+              chartRawDeal,
+              bot?.settings as DCABotSettings | undefined,
+              chartDealTakerFee,
+              chartDealOrders.pending.map((o) => +o.price)
+            ),
+      [isGrid, chartRawDeal, bot?.settings, chartDealTakerFee, chartDealOrders.pending]
+    );
 
     const chartOrders = useMemo(
       () => [
@@ -1195,8 +1222,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                 ), // false = not real order for display
           })),
         ...dealProjectedOrders,
+        ...dealExitLines,
       ],
-      [pendingOrders, chartDealId, isGrid, dealProjectedOrders]
+      [pendingOrders, chartDealId, isGrid, dealProjectedOrders, dealExitLines]
     );
 
     const chartTransactions = useMemo(
