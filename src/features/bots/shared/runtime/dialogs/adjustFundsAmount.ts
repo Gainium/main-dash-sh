@@ -71,7 +71,12 @@ export const amountModeLabel = (
 export interface PercentBasisInput {
   usageCurrentBase: number;
   usageCurrentQuote: number;
-  /** The deal's own `lastPrice`. NOT the market price — see below. */
+  /** The deal's VWAP over its filled orders — the basis divisor. See below. */
+  avgPrice: number;
+  /**
+   * The deal's own `lastPrice`. NOT the market price and NOT an average — a
+   * running extreme of fill prices. Only a fallback for a deal with no fills.
+   */
   lastPrice: number;
   /** Base currently held by the deal, i.e. what a full close would sell. */
   remainingBase: number;
@@ -101,22 +106,26 @@ const leverageMultiplier = (input: PercentBasisInput) =>
 
 /**
  * The base quantity behind a percentage request, computed the way the ENGINE
- * computes it — `addDealFunds` / `reduceDealFunds` in main-app core
- * `dcaHelper`, whose two percentage branches are byte-identical.
+ * computes it — `percentFundsBasis` in main-app core `dcaHelper`, shared by
+ * `addDealFunds` and `reduceDealFunds`.
  *
- * This deliberately mirrors the engine including a quirk it would be tempting
- * to "fix" here: for a long, `usage.current.quote` is the quote SPENT (cost
- * basis) while `lastPrice` is a running MINIMUM of fill prices, not the market
- * price. Cost basis over the lowest fill therefore resolves to MORE base than
- * the deal holds, and the gap widens as the ladder fills — measured at 1.9% on
- * a deal 3 levels deep and 7.4% on one 8 levels deep. Past that point the
- * engine's `tpQty` guard closes the deal outright instead of reducing it, so
- * on the deeper deal a 93% request is a full close.
+ * This must stay a faithful mirror: the number shown here is a promise about
+ * the order that will be placed, so if the two ever disagree the preview lies,
+ * which is worse than showing nothing.
  *
- * Showing the user the position they hold instead of this number would be
- * friendlier and wrong: the order placed is this one. Whether the engine's
- * basis is itself correct is a separate question, under investigation — if it
- * changes, this must change with it or the preview starts lying.
+ * `usage.current.quote` is the deal's cost basis, and the only price that turns
+ * a cost basis back into the quantity it bought is the price it was bought at —
+ * `avgPrice`, the deal's VWAP. It used to divide by `lastPrice`, which reads
+ * like a live price but is a running MINIMUM (long) / MAXIMUM (short) of fill
+ * prices, so a long resolved to MORE base than the deal held, by exactly the
+ * drawdown ratio `avgPrice/lastPrice`, and the gap widened as the ladder
+ * filled — 1.9% three levels deep, 8.0% eight levels deep, at which point the
+ * engine's `tpQty` guard closed the deal outright instead of reducing it.
+ * Fixed in the engine and here together; see
+ * `0-knowledge/domain/add-reduce-funds-percentage-basis.md`.
+ *
+ * The branches that already hold a base amount (spot short, coin-M) never
+ * needed a price and are unchanged.
  *
  * Returns null when an input is missing or unusable, which the caller must
  * render as no preview rather than as a zero.
@@ -126,12 +135,16 @@ export const percentBasis = (
 ): PercentBasis | null => {
   const lev = leverageMultiplier(input);
 
+  // Mirrors the engine's fallback: a deal with no filled orders has no
+  // avgPrice, and also no position, so the guard below rejects it either way.
+  const costPrice = input.avgPrice || input.lastPrice;
+
   const perHundred = input.futures
     ? (input.coinm
         ? input.usageCurrentBase
-        : input.usageCurrentQuote / input.lastPrice) * lev
+        : input.usageCurrentQuote / costPrice) * lev
     : input.long
-      ? input.usageCurrentQuote / input.lastPrice
+      ? input.usageCurrentQuote / costPrice
       : input.usageCurrentBase;
 
   if (!Number.isFinite(perHundred) || perHundred <= 0) {

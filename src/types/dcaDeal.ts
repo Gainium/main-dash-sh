@@ -181,6 +181,7 @@ export type TransformedTrade = {
  */
 export const percentBasisFromDeal = (deal: {
   strategy?: string | undefined;
+  avgPrice?: number | undefined;
   lastPrice?: number | undefined;
   exchange?: ExchangeEnum | string | undefined;
   usage?: { current?: { base?: number; quote?: number } } | undefined;
@@ -208,6 +209,7 @@ export const percentBasisFromDeal = (deal: {
   return percentBasis({
     usageCurrentBase: deal.usage?.current?.base || 0,
     usageCurrentQuote: deal.usage?.current?.quote || 0,
+    avgPrice: deal.avgPrice || 0,
     lastPrice: deal.lastPrice || 0,
     // The position still on the books — the same expression the take-profit
     // block uses.

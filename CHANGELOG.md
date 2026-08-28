@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.50.2] - 2026-08-28
+
+### Fixed
+
+- Add/Reduce funds by percent sized the order off the wrong price, so "% of
+  position" did not mean the position. The amount was derived from the deal's
+  cost basis divided by its `lastPrice`, which reads like a current price but
+  is the best price the deal ever filled at — the lowest for a long, the
+  highest for a short. Dividing by it resolved a long to more base than the
+  deal actually held, and the error grew each time a safety order filled: a
+  deal three levels deep resolved 100% to about 1.9% more than it owned, one
+  eight levels deep to about 8% more. Past that the engine treats the request
+  as covering the whole position and closes the deal, so on a deep ladder a
+  93% reduce was a full exit. Percentages now resolve against the deal's
+  average entry price, so 100% is the position and 20% is a fifth of it, as
+  the help article has always described. Shorts on futures were wrong in the
+  opposite direction and are corrected too; spot shorts and coin-M deals were
+  never affected. The amount preview in the dialog mirrors the engine, so it
+  changes with it.
+
 ## [2.49.6] - 2026-08-28
 
 ### Fixed
