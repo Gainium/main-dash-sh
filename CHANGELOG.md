@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.50.5] - 2026-08-28
+
+### Changed
+
+- Deal cards: the P/L range bar reads as a scale. "Worst" and "Best" sit above
+  each end with their percentage beneath, and the live value is printed under
+  the marker, centred on it.
+
 ## [2.50.4] - 2026-08-28
 
 ### Changed

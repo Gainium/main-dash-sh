@@ -183,6 +183,10 @@ const ReferenceLineLabel = (props: {
   );
 };
 
+/** Half the widest P/L readout ("-100.00%") at 10px — the clamp inset that
+ *  keeps the marker's label inside the track at either end. */
+const MARKER_LABEL_INSET = 26;
+
 /**
  * Horizontal range track showing where the deal's current P/L sits between its
  * worst drawdown (left extreme) and best run-up (right extreme). The extremes
@@ -215,11 +219,21 @@ const PnlRangeTrack: React.FC<{
   const fmt = (v: number) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
   return (
     <div className="mt-2">
-      <div className="flex justify-between text-[10px] leading-none text-muted-foreground">
-        <span>Worst</span>
-        <span>Best</span>
+      {/* Both extremes, captioned, above the track: the numbers mean nothing
+          on their own (forum #4951), so each sits under the word for it. */}
+      <div className="flex justify-between gap-2 text-[10px] leading-none">
+        <span className="flex flex-col gap-0.5">
+          <span className="text-muted-foreground">Worst</span>
+          <span className="font-medium tabular-nums text-loss">{fmt(min)}</span>
+        </span>
+        <span className="flex flex-col items-end gap-0.5">
+          <span className="text-muted-foreground">Best</span>
+          <span className="font-medium tabular-nums text-profit">
+            {fmt(max)}
+          </span>
+        </span>
       </div>
-      <div className="relative h-2.5 mt-1">
+      <div className="relative h-2.5 mt-1.5">
         {/* Track: loss-tinted up to break-even, profit-tinted beyond. */}
         <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-1.5 rounded-full overflow-hidden bg-muted">
           <div
@@ -253,9 +267,25 @@ const PnlRangeTrack: React.FC<{
           style={{ left: `${markerPos}%` }}
         />
       </div>
-      <div className="flex justify-between mt-1 text-[10px] font-medium tabular-nums leading-none">
-        <span className="text-loss">{fmt(min)}</span>
-        <span className="text-profit">{fmt(max)}</span>
+      {/* Live value, parked under the marker so the dot reads on its own. */}
+      <div className="relative h-3 mt-1">
+        <span
+          className={cn(
+            'absolute top-0 whitespace-nowrap text-[10px] font-semibold leading-none tabular-nums',
+            isLoss ? 'text-loss' : 'text-profit'
+          )}
+          // Always centred on the dot. The clamp only bites within half a
+          // label of either end, where it slides to a stop instead of
+          // hanging past the card's padding — snapping the alignment to
+          // left/right there read as "not centred" on a wide card, because
+          // a marker at 92% has room to centre and was flipped anyway.
+          style={{
+            left: `clamp(${MARKER_LABEL_INSET}px, ${markerPos}%, calc(100% - ${MARKER_LABEL_INSET}px))`,
+            transform: 'translateX(-50%)',
+          }}
+        >
+          {fmt(current)}
+        </span>
       </div>
     </div>
   );
