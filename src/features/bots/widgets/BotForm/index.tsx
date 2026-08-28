@@ -3195,6 +3195,25 @@ const BotForm: React.FC<BotFormProps> = ({
               symbols,
               settings: {
                 ...backtestSettings,
+                // The raw form slice keeps every indicator NUMBER param as a
+                // STRING: `InlineIndicatorConfig` stores `newValue.toString()`
+                // so a `$var` expression can share the field. It is
+                // `mapFormDataToPayload` that coerces them back (its
+                // `fieldsAsNumber` list), so a SAVED bot holds
+                // `indicatorLength: 14` while the form the user is still
+                // editing holds `'14'` — and the engine is not tolerant:
+                // `new RSI('14')` returns `null` for every bar, so no crossing
+                // ever fires and the run reports 0 deals. That is bug #559,
+                // and it explains the reporter's own workaround (save, reopen
+                // in Edit, backtest works) — reloading re-reads the coerced
+                // values from the API.
+                // Take the indicators from the mapped payload instead: it is
+                // normalised exactly the way the backend receives them, and
+                // pruned of the close indicators the active close condition
+                // cannot use. `mapIndicatorGroupsFields` reads the combo slice
+                // for combo bots, so this is correct for both bot types.
+                indicators: settingsFromMapping.indicators,
+                indicatorGroups: settingsFromMapping.indicatorGroups,
                 name: formData.name,
                 pair: [formData.pair].flat(),
               },
