@@ -11,6 +11,16 @@
 - A "Positions" entry under Terminal in the sidebar, opening the terminal
   straight on that table.
 
+### Fixed
+
+- Closing a position by market now actually leaves it flat. Adopting a position
+  rounds the order to the exchange's step, so one pass could leave a fraction
+  open, which then re-appeared as its own unowned row; the remainder is now
+  closed out reduce-only.
+- A bot sitting in an error state is no longer treated as dormant when warning
+  that it will re-open a deal after the close — the error clears on the next
+  cycle and the bot starts again.
+
 ### Changed
 
 - Replaced the positions "Source" column with "Linked bots". A single exchange
