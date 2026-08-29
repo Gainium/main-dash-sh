@@ -24,6 +24,8 @@ import {
 import type { Order, Position } from '@/types/bots/trading';
 import {
   flattenPosition,
+  readVenuePosition,
+  sweepRemainder,
   type FlattenTarget,
 } from '@/features/trading-terminal/utils/flattenPosition';
 
@@ -477,18 +479,48 @@ export const useImportMutations = (opts?: {
         dealId,
         type: CloseDCATypeEnum.closeByMarket,
       });
-      return outcome;
+
+      // Confirm rather than assume, then finish the job. Adopting a position
+      // rounds the order to the venue's step, so one pass can leave a sub-step
+      // remainder (0.024 ETH adopted as 0.023, leaving 0.001). That remainder
+      // belongs to no deal, so there is nothing to record for it — but the
+      // action promises a flat position, so sweep it reduce-only rather than
+      // leaving it to re-appear as a fresh unowned row.
+      await wait(DEAL_ADOPTION_POLL_MS);
+      const left = await readVenuePosition(client, target);
+      if (!left) return outcome;
+
+      const swept = await sweepRemainder(client, target);
+      if (!swept) {
+        return { ...outcome, leftover: Math.abs(+left.quantity) };
+      }
+      await wait(DEAL_ADOPTION_POLL_MS);
+      const stillLeft = await readVenuePosition(client, target);
+      return stillLeft
+        ? { ...outcome, leftover: Math.abs(+stillLeft.quantity) }
+        : { ...outcome, sweptRemainder: Math.abs(+left.quantity) };
     },
     onSuccess: (outcome) => {
       const bits = [
         outcome.closedDeals ? `${outcome.closedDeals} deal(s) closed` : null,
         outcome.stoppedBots ? `${outcome.stoppedBots} bot(s) stopped` : null,
       ].filter(Boolean);
-      toast.success(
-        bits.length
-          ? `Position flattened — ${bits.join(', ')}.`
-          : 'Position flattened.'
-      );
+      const { leftover, sweptRemainder: swept } = outcome as {
+        leftover?: number;
+        sweptRemainder?: number;
+      };
+      if (swept) bits.push(`${swept} swept`);
+      if (leftover) {
+        toast.warning(
+          `Closed ${bits.join(', ') || 'the position'}, but ${leftover} is still open on the exchange — close it there.`
+        );
+      } else {
+        toast.success(
+          bits.length
+            ? `Position flattened — ${bits.join(', ')}.`
+            : 'Position flattened.'
+        );
+      }
       refetch();
     },
     onError: (e: Error) =>

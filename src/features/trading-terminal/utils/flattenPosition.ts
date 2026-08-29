@@ -1,5 +1,6 @@
 import type { GraphQLClient } from '@/lib/api';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { exchangeQueries } from '@/lib/api/GraphQLQueries-exchange-queries';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import {
   BotTypesEnum,
@@ -178,7 +179,45 @@ export async function flattenPosition(
   return result;
 }
 
-/** The position as the venue currently reports it, or `undefined` once gone. */
+/**
+ * The position as the venue currently reports it, or `undefined` once gone.
+ * Exported so callers can confirm the outcome instead of assuming it.
+ */
+export async function readVenuePosition(
+  client: GraphQLClient,
+  target: Pick<FlattenTarget, 'positionId' | 'exchangeUUID'>
+): Promise<GeneralOpenPosition | undefined> {
+  return venuePosition(client, target as FlattenTarget);
+}
+
+/**
+ * Reduce-only market close of whatever the venue still shows — the venue's own
+ * "close position" primitive, sized from the live quantity.
+ *
+ * This is the last step of a flatten, never the first. Adopting a position into
+ * a deal sizes the order from the account's real balance and rounds it to the
+ * venue's step, so one adopt-and-close pass can leave a sub-step remainder
+ * (observed on paper: 0.024 ETH adopted as 0.023, leaving 0.001). That
+ * remainder was never part of any deal, so there is nothing to record for it —
+ * but leaving it means "Close by market" did not flatten the position, and it
+ * re-appears as a fresh unowned row. A reduce-only close exists precisely so a
+ * position can always be closed out.
+ */
+export async function sweepRemainder(
+  client: GraphQLClient,
+  target: FlattenTarget
+): Promise<boolean> {
+  const { query, variables } = exchangeQueries.closePositionOnExchange({
+    positionId: target.positionId,
+    exchangeUUID: target.exchangeUUID,
+  });
+  const res = await client.request<{ closePositionOnExchange: DealResult }>(
+    query,
+    variables
+  );
+  return res.closePositionOnExchange.status === 'OK';
+}
+
 async function venuePosition(
   client: GraphQLClient,
   target: FlattenTarget
