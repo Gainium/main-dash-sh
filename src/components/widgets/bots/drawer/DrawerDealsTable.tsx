@@ -2507,7 +2507,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         accessorKey: 'initialBalances',
         header: 'Initial Balances',
         cell: ({ row }) => {
-          const balances = row.original.currentBalance;
+          const balances = row.original.initialBalances;
           const baseAsset =
             typeof row.original.symbol === 'string'
               ? ''
