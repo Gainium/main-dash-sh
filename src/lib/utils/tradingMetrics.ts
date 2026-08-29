@@ -295,19 +295,64 @@ export const toDealSortEpochMs = (
 };
 
 /**
+ * How long a deal actually RAN, in ms.
+ *
+ * A live deal is still running, so it counts up to now. A closed or canceled
+ * one stopped at its close, and counting past that made every finished deal's
+ * Working Time keep ticking forever — a 12-minute deal read "1D 4H", and grew
+ * by another day every day (bug #567). `closeTime` is authoritative;
+ * `updateTime` is the fallback for deals stored without one.
+ *
+ * This is V1's rule verbatim (`main-dash/components/dcabot/utils.ts`:
+ * `isNotActiveDeal(d) ? d.closeTime ?? d.updateTime : now`), and V1 is the
+ * oracle for the correct behaviour here.
+ *
+ * The terminal set mirrors V1's `isNotActiveDeal` exactly — closed/canceled,
+ * NOT "anything that is not one of the active statuses". A deal whose status
+ * we do not recognise keeps counting as before, rather than silently freezing
+ * at a timestamp that may not mean "it ended".
+ *
+ * Timestamps arrive as epoch ms on raw deals and as ISO strings on the
+ * `OpenTrade` rows the deal tables build, so both go through
+ * `toDealSortEpochMs`.
+ */
+export const dealWorkingMs = (deal: {
+  status?: string | null;
+  createTime?: string | number | Date | null;
+  closeTime?: string | number | Date | null;
+  updateTime?: string | number | Date | null;
+}): number => {
+  const startedAt = toDealSortEpochMs(deal.createTime);
+  if (!startedAt) return 0;
+  const status = String(deal.status ?? '').toLowerCase();
+  const endedAt =
+    status === DCADealStatusEnum.closed || status === DCADealStatusEnum.canceled
+      ? toDealSortEpochMs(deal.closeTime) || toDealSortEpochMs(deal.updateTime)
+      : 0;
+  return Math.max(0, (endedAt || Date.now()) - startedAt);
+};
+
+/**
  * Working Time as total MINUTES, so the column orders by real elapsed time
  * instead of comparing "3D 4H" with "4H" as text.
+ *
+ * Orders by the same elapsed time the cell renders: this also counted to now
+ * for closed deals, so sorting the Closed tab by Working Time ranked rows by
+ * how OLD the deal was rather than by how long it ran.
  */
 export const dealWorkingTimeSortValue = (row: {
+  status?: string | null;
   created?: number | null;
   createdTime?: Date | string | null;
-}): number => {
-  const startedAt = row.created
-    ? toDealSortEpochMs(row.created)
-    : toDealSortEpochMs(row.createdTime);
-  if (!startedAt) return 0;
-  return Math.max(0, Date.now() - startedAt) / 60_000;
-};
+  closeTime?: string | number | Date | null;
+  updateTime?: string | number | Date | null;
+}): number =>
+  dealWorkingMs({
+    status: row.status,
+    createTime: row.created ?? row.createdTime,
+    closeTime: row.closeTime,
+    updateTime: row.updateTime,
+  }) / 60_000;
 
 /**
  * The numeric percentage behind a formatted "12.3%" cell (Time In Loss /

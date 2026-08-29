@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.50.12] - 2026-08-29
+
+### Fixed
+
+- A closed deal's "Working Time" kept counting up forever instead of stopping
+  when the deal closed. Every finished deal reported how long ago it had
+  started rather than how long it ran, and the number grew by another day every
+  day — a deal that ran twelve minutes read "1D 4H". Affected the Working Time
+  column on the Trading Bots → Deals list, the bot details drawer's deals
+  table, the Trades page and the bot edit page's deal history, and the deal
+  tables' Working Time sort, which ordered closed deals by age rather than by
+  how long they ran. Open deals still count up to now.
+
 ## [2.50.11] - 2026-08-28
 
 ### Fixed

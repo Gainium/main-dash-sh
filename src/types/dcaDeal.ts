@@ -3,6 +3,7 @@ import {
   calculateDealCost,
   calculateDealSize,
   calculateDealValue,
+  dealWorkingMs,
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
@@ -298,10 +299,9 @@ export const transformDealToTrade = (
   // Determine botId from deal or component prop
   const resolvedBotId = deal.botId;
 
-  // Calculate working time
-  const now = Date.now();
-  const created = deal.createTime ? new Date(deal.createTime).getTime() : now;
-  const workingMs = now - created;
+  // Calculate working time. A closed/canceled deal stops at its close rather
+  // than counting on to now — see `dealWorkingMs` (V1 parity, bug #567).
+  const workingMs = dealWorkingMs(deal);
   const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
   const workingHours = Math.floor(
     (workingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)

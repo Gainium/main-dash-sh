@@ -11,6 +11,7 @@ import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
 import {
   calculateDealCost,
   calculateDealSize,
+  dealWorkingMs,
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
@@ -54,7 +55,9 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
   };
   const cost = calculateDealCost(metricsInput);
   const createdTime = deal.createTime ? new Date(deal.createTime) : new Date();
-  const workingMs = Date.now() - createdTime.getTime();
+  // Closed/canceled deals stop at their close instead of counting on to now —
+  // see `dealWorkingMs` (V1 parity, bug #567).
+  const workingMs = dealWorkingMs(deal);
   const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
   const workingHours = Math.floor(
     (workingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)

@@ -71,6 +71,7 @@ import {
   calculateDealValue,
   calculatePnlPercentage,
   calculateUsagePercentage,
+  dealWorkingMs,
 } from '../lib/utils/tradingMetrics';
 import { useUIStore } from '../stores/uiStore';
 import { useBotStatsStore } from '../stores/live';
@@ -148,6 +149,14 @@ interface TradeItem {
     all: number;
   };
   created?: number | undefined;
+  /**
+   * Deal end timestamps, carried so a CLOSED deal's Working Time can stop at
+   * its close instead of counting on to now (bug #567). Absent on the grid-BOT
+   * rows that also enter this list — for a bot, "trading time" legitimately
+   * keeps running.
+   */
+  closeTime?: number | undefined;
+  updateTime?: number | undefined;
   initialPrice?: number | undefined;
   // Gauge properties
   outerGaugePercent?: number;
@@ -547,6 +556,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: deal.initialPrice,
             created: deal.createTime,
+            // Carried so a CLOSED deal's Working Time can stop at its close
+            // instead of counting on to now (bug #567) — see `dealWorkingMs`.
+            closeTime: deal.closeTime,
+            updateTime: deal.updateTime,
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -659,6 +672,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: deal.initialPrice,
             created: deal.createTime,
+            // Carried so a CLOSED deal's Working Time can stop at its close
+            // instead of counting on to now (bug #567) — see `dealWorkingMs`.
+            closeTime: deal.closeTime,
+            updateTime: deal.updateTime,
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -743,6 +760,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: deal.initialPrice,
             created: deal.createTime,
+            // Carried so a CLOSED deal's Working Time can stop at its close
+            // instead of counting on to now (bug #567) — see `dealWorkingMs`.
+            closeTime: deal.closeTime,
+            updateTime: deal.updateTime,
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -822,6 +843,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: deal.initialPrice,
             created: deal.createTime,
+            // Carried so a CLOSED deal's Working Time can stop at its close
+            // instead of counting on to now (bug #567) — see `dealWorkingMs`.
+            closeTime: deal.closeTime,
+            updateTime: deal.updateTime,
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -913,6 +938,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: deal.initialPrice,
             created: deal.createTime,
+            // Carried so a CLOSED deal's Working Time can stop at its close
+            // instead of counting on to now (bug #567) — see `dealWorkingMs`.
+            closeTime: deal.closeTime,
+            updateTime: deal.updateTime,
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -1067,9 +1096,17 @@ const Trading: React.FC = () => {
       createdTime = +new Date(); // Fallback to now if created time is missing
     }
 
-    // Generate working time based on creation time
+    // How long it ran. A closed/canceled DEAL stops at its close instead of
+    // counting on to now — see `dealWorkingMs` (V1 parity, bug #567). Grid-BOT
+    // rows carry no closeTime, so they keep counting as before.
     const workingHours = Math.floor(
-      (Date.now() - createdTime) / (1000 * 60 * 60)
+      dealWorkingMs({
+        status: trade.status,
+        createTime: createdTime,
+        closeTime: trade.closeTime,
+        updateTime: trade.updateTime,
+      }) /
+        (1000 * 60 * 60)
     );
     const workingDays = Math.floor(workingHours / 24);
     const remainingHours = workingHours % 24;

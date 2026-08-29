@@ -1,4 +1,5 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
+import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
 import {
   ArrowUpDown,
   ChevronDown,
@@ -434,12 +435,9 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
         ? new Date(deal.createTime).getTime()
         : Date.now(),
       symbol: deal.symbol?.symbol || 'N/A',
-      workingTime: deal.createTime
-        ? Math.floor(
-            (Date.now() - new Date(deal.createTime).getTime()) /
-              (1000 * 60 * 60 * 24)
-          )
-        : 0,
+      // Whole days the deal ran. Closed/canceled deals stop at their close
+      // instead of counting on to now — see `dealWorkingMs` (V1 parity, #567).
+      workingTime: Math.floor(dealWorkingMs(deal) / (1000 * 60 * 60 * 24)),
       profitPercentage:
         deal.profit?.totalUsd && deal.initialBalances?.base && deal.initialPrice
           ? (deal.profit.totalUsd /

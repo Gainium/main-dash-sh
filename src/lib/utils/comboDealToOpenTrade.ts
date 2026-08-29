@@ -11,6 +11,7 @@
  */
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
+import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -23,7 +24,9 @@ export function comboDealToOpenTrade(
   const pair = `${baseSymbol}/${quoteSymbol}`;
   const cost = deal.usage?.current?.quote || 0;
   const createdTime = deal.createTime ? new Date(deal.createTime) : new Date();
-  const workingMs = Date.now() - createdTime.getTime();
+  // Closed/canceled deals stop at their close instead of counting on to now —
+  // see `dealWorkingMs` (V1 parity, bug #567).
+  const workingMs = dealWorkingMs(deal);
   const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
   const workingHours = Math.floor(
     (workingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)

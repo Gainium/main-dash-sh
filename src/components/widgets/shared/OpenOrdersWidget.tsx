@@ -50,6 +50,7 @@ import {
     calculatePnlPercentageNullable,
     dealGridProfitPercentageSortValue,
     dealPercentStringSortValue,
+    dealWorkingMs,
     dealWorkingTimeSortValue,
     isLongStrategy,
     isMetricUnavailable,
@@ -1543,10 +1544,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         );
       }
 
-      // Generate working time based on creation time
-      const workingHours = Math.floor(
-        (Date.now() - createdTime.getTime()) / (1000 * 60 * 60)
-      );
+      // How long the deal ran. A closed/canceled one stops at its close instead
+      // of counting on to now — see `dealWorkingMs` (V1 parity, bug #567).
+      // Deliberately NOT derived from `createdTime` above: that falls back to a
+      // random date when `createTime` is missing, which would invent a runtime.
+      const workingHours = Math.floor(dealWorkingMs(deal) / (1000 * 60 * 60));
       const workingDays = Math.floor(workingHours / 24);
       const remainingHours = workingHours % 24;
       const workingTime =
