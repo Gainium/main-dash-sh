@@ -211,13 +211,12 @@ function SourceCell({
 
 /** True when a linked bot will re-open a deal the moment this one closes. */
 export function isReopeningBot(b: LinkedPositionBot): boolean {
-  // `open`/`range`/`monitoring` are the running statuses; a stopped bot does
-  // not open new deals whatever its start condition says.
-  const running =
-    b.botStatus === 'open' ||
-    b.botStatus === 'range' ||
-    b.botStatus === 'monitoring';
-  return running && b.startCondition === 'ASAP';
+  // Only `closed` and `archive` actually stop a bot opening deals. `error` is
+  // NOT dormant — it is a soft status the recovery pass clears on its next
+  // cycle, after which an ASAP bot opens again. Treating it as stopped would
+  // hide the warning on exactly the bots most likely to surprise someone.
+  const stopped = b.botStatus === 'closed' || b.botStatus === 'archive';
+  return !stopped && b.startCondition === 'ASAP';
 }
 
 /**
