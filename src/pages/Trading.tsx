@@ -37,6 +37,7 @@ import {
 import { useBotStatusToggle } from '../hooks/useBotMutations';
 // useDealActions not currently used (placeholder)
 import { buildBotViewRoute } from '@/utils/bots/navigation';
+import { formatDuration } from '@/utils/formatters';
 import { BotCard } from '../components/bots/BotCard';
 import {
   Tabs,
@@ -1099,21 +1100,16 @@ const Trading: React.FC = () => {
     // How long it ran. A closed/canceled DEAL stops at its close instead of
     // counting on to now — see `dealWorkingMs` (V1 parity, bug #567). Grid-BOT
     // rows carry no closeTime, so they keep counting as before.
-    const workingHours = Math.floor(
+    // Formatted through the shared `formatDuration` so a deal that ran under an
+    // hour reports the minutes it ran instead of flooring to "0H" (bug #567).
+    const workingTime = formatDuration(
       dealWorkingMs({
         status: trade.status,
         createTime: createdTime,
         closeTime: trade.closeTime,
         updateTime: trade.updateTime,
-      }) /
-        (1000 * 60 * 60)
+      })
     );
-    const workingDays = Math.floor(workingHours / 24);
-    const remainingHours = workingHours % 24;
-    const workingTime =
-      workingDays > 0
-        ? `${workingDays}D ${remainingHours}H`
-        : `${remainingHours}H`;
 
     const baseSymbol =
       trade.symbol.split('/')[0] ||

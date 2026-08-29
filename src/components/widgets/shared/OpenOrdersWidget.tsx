@@ -71,6 +71,7 @@ import {
 } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
+import { formatDuration } from '@/utils/formatters';
 import { formatNumber } from '@/utils/numberFormatter';
 import { extractPairAssets } from '@/utils/pairs';
 import { calculateExecutionsSummary } from '@/utils/tradeJournalMetrics';
@@ -1548,13 +1549,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       // of counting on to now — see `dealWorkingMs` (V1 parity, bug #567).
       // Deliberately NOT derived from `createdTime` above: that falls back to a
       // random date when `createTime` is missing, which would invent a runtime.
-      const workingHours = Math.floor(dealWorkingMs(deal) / (1000 * 60 * 60));
-      const workingDays = Math.floor(workingHours / 24);
-      const remainingHours = workingHours % 24;
-      const workingTime =
-        workingDays > 0
-          ? `${workingDays}D ${remainingHours}H`
-          : `${remainingHours}H`;
+      // Formatted through the shared `formatDuration` so a deal that ran under
+      // an hour reports the minutes it ran instead of flooring to "0H" (#567).
+      const workingTime = formatDuration(dealWorkingMs(deal));
 
       // Convert type to match our interface
       const getBotType = (strategy: string): OpenTrade['type'] => {

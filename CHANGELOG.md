@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.50.14] - 2026-08-29
+
+### Fixed
+
+- A deal that ran for less than an hour no longer reports its Working Time as
+  "0H". Deal working times are now shown to the minute (and to the second for
+  very short deals), so a deal that ran 28 minutes reads "28m 26s" instead of
+  claiming it never ran. Affects the Working Time column on every deal table,
+  the deal cards, and the deal history on the bot edit page.
+
 ## [2.50.13] - 2026-08-29
 
 ### Added

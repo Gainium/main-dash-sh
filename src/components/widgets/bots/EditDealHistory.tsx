@@ -1,5 +1,6 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
 import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
+import { formatDuration } from '@/utils/formatters';
 import {
   ArrowUpDown,
   ChevronDown,
@@ -435,9 +436,11 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
         ? new Date(deal.createTime).getTime()
         : Date.now(),
       symbol: deal.symbol?.symbol || 'N/A',
-      // Whole days the deal ran. Closed/canceled deals stop at their close
+      // How long the deal ran. Closed/canceled deals stop at their close
       // instead of counting on to now — see `dealWorkingMs` (V1 parity, #567).
-      workingTime: Math.floor(dealWorkingMs(deal) / (1000 * 60 * 60 * 24)),
+      // Formatted through the shared `formatDuration`: this used to floor to
+      // whole DAYS, so every deal shorter than 24h reported "0d" (bug #567).
+      workingTime: formatDuration(dealWorkingMs(deal)),
       profitPercentage:
         deal.profit?.totalUsd && deal.initialBalances?.base && deal.initialPrice
           ? (deal.profit.totalUsd /
@@ -709,7 +712,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
 
                               {/* Additional deal information */}
                               <div className="flex items-center gap-md text-xs text-muted-foreground mt-1">
-                                <span>Working: {deal.workingTime}d</span>
+                                <span>Working: {deal.workingTime}</span>
                                 {deal.profit !== 0 && (
                                   <span
                                     className={
@@ -1002,7 +1005,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                     <div className="flex justify-between">
                                       <span className="text-sm">Working:</span>
                                       <span className="text-sm font-medium">
-                                        {deal.workingTime}d
+                                        {deal.workingTime}
                                       </span>
                                     </div>
                                   </div>

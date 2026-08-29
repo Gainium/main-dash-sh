@@ -7,6 +7,7 @@ import {
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
+import { formatDuration } from '@/utils/formatters';
 import {
   computeCompoundBreakdown,
   type CompoundBreakdownEntry,
@@ -301,15 +302,9 @@ export const transformDealToTrade = (
 
   // Calculate working time. A closed/canceled deal stops at its close rather
   // than counting on to now — see `dealWorkingMs` (V1 parity, bug #567).
-  const workingMs = dealWorkingMs(deal);
-  const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
-  const workingHours = Math.floor(
-    (workingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-  );
-  const workingTime =
-    workingDays > 0
-      ? `${workingDays}days ${workingHours}h`
-      : `${workingHours}h`;
+  // Formatted through the shared `formatDuration` so a deal that ran under an
+  // hour reports its minutes instead of flooring to "0h" (bug #567).
+  const workingTime = formatDuration(dealWorkingMs(deal));
 
   // Legacy parity (main-dash `isActiveDeal`, utils/deals.ts): unrealized P&L
   // only exists while a deal is live. Closed/canceled deals must not report it

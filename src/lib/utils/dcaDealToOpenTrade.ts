@@ -15,6 +15,7 @@ import {
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import { formatDuration } from '@/utils/formatters';
 import { ExchangeEnum, type DCADeals } from '@/types';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
@@ -57,13 +58,14 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
   const createdTime = deal.createTime ? new Date(deal.createTime) : new Date();
   // Closed/canceled deals stop at their close instead of counting on to now —
   // see `dealWorkingMs` (V1 parity, bug #567).
-  const workingMs = dealWorkingMs(deal);
-  const workingDays = Math.floor(workingMs / (1000 * 60 * 60 * 24));
-  const workingHours = Math.floor(
-    (workingMs % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)
-  );
-  const workingTime =
-    workingDays > 0 ? `${workingDays}D ${workingHours}H` : `${workingHours}H`;
+  //
+  // Format through the shared `formatDuration` rather than flooring to hours
+  // here: a deal that ran under an hour floors to 0 and used to render "0H",
+  // claiming it never ran at all (bug #567 — 63 of the reporter's 288 closed
+  // deals). `formatDuration` falls through to minutes and seconds, matching
+  // V1's `friendlyTime` granularity and the Stats tab, which already reports
+  // these same deal durations through this helper.
+  const workingTime = formatDuration(dealWorkingMs(deal));
 
   // Closed/canceled deals have no unrealized P&L. The server keeps a stale
   // `stats.unrealizedProfit` on closed deals, so gate on active status
