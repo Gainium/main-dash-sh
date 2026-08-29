@@ -1,5 +1,36 @@
 # Changelog
 
+## [2.50.13] - 2026-08-29
+
+### Added
+
+- Trading Terminal → Exchange Orders → Positions now shows the mark price and
+  the unrealized P&L over the whole position, as an amount in the quote asset
+  and as a return on the margin posted. Computed from the entry price against
+  the live ticker, so it works the same on every venue.
+- A "Positions" entry under Terminal in the sidebar, opening the terminal
+  straight on that table.
+
+### Changed
+
+- Replaced the positions "Source" column with "Linked bots". A single exchange
+  position can be shared by several bots — the exchange nets them into one —
+  and the old column showed just one of them and attributed the entire position
+  to it. It now lists every bot on the position, and a popover breaks the
+  quantity down per bot with the part no bot holds shown separately.
+- "Close by market" now flattens the whole position through Gainium: each
+  linked bot closes its own deal, then the remainder is imported as a terminal
+  deal and closed, so every part of the position lands in the deal history. It
+  replaces both the old raw exchange close, which recorded nothing and left
+  every linked bot thinking it still held a position, and the separate
+  import-and-close action.
+- The close confirmation now lists what is being closed per bot, offers to
+  pause bots that start deals ASAP (they would otherwise re-open the position
+  immediately), and warns when other orders are resting on the pair — closing a
+  deal only cancels that deal's own orders, never everything on the symbol.
+- Renamed the positions "Price" column to "Entry price", so it can't be read as
+  the current price now that the mark price sits beside it.
+
 ## [2.50.12] - 2026-08-29
 
 ### Fixed

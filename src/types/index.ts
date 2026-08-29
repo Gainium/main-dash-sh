@@ -4226,10 +4226,31 @@ export type GeneralOpenPosition = {
   baseAssetName?: string;
   quoteAssetName?: string;
   positionId: string;
+  /** First claim only — kept for legacy callers. Prefer `linkedBots`. */
   botId?: string;
+  /** First claim only — kept for legacy callers. Prefer `linkedBots`. */
   botName?: string;
+  /** First claim only — kept for legacy callers. Prefer `linkedBots`. */
   botType?: 'dca' | 'grid' | 'terminal' | 'combo' | 'hedgeDca' | 'hedgeCombo';
+  /**
+   * Every Gainium deal mapping onto this venue position. More than one bot can
+   * share a position (the venue nets them into one), and whatever is left after
+   * their sizes is held outside Gainium.
+   */
+  linkedBots?: LinkedPositionBot[];
   marginType: BotMarginTypeEnum;
+};
+
+export type LinkedPositionBot = {
+  botId: string;
+  botName?: string | null;
+  botType?: 'dca' | 'grid' | 'terminal' | 'combo' | 'hedgeDca' | 'hedgeCombo';
+  dealId?: string | null;
+  /** Base quantity this deal currently holds. */
+  size?: number | null;
+  /** `ASAP` bots re-open a deal as soon as one closes. */
+  startCondition?: string | null;
+  botStatus?: string | null;
 };
 
 export type BacktestingSettings = {

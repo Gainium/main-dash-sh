@@ -2,6 +2,7 @@ import { useMutation, type UseMutationResult } from '@tanstack/react-query';
 import { toast } from '@/lib/toast';
 import { exchangeQueries } from '@/lib/api/GraphQLQueries-exchange-queries';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
 import { GraphQLClient, type ReturnResult } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -16,10 +17,15 @@ import {
   BotMarginTypeEnum,
   TerminalDealTypeEnum,
   CloseDCATypeEnum,
+  DCADealStatusEnum,
   type ExchangeEnum,
   type DCABot,
 } from '@/types';
 import type { Order, Position } from '@/types/bots/trading';
+import {
+  flattenPosition,
+  type FlattenTarget,
+} from '@/features/trading-terminal/utils/flattenPosition';
 
 interface DealResult {
   status: 'OK' | 'NOTOK';
@@ -55,24 +61,32 @@ export interface UseImportMutationsReturn {
       exchangeUUID: string;
     }
   >;
-  cancelPositionMutation: UseMutationResult<
-    unknown,
-    Error,
-    {
-      positionId: string;
-      exchangeUUID: string;
-    }
-  >;
   closeDealMutation: UseMutationResult<
     unknown,
     Error,
-    { botId: string; dealId: string }
+    { botId: string; dealId: string; type?: CloseDCATypeEnum }
   >;
   handleImportOrder: (order: Order) => void;
   handleImportPosition: (position: Position) => void;
   handleCancelOrder: (order: Order) => void; // branches deal vs order
-  handleCancelPosition: (position: Position) => void;
+  /**
+   * The only way this panel closes a position: flatten it through Gainium, so
+   * every part of it — each linked bot's deal and the remainder nobody owned —
+   * is closed as a deal and recorded. The raw `closePositionOnExchange` path
+   * was removed deliberately: it flattened the position on the venue, left no
+   * record, and desynced every bot still holding a share of it.
+   */
+  handleFlattenPosition: (
+    target: FlattenTarget,
+    stopReopeningBots: boolean
+  ) => Promise<void>;
+  /** True while a flatten is in flight. */
+  isClosingAsDeal: boolean;
 }
+
+/** How long to wait for the bot worker to adopt a freshly imported position. */
+const DEAL_ADOPTION_TIMEOUT_MS = 45_000;
+const DEAL_ADOPTION_POLL_MS = 2_000;
 
 /**
  * Mutations for the Trading Terminal "Exchange" tab — import/cancel raw
@@ -275,39 +289,18 @@ export const useImportMutations = (opts?: {
     onError: (e: Error) => toast.error(e?.message || 'Failed to cancel order'),
   });
 
-  // ---- Close raw position on exchange ----
-  const cancelPositionMutation = useMutation({
-    mutationFn: async (p: { positionId: string; exchangeUUID: string }) => {
-      const { query, variables } = exchangeQueries.closePositionOnExchange(p);
-      const res = await client.request<{ closePositionOnExchange: DealResult }>(
-        query,
-        variables
-      );
-      if (res.closePositionOnExchange.status !== 'OK') {
-        throw new Error(
-          res.closePositionOnExchange.reason || 'Failed to cancel position'
-        );
-      }
-      return res.closePositionOnExchange;
-    },
-    onSuccess: (res) => {
-      const data = (res as DealResult).data;
-      toast.info(
-        `Position canceled: ${data}, it may take some time for orders to be updated in the list`
-      );
-      refetch();
-    },
-    onError: (e: Error) =>
-      toast.error(e?.message || 'Failed to cancel position'),
-  });
-
-  // ---- Cancel deal (orders-Cancel branch when botId && dealId) ----
+  // ---- Close deal (orders-Cancel branch when botId && dealId) ----
   const closeDealMutation = useMutation({
-    mutationFn: async (p: { botId: string; dealId: string }) => {
+    mutationFn: async (p: {
+      botId: string;
+      dealId: string;
+      type?: CloseDCATypeEnum;
+    }) => {
       const { query, variables } = botQueries.closeDCADeal({
         botId: p.botId,
         dealId: p.dealId,
-        type: CloseDCATypeEnum.cancel,
+        // Legacy default for the orders branch: cancel the resting orders.
+        type: p.type ?? CloseDCATypeEnum.cancel,
       });
       const res = await client.request<{ closeDCADeal: DealResult }>(
         query,
@@ -364,21 +357,152 @@ export const useImportMutations = (opts?: {
     }
   };
 
-  const handleCancelPosition = (position: Position) =>
-    cancelPositionMutation.mutate({
-      positionId: position.positionId,
-      exchangeUUID: position.exchangeUUID,
-    });
+  // ---- Close a position as a Gainium deal (import first, then close) ----
+
+  /**
+   * The open deal a bot holds on `symbol`, or `undefined`. Minimal projection —
+   * we only need to identify the deal, not render it.
+   */
+  const findOpenDeal = async (
+    botId: string,
+    symbol: string
+  ): Promise<string | undefined> => {
+    const { query, variables } = dealQueries.dcaDealList(
+      { botId, status: DCADealStatusEnum.open, all: true },
+      `_id botId status symbol { symbol }`
+    );
+    const res = await client.request<{
+      dcaDealList: ReturnResult<{
+        result: {
+          _id: string;
+          botId: string;
+          status: string;
+          symbol?: { symbol?: string };
+        }[];
+      }>;
+    }>(query, variables);
+    if (res.dcaDealList.status !== 'OK') return undefined;
+    const deals = res.dcaDealList.data?.result ?? [];
+    // A terminal import bot holds exactly one deal, but a real bot can hold
+    // several — match the pair so we never close somebody else's position.
+    return (
+      deals.find((d) => d.symbol?.symbol === symbol)?._id ?? undefined
+    );
+  };
+
+  const wait = (ms: number) =>
+    new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+  /** Poll until the bot worker has adopted the imported position into a deal. */
+  const waitForOpenDeal = async (botId: string, symbol: string) => {
+    const deadline = Date.now() + DEAL_ADOPTION_TIMEOUT_MS;
+    // The import is picked up by the bot worker on its own cycle, so the deal
+    // does not exist the moment `createDCABot` returns.
+    for (;;) {
+      const dealId = await findOpenDeal(botId, symbol);
+      if (dealId) return dealId;
+      if (Date.now() >= deadline) return undefined;
+      await wait(DEAL_ADOPTION_POLL_MS);
+    }
+  };
+
+  /**
+   * Flatten a venue position, through Gainium, leaving a record of all of it.
+   *
+   * Stages live in `flattenPosition`: stop the bots that would re-open, close
+   * each linked deal at market, wait for the venue to reflect it, and hand back
+   * whatever remains. That remainder — the part no deal owned — is then
+   * imported as a terminal deal and closed, so it lands in the deal history
+   * too instead of being flattened off the venue silently.
+   *
+   * A position with no linked bots is just the degenerate case: nothing to
+   * close first, so the whole thing is imported and closed as one deal.
+   */
+  const flattenMutation = useMutation({
+    mutationFn: async ({
+      target,
+      stopReopeningBots,
+    }: {
+      target: FlattenTarget;
+      stopReopeningBots: boolean;
+    }) => {
+      const outcome = await flattenPosition(client, target, {
+        stopReopeningBots,
+        onProgress: (m) => toast.info(m),
+      });
+      if (outcome.warning) {
+        throw new Error(outcome.warning);
+      }
+
+      const remainder = outcome.remainingPosition;
+      if (!remainder) {
+        return outcome;
+      }
+      if (!remainder.baseAssetName || !remainder.quoteAssetName) {
+        throw new Error(
+          `${target.symbol} is partly closed, but the rest is missing its assets so it cannot be imported. Close it from the exchange.`
+        );
+      }
+
+      toast.info(`Importing the rest of ${target.symbol}…`);
+      const bot = await importPositionMutation.mutateAsync(
+        remainder as unknown as Position
+      );
+      const botId = (bot as DCABot | undefined)?._id;
+      if (!botId) {
+        throw new Error('Import did not return a bot');
+      }
+
+      toast.info(`Waiting for the ${target.symbol} deal to open…`);
+      const dealId = await waitForOpenDeal(botId, target.symbol);
+      if (!dealId) {
+        throw new Error(
+          `The rest of ${target.symbol} was imported but its deal has not opened yet. It is now tracked on the Trading Bots page — close it from there.`
+        );
+      }
+      await closeDealMutation.mutateAsync({
+        botId,
+        dealId,
+        type: CloseDCATypeEnum.closeByMarket,
+      });
+      return outcome;
+    },
+    onSuccess: (outcome) => {
+      const bits = [
+        outcome.closedDeals ? `${outcome.closedDeals} deal(s) closed` : null,
+        outcome.stoppedBots ? `${outcome.stoppedBots} bot(s) stopped` : null,
+      ].filter(Boolean);
+      toast.success(
+        bits.length
+          ? `Position flattened — ${bits.join(', ')}.`
+          : 'Position flattened.'
+      );
+      refetch();
+    },
+    onError: (e: Error) =>
+      toast.error(e?.message || 'Failed to flatten the position'),
+  });
+
+  const handleFlattenPosition = async (
+    target: FlattenTarget,
+    stopReopeningBots: boolean
+  ) => {
+    await flattenMutation
+      .mutateAsync({ target, stopReopeningBots })
+      .catch(() => {
+        // surfaced by onError; swallow so menu handlers stay sync-friendly
+      });
+  };
 
   return {
     importOrderMutation,
     importPositionMutation,
     cancelOrderMutation,
-    cancelPositionMutation,
     closeDealMutation,
     handleImportOrder,
     handleImportPosition,
     handleCancelOrder,
-    handleCancelPosition,
+    handleFlattenPosition,
+    isClosingAsDeal: flattenMutation.isPending,
   };
 };

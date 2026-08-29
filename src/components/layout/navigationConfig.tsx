@@ -9,6 +9,7 @@ import {
   Braces,
   Home,
   LayoutDashboard,
+  Layers,
   ListChecks,
   PieChart,
   Plus,
@@ -169,6 +170,17 @@ export const getNavigationSections = (
           icon: <TerminalIcon className="w-4 h-4" />,
           label: 'Terminal',
           href: '/terminal',
+          children: [
+            {
+              id: 'terminal-positions',
+              icon: <Layers className="w-4 h-4" />,
+              label: 'Positions',
+              // Deep link into the terminal's own Exchange Orders panel rather
+              // than a second page rendering the same table (V1 had a separate
+              // /terminal/positions route; the panel is the same component).
+              href: '/terminal?view=positions',
+            },
+          ],
         },
         {
           id: 'trading-bots',

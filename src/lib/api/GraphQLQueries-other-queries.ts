@@ -1407,6 +1407,15 @@ export const otherQueries = {
   botId
   botName
   botType
+  linkedBots {
+  botId
+  botName
+  botType
+  dealId
+  size
+  startCondition
+  botStatus
+  }
   marginType
   }
   }
