@@ -360,15 +360,24 @@ export const useImportMutations = (opts?: {
   // ---- Close a position as a Gainium deal (import first, then close) ----
 
   /**
-   * The open deal a bot holds on `symbol`, or `undefined`. Minimal projection —
-   * we only need to identify the deal, not render it.
+   * The open deal the freshly imported terminal bot holds on `symbol`, or
+   * `undefined`. Minimal projection — we only need to identify the deal.
+   *
+   * Three things about `dcaDealList` that this got wrong and prod rejected:
+   *  - there is no `all` field on `getDcaDealListInput`; sending one fails the
+   *    whole query with BAD_USER_INPUT, so the lookup never returned anything;
+   *  - `terminal` must be passed explicitly, or terminal deals are excluded;
+   *  - a top-level `status` is IGNORED (it has to go through
+   *    `dataGridInput.filterModel`), so asking for `open` did nothing. The
+   *    backend defaults to active deals only, which is exactly what we want.
+   * `useDcaDeals` documents the last one; this now mirrors that hook.
    */
   const findOpenDeal = async (
     botId: string,
     symbol: string
   ): Promise<string | undefined> => {
     const { query, variables } = dealQueries.dcaDealList(
-      { botId, status: DCADealStatusEnum.open, all: true },
+      { botId, terminal: true },
       `_id botId status symbol { symbol }`
     );
     const res = await client.request<{
@@ -383,11 +392,14 @@ export const useImportMutations = (opts?: {
     }>(query, variables);
     if (res.dcaDealList.status !== 'OK') return undefined;
     const deals = res.dcaDealList.data?.result ?? [];
-    // A terminal import bot holds exactly one deal, but a real bot can hold
-    // several — match the pair so we never close somebody else's position.
-    return (
-      deals.find((d) => d.symbol?.symbol === symbol)?._id ?? undefined
-    );
+    // Match the pair so we never close somebody else's position, and skip
+    // anything already finished in case the active-only default ever changes.
+    return deals.find(
+      (d) =>
+        d.symbol?.symbol === symbol &&
+        d.status !== DCADealStatusEnum.closed &&
+        d.status !== DCADealStatusEnum.canceled
+    )?._id;
   };
 
   const wait = (ms: number) =>
