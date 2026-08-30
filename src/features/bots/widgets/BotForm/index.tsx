@@ -169,6 +169,8 @@ import {
 } from './components/allStrategiesPanelContext';
 import { Slot } from '@/lib/extensions';
 import { useContainerWidth } from '@/hooks/useContainerWidth';
+import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire';
+import { registerCrashStateProvider } from '@/lib/crashBreadcrumbs';
 import { useBotFormRegistryContext } from './context';
 import type { BotSettingsMapperContext } from './hooks/useBotFormInitialization';
 /* import { useBotSmartOrders } from './hooks/useBotSmartOrders';
@@ -497,6 +499,33 @@ const BotForm: React.FC<BotFormProps> = ({
   const debugEnabled =
     debugProp ?? import.meta.env[NEW_SHELL_DEBUG_FLAG] === 'true';
 
+  // Render-loop tripwire (additive, non-fatal). This component is the innermost
+  // app frame of the React #185 crashes reported as Claus #575 / #503 / #425 —
+  // by the time the boundary catches one, the oscillating prop is gone, so the
+  // report can only name the component. The wire captures the changed-prop
+  // history BEFORE the crash. Kill via localStorage['gainium:tripwire']='off'.
+  useRenderLoopTripwire('BotFormShell', {
+    widgetId,
+    isEditable,
+    mode: propMode,
+    defaultTab,
+    onCollapse,
+    onTabMove,
+    menuActions,
+    data,
+    debug: debugProp,
+    variant,
+    hideSectionNavigation,
+    forceSubmitDisabled,
+    hideFooter,
+    footerOverride,
+    initialBot,
+    onPanelMenuChange,
+    onFormDataChange,
+    tabDescriptorsFilter,
+    onBacktestComplete,
+  });
+
   const { botExperience } = useBotFormRegistryContext();
   const experienceAdapters = botExperience.adapters;
   const experienceFormContract = botExperience.form;
@@ -554,6 +583,43 @@ const BotForm: React.FC<BotFormProps> = ({
     clearDraft,
   } = useBotFormState();
   const { isReadOnly } = useBotFormEditing();
+
+  // Contribute the form's CONFIGURATION to any crash report raised while this
+  // form is mounted. Breadcrumbs already record what the user did; this records
+  // what the form was set to, which is the half that made #575 and its
+  // predecessors unreproducible — a componentStack cannot say which tab, bot
+  // type or preset was selected.
+  //
+  // Enum-ish values and error/alert FIELD NAMES only. Deliberately no formData
+  // values: it carries the bot name and other free text, and this payload lands
+  // in a long-lived feed readable by anything holding `userErrorsRead`.
+  const crashStateRef = useRef<Record<string, unknown>>({});
+  crashStateRef.current = {
+    botType: botExperience.id,
+    mode,
+    variant,
+    activeTab,
+    quickSetupMode,
+    isNestedLeg,
+    isDirty,
+    isReadOnly,
+    isLoading,
+    isEditable,
+    hasRestoredDraft: draftRestoredAt !== null,
+    pairCount: Array.isArray(formData?.['pair'])
+      ? (formData['pair'] as unknown[]).length
+      : undefined,
+    errorFields: Object.keys(errors ?? {}),
+    hasActiveChartPair: activeChartPair !== null,
+  };
+  useEffect(
+    () =>
+      registerCrashStateProvider(
+        `botForm:${resolvedWidgetId}`,
+        () => crashStateRef.current
+      ),
+    [resolvedWidgetId]
+  );
 
   const {
     bot: queryBot,

@@ -86,6 +86,7 @@ import { deserializeFilters, deserializeSorting, serialize } from './urlSync';
 
 import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
+import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire';
 import { useTablePreferences } from '../../../stores/tablePreferencesStore';
 import { Badge } from '../badge';
 import { Button } from '../button';
@@ -1920,6 +1921,17 @@ const RowCard = <TData,>({
 function DataTableComponent<TData, TValue>(
   props: DataTableProps<TData, TValue>
 ) {
+  // Render-loop tripwire (additive, non-fatal). This component is the innermost
+  // app frame of the React #185 crashes reported as Claus #161 / #258 / #457 /
+  // #528 — always on a different page, which is why fixing one call site never
+  // ended the class. Qualifying the label by `tableId` means the report names
+  // the offending table, not just "a DataTable somewhere".
+  // Kill via localStorage['gainium:tripwire']='off'.
+  useRenderLoopTripwire(
+    `DataTable:${props.tableId ?? 'unknown'}`,
+    props as unknown as Record<string, unknown>
+  );
+
   const isMobile = useMediaQuery('(max-width: 767px)');
   const {
     tableId,

@@ -117,6 +117,167 @@ export function getBundleId(): string | undefined {
   }
 }
 
+/* ------------------------------------------------------------------ *
+ * Crash state providers
+ * ------------------------------------------------------------------ */
+
+/**
+ * Returns a small, flat bag of the CONFIGURATION a feature was in. Called only
+ * while a crash report is being built, so it must be cheap and must never
+ * throw (a throwing provider is caught and dropped, but don't rely on it).
+ */
+export type CrashStateProvider = () => Record<string, unknown> | undefined;
+
+const stateProviders = new Map<string, CrashStateProvider>();
+
+/** Total characters the serialized state block may occupy. */
+const MAX_STATE_CHARS = 1500;
+/** Caps applied by the sanitizer, per value. */
+const MAX_STATE_STRING_LEN = 64;
+const MAX_STATE_ARRAY_LEN = 8;
+/**
+ * 12 was too tight and failed SILENTLY: the bot-form provider registers 14
+ * fields, so `errorFields` — the single most diagnostic one for a render loop —
+ * was dropped without trace, and the report looked complete. A cap that hides
+ * what it removed is worse than no cap. 24 clears every provider we register
+ * today, and anything over it is now named in `_truncated`.
+ */
+const MAX_STATE_OBJECT_KEYS = 24;
+
+/**
+ * Register a provider that contributes to the `state` block of a crash report.
+ *
+ * Breadcrumbs answer "what did the user DO"; this answers "what was the app
+ * CONFIGURED as" — the half that made these crashes unreproducible, because a
+ * componentStack cannot say which bot type, deal type or tab was selected.
+ *
+ * **Only register enum-ish configuration.** Values are sanitized (see
+ * `sanitizeStateValue`) but the sanitizer bounds SIZE, not sensitivity: it
+ * cannot tell an API key from a bot name. Never register credentials, balances,
+ * addresses, or free text the user typed. The payload lands in a long-lived
+ * error feed readable by anything holding `userErrorsRead`.
+ *
+ * @returns an unregister function, for use in an effect cleanup.
+ */
+export function registerCrashStateProvider(
+  key: string,
+  provider: CrashStateProvider
+): () => void {
+  try {
+    stateProviders.set(key, provider);
+  } catch {
+    /* noop */
+  }
+  return () => {
+    try {
+      stateProviders.delete(key);
+    } catch {
+      /* noop */
+    }
+  };
+}
+
+/**
+ * Bound a provider's value to something safe to serialize: primitives pass
+ * through (truncated), arrays and objects are capped and flattened one level,
+ * everything else is described rather than embedded. Never throws.
+ */
+function sanitizeStateValue(value: unknown, depth = 0): unknown {
+  try {
+    if (value === null || value === undefined) return value;
+    const t = typeof value;
+    if (t === 'boolean' || t === 'number') return value;
+    if (t === 'bigint') return String(value);
+    if (t === 'string') {
+      const s = value as string;
+      return s.length > MAX_STATE_STRING_LEN
+        ? `${s.slice(0, MAX_STATE_STRING_LEN)}…`
+        : s;
+    }
+    if (t === 'function' || t === 'symbol') return `[${t}]`;
+    // Providers return a bag whose values may themselves be small objects worth
+    // keeping (`{a: 1}`). Collapse only from the SECOND level down: the bag is
+    // depth 0, its values depth 1, and anything below that is described rather
+    // than embedded — which is what stops a whole store being dumped in here.
+    if (depth >= 2) return Array.isArray(value) ? '[array]' : '[object]';
+    if (Array.isArray(value)) {
+      return value
+        .slice(0, MAX_STATE_ARRAY_LEN)
+        .map((v) => sanitizeStateValue(v, depth + 1));
+    }
+    if (t === 'object') {
+      const out: Record<string, unknown> = {};
+      const allKeys = Object.keys(value as object);
+      for (const k of allKeys.slice(0, MAX_STATE_OBJECT_KEYS)) {
+        out[k] = sanitizeStateValue(
+          (value as Record<string, unknown>)[k],
+          depth + 1
+        );
+      }
+      // Never truncate silently — a report that quietly omits fields reads as
+      // "the app wasn't in that state", which is how the 12-key cap cost us
+      // `errorFields` without anyone noticing.
+      if (allKeys.length > MAX_STATE_OBJECT_KEYS) {
+        out['_truncated'] = allKeys.slice(MAX_STATE_OBJECT_KEYS);
+      }
+      return out;
+    }
+    return `[${t}]`;
+  } catch {
+    return '[unserializable]';
+  }
+}
+
+/**
+ * Run every registered provider and return the merged, sanitized state block,
+ * or `undefined` when nothing is registered or everything failed. A provider
+ * that throws is dropped individually — one bad provider must not cost us the
+ * whole crash report. Never throws.
+ */
+export function collectCrashState(): Record<string, unknown> | undefined {
+  try {
+    if (stateProviders.size === 0) return undefined;
+    const state: Record<string, unknown> = {};
+    for (const [key, provider] of stateProviders) {
+      try {
+        const raw = provider();
+        if (!raw || typeof raw !== 'object') continue;
+        state[key] = sanitizeStateValue(raw) as Record<string, unknown>;
+      } catch {
+        state[key] = '[provider threw]';
+      }
+    }
+    if (Object.keys(state).length === 0) return undefined;
+
+    // Hard size ceiling. Drop whole providers (largest first) until the block
+    // fits, rather than truncating the JSON into something unparseable.
+    let serialized = JSON.stringify(state);
+    if (!serialized || serialized.length <= MAX_STATE_CHARS) return state;
+
+    const bySize = Object.keys(state).sort(
+      (a, b) =>
+        JSON.stringify(state[b] ?? '').length -
+        JSON.stringify(state[a] ?? '').length
+    );
+    // Name every provider we drop, not just the last one — a report that
+    // silently omits half its state reads as "that form wasn't mounted".
+    const dropped = new Set<string>();
+    let trimmed = state;
+    for (const key of bySize) {
+      dropped.add(key);
+      trimmed = Object.fromEntries(
+        Object.entries(state).filter(([k]) => !dropped.has(k))
+      );
+      trimmed['_dropped'] = [...dropped];
+      serialized = JSON.stringify(trimmed);
+      if (!serialized || serialized.length <= MAX_STATE_CHARS) break;
+    }
+    return Object.keys(trimmed).length > 0 ? trimmed : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 /**
  * A compact, self-localizing metadata block appended to an otherwise-rigid
  * `sendError` payload. The `sendError` GraphQL input shape has no room for new
@@ -145,6 +306,12 @@ export function buildCrashMeta(
   }
   try {
     meta['breadcrumbs'] = getBreadcrumbs();
+  } catch {
+    /* noop */
+  }
+  try {
+    const state = collectCrashState();
+    if (state) meta['state'] = state;
   } catch {
     /* noop */
   }

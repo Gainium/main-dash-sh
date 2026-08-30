@@ -1,6 +1,7 @@
 import { memo, useMemo } from 'react';
 
 import CreateDeal from '@/components/widgets/trading/CreateDeal';
+import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire';
 
 import { BotFormProvider, type BotFormMode } from '@/features/bots';
 import { getBotExperience } from '@/features/bots/catalog/BotExperienceCatalog';
@@ -65,5 +66,12 @@ const OrderEntryWidget: React.FC<OrderEntryPanelProps> = memo(
 export const OrderEntryPanel = memo(function OrderEntryPanelComponent(
   props: OrderEntryPanelProps
 ) {
+  // Render-loop tripwire (additive, non-fatal). This frame wraps BotFormShell in
+  // the #575 componentStack. It takes a single prop, so a trip HERE says the
+  // churn is arriving from the terminal above rather than from inside the form —
+  // which is the discrimination the crash report could not make.
+  // Kill via localStorage['gainium:tripwire']='off'.
+  useRenderLoopTripwire('OrderEntryPanel', props as Record<string, unknown>);
+
   return <OrderEntryWidget {...props} />;
 });

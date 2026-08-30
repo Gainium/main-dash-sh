@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.50.15] - 2026-08-30
+
+### Changed
+
+- Crash reports now carry the form's configuration (bot type, mode, active tab,
+  quick/manual setup, pair count, which fields were erroring) alongside the
+  existing breadcrumb trail, so a crash that only reproduces with one specific
+  setup can be diagnosed from the report instead of needing the user to
+  reproduce it on request. Enum-like values only — no form values, names, or
+  balances are captured.
+- The render-loop tripwire, which records a component's changed-prop history
+  just before an infinite-render crash, now also covers the bot form shell, the
+  trading terminal's order entry panel, and every data table. It previously
+  watched a single component. Still opt-out via
+  `localStorage['gainium:tripwire'] = 'off'`.
+
 ## [2.50.14] - 2026-08-29
 
 ### Fixed
