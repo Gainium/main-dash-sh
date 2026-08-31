@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.50.17] - 2026-08-31
+
+### Fixed
+
+- The Watchlist now opens each pair's chart on the exchange that pair was added
+  from. Clicking a row told the chart the symbol but never the venue, so the
+  chart guessed: it either drew candles from some other exchange that happens to
+  list the same symbol, or — when none does — an empty Binance chart. A
+  Bybit-linear HYPEUSDT row opened an empty "HYPE / USDT · BINANCE" chart, and
+  in another layout charted Binance.US prices roughly 3% away from the price the
+  row itself was showing.
+
 ## [2.50.16] - 2026-08-31
 
 ### Fixed

@@ -1,5 +1,6 @@
 import type { TradingPair } from '@/hooks/useTradingPairs';
 import { useWidgetPortal } from '@/hooks/useWidgetPortal';
+import type { Symbols } from '@/types';
 import { X } from 'lucide-react';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -28,6 +29,23 @@ const ChartPortal: React.FC<ChartPortalProps> = ({
   React.useEffect(() => {
     setMounted(true);
   }, []);
+
+  // The chart addresses a market as `PAIR@EXCHANGE` (see `CoinChart`, which
+  // stores `BTCUSDT@BINANCE`). Handing it a bare pair leaves the datafeed with
+  // no exchange to resolve against: it matches whichever venue happens to list
+  // that symbol first, and falls back to Binance when none does. A watchlist
+  // row for a pair that is not on Binance — a Bybit-linear HYPEUSDT, say —
+  // therefore charted another venue's candles, or an empty Binance chart.
+  const chartSymbol = pair
+    ? `${pair.pair}@${String(pair.exchange).toUpperCase()}`
+    : '';
+  // Register the row's own TradingPair so the datafeed resolves it exactly
+  // (keeping `code`/`wsCode`, which the venues with a non-`pair` realtime id
+  // need) instead of rebuilding an approximation.
+  const chartSymbols = React.useMemo<Symbols[]>(
+    () => (pair ? [{ maxOrders: 100, ...pair }] : []),
+    [pair]
+  );
 
   // Handle escape key
   React.useEffect(() => {
@@ -76,7 +94,8 @@ const ChartPortal: React.FC<ChartPortalProps> = ({
         <div className="w-full h-full flex flex-col">
           <div className="flex-1 min-h-0">
             <TradingViewChart
-              symbol={pair.pair}
+              symbol={chartSymbol}
+              availableSymbols={chartSymbols}
               interval="60"
               widgetId={widgetId}
             />
