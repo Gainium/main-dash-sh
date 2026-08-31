@@ -106,6 +106,111 @@ export function getValidTimezone(tz?: string | null): string {
 }
 
 /**
+ * Milliseconds to ADD to a UTC-encoded wall clock to get the real UTC instant
+ * of that wall clock in `timeZone` — i.e. the negated zone offset
+ * (Asia/Karachi, UTC+5 → `-18000000`). DST-correct, because it is evaluated at
+ * the instant `date`.
+ *
+ * The obvious implementation — `new Date(date.toLocaleString('en-US', {timeZone}))`
+ * — is a landmine: it formats to a locale string and parses it back with the
+ * engine's own date parser, and those two disagree on ICU 72+ / Chrome 110-114,
+ * which emit a NARROW NO-BREAK SPACE (U+202F) before AM/PM that the same
+ * engine's `Date.parse` rejects. Both round-trips then yield an Invalid Date,
+ * the offset is NaN, and every downstream `toISOString()` throws
+ * "RangeError: Invalid time value" — which is exactly how the Overview Profit
+ * widget crashed for a Chrome 110 Android user (bug #587). `formatToParts` +
+ * arithmetic never round-trips through a string, so no parser is involved.
+ *
+ * Returns NaN for an invalid date or an unformattable zone; callers must treat
+ * a non-finite result as "no offset available" rather than feeding it into a
+ * Date they later serialize.
+ */
+export function getTimezoneOffsetMs(date: Date, timeZone: string): number {
+  const time = date.getTime();
+  if (!Number.isFinite(time)) return NaN;
+  try {
+    const parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      hour12: false,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+    }).formatToParts(date);
+
+    const at = (type: Intl.DateTimeFormatPartTypes): number =>
+      Number(parts.find((p) => p.type === type)?.value);
+
+    // `hour12: false` renders midnight as "24" on some engines (ICU h23 vs h24).
+    const hour = at('hour') % 24;
+    const wallClockAsUTC = Date.UTC(
+      at('year'),
+      at('month') - 1,
+      at('day'),
+      hour,
+      at('minute'),
+      at('second')
+    );
+    if (!Number.isFinite(wallClockAsUTC)) return NaN;
+
+    // The formatter has no millisecond field, so compare on the same second
+    // boundary it rendered — otherwise a sub-second remainder leaks into the
+    // offset and zones stop coming back as exact whole minutes.
+    return Math.floor(time / 1000) * 1000 - wallClockAsUTC;
+  } catch {
+    return NaN;
+  }
+}
+
+/**
+ * The instant of `date`'s calendar-day midnight in `timeZone`, as an ISO
+ * string — the key shape `getProfitByUser` returns for daily rows (Europe/Kyiv
+ * midnight Jan 15 → `"2024-01-14T22:00:00.000Z"`).
+ *
+ * NEVER throws. Every fallible step degrades instead:
+ *   - unreadable calendar day, or no offset from the engine → plain UTC
+ *     midnight for that day (label off by the zone offset, widget still renders)
+ *   - `date` itself invalid → `''`
+ * This matters because the return value is fed to `Date.prototype.toISOString`,
+ * which throws `RangeError: Invalid time value` on an Invalid Date — and an
+ * uncaught throw here unmounted the whole Overview page for the user, since the
+ * Profit widget computes it inside a `useMemo` during render (bug #587).
+ */
+export function getTimezoneAwareMidnightISO(
+  date: Date,
+  timeZone: string
+): string {
+  if (!Number.isFinite(date.getTime())) return '';
+
+  let midnightUTC: Date;
+  try {
+    // e.g. "2024-01-15"
+    const dateInTZ = new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+    const [year, month, day] = dateInTZ.split('-').map(Number);
+    midnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
+  } catch {
+    return '';
+  }
+  if (!Number.isFinite(midnightUTC.getTime())) return '';
+
+  // Resolve the offset AT that midnight, not at `date`, so a day that straddles
+  // a DST transition still keys off its own offset.
+  const offset = getTimezoneOffsetMs(midnightUTC, timeZone);
+  const result = new Date(midnightUTC.getTime() + offset);
+
+  return Number.isFinite(result.getTime())
+    ? result.toISOString()
+    : midnightUTC.toISOString();
+}
+
+/**
  * Parse one `getProfitByUser` result row's `date` into a Date.
  *
  * The backend encodes the bucket key differently per requested timeframe:

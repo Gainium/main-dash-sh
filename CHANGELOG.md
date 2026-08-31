@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.50.16] - 2026-08-31
+
+### Fixed
+
+- The Profit widget no longer crashes the Overview page on browsers whose date
+  parser cannot read back their own locale-formatted dates (seen on Chrome 110
+  for Android). The daily chart worked out your timezone by formatting a date to
+  text and parsing it back; where that round-trip failed the widget threw and
+  took the whole landing page down with it. The timezone is now resolved without
+  that round-trip, and one that still cannot be resolved falls back to UTC
+  midnight rather than failing the page.
+- Daily profit labels are no longer shifted by an hour on the two days a year
+  your own device switches to or from daylight saving time. The same round-trip
+  resolved the offset against the device's clock instead of your configured
+  timezone, which moved the labels even for timezones that have no daylight
+  saving at all.
+
 ## [2.50.15] - 2026-08-30
 
 ### Changed

@@ -1,6 +1,9 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useNowTick } from '@/hooks/useNowTick';
-import { getValidTimezone } from '@/utils/timeUtils';
+import {
+  getTimezoneAwareMidnightISO,
+  getValidTimezone,
+} from '@/utils/timeUtils';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
 import logger from '@/lib/loggerInstance';
@@ -154,46 +157,6 @@ export const Profit: React.FC<ProfitProps> = ({
     // (which is 22:00 on Jan 14 in UTC, representing midnight Jan 15 in Kyiv)
     // We need to generate keys that match this format.
 
-    // Helper function to calculate timezone offset for a specific date
-    const getTimezoneOffset = (date: Date): number => {
-      // Get the date formatted in both UTC and target timezone
-      const utcDate = new Date(
-        date.toLocaleString('en-US', { timeZone: 'UTC' })
-      );
-      const tzDate = new Date(
-        date.toLocaleString('en-US', { timeZone: userTimezone })
-      );
-      // The difference is the offset
-      return utcDate.getTime() - tzDate.getTime();
-    };
-
-    // Helper function to get midnight in user's timezone as ISO string
-    // This matches what the backend returns
-    const getTimezoneAwareMidnight = (date: Date): string => {
-      // Get the date in YYYY-MM-DD format in the user's timezone
-      const formatter = new Intl.DateTimeFormat('en-CA', {
-        timeZone: userTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      });
-      const dateInTZ = formatter.format(date); // e.g., "2024-01-15"
-
-      // Parse components
-      const [year, month, day] = dateInTZ.split('-').map(Number);
-
-      // Create midnight in UTC for this date
-      const midnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-
-      // Calculate timezone offset for this specific date (important for DST)
-      const offset = getTimezoneOffset(midnightUTC);
-
-      // Apply the offset to get the correct UTC time for midnight in user's TZ
-      const result = new Date(midnightUTC.getTime() + offset);
-
-      return result.toISOString();
-    };
-
     // Calendar date (YYYY-MM-DD) in the user's timezone. The backend keys daily
     // rows by the timezone's STANDARD-offset midnight and does NOT apply DST, so
     // in summer its instants (e.g. Europe/Rome "…T23:00:00Z") never match a
@@ -322,7 +285,7 @@ export const Profit: React.FC<ProfitProps> = ({
           date.setDate(today.getDate() - i);
           // Display key stays the tz-aware midnight ISO; the data lookup uses the
           // tz calendar day so it matches the backend's non-DST daily instants.
-          const dateString = getTimezoneAwareMidnight(date);
+          const dateString = getTimezoneAwareMidnightISO(date, userTimezone);
           const value = dataMap.get(toTzDateKey(date)) || 0;
           timeSeries.push({ date: dateString, value });
         }
