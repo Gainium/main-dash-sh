@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.50.24] - 2026-09-01
+
+### Fixed
+
+- Picking a single exchange in the Portfolio Balances widget now works on the
+  Dashboards page. The widget treated "this page has no portfolio-wide exchange
+  selection" as "the page selected All exchanges" and immediately reset your
+  choice, so the Select Exchanges dialog appeared to do nothing. Cross-widget
+  syncing on the Portfolio and Overview pages is unchanged.
+
 ## [2.50.23] - 2026-09-01
 
 ### Fixed

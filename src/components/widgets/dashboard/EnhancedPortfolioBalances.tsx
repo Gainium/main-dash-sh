@@ -211,14 +211,21 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
     { fallbackQuery: GraphQlQuery.getBalances({ shouldSumBalance: false }) }
   );
 
-  // Sync local widget exchange selections with the page-level portfolio context
+  // Sync local widget exchange selections with the page-level portfolio
+  // context — `null` when no <PortfolioProvider> is mounted above us.
+  // The Dashboards page renders the widget grid bare (Overview and Portfolio
+  // are the only pages that mount a provider), so falling back to a literal
+  // `['ALL']` there made the sync effect below mistake "there is no page
+  // selection" for "the page selected everything" and overwrite whatever the
+  // user had just picked in the widget's own Select Exchanges dialog.
   const selectedExchangeContext = useMemo(
     () =>
-      portfolioContext?.selectedExchanges &&
-      portfolioContext.selectedExchanges.length
-        ? portfolioContext.selectedExchanges
-        : ['ALL'],
-    [portfolioContext?.selectedExchanges]
+      portfolioContext
+        ? portfolioContext.selectedExchanges?.length
+          ? portfolioContext.selectedExchanges
+          : ['ALL']
+        : null,
+    [portfolioContext]
   );
 
   // Filtering settings
@@ -230,6 +237,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
   // Keep the widget's persisted exchange selections in sync with the global context
   useEffect(() => {
     const contextSelections = selectedExchangeContext;
+    if (!contextSelections) return;
     const areEqual =
       contextSelections.length === selectedExchanges.length &&
       contextSelections.every((val, idx) => val === selectedExchanges[idx]);
