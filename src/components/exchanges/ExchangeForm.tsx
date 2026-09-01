@@ -688,6 +688,24 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
     updateFormData(updates);
   };
 
+  /**
+   * True once the user has typed a NEW key or secret into an existing
+   * connection — i.e. they are rotating credentials, not renaming.
+   *
+   * That distinction decides how the passphrase field behaves. Blank normally
+   * means "unchanged", because the backend never returns a stored secret to
+   * the browser. But a new API key comes with its OWN passphrase, and the
+   * backend falls back to the stored one when the field is blank — so a
+   * rotation submitted with the passphrase untouched pairs the new key with
+   * the previous key's passphrase, and the exchange rejects it as a wrong
+   * passphrase. The user reads that as "my passphrase is wrong" and retries
+   * identically, because nothing ever asked them for it.
+   */
+  const credentialsChangedInEdit =
+    mode === 'edit' &&
+    (formData.key.trim() !== (initialData?.key ?? '').trim() ||
+      !!formData.secret.trim());
+
   // Form validation
   const validateForm = (): ValidationResult => {
     const newErrors: ExchangeFormErrors = {};
@@ -757,14 +775,20 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         }
       }
 
-      // Passphrase validation for exchanges that require it (add mode only —
-      // like the secret, it isn't returned for an existing exchange).
+      // Passphrase validation for exchanges that require it. Blank stays
+      // legal for a metadata-only edit (a rename must not demand it), but is
+      // rejected once the key or secret it belongs to has changed — see
+      // `credentialsChangedInEdit`. The backend enforces the same rule.
       if (
-        mode !== 'edit' &&
         requiresPassphrase(formData.provider) &&
         !formData.passphrase?.trim()
       ) {
-        newErrors.passphrase = 'Passphrase is required for this exchange';
+        if (mode !== 'edit') {
+          newErrors.passphrase = 'Passphrase is required for this exchange';
+        } else if (credentialsChangedInEdit) {
+          newErrors.passphrase =
+            'Re-enter the passphrase — a new API key has its own, and leaving this blank would keep the one from your previous key.';
+        }
       }
     }
 
@@ -1581,9 +1605,11 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                         updateFormData({ passphrase: e.target.value })
                       }
                       placeholder={
-                        mode === 'edit'
-                          ? '•••••••••••• — leave blank to keep current'
-                          : 'Enter your passphrase'
+                        mode !== 'edit'
+                          ? 'Enter your passphrase'
+                          : credentialsChangedInEdit
+                            ? 'Required — enter the new key’s passphrase'
+                            : '•••••••••••• — leave blank to keep current'
                       }
                       className={`pr-10 ${errors.passphrase ? 'border-destructive' : ''}`}
                     />

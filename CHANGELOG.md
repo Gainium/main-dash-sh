@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.50.20] - 2026-08-31
+
+### Fixed
+
+- **Editing an exchange connection now asks for the passphrase once the key or
+  secret changes.** The field is blank on open and the placeholder said "leave
+  blank to keep current" — advice that is correct for a rename and actively
+  wrong for a key rotation, because a new API key comes with its own
+  passphrase and the backend would otherwise pair the new key with the old one.
+  The field becomes required, with a matching placeholder, exactly when the
+  credentials it belongs to have been changed; a metadata-only edit still
+  leaves it optional.
+
 ## [2.50.19] - 2026-08-31
 
 ### Fixed
