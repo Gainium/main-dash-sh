@@ -18,6 +18,7 @@ export interface ConsumeMagicLinkData {
   token?: string;
   isNewUser?: boolean;
   pendingTerms?: boolean;
+  isOTP?: boolean;
   email?: string;
 }
 

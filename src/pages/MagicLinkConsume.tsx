@@ -6,6 +6,7 @@ import { Card } from '@/components/ui/card';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { LogoLockup } from '@/components/common/LogoLockup';
+import TwoFactorAuth from '@/components/auth/TwoFactorAuth';
 import {
   useConsumeMagicLink,
   type ConsumeMagicLinkData,
@@ -20,9 +21,12 @@ import { toast } from '@/lib/toast';
  * fetches the user profile, then routes to the requested redirect path
  * (defaulting to `/overview`).
  *
- * Three response branches:
+ * Response branches:
  *   - data.token present → signed in (existing user or new user that just
  *     accepted ToS in a prior call). Store the JWT and navigate.
+ *   - data.isOTP === true → 2FA-enabled account; data.token is a short-lived
+ *     pre-OTP jwt. Hand off to the standard TwoFactorAuth step (same
+ *     component as password login).
  *   - data.pendingTerms === true → unknown email; render an inline
  * "Welcome to Gainium" card with a ToS checkbox + "Create my account"
  *     button that re-calls consume with termsAccepted=true.
@@ -42,6 +46,7 @@ const MagicLinkConsume: React.FC = () => {
   );
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+  const [otpToken, setOtpToken] = useState<string | null>(null);
   const consumedRef = useRef(false);
 
   const redirect = searchParams.get('redirect') || '/overview';
@@ -51,6 +56,14 @@ const MagicLinkConsume: React.FC = () => {
   const finishSignIn = async (data: ConsumeMagicLinkData) => {
     if (!data.token) {
       throw new Error('Sign-in token missing in response');
+    }
+    // 2FA-enabled account: the token is a short-lived pre-OTP jwt, not a
+    // session. Do NOT call getUserInfo with it (the API answers "Cannot
+    // access") — show the 2FA code step instead.
+    if (data.isOTP) {
+      setOtpToken(data.token);
+      setIsWorking(false);
+      return;
     }
     const jwt = data.token;
     const user = await RealAuthService.getUserInfo(jwt);
@@ -131,6 +144,17 @@ const MagicLinkConsume: React.FC = () => {
       setIsCreating(false);
     }
   };
+
+  // 2FA step — TwoFactorAuth renders its own full-page layout and signs the
+  // user in (validateOTP → full session jwt → /overview) on success.
+  if (otpToken) {
+    return (
+      <TwoFactorAuth
+        temporaryToken={otpToken}
+        onBack={() => navigate('/login')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-md">

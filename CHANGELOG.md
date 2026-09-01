@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.50.23] - 2026-09-01
+
+### Fixed
+
+- Signing in via an emailed magic link now completes for accounts with
+  two-factor authentication enabled: the link hands off to the standard 2FA
+  code step instead of failing with "Sign-in failed — Cannot access". Requires
+  main-app 2.87.17 (the consume mutation's new `isOTP` field).
+
 ## [2.50.22] - 2026-09-01
 
 ### Added

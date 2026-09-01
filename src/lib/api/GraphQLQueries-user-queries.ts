@@ -1120,6 +1120,7 @@ export const userQueries = {
                             token
                             isNewUser
                             pendingTerms
+                            isOTP
                             email
                         }
                     }
