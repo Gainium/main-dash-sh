@@ -92,6 +92,14 @@ export interface BalanceInputProps {
    * and every positive size wrongly trips the error (forum #4921 / bug #94).
    */
   disableBalanceValidation?: boolean;
+  /**
+   * Force the balance skeleton on while the caller is still fetching. The
+   * built-in spinner tracks the shared balance store, which is only hydrated
+   * for callers that populate it; a caller holding the figure locally has no
+   * way to say "not known yet" and would otherwise be forced to render a 0
+   * that reads as a real, empty balance.
+   */
+  isBalanceLoading?: boolean;
 }
 
 export const BalanceInput: React.FC<BalanceInputProps> = ({
@@ -127,6 +135,7 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
   navId,
   readOnly,
   disableBalanceValidation = false,
+  isBalanceLoading: isBalanceLoadingProp = false,
 }) => {
   const [inputValue, setInputValue] = useState<string>(
     value?.toString() || '0'
@@ -173,7 +182,8 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
   }, [unitLabel, measureAdornment]);
 
   // Subscribe to balance store loading state using the selector
-  const isBalanceLoading = useBalanceStore((state) => state.loading);
+  const isBalanceLoadingStore = useBalanceStore((state) => state.loading);
+  const isBalanceLoading = isBalanceLoadingStore || isBalanceLoadingProp;
   const [showSpinner, setShowSpinner] = useState(false);
   const [manualSpinner, setManualSpinner] = useState(false);
 
@@ -354,12 +364,18 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
 
   // Check if amount exceeds available balance
   const exceedsBalance = useMemo(() => {
-    if (readOnly || disableBalanceValidation) {
+    if (readOnly || disableBalanceValidation || isBalanceLoadingProp) {
       return false;
     }
     const numValue = parseFloat(inputValue);
     return !isNaN(numValue) && numValue > availableBalance;
-  }, [inputValue, availableBalance, readOnly, disableBalanceValidation]);
+  }, [
+    inputValue,
+    availableBalance,
+    readOnly,
+    disableBalanceValidation,
+    isBalanceLoadingProp,
+  ]);
 
   // Register component error with form context (if within a bot form)
   useComponentError(

@@ -432,6 +432,8 @@ export const botQueries = {
                         exchangeUUID
                         initialPrice
                         createTime
+                        avgPrice
+                        lastPrice
                 }
             }
         }

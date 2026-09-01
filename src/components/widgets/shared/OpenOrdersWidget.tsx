@@ -791,6 +791,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         symbol={trade.symbol}
         exchange={trade.exchange}
         percentBasis={trade.percentBasis}
+        exchangeUUID={trade.exchangeUUID}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

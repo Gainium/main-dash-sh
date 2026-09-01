@@ -16,9 +16,53 @@ import { AddFundsTypeEnum, OrderSizeTypeEnum } from '@/types';
  * Kept apart from the dialog component so the mapping can be tested without
  * pulling a React tree (and the price feed behind it) into the runner.
  */
-export type AmountMode = 'base' | 'quote' | 'perc';
+export type AmountMode = 'base' | 'quote' | 'perc' | 'percAvailable';
 
 export const AMOUNT_MODE_ORDER: AmountMode[] = ['base', 'quote', 'perc'];
+
+/**
+ * Add offers one extra way to size the order: a percentage of the free
+ * exchange balance the funds come out of.
+ *
+ * It is NOT a fourth payload shape. `addDealFunds` resolves exactly two
+ * things — `asset === base` means a base quantity, and everything else is
+ * divided by price as a quote amount — with a single `type === perc` branch
+ * that sizes off the POSITION. There is no percent-of-balance path in the
+ * engine, so `OrderSizeTypeEnum.percFree` would be read as a plain quote
+ * amount and silently place a wildly different order ("40" becoming 40 USDT
+ * rather than 40% of the balance).
+ *
+ * So the percentage is resolved in the dialog, against the balance shown next
+ * to it, and submitted as a fixed quote amount. The consequence worth knowing:
+ * it is pinned when you confirm, not re-read at execution.
+ *
+ * Reduce does not offer it — a reduce is bounded by the position, which is
+ * what "% of position" already expresses.
+ */
+export const ADD_AMOUNT_MODE_ORDER: AmountMode[] = [
+  'base',
+  'quote',
+  'perc',
+  'percAvailable',
+];
+
+/** The quote amount a "% of available" request resolves to. */
+export const resolvePercentOfAvailable = (
+  availableQuote: number | null,
+  percent: string
+): number | null => {
+  const pct = Number(percent);
+  if (
+    availableQuote === null ||
+    !Number.isFinite(availableQuote) ||
+    availableQuote <= 0 ||
+    !Number.isFinite(pct) ||
+    pct <= 0
+  ) {
+    return null;
+  }
+  return (availableQuote * pct) / 100;
+};
 
 /**
  * Percentages above 100 have no meaning: the engine reads them against the
@@ -47,6 +91,9 @@ export const fromAmountMode = (
   mode === 'perc'
     ? { asset: OrderSizeTypeEnum.base, type: AddFundsTypeEnum.perc }
     : {
+        // `percAvailable` lands here on purpose: the dialog turns it into a
+        // concrete quote amount before submitting, so the payload it produces
+        // is an ordinary fixed quote order.
         asset:
           mode === 'base' ? OrderSizeTypeEnum.base : OrderSizeTypeEnum.quote,
         type: AddFundsTypeEnum.fixed,
@@ -64,6 +111,8 @@ export const amountModeLabel = (
       return quoteAsset ? `Quote (${quoteAsset})` : 'Quote asset';
     case 'perc':
       return '% of position';
+    case 'percAvailable':
+      return quoteAsset ? `% of available (${quoteAsset})` : '% of available';
   }
 };
 
@@ -93,6 +142,14 @@ export interface PercentBasis {
   perHundred: number;
   /** Base the deal still holds; at or above it, the engine closes the deal. */
   remainingBase: number;
+  /**
+   * The same 100% position expressed in quote, so a reduce entered in quote
+   * has a ceiling too. Derived as `perHundred * costPrice` — the exact inverse
+   * of how `perHundred` is obtained on the long-spot path, so it round-trips
+   * back to the deal's cost basis rather than being a second, differently
+   * sourced number that could disagree with it.
+   */
+  perHundredQuote: number;
 }
 
 /**
@@ -151,7 +208,11 @@ export const percentBasis = (
     return null;
   }
 
-  return { perHundred, remainingBase: input.remainingBase };
+  return {
+    perHundred,
+    remainingBase: input.remainingBase,
+    perHundredQuote: perHundred * costPrice,
+  };
 };
 
 /** The base quantity a given percentage resolves to, or null if unknowable. */

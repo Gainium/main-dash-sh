@@ -582,6 +582,7 @@ const DealActionsMenu: React.FC<{
         symbol={symbolString}
         exchange={trade.exchange}
         percentBasis={trade.percentBasis}
+        exchangeUUID={trade.exchangeUUID}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

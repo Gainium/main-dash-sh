@@ -18,12 +18,15 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { NumberInput } from '@/components/ui/number-input';
+import { BalanceInput } from '@/components/ui/balance-input';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
+  ADD_AMOUNT_MODE_ORDER,
   AMOUNT_MODE_ORDER,
   MAX_PERCENT,
+  resolvePercentOfAvailable,
   amountModeLabel,
   fromAmountMode,
   percentClosesDeal,
@@ -32,6 +35,7 @@ import {
   type AmountMode,
   type PercentBasis,
 } from './adjustFundsAmount';
+import { useDealFreeBalance } from './useDealFreeBalance';
 import {
   AddFundsTypeEnum,
   ExchangeEnum,
@@ -91,6 +95,13 @@ interface AdjustFundsDialogBaseProps {
   percentBasis?: PercentBasis | undefined;
   /** Optional balance snapshot for quick reference */
   balances?: FundsBalanceSnapshot[];
+  /**
+   * The exchange account the deal trades on. Supplied for a single deal, it
+   * lets an ADD resolve the free balance that caps it. Omitted for a bulk
+   * selection spanning several accounts, where one balance would be wrong for
+   * the rest — the same reason `percentBasis` is omitted there.
+   */
+  exchangeUUID?: string | undefined;
   /**
    * How many deals this adjustment will be applied to. Anything above 1
    * switches the copy to the bulk wording, so it is explicit that the amount
@@ -249,6 +260,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   exchange,
   percentBasis,
   balances,
+  exchangeUUID,
   targetCount = 1,
 }) => {
   const isBulk = targetCount > 1;
@@ -269,11 +281,20 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     scopeOptions[0]?.value ?? DEFAULT_SCOPE.value
   ); */
   const [formError, setFormError] = React.useState<string | null>(null);
+  // Purely a UI mode. It submits as a fixed quote order, so it is
+  // indistinguishable from plain `quote` in the payload and cannot be
+  // recovered from (asset, type) the way the other three can.
+  const [percentOfAvailable, setPercentOfAvailable] = React.useState(false);
 
-  const amountMode = toAmountMode(asset, type);
-  const isPercent = type === AddFundsTypeEnum.perc;
+  const amountMode: AmountMode = percentOfAvailable
+    ? 'percAvailable'
+    : toAmountMode(asset, type);
+  const isPercentOfPosition = type === AddFundsTypeEnum.perc;
+  // Both percentage modes type a 0-100 figure rather than an asset amount.
+  const isPercent = isPercentOfPosition || percentOfAvailable;
 
   const handleAmountModeChange = (mode: AmountMode) => {
+    setPercentOfAvailable(mode === 'percAvailable');
     const next = fromAmountMode(mode);
     setAsset(next.asset);
     setType(next.type);
@@ -284,17 +305,101 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   // The base amount behind the percentage, computed exactly as the engine
   // computes it — see `percentBasis`. Rendered only when every input was
   // available; a confident "0" would read as "this order does nothing".
-  const resolvedQty = isPercent
+  const resolvedQty = isPercentOfPosition
     ? resolvePercentQuantity(percentBasis, quantity)
     : null;
   const willCloseDeal =
     mode === 'reduce' && percentClosesDeal(percentBasis, resolvedQty);
+
+  // What caps this adjustment, in the unit the user is currently typing in.
+  //
+  // The two directions are capped by different things, and conflating them
+  // would put a confident wrong number in front of the user:
+  //   • ADD is capped by the exchange balance the funds come OUT of.
+  //   • REDUCE is capped by the position the funds come out of — the deal's
+  //     own holdings. The exchange balance is irrelevant to it.
+  // A percentage is capped at 100 in both directions and needs no figure.
+  //
+  // Only fetch balances when an add is actually open and denominated in an
+  // asset, so opening a reduce (or a percentage add) costs no request.
+  const needsExchangeBalance =
+    open &&
+    !isBulk &&
+    mode === 'add' &&
+    !isPercentOfPosition &&
+    !!exchangeUUID;
+  const {
+    free: freeBalances,
+    loading: balanceLoading,
+    known: balanceKnown,
+    refresh: refreshBalances,
+  } = useDealFreeBalance(exchangeUUID, needsExchangeBalance);
+
+  const ceilingAsset = amountMode === 'base' ? baseAsset : quoteAsset;
+
+  /** Free quote balance the "% of available" percentage multiplies. */
+  const availableQuote =
+    balanceKnown && quoteAsset
+      ? (freeBalances[quoteAsset.toUpperCase()] ?? 0)
+      : null;
+  const resolvedFromAvailable = percentOfAvailable
+    ? resolvePercentOfAvailable(availableQuote, quantity)
+    : null;
+
+  const ceiling = React.useMemo<number | null>(() => {
+    if (isPercent || isBulk) return null;
+    if (mode === 'add') {
+      if (!balanceKnown || !ceilingAsset) return null;
+      return freeBalances[ceilingAsset.toUpperCase()] ?? 0;
+    }
+    if (!percentBasis) return null;
+    return amountMode === 'base'
+      ? percentBasis.remainingBase
+      : percentBasis.perHundredQuote;
+  }, [
+    isPercent,
+    isBulk,
+    mode,
+    balanceKnown,
+    ceilingAsset,
+    freeBalances,
+    percentBasis,
+    amountMode,
+  ]);
+
+  // A reduce reads its ceiling straight off `percentBasis`, so it is either
+  // known immediately or not coming at all — only the add has a fetch to wait
+  // on.
+  const ceilingLoading =
+    mode === 'add' &&
+    needsExchangeBalance &&
+    (balanceLoading || !balanceKnown);
+
+  const showBalanceField =
+    !isPercent && !isBulk && (ceiling !== null || ceilingLoading);
+
+  // Surfaced as a warning, never as a block.
+  //
+  // An add over the wallet balance is a genuine mistake, but the balance here
+  // is a snapshot and futures margin is not spot free balance, so refusing the
+  // order on it would sometimes be refusing a valid one. A reduce over the
+  // position is not a mistake at all — the engine closes the deal, which is a
+  // thing users deliberately do. Both get told what will happen and keep the
+  // button.
+  const exceedsCeiling = React.useMemo(() => {
+    if (ceiling === null || ceilingLoading) return false;
+    const qty = Number(quantity);
+    return Number.isFinite(qty) && qty > 0 && qty > ceiling;
+  }, [ceiling, ceilingLoading, quantity]);
 
   React.useEffect(() => {
     if (open) {
       setQuantity(defaultSettings?.qty ?? RESET_PAYLOAD.qty);
       setAsset(defaultSettings?.asset ?? RESET_PAYLOAD.asset);
       setType(defaultSettings?.type ?? RESET_PAYLOAD.type);
+      // UI-only, so it has no counterpart in defaultSettings to restore from;
+      // a reopened dialog starts on a concrete amount.
+      setPercentOfAvailable(false);
       setUseLimitPrice(
         defaultSettings?.useLimitPrice ?? RESET_PAYLOAD.useLimitPrice
       );
@@ -337,10 +442,21 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     // there — so the ceiling the button enforced was not the one this branch
     // checked. One constant now, checked identically in both places.
     if (
-      type === AddFundsTypeEnum.perc &&
+      (type === AddFundsTypeEnum.perc || percentOfAvailable) &&
       (numericQty <= 0 || numericQty > MAX_PERCENT)
     ) {
       setFormError(`Enter a percentage between 0 and ${MAX_PERCENT}.`);
+      return;
+    }
+
+    // "% of available" is resolved here, not by the engine — it has no
+    // percent-of-balance path. Refuse rather than guess if the balance never
+    // arrived, otherwise the percentage would fall through as a raw quote
+    // amount (a "40" meaning 40 USDT instead of 40%).
+    if (percentOfAvailable && resolvedFromAvailable === null) {
+      setFormError(
+        'Your available balance could not be read, so a percentage of it cannot be calculated. Enter an amount instead.'
+      );
       return;
     }
 
@@ -354,7 +470,10 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     }
 
     const settings: AddFundsSettings = {
-      qty: normalizeNumberString(normalizedQty),
+      qty:
+        percentOfAvailable && resolvedFromAvailable !== null
+          ? normalizeNumberString(String(resolvedFromAvailable))
+          : normalizeNumberString(normalizedQty),
       useLimitPrice,
       asset,
       type,
@@ -374,7 +493,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     }
 
     if (
-      type === AddFundsTypeEnum.perc &&
+      (type === AddFundsTypeEnum.perc || percentOfAvailable) &&
       (numericQty <= 0 || numericQty > MAX_PERCENT)
     ) {
       return `Enter a percentage between 0 and ${MAX_PERCENT}.`;
@@ -388,7 +507,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
       }
     }
     return null;
-  }, [limitPrice, quantity, type, useLimitPrice]);
+  }, [limitPrice, quantity, type, useLimitPrice, percentOfAvailable]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -441,24 +560,65 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 <Label htmlFor="adjust-funds-amount">
                   {isPercent ? 'Percentage' : 'Quantity'}
                 </Label>
-                <NumberInput
-                  id="adjust-funds-amount"
-                  value={quantity}
-                  onChange={(value) =>
-                    setQuantity(
-                      typeof value === 'number'
-                        ? value.toString()
-                        : (value ?? '')
-                    )
-                  }
-                  placeholder={isPercent ? '0' : '0.00'}
-                  showControls={false}
-                  {...(isPercent ? { endAdornment: '%' } : {})}
-                />
+                {showBalanceField ? (
+                  <BalanceInput
+                    value={Number(quantity) || 0}
+                    onChange={(value) => setQuantity(String(value))}
+                    availableBalance={ceiling ?? 0}
+                    currency={ceilingAsset || ''}
+                    unitLabel={ceilingAsset || undefined}
+                    isBalanceLoading={ceilingLoading}
+                    precision={8}
+                    // The refresh button only has something to re-read for an
+                    // add; a reduce's ceiling comes from the deal, which this
+                    // dialog does not own and cannot refetch.
+                    showRefreshButton={mode === 'add'}
+                    {...(mode === 'add'
+                      ? { onRefreshBalance: refreshBalances }
+                      : {})}
+                    // A reduce is bounded by the position, not by a wallet, so
+                    // the "exceeds available balance" copy would name the wrong
+                    // thing. It gets its own message below.
+                    disableBalanceValidation={mode === 'reduce'}
+                  />
+                ) : (
+                  <NumberInput
+                    id="adjust-funds-amount"
+                    value={quantity}
+                    onChange={(value) =>
+                      setQuantity(
+                        typeof value === 'number'
+                          ? value.toString()
+                          : (value ?? '')
+                      )
+                    }
+                    placeholder={isPercent ? '0' : '0.00'}
+                    showControls={false}
+                    {...(isPercent ? { endAdornment: '%' } : {})}
+                  />
+                )}
                 {resolvedQty !== null ? (
                   <p className="text-xs text-muted-foreground">
                     ≈ {formatQty(resolvedQty)}
                     {baseAsset ? ` ${baseAsset}` : ''}
+                  </p>
+                ) : null}
+                {percentOfAvailable ? (
+                  <p className="text-xs text-muted-foreground">
+                    {ceilingLoading
+                      ? 'Reading your available balance…'
+                      : availableQuote === null
+                        ? 'Available balance unavailable — enter an amount instead.'
+                        : resolvedFromAvailable !== null
+                          ? `≈ ${formatQty(resolvedFromAvailable)} ${quoteAsset ?? ''} of ${formatQty(availableQuote)} ${quoteAsset ?? ''} available`
+                          : `${formatQty(availableQuote)} ${quoteAsset ?? ''} available`}
+                  </p>
+                ) : null}
+                {exceedsCeiling ? (
+                  <p className="text-xs text-destructive">
+                    {mode === 'add'
+                      ? `Exceeds your available ${ceilingAsset} balance (${formatQty(ceiling ?? 0)}).`
+                      : `The deal only holds ${formatQty(ceiling ?? 0)} ${ceilingAsset}.`}
                   </p>
                 ) : null}
               </div>
@@ -475,7 +635,10 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {AMOUNT_MODE_ORDER.map((option) => (
+                    {(mode === 'add'
+                      ? ADD_AMOUNT_MODE_ORDER
+                      : AMOUNT_MODE_ORDER
+                    ).map((option) => (
                       <SelectItem key={option} value={option}>
                         {amountModeLabel(option, baseAsset, quoteAsset)}
                       </SelectItem>
@@ -573,10 +736,17 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                     ? 'The selected amount will be appended to the deal once confirmed.'
                     : 'The selected amount will be withdrawn from the deal once confirmed.'}
               </p>
-              {isPercent ? (
+              {isPercentOfPosition ? (
                 <p className="mt-1">
                   The percentage is taken from the position this deal currently
                   holds — not from your exchange balance.
+                </p>
+              ) : null}
+              {percentOfAvailable ? (
+                <p className="mt-1">
+                  The percentage is taken from your free exchange balance, and
+                  is converted to a fixed amount when you confirm — not re-read
+                  when the order is placed.
                 </p>
               ) : null}
               {willCloseDeal && percentBasis ? (

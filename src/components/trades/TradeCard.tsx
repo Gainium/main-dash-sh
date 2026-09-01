@@ -1073,6 +1073,7 @@ const EnhancedCard = React.memo(
           symbol={symbolString}
           exchange={trade.exchange}
           percentBasis={trade.percentBasis}
+          exchangeUUID={trade.exchangeUUID}
         />
         <ConfirmationDialog
           open={cancelDialogOpen}
