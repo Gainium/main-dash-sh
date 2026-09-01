@@ -19,6 +19,7 @@ import {
 } from '@/components/ui/select';
 import { NumberInput } from '@/components/ui/number-input';
 import { BalanceInput } from '@/components/ui/balance-input';
+import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
@@ -562,11 +563,22 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 </Label>
                 {showBalanceField ? (
                   <BalanceInput
+                    // Tighter than the bot form's default rhythm: in a dialog
+                    // the percentage shortcuts read as a detached row at
+                    // `space-y-3`, rather than as part of the field.
+                    className="space-y-1.5"
                     value={Number(quantity) || 0}
                     onChange={(value) => setQuantity(String(value))}
                     availableBalance={ceiling ?? 0}
                     currency={ceilingAsset || ''}
                     unitLabel={ceilingAsset || undefined}
+                    {...(ceilingAsset
+                      ? {
+                          coinIcon: (
+                            <CoinIcon symbol={ceilingAsset} size="w-6 h-6" />
+                          ),
+                        }
+                      : {})}
                     isBalanceLoading={ceilingLoading}
                     precision={8}
                     // The refresh button only has something to re-read for an

@@ -656,8 +656,12 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
         )}
       </div>
 
-      {/* Secondary row for stacked layout */}
-      {isStackedLayout && (
+      {/* Secondary row for stacked layout. Gated on there actually being a
+          dropdown to put in it: `renderCurrencyDropdown` returns null when no
+          currency options were passed, which left a bordered, padded, empty
+          row sitting between the field and the percentage buttons — read as a
+          gap someone forgot to close. */}
+      {isStackedLayout && showCurrencyDropdown && (
         <div className="flex w-full flex-wrap items-stretch gap-3 border-t border-border/60 pt-3">
           {renderCurrencyDropdown('stacked')}
           {/* Balance now lives inside input endAdornment for stacked layout as well */}

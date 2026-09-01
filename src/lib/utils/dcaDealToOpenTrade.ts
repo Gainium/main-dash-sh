@@ -17,6 +17,7 @@ import {
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { formatDuration } from '@/utils/formatters';
 import { ExchangeEnum, type DCADeals } from '@/types';
+import { percentBasisFromDeal } from '@/types/dcaDeal';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
   const symbol = deal.symbol?.symbol || 'Unknown';
@@ -121,6 +122,15 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     ...(deal.funding && { funding: deal.funding }),
     unrealizedProfit,
     avgPrice: deal.avgPrice || 0,
+    // The Add/Reduce funds dialog needs this to resolve a percentage and to
+    // cap a reduce at the position. `transformDealToTrade` has always
+    // attached it; this transform — which is what the trades list and the
+    // Hedge DCA deals tab actually feed the widget with — never did, so the
+    // "% of position" preview silently resolved to nothing on those rows.
+    ...(() => {
+      const basis = percentBasisFromDeal(deal);
+      return basis ? { percentBasis: basis } : {};
+    })(),
     levels: deal.levels || { complete: 0, all: 0 },
     created: +createdTime,
     notes: deal.note || '',
