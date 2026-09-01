@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.50.19] - 2026-08-31
+
+### Fixed
+
+- Grid bot form: pairs whose quote asset isn't one of the common tickers were parsed by chopping the last three characters off the symbol, so an OKX X-Perp pair (`ARB-USD_UM_XPERP`) came out as base `ARB-USD_UM_XP` / quote `ERP` and every field in the form — investment, range, balance — was labelled and funded in "ERP". The form now uses the app's shared pair resolver, which understands the X-Perp contract suffix (`ARB/USDC`), slash- and dash-separated symbols and the concatenated form.
+
 ## [2.50.18] - 2026-09-01
 
 ### Fixed

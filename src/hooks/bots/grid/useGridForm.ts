@@ -13,6 +13,7 @@ import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import type { Prices } from '@/types';
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { extractPairAssets } from '@/utils/pairs';
 
 interface ParsedPair {
   raw: string;
@@ -20,17 +21,14 @@ interface ParsedPair {
   quoteAsset: string;
 }
 
-const KNOWN_QUOTES = [
-  'USDT',
-  'USDC',
-  'BTC',
-  'ETH',
-  'BNB',
-  'BUSD',
-  'USDP',
-  'USD',
-];
-
+// The grid form used to carry its own pair parser: a short KNOWN_QUOTES list
+// and, when nothing matched, `slice(-3)`. Any symbol whose quote is not in
+// that list fell through to the slice, which is how an OKX X-Perp pair
+// (`ARB-USD_UM_XPERP`) became base `ARB-USD_UM_XP` / quote `ERP` and every
+// field in the form ended up labelled "ERP" — investment, range, balance.
+// `extractPairAssets` is the shared resolver the rest of the app already
+// uses: it understands slash- and dash-separated symbols, the X-Perp
+// contract-family suffix, and the concatenated form.
 const extractPair = (pair: BotFormData['pair']): ParsedPair => {
   if (!Array.isArray(pair) || pair.length === 0) {
     return { raw: '', baseAsset: '', quoteAsset: '' };
@@ -46,39 +44,8 @@ const extractPair = (pair: BotFormData['pair']): ParsedPair => {
     return { raw: '', baseAsset: '', quoteAsset: '' };
   }
 
-  if (sanitized.includes('/')) {
-    const [base, quote] = sanitized.split('/');
-    return {
-      raw: sanitized,
-      baseAsset: base || '',
-      quoteAsset: quote || '',
-    };
-  }
-
-  const matchedQuote = KNOWN_QUOTES.find((quote) => sanitized.endsWith(quote));
-  if (matchedQuote) {
-    const baseAsset = sanitized.slice(
-      0,
-      sanitized.length - matchedQuote.length
-    );
-    return {
-      raw: sanitized,
-      baseAsset,
-      quoteAsset: matchedQuote,
-    };
-  }
-
-  if (sanitized.length > 3) {
-    const baseAsset = sanitized.slice(0, -3);
-    const quoteAsset = sanitized.slice(-3);
-    return {
-      raw: sanitized,
-      baseAsset,
-      quoteAsset,
-    };
-  }
-
-  return { raw: sanitized, baseAsset: sanitized, quoteAsset: '' };
+  const { baseAsset, quoteAsset } = extractPairAssets(sanitized);
+  return { raw: sanitized, baseAsset, quoteAsset };
 };
 
 export interface GridFormContext {
