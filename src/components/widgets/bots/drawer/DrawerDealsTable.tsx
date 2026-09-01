@@ -2192,6 +2192,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'avgPrice',
         accessorKey: 'avgPrice',
         header: 'Avg Price',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const value = Number(trade.avgPrice || 0);
@@ -2214,6 +2215,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         accessorFn: (row) =>
           Number(row.initialPrice || row.entryPrice || row.avgPrice || 0),
         header: 'Entry Price',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const value = Number(
@@ -2237,6 +2239,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'cost',
         accessorKey: 'cost',
         header: 'Cost',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const cost = trade.cost || 0;
@@ -2271,6 +2274,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           return createdDate;
         },
         header: 'Created',
+        meta: { filterType: 'date' },
         cell: ({ row }) => {
           const trade = row.original;
           const createdDate = trade.created
@@ -2306,6 +2310,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'orders',
         accessorFn: (row) => row.levels.complete,
         header: 'Orders',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const levels = trade.levels;
@@ -2360,6 +2365,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'size',
         accessorKey: 'size',
         header: 'Size',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const size = trade.size || 0;
@@ -2386,6 +2392,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'value',
         accessorKey: 'value',
         header: 'Notional Value',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.value || 0;
@@ -2412,6 +2419,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'drawdown',
         accessorKey: 'drawdown',
         header: 'Drawdown',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const drawdown = trade.drawdown || 0;
@@ -2433,6 +2441,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'runUp',
         accessorKey: 'runUp',
         header: 'Run Up',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const runUp = trade.runUp || 0;
@@ -2581,6 +2590,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'closePrice',
         accessorKey: 'exitPrice',
         header: 'Close Price',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const closePrice = row.original.exitPrice || 0;
           const status = row.original.status?.toLowerCase();
@@ -2594,6 +2604,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'gridProfit',
         accessorKey: 'gridProfitUsd',
         header: 'Grid Profit',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const type = row.original.type;
           // Only show for Combo and Hedge Combo bots
@@ -2621,6 +2632,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'gridProfitPercentage',
         accessorFn: (row) => dealGridProfitPercentageSortValue(row as never),
         header: 'Grid Profit, %',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const type = row.original.type;
           if (type !== 'Combo' && type !== 'Hedge Combo') {
@@ -2642,6 +2654,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'transactions',
         accessorKey: 'transactionsTotal',
         header: 'Transactions',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const type = row.original.type;
           // Only show for Combo and Hedge Combo bots
@@ -2667,6 +2680,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'updateTime',
         accessorFn: (row) => toDealSortEpochMs((row as any).updateTime),
         header: 'Update Time',
+        meta: { filterType: 'date' },
         cell: ({ row }) => {
           const value = (row.original as any).updateTime;
           if (!value) return <span className="text-muted-foreground">-</span>;
@@ -2689,6 +2703,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'closeTime',
         accessorKey: 'closeTime',
         header: 'Close Time',
+        meta: { filterType: 'date' },
         cell: ({ row }) => {
           const value = (row.original as any).closeTime;
           const status = row.original.status?.toLowerCase();
@@ -2776,6 +2791,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       id: 'unrealizedPnl',
       accessorFn: (row) => toSortableMetricValue(row.unrealizedProfit),
       header: 'Unrealized P&L',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         // Closed/canceled deals have no unrealized P&L (legacy parity).
@@ -2822,6 +2838,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         return toSortableMetricValue(percentage);
       },
       header: 'Unrealized P&L, %',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         // Closed/canceled deals have no unrealized P&L (legacy parity).
@@ -2860,6 +2877,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       id: 'realizedPnl',
       accessorKey: 'profit.totalUsd',
       header: 'Realized P&L',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
@@ -2895,6 +2913,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           Number(row.cost || 0)
         ),
       header: 'Realized P&L, %',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
@@ -2921,6 +2940,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         return unrealizedPnl + realizedPnl;
       },
       header: 'Net P&L',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         if (trade.active && pricesLoading) {
@@ -2958,6 +2978,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         return cost > 0 ? (netPnl / cost) * 100 : 0;
       },
       header: 'Net P&L, %',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
         if (trade.active && pricesLoading) {

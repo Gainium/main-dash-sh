@@ -791,8 +791,16 @@ export const ColumnFilter: React.FC<{
       {/* Filter input with operator as start adornment */}
       {FilterComponent && needsInput && (
         <div className="relative flex-1 min-w-0 flex bg-input/50 border border-input rounded-lg overflow-hidden">
-          {/* Operator selector */}
-          <DropdownMenu>
+          {/* Operator selector.
+              `modal={false}` on purpose: a modal Radix menu enforces "one open
+              at a time" only as a side effect of setting `body {pointer-events:
+              none}`, which any container that re-enables pointer events defeats
+              — the bot-details drawer panel (`ui/detail-drawer.tsx`) hardcodes
+              `pointer-events-auto`, so its Deals table stacked up a menu per
+              column while All Trades allowed one. Non-modal keeps the
+              DismissableLayer close-on-outside-click, which works in every
+              container, so both tables now behave identically. */}
+          <DropdownMenu modal={false}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
@@ -852,7 +860,7 @@ export const ColumnFilter: React.FC<{
             <span className="text-muted-foreground">
               {selectedOperator?.label}
             </span>
-            <DropdownMenu>
+            <DropdownMenu modal={false}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="ghost"

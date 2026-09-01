@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.50.25] - 2026-09-02
+
+### Fixed
+
+- The Deals table in the bot details drawer now offers proper filter operators
+  on its numeric and date columns. Cost, Avg/Entry/Close Price, Size, Notional
+  Value, Orders, Drawdown, Run Up, Transactions, Grid Profit and the P&L columns
+  filter with Equals / Greater than / Less than / Between instead of substring
+  matching, and Created, Update Time and Close Time filter with After / Before /
+  Between. Previously only Usage was typed, so every other column matched filter
+  text against the rendered value.
+- Column filter operator menus now close when you open another one. In the bot
+  details drawer they used to stack up, leaving one menu open per column.
+
 ## [2.50.24] - 2026-09-01
 
 ### Fixed
