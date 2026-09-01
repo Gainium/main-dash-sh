@@ -1,5 +1,50 @@
 # Changelog
 
+## [2.50.22] - 2026-09-01
+
+### Added
+
+- **Add / Reduce funds shows what bounds the amount.** The field carries the
+  balance it is capped by, with 25/50/75% shortcuts. The two directions are
+  capped by different things and are resolved separately: an ADD is capped by
+  the asset it spends — quote for a long, base for a short — converted into
+  whatever unit is being typed, and withheld when no usable price exists to
+  convert through. A REDUCE is capped by the position the deal holds. A bulk
+  selection shows no figure, since several deals resolve differently.
+- **"% of available" sizing on Add funds**, alongside "% of position". It is
+  resolved in the dialog against the balance beside it and submitted as a fixed
+  amount, because the engine has no percent-of-balance path — `addDealFunds`
+  reads `asset === base` as a base quantity and everything else as quote, so a
+  raw percentage would place a wildly different order. The dialog says the
+  figure is pinned at confirm rather than re-read at execution.
+
+### Fixed
+
+- **Settings → Notification Preferences shows its Telegram and Email columns
+  again.** They disappeared when the page moved into core: the extra channels
+  became extension slots and the cloud build never registered a filler, so the
+  table silently rendered Type / In-App / Sound — an unfilled slot renders
+  nothing and reports nothing. Two further slots (`…channels.panel` and
+  `…channels.actions`) let the channels bring their own account-link card and
+  Save / Reset row. Self-hosted has no Telegram integration and leaves all four
+  empty, as before.
+- The deals-list query never selected `avgPrice`, so the percentage basis
+  divided by zero, came back `Infinity`, and the guard turned that into "no
+  basis at all". `dcaDealToOpenTrade` never attached `percentBasis` either,
+  though `transformDealToTrade` always has. Between them, the "% of position"
+  preview had never resolved for a deal opened from the trades list or the
+  Hedge DCA deals tab.
+- Add funds on a futures deal no longer shows a spot-wallet ceiling — in
+  practice "BAL 0", since futures collateral sits in margin — and no longer
+  offers "% of available". Both trade transforms now carry an explicit
+  `futures` flag: `dealType` could not be used, because it means the market
+  type in one mapper, the bot type in another, and "Hedge or not" in a third.
+- `BalanceInput` rendered its stacked-layout row — a `border-t` with padding —
+  even when the currency dropdown inside it was absent, leaving an empty
+  bordered strip between the field and its percentage buttons.
+- The funds amount field showed a generic `$` placeholder instead of the
+  asset's own logo.
+
 ## [2.50.21] - 2026-09-01
 
 ### Fixed
