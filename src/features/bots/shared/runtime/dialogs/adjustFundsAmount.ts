@@ -102,7 +102,9 @@ export const fromAmountMode = (
 export const amountModeLabel = (
   mode: AmountMode,
   baseAsset?: string,
-  quoteAsset?: string
+  quoteAsset?: string,
+  /** Asset an add actually spends; names the "% of available" option. */
+  fundingAsset?: string
 ) => {
   switch (mode) {
     case 'base':
@@ -112,7 +114,9 @@ export const amountModeLabel = (
     case 'perc':
       return '% of position';
     case 'percAvailable':
-      return quoteAsset ? `% of available (${quoteAsset})` : '% of available';
+      return fundingAsset
+        ? `% of available (${fundingAsset})`
+        : '% of available';
   }
 };
 

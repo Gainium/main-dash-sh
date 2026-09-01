@@ -1074,6 +1074,8 @@ const EnhancedCard = React.memo(
           exchange={trade.exchange}
           percentBasis={trade.percentBasis}
           exchangeUUID={trade.exchangeUUID}
+          futures={trade.dealType === 'FUTURES'}
+          long={trade.side !== 'SELL'}
         />
         <ConfirmationDialog
           open={cancelDialogOpen}

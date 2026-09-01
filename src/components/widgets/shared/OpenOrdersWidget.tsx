@@ -792,6 +792,8 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         exchange={trade.exchange}
         percentBasis={trade.percentBasis}
         exchangeUUID={trade.exchangeUUID}
+        futures={trade.dealType === 'FUTURES'}
+        long={trade.side !== 'SELL'}
       />
       <DropdownMenu>
         <DropdownMenuTrigger asChild>

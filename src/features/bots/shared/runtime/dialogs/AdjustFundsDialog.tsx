@@ -104,6 +104,22 @@ interface AdjustFundsDialogBaseProps {
    */
   exchangeUUID?: string | undefined;
   /**
+   * Futures deal. The free spot-wallet balance is not a valid ceiling for one:
+   * the funds sit in margin, so `free` reads 0 on a running bot and every
+   * positive size would look like it exceeds the balance (forum #4921 /
+   * bug #94, the same reason `BalanceInput` carries
+   * `disableBalanceValidation`). An add on a futures deal therefore shows no
+   * ceiling rather than a confident wrong one.
+   */
+  futures?: boolean | undefined;
+  /**
+   * Long deal. Decides which asset an ADD actually spends, which is not the
+   * asset the amount happens to be typed in: a long buys base with quote, a
+   * short sells base for quote. Spot shorts are a real case here, so this
+   * cannot be inferred from `futures`.
+   */
+  long?: boolean | undefined;
+  /**
    * How many deals this adjustment will be applied to. Anything above 1
    * switches the copy to the bulk wording, so it is explicit that the amount
    * entered here is applied to EACH selected deal, not split between them.
@@ -262,6 +278,8 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   percentBasis,
   balances,
   exchangeUUID,
+  futures = false,
+  long = true,
   targetCount = 1,
 }) => {
   const isBulk = targetCount > 1;
@@ -297,7 +315,16 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   const handleAmountModeChange = (mode: AmountMode) => {
     setPercentOfAvailable(mode === 'percAvailable');
     const next = fromAmountMode(mode);
-    setAsset(next.asset);
+    // "% of available" submits a fixed amount of the asset it was a
+    // percentage OF — quote for a long, base for a short. `fromAmountMode`
+    // cannot know the direction, so correct it here.
+    setAsset(
+      mode === 'percAvailable'
+        ? long
+          ? OrderSizeTypeEnum.quote
+          : OrderSizeTypeEnum.base
+        : next.asset
+    );
     setType(next.type);
   };
 
@@ -328,6 +355,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     !isBulk &&
     mode === 'add' &&
     !isPercentOfPosition &&
+    !futures &&
     !!exchangeUUID;
   const {
     free: freeBalances,
@@ -336,23 +364,47 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     refresh: refreshBalances,
   } = useDealFreeBalance(exchangeUUID, needsExchangeBalance);
 
+  // The unit the amount is typed in — what the ceiling is displayed as.
   const ceilingAsset = amountMode === 'base' ? baseAsset : quoteAsset;
 
-  /** Free quote balance the "% of available" percentage multiplies. */
-  const availableQuote =
-    balanceKnown && quoteAsset
-      ? (freeBalances[quoteAsset.toUpperCase()] ?? 0)
+  // The asset an ADD actually spends. A long buys base with quote; a short
+  // (including a spot short) sells base for quote. This is the balance that
+  // runs out, and it is NOT always the asset the amount is denominated in.
+  const fundingAsset = long ? quoteAsset : baseAsset;
+  const fundingFree =
+    balanceKnown && fundingAsset
+      ? (freeBalances[fundingAsset.toUpperCase()] ?? 0)
       : null;
+
+  // A limit order spends at its own price, so prefer it over the market feed.
+  const conversionPrice =
+    useLimitPrice && Number(limitPrice) > 0 ? Number(limitPrice) : marketPrice;
+
+  /**
+   * `fundingFree` expressed in the unit currently being typed in. Same unit,
+   * no conversion; different unit, convert through the price — and if there is
+   * no usable price, return null rather than a figure that pretends to one.
+   */
+  const addCeiling = React.useMemo<number | null>(() => {
+    if (fundingFree === null) return null;
+    const typingBase = amountMode === 'base';
+    const fundingIsBase = !long;
+    if (typingBase === fundingIsBase) return fundingFree;
+    if (!conversionPrice || conversionPrice <= 0) return null;
+    return fundingIsBase
+      ? fundingFree * conversionPrice
+      : fundingFree / conversionPrice;
+  }, [fundingFree, amountMode, long, conversionPrice]);
+
+  /** Free balance of the funding asset, which "% of available" multiplies. */
+  const availableFunding = fundingFree;
   const resolvedFromAvailable = percentOfAvailable
-    ? resolvePercentOfAvailable(availableQuote, quantity)
+    ? resolvePercentOfAvailable(availableFunding, quantity)
     : null;
 
   const ceiling = React.useMemo<number | null>(() => {
     if (isPercent || isBulk) return null;
-    if (mode === 'add') {
-      if (!balanceKnown || !ceilingAsset) return null;
-      return freeBalances[ceilingAsset.toUpperCase()] ?? 0;
-    }
+    if (mode === 'add') return addCeiling;
     if (!percentBasis) return null;
     return amountMode === 'base'
       ? percentBasis.remainingBase
@@ -361,9 +413,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     isPercent,
     isBulk,
     mode,
-    balanceKnown,
-    ceilingAsset,
-    freeBalances,
+    addCeiling,
     percentBasis,
     amountMode,
   ]);
@@ -619,17 +669,23 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                   <p className="text-xs text-muted-foreground">
                     {ceilingLoading
                       ? 'Reading your available balance…'
-                      : availableQuote === null
+                      : availableFunding === null
                         ? 'Available balance unavailable — enter an amount instead.'
                         : resolvedFromAvailable !== null
-                          ? `≈ ${formatQty(resolvedFromAvailable)} ${quoteAsset ?? ''} of ${formatQty(availableQuote)} ${quoteAsset ?? ''} available`
-                          : `${formatQty(availableQuote)} ${quoteAsset ?? ''} available`}
+                          ? `≈ ${formatQty(resolvedFromAvailable)} ${fundingAsset ?? ''} of ${formatQty(availableFunding)} ${fundingAsset ?? ''} available`
+                          : `${formatQty(availableFunding)} ${fundingAsset ?? ''} available`}
                   </p>
                 ) : null}
                 {exceedsCeiling ? (
                   <p className="text-xs text-destructive">
                     {mode === 'add'
-                      ? `Exceeds your available ${ceilingAsset} balance (${formatQty(ceiling ?? 0)}).`
+                      ? // Name the asset that actually runs out. When the two
+                        // differ the ceiling is a conversion, and calling it
+                        // "your SOL balance" while it is really your USDT
+                        // would send the user to check the wrong number.
+                        fundingAsset && fundingAsset !== ceilingAsset
+                        ? `More than your ${fundingAsset} balance covers — at most ${formatQty(ceiling ?? 0)} ${ceilingAsset}.`
+                        : `Exceeds your available ${ceilingAsset} balance (${formatQty(ceiling ?? 0)}).`
                       : `The deal only holds ${formatQty(ceiling ?? 0)} ${ceilingAsset}.`}
                   </p>
                 ) : null}
@@ -647,12 +703,17 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(mode === 'add'
+                    {(mode === 'add' && !futures
                       ? ADD_AMOUNT_MODE_ORDER
                       : AMOUNT_MODE_ORDER
                     ).map((option) => (
                       <SelectItem key={option} value={option}>
-                        {amountModeLabel(option, baseAsset, quoteAsset)}
+                        {amountModeLabel(
+                          option,
+                          baseAsset,
+                          quoteAsset,
+                          fundingAsset
+                        )}
                       </SelectItem>
                     ))}
                   </SelectContent>
