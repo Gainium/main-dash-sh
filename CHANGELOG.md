@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.50.21] - 2026-09-01
+
+### Fixed
+
+- **A Moving Averages or Crossing Oscillator condition set to compare against a
+  second series now actually crosses.** When the Reference was anything other
+  than "Current price", the form never created the internal id that addresses
+  that second moving average / oscillator, so neither the editor's backtest nor
+  the running bot ever built it: the comparison value stayed at zero, no
+  crossing could fire, and the backtest reported zero deals while both averages
+  still drew correctly on the chart. Only the Bot controller section minted the
+  id; deal start, take profit, stop loss, risk:reward, dynamic AR and the DCA
+  ladder all left it out. It is now created for every indicator, and filled in
+  on save for bots that were built without one.
+
 ## [2.50.20] - 2026-08-31
 
 ### Fixed

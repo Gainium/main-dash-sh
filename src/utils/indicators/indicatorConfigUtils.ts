@@ -93,6 +93,15 @@ export const sanitizeIndicatorParams = (
   ) as IndicatorParamRecord;
 };
 
+// `uuid`, `maUUID` and `xoUUID` are minted in the SAME tick, so the
+// `indicator-${Date.now()}` scheme below cannot be reused for them — all three
+// would collide. Same guarded idiom as the section-local helpers in
+// BotControllerSettings.tsx / DCASettings.tsx / DynamicArIndicatorPanel.tsx.
+export const createChildIndicatorId = (): string =>
+  typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : `indicator-child-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
 export const buildIndicatorConfig = (
   type: IndicatorEnum,
   params: IndicatorParamsState,
@@ -114,13 +123,26 @@ export const buildIndicatorConfig = (
     config.indicatorAction = options.indicatorAction;
   }
 
-  if (options.maUUID !== undefined) {
-    config.maUUID = options.maUUID;
-  }
-
-  if (options.xoUUID !== undefined) {
-    config.xoUUID = options.xoUUID;
-  }
+  // Mint the child-series ids for EVERY indicator, the way legacy does it
+  // (`useSettingsComponent.ts` writes `maUUID: v4(), xoUUID: v4()` on every
+  // add AND every type change). They address the SECOND series a Moving
+  // Averages crossing or a Crossing Oscillator needs: with a Reference other
+  // than "Current price", both the backtester
+  // (`@gainium/backtester` dca/strategy/ti — `maCrossingValue !== price &&
+  // maCrossingInterval && maCrossingLength && maUUID && …`) and the live
+  // engine (main-app `dcaHelper` `maChild`) only CREATE the comparison
+  // indicator when the id is present, then look it back up as
+  // `${maUUID}@${symbol}`. With the id missing the lookup misses, the
+  // comparison value collapses to 0, no crossing ever fires — the bot
+  // reports zero deals in the editor's backtest and never opens one live,
+  // with nothing on screen to say why.
+  //
+  // Only BotControllerSettings passed them in; deal start, take profit, stop
+  // loss, risk-reward, dynamic AR and the DCA ladder all left them
+  // undefined. This factory is the one path all of them share, so seed the
+  // default here — an explicit option still wins.
+  config.maUUID = options.maUUID ?? createChildIndicatorId();
+  config.xoUUID = options.xoUUID ?? createChildIndicatorId();
 
   if (options.keepConditionBars !== undefined) {
     config.keepConditionBars = options.keepConditionBars;

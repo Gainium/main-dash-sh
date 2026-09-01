@@ -52,6 +52,7 @@ import type { IndicatorConfig } from '@/types/indicators';
 import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
+  createChildIndicatorId,
   isCloseIndicatorOfSection,
   isCloseIndicatorUsedByCondition,
 } from '@/utils/indicators/indicatorConfigUtils';
@@ -261,6 +262,21 @@ const serializeIndicatorConfig = (
     ...paramsRecord,
     ...overrides,
   };
+
+  // Same "fill the structural holes" contract as `withFieldDefaults` above,
+  // for the two ids that are NOT catalog fields. `buildIndicatorConfig` now
+  // mints them, but every indicator a user already saved from V2 predates
+  // that and carries neither — and this mapper feeds BOTH the save payload
+  // and the editor's local backtest, so backfilling here is what lets an
+  // EXISTING Moving Averages / Crossing Oscillator bot start crossing again
+  // instead of only newly-added ones. A row that has an id keeps it, so no
+  // bot's child series is ever re-addressed behind its back.
+  if (!payload.maUUID) {
+    payload.maUUID = createChildIndicatorId();
+  }
+  if (!payload.xoUUID) {
+    payload.xoUUID = createChildIndicatorId();
+  }
 
   return payload;
 };
