@@ -1984,7 +1984,7 @@ export const otherQueries = {
 
   // Cloud-only: Telegram link is a cloud feature. App-sh has no
   // Telegram integration; shipped here as type-safe stubs so cloud's
-  // NotificationPreferencesSection can call through `otherQueries`.
+  // notification-channel slot fillers can call through `otherQueries`.
   getTelegramUsername: () => {
     const query = `query getTelegramUsername {
       getTelegramUsername {

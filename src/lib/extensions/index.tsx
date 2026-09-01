@@ -99,6 +99,23 @@ export interface SlotPropsMap {
     ) => void;
   };
 
+  /**
+   * Notification preferences — panel rendered above the channel table.
+   * Cloud fills it with the Telegram account connect / disconnect card,
+   * since the Telegram and Email columns are only actionable once the
+   * account behind them is linked. Sh renders nothing.
+   */
+  'settings.notificationChannels.panel': Record<string, unknown>;
+
+  /**
+   * Notification preferences — action row rendered below the channel
+   * table. The server-backed channels (Telegram, Email) are saved as one
+   * whole-array write, so cloud fills this with its Save / Reset pair.
+   * The In-App and Sound columns core owns persist locally on change and
+   * need no action row, so sh renders nothing.
+   */
+  'settings.notificationChannels.actions': Record<string, unknown>;
+
   /** Cloud-sync icon button shown in the Navbar desktop row.
    *  Cloud's filler handles its own open-state + free-plan gating. */
   'navbar.syncButtonDesktop': {

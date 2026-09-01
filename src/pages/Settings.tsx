@@ -2038,6 +2038,7 @@ const Settings: React.FC = () => {
                 }}
               />
             </div>
+            <Slot name="settings.notificationChannels.panel" />
             <div>
               <Label className="text-muted-foreground uppercase text-xs tracking-wider">
                 Type
@@ -2177,6 +2178,7 @@ const Settings: React.FC = () => {
                 </table>
               </div>
             </div>
+            <Slot name="settings.notificationChannels.actions" />
           </CardContent>
         </Card>
       </div>
