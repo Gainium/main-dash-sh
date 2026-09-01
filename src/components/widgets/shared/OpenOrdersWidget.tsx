@@ -280,6 +280,8 @@ export interface OpenTrade {
   notes: string;
   pair: string;
   dealType: string;
+  /** Derivatives deal; see the note on `TransformedTrade.futures`. */
+  futures?: boolean | undefined;
   side: 'BUY' | 'SELL';
   orders: number;
   entryPrice: number;
@@ -792,7 +794,12 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         exchange={trade.exchange}
         percentBasis={trade.percentBasis}
         exchangeUUID={trade.exchangeUUID}
-        futures={trade.dealType === 'FUTURES'}
+        // Two independent sources because the trade objects reaching this
+        // widget are built by three different mappers: some set a top-level
+        // `futures`, the Trading page carries it under `settings`. Reading
+        // only one of them silently mislabels a futures deal as spot — which
+        // is how the field came to show "BAL 0 USDT" on a futures short.
+        futures={!!(trade.futures ?? trade.settings?.futures)}
         long={trade.side !== 'SELL'}
       />
       <DropdownMenu>

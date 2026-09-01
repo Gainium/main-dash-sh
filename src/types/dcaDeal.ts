@@ -120,6 +120,14 @@ export type TransformedTrade = {
   notes?: string;
   pair?: string;
   dealType?: string;
+  /**
+   * Derivatives deal. Explicit because `dealType` does NOT mean the same thing
+   * in both trade transforms — here it is the bot type ('DCA', 'Combo', 'Hedge
+   * DCA'), while `dcaDealToOpenTrade` sets it to 'FUTURES' / 'SPOT'. Anything
+   * reading market type off that field is right on one path and wrong on the
+   * other.
+   */
+  futures?: boolean;
   side?: 'BUY' | 'SELL';
   orders?: number;
   entryPrice?: number;
@@ -502,6 +510,7 @@ export const transformDealToTrade = (
     },
     ...(deal.funding && { funding: deal.funding }),
     avgPrice: deal.avgPrice || 0,
+    futures: !!futures,
     ...(() => {
       const basis = percentBasisFromDeal(deal);
       return basis ? { percentBasis: basis } : {};

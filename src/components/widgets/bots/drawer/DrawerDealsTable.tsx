@@ -583,7 +583,7 @@ const DealActionsMenu: React.FC<{
         exchange={trade.exchange}
         percentBasis={trade.percentBasis}
         exchangeUUID={trade.exchangeUUID}
-        futures={trade.dealType === 'FUTURES'}
+        futures={!!trade.futures}
         long={trade.side !== 'SELL'}
       />
       <DropdownMenu>

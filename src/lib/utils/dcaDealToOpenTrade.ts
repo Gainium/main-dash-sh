@@ -136,6 +136,7 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     notes: deal.note || '',
     pair,
     dealType: deal.settings?.futures ? 'FUTURES' : 'SPOT',
+    futures: !!deal.settings?.futures,
     side: (deal.strategy === 'SHORT' ? 'SELL' : 'BUY') as 'BUY' | 'SELL',
     orders: deal.levels?.complete || 0,
     entryPrice: deal.initialPrice || deal.avgPrice || 0,
