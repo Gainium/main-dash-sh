@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.50.18] - 2026-09-01
+
+### Fixed
+
+- Bots using indicators in the Bot Controller can be saved again. Saving failed
+  with a server error for two reasons. Every Bot Controller indicator carried a
+  hidden duplicate copy of its own settings that the server has no field for,
+  which by itself broke any bot with a start condition — including a brand-new
+  one. And when the controller was set to start *and* stop the bot on
+  indicators, the start indicators were sent exactly as typed, so a length of
+  "50" arrived as text where a number was expected and the "keep condition for
+  N bars" setting arrived as a number where text was expected.
+
 ## [2.50.17] - 2026-08-31
 
 ### Fixed

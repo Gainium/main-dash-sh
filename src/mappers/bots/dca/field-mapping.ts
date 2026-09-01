@@ -244,8 +244,20 @@ const serializeIndicatorConfig = (
 
   const paramsRecord = normalizeIndicatorParamsRecord(filled);
 
+  // `params` is a legacy MIRROR of the row the form still writes alongside the
+  // top-level fields (BotControllerSettings' two add handlers, RiskRewardSettings
+  // and TakeProfitSettings' dynamic-AR editor all store
+  // `{ ...newIndicator, params: sanitizedParams }`). Nothing reads it back —
+  // display and the engine both use the top-level fields — and GraphQL's
+  // `input indicatorSettings` has no such field, so sending it fails the whole
+  // mutation with `Field "params" is not defined by type "indicatorSettings"`.
+  // `normalizeIndicatorParamsRecord` already drops it, but spreading `filled`
+  // first put it straight back, so the strip never took effect.
+  const { params: _legacyParams, ...withoutLegacyParams } = filled as
+    IndicatorConfig & { params?: unknown };
+
   const payload: IndicatorConfig = {
-    ...filled,
+    ...withoutLegacyParams,
     ...paramsRecord,
     ...overrides,
   };
@@ -3340,47 +3352,54 @@ export const mapBotControllerFields = (
       fieldsSkipped.push('stopBotPriceCondition', 'stopBotPriceValue');
     }
 
-    // Map indicator groups for start/stop bot conditions
-    if (botActualStart === BotStartTypeEnum.indicators) {
-      const startBotIndicators = indicators.filter(
-        (i) => i.indicatorAction === IndicatorAction.startBot
+    // Map indicator groups for start/stop bot conditions.
+    //
+    // Both roles serialize over ONE accumulator. Each branch used to map over
+    // the original `indicators` array and ASSIGN the result, so with the bot
+    // controller set to indicators for both start AND stop, the stop branch
+    // threw away everything the start branch had serialized and shipped the
+    // startBot rows exactly as the form held them: `indicatorLength` as the
+    // string the user typed ("50") where the schema wants an Int, and
+    // `keepConditionBars` as the catalog's numeric 0 where it wants a String.
+    // GraphQL rejects the whole mutation, so the bot simply could not be saved.
+    // The merge in mapFormDataToBackend could not repair it either — it treats
+    // a byte-identical row as a passthrough, and no other mapper owns the
+    // controller's roles.
+    let controllerIndicators: IndicatorConfig[] | undefined;
+    const serializeControllerRole = (
+      role: IndicatorAction.startBot | IndicatorAction.stopBot
+    ) => {
+      const roleIndicators = indicators.filter(
+        (i) => i.indicatorAction === role
       );
-      if (startBotIndicators.length > 0) {
-        controllerFields['indicators'] = indicators.map((indicator) => {
-          return startBotIndicators.find((i) => i.uuid === indicator.uuid)
+      if (roleIndicators.length === 0) {
+        fieldsSkipped.push('indicators');
+        return;
+      }
+      controllerIndicators = (controllerIndicators ?? indicators).map(
+        (indicator) =>
+          roleIndicators.some((i) => i.uuid === indicator.uuid)
             ? serializeIndicatorConfig(indicator as IndicatorConfig, {
                 warnings,
                 overrides: {
-                  indicatorAction: IndicatorAction.startBot,
+                  indicatorAction: role,
                 },
               })
-            : indicator;
-        });
-        fieldsMapped.push('indicators');
-      } else {
-        fieldsSkipped.push('indicators');
-      }
+            : indicator
+      );
+      fieldsMapped.push('indicators');
+    };
+
+    if (botActualStart === BotStartTypeEnum.indicators) {
+      serializeControllerRole(IndicatorAction.startBot);
     }
 
     if (botStart === BotStartTypeEnum.indicators) {
-      const stopBotIndicators = indicators.filter(
-        (i) => i.indicatorAction === IndicatorAction.stopBot
-      );
-      if (stopBotIndicators.length > 0) {
-        controllerFields['indicators'] = indicators.map((indicator) => {
-          return stopBotIndicators.find((i) => i.uuid === indicator.uuid)
-            ? serializeIndicatorConfig(indicator as IndicatorConfig, {
-                warnings,
-                overrides: {
-                  indicatorAction: IndicatorAction.stopBot,
-                },
-              })
-            : indicator;
-        });
-        fieldsMapped.push('indicators');
-      } else {
-        fieldsSkipped.push('indicators');
-      }
+      serializeControllerRole(IndicatorAction.stopBot);
+    }
+
+    if (controllerIndicators) {
+      controllerFields['indicators'] = controllerIndicators;
     }
 
     // Always include closeAfterX fields (they're part of the schema)
