@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.50.27] - 2026-09-03
+
+### Fixed
+
+- Notifications panel: an already-read Update or News item no longer shows a
+  "Mark as read" button that does nothing. Read items are now dimmed and
+  carry a "Read" marker, so it is clear there is nothing left to clear.
+  Previously every card offered that button regardless of read state, which
+  made a fully-read Updates tab look permanently unclearable.
+
 ## [2.50.26] - 2026-09-02
 
 ### Added

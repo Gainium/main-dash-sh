@@ -439,7 +439,13 @@ const NotificationPanel: React.FC = () => {
             (notification.botId || notification.terminal))
         );
 
-        const actions = (
+        // Only offer "Mark as read" when there is actually something to mark.
+        // An already-read card has no work to do, so the click fired a no-op
+        // mutation and nothing on screen changed — which reads as a broken
+        // button. Users whose Updates/News are fully read (unread count 0)
+        // saw an active ✓✓ on every card that could never do anything.
+        // Same `!isRead` gate NotificationItem already uses.
+        const actions = notification.isRead ? null : (
           <Button
             size="sm"
             variant="ghost"
@@ -466,14 +472,22 @@ const NotificationPanel: React.FC = () => {
           ? () => handleNotificationClick(notification)
           : undefined;
 
-        const newBadge = !notification.isRead ? (
+        // Read cards get the same "Read" marker NotificationItem uses, so a
+        // successful mark is observable and an already-read card is
+        // distinguishable from an unread one at a glance.
+        const statusAddon = notification.isRead ? (
+          <span className="flex items-center gap-0.5 text-xs text-success">
+            <CheckCheck className="h-3 w-3" />
+            Read
+          </span>
+        ) : (
           <Badge
             variant="default"
             className="min-w-0 h-5 px-2 py-0 text-xs font-semibold bg-destructive/10 text-destructive border-0 rounded-full"
           >
             New
           </Badge>
-        ) : null;
+        );
 
         // removed category chip (type badge) next to the title by design
 
@@ -512,7 +526,11 @@ const NotificationPanel: React.FC = () => {
               </div>
             ) : null,
           actions,
-          titleAddon: newBadge,
+          titleAddon: statusAddon,
+          // Mirrors NotificationItem's read treatment.
+          ...(notification.isRead
+            ? { className: 'opacity-75 hover:opacity-90' }
+            : {}),
         };
 
         if (onClick) {

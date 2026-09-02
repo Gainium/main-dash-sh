@@ -17,6 +17,8 @@ export interface TimelineItem {
   actions?: React.ReactNode;
   titleAddon?: React.ReactNode;
   isDaySeparator?: boolean;
+  /** Extra classes for the item's card — e.g. dimming an already-read row. */
+  className?: string;
   variant?:
     | 'default'
     | 'success'
@@ -304,7 +306,8 @@ export const Timeline: React.FC<TimelineProps> = ({
                 'min-w-0 space-y-1 border border-border/40 bg-card/90 px-4 py-2 text-sm [box-shadow:none] hover:bg-card relative min-h-0',
                 isRightLayout && 'space-y-2',
                 item.onClick &&
-                  'cursor-pointer transition-colors hover:border-primary/40'
+                  'cursor-pointer transition-colors hover:border-primary/40',
+                item.className
               )}
               onClick={item.onClick}
               role={item.onClick ? 'button' : undefined}
