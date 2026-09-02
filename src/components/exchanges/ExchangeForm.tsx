@@ -18,6 +18,10 @@ import React, {
 } from 'react';
 import logger from '../../lib/loggerInstance';
 import {
+  looksLikePemSecret,
+  normalizePemSecret,
+} from './secretNormalization';
+import {
   CoinbaseKeysType,
   ExchangeEnum,
   OKXSource,
@@ -971,7 +975,42 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         }
     } */
 
+    // A PEM-armoured secret (Coinbase's CDP "Trading key") is repaired rather
+    // than rejected — see `normalizePemSecret`. Only armour with no
+    // recoverable body is a genuine dead end, and saying so here beats the
+    // venue's opaque "must be an asymmetric key when using ES256" much later.
+    if (
+      looksLikePemSecret(trimmedSecret) &&
+      !normalizePemSecret(trimmedSecret)
+    ) {
+      return {
+        isValid: false,
+        error:
+          'This looks like a private key, but the key data between the BEGIN and END lines is missing. Copy the whole key, including both of those lines.',
+      };
+    }
+
     return { isValid: trimmedSecret.length > 0 };
+  };
+
+  /**
+   * Captures a pasted secret from the clipboard before the DOM discards it.
+   *
+   * The API Secret field is a single-line `<input>`, and the HTML value
+   * sanitisation algorithm strips CR and LF from an input's value. A
+   * multi-line PEM key — Coinbase's CDP "Trading key" — therefore loses its
+   * line breaks the instant it lands in the field, and the damage is invisible
+   * to the user: what they see is the key they copied. `clipboardData` still
+   * holds the original, so repair it here and store the escaped one-liner,
+   * which survives the input intact.
+   */
+  const handleSecretPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    const pasted = e.clipboardData.getData('text');
+    if (!looksLikePemSecret(pasted)) return;
+
+    e.preventDefault();
+    const repaired = normalizePemSecret(pasted);
+    updateFormData({ secret: repaired ?? pasted.trim() });
   };
 
   // Handle form submission
@@ -992,6 +1031,15 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
       // mutation doesn't silently re-credit the paper account every
       // time the user changes an unrelated setting like hedge mode.
       const submissionData = { ...formData };
+
+      // Belt and braces for a secret that never went through `onPaste` —
+      // typed by hand, autofilled, or dropped onto the field. Non-PEM secrets
+      // come back trimmed and otherwise untouched.
+      if (submissionData.secret) {
+        submissionData.secret =
+          normalizePemSecret(submissionData.secret) ?? submissionData.secret;
+      }
+
       if (mode === 'edit' && formData.isPaperTrading) {
         const parsed = parseFloat(topUpAmount);
         submissionData.stablecoinBalance =
@@ -1566,6 +1614,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                     spellCheck={false}
                     value={formData.secret}
                     onChange={(e) => updateFormData({ secret: e.target.value })}
+                    onPaste={handleSecretPaste}
                     placeholder={
                       mode === 'edit'
                         ? '•••••••••••• — leave blank to keep current'
