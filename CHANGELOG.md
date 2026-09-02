@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.50.26] - 2026-09-02
+
+### Added
+
+- Connecting an exchange now ends in a success moment instead of the dialog
+  silently closing: a confetti celebration names the account(s) that were
+  created (an "All" provider creates several) and offers a "Create a bot"
+  button that opens the bot wizard, with the new account preselected in the
+  form. Reached from the Exchanges page, the Portfolio page and
+  /add-exchange.
+
 ## [2.50.25] - 2026-09-02
 
 ### Fixed

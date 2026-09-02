@@ -23,6 +23,8 @@ interface CelebrationProps {
   description?: string;
   primaryAction?: CelebrationAction;
   secondaryAction?: CelebrationAction;
+  /** Optional body rendered between the header and the actions. */
+  children?: React.ReactNode;
 }
 
 const Celebration: React.FC<CelebrationProps> = ({
@@ -32,6 +34,7 @@ const Celebration: React.FC<CelebrationProps> = ({
   description,
   primaryAction,
   secondaryAction,
+  children,
 }) => {
   const [confettiSize, setConfettiSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
@@ -58,7 +61,11 @@ const Celebration: React.FC<CelebrationProps> = ({
   return (
     <>
       {open && (
-        <div className="pointer-events-none fixed inset-0 z-[60]">
+        // Above the dialog band (overlay + content both sit at 60) — the
+        // Dialog portals into <body>, so at an equal z-index it paints over
+        // the confetti and the `bg-black/50 backdrop-blur-sm` overlay hides
+        // it entirely. `pointer-events-none` keeps the dialog clickable.
+        <div className="pointer-events-none fixed inset-0 z-[80]">
           <Confetti
             width={confettiSize.width}
             height={confettiSize.height}
@@ -83,6 +90,7 @@ const Celebration: React.FC<CelebrationProps> = ({
               </DialogDescription>
             )}
           </DialogHeader>
+          {children}
           <DialogFooter className="sm:justify-center gap-sm">
             {secondaryAction && (
               <Button

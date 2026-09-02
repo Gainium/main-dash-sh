@@ -1,5 +1,7 @@
 import { useEntitlements } from '@/lib/entitlements';
 import { toast } from '@/lib/toast';
+import NewBotWizard from '@/components/wizards/NewBotWizard';
+import type { ExchangeInUser } from '@/types/exchange.types';
 import React from 'react';
 import { useExchangeMutations } from '../../hooks/useExchangeMutations';
 import { useExchangesStore } from '../../stores/exchangesStore';
@@ -11,6 +13,7 @@ import {
   DialogTitle,
 } from '../ui/dialog';
 import { ScrollArea } from '../ui/scroll-area';
+import ExchangeAddedCelebration from './ExchangeAddedCelebration';
 import ExchangeErrorBoundary from './ExchangeErrorBoundary';
 import ExchangeForm from './ExchangeForm';
 import type { ExchangeDialogProps, ExchangeFormData } from './types';
@@ -34,6 +37,21 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
     exchangeDataProp?.uuid ? s.exchanges[exchangeDataProp.uuid] : undefined
   );
   const exchangeData = liveExchange ?? exchangeDataProp;
+
+  // Add-mode success moment. The created exchanges are held here so the
+  // celebration can name them; the parent's `onSuccess`/`onClose` are
+  // deliberately deferred until the user dismisses it (several callers —
+  // notably the /add-exchange page — navigate away inside `onSuccess`,
+  // which would tear the celebration down before it is seen).
+  const [createdExchanges, setCreatedExchanges] = React.useState<
+    ExchangeInUser[] | null
+  >(null);
+  const [showBotWizard, setShowBotWizard] = React.useState(false);
+  // `Celebration` fires `onClose` right after the primary action's
+  // `onClick`, so a state flag would still be stale there. This ref marks
+  // "the user chose Create a bot" so the close handler keeps the parent
+  // dialog alive to host the wizard.
+  const wizardRequestedRef = React.useRef(false);
 
   const {
     addExchange,
@@ -92,9 +110,10 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
       });
       const results = await addExchange.mutateAsync(addInput);
 
-      // Pass all created exchanges to the success handler
-      // For backwards compatibility, pass the first exchange if the handler expects a single exchange
-      onSuccess(results[0]);
+      // Celebrate first. `onSuccess`/`onClose` run from `finishAdd` once the
+      // celebration (and the bot wizard, if the user took that path) is done.
+      setCreatedExchanges(results ?? []);
+      return;
     } else {
       // Update existing exchange
       if (!exchangeData?.uuid) {
@@ -133,6 +152,39 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
     onClose();
   };
 
+  // Hand control back to the caller: report the created exchange and close.
+  const finishAdd = React.useCallback(() => {
+    const results = createdExchanges;
+    setCreatedExchanges(null);
+    setShowBotWizard(false);
+    wizardRequestedRef.current = false;
+    if (results) {
+      onSuccess(results[0]);
+    }
+    onClose();
+  }, [createdExchanges, onClose, onSuccess]);
+
+  const handleCelebrationCreateBot = () => {
+    wizardRequestedRef.current = true;
+    setShowBotWizard(true);
+  };
+
+  const handleCelebrationClose = () => {
+    // Keep this component mounted so it can host the wizard.
+    if (wizardRequestedRef.current) return;
+    finishAdd();
+  };
+
+  const handleBotWizardOpenChange = (next: boolean) => {
+    setShowBotWizard(next);
+    if (!next) {
+      // Either the wizard was cancelled or it navigated to the bot form.
+      // Both cases end the add flow; a navigation issued by the wizard
+      // runs after this and wins over any caller-side redirect.
+      finishAdd();
+    }
+  };
+
   // Live hedge / zero-fee toggles. Edit mode only — in add mode the
   // exchange UUID doesn't exist yet, so the form keeps these in
   // `formData` and we'd need to apply them post-create (out of scope
@@ -160,44 +212,60 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
       ? 'Connect a new exchange to your portfolio. You can start with paper trading to test strategies risk-free.'
       : 'Update your exchange configuration and settings.';
 
-  return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden w-[95vw] sm:w-full mx-2 sm:mx-4">
-        <DialogHeader className="pb-2 sm:pb-4">
-          <DialogTitle className="flex items-center gap-xs text-base sm:text-lg">
-            {dialogTitle}
-          </DialogTitle>
-          <DialogDescription className="text-sm">
-            {dialogDescription}
-          </DialogDescription>
-        </DialogHeader>
+  const isCelebrating = createdExchanges !== null;
 
-        <ScrollArea className="max-h-[calc(95vh-8rem)] sm:max-h-[calc(90vh-8rem)] overflow-y-auto">
-          <div className="px-4 sm:px-6 pb-2">
-            <ExchangeErrorBoundary
-              fallbackTitle="Exchange Form Error"
-              fallbackMessage="There was an error loading the exchange form. Please try again."
-            >
-              <ExchangeForm
-                initialData={getInitialFormData()}
-                onSubmit={handleFormSubmit}
-                onCancel={onClose}
-                mode={mode}
-                isLoading={isAddingExchange || isUpdatingExchange}
-                {...(onModeChange && { onModeChange })}
-                initialTradingMode={initialTradingMode}
-                {...(mode === 'edit' && {
-                  onHedgeModeChange: handleHedgeModeChange,
-                  onIgnoreFeesChange: handleIgnoreFeesChange,
-                  hedgeModePending: setHedgeMode.isPending,
-                  ignoreFeesPending: setZeroFee.isPending,
-                })}
-              />
-            </ExchangeErrorBoundary>
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+  return (
+    <>
+      <Dialog open={open && !isCelebrating} onOpenChange={onClose}>
+        <DialogContent className="max-w-2xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden w-[95vw] sm:w-full mx-2 sm:mx-4">
+          <DialogHeader className="pb-2 sm:pb-4">
+            <DialogTitle className="flex items-center gap-xs text-base sm:text-lg">
+              {dialogTitle}
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              {dialogDescription}
+            </DialogDescription>
+          </DialogHeader>
+
+          <ScrollArea className="max-h-[calc(95vh-8rem)] sm:max-h-[calc(90vh-8rem)] overflow-y-auto">
+            <div className="px-4 sm:px-6 pb-2">
+              <ExchangeErrorBoundary
+                fallbackTitle="Exchange Form Error"
+                fallbackMessage="There was an error loading the exchange form. Please try again."
+              >
+                <ExchangeForm
+                  initialData={getInitialFormData()}
+                  onSubmit={handleFormSubmit}
+                  onCancel={onClose}
+                  mode={mode}
+                  isLoading={isAddingExchange || isUpdatingExchange}
+                  {...(onModeChange && { onModeChange })}
+                  initialTradingMode={initialTradingMode}
+                  {...(mode === 'edit' && {
+                    onHedgeModeChange: handleHedgeModeChange,
+                    onIgnoreFeesChange: handleIgnoreFeesChange,
+                    hedgeModePending: setHedgeMode.isPending,
+                    ignoreFeesPending: setZeroFee.isPending,
+                  })}
+                />
+              </ExchangeErrorBoundary>
+            </div>
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
+
+      <ExchangeAddedCelebration
+        open={isCelebrating && !showBotWizard}
+        exchanges={createdExchanges ?? []}
+        onClose={handleCelebrationClose}
+        onCreateBot={handleCelebrationCreateBot}
+      />
+
+      <NewBotWizard
+        open={showBotWizard}
+        onOpenChange={handleBotWizardOpenChange}
+      />
+    </>
   );
 };
 

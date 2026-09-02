@@ -2,6 +2,7 @@
 export { default as ExchangeDialog } from './ExchangeDialog';
 export { default as DeleteExchangeDialog } from './DeleteExchangeDialog';
 export { default as ExchangeForm } from './ExchangeForm';
+export { default as ExchangeAddedCelebration } from './ExchangeAddedCelebration';
 export { default as ExchangeErrorBoundary } from './ExchangeErrorBoundary';
 export { withExchangeErrorBoundary } from './withExchangeErrorBoundary';
 
