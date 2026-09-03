@@ -48,6 +48,12 @@ export interface EnhancedBalanceData {
    * zero, so the table can say so instead of rendering a confident $0.00.
    */
   priceUnavailable?: boolean;
+  /**
+   * ISO time of the backend's last write to the underlying balance row(s) —
+   * the oldest venue when summed; null when the backend did not send it.
+   * Drives the stale-balance marker (`utils/balanceStaleness.ts`).
+   */
+  updatedAt?: string | null;
 
   // Asset metadata
   categories?: string[];

@@ -2643,6 +2643,12 @@ export type Asset = {
    */
   price?: string | null;
   usdValue?: string | null;
+  /**
+   * ISO time the backend last wrote this row (stream event or REST refresh);
+   * the oldest venue's time when summed. Requires main-app core >= 1.57.1;
+   * absent on older backends, which the stale marker treats as "unknown".
+   */
+  updated?: string | null;
 };
 
 export type Profit = {

@@ -18,6 +18,7 @@ import { balanceAssetToPairBase } from '@/utils/pairs';
 import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import { type ColumnDef } from '@tanstack/react-table';
 import { Info, Plus } from 'lucide-react';
+import { StaleBalanceMarker } from './StaleBalanceMarker';
 import React, {
   useCallback,
   useContext,
@@ -194,6 +195,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
       exchangeName?: string;
       price?: string | null;
       usdValue?: string | null;
+      updated?: string | null;
     }>
   >(
     'getBalances',
@@ -206,7 +208,8 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
   exchangeUUID
   exchangeName
   price
-  usdValue`
+  usdValue
+  updated`
     ),
     { fallbackQuery: GraphQlQuery.getBalances({ shouldSumBalance: false }) }
   );
@@ -360,6 +363,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
             // screener-derived `prices` list below.
             price?: string | null;
             usdValue?: string | null;
+            // Last backend write; drives the stale marker. Absent on older
+            // backends (< main-app core 1.57.1) — then no marker is shown.
+            updated?: string | null;
           }>)
         : undefined;
 
@@ -480,8 +486,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
                 exchange={resolved.exchange ?? data.exchange}
               />
               <div>
-                <div className="text-sm font-medium text-foreground">
+                <div className="flex items-center gap-xs text-sm font-medium text-foreground">
                   {data.token}
+                  <StaleBalanceMarker balance={data} />
                 </div>
                 <div className="text-xs text-muted-foreground">{assetName}</div>
               </div>

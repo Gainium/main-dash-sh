@@ -8,6 +8,7 @@ import {
   type BotLegendItem,
   MARKET_CAP_TYPES,
 } from '../types/enhancedBalance.types';
+import { oldestUpdated } from './balanceStaleness';
 
 // Math helper for consistent rounding
 class MathHelper {
@@ -349,6 +350,7 @@ export const calculateEnhancedBalances = (
           currentPrice: price,
           usdRate: '0',
           priceUnavailable,
+          updatedAt: balance.updated ?? null,
           categories: getCategories(balance.asset, coins),
           marketCapCategory: getMarketCapCategory(balance.asset, coins),
           legend: assetLegend,
@@ -494,6 +496,7 @@ export const calculateEnhancedBalances = (
 
           free: math.round(current.free + balance.free, 8),
           used: math.round(current.used + balance.used, 8),
+          updatedAt: oldestUpdated([current.updatedAt, balance.updatedAt]),
           total: math.round(current.total + balance.total, 8),
           required: math.round(current.required + balance.required, 8),
           planned: math.round(current.planned + balance.planned, 8),

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.51.4] - 2026-09-03
+
+### Added
+
+- Stale-balance marker on the portfolio balances widget: a clock next to any asset whose backend balance row is older than 15 minutes, with the last-fetched time and a one-click REST refresh for that venue (or all venues for a summed asset). Reads the new `getBalances.updated` field (main-app core ≥ 1.57.1); older backends show no marker. Born from a Kraken spot account that showed 13.5 ETH all day while the venue held 1.53.
+
 ## [2.51.3] - 2026-09-03
 
 ### Added
