@@ -10,6 +10,7 @@ import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
 import { MarginLeverageBlock } from '@/features/bots/shared/components/MarginLeverageBlock';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
+import { FuturesStrategyEnum, StrategyEnum } from '@/types';
 import type { BotFormAlert } from '@/types/bots/form';
 import React, { useMemo } from 'react';
 
@@ -23,20 +24,37 @@ const errorToAlerts = (
 
 const STRATEGY_OPTIONS = [
   {
-    value: 'LONG',
+    value: StrategyEnum.long,
     label: 'Long',
     description: 'Buy low, sell high – accumulate the base asset.',
   },
   {
-    value: 'SHORT',
+    value: StrategyEnum.short,
     label: 'Short',
     description: 'Sell high, buy back lower – accumulate the quote asset.',
   },
 ];
 
+// Futures grids carry a THIRD position side that spot grids have no analogue
+// for: NEUTRAL, which opens no position at start and simply works the grid.
+// The engine reads `settings.futuresStrategy` for futures bots and only falls
+// back to the spot `strategy` when that value is NEUTRAL
+// (`core/src/bot/helper.ts` → `get isShort()`), so a futures grid must bind
+// this control to `futuresStrategy`, not to `strategy`.
+const FUTURES_STRATEGY_OPTIONS = [
+  { value: FuturesStrategyEnum.long, label: 'Long' },
+  { value: FuturesStrategyEnum.neutral, label: 'Neutral' },
+  { value: FuturesStrategyEnum.short, label: 'Short' },
+];
+
+const FUTURES_STRATEGY_TOOLTIP =
+  'Long: open a long position at the start. Buy orders increase the position, sell orders reduce it. ' +
+  'Short: open a short position at the start. Sell orders increase the position, buy orders reduce it. ' +
+  'Neutral: no position is opened at the start — the grid trades both sides from flat. One-way mode only.';
+
 export const GridStrategySettings: React.FC = () => {
   const {
-    formState: { updateFormData, errors },
+    formState: { updateFormData, errors, mode },
     baseAsset,
     quoteAsset,
   } = useGridForm();
@@ -44,7 +62,8 @@ export const GridStrategySettings: React.FC = () => {
   const _orderFixedIn = useBotFormSelector('orderFixedIn');
   const futures = useBotFormSelector('futures');
   const coinm = useBotFormSelector('coinm');
-  const futuresStrategy = useBotFormSelector('strategy');
+  const spotStrategy = useBotFormSelector('strategy');
+  const storedFuturesStrategy = useBotFormSelector('futuresStrategy');
   const startPrice = useBotFormSelector('startPrice');
   const useStartPrice = useBotFormSelector('useStartPrice');
   const profitCurrency = useMemo(
@@ -74,7 +93,36 @@ export const GridStrategySettings: React.FC = () => {
       updateFormData('orderFixedIn', desiredOrderFixedIn);
     }
   }, [futures, coinm, _profitCurrency, _orderFixedIn, updateFormData]);
-  const strategy = futuresStrategy || 'LONG';
+
+  const strategy = spotStrategy || StrategyEnum.long;
+  const futuresStrategy = storedFuturesStrategy || FuturesStrategyEnum.neutral;
+
+  // The spot Direction control is hidden on futures, so `strategy` keeps
+  // whatever it held before the exchange switched — and the engine still
+  // consults it whenever `futuresStrategy` is NEUTRAL. Left alone, a user who
+  // picked Short on a spot pair and then moved to a futures pair would get a
+  // "Neutral" grid the engine runs short. Mirror the position side onto
+  // `strategy` so the two can never disagree (legacy avoided this by resetting
+  // the whole settings object, including `strategy: LONG`, on exchange pick).
+  // Create only — an existing bot's stored `strategy` is its own record and
+  // must not be rewritten under it just because the form rendered.
+  React.useEffect(() => {
+    if (!futures || mode !== 'create') return;
+    const mirrored =
+      futuresStrategy === FuturesStrategyEnum.short
+        ? StrategyEnum.short
+        : StrategyEnum.long;
+    if (spotStrategy !== mirrored) {
+      updateFormData('strategy', mirrored);
+    }
+  }, [futures, mode, futuresStrategy, spotStrategy, updateFormData]);
+
+  // Direction / position side is fixed at creation: the engine sizes and sides
+  // every resting order from it, and `changeBotInput` has no `strategy` field
+  // at all (the update mapper strips it). Legacy gates both controls on
+  // `isAddingNew`; mirror that rather than offering a toggle that silently
+  // does nothing.
+  const directionLocked = mode !== 'create';
 
   const profitCurrencyOptions = React.useMemo(
     () => [
@@ -94,6 +142,11 @@ export const GridStrategySettings: React.FC = () => {
 
   const strategyOptions = React.useMemo(
     () => STRATEGY_OPTIONS.map(({ value, label }) => ({ value, label })),
+    []
+  );
+
+  const futuresStrategyOptions = React.useMemo(
+    () => FUTURES_STRATEGY_OPTIONS.map(({ value, label }) => ({ value, label })),
     []
   );
 
@@ -154,18 +207,34 @@ export const GridStrategySettings: React.FC = () => {
           </SettingsRow>
         )}
 
-        <SettingsRow
-          name="Direction"
-          tooltip={`Pick between long and short grid logic. Long grids buy more ${baseAsset || 'base'} when price drops and sell as it rises. Short grids invert this behavior to accumulate ${quoteAsset || 'quote'} or hedge against downside moves.`}
-        >
-          <div className="space-y-sm">
-            <TerminalButtonStack
-              value={strategy}
-              onValueChange={(next) => updateFormData('strategy', next)}
-              options={strategyOptions}
-            />
-          </div>
-        </SettingsRow>
+        {futures ? (
+          <SettingsRow name="Position side" tooltip={FUTURES_STRATEGY_TOOLTIP}>
+            <div className="space-y-sm">
+              <TerminalButtonStack
+                value={futuresStrategy}
+                onValueChange={(next) =>
+                  updateFormData('futuresStrategy', next)
+                }
+                options={futuresStrategyOptions}
+                disabled={directionLocked}
+              />
+            </div>
+          </SettingsRow>
+        ) : (
+          <SettingsRow
+            name="Direction"
+            tooltip={`Pick between long and short grid logic. Long grids buy more ${baseAsset || 'base'} when price drops and sell as it rises. Short grids invert this behavior to accumulate ${quoteAsset || 'quote'} or hedge against downside moves.`}
+          >
+            <div className="space-y-sm">
+              <TerminalButtonStack
+                value={strategy}
+                onValueChange={(next) => updateFormData('strategy', next)}
+                options={strategyOptions}
+                disabled={directionLocked}
+              />
+            </div>
+          </SettingsRow>
+        )}
 
         <SettingsRow
           name="Start price"

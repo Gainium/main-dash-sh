@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.51.0] - 2026-09-03
+
+### Added
+
+- Grid bots on a futures exchange now offer the full three-way **Position
+  side** — Long, Neutral or Short — instead of only Long/Short. Neutral opens
+  no position at the start and works the grid from flat, matching the option
+  the previous dashboard offered.
+
+### Fixed
+
+- A futures grid bot's direction now actually reaches the bot. The control was
+  writing the spot `strategy` field, which the engine only consults as a
+  fallback, so every futures grid was created Neutral no matter which side was
+  picked.
+- Direction / Position side is no longer clickable when editing an existing
+  grid bot. It is fixed at creation and the change was silently dropped on
+  save.
+
 ## [2.50.27] - 2026-09-03
 
 ### Fixed
