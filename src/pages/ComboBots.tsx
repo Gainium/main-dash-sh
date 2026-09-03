@@ -1,4 +1,5 @@
 import { isReadOnly } from '@/lib/demoMode';
+import { BOT_COLUMN_DESCRIPTIONS } from '@/lib/botColumnDescriptions';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -865,6 +866,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'exchangeUUID',
         header: 'EXCHANGE',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.exchange,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -907,6 +909,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'coinPair',
         header: 'COIN PAIR',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.coinPair,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -941,7 +944,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'name',
         header: 'NAME',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.name,
+        },
         cell: ({ getValue, row }) => {
           const name = getValue() as string;
           const id = row.original.id as string;
@@ -952,6 +958,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'strategy',
         header: 'STRATEGY',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.strategy,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -993,6 +1000,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'maxValue',
         header: 'MAX COST',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.maxCost,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1010,8 +1018,9 @@ const ComboBots: React.FC = () => {
       },
       {
         accessorKey: 'totalProfitUsd',
-        header: 'TOTAL PROFIT, $',
+        header: 'REALIZED PNL, $',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.realizedPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1046,8 +1055,11 @@ const ComboBots: React.FC = () => {
       },
       {
         accessorKey: 'profitPerc',
-        header: 'TOTAL PROFIT',
-        meta: { filterType: 'number' },
+        header: 'REALIZED PNL, %',
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.realizedPnlPerc,
+        },
         cell: ({ getValue }) => {
           const profit = getValue() as number;
           return <ProfitLossPercChip value={profit} size="sm" />;
@@ -1055,8 +1067,9 @@ const ComboBots: React.FC = () => {
       },
       {
         accessorKey: 'unPnl',
-        header: 'VALUE',
+        header: 'UNREALIZED PNL',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.unrealizedPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1100,6 +1113,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'avgDaily',
         header: 'AVG DAILY',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.avgDaily,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'average',
@@ -1136,6 +1150,7 @@ const ComboBots: React.FC = () => {
         id: 'netPnl',
         header: 'NET PNL',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.netPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1183,6 +1198,7 @@ const ComboBots: React.FC = () => {
         id: 'netPnlPercentage',
         header: 'NET PNL, %',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.netPnlPerc,
           filterType: 'number',
         },
         accessorFn: (row) => {
@@ -1207,7 +1223,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'annualizedReturn',
         header: 'ANNUALIZED RETURN',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.annualizedReturn,
+        },
         cell: ({ row }) => {
           const annualizedReturnPerc = row.original.annualizedReturn ?? 0;
           const annualizedReturnUsd = (row.original.avgDaily ?? 0) * 365;
@@ -1225,12 +1244,16 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'workingTime',
         header: 'TRADING TIME',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.tradingTime,
+        },
       },
       {
         accessorKey: 'currentValue',
         header: 'CURRENT COST',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.combo.currentCost,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1249,7 +1272,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'created',
         header: 'CREATED',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.created,
+        },
         cell: ({ row }) => {
           const created = row.original.created;
           if (!created) return 'N/A';
@@ -1264,7 +1290,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'status',
         header: 'STATUS',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.status,
+        },
         cell: ({ getValue, row }) => {
           const status = getValue() as string;
           const reason = (row.original as { statusReason?: unknown })
@@ -1298,7 +1327,10 @@ const ComboBots: React.FC = () => {
         // `usage` object that `accessorKey: 'usage'` would otherwise resolve to.
         accessorFn: (row) => row.usageTotal || 0,
         header: 'USAGE',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.usage,
+        },
         cell: ({ row }) => (
           <BotUsageCell
             botId={row.original.id}
@@ -1310,7 +1342,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'deals',
         header: 'DEALS',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.deals,
+        },
         cell: ({ row }) => {
           const totalDeals = (row.original as DCABot).dealsInBot.all;
           const activeDeals = (row.original as DCABot).dealsInBot.active;
@@ -1325,7 +1360,10 @@ const ComboBots: React.FC = () => {
       {
         accessorKey: 'cost',
         header: 'CREDITS COST',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.combo.creditsCost,
+        },
         cell: ({ getValue }) => {
           const cost = getValue() as number;
           return `${(cost || 0).toFixed(2)}`;
@@ -1335,6 +1373,7 @@ const ComboBots: React.FC = () => {
         id: 'botId',
         accessorFn: (row) => row.id,
         header: 'BOT ID',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.combo.botId },
         cell: ({ row }) => {
           const value = row.original.id;
           if (!value) return <span className="text-muted-foreground">—</span>;

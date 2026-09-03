@@ -449,7 +449,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
           <div className="mb-3 grid grid-cols-2 gap-3">
             <div className="min-w-0">
               <div className="mb-1 text-xs text-muted-foreground">
-                Total profit
+                Realized PnL
               </div>
               <ProfitAndPerc
                 value={totalProfitUsd ?? bot.profit?.totalUsd ?? 0}
@@ -462,7 +462,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
             </div>
             <div className="min-w-0">
               <div className="mb-1 text-xs text-muted-foreground">
-                Unrealized
+                Unrealized PnL
               </div>
               <ProfitAndPerc
                 value={unPnl ?? 0}

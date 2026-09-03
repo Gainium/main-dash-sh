@@ -631,7 +631,9 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     />
                   </div>
 
-                  {/* Middle - Value section (same as table view) */}
+                  {/* Middle - same figure the table's second money column
+                      shows: grid bots put their absolute worth here, every
+                      other type puts the open PnL. */}
                   <div
                     className={cn(
                       'flex-1 min-w-0 transition-opacity',
@@ -644,7 +646,9 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     }
                   >
                     <div className="text-xs text-muted-foreground mb-1">
-                      Value
+                      {type === BotTypesEnum.grid
+                        ? 'Current Value'
+                        : 'Unrealized PnL'}
                     </div>
                     <ProfitAndPerc
                       value={currentValue}
@@ -655,10 +659,10 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     />
                   </div>
 
-                  {/* Right side - Total Profit */}
+                  {/* Right side - Realized PnL */}
                   <div className="flex-1 min-w-0">
                     <div className="text-xs text-muted-foreground mb-1">
-                      Total Profit
+                      Realized PnL
                     </div>
                     <ProfitAndPerc
                       value={bot.totalProfitUsd || 0}
@@ -799,7 +803,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                   </div>
                   <div className="min-w-0">
                     <div className="text-muted-foreground mb-1 text-xs">
-                      Value Change
+                      Net PnL
                     </div>
                     <ProfitAndPerc
                       value={+(bot.valueChangeUsd || 0)}

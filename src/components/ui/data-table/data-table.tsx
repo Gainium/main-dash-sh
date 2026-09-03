@@ -115,6 +115,29 @@ import {
   SelectTrigger,
   SelectValue,
 } from '../select';
+import { Tooltip } from '../tooltip';
+
+/**
+ * Column-level documentation, read off `columnDef.meta`.
+ *
+ * `description` explains how the column's number is derived (which fields it
+ * sums, what the percentage divides by). It replaces the native sort hint on
+ * the header cell and renders in the app tooltip instead, so the two never
+ * fight over the same hover.
+ *
+ * `descriptionUrl` optionally links a help-center article, rendered as a pill
+ * inside the tooltip (see `Tooltip`'s `tooltipURL`).
+ */
+export interface ColumnDescriptionMeta {
+  description?: string;
+  descriptionUrl?: string;
+}
+
+const getColumnDescription = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  columnDef: any
+): ColumnDescriptionMeta =>
+  (columnDef?.meta as ColumnDescriptionMeta | undefined) ?? {};
 
 /**
  * Overflow metadata for toolbar action buttons.
@@ -326,6 +349,10 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
 
   const showControls = isHovered || controlsVisible;
 
+  const { description, descriptionUrl } = getColumnDescription(
+    header.column.columnDef
+  );
+
   // Click-outside listener to dismiss controls on mobile
   useEffect(() => {
     if (!controlsVisible) return;
@@ -466,9 +493,13 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
       {...attributes}
       onClick={handleHeaderClick}
       title={
-        header.column.getCanSort()
-          ? 'Click to sort, Shift+Click for multi-column sort'
-          : undefined
+        // A column that documents itself shows the app tooltip instead; two
+        // tooltips on one hover target read as a bug.
+        description
+          ? undefined
+          : header.column.getCanSort()
+            ? 'Click to sort, Shift+Click for multi-column sort'
+            : undefined
       }
     >
       <div className="relative flex items-center w-full h-6 px-2">
@@ -520,7 +551,20 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
 
         {/* Title: centered, full width, truncated with ellipsis */}
         <div className="flex-1 min-w-0 text-center overflow-hidden whitespace-nowrap text-ellipsis">
-          {children}
+          {description ? (
+            <Tooltip
+              tooltip={description}
+              {...(descriptionUrl ? { tooltipURL: descriptionUrl } : {})}
+              side="bottom"
+              delay={250}
+              triggerClassName="max-w-full align-middle cursor-help"
+              className="normal-case tracking-normal font-normal"
+            >
+              {children}
+            </Tooltip>
+          ) : (
+            children
+          )}
           {/* Sort indicator */}
           {header.column.getCanSort() && (
             <span className="inline-flex ml-0.5 align-middle absolute right-9 top-1/2 -translate-y-1/2 z-10">

@@ -1,5 +1,25 @@
 # Changelog
 
+## [2.51.2] - 2026-09-03
+
+### Changed
+
+- The bot lists now name their money columns the same way on every bot type:
+  **Realized PnL** (closed deals only), **Unrealized PnL** (what is still
+  open) and **Net PnL** (the two added together). This retires "Total
+  profit", the DCA/Combo "Value" column — which held unrealized PnL, not a
+  value — and the grid "Value change" column, which was already Net PnL
+  under another name. The grid bot's own worth is now "Current value".
+  Numbers, sorting and filtering are unchanged; only the labels moved.
+- Card view follows the same names as the table it belongs to.
+
+### Added
+
+- Every column in the DCA, Combo, Grid and Hedge bot lists explains itself
+  on hover: what the number is made of, and what its percentage divides by.
+  The three PnL percentages deliberately use different denominators (max
+  cost, current cost, initial balance) and each now says which.
+
 ## [2.51.1] - 2026-09-03
 
 ### Added

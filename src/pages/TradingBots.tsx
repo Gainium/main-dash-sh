@@ -58,6 +58,7 @@ import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
 
 import { isReadOnly } from '@/lib/demoMode';
+import { BOT_COLUMN_DESCRIPTIONS } from '@/lib/botColumnDescriptions';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -1041,6 +1042,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'coinPair',
         header: 'COIN PAIR',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.coinPair,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -1101,7 +1103,10 @@ const TradingBots: React.FC = () => {
       {
         accessorKey: 'name',
         header: 'NAME',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.name,
+        },
         cell: ({ getValue, row }) => {
           const name = getValue() as string;
           const id = row.original.id as string;
@@ -1112,6 +1117,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'strategy',
         header: 'STRATEGY',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.strategy,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -1151,6 +1157,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'exchangeUUID',
         header: 'EXCHANGE',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.exchange,
           filterType: 'array',
           getFilterValue: (row: unknown) => {
             const bot = row as Record<string, unknown>;
@@ -1192,6 +1199,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'currentValue',
         header: 'CURRENT COST',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.currentCost,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1211,6 +1219,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'maxValue',
         header: 'MAX COST',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.maxCost,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1228,8 +1237,9 @@ const TradingBots: React.FC = () => {
       },
       {
         accessorKey: 'totalProfitUsd',
-        header: 'TOTAL PROFIT, $',
+        header: 'REALIZED PNL, $',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.realizedPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1264,8 +1274,9 @@ const TradingBots: React.FC = () => {
       },
       {
         accessorKey: 'profitPerc',
-        header: 'TOTAL PROFIT, %',
+        header: 'REALIZED PNL, %',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.realizedPnlPerc,
           filterType: 'number',
         },
         cell: ({ row }) => {
@@ -1275,8 +1286,9 @@ const TradingBots: React.FC = () => {
       },
       {
         accessorKey: 'unPnl',
-        header: 'VALUE',
+        header: 'UNREALIZED PNL',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.unrealizedPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1318,8 +1330,9 @@ const TradingBots: React.FC = () => {
       },
       {
         accessorKey: 'unPnlPerc',
-        header: 'VALUE, %',
+        header: 'UNREALIZED PNL, %',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.unrealizedPnlPerc,
           filterType: 'number',
         },
         cell: ({ row }) => {
@@ -1334,6 +1347,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'avgDaily',
         header: 'AVG DAILY',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.avgDaily,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'average',
@@ -1370,6 +1384,7 @@ const TradingBots: React.FC = () => {
         accessorKey: 'avgDailyPerc',
         header: 'AVG DAILY, %',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.avgDailyPerc,
           filterType: 'number',
         },
         cell: ({ row }) => {
@@ -1381,6 +1396,7 @@ const TradingBots: React.FC = () => {
         id: 'netPnl',
         header: 'NET PNL',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.netPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -1428,6 +1444,7 @@ const TradingBots: React.FC = () => {
         id: 'netPnlPercentage',
         header: 'NET PNL, %',
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.dca.netPnlPerc,
           filterType: 'number',
         },
         accessorFn: (row) => {
@@ -1452,7 +1469,10 @@ const TradingBots: React.FC = () => {
       {
         accessorKey: 'annualizedReturn',
         header: 'ANNUALIZED RETURN',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.annualizedReturn,
+        },
         cell: ({ row }) => {
           const annualizedReturnPerc = row.original.annualizedReturn ?? 0;
           const annualizedReturnUsd = (row.original.avgDaily ?? 0) * 365;
@@ -1470,12 +1490,18 @@ const TradingBots: React.FC = () => {
       {
         accessorKey: 'workingTime',
         header: 'TRADING TIME',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'string',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.tradingTime,
+        },
       },
       {
         accessorKey: 'created',
         header: 'CREATED',
-        meta: { filterType: 'date' },
+        meta: {
+          filterType: 'date',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.created,
+        },
         cell: ({ row }) => {
           const created = row.original.created;
           if (!created) return 'N/A';
@@ -1490,7 +1516,10 @@ const TradingBots: React.FC = () => {
       {
         accessorKey: 'status',
         header: 'STATUS',
-        meta: { filterType: 'array' },
+        meta: {
+          filterType: 'array',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.status,
+        },
         cell: ({ getValue, row }) => {
           const status = getValue() as string;
           const reason = (row.original as { statusReason?: unknown })
@@ -1524,7 +1553,10 @@ const TradingBots: React.FC = () => {
         // `usage` object that `accessorKey: 'usage'` would otherwise resolve to.
         accessorFn: (row) => row.usageTotal || 0,
         header: 'USAGE',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.usage,
+        },
         cell: ({ row }) => (
           <BotUsageCell
             botId={row.original.id}
@@ -1537,7 +1569,10 @@ const TradingBots: React.FC = () => {
         accessorKey: 'deals',
         accessorFn: (row) => (row as DCABot).dealsInBot.all || 0,
         header: 'DEALS',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.deals,
+        },
         cell: ({ row }) => {
           const totalDeals = (row.original as DCABot).dealsInBot.all;
           const activeDeals = (row.original as DCABot).dealsInBot.active;
@@ -1552,7 +1587,10 @@ const TradingBots: React.FC = () => {
       {
         accessorKey: 'cost',
         header: 'CREDITS COST',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          description: BOT_COLUMN_DESCRIPTIONS.dca.creditsCost,
+        },
         cell: ({ getValue }) => {
           const cost = getValue() as number;
           return `${(cost || 0).toFixed(2)}`;
@@ -1562,6 +1600,7 @@ const TradingBots: React.FC = () => {
         id: 'botId',
         accessorFn: (row) => row.id,
         header: 'BOT ID',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.dca.botId },
         cell: ({ row }) => {
           const value = row.original.id;
           if (!value) return <span className="text-muted-foreground">—</span>;

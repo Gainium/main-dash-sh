@@ -55,6 +55,7 @@ import { useDrawerBot } from '@/hooks/useDrawerBot';
 import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
 import { useIsReadOnly } from '@/lib/demoMode';
+import { BOT_COLUMN_DESCRIPTIONS } from '@/lib/botColumnDescriptions';
 
 const HEDGE_BOTS_WIDGET_MOTION = {
   initial: { opacity: 0, y: 20 },
@@ -342,6 +343,7 @@ const HedgeComboBots = () => {
       {
         id: 'pair',
         header: 'Pair',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.pair },
         accessorFn: (row) => formatPair(row),
         cell: ({ getValue }) => (
           <span className="font-medium">{getValue() as string}</span>
@@ -350,6 +352,7 @@ const HedgeComboBots = () => {
       {
         id: 'name',
         header: 'Name',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.name },
         // Hedge wrapper has no name of its own — surface whichever leg
         // has one so the user can tell their bots apart in the list.
         accessorFn: (row) => {
@@ -370,6 +373,7 @@ const HedgeComboBots = () => {
       {
         id: 'status',
         header: 'Status',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.status },
         accessorFn: (row) => row.status,
         cell: ({ getValue }) => (
           <StatusChip status={getValue() as string} size="sm" />
@@ -378,6 +382,7 @@ const HedgeComboBots = () => {
       {
         id: 'longExchange',
         header: 'Long exchange',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.longExchange },
         accessorFn: (row) => {
           const leg = row.bots?.find(
             (b) => b.settings?.strategy === StrategyEnum.long
@@ -402,6 +407,7 @@ const HedgeComboBots = () => {
       {
         id: 'shortExchange',
         header: 'Short exchange',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.shortExchange },
         accessorFn: (row) => {
           const leg = row.bots?.find(
             (b) => b.settings?.strategy === StrategyEnum.short
@@ -447,7 +453,10 @@ const HedgeComboBots = () => {
             </span>
           );
         },
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.deals,
+        },
       },
       {
         id: 'currentCost',
@@ -459,6 +468,7 @@ const HedgeComboBots = () => {
           </span>
         ),
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.currentCost,
           filterType: 'number' as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -478,6 +488,7 @@ const HedgeComboBots = () => {
           </span>
         ),
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.maxCost,
           filterType: 'number' as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -500,7 +511,10 @@ const HedgeComboBots = () => {
           const max = row.__maxCost ?? 0;
           return max > 0 ? (current / max) * 100 : 0;
         },
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.usage,
+        },
         cell: ({ row }) => {
           const current = row.original.__currentCost ?? 0;
           const max = row.original.__maxCost ?? 0;
@@ -524,7 +538,7 @@ const HedgeComboBots = () => {
       },
       {
         id: 'profitTotalUsd',
-        header: 'Total profit',
+        header: 'Realized PnL',
         accessorFn: (row) => row.__totalProfitUsd ?? row.profit?.totalUsd ?? 0,
         cell: ({ getValue }) => (
           <ProfitAndPerc
@@ -536,6 +550,7 @@ const HedgeComboBots = () => {
           />
         ),
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.realizedPnl,
           filterType: 'number' as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -570,6 +585,7 @@ const HedgeComboBots = () => {
           />
         ),
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.unrealizedPnl,
           filterType: 'number' as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -604,6 +620,7 @@ const HedgeComboBots = () => {
         // Summing per-bot daily averages is meaningless; default to the
         // average across bots (min/max also available in the dropdown).
         meta: {
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.avgDaily,
           filterType: 'number' as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'average',
@@ -630,11 +647,15 @@ const HedgeComboBots = () => {
         cell: ({ getValue }) => (
           <ProfitLossPercChip value={getValue() as number} size="sm" />
         ),
-        meta: { filterType: 'number' as const },
+        meta: {
+          filterType: 'number' as const,
+          description: BOT_COLUMN_DESCRIPTIONS.hedge.annualizedReturn,
+        },
       },
       {
         id: 'created',
         header: 'Created',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.created },
         accessorFn: (row) => row.created,
         cell: ({ getValue }) => {
           const v = getValue();
@@ -647,6 +668,7 @@ const HedgeComboBots = () => {
         id: 'botId',
         accessorFn: (row) => row._id,
         header: 'BOT ID',
+        meta: { description: BOT_COLUMN_DESCRIPTIONS.hedge.botId },
         enableSorting: false,
         cell: ({ row }) => {
           const value = row.original._id;
