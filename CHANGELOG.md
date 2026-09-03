@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.51.1] - 2026-09-03
+
+### Added
+
+- Quick Setup now offers the same three-way **Position side** as the full
+  form when the grid runs on a futures exchange: Long, Neutral or Short.
+
+### Fixed
+
+- A futures grid created from Quick Setup now trades the side that was
+  picked. Quick Setup wrote the spot direction field, which the engine only
+  reads as a fallback, so the bot ran neutral regardless.
+- The Risk Profile ranges now centre symmetrically around the current price
+  for a Neutral futures grid, instead of tilting to one side as they do for
+  Long and Short.
+
 ## [2.51.0] - 2026-09-03
 
 ### Added

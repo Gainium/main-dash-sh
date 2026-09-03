@@ -1,7 +1,23 @@
 import { GRID_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
-import { StrategyEnum } from '@/types';
+import { FuturesStrategyEnum, StrategyEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { MarketStats } from '@/utils/marketStats';
+
+/**
+ * The side the range tilts towards. Spot grids only ever have long/short
+ * (`grid.strategy`); futures grids carry the third, NEUTRAL, on
+ * `grid.futuresStrategy`. Both enums are string enums sharing 'LONG'/'SHORT',
+ * so callers pass whichever field applies to the bot they're configuring and
+ * the helpers below normalise.
+ */
+export type GridRangeDirection = StrategyEnum | FuturesStrategyEnum;
+
+const isShortDirection = (direction: GridRangeDirection | undefined): boolean =>
+  direction === StrategyEnum.short || direction === FuturesStrategyEnum.short;
+
+const isNeutralDirection = (
+  direction: GridRangeDirection | undefined
+): boolean => direction === FuturesStrategyEnum.neutral;
 
 /**
  * Grid Quick Setup presets. Grid does NOT reuse the DCA preset module
@@ -269,10 +285,18 @@ const FAR_LEG_FLOOR = 0.1;
 const computeRange = (
   latestPrice: number,
   halfWidthPct: number,
-  strategy: StrategyEnum | undefined
+  strategy: GridRangeDirection | undefined
 ): { lowPrice: number; topPrice: number } => {
   const hw = Math.max(0, halfWidthPct) / 100;
-  if (strategy === StrategyEnum.short) {
+  if (isNeutralDirection(strategy)) {
+    // Neutral (futures only) — the bot opens no position and works both
+    // sides from flat, so neither leg is favoured: symmetric ±hw.
+    return {
+      lowPrice: latestPrice * Math.max(FAR_LEG_FLOOR, 1 - hw),
+      topPrice: latestPrice * (1 + hw),
+    };
+  }
+  if (isShortDirection(strategy)) {
     // Upside-tilted; topPrice gets the 2× leg. Cap how far it can run.
     const topMult = Math.min(1 + hw * 2, 1 + (1 - FAR_LEG_FLOOR));
     return {
@@ -282,8 +306,6 @@ const computeRange = (
   }
   // Long (default) — expects upside, downside-tilted range.
   // Floor the downside multiplier so lowPrice never collapses to 0.
-  // (StrategyEnum has only long/short — neutral lives on
-  // FuturesStrategyEnum and doesn't drive the spot grid range.)
   return {
     lowPrice: latestPrice * Math.max(FAR_LEG_FLOOR, 1 - hw * 2),
     topPrice: latestPrice * (1 + hw),
@@ -317,7 +339,7 @@ export interface GridPresetPreview {
 export const getGridPresetPreview = (
   preset: QuickGridPreset,
   stats: MarketStats | null,
-  strategy: StrategyEnum | undefined
+  strategy: GridRangeDirection | undefined
 ): GridPresetPreview => {
   const levels = clamp(
     Number(preset.values.levels ?? preset.calibration.levels),
@@ -383,7 +405,7 @@ export const getGridPresetPreview = (
 export const getGridPresetFormState = (
   preset: QuickGridPreset,
   stats: MarketStats | null,
-  strategy: StrategyEnum | undefined,
+  strategy: GridRangeDirection | undefined,
   fallbackLatestPrice: number = 0
 ): Partial<BotFormData['grid']> => {
   const preview = getGridPresetPreview(preset, stats, strategy);
@@ -432,7 +454,7 @@ export const getGridPresetFormState = (
 export const getGridPresetState = (
   preset: QuickGridPreset,
   stats: MarketStats | null = null,
-  strategy: StrategyEnum | undefined = undefined
+  strategy: GridRangeDirection | undefined = undefined
 ): BotFormData['grid'] =>
   ({
     ...GRID_FORM_DEFAULTS,

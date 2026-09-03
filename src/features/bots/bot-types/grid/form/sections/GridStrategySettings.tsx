@@ -9,6 +9,11 @@ import SettingsRow, {
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
 import { MarginLeverageBlock } from '@/features/bots/shared/components/MarginLeverageBlock';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
+import {
+  FUTURES_STRATEGY_OPTIONS,
+  FUTURES_STRATEGY_TOOLTIP,
+  mirroredSpotStrategy,
+} from '@/features/bots/bot-types/grid/form/positionSide';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import { FuturesStrategyEnum, StrategyEnum } from '@/types';
 import type { BotFormAlert } from '@/types/bots/form';
@@ -34,23 +39,6 @@ const STRATEGY_OPTIONS = [
     description: 'Sell high, buy back lower – accumulate the quote asset.',
   },
 ];
-
-// Futures grids carry a THIRD position side that spot grids have no analogue
-// for: NEUTRAL, which opens no position at start and simply works the grid.
-// The engine reads `settings.futuresStrategy` for futures bots and only falls
-// back to the spot `strategy` when that value is NEUTRAL
-// (`core/src/bot/helper.ts` → `get isShort()`), so a futures grid must bind
-// this control to `futuresStrategy`, not to `strategy`.
-const FUTURES_STRATEGY_OPTIONS = [
-  { value: FuturesStrategyEnum.long, label: 'Long' },
-  { value: FuturesStrategyEnum.neutral, label: 'Neutral' },
-  { value: FuturesStrategyEnum.short, label: 'Short' },
-];
-
-const FUTURES_STRATEGY_TOOLTIP =
-  'Long: open a long position at the start. Buy orders increase the position, sell orders reduce it. ' +
-  'Short: open a short position at the start. Sell orders increase the position, buy orders reduce it. ' +
-  'Neutral: no position is opened at the start — the grid trades both sides from flat. One-way mode only.';
 
 export const GridStrategySettings: React.FC = () => {
   const {
@@ -108,10 +96,7 @@ export const GridStrategySettings: React.FC = () => {
   // must not be rewritten under it just because the form rendered.
   React.useEffect(() => {
     if (!futures || mode !== 'create') return;
-    const mirrored =
-      futuresStrategy === FuturesStrategyEnum.short
-        ? StrategyEnum.short
-        : StrategyEnum.long;
+    const mirrored = mirroredSpotStrategy(futuresStrategy);
     if (spotStrategy !== mirrored) {
       updateFormData('strategy', mirrored);
     }
@@ -142,11 +127,6 @@ export const GridStrategySettings: React.FC = () => {
 
   const strategyOptions = React.useMemo(
     () => STRATEGY_OPTIONS.map(({ value, label }) => ({ value, label })),
-    []
-  );
-
-  const futuresStrategyOptions = React.useMemo(
-    () => FUTURES_STRATEGY_OPTIONS.map(({ value, label }) => ({ value, label })),
     []
   );
 
@@ -215,7 +195,7 @@ export const GridStrategySettings: React.FC = () => {
                 onValueChange={(next) =>
                   updateFormData('futuresStrategy', next)
                 }
-                options={futuresStrategyOptions}
+                options={FUTURES_STRATEGY_OPTIONS}
                 disabled={directionLocked}
               />
             </div>
