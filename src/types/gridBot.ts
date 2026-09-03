@@ -506,6 +506,22 @@ export function transformGridBotToBot(
     workingTimeNumber: workingTime,
     workingTime: resWork,
     valueChangeUsd: math.friendly(valueChangeUsd),
+    valueChangeUsdNumber: math.round(valueChangeUsd, 2),
+    initialBalanceUsd: math.round(initialBalance, 2),
+    // Net minus realized. A grid books profit per completed pair and holds
+    // inventory between levels; what the inventory is worth beyond what it
+    // cost is the only part of `valueChange` that is not already booked.
+    //
+    // When the bot's pair has no price in the feed, `valueChangeUsd` above
+    // degrades to a fabricated 0 rather than a real net. Subtracting realized
+    // from that zero would report the bot's booked profit back as an open
+    // LOSS of the same size — seen live as "Net PnL $0.00 / Unrealized
+    // −$3.82" on a bot whose only movement was +$3.82 booked. Degrade to 0
+    // the same way Net PnL does instead of inventing a number.
+    unrealizedPnlUsd:
+      !useLiveStats && notUseValueChange
+        ? 0
+        : math.round(valueChangeUsd - (res.profit?.totalUsd || 0), 2),
     symbolProfit,
     profitTodayPerc: showToday
       ? `${math.round(

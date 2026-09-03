@@ -82,8 +82,10 @@ const math = new MathHelper();
  * Result interface for bot value calculation
  */
 export interface BotValueResult {
-  value: number; // Total profit (unrealized + realized)
-  unrealizedValue: number; // Pure unrealized P&L for VALUE field
+  /** Net PnL: realized + unrealized. */
+  value: number;
+  /** Unrealized PnL on its own — open positions only. */
+  unrealizedValue: number;
   valuePercentage: number;
   valueFriendly: string;
   currentValue: number;
@@ -478,12 +480,12 @@ export const calculateBotValue = (
   // GET REALIZED PROFITS FROM DEALS
   const realizedProfit = dcaBot.profit?.totalUsd || 0;
 
-  // TOTAL PROFIT = UNREALIZED P&L + REALIZED PROFITS
+  // NET PNL = UNREALIZED + REALIZED
   const totalProfit = unPnl + realizedProfit;
 
   const result = {
-    value: totalProfit, // Total profit (unrealized + realized) - used for main profit display
-    unrealizedValue: unPnl, // Pure unrealized P&L - used for VALUE field in table/card views
+    value: totalProfit, // Net PnL — realized + unrealized
+    unrealizedValue: unPnl, // Unrealized PnL on its own
     valuePercentage: unPnlPerc,
     valueFriendly:
       (totalProfit || 0) < 0

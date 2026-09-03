@@ -1,10 +1,13 @@
 import { motion, useAnimationControls } from 'framer-motion';
 import React, { useEffect, useRef, useState } from 'react';
+import { InfoIcon, Tooltip } from './tooltip';
 
 export type StatBox = {
   title: string;
   value: string | number;
   subtitle?: string;
+  /** Explains how the figure is calculated, shown on the title's info icon. */
+  tooltip?: string;
   icon: React.ReactNode;
   /** Tailwind gradient classes, e.g. 'from-blue-500 to-blue-600' */
   colorClass?: string;
@@ -22,6 +25,7 @@ const StatCard: React.FC<StatCardProps> = ({
   title,
   value,
   //subtitle,
+  tooltip,
   icon,
   //colorClass = 'from-blue-500 to-blue-600',
   isLoading = false,
@@ -57,8 +61,13 @@ const StatCard: React.FC<StatCardProps> = ({
       </div>
 
       <div className="flex items-center justify-between gap-3 min-w-0">
-        <div className="text-xs font-medium text-muted-foreground whitespace-nowrap">
+        <div className="flex items-center gap-1 text-xs font-medium text-muted-foreground whitespace-nowrap">
           {title}
+          {tooltip && (
+            <Tooltip tooltip={tooltip} side="bottom">
+              <InfoIcon className="h-3 w-3" />
+            </Tooltip>
+          )}
         </div>
         <div className="text-sm font-semibold text-foreground whitespace-nowrap">
           {value}

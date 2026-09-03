@@ -74,9 +74,9 @@ const GRID = {
   currentValue:
     "What the bot is worth right now: the coins and quote currency it holds plus the profit it has booked, converted to USD. This is a total, not a profit — see Net PnL for what it has made.",
   realizedPnl:
-    'Profit already booked from completed grid trades (a buy matched with its sell). Inventory the bot is still holding is not counted here.',
-  realizedPnlPerc:
-    'Free profit ÷ initial balance. Free profit is the booked profit the bot has released for withdrawal, which on a running bot is less than the dollar figure beside it.',
+    'Profit already booked from completed grid trades (a buy matched with its sell). Inventory the bot is still holding is not counted here — that sits in Unrealized PnL. The percentage divides by the initial balance.',
+  unrealizedPnl:
+    'Open profit or loss on the inventory the bot is still holding — Net PnL minus Realized PnL. Positive when the coins it is sitting on are worth more than it paid for them. The percentage divides by the initial balance.',
   netPnl:
     'Everything this bot has made: current value − initial balance, i.e. booked grid profit plus the change in value of the inventory it still holds. On futures bots it is booked profit plus the open position PnL.',
   netPnlPerc:
@@ -117,13 +117,15 @@ const HEDGE = {
     'Profit already banked from closed deals on both legs. Deals still running show under Unrealized PnL.',
   unrealizedPnl:
     'Open profit or loss on the deals running right now, both legs added together, after estimated entry and exit fees.',
+  netPnl:
+    'Realized PnL + Unrealized PnL across both legs — everything this hedge has made, banked and still open.',
   avgDaily: 'Realized PnL ÷ days of trading time, both legs added together.',
   annualizedReturn: 'Avg daily % projected over a year.',
   usage:
     'How much of the maximum cost is deployed right now (current cost ÷ max cost).',
 } as const;
 
-export const BOT_COLUMN_DESCRIPTIONS = {
+export const BOT_METRIC_DESCRIPTIONS = {
   dca: DCA,
   combo: DCA,
   grid: GRID,

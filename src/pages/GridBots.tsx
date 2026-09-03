@@ -1,5 +1,5 @@
 import { isReadOnly } from '@/lib/demoMode';
-import { BOT_COLUMN_DESCRIPTIONS } from '@/lib/botColumnDescriptions';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -675,7 +675,7 @@ const GridBots: React.FC = () => {
           header: 'NAME',
           meta: {
             filterType: 'string',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.name,
+            description: BOT_METRIC_DESCRIPTIONS.grid.name,
           },
           cell: ({ getValue, row }) => {
             const name = getValue() as string;
@@ -687,7 +687,7 @@ const GridBots: React.FC = () => {
           id: 'coinPair',
           header: 'COIN PAIR',
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.coinPair,
+            description: BOT_METRIC_DESCRIPTIONS.grid.coinPair,
             filterType: 'array',
             getFilterValue: (row: unknown) => {
               const bot = row as Record<string, unknown>;
@@ -726,7 +726,7 @@ const GridBots: React.FC = () => {
           accessorKey: 'budget',
           header: 'BUDGET',
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.budget,
+            description: BOT_METRIC_DESCRIPTIONS.grid.budget,
             filterType: 'number',
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
@@ -746,7 +746,7 @@ const GridBots: React.FC = () => {
           accessorKey: 'value',
           header: 'CURRENT VALUE',
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.currentValue,
+            description: BOT_METRIC_DESCRIPTIONS.grid.currentValue,
             filterType: 'number',
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
@@ -768,9 +768,9 @@ const GridBots: React.FC = () => {
         {
           id: 'valueChange',
           header: 'NET PNL',
-          accessorFn: (row) => row.valueChangeUsd || 0,
+          accessorFn: (row) => row.valueChangeUsdNumber || 0,
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.netPnl,
+            description: BOT_METRIC_DESCRIPTIONS.grid.netPnl,
             filterType: 'number',
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
@@ -781,7 +781,7 @@ const GridBots: React.FC = () => {
               return <Skeleton className="h-4 w-16" />;
             }
             const bot = row.original;
-            const valueChangeUsd = +(bot.valueChangeUsd || 0);
+            const valueChangeUsd = bot.valueChangeUsdNumber || 0;
             const valueChangePerc = +(bot.valueChange || 0);
             return (
               <ProfitAndPerc
@@ -808,11 +808,57 @@ const GridBots: React.FC = () => {
           ),
         },
         {
+          id: 'unrealizedPnl',
+          header: 'UNREALIZED PNL',
+          accessorFn: (row) => row.unrealizedPnlUsd || 0,
+          meta: {
+            description: BOT_METRIC_DESCRIPTIONS.grid.unrealizedPnl,
+            filterType: 'number',
+            enableTotalsRow: true,
+            totalsDefaultAggregation: 'sum',
+          },
+          aggregationFn: 'sum',
+          cell: ({ row }) => {
+            if (row.original.isActive && row.original.loadedPrices === false) {
+              return <Skeleton className="h-4 w-16" />;
+            }
+            const bot = row.original;
+            const unrealized = bot.unrealizedPnlUsd || 0;
+            // Measured against what the bot started with, the same basis Net
+            // PnL uses beside it.
+            const initialBalance = bot.initialBalanceUsd || 0;
+            const percentage =
+              initialBalance > 0 ? (unrealized / initialBalance) * 100 : 0;
+            return (
+              <ProfitAndPerc
+                value={unrealized}
+                percentage={percentage}
+                privacyMode={privacyMode}
+                chipPosition="right"
+                size="sm"
+              />
+            );
+          },
+          footerValue: (value: number) => (
+            <span
+              className={
+                privacyMode
+                  ? 'text-muted-foreground font-bold'
+                  : value >= 0
+                    ? 'text-success font-bold'
+                    : 'text-destructive font-bold'
+              }
+            >
+              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            </span>
+          ),
+        },
+        {
           id: 'avgDaily',
           header: 'AVG DAILY',
           accessorFn: (row) => row.avgDaily || 0,
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.avgDaily,
+            description: BOT_METRIC_DESCRIPTIONS.grid.avgDaily,
             filterType: 'number',
             enableTotalsRow: true,
             totalsDefaultAggregation: 'average',
@@ -851,7 +897,7 @@ const GridBots: React.FC = () => {
           header: 'ANNUALIZED RETURN',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.annualizedReturn,
+            description: BOT_METRIC_DESCRIPTIONS.grid.annualizedReturn,
           },
           cell: ({ row }) => {
             const annualizedReturnPerc = row.original.annualizedReturn ?? 0;
@@ -872,7 +918,7 @@ const GridBots: React.FC = () => {
           header: 'REALIZED PNL, $',
           accessorFn: (row) => row.profit.totalUsd || 0,
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.realizedPnl,
+            description: BOT_METRIC_DESCRIPTIONS.grid.realizedPnl,
             filterType: 'number',
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
@@ -881,7 +927,11 @@ const GridBots: React.FC = () => {
           cell: ({ row }) => {
             const bot = row.original;
             const totalProfit = bot.profit.totalUsd || 0;
-            const profitPerc = bot.profitPerc || 0;
+            // `profitPerc` is FREE profit over the initial balance, so it
+            // under-reported the dollar figure beside it on any running bot
+            // holding unreleased profit. `fullProfitPerc` is the same
+            // numerator as `totalProfit`.
+            const profitPerc = bot.fullProfitPerc || 0;
             return (
               <ProfitAndPerc
                 value={totalProfit}
@@ -911,7 +961,7 @@ const GridBots: React.FC = () => {
           header: 'TRANSACTIONS',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.transactions,
+            description: BOT_METRIC_DESCRIPTIONS.grid.transactions,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -926,7 +976,7 @@ const GridBots: React.FC = () => {
           header: 'CREATED',
           meta: {
             filterType: 'string',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.created,
+            description: BOT_METRIC_DESCRIPTIONS.grid.created,
           },
           cell: ({ getValue }) => {
             const created = getValue() as string;
@@ -939,7 +989,7 @@ const GridBots: React.FC = () => {
           header: 'TRADING TIME',
           meta: {
             filterType: 'string',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.tradingTime,
+            description: BOT_METRIC_DESCRIPTIONS.grid.tradingTime,
           },
         },
         {
@@ -947,7 +997,7 @@ const GridBots: React.FC = () => {
           header: 'TOTAL GRIDS',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.totalGrids,
+            description: BOT_METRIC_DESCRIPTIONS.grid.totalGrids,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -959,7 +1009,7 @@ const GridBots: React.FC = () => {
           header: 'GRID LEVELS',
           meta: {
             filterType: 'string',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.gridLevels,
+            description: BOT_METRIC_DESCRIPTIONS.grid.gridLevels,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -970,7 +1020,7 @@ const GridBots: React.FC = () => {
           accessorKey: 'exchangeUUID',
           header: 'EXCHANGE',
           meta: {
-            description: BOT_COLUMN_DESCRIPTIONS.grid.exchange,
+            description: BOT_METRIC_DESCRIPTIONS.grid.exchange,
             filterType: 'array',
             getFilterValue: (row: unknown) => {
               const bot = row as Record<string, unknown>;
@@ -1013,7 +1063,7 @@ const GridBots: React.FC = () => {
           header: 'BOT STATUS',
           meta: {
             filterType: 'string',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.status,
+            description: BOT_METRIC_DESCRIPTIONS.grid.status,
           },
           cell: ({ getValue, row }) => {
             const status = getValue() as string;
@@ -1047,7 +1097,7 @@ const GridBots: React.FC = () => {
           header: 'DRAWDOWN',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.drawdown,
+            description: BOT_METRIC_DESCRIPTIONS.grid.drawdown,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -1066,7 +1116,7 @@ const GridBots: React.FC = () => {
           header: 'RUN UP',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.runUp,
+            description: BOT_METRIC_DESCRIPTIONS.grid.runUp,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -1081,7 +1131,7 @@ const GridBots: React.FC = () => {
           header: 'TIME IN LOSS',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.timeInLoss,
+            description: BOT_METRIC_DESCRIPTIONS.grid.timeInLoss,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -1102,7 +1152,7 @@ const GridBots: React.FC = () => {
           header: 'TIME IN PROFIT',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.timeInProfit,
+            description: BOT_METRIC_DESCRIPTIONS.grid.timeInProfit,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -1123,7 +1173,7 @@ const GridBots: React.FC = () => {
           header: 'CREDITS COST',
           meta: {
             filterType: 'number',
-            description: BOT_COLUMN_DESCRIPTIONS.grid.creditsCost,
+            description: BOT_METRIC_DESCRIPTIONS.grid.creditsCost,
           },
           cell: ({ row }) => {
             const bot = row.original;
@@ -1135,7 +1185,7 @@ const GridBots: React.FC = () => {
           id: 'botId',
           accessorFn: (row) => row.id,
           header: 'BOT ID',
-          meta: { description: BOT_COLUMN_DESCRIPTIONS.grid.botId },
+          meta: { description: BOT_METRIC_DESCRIPTIONS.grid.botId },
           cell: ({ row }) => {
             const value = row.original.id;
             if (!value)

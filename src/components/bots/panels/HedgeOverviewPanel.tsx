@@ -11,6 +11,8 @@ import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
 import { useMemo } from 'react';
 
 import { ProfitAndPerc, ProfitLossPercChip } from '@/components/ui/chip';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import { getDrawerWidgetsForBot } from '@/components/bots/drawerWidgetConfig';
 import DrawerWidgetRenderer from '@/components/widgets/bots/drawer/DrawerWidgetRenderer';
 import type { DrawerBot } from '@/types/bots/drawer';
@@ -30,12 +32,20 @@ const NON_OVERVIEW_WIDGETS = [
 const money = (value: number, privacy?: boolean): string =>
   privacy ? '***' : `$${value.toFixed(2)}`;
 
-const StatTile: React.FC<{ label: string; children: React.ReactNode }> = ({
-  label,
-  children,
-}) => (
+const StatTile: React.FC<{
+  label: string;
+  tooltip?: string;
+  children: React.ReactNode;
+}> = ({ label, tooltip, children }) => (
   <div className="rounded-lg bg-muted p-sm">
-    <div className="text-xs text-muted-foreground">{label}</div>
+    <div className="flex items-center gap-1 text-xs text-muted-foreground">
+      {label}
+      {tooltip && (
+        <Tooltip tooltip={tooltip} side="top">
+          <InfoIcon />
+        </Tooltip>
+      )}
+    </div>
     <div className="mt-0.5 text-sm font-semibold">{children}</div>
   </div>
 );
@@ -154,13 +164,13 @@ const HedgeOverviewPanel: React.FC<HedgeOverviewPanelProps> = ({
           </span>
         </div>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-          <StatTile label="Cost">{money(currentValue, privacyMode)}</StatTile>
-          <StatTile label="Max cost">
+          <StatTile label="Cost" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.currentCost}>{money(currentValue, privacyMode)}</StatTile>
+          <StatTile label="Max cost" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.maxCost}>
             <span className="text-muted-foreground">
               {money(maxValue, privacyMode)}
             </span>
           </StatTile>
-          <StatTile label="Unrealized PnL">
+          <StatTile label="Unrealized PnL" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.unrealizedPnl}>
             <ProfitAndPerc
               value={unPnlValue}
               percentage={unPnlPerc}
@@ -169,7 +179,7 @@ const HedgeOverviewPanel: React.FC<HedgeOverviewPanelProps> = ({
               size="sm"
             />
           </StatTile>
-          <StatTile label="Total profit">
+          <StatTile label="Realized PnL" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.realizedPnl}>
             <ProfitAndPerc
               value={totalProfitUsd}
               percentage={0}
@@ -178,7 +188,7 @@ const HedgeOverviewPanel: React.FC<HedgeOverviewPanelProps> = ({
               size="sm"
             />
           </StatTile>
-          <StatTile label="Avg daily">
+          <StatTile label="Avg daily" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.avgDaily}>
             <ProfitAndPerc
               value={avgDaily}
               percentage={avgDailyPerc}

@@ -3,6 +3,7 @@ import {
   ResponsiveCurrencyValue,
   type FontStep,
 } from '@/components/ui/ResponsiveCurrencyValue';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useComboBots } from '@/hooks/useComboBots';
 import { useDcaBots } from '@/hooks/useDcaBots';
@@ -636,8 +637,15 @@ export const HeroBalance: React.FC = () => {
           )}
         </div>
         <div className="flex flex-col gap-1 rounded-xl bg-muted/60 px-md py-sm">
-          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            uPnL
+          <span className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            Unrealized PnL
+            <Tooltip
+              tooltip="Open profit or loss across every deal running right now, on all your bots."
+              side="top"
+              className="normal-case"
+            >
+              <InfoIcon />
+            </Tooltip>
           </span>
           {privacyMode ? (
             <span className="text-lg font-semibold">***</span>
@@ -652,8 +660,15 @@ export const HeroBalance: React.FC = () => {
           )}
         </div>
         <div className="flex flex-col gap-1 rounded-xl bg-muted/60 px-md py-sm">
-          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">
-            Total profit
+          <span className="flex items-center gap-1 text-[11px] uppercase tracking-wide text-muted-foreground">
+            Realized PnL
+            <Tooltip
+              tooltip="Profit banked from closed deals across every bot type and the trading terminal. Deals still running are in Unrealized PnL."
+              side="top"
+              className="normal-case"
+            >
+              <InfoIcon />
+            </Tooltip>
           </span>
           {privacyMode ? (
             <span className="text-lg font-semibold">***</span>

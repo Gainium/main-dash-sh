@@ -1,5 +1,39 @@
 # Changelog
 
+## [2.51.3] - 2026-09-03
+
+### Added
+
+- Grid bots get an **Unrealized PnL** column and hedge bots get a **Net
+  PnL** column, so all five bot lists now decompose profit the same way:
+  Realized + Unrealized = Net.
+- The bot drawer, the bot-list stat boxes, the dashboard KPIs and the grid
+  data page explain every figure on hover, the way the list columns already
+  do.
+
+### Changed
+
+- One vocabulary everywhere a bot's money is shown, not just in the lists:
+  the drawer, the grid Funds Overview ("Total P&L" → Net PnL), the
+  Performance and Profit Analysis widgets, the per-list stat boxes ("Total
+  P&L" → Realized PnL) and the dashboard KPIs ("uPnL" → Unrealized PnL,
+  "Total profit" → Realized PnL).
+- The drawer's Performance Analysis widget showed a figure labelled "Total
+  Profit" and captioned "Realized + Unrealized" that was neither — it is the
+  bot's realized profit. It now says Realized PnL, beside its Unrealized and
+  Net counterparts.
+- Unrealized PnL is no longer repeated in the drawer's Current Positions
+  section; it sits once, next to the realized and net figures it decomposes.
+
+### Fixed
+
+- A grid bot's Net PnL read as NaN, and sorted as text, once it passed
+  $10,000. The figure was formatted for display ("12.3K") before anything
+  numeric consumed it.
+- The grid **Realized PnL** column paired a total-profit dollar figure with
+  a free-profit percentage, so the percentage under-reported the amount
+  printed beside it on any running bot holding unreleased profit.
+
 ## [2.51.2] - 2026-09-03
 
 ### Changed

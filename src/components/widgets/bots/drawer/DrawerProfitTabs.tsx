@@ -4,6 +4,7 @@ import { BarChart2, DollarSign } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 /* import { getLocalPrices } from '../../../../helper/price'; */
 /* import { useComboBots } from '../../../../hooks/useComboBots';
 import { useDcaBots } from '../../../../hooks/useDcaBots'; */
@@ -409,9 +410,13 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
   const transformedBot = useMemo(() => botProp, [botProp]);
 
   const botWithUnrealizedPnl = transformedBot as BotWithUnrealizedPnl | null;
+  // Grid bots carry `unrealizedPnlUsd` too now, but their open PnL is already
+  // one of the three overview cards below — this section would repeat it, and
+  // "open trades" means nothing on a grid.
   const hasUnrealizedPnl =
-    botWithUnrealizedPnl?.unrealizedPnlUsd !== undefined ||
-    botWithUnrealizedPnl?.unrealizedPnl !== undefined;
+    !isGrid &&
+    (botWithUnrealizedPnl?.unrealizedPnlUsd !== undefined ||
+      botWithUnrealizedPnl?.unrealizedPnl !== undefined);
 
   // Use consistent value calculation from transformation layer (same as table and card views)
   const valueMetrics = useMemo(() => {
@@ -734,32 +739,19 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
 
   // Profit Overview Section - Primary metrics
   const profitOverviewCards: MetricCardProps[] = [
-    // Grid bots: show Value Change (USD diff); Others: show Current Value
-    {
-      label: isGrid ? 'Value Change' : 'Current Value',
-      value:
-        !isGrid && pricesLoading ? (
-          <Skeleton className="h-4 w-20" />
-        ) : (
-          <ProfitAndPerc
-            value={
-              isGrid
-                ? parseFloat(transformedBot?.valueChangeUsd || '0') || 0
-                : valueMetrics.currentValue
-            }
-            percentage={valueMetrics.currentValuePercent}
-            privacyMode={privacyMode}
-            chipPosition="right"
-            size="sm"
-          />
-        ),
-      valueClassName: 'text-sm font-semibold',
-    },
-    // Grid bots: show Bot Profit + Bot Free Profit; Others: show Total Profit
+    // Realized / Unrealized / Net, in that order, on every bot type — the
+    // same three the bot lists show, from the same fields. Grid derives its
+    // unrealized leg from net minus realized; DCA and Combo carry `unPnl`.
     ...(isGrid
       ? ([
           {
-            label: 'Bot Profit',
+            label: 'Current Value',
+            value: formatCurrency(transformedBot?.value ?? 0, 2),
+            tooltip: BOT_METRIC_DESCRIPTIONS.grid.currentValue,
+            valueClassName: 'text-sm font-semibold text-foreground',
+          },
+          {
+            label: 'Realized PnL',
             value: (
               <ProfitAndPerc
                 value={rawBot?.profit?.totalUsd || 0}
@@ -769,10 +761,45 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 size="sm"
               />
             ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.grid.realizedPnl,
             valueClassName: 'text-sm font-semibold',
           },
           {
-            label: 'Bot Free Profit',
+            label: 'Unrealized PnL',
+            value: (
+              <ProfitAndPerc
+                value={transformedBot?.unrealizedPnlUsd || 0}
+                percentage={
+                  (transformedBot?.initialBalanceUsd || 0) > 0
+                    ? ((transformedBot?.unrealizedPnlUsd || 0) /
+                        (transformedBot?.initialBalanceUsd || 1)) *
+                      100
+                    : 0
+                }
+                privacyMode={privacyMode}
+                chipPosition="right"
+                size="sm"
+              />
+            ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.grid.unrealizedPnl,
+            valueClassName: 'text-sm font-semibold',
+          },
+          {
+            label: 'Net PnL',
+            value: (
+              <ProfitAndPerc
+                value={transformedBot?.valueChangeUsdNumber || 0}
+                percentage={valueMetrics.currentValuePercent}
+                privacyMode={privacyMode}
+                chipPosition="right"
+                size="sm"
+              />
+            ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.grid.netPnl,
+            valueClassName: 'text-sm font-semibold',
+          },
+          {
+            label: 'Free Profit',
             value: (
               <ProfitAndPerc
                 value={
@@ -788,12 +815,14 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 size="sm"
               />
             ),
+            tooltip:
+              'The part of the realized profit the bot has released for withdrawal. A running bot keeps the rest working in the grid, so this is at or below Realized PnL.',
             valueClassName: 'text-sm font-semibold',
           },
         ] as MetricCardProps[])
-      : [
+      : ([
           {
-            label: 'Total Profit',
+            label: 'Realized PnL',
             value: (
               <ProfitAndPerc
                 value={rawBot?.profit?.totalUsd || 0}
@@ -803,11 +832,57 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 size="sm"
               />
             ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.dca.realizedPnl,
             valueClassName: 'text-sm font-semibold',
           },
-        ]),
+          {
+            label: 'Unrealized PnL',
+            value: pricesLoading ? (
+              <Skeleton className="h-4 w-20" />
+            ) : (
+              <ProfitAndPerc
+                value={valueMetrics.currentValue}
+                percentage={valueMetrics.currentValuePercent}
+                privacyMode={privacyMode}
+                chipPosition="right"
+                size="sm"
+              />
+            ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl,
+            valueClassName: 'text-sm font-semibold',
+          },
+          {
+            label: 'Net PnL',
+            value: pricesLoading ? (
+              <Skeleton className="h-4 w-20" />
+            ) : (
+              <ProfitAndPerc
+                value={
+                  (rawBot?.profit?.totalUsd || 0) + valueMetrics.currentValue
+                }
+                percentage={
+                  (rawBot?.currentValue || 0) > 0
+                    ? (((rawBot?.profit?.totalUsd || 0) +
+                        valueMetrics.currentValue) /
+                        (rawBot?.currentValue || 1)) *
+                      100
+                    : 0
+                }
+                privacyMode={privacyMode}
+                chipPosition="right"
+                size="sm"
+              />
+            ),
+            tooltip: BOT_METRIC_DESCRIPTIONS.dca.netPnl,
+            valueClassName: 'text-sm font-semibold',
+          },
+        ] as MetricCardProps[])),
     {
       label: 'Invested Amount',
+      tooltip:
+        botType === 'grid'
+          ? 'The budget you allocated to this bot.'
+          : "The money deployed in this bot's open deals right now.",
       value: formatCurrency(
         botType === 'grid'
           ? (transformedBot?.budget ?? 0)
@@ -820,11 +895,14 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
       ? ([
           {
             label: 'Annual Return',
+            tooltip: BOT_METRIC_DESCRIPTIONS[isGrid ? 'grid' : 'dca']
+              .annualizedReturn,
             value: <ProfitLossPercChip value={annualizedReturn} size="sm" />,
             valueClassName: 'text-sm font-semibold',
           },
           {
             label: 'Avg Daily Return',
+            tooltip: BOT_METRIC_DESCRIPTIONS[isGrid ? 'grid' : 'dca'].avgDaily,
             value: (
               <ProfitAndPerc
                 value={transformedBot?.avgDaily || 0}
@@ -843,6 +921,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
       ? ([
           {
             label: 'Deals',
+            tooltip: BOT_METRIC_DESCRIPTIONS.dca.deals,
             value: `${(rawBot as DCABot)?.dealsInBot?.active ?? 0} / ${profitMetrics.totalDeals}`,
             valueClassName: 'text-sm font-semibold text-foreground',
           },
@@ -858,6 +937,8 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
           ? [
               {
                 label: 'Max Equity Drawdown',
+                tooltip:
+                  "The deepest fall from a peak in the bot's equity curve, as a percentage of that peak.",
                 value: (
                   <ProfitLossPercChip
                     value={-Math.abs(
@@ -872,6 +953,8 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
           : []),
         {
           label: 'Win Rate',
+          tooltip:
+            'Share of closed deals that finished in profit. Deals still open are not counted.',
           value: (
             <ProfitLossPercChip
               value={performanceMetrics.winRate}
@@ -897,6 +980,8 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
         },
         {
           label: 'Profit Factor',
+          tooltip:
+            'Gross profit from winning deals ÷ gross loss from losing deals. Above 1 means the winners outweigh the losers; ∞ means there are no losers yet.',
           value:
             performanceMetrics.profitFactor === Infinity
               ? '∞'
@@ -907,25 +992,15 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
       ]
     : [];
 
+  // Unrealized PnL itself lives in the overview above, alongside the realized
+  // and net figures it decomposes — repeating it here invited the reader to
+  // treat the two as different quantities.
   const unrealizedMetricCards: MetricCardProps[] = hasUnrealizedPnl
     ? [
         {
-          label: 'Unrealized P&L',
-          value: pricesLoading ? (
-            <Skeleton className="h-4 w-20" />
-          ) : (
-            <ProfitAndPerc
-              value={botWithUnrealizedPnl?.unrealizedPnlUsd || 0}
-              percentage={botWithUnrealizedPnl?.unrealizedPnlPercent || 0}
-              privacyMode={privacyMode}
-              chipPosition="right"
-              size="sm"
-            />
-          ),
-          valueClassName: 'text-sm font-semibold',
-        },
-        {
           label: 'Open Trades',
+          tooltip:
+            'Deals this bot has running right now. Their profit or loss is the Unrealized PnL above.',
           value: (
             botWithUnrealizedPnl?.openTrades ||
             (rawBot as DCABot)?.dealsInBot?.active ||

@@ -4,6 +4,8 @@ import { useCallback } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import type { GridBotSummaryMetrics, GridCurrency } from '@/types/bots/grid';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 
 interface SummaryHeaderProps {
   botName: string;
@@ -123,7 +125,15 @@ export const SummaryHeader: React.FC<SummaryHeaderProps> = ({
       <div className="grid gap-sm sm:grid-cols-2 lg:grid-cols-4">
         <div className="rounded-lg border border-border/60 bg-background/40 p-md">
           <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Total Profit</span>
+            <span className="flex items-center gap-1">
+              Realized PnL
+              <Tooltip
+                tooltip={BOT_METRIC_DESCRIPTIONS.grid.realizedPnl}
+                side="top"
+              >
+                <InfoIcon />
+              </Tooltip>
+            </span>
             <ArrowUpRight className="h-3.5 w-3.5 text-success" />
           </div>
           <div className="mt-2 text-lg font-semibold">

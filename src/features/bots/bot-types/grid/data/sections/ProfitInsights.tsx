@@ -1,4 +1,6 @@
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
+import { InfoIcon, Tooltip as InfoTooltip } from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import { Target, TrendingDown, TrendingUp, Trophy } from 'lucide-react';
 import React, { useMemo } from 'react';
 import {
@@ -33,6 +35,7 @@ interface MetricCardProps {
   value: string;
   subLabel?: string;
   icon?: React.ReactNode;
+  tooltip?: string;
   tone?: 'positive' | 'negative' | 'neutral';
 }
 
@@ -41,6 +44,7 @@ const MetricCard: React.FC<MetricCardProps> = ({
   value,
   subLabel,
   icon,
+  tooltip,
   tone = 'neutral',
 }) => {
   const toneClass =
@@ -53,7 +57,14 @@ const MetricCard: React.FC<MetricCardProps> = ({
   return (
     <div className="rounded-lg border border-border/60 bg-card/60 p-md">
       <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span className="uppercase tracking-wide">{label}</span>
+        <span className="flex items-center gap-1 uppercase tracking-wide">
+          {label}
+          {tooltip && (
+            <InfoTooltip tooltip={tooltip} side="top" className="normal-case">
+              <InfoIcon />
+            </InfoTooltip>
+          )}
+        </span>
         {icon}
       </div>
       <div className={`mt-2 text-lg font-semibold ${toneClass}`}>{value}</div>
@@ -131,7 +142,8 @@ export const ProfitInsights: React.FC<ProfitInsightsProps> = ({
 
       <div className="grid gap-sm sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard
-          label="Total Profit"
+          label="Realized PnL"
+          tooltip={BOT_METRIC_DESCRIPTIONS.grid.realizedPnl}
           value={totalProfit}
           icon={<Target className="h-4 w-4 text-info" />}
           tone={totalProfitRaw >= 0 ? 'positive' : 'negative'}

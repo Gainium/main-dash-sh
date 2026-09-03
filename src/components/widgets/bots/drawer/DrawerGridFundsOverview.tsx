@@ -403,8 +403,8 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                   {formatValue(data.currentValueUsd, '$')} USD
                 </FundsRow>
                 <FundsRow
-                  label="Total P&L"
-                  tooltip="Total profit or loss achieved by the bot."
+                  label="Net PnL"
+                  tooltip="Everything this bot has made: what it holds now minus what it started with — booked grid profit plus the change in value of the inventory it still holds."
                 >
                   <span
                     className={
@@ -460,7 +460,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                 </FundsRow>
                 <FundsRow
                   label="Value change"
-                  tooltip="The difference between the bot's initial value and current value."
+                  tooltip="What the funds you started with would be worth now if you had simply held them, against what they were worth at the start. This is the market's move on your starting balances — the bot's own result is Net PnL above."
                 >
                   <span
                     className={

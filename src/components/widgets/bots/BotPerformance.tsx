@@ -1,3 +1,4 @@
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
 import { WidgetWrapper, type WidgetMenuActions } from '../WidgetWrapper';
@@ -191,8 +192,14 @@ const BotPerformance: React.FC<BotPerformanceProps> = ({
                   {performanceMetrics.totalProfit >= 0 ? '+' : ''}$
                   {performanceMetrics.totalProfit.toFixed(2)}
                 </div>
-                <div className="text-sm text-muted-foreground">
-                  Total Profit & Loss
+                <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
+                  Realized PnL
+                  <Tooltip
+                    tooltip="Profit banked across these bots' closed deals. Deals still running are not counted."
+                    side="top"
+                  >
+                    <InfoIcon />
+                  </Tooltip>
                 </div>
               </div>
 

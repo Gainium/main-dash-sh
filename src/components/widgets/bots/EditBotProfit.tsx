@@ -10,6 +10,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { InfoIcon, Tooltip as InfoTooltip } from '@/components/ui/tooltip';
 import React, { useMemo, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import {
@@ -690,7 +691,7 @@ const EditBotProfit: React.FC<EditBotProfitProps> = ({
           differencePercent: 0, // Not applicable for total
           average: dailyAvg,
           total,
-          currentLabel: 'Total Profit',
+          currentLabel: 'Realized PnL',
           previousLabel: 'Daily',
           averageLabel: 'Weekly',
           extraMetric: monthlyAvg, // Monthly average
@@ -980,8 +981,14 @@ const EditBotProfit: React.FC<EditBotProfitProps> = ({
               <h4 className="text-md font-semibold">Total Overview</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                 <div className="text-center p-md bg-muted/50 rounded-lg">
-                  <div className="text-sm text-muted-foreground mb-1">
-                    Total Profit
+                  <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground mb-1">
+                    Realized PnL
+                    <InfoTooltip
+                      tooltip="Profit banked from this bot's closed deals over the whole period. Open deals are not counted."
+                      side="top"
+                    >
+                      <InfoIcon />
+                    </InfoTooltip>
                   </div>
                   <div className="text-2xl font-bold text-foreground">
                     {formatCurrency(dynamicMetrics.total)}

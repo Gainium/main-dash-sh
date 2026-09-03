@@ -27,6 +27,11 @@ import {
   YAxis,
 } from 'recharts';
 import {
+  InfoIcon,
+  Tooltip as InfoTooltip,
+} from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
+import {
   Tabs,
   TabsContent,
   TabsList,
@@ -460,7 +465,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
       ? botProfitFromData
       : profitFromDeals;
 
-  // Get unrealized P&L (VALUE field) from calculation
+  // Unrealized PnL — open positions only.
   const unrealizedPnL = calculatedBotValue?.unrealizedValue || 0;
 
   // Use current usage for invested amount (prioritize usage over assets over initial balances)
@@ -919,15 +924,23 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
               </div>
             </div>
 
-            {/* Additional Metrics Row - Total Profit vs Unrealized P&L */}
-            <div className="grid grid-cols-2 gap-md pb-6 border-b border-border">
-              {/* Total Profit (Realized + Unrealized) */}
+            {/* Realized / Unrealized / Net — the same three the bot lists
+                show. This block used to label the realized figure "Total
+                Profit" and caption it "Realized + Unrealized", which it has
+                never been: `totalProfitUsd` is the bot's booked profit. */}
+            <div className="grid grid-cols-1 gap-md pb-6 border-b border-border sm:grid-cols-3">
               <div className="bg-card/50 rounded-lg p-md">
                 <div className="flex items-center gap-xs mb-2">
                   <DollarSign className="w-4 h-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground font-medium">
-                    Total Profit
+                    Realized PnL
                   </span>
+                  <InfoTooltip
+                    tooltip={BOT_METRIC_DESCRIPTIONS.dca.realizedPnl}
+                    side="top"
+                  >
+                    <InfoIcon />
+                  </InfoTooltip>
                 </div>
                 <div
                   className={`text-xl font-bold ${
@@ -937,17 +950,22 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                   ${totalProfitUsd.toFixed(2)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Realized + Unrealized P&L
+                  Closed deals only
                 </div>
               </div>
 
-              {/* Unrealized P&L (VALUE field from table/card views) */}
               <div className="bg-card/50 rounded-lg p-md">
                 <div className="flex items-center gap-xs mb-2">
                   <TrendingUp className="w-4 h-4 text-muted-foreground" />
                   <span className="text-xs text-muted-foreground font-medium">
-                    Unrealized P&L
+                    Unrealized PnL
                   </span>
+                  <InfoTooltip
+                    tooltip={BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl}
+                    side="top"
+                  >
+                    <InfoIcon />
+                  </InfoTooltip>
                 </div>
                 <div
                   className={`text-xl font-bold ${
@@ -957,7 +975,34 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                   ${unrealizedPnL.toFixed(2)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
-                  Current balance vs initial balance
+                  Open deals only
+                </div>
+              </div>
+
+              <div className="bg-card/50 rounded-lg p-md">
+                <div className="flex items-center gap-xs mb-2">
+                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                  <span className="text-xs text-muted-foreground font-medium">
+                    Net PnL
+                  </span>
+                  <InfoTooltip
+                    tooltip={BOT_METRIC_DESCRIPTIONS.dca.netPnl}
+                    side="top"
+                  >
+                    <InfoIcon />
+                  </InfoTooltip>
+                </div>
+                <div
+                  className={`text-xl font-bold ${
+                    totalProfitUsd + unrealizedPnL >= 0
+                      ? 'text-green-600'
+                      : 'text-red-600'
+                  }`}
+                >
+                  ${(totalProfitUsd + unrealizedPnL).toFixed(2)}
+                </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Realized + Unrealized
                 </div>
               </div>
             </div>
@@ -980,8 +1025,14 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-md">
                     {/* Main Return */}
                     <div className="text-center md:text-left">
-                      <div className="text-sm text-muted-foreground mb-1">
-                        Total Return
+                      <div className="text-sm text-muted-foreground mb-1 flex items-center justify-center gap-1 md:justify-start">
+                        Realized Return
+                        <InfoTooltip
+                          tooltip="Realized PnL ÷ the amount invested. Open deals are not included."
+                          side="top"
+                        >
+                          <InfoIcon />
+                        </InfoTooltip>
                       </div>
                       <div
                         className={`text-3xl font-bold ${

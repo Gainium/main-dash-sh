@@ -3517,6 +3517,19 @@ export type AdditionalBotData = {
   workingTime?: string;
   workingTimeNumber?: number;
   valueChangeUsd?: string;
+  /**
+   * Net PnL in USD, unformatted.
+   *
+   * `valueChangeUsd` above is passed through `math.friendly`, which
+   * abbreviates anything from 10,000 up ("12.3K"). Every consumer coerced
+   * that string back to a number, so grid bots past five figures rendered
+   * NaN and sorted as text. Read these two instead.
+   */
+  valueChangeUsdNumber?: number;
+  /** Open PnL on the inventory the grid still holds: net − realized. */
+  unrealizedPnlUsd?: number;
+  /** What the grid started with, in USD — the basis its percentages use. */
+  initialBalanceUsd?: number;
   profitTodayPerc?: string;
   avgDaily?: number;
   avgDailyFriendly?: string;

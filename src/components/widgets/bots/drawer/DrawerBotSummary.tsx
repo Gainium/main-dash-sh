@@ -1,4 +1,6 @@
 import type { DrawerBot } from '@/types/bots/drawer';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import {
   Activity,
   Award,
@@ -171,13 +173,29 @@ export const DrawerBotSummary: React.FC<DrawerBotSummaryProps> = ({
         </div>
         <div className="mt-1 grid gap-sm sm:grid-cols-2">
           <div>
-            <div className="text-xs text-muted-foreground">Total value</div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              Current value
+              <Tooltip
+                tooltip={BOT_METRIC_DESCRIPTIONS.grid.currentValue}
+                side="top"
+              >
+                <InfoIcon />
+              </Tooltip>
+            </div>
             <div className="text-sm font-semibold text-foreground">
               {formatMaybeCurrency(bot.value)}
             </div>
           </div>
           <div>
-            <div className="text-xs text-muted-foreground">Unrealized PnL</div>
+            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+              Unrealized PnL
+              <Tooltip
+                tooltip={BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl}
+                side="top"
+              >
+                <InfoIcon />
+              </Tooltip>
+            </div>
             <div className="text-sm font-semibold text-foreground">
               {formatMaybeCurrency(bot.unPnl)}
             </div>

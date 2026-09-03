@@ -36,13 +36,16 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
   const boxes: StatBox[] = [
     {
       title: 'Active Bots',
+      tooltip: 'Bots with something open right now, out of the bots running.',
       value: privacyMode ? '***' : `${stats.activeBots}/${stats.runningBots}`,
       subtitle: activitySubtitle,
       icon: <Activity className="w-4 h-4" />,
       isLoading,
     },
     {
-      title: 'Total P&L',
+      title: 'Realized PnL',
+      tooltip:
+        'Profit banked from closed deals across the bots in this list. Deals still running are not counted — those show as Unrealized PnL on each bot.',
       value: privacyMode ? '***' : `$${stats.totalProfit.toFixed(2)}`,
       subtitle: privacyMode
         ? '***'
@@ -56,6 +59,8 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
     },
     {
       title: 'Capital Deployed',
+      tooltip:
+        'Money these bots have working in open deals right now, and how much of their combined maximum that is.',
       value: privacyMode ? '***' : `$${stats.capitalDeployed.toFixed(0)}`,
       subtitle: privacyMode
         ? '***'
