@@ -56,8 +56,13 @@ jobs:
         if: always()
         run: npm run verify:forms
 
-      # These are pure-function tests — none request Playwright's page/browser
-      # fixture, so no browser download is needed.
+      # Most of these are pure-function tests, but a couple (e.g. the PEM
+      # secret-normalization suite) do request Playwright's page/browser
+      # fixture, so the browser binary has to be present.
+      - name: Install Playwright browser
+        if: always()
+        run: npx playwright install --with-deps chromium
+
       - name: Unit tests
         if: always()
         run: npm run test:unit
