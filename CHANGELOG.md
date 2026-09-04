@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.51.6] - 2026-09-04
+
+### Fixed
+
+- The per-pair table at the bottom of a bot's Statistics tab no longer goes
+  missing. On a busy multi-pair bot the tab could open with every other block
+  present but no Pairs breakdown at all, because a live stats update from the
+  bot made the tab skip fetching the per-pair rows. Live updates now carry the
+  per-pair figures too, so the table also refreshes as deals close.
+
 ## [2.51.5] - 2026-09-04
 
 ### Fixed

@@ -3,10 +3,15 @@ import { devtools } from 'zustand/middleware';
 import logger from '../../lib/loggerInstance';
 import type { CalculatedBotStats } from '../../services/metrics/BotMetricsCalculator';
 import type { BotStatsUpdate } from '../../services/websocket/BotWebSocketManager';
+import type { BotSymbolsStats } from '../../types';
 
 interface BotStatsState {
   // Bot statistics by bot ID
   botStats: Record<string, CalculatedBotStats>;
+
+  // Per-pair statistics by bot ID, from the same `bot stats update` frame.
+  // Kept beside `botStats` because `CalculatedBotStats` has no slot for them.
+  botSymbolStats: Record<string, BotSymbolsStats[]>;
 
   // Loading states
   loading: Record<string, boolean>;
@@ -33,6 +38,7 @@ export const useBotStatsStore = create<BotStatsState>()(
   devtools(
     (set, get) => ({
       botStats: {},
+      botSymbolStats: {},
       loading: {},
       errors: {},
 
@@ -54,7 +60,7 @@ export const useBotStatsStore = create<BotStatsState>()(
       },
 
       updateBotStatsFromWebSocket: (update: BotStatsUpdate) => {
-        const { botId, data } = update;
+        const { botId, data, symbolStats } = update;
 
         // Transform WebSocket data to CalculatedBotStats format
         const stats = data as unknown as CalculatedBotStats;
@@ -74,6 +80,13 @@ export const useBotStatsStore = create<BotStatsState>()(
             ...state.botStats,
             [botId]: stats,
           },
+          // main-app sends the WHOLE per-pair array on every tick, so a
+          // non-empty one replaces what we hold. An absent/empty one means
+          // "no per-pair sample in this frame" — not "forget the pairs".
+          botSymbolStats:
+            symbolStats && symbolStats.length > 0
+              ? { ...state.botSymbolStats, [botId]: symbolStats }
+              : state.botSymbolStats,
         }));
       },
 
@@ -102,11 +115,14 @@ export const useBotStatsStore = create<BotStatsState>()(
       clearBotStats: (botId: string) => {
         set((state) => {
           const { [botId]: _, ...remainingStats } = state.botStats;
+          const { [botId]: ____, ...remainingSymbolStats } =
+            state.botSymbolStats;
           const { [botId]: __, ...remainingLoading } = state.loading;
           const { [botId]: ___, ...remainingErrors } = state.errors;
 
           return {
             botStats: remainingStats,
+            botSymbolStats: remainingSymbolStats,
             loading: remainingLoading,
             errors: remainingErrors,
           };
@@ -116,6 +132,7 @@ export const useBotStatsStore = create<BotStatsState>()(
       clearAllBotStats: () => {
         set({
           botStats: {},
+          botSymbolStats: {},
           loading: {},
           errors: {},
         });

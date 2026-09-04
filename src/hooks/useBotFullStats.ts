@@ -17,11 +17,12 @@ import { useGraphQL } from './useGraphQL';
  * full block — pass it as `existing` and no request is made.
  *
  * Live updates: main-app emits `bot stats update` over the socket with this
- * exact shape whenever a bot recomputes its stats, and LiveUpdateContext
- * parks it in `botStatsStore` (`CalculatedBotStats` is a type alias of
- * `BotStats`). That is an UPDATE channel, not a hydration one — a bot that
- * hasn't closed a deal since page load never ticks — so it is used as an
- * overlay on top of the fetched snapshot, never as the only source.
+ * exact shape (`{ stats, symbolStats }`) whenever a bot recomputes its stats,
+ * and LiveUpdateContext parks BOTH halves in `botStatsStore`
+ * (`CalculatedBotStats` is a type alias of `BotStats`). That is an UPDATE
+ * channel, not a hydration one — a bot that hasn't closed a deal since page
+ * load never ticks — so it is used as an overlay on top of the fetched
+ * snapshot, never as the only source, and each half gates its own fetch.
  */
 export interface UseBotFullStatsOptions {
   botId: string | null | undefined;
@@ -45,6 +46,9 @@ export interface UseBotFullStatsResult {
 
 const hasFullStats = (stats: BotStats | undefined): boolean =>
   !!stats?.numerical?.general;
+
+const hasSymbolStats = (rows: BotSymbolsStats[] | undefined): boolean =>
+  !!rows && rows.length > 0;
 
 const pickQuery = (type: BotTypesEnum) => {
   switch (type) {
@@ -92,9 +96,21 @@ export function useBotFullStats({
   const liveStats = useBotStatsStore((s) =>
     botId ? s.botStats[botId] : undefined
   );
+  const liveSymbolStats = useBotStatsStore((s) =>
+    botId ? s.botSymbolStats[botId] : undefined
+  );
 
+  // Both blocks are gated separately: a tick that supplies `stats` says nothing
+  // about whether we hold the per-pair rows, and gating the whole request on
+  // `stats` alone meant a bot that had already ticked never fetched
+  // `symbolStats` at all — the Statistics tab rendered with no Pairs table
+  // (bug #619).
   const needFetch =
-    enabled && !!botId && !hasFullStats(existing) && !hasFullStats(liveStats);
+    enabled &&
+    !!botId &&
+    ((!hasFullStats(existing) && !hasFullStats(liveStats)) ||
+      (!hasSymbolStats(existingSymbolStats) &&
+        !hasSymbolStats(liveSymbolStats)));
 
   const builder = pickQuery(type);
   const queryKey = queryKeyFor(type);
@@ -130,9 +146,11 @@ export function useBotFullStats({
           ? existing
           : undefined;
 
-    const symbolStats =
-      fetched?.symbolStats && fetched.symbolStats.length > 0
-        ? fetched.symbolStats
+    // Same precedence as `stats`: socket > fetched snapshot > what the bot carried.
+    const symbolStats = hasSymbolStats(liveSymbolStats)
+      ? liveSymbolStats
+      : hasSymbolStats(fetched?.symbolStats)
+        ? fetched?.symbolStats
         : existingSymbolStats;
 
     return {
@@ -141,5 +159,12 @@ export function useBotFullStats({
       isLoading: needFetch && result.isLoading,
       isError: needFetch && result.isError,
     };
-  }, [result, liveStats, existing, existingSymbolStats, needFetch]);
+  }, [
+    result,
+    liveStats,
+    liveSymbolStats,
+    existing,
+    existingSymbolStats,
+    needFetch,
+  ]);
 }

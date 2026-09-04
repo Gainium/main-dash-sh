@@ -35,7 +35,12 @@ import { queryClient } from '@/lib/queryClient';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { LiveMessageToaster } from '@/components/live/LiveMessageToaster';
-import { type OrderData, type DCADeals, BotTypesEnum } from '@/types';
+import {
+  type BotSymbolsStats,
+  type OrderData,
+  type DCADeals,
+  BotTypesEnum,
+} from '@/types';
 import type { OrderType } from '@/stores/live/orderStore';
 
 interface LiveUpdateContextType {
@@ -330,6 +335,12 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
           const update: BotStatsUpdate = {
             botId: event.botId ?? '',
             data: serverData['stats'] as Record<string, unknown>,
+            // Keep the pairs. Dropping them here left `symbolStats` with no
+            // live channel at all, so the Statistics tab's Pairs table could
+            // only ever come from its own fetch (bug #619).
+            symbolStats: serverData['symbolStats'] as
+              | BotSymbolsStats[]
+              | undefined,
           };
           useBotStatsStore.getState().updateBotStatsFromWebSocket(update);
         },

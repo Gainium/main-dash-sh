@@ -1,4 +1,4 @@
-import type { BotTypesEnum } from '@/types';
+import type { BotSymbolsStats, BotTypesEnum } from '@/types';
 import { io, Socket } from 'socket.io-client';
 import { logger } from '../../lib/loggerInstance';
 import { recordSocketBreadcrumb } from '../../lib/crashBreadcrumbs';
@@ -77,6 +77,12 @@ export interface BalanceUpdate {
 export interface BotStatsUpdate {
   botId: string;
   data: Record<string, unknown>;
+  /**
+   * Per-pair stats. main-app emits `bot stats update` as
+   * `{ botId, data: { stats, symbolStats } }` (dcaHelper), so the pairs ride
+   * along with every tick; the Statistics tab's Pairs table is their consumer.
+   */
+  symbolStats?: BotSymbolsStats[];
 }
 
 export interface MinigridUpdate {
