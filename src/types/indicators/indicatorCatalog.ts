@@ -377,6 +377,7 @@ export const INDICATOR_DOCUMENTATION_URLS = {
   [IndicatorEnum.unpnl]: '/help/avp',
   [IndicatorEnum.session]: '/help/sessions',
   [IndicatorEnum.lw]: '/help/long-wick-detector',
+  [IndicatorEnum.mg]: '/help/mcginley-dynamic',
 } satisfies Partial<Record<IndicatorEnum, string>>;
 
 export const MARKET_STRUCTURE_VALUE_GROUPS = {
@@ -1378,6 +1379,43 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue',
         label: 'Value',
         defaultValue: 70,
+        step: 1,
+        allowVariables: true,
+      }),
+      keepConditionBarsField,
+    ],
+  },
+  [IndicatorEnum.mg]: {
+    type: IndicatorEnum.mg,
+    label: 'McGinley Dynamic',
+    shortLabel: 'MG',
+    category: IndicatorCategories.Trend,
+    description:
+      'A self-adjusting moving average that speeds up in fast markets and slows down in flat ones, tracking price more closely than a fixed-period moving average.',
+    supportedActions: ALL_INDICATOR_SUPPORTED_ACTIONS,
+    fields: [
+      makeNumberField({
+        key: 'indicatorLength',
+        label: 'Length',
+        defaultValue: 14,
+        step: 1,
+        allowVariables: true,
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cd,
+        options: INDICATOR_CONDITION_OPTIONS,
+      }),
+      makeNumberField({
+        key: 'indicatorValue',
+        label: 'Value',
+        defaultValue: 0,
         step: 1,
         allowVariables: true,
       }),

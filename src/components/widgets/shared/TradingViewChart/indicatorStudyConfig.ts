@@ -62,6 +62,7 @@ const STUDY_NAME_MAP: Omit<
   [IndicatorEnum.obfvg]: 'Fair Value Gaps',
   [IndicatorEnum.session]: 'Session Selector',
   [IndicatorEnum.lw]: 'Long Wick Detector',
+  [IndicatorEnum.mg]: 'McGinley Dynamic',
 };
 
 // AR-price variants: drawn as a price level on the candle pane when
@@ -270,6 +271,8 @@ const buildInputs = (
       }
       return atrInputs;
     }
+    case IndicatorEnum.mg:
+      return { in_0: toNumber(indicator.length, 14) };
     case IndicatorEnum.st:
       return {
         in_0: toNumber(indicator.atrLength, 10),

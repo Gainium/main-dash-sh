@@ -972,6 +972,7 @@ export const custom_indicators_getter = (r, callback) => {
       OBFVG(r, cb),
       Session(r),
       LW(r, cb),
+      MG(r, cb),
     ];
 
     // Filter out any undefined/null indicators and validate structure
@@ -11732,6 +11733,97 @@ export const LW = (r, callback) => ({
         }
       }
       return [bull, bear];
+    };
+  },
+});
+
+// McGinley Dynamic — no r.Std builtin exists for it, so the recursive
+// formula is computed by hand, the same way LW above hand-computes its
+// stateful levels: `mg[0] = close`, then
+// `mg[n] = mg[n-1] + (close[n] - mg[n-1]) / (length * (close[n]/mg[n-1])^4)`
+// (matches @gainium/indicators' McGinley class and ta.ema's seeding — see
+// that repo's specs/002.mcginley-dynamic-indicator.md §2).
+export const MG = (r, callback) => ({
+  name: 'McGinley Dynamic',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: {
+          linestyle: 0,
+          linewidth: 1,
+          plottype: 0,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#FF9800',
+        },
+      },
+      inputs: {
+        in_0: 14,
+        id: '',
+      },
+    },
+    plots: [
+      {
+        id: 'plot_0',
+        type: 'line',
+      },
+    ],
+    styles: {
+      plot_0: {
+        title: 'McGinley Dynamic',
+        histogramBase: 0,
+        joinPoints: !1,
+      },
+    },
+    description: 'McGinley Dynamic',
+    shortDescription: 'MG',
+    is_price_study: !0,
+    linkedToSeries: true,
+    inputs: [
+      {
+        id: 'in_0',
+        name: 'length',
+        defval: 14,
+        type: 'integer',
+        min: 1,
+        max: 2e3,
+      },
+      {
+        id: 'id',
+        name: 'ID',
+        defval: '',
+        type: 'text',
+      },
+    ],
+    id: 'McGinley Dynamic@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'McGinley Dynamic',
+    format: {
+      type: 'inherit',
+    },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const close = r.Std.close(this._context);
+      const length = this._input(0);
+      const id = this._input(1);
+      const mg = this._context.new_var(NaN);
+      const prevMg = mg.get(1);
+      const value = isNaN(prevMg)
+        ? close
+        : prevMg + (close - prevMg) / (length * Math.pow(close / prevMg, 4));
+      mg.set(value);
+      if (callback) {
+        callback(value, id);
+      }
+      return [value];
     };
   },
 });

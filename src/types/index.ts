@@ -1478,6 +1478,7 @@ export enum IndicatorEnum {
   obfvg = 'OBFVG',
   session = 'SESSION',
   lw = 'LW',
+  mg = 'MG',
 }
 
 export enum SessionRuleEnum {

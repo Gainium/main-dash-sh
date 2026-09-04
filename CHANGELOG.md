@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.52.0] - 2026-09-04
+
+### Added
+
+- New indicator: McGinley Dynamic — a self-adjusting moving average that
+  speeds up in fast markets and slows down in flat ones. Available as a
+  bot condition and as a chart study.
+
 ## [2.51.7] - 2026-09-04
 
 ### Fixed
