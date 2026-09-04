@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.51.8] - 2026-09-04
+
+### Fixed
+
+- Short deals opened from the Trading Terminal drew their stop loss BELOW the
+  entry price — inside the profit zone — instead of above it, and their trailing
+  take-profit start above the entry instead of below. The chart was reading the
+  deal's direction from a field a terminal deal never carries and falling back to
+  "long", so every engine-managed exit line came out mirrored. The bot itself was
+  always stopping out on the correct side; only the chart was wrong.
+
 ## [2.51.7] - 2026-09-04
 
 ### Fixed

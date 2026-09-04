@@ -110,6 +110,40 @@ export const dealAvgPrice = (
   deal: Pick<DCADeals, 'avgPrice' | 'settings'>
 ): number => num(deal.settings?.avgPrice) || num(deal.avgPrice);
 
+/**
+ * Direction of one deal — LONG or SHORT.
+ *
+ * `settings.strategy` alone is NOT a usable source: a deal's own settings
+ * snapshot (`DCADealsSettings`) has no `strategy` key at all and no deal query
+ * selects one, so the merged view only carries a direction when the *bot's*
+ * settings supplied it. A deal opened from the Trading Terminal has no bot in
+ * the dashboard's bot store, so it arrives with `botSettings === undefined` and
+ * every sign in this module flipped to LONG — drawing a short's stop loss below
+ * its entry, inside the profit zone (bug #642).
+ *
+ * `deal.strategy` is the always-present top-level field the rest of the
+ * dashboard already trusts (`dcaDealToOpenTrade`). Settings still win when they
+ * do carry a direction: hedge/combo hosts render one SIDE of a two-sided deal by
+ * passing that side down in `botSettings`, and that must keep overriding the
+ * deal's own field.
+ *
+ * Only the two known enum values count as "a direction". A `??` chain would
+ * accept the empty string `dcaDealToOpenTrade` is known to produce, and `'' ===
+ * StrategyEnum.long` is false — which would mirror a LONG deal instead, the same
+ * defect pointing the other way.
+ */
+export const dealStrategy = (
+  deal: Pick<DCADeals, 'strategy'> | null | undefined,
+  settings: Partial<DCABotSettings>
+): StrategyEnum => {
+  const known = (value: unknown): StrategyEnum | undefined =>
+    value === StrategyEnum.long || value === StrategyEnum.short
+      ? (value as StrategyEnum)
+      : undefined;
+
+  return known(settings.strategy) ?? known(deal?.strategy) ?? StrategyEnum.long;
+};
+
 /** Merged settings, deal-first — mirrors the engine's `getAggregatedSettings`. */
 export const mergeDealSettings = (
   botSettings: Partial<DCABotSettings> | undefined,
@@ -151,7 +185,12 @@ const trailingSlConfigured = (s: Partial<DCABotSettings>): boolean =>
 export function getDealTrailing(
   deal: Pick<
     DCADeals,
-    'avgPrice' | 'settings' | 'trailingMode' | 'trailingLevel' | 'bestPrice'
+    | 'avgPrice'
+    | 'settings'
+    | 'trailingMode'
+    | 'trailingLevel'
+    | 'bestPrice'
+    | 'strategy'
   > | null
   | undefined,
   settings: Partial<DCABotSettings>,
@@ -163,7 +202,7 @@ export function getDealTrailing(
   const hasSl = trailingSlConfigured(settings);
   if (!hasTp && !hasSl) return EMPTY_TRAILING;
 
-  const isLong = (settings.strategy ?? StrategyEnum.long) === StrategyEnum.long;
+  const isLong = dealStrategy(deal, settings) === StrategyEnum.long;
   const long = isLong ? 1 : -1;
   const avg = dealAvgPrice(deal);
   const bestPrice = num(deal.bestPrice);
@@ -226,7 +265,10 @@ export function getDealTrailing(
  * the line at ~0 and collapse the chart's price scale.
  */
 export function getDealSl(
-  deal: Pick<DCADeals, 'avgPrice' | 'settings' | 'moveSlActivated'> | null | undefined,
+  deal:
+    | Pick<DCADeals, 'avgPrice' | 'settings' | 'moveSlActivated' | 'strategy'>
+    | null
+    | undefined,
   settings: Partial<DCABotSettings>,
   takerFee = 0
 ): DealSlInfo {
@@ -234,7 +276,7 @@ export function getDealSl(
   // A trailing stop is drawn from `trailingLevel` instead — see getDealTrailing.
   if (trailingSlConfigured(settings)) return EMPTY_SL;
 
-  const isLong = (settings.strategy ?? StrategyEnum.long) === StrategyEnum.long;
+  const isLong = dealStrategy(deal, settings) === StrategyEnum.long;
   const long = isLong ? 1 : -1;
   const avg = dealAvgPrice(deal);
   if (avg <= 0) return EMPTY_SL;

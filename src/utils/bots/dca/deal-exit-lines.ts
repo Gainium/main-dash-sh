@@ -8,6 +8,7 @@ import {
   type DCAGrid,
 } from '@/types';
 import {
+  dealStrategy,
   getDealSl,
   getDealTrailing,
   mergeDealSettings,
@@ -47,10 +48,13 @@ export function buildDealExitLines(
   if (!deal || deal.status !== DCADealStatusEnum.open) return [];
 
   const settings = mergeDealSettings(botSettings, deal);
-  const isLong = (settings.strategy ?? StrategyEnum.long) === StrategyEnum.long;
+  // Direction comes from the deal when the merged settings don't carry one — a
+  // terminal deal has no bot settings at all, and no deal's own settings
+  // snapshot has ever had a `strategy` key (bug #642).
+  const strategy = dealStrategy(deal, settings);
+  const isLong = strategy === StrategyEnum.long;
   const exitSide = isLong ? BotOrderSideEnum.sell : BotOrderSideEnum.buy;
   const pair = deal.symbol?.symbol ?? '';
-  const strategy = (settings.strategy ?? StrategyEnum.long) as StrategyEnum;
 
   // A resting order within 0.05% counts as "already on the chart" — the
   // computed price carries fee displacement the exchange copy does not.
