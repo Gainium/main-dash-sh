@@ -16,7 +16,7 @@ import {
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { rankItem } from '@tanstack/match-sorter-utils';
+import { rankItem, rankings } from '@tanstack/match-sorter-utils';
 import {
   createTable,
   flexRender,
@@ -285,14 +285,24 @@ const isSortingState = (parsed: unknown): parsed is SortingState =>
       typeof (entry as { id?: unknown }).id === 'string'
   );
 
-// Fuzzy filter function
+// Global search filter.
+//
+// `rankItem` defaults to `rankings.MATCHES`, which passes any value containing
+// the typed characters in order but NOT consecutively — so "sui" matched
+// SUSHI/USDC and "near" matched the Take Profit Config text
+// "Type: Percentage\nTarget: 1%" on every deal. Because TanStack global-filters
+// every filterable column regardless of visibility, that hit hidden columns too
+// and returned nearly the whole table. Require the typed text to appear
+// consecutively (`CONTAINS`), which is what a search box is expected to do.
 const fuzzyFilter = (
   row: { getValue: (columnId: string) => unknown },
   columnId: string,
   value: string,
   addMeta: (meta: { itemRank: { passed: boolean } }) => void
 ) => {
-  const itemRank = rankItem(row.getValue(columnId), value);
+  const itemRank = rankItem(row.getValue(columnId), value, {
+    threshold: rankings.CONTAINS,
+  });
   addMeta({ itemRank });
   return itemRank.passed;
 };

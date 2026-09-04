@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.51.5] - 2026-09-04
+
+### Fixed
+
+- Table search boxes now match the text you actually typed. Searching the
+  Deals table for `sui` no longer returns SUSHI, and `near` no longer returns
+  practically every deal — the search used to match your letters scattered
+  anywhere in a row, including in columns you had hidden (a `1%` take-profit
+  config was enough to match `near`). Applies to every table with a search box.
+
 ## [2.51.4] - 2026-09-03
 
 ### Added
