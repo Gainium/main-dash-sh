@@ -47,6 +47,10 @@ import {
   type TransactionChart,
 } from '@/types';
 import { indicatorStore } from '@/stores/indicatorStore';
+import {
+  computeDealLiquidation,
+  type DealLiquidationContext,
+} from '@/utils/bots/dca/liquidation';
 
 export interface UnfoldingChartPanelProps {
   botId?: string;
@@ -65,6 +69,13 @@ export interface UnfoldingChartPanelProps {
    * (not the equity/recharts fallback) is what's rendered.
    */
   chartRef?: Ref<TradingViewChartRef>;
+  /**
+   * Position + leverage of the deal this chart is showing, from
+   * `buildDealLiquidationContext`. When set (leveraged futures deals only) the
+   * chart draws the estimated liquidation level for that position, projected
+   * across the deal's still-resting safety orders. Null/undefined draws nothing.
+   */
+  liquidationContext?: DealLiquidationContext | null;
 }
 
 const DEFAULT_TIMEFRAME: TimeframeKey = 'all';
@@ -149,6 +160,7 @@ const UnfoldingChartPanel = ({
   overrideSymbol,
   overrideExchange,
   chartRef,
+  liquidationContext,
 }: UnfoldingChartPanelProps) => {
   const resolvedBotIdentifier = botId ?? bot?.id ?? null;
   const persistenceKey = getTimeframeStorageKey(resolvedBotIdentifier);
@@ -675,21 +687,44 @@ const UnfoldingChartPanel = ({
     setInterval(computed);
   }, [manuallyChanged, getIndicatorInterval]);
 
-  const orders: ChartOrderLine[] = useMemo(
-    () =>
-      exampleOrders.map((o) => ({
-        ...o,
-        side: o.side.toLowerCase(),
-        label: o.label || o.type,
-        // Projected (not-yet-placed) levels have to carry `greyLabel` + a grey
-        // colour through, or `orderLines.ts` can't tell them apart from real
-        // resting orders and drops their label. Mirrors BotChart's mapping.
-        greyLabel: o.grey ? (o.greyLabel ?? 'Smart order') : undefined,
-        isDraggable: o.grey ? false : !!o.draggable,
-        ...(o.grey ? { color: '#94a3b8' } : {}),
-      })),
-    [exampleOrders]
-  );
+  // Estimated liquidation for the position AS IT STANDS — the figure that
+  // compares against the exchange's own, not the hypothetical one after every
+  // remaining safety order fills. The projection across those orders is still
+  // computed, but only to flag a cascade (a fill that would push liquidation
+  // past the next order's trigger) with a ⚠ on the label. Dotted so it reads
+  // apart from the solid TP/SL lines.
+  const liquidationLine: ChartOrderLine | null = useMemo(() => {
+    if (!liquidationContext) return null;
+    const liquidation = computeDealLiquidation(exampleOrders, liquidationContext);
+    const price = liquidation?.initial?.liquidationPrice;
+    if (price == null || !(price > 0)) return null;
+    return {
+      price,
+      side: 'sell',
+      qty: 0,
+      label: `Est. liquidation${
+        liquidation && liquidation.cascadeSteps.length > 0 ? ' \u26a0' : ''
+      }`,
+      noLabel: false,
+      isDraggable: false,
+      lineStyle: 'dotted',
+    };
+  }, [exampleOrders, liquidationContext]);
+
+  const orders: ChartOrderLine[] = useMemo(() => {
+    const mapped = exampleOrders.map((o) => ({
+      ...o,
+      side: o.side.toLowerCase(),
+      label: o.label || o.type,
+      // Projected (not-yet-placed) levels have to carry `greyLabel` + a grey
+      // colour through, or `orderLines.ts` can't tell them apart from real
+      // resting orders and drops their label. Mirrors BotChart's mapping.
+      greyLabel: o.grey ? (o.greyLabel ?? 'Smart order') : undefined,
+      isDraggable: o.grey ? false : !!o.draggable,
+      ...(o.grey ? { color: '#94a3b8' } : {}),
+    }));
+    return liquidationLine ? [...mapped, liquidationLine] : mapped;
+  }, [exampleOrders, liquidationLine]);
 
   useEffect(() => {
     indicatorStore.setChartIndicatorsContext({

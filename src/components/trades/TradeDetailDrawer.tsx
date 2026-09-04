@@ -24,6 +24,7 @@ import { extractPairAssets } from '@/utils/pairs';
 import React, { useMemo } from 'react';
 import { formatTradingPair } from '../../lib/utils';
 import UnfoldingChartPanel from '../bots/panels/contents/chart/UnfoldingChartPanel';
+import { buildDealLiquidationContext } from '@/utils/bots/dca/liquidation';
 import {
   DetailDrawer,
   DetailDrawerBody,
@@ -219,6 +220,17 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
     [rawDeal, chartBot, takerFee, pendingOrders]
   );
 
+  // Position + leverage behind the estimated liquidation line on the chart.
+  // Null for spot deals, leverage <= 1, and deals with no position yet.
+  const liquidationContext = useMemo(
+    () =>
+      buildDealLiquidationContext(
+        (chartBot as { settings?: DCABotSettings } | null)?.settings,
+        rawDeal
+      ),
+    [chartBot, rawDeal]
+  );
+
   // Feed the price chart: real pending orders + projected grey smart levels +
   // the engine-managed exits. Grey lines render automatically (BotChart maps
   // grey:true → color).
@@ -264,6 +276,7 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
                     // Lets the price chart resolve a symbol even when the
                     // parent bot isn't in the live store (terminal deals).
                     overrideExchange={trade.exchange}
+                    liquidationContext={liquidationContext}
                     enabled={true}
                     className="h-full"
                   />

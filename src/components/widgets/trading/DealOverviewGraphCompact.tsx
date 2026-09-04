@@ -2,6 +2,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import logger from '@/lib/loggerInstance';
 import { formatBalance, formatPercentage } from '@/utils/numberFormatter';
+import {
+  formatLiquidationPrice,
+  type LadderLiquidation,
+} from '@/utils/bots/dca/liquidation';
 import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 
@@ -33,6 +37,13 @@ export interface DealOverviewGraphCompactProps {
 
   /** Fallback TP % to display when orders have no requiredPricePercent (e.g. techInd close mode) */
   fallbackTpPercent?: number;
+
+  /**
+   * Estimated liquidation projection for this ladder. When supplied (futures
+   * bots with leverage > 1) the graph draws a dashed liquidation line at the
+   * fully-deployed liquidation price and stretches its Y range to fit it.
+   */
+  liquidation?: LadderLiquidation | null;
 }
 
 const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
@@ -41,7 +52,9 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
   showTpLines = true,
   indicatorMode = false,
   fallbackTpPercent,
+  liquidation = null,
 }) => {
+  const liquidationPrice = liquidation?.effective?.liquidationPrice ?? null;
   const {
     buyOrders,
     sellOrders,
@@ -146,7 +159,19 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
       return isShort ? -raw : raw;
     });
     let maxY = Math.max(...allDeviations);
-    const minY = Math.min(...allDeviations);
+    let minY = Math.min(...allDeviations);
+
+    // Liquidation sits beyond the deepest safety order (below for long, above
+    // for short — which `isShort` folds into the same downward direction), so
+    // the Y range has to stretch or the line clamps onto the axis.
+    if (liquidationPrice != null && liquidationPrice > 0) {
+      const rawLiq = safeDeviation(liquidationPrice, referencePrice);
+      const liqDeviation = isShort ? -rawLiq : rawLiq;
+      if (Number.isFinite(liqDeviation)) {
+        minY = Math.min(minY, liqDeviation);
+        maxY = Math.max(maxY, liqDeviation);
+      }
+    }
 
     // Ensure some headroom for the base order triangle apex if it's at the top
     if (maxY < 2) {
@@ -171,7 +196,7 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
       referencePrice,
       isShort,
     };
-  }, [orders]);
+  }, [orders, liquidationPrice]);
 
   // Get effective TP % for an order, using fallbackTpPercent when the order has none
   const getEffectiveTpPercent = (
@@ -505,6 +530,7 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
   return (
     <div
       className={`w-full h-full relative overflow-hidden ${full ? 'min-h-[400px]' : ''}`}
+      data-testid="deal-overview-graph"
     >
       {/* Graph */}
       <div className="absolute inset-0 p-xs">
@@ -1312,6 +1338,56 @@ const DealOverviewGraphCompact: React.FC<DealOverviewGraphCompactProps> = ({
               return labels;
             })()}
           </g>
+
+          {/* Estimated liquidation line — where the fully-deployed ladder
+              liquidates. Dashed red, spanning the plot, with the price and the
+              buffer from the last safety order on the label. */}
+          {liquidationPrice != null && liquidationPrice > 0
+            ? (() => {
+                const liqY = clamp(
+                  getYCoord(priceToDeviation(liquidationPrice)),
+                  padding + 0.6,
+                  100 - padding - 0.6
+                );
+                const cascade = (liquidation?.cascadeSteps.length ?? 0) > 0;
+                return (
+                  <g pointerEvents="none">
+                    <line
+                      x1={padding}
+                      x2={100 - padding}
+                      y1={liqY}
+                      y2={liqY}
+                      stroke="currentColor"
+                      strokeWidth={cascade ? 0.9 : 0.7}
+                      strokeDasharray="2,1.5"
+                      className="text-loss"
+                      opacity={0.95}
+                    />
+                    <text
+                      x={padding + 0.6}
+                      y={liqY - 1.2}
+                      textAnchor="start"
+                      className="text-[2.8px] font-semibold fill-loss"
+                    >
+                      {cascade ? '\u26a0 ' : ''}Est. liquidation{' '}
+                      {formatLiquidationPrice(liquidationPrice)}
+                    </text>
+                    <text
+                      x={100 - padding - 0.6}
+                      y={liqY - 1.2}
+                      textAnchor="end"
+                      className="text-[2.5px] fill-loss/80"
+                    >
+                      {cascade && liquidation?.effective
+                        ? `after order #${liquidation.effective.index + 1} fills`
+                        : liquidation?.effective?.bufferPercent != null
+                          ? `${liquidation.effective.bufferPercent.toFixed(1)}% past the last order`
+                          : ''}
+                    </text>
+                  </g>
+                );
+              })()
+            : null}
 
           {/* Border frame - left and bottom only */}
           <line

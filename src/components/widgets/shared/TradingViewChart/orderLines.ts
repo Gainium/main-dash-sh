@@ -95,7 +95,11 @@ export function createOrderLine(
         ? (order.greyLabel ?? 'Smart order')
         : order.label || order.side;
       orderLine['setText']?.(label);
-      orderLine['setQuantity']?.(order.qty ? order.qty.toString() : '0');
+      // A zero quantity used to render as "0" painted in the line colour on a
+      // same-coloured chip — an unreadable solid block. Informational lines
+      // (e.g. the estimated liquidation level) carry no quantity at all, so
+      // render no chip rather than an invisible one.
+      orderLine['setQuantity']?.(order.qty ? order.qty.toString() : '');
     }
     if (order.qty === 0 && !order.qty) {
       orderLine['setQuantityTextColor']?.(lineColor);

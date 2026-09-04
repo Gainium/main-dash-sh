@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.52.0] - 2026-09-04
+
+### Added
+
+- Estimated liquidation price for leveraged DCA and Combo bots, in four places:
+  a dashed line on the price chart, a line on the DCA ladder graph, two columns
+  on the ladder table (the liquidation price after each safety order fills and
+  how far that order sits from it), and a readout under Margin & Leverage. The
+  readout also warns about a cascade — a safety order whose fill would push
+  liquidation past the trigger of the next one, so the ladder liquidates before
+  it finishes deploying. The line is shown when viewing and editing an open
+  deal too, measured from the position the deal already holds.
+
+  The figure is an estimate and labelled as one: exchanges do not expose their
+  maintenance-margin tiers to us, so a 0.5% rate is assumed, and funding and
+  fees are excluded. Cross-margin positions are additionally backed by the free
+  wallet balance, so their real liquidation sits further away than shown.
+
+### Fixed
+
+- An order line with no quantity no longer draws an unreadable solid block on
+  the chart where the quantity chip would be.
 ## [2.51.8] - 2026-09-04
 
 ### Fixed

@@ -29,6 +29,7 @@ import {
     formatTotalFunds,
     useDealOverviewData,
 } from '@/components/widgets/trading/DealOverview';
+import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
     useBotFormSelector,
     useBotFormState,
@@ -449,12 +450,32 @@ const useDcaOverviewSource = (
 ) => {
   const { summary: storeSummary } = useDealOverviewData();
   const isReadonly = mode === 'settings-readonly';
+  const ordersOverride = isReadonly ? projection.orders : undefined;
+
+  // Estimated liquidation projection across the ladder — drives the liq line on
+  // the graph and the two liq columns on the table. Null (and therefore
+  // invisible) for spot bots and leverage <= 1.
+  const futures = useBotFormSelector('futures');
+  const leverage = useBotFormSelector('leverage');
+  const strategy = useBotFormSelector('strategy');
+  const marginType = useBotFormSelector('marginType');
+  const { liquidation } = useLadderLiquidation(
+    {
+      futures,
+      leverage: Number(leverage) || 0,
+      strategy: strategy as string | undefined,
+      marginType: marginType as string | undefined,
+    },
+    ordersOverride
+  );
+
   return {
     isReadonly,
     summary: isReadonly ? projection.summary : storeSummary,
     // Passed to the table/graph as an override only in read-only mode; the live
     // form leaves it undefined so those components read the store.
-    ordersOverride: isReadonly ? projection.orders : undefined,
+    ordersOverride,
+    liquidation,
   };
 };
 
@@ -575,7 +596,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   const { canTriggerBalanceRefresh, handleRefreshBalances } = balanceRefresh;
 
   // Shared deal overview data and summary for the stats boxes
-  const { summary: dealOverviewSummary, ordersOverride } = useDcaOverviewSource(
+  const {
+    summary: dealOverviewSummary,
+    ordersOverride,
+    liquidation: ladderLiquidation,
+  } = useDcaOverviewSource(
     mode,
     projection
   );
@@ -1783,6 +1808,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                       full
                       showTpLines={showTpLines}
                       orders={ordersOverride}
+                      liquidation={ladderLiquidation}
                     />
                   </TabsContent>
                 )}
@@ -1791,6 +1817,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                     className="h-full w-full"
                     widgetId="dca-settings-deal-overview-table"
                     orders={ordersOverride}
+                    liquidation={ladderLiquidation}
                   />
                 </TabsContent>
               </div>
@@ -2116,7 +2143,11 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
   const { canTriggerBalanceRefresh, handleRefreshBalances } = balanceRefresh;
 
   // Shared deal overview data and summary for the stats boxes
-  const { summary: dealOverviewSummary, ordersOverride } = useDcaOverviewSource(
+  const {
+    summary: dealOverviewSummary,
+    ordersOverride,
+    liquidation: ladderLiquidation,
+  } = useDcaOverviewSource(
     mode,
     projection
   );
@@ -2260,6 +2291,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                     full
                     showTpLines={showTpLines}
                     orders={ordersOverride}
+                    liquidation={ladderLiquidation}
                     indicatorMode
                     fallbackTpPercent={fallbackTpPercent}
                   />
@@ -2270,6 +2302,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                   className="h-full w-full"
                   widgetId="dca-settings-deal-overview-table"
                   orders={ordersOverride}
+                  liquidation={ladderLiquidation}
                 />
               </TabsContent>
             </div>
@@ -3293,7 +3326,11 @@ const CustomDCA: React.FC<DCASectionProps> = ({
   const { canTriggerBalanceRefresh, handleRefreshBalances } = balanceRefresh;
 
   // Shared deal overview data and summary for the stats boxes
-  const { summary: dealOverviewSummary, ordersOverride } = useDcaOverviewSource(
+  const {
+    summary: dealOverviewSummary,
+    ordersOverride,
+    liquidation: ladderLiquidation,
+  } = useDcaOverviewSource(
     mode,
     projection
   );
@@ -3412,6 +3449,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
                     full
                     showTpLines={showTpLines}
                     orders={ordersOverride}
+                    liquidation={ladderLiquidation}
                   />
                 </TabsContent>
               )}
@@ -3420,6 +3458,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
                   className="h-full w-full"
                   widgetId="dca-settings-deal-overview-table"
                   orders={ordersOverride}
+                  liquidation={ladderLiquidation}
                 />
               </TabsContent>
             </div>

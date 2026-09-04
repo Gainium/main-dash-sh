@@ -106,6 +106,7 @@ import StaleIndicator from '../widgets/shared/StaleIndicator';
 import { BotErrorWarningAlert } from './BotErrorWarningAlert';
 import { getDrawerWidgetsForBot } from './drawerWidgetConfig';
 import { UnfoldingChartPanel } from './panels/contents';
+import { buildDealLiquidationContext } from '@/utils/bots/dca/liquidation';
 import { TVChartPicker } from '@/components/widgets/shared/TradingViewChart';
 import type { TradingViewChartRef } from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
 import {
@@ -1142,6 +1143,14 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       chartDealId ? (s.deals[bot._id]?.[chartDealId] ?? null) : null
     );
 
+    // Position + leverage behind the estimated liquidation line on the chart —
+    // shown while viewing a deal and while editing it (the Edit Deal form
+    // shares this chart). Null for spot, leverage <= 1, or no open position.
+    const chartLiquidationContext = useMemo(
+      () => buildDealLiquidationContext(bot.settings, chartRawDeal),
+      [bot.settings, chartRawDeal]
+    );
+
     const chartDealOrders = useMemo(() => {
       if (isGrid || !chartDealId) {
         return { pending: [] as typeof pendingOrders, completed: [] as typeof completedOrders };
@@ -1383,6 +1392,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               enabled
               className="h-full"
               overrideSymbol={dealSymbol}
+              liquidationContext={chartLiquidationContext}
               chartRef={chartWidgetRef}
             />
             {/* Makes the TP/SL bullseyes in the Edit Deal form resolve a click
@@ -1400,6 +1410,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
         isLeftPanelCollapsed,
         bot,
         dealSymbol,
+        chartLiquidationContext,
         activePickerField,
         handleChartPick,
         onPickerActiveChanged,
@@ -2253,6 +2264,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       enabled
                       className="h-full"
                       overrideSymbol={dealSymbol}
+                      liquidationContext={chartLiquidationContext}
                     />
                   </TabsContent>
                 </Tabs>

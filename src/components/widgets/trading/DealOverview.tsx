@@ -3,6 +3,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { type DCAGrid, type DCAOrderTypeEnum } from '@/types';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import { computeDealSummary } from '@/utils/bots/dca/deal-summary';
+import {
+  formatLiquidationPrice,
+  type LadderLiquidation,
+} from '@/utils/bots/dca/liquidation';
 
 // Re-exported for existing callers that import the formatter from this module.
 export { formatTotalFunds } from '@/utils/bots/dca/deal-summary';
@@ -32,6 +36,12 @@ interface DealOrderRow {
   totalBase: number | undefined;
   totalQuote: number | undefined;
   note: string;
+  /** Estimated liquidation price once this order has filled (futures only). */
+  liquidationPrice: number | null;
+  /** Distance from this order's trigger to that liquidation price, %. */
+  liquidationBuffer: number | null;
+  /** Filling this order pushes liquidation past the next order's trigger. */
+  liquidationCascade: boolean;
 }
 
 // Hook for deal overview data - shared between standalone and subtab views.
@@ -39,7 +49,10 @@ interface DealOrderRow {
 // read-only settings view projects the saved bot directly and bypasses the
 // live `exampleOrdersStore`, which only the mounted form drives); omit it to
 // read the shared store as usual.
-export const useDealOverviewData = (ordersOverride?: DCAGrid[]) => {
+export const useDealOverviewData = (
+  ordersOverride?: DCAGrid[],
+  liquidation?: LadderLiquidation | null
+) => {
   const [storeOrders, setStoreOrders] = useState<DCAGrid[]>([]);
 
   useEffect(() => {
@@ -53,6 +66,12 @@ export const useDealOverviewData = (ordersOverride?: DCAGrid[]) => {
   }, []);
 
   const orders = ordersOverride ?? storeOrders;
+
+  const liquidationByOrderId = useMemo(() => {
+    const map = new Map<string, LadderLiquidation['steps'][number]>();
+    liquidation?.steps.forEach((step) => map.set(step.orderId, step));
+    return map;
+  }, [liquidation]);
 
   // Transform DCAGrid orders to table rows
   const tableData = useMemo<DealOrderRow[]>(() => {
@@ -71,6 +90,8 @@ export const useDealOverviewData = (ordersOverride?: DCAGrid[]) => {
         const quoteValue = order.qty * order.price;
         const quantity = `${quoteValue.toFixed(8)} ${quoteAsset} (${order.qty.toFixed(8)} ${baseAsset})`;
 
+        const liqStep = liquidationByOrderId.get(order.id);
+
         return {
           id: order.id,
           number: index + 1,
@@ -85,9 +106,12 @@ export const useDealOverviewData = (ordersOverride?: DCAGrid[]) => {
           totalBase: order.base,
           totalQuote: order.quote,
           note: order.note || '',
+          liquidationPrice: liqStep?.liquidationPrice ?? null,
+          liquidationBuffer: liqStep?.bufferPercent ?? null,
+          liquidationCascade: liqStep?.cascade ?? false,
         };
       });
-  }, [orders]);
+  }, [orders, liquidationByOrderId]);
 
   // Transform data for the graph component
   const graphData = useMemo(() => {
@@ -134,6 +158,8 @@ export interface DealOverviewGraphTabProps {
   fallbackTpPercent?: number;
   /** Render from these orders instead of the shared store (read-only view). */
   orders?: DCAGrid[];
+  /** Estimated liquidation projection; draws the liq line when supplied. */
+  liquidation?: LadderLiquidation | null;
 }
 
 export const DealOverviewGraphTab: React.FC<DealOverviewGraphTabProps> = ({
@@ -143,8 +169,9 @@ export const DealOverviewGraphTab: React.FC<DealOverviewGraphTabProps> = ({
   indicatorMode = false,
   fallbackTpPercent,
   orders,
+  liquidation,
 }) => {
-  const { graphData } = useDealOverviewData(orders);
+  const { graphData } = useDealOverviewData(orders, liquidation);
 
   return (
     <div className={className}>
@@ -154,6 +181,7 @@ export const DealOverviewGraphTab: React.FC<DealOverviewGraphTabProps> = ({
         showTpLines={showTpLines}
         indicatorMode={indicatorMode}
         fallbackTpPercent={fallbackTpPercent}
+        liquidation={liquidation}
       />
     </div>
   );
@@ -165,14 +193,18 @@ export interface DealOverviewTableTabProps {
   className?: string;
   /** Render from these orders instead of the shared store (read-only view). */
   orders?: DCAGrid[];
+  /** Estimated liquidation projection; adds the liq columns when supplied. */
+  liquidation?: LadderLiquidation | null;
 }
 
 export const DealOverviewTableTab: React.FC<DealOverviewTableTabProps> = ({
   widgetId = 'deal-overview-table',
   className,
   orders,
+  liquidation,
 }) => {
-  const { tableData } = useDealOverviewData(orders);
+  const { tableData } = useDealOverviewData(orders, liquidation);
+  const showLiquidation = Boolean(liquidation);
 
   const columns = useMemo<ColumnDef<DealOrderRow>[]>(
     () => [
@@ -240,6 +272,58 @@ export const DealOverviewTableTab: React.FC<DealOverviewTableTabProps> = ({
           </div>
         ),
       },
+      ...(showLiquidation
+        ? ([
+            {
+              accessorKey: 'liquidationPrice',
+              header: 'Est. liquidation price',
+              size: 170,
+              cell: ({ row }) => {
+                const value = row.original.liquidationPrice;
+                if (value == null) return <div className="font-mono">—</div>;
+                return (
+                  <div
+                    className={`font-mono ${
+                      row.original.liquidationCascade
+                        ? 'font-semibold text-loss'
+                        : 'text-loss/90'
+                    }`}
+                    title={
+                      row.original.liquidationCascade
+                        ? 'Filling this order pushes liquidation past the next safety order — cascade risk'
+                        : undefined
+                    }
+                  >
+                    {formatLiquidationPrice(value)}
+                    {row.original.liquidationCascade ? ' ⚠' : ''}
+                  </div>
+                );
+              },
+            },
+            {
+              accessorKey: 'liquidationBuffer',
+              header: 'Distance to liquidation',
+              size: 170,
+              cell: ({ row }) => {
+                const value = row.original.liquidationBuffer;
+                if (value == null) return <div className="font-mono">—</div>;
+                return (
+                  <div
+                    className={`font-mono ${
+                      value < 8
+                        ? 'text-loss'
+                        : value < 20
+                          ? 'text-yellow-500'
+                          : 'text-muted-foreground'
+                    }`}
+                  >
+                    {value.toFixed(2)}%
+                  </div>
+                );
+              },
+            },
+          ] as ColumnDef<DealOrderRow>[])
+        : []),
       {
         accessorKey: 'requiredPrice',
         header: 'Required price to close deal',
@@ -285,7 +369,7 @@ export const DealOverviewTableTab: React.FC<DealOverviewTableTabProps> = ({
         cell: ({ row }) => <div>{row.original.note}</div>,
       },
     ],
-    []
+    [showLiquidation]
   );
 
   return (

@@ -13,6 +13,7 @@ import MarginTypeSelector from '@/components/widgets/bots/MarginTypeSelector';
 import OrderSizeReferenceSelector from '@/components/widgets/bots/OrderSizeReferenceSelector';
 import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
+import LiquidationSummary from '@/components/widgets/bots/LiquidationSummary';
 import SettingsRow, {
   SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
@@ -24,6 +25,7 @@ import {
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import useBotVarBinding from '@/hooks/bots/global-variables/useBotVarBinding';
+import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
   BotTypesEnum,
   ENTER_MARKET_TIMEOUT_GUARD,
@@ -150,6 +152,17 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
   const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
   const futures = useBotFormSelector('futures');
+  // Estimated liquidation price for the ladder this form describes. Null for
+  // spot bots and leverage <= 1, in which case nothing renders.
+  const { liquidation, isCross } = useLadderLiquidation({
+    futures,
+    // The committed form value, not `leverageInputValue` — typing into the
+    // number field only commits on blur, and reading the uncommitted draft here
+    // would make this readout disagree with the ladder graph/table/chart.
+    leverage: normalizedLeverage,
+    strategy: strategy as string | undefined,
+    marginType: marginType as string | undefined,
+  });
   const baseOrderSize = useBotFormSelector('baseOrderSize');
   const startOrderType = useBotFormSelector('startOrderType');
   const useReinvest = useBotFormSelector('useReinvest');
@@ -350,6 +363,12 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
                   Max available leverage: {maxLeverage}×
                 </p>
               </div>
+
+              <LiquidationSummary
+                liquidation={liquidation}
+                isCross={isCross}
+                quoteAsset={displayQuoteAsset}
+              />
             </div>
           </SettingsRow>
         )}

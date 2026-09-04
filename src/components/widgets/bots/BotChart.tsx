@@ -41,6 +41,10 @@ import {
 } from './hooks/useBotChartDisplayOptions';
 import { isTokenizedStockPair, normalizePairKey } from '@/utils/pairs';
 import { useOrderStore } from '@/stores/live';
+import {
+  computeLadderLiquidation,
+  type LiquidationParams,
+} from '@/utils/bots/dca/liquidation';
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
 const DEFAULT_EXCHANGE = 'binance';
@@ -368,6 +372,8 @@ const BotChart: React.FC<BotChartProps> = ({
   const [indicatorPayload, setIndicatorPayload] =
     useState<ChartIndicatorsConfig>([]);
   const [exampleOrders, setExampleOrders] = useState<DCAGrid[]>([]);
+  const [liquidationParams, setLiquidationParams] =
+    useState<LiquidationParams | null>(null);
   const [riskPosition, setRiskPosition] = useState<PositionChart | null>(null);
 
   // Shared globals for regular bots; the leg's isolated instances when this
@@ -395,6 +401,9 @@ const BotChart: React.FC<BotChartProps> = ({
   useEffect(() => {
     const unsubscribe = exampleOrdersStore.subscribe((incoming) => {
       setExampleOrders(incoming);
+      // The chart lives OUTSIDE BotFormProvider, so the store is where it
+      // learns the form's leverage / direction for the liquidation estimate.
+      setLiquidationParams(exampleOrdersStore.getLiquidationParams());
     });
 
     return () => {
@@ -614,15 +623,45 @@ const BotChart: React.FC<BotChartProps> = ({
 
   const position = riskPosition ?? dataPosition ?? null;
 
-  const orders = useMemo(
-    () =>
-      showOrders
-        ? liveOrderLines.length
-          ? [...rawOrders, ...liveOrderLines]
-          : rawOrders
-        : EMPTY_CHART_ORDER_LINES,
-    [rawOrders, liveOrderLines, showOrders]
-  );
+  // Estimated liquidation line for the SETTINGS ladder this form describes —
+  // futures bots with leverage > 1 only (`liquidationParams` is null
+  // otherwise). Deliberately skipped while the deal overlay owns the chart: an
+  // open deal's liquidation is measured from the position it already holds, not
+  // from a fresh ladder, and that case belongs to `UnfoldingChartPanel`
+  // (see `computeDealLiquidation`).
+  const liquidationLine: ChartOrderLine | null = useMemo(() => {
+    if (!liquidationParams || dealOverlayActive) return null;
+
+    const liquidation = computeLadderLiquidation(exampleOrders, liquidationParams);
+    const price = liquidation?.effective?.liquidationPrice;
+    if (price == null || !(price > 0)) return null;
+
+    const label = `Est. liquidation${
+      (liquidation?.cascadeSteps.length ?? 0) > 0 ? ' \u26a0' : ''
+    }`;
+
+    return {
+      price,
+      side: 'sell',
+      qty: 0,
+      label,
+      noLabel: false,
+      isDraggable: false,
+      // No `color` override: side 'sell' picks up the themed --color-loss, and
+      // an override would make `createOrderLine` treat this as a grey "smart
+      // order" line and label it as one. The dotted style tells it apart from
+      // the solid TP/SL lines.
+      lineStyle: 'dotted',
+    };
+  }, [liquidationParams, dealOverlayActive, exampleOrders]);
+
+  const orders = useMemo(() => {
+    if (!showOrders) return EMPTY_CHART_ORDER_LINES;
+    const base = liveOrderLines.length
+      ? [...rawOrders, ...liveOrderLines]
+      : rawOrders;
+    return liquidationLine ? [...base, liquidationLine] : base;
+  }, [rawOrders, liveOrderLines, showOrders, liquidationLine]);
 
   const orderDrawings = useMemo(
     () => (showPastOrders ? rawOrderDrawings : EMPTY_CHART_ORDER_DRAWINGS),
