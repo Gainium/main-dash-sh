@@ -211,6 +211,7 @@ const CLIENT_ONLY = new Set([
   'originalBot',
   'terminal',
   'avgPrice',
+  'tpSlTargetFilled',
   'useExperimental',
 ]);
 
@@ -294,12 +295,16 @@ const CREATE_ONLY_EMPTY: Record<Section, string[]> = {
  */
 const EDIT_DENY_LIST = [
   ...UNDECLARED_BY_ALL_INPUTS.filter(
-    // The two the create mapper strips for itself: `useExperimental` is a
-    // redesign-only feature flag no bot input declares, and `importFrom` is
-    // dropped for combo only. Both are asserted directly elsewhere in this
-    // file, so excluding them here keeps this list to "edit cannot, create
-    // must".
-    (f) => f !== 'importFrom' && f !== 'useExperimental'
+    // The ones the create mapper strips for itself: `useExperimental` is a
+    // redesign-only feature flag no bot input declares, `importFrom` is
+    // dropped for combo only, and `tpSlTargetFilled` is deal-edit-only state
+    // (which multi-TP targets a deal has already taken) that no bot input
+    // declares either. They are asserted directly elsewhere in this file, so
+    // excluding them here keeps this list to "edit cannot, create must".
+    (f) =>
+      f !== 'importFrom' &&
+      f !== 'useExperimental' &&
+      f !== 'tpSlTargetFilled'
   ),
   ...DECLARED_BY_COMBO_ONLY,
 ];

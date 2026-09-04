@@ -1,3 +1,4 @@
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
@@ -42,6 +43,14 @@ type MultiTargetProps = {
    * rather than each passing their own mode boolean.
    */
   showPriceTargets?: boolean;
+  /**
+   * This target has already executed on the deal (its uuid is in the deal's
+   * `tpSlTargetFilled`). It is still part of the saved `multiTp` array — the
+   * engine needs the filled allocations to size the surviving targets — but it
+   * is history, so the row is shown read-only rather than as something the user
+   * can still move. Only ever true when editing one open deal.
+   */
+  isFilled?: boolean;
   currentPrice?: number;
   handleTargetFixedChange?: (index: number, value: number | string) => void;
   isTargetFixedBound?: boolean;
@@ -71,6 +80,7 @@ const MultiTarget = ({
   totalTargets,
   previousTargetValue,
   showPriceTargets = false,
+  isFilled = false,
   currentPrice = 0,
   handleTargetFixedChange,
   isTargetFixedBound = false,
@@ -86,7 +96,7 @@ const MultiTarget = ({
   // When there's only one target, position should be 100% and disabled
   const isSingleTarget = totalTargets === 1;
   const effectiveAmount = isSingleTarget ? 100 : sanitizedAmount;
-  const isPositionDisabled = isSingleTarget || isTargetAmountBound;
+  const isPositionDisabled = isSingleTarget || isTargetAmountBound || isFilled;
 
   // Calculate base value for preset buttons (previous target value or 0)
   const baseValue =
@@ -112,6 +122,11 @@ const MultiTarget = ({
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <div className="flex items-center gap-xs text-sm font-medium">
           <span>Target {index + 1}</span>
+          {isFilled && (
+            <Badge variant="success" title="This target has already executed">
+              Filled
+            </Badge>
+          )}
         </div>
         <div className="flex items-center gap-1">
           <Button
@@ -120,7 +135,7 @@ const MultiTarget = ({
             variant="ghost"
             onClick={() => handleRemoveTarget(index)}
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-            disabled={disableRemove}
+            disabled={disableRemove || isFilled}
             aria-label={`Remove target ${index + 1}`}
           >
             <Trash2 className="h-4 w-4" />
@@ -137,10 +152,10 @@ const MultiTarget = ({
         step={0.1}
         precision={3}
         placeholder={isStopLoss ? '-1.0' : '1.0'}
-        disabled={false}
+        disabled={isFilled}
         endAdornment={unitAdornment('%')}
         isInvalid={!validation.isValid}
-        showSlider={!isTargetPercentageBound}
+        showSlider={!isTargetPercentageBound && !isFilled}
         sliderMin={isStopLoss ? minSlToUse : minSlToUse}
         sliderMax={250}
         sliderStep={0.1}
@@ -180,7 +195,7 @@ const MultiTarget = ({
             step={0.01}
             precision={8}
             placeholder={currentPrice > 0 ? currentPrice.toFixed(2) : '0.00'}
-            disabled={false}
+            disabled={isFilled}
             endAdornment={
               <span className="inline-flex items-center gap-2">
                 {unitAdornment(priceUnit ?? 'Price')}
@@ -192,7 +207,7 @@ const MultiTarget = ({
                       type="button"
                       size="icon"
                       variant="ghost"
-                      disabled={isTargetFixedBound}
+                      disabled={isTargetFixedBound || isFilled}
                       onClick={() => {
                         if (setCoordinates) {
                           setCoordinates(null);

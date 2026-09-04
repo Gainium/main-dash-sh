@@ -95,6 +95,7 @@ import {
     enforceMinTpGuardAvailability,
     enforceMultiTargetLimit,
     enforceTrailingCompatibility,
+    resolveMultiTargetPercentageFloor,
     resolveVariableBindingEffects,
     type FormUpdateInstruction,
 } from '@/utils/bots/dca/take-profit-behaviours';
@@ -295,6 +296,7 @@ export const TakeProfitSettings: React.FC = () => {
   const riskUseTpRatio = useBotFormSelector('riskUseTpRatio');
   const useFixedTPPrices = useBotFormSelector('useFixedTPPrices');
   const dealAvgPrice = useBotFormSelector('avgPrice');
+  const dealTpSlTargetFilled = useBotFormSelector('tpSlTargetFilled');
   const closeByTimerValue = useBotFormSelector('closeByTimerValue');
   const closeByTimer = useBotFormSelector('closeByTimer');
   const trailingTpPerc = useBotFormSelector('trailingTpPerc');
@@ -752,6 +754,21 @@ export const TakeProfitSettings: React.FC = () => {
 
     return '';
   }, [minTpRange]);
+  // Targets this deal has already taken. They stay in `multiTp` deliberately —
+  // main-app's `getTPOrder` sizes each surviving target as
+  // `amount / (100 - <summed amounts of filled targets>)`, so removing them
+  // would shrink every remaining take-profit — but they are spent, and their
+  // stored `target` % is meaningless once the breakeven has moved (a filled
+  // target routinely reads as a NEGATIVE take-profit afterwards). Treat them as
+  // history: not editable, and not a constraint on the live targets.
+  const filledTargetIds = useMemo(
+    () =>
+      isSingleDealEdit
+        ? new Set(dealTpSlTargetFilled ?? [])
+        : new Set<string>(),
+    [isSingleDealEdit, dealTpSlTargetFilled]
+  );
+
   const multiTargets = useMemo(() => {
     const base = useMultiTp
       ? (multiTp ?? [])
@@ -1282,14 +1299,16 @@ export const TakeProfitSettings: React.FC = () => {
         TP_TARGET_VALUE_MAX
       );
 
-      // Enforce minimum 0.5% gap from previous target
-      if (index > 0 && multiTargets[index - 1]) {
-        const prevTarget = multiTargets[index - 1];
-        const prevPercentage = parseFloat(prevTarget.target);
-        if (Number.isFinite(prevPercentage)) {
-          const minAllowed = prevPercentage + 0.5;
-          nextPercentage = Math.max(nextPercentage, minAllowed);
-        }
+      // Enforce the minimum gap from the previous target the deal has NOT
+      // already taken — see resolveMultiTargetPercentageFloor for why a filled
+      // target must not be the one setting the floor.
+      const minAllowed = resolveMultiTargetPercentageFloor(
+        multiTargets,
+        index,
+        filledTargetIds
+      );
+      if (minAllowed !== null) {
+        nextPercentage = Math.max(nextPercentage, minAllowed);
       }
 
       const formattedPercentage = formatNumericString(nextPercentage);
@@ -1339,6 +1358,7 @@ export const TakeProfitSettings: React.FC = () => {
     [
       boundPercentagePaths,
       currentPrice,
+      filledTargetIds,
       supportsPriceTargets,
       isShort,
       minTpToUse,
@@ -2772,6 +2792,7 @@ export const TakeProfitSettings: React.FC = () => {
                             index={index}
                             handleRemoveTarget={handleRemoveTarget}
                             disableRemove={multiTargets.length <= 1}
+                            isFilled={filledTargetIds.has(target.uuid)}
                             isTargetPercentageBound={isTargetPercentageBound}
                             sanitizedPercentageMagnitude={percentageValue}
                             handleTargetPercentageChange={

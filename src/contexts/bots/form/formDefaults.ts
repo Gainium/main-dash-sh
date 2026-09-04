@@ -190,6 +190,9 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   useExperimental: false,
   // Deal-edit only: manual breakeven price override (0 = use computed avg).
   avgPrice: 0,
+  // Deal-edit only: uuids of multi-targets the deal has already taken. Empty
+  // outside the deal-edit drawer, which seeds it from the deal.
+  tpSlTargetFilled: [],
   remainderFullAmount: false,
   autoRebalancing: false,
   adaptiveClose: false,

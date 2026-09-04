@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.51.7] - 2026-09-04
+
+### Fixed
+
+- Take-profit targets that have already executed are now shown as executed when
+  you edit an open deal. A multi-target deal used to keep listing a target it
+  had already taken as an ordinary, editable row — often with a nonsensical
+  negative percentage, because taking the target moves the deal's breakeven
+  underneath it. Filled targets are now labelled "Filled" and locked, and they
+  no longer set the minimum distance for the targets that are still live, so
+  lowering a remaining target is no longer silently raised to a value above the
+  market (where it would never trigger).
+
 ## [2.51.6] - 2026-09-04
 
 ### Fixed

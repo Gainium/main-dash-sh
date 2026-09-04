@@ -61,6 +61,8 @@ type DCABot = Omit<DCABotSettings, 'pair' | 'name'> & {
   useExperimental?: boolean;
   /** Deal-edit only: manual breakeven price override for an open deal. */
   avgPrice?: number;
+  /** Deal-edit only: uuids of `multiTp`/`multiSl` targets that already filled. */
+  tpSlTargetFilled?: string[];
 };
 
 type ComboBot = Omit<ComboBotSettings, 'pair' | 'name'> & {
@@ -68,6 +70,8 @@ type ComboBot = Omit<ComboBotSettings, 'pair' | 'name'> & {
   useExperimental?: boolean;
   /** Deal-edit only: manual breakeven price override for an open deal. */
   avgPrice?: number;
+  /** Deal-edit only: uuids of `multiTp`/`multiSl` targets that already filled. */
+  tpSlTargetFilled?: string[];
 };
 
 type GridBot = Omit<BotSettings, 'pair' | 'name'>;

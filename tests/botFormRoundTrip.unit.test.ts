@@ -244,6 +244,8 @@ const KNOWN_NOT_PERSISTED: Record<string, string> = {
   originalBot: 'client-only: the pre-edit snapshot',
   terminal: 'client-only: marks the terminal form, not a bot setting',
   avgPrice: 'deal-edit only; stripped from the bot payload by design',
+  tpSlTargetFilled:
+    'deal-edit only; filled multi-target uuids, stripped from the bot payload by design',
   useExperimental:
     'stripped from the payload by design (map-form-data-to-payload.ts)',
 };
@@ -461,6 +463,8 @@ const VERDICT: Record<string, string> = {
 
   // --- Deliberately not sent. ---
   avgPrice: 'by-design: deal-edit breakeven override, stripped in map-form-data-to-payload',
+  tpSlTargetFilled:
+    'by-design: deal-edit filled multi-target uuids, stripped in map-form-data-to-payload',
   useExperimental: 'by-design: stripped alongside avgPrice',
   importFrom: 'by-design: client-only record of the preset a form was seeded from',
 
@@ -531,7 +535,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'rrSlFixedValue', 'rrSlType', 'startBotPriceCondition',
     'startBotPriceValue', 'stopBotPriceCondition',
     'stopBotPriceValue', 'stopDealLogic', 'stopDealSlLogic', 'useActiveMinigrids',
-    'useExperimental', 'useRiskReward', 'volumeTop',
+    'tpSlTargetFilled', 'useExperimental', 'useRiskReward', 'volumeTop',
   ].sort(),
   combo: [
     'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
@@ -544,7 +548,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'riskUseTpRatio', 'rrSlFixedValue', 'rrSlType',
     'startBotPriceCondition', 'startBotPriceValue',
     'stopBotPriceCondition', 'stopBotPriceValue', 'stopDealLogic',
-    'stopDealSlLogic', 'useExperimental', 'useRiskReward',
+    'stopDealSlLogic', 'tpSlTargetFilled', 'useExperimental', 'useRiskReward',
     'volumeTop',
   ].sort(),
 };

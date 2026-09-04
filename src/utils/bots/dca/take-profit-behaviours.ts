@@ -160,6 +160,46 @@ export const enforceMultiTargetLimit = (
   };
 };
 
+/** Minimum distance, in percent, between two consecutive live TP targets. */
+export const MULTI_TARGET_MIN_GAP_PERCENT = 0.5;
+
+/**
+ * The floor a newly typed target percentage has to respect: half a percent
+ * above the nearest EARLIER target that the deal has not already taken, or
+ * `null` when there is no such target and the value stands as typed.
+ *
+ * Filled targets are skipped on purpose. A target's percentage is stored
+ * relative to the deal's breakeven at the time it was set, and taking a target
+ * moves that breakeven — so a spent target's percentage is a stale number that
+ * can even read as negative (deal 6a95a875…ca67 shows a filled `single-target`
+ * at -1.590% after the deal averaged up). Letting that stale number set the
+ * floor silently raises the user's new target above what they typed, which
+ * lands the take-profit above the market and it never triggers.
+ */
+export const resolveMultiTargetPercentageFloor = (
+  targets: MultiTP[] | null | undefined,
+  index: number,
+  filledTargetIds?: ReadonlySet<string> | null
+): number | null => {
+  if (!Array.isArray(targets) || index <= 0) {
+    return null;
+  }
+
+  const previousLiveTarget = targets
+    .slice(0, index)
+    .filter((entry) => !filledTargetIds?.has(entry.uuid))
+    .pop();
+
+  if (!previousLiveTarget) {
+    return null;
+  }
+
+  const previousPercentage = Number.parseFloat(previousLiveTarget.target);
+  return Number.isFinite(previousPercentage)
+    ? previousPercentage + MULTI_TARGET_MIN_GAP_PERCENT
+    : null;
+};
+
 interface ExpectedAverageProfitInput {
   useTp?: boolean | null;
   useMultipleTpTargets?: boolean | null;

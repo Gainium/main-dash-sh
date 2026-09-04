@@ -39,6 +39,10 @@ export const UNDECLARED_BY_ALL_INPUTS = [
   'terminalDealType',
   'useExperimental',
   'importFrom',
+  // Deal-edit only: which multi-target uuids already filled. Seeded by
+  // DealEditDrawer so the take-profit section can present spent targets as
+  // spent; no bot change-input declares it.
+  'tpSlTargetFilled',
 ] as const;
 
 /**
