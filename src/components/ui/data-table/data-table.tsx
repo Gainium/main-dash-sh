@@ -2729,16 +2729,33 @@ function DataTableComponent<TData, TValue>(
    */
   const enhancedColumns = useMemo(() => {
     // Add custom filter function to columns that don't have their own filterFn
-    const baseColumns = columns.map((column) => ({
-      ...column,
-      // Preserve custom filterFn if defined, otherwise use createEnhancedColumnFilter
-      // which picks up meta.getFilterValue for multi-field matching
-      filterFn:
-        column.filterFn ??
-        createEnhancedColumnFilter(
-          column.meta as Record<string, unknown> | undefined
-        ),
-    }));
+    const baseColumns = columns.map((column) => {
+      // The column filter UI ALWAYS writes a FilterState object
+      // (`{ operator, value }` — see filter-components.tsx handleValueChange).
+      // Every one of TanStack's BUILT-IN filterFns instead expects a primitive
+      // filter value, so a column naming one by string (`'includesString'`,
+      // `'equals'`, …) stringifies that object to "[object Object]" and
+      // silently matches nothing — the whole column's filter is dead (#693).
+      //
+      // Only a hand-written FUNCTION understands the operator shape — a
+      // `filterFn` given as a string can only ever name a built-in (TanStack
+      // types it as exactly that union). So any string is dropped in favour of
+      // createEnhancedColumnFilter, which honours `meta.filterType` and
+      // `meta.getFilterValue` (multi-field matching). This makes the broken
+      // combination unreachable from the operator UI rather than relying on
+      // every call site to remember.
+      const declared = column.filterFn;
+
+      return {
+        ...column,
+        filterFn:
+          typeof declared === 'function'
+            ? declared
+            : createEnhancedColumnFilter(
+                column.meta as Record<string, unknown> | undefined
+              ),
+      };
+    });
 
     // Prepend selection column if bulk actions are enabled
     // Selection column is always first, regardless of column order or pinning

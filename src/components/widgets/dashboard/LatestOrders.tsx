@@ -144,7 +144,6 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {
@@ -155,7 +154,6 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           return <BuySellChip side={side} size="sm" showIcon={true} />;
         },
         enableSorting: true,
-        filterFn: 'equals',
         meta: { filterType: 'string' },
       },
       {
@@ -245,7 +243,6 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {
@@ -256,7 +253,6 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           return <BotTypeChip botType={botType} size="sm" chipStyle="soft" />;
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
     ],

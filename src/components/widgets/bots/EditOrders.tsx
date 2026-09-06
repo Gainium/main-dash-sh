@@ -108,7 +108,6 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {
@@ -119,7 +118,6 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           return <BuySellChip side={side} size="sm" showIcon={true} />;
         },
         enableSorting: true,
-        filterFn: 'equals',
         meta: { filterType: 'string' },
       },
       {
@@ -213,7 +211,6 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {
@@ -228,7 +225,6 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {

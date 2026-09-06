@@ -549,7 +549,6 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {
@@ -563,7 +562,6 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
           ) : null;
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
       {

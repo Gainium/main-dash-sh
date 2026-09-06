@@ -496,7 +496,6 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           );
         },
         enableSorting: true,
-        filterFn: 'includesString',
         meta: { filterType: 'string' },
       },
     ];

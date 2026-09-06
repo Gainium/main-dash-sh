@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.52.1] - 2026-09-06
+
+### Fixed
+
+- Column filters returned no results on several tables. Filtering the Portfolio
+  TOKEN column for a coin you hold, or the Symbol, Side, Status, Type, Bot, Bot
+  Type, Coin, Exchange, Category or Strategy columns on Portfolio Balances,
+  Latest Orders, Edit Orders, the Market Screener and the curated presets list,
+  silently matched nothing. Those columns now filter as expected.
+
 ## [2.52.0] - 2026-09-04
 
 ### Added

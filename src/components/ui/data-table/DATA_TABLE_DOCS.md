@@ -158,7 +158,25 @@ Each column supports all TanStack Table column options:
   enableSorting: true,
   enableColumnFilter: true,
   sortingFn: 'basic', // 'basic', 'alphanumeric', 'datetime', etc.
-  filterFn: 'includesString', // 'equals', 'includesString', 'fuzzy', etc.
+  // Filtering: set `meta.filterType` and let the table supply its own filter.
+  // Do NOT name one of TanStack's built-in filterFns ('includesString',
+  // 'equals', …) — the filter UI writes a `{ operator, value }` object that
+  // the built-ins cannot read, so the column's filter would match nothing.
+  // DataTable ignores such names and substitutes the enhanced filter.
+  meta: { filterType: 'string' }, // 'string' | 'number' | 'date' | 'boolean'
+}
+```
+
+To match against more than one field (e.g. a symbol *and* its full name),
+declare `meta.getFilterValue` instead of hand-rolling a `filterFn`:
+
+```tsx
+{
+  accessorKey: 'token',
+  meta: {
+    filterType: 'string',
+    getFilterValue: (row) => [row.token, row.tokenName].filter(Boolean),
+  },
 }
 ```
 
