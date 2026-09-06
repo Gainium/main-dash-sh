@@ -82,7 +82,8 @@ const BUILTIN_GUARD = [
 ];
 
 /** Variant forms — dead for years while the utilities were hand-written. */
-const VARIANT_PROBES = ['md:p-md', 'sm:gap-xs', 'lg:space-y-xl', 'hover:mb-lg'];
+const VARIANT_PROBES = ['md:p-md', 'sm:gap-xs', 'lg:space-y-xl', 'hover:mb-lg',
+                        'can-hover:sm:opacity-0'];
 
 const probeClasses = [
   ...Object.keys(FAMILIES).flatMap((f) => TOKENS.map((t) => `${f}-${t}`)),
@@ -112,6 +113,7 @@ const run = async () => {
   fs.writeFileSync(probeFile, `<div class="${probeClasses.join(' ')}"></div>`);
 
   let css;
+  let root;
   try {
     const injected = source.replace(
       /@import\s+['"]tailwindcss['"];/,
@@ -119,6 +121,7 @@ const run = async () => {
     );
     const res = await postcss([tailwind()]).process(injected, { from: CSS });
     css = res.css;
+    root = res.root;
   } finally {
     fs.rmSync(probeFile, { force: true });
   }
@@ -183,6 +186,31 @@ const run = async () => {
     fail(`\`dark:\` does not key off [data-theme]: ${darkRule}`);
   }
 
+  // 4b. `can-hover:` must compile to a hover-capability media query. Widget
+  //     chrome is hidden with `can-hover:sm:opacity-0` and revealed with
+  //     `group-hover` (which Tailwind v4 already wraps in `hover: hover`).
+  //     If this variant stops resolving, the hide rule either vanishes —
+  //     leaving the controls permanently on screen — or silently degrades to
+  //     a plain `sm:` rule, which is the tablet defect from bug #695.
+  const canHoverTarget = selectorText('can-hover:sm:opacity-0');
+  let canHoverChain = null;
+  root.walkRules((r) => {
+    if (canHoverChain || !r.selector.includes(canHoverTarget)) return;
+    const chain = [];
+    for (let p = r.parent; p && p.type === 'atrule'; p = p.parent) {
+      chain.unshift(`@${p.name} ${p.params}`);
+    }
+    canHoverChain = chain.join(' > ');
+  });
+  if (canHoverChain === null) {
+    fail('can-hover:sm:opacity-0 is not generated — restore the ' +
+         "`@custom-variant can-hover (@media (hover: hover))` declaration.");
+  } else if (!/hover\s*:\s*hover/.test(canHoverChain)) {
+    fail(`can-hover: does not compile to a hover media query (got ` +
+         `"${canHoverChain}"). Hover-revealed widget chrome would then be ` +
+         'hidden on touch devices that can never reveal it.');
+  }
+
   // 5. The spacing scale must not hijack the container scale.
   for (const cls of CONTAINER_GUARD) {
     const body = ruleFor(cls);
@@ -229,7 +257,7 @@ const run = async () => {
     VARIANT_PROBES.length +
     CONTAINER_GUARD.length +
     BUILTIN_GUARD.length +
-    11;
+    12;
 
   if (failures.length) {
     console.error(`\n✗ CSS contract violated (${failures.length} problem(s)):\n`);

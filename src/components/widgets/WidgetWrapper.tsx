@@ -1794,7 +1794,12 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
                   mobileControlsVisible
                     ? 'opacity-100 translate-x-0 pointer-events-auto'
                     : 'opacity-0 translate-x-3 pointer-events-none',
-                  'sm:pointer-events-none sm:opacity-0 sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0'
+                  // `can-hover:` (not plain `sm:`) — a tablet is wide but
+                  // hover-less, so an unconditional `sm:opacity-0` hid these
+                  // controls while the `group-hover` rule that reveals them
+                  // could never match. Scoping the hidden state to hovering
+                  // devices lets touch fall through to the branch above.
+                  'can-hover:sm:pointer-events-none can-hover:sm:opacity-0 can-hover:sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0'
                 )}
               >
                 {controlButtons}
@@ -1931,6 +1936,38 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
               noPadding ? 'p-0' : 'p-1'
             )}
           >
+            {/* Fullscreen toggle for headerless widgets. These draw no header
+                (see DrawerSection), so the widget menu that normally carries
+                "Enter fullscreen" never renders and — before bug #695 — a
+                400ms triple-tap was the only way in. Sits beside the drag
+                handle when that is present, in its place when it is not. */}
+            {metadata.header === false && !isFullscreen && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={(e) => {
+                  // The wrapper's own onClick drives triple-tap detection;
+                  // one deliberate tap must not also count towards it.
+                  e.stopPropagation();
+                  handleEnterFullscreen();
+                }}
+                className={clsx(
+                  'absolute top-2 z-10 p-0 transition-all duration-200',
+                  isEditable ? 'right-10' : 'right-2',
+                  mobileControlsVisible ? 'flex' : 'hidden',
+                  // See the control-cluster comment above: `can-hover:` keeps
+                  // the hidden state off tablets, which cannot hover.
+                  controlsAlwaysVisible
+                    ? 'sm:flex'
+                    : 'can-hover:sm:hidden sm:group-hover:flex sm:group-focus-within:flex'
+                )}
+                title="Enter fullscreen"
+                aria-label="Enter fullscreen"
+              >
+                <Maximize2 className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
+
             {/* Drag handle for headerless widgets */}
             {metadata.header === false && isEditable && (
               <div

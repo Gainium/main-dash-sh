@@ -13,6 +13,7 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useMultiDashboardBridge } from '../../hooks/useMultiDashboardBridge';
 import { useWidgetKeyboardShortcuts } from '../../hooks/useWidgetKeyboardShortcuts';
 import { useTradingBotStore } from '../../stores/botWidgetsStoreFactory';
@@ -73,6 +74,10 @@ export const FullscreenWidgetOverlay: React.FC<
   const exitFullscreen = useUIStore((s) => s.exitFullscreen);
   const isNativeFullscreen = useUIStore((s) => s.isNativeFullscreen);
   const setNativeFullscreen = useUIStore((s) => s.setNativeFullscreen);
+
+  // Whether this device can hover — the auto-hide below is only safe where
+  // the mouse can bring the header back.
+  const canHover = useMediaQuery('(hover: hover)');
 
   // Header visibility state
   const [isHeaderVisible, setIsHeaderVisible] = useState(true);
@@ -295,16 +300,24 @@ export const FullscreenWidgetOverlay: React.FC<
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
       }
-      hideTimeoutRef.current = setTimeout(() => {
-        setIsHeaderVisible(false);
-      }, 3000);
+      // ...but only where the header can be summoned back. The sole restore
+      // path is `handleMouseMove` in the top 100px, which a touch device never
+      // emits, so on a hover-less device the timer used to strand the user in
+      // fullscreen with no reachable Exit button whenever the widget's content
+      // was too short to scroll (bug #695). Scroll-driven hide/show still
+      // works on touch and is left alone.
+      if (canHover) {
+        hideTimeoutRef.current = setTimeout(() => {
+          setIsHeaderVisible(false);
+        }, 3000);
+      }
     }
     return () => {
       if (hideTimeoutRef.current) {
         clearTimeout(hideTimeoutRef.current);
       }
     };
-  }, [fullscreenWidget.widgetId]);
+  }, [fullscreenWidget.widgetId, canHover]);
 
   // Get the appropriate widgets list based on registry
   const widgets = useMemo(() => {

@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.52.3] - 2026-09-06
+
+### Fixed
+
+- Widgets can be opened full-screen on a tablet again. A tablet is wide enough
+  to get the desktop layout but cannot hover, so the widget controls were
+  hidden with no way to reveal them, leaving a fast triple-tap as the only
+  route into full-screen. The controls now appear on touch.
+- Bot details drawer panels (Basic, Profit, Performance, ...) now carry their
+  own expand button, so they can be opened full-screen directly instead of only
+  by triple-tapping the panel.
+- The full-screen header no longer auto-hides on a touch device, where nothing
+  could bring it back — that left no reachable Exit button whenever the
+  widget's content was too short to scroll.
+
 ## [2.52.2] - 2026-09-06
 
 ### Fixed

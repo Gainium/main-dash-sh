@@ -17,6 +17,17 @@
    whose OS setting differs from their app theme. */
 @custom-variant dark ([data-theme='dark'] &);
 
+/* Chrome that is *revealed* by hover must also be *hidden* only where hover
+   exists. Tailwind v4 already wraps `hover:`/`group-hover:` in
+   `@media (hover: hover)`, so on a touch device the reveal rule can never
+   match — but a plain `sm:opacity-0` hide rule still applies, because `sm:`
+   describes the viewport, not the input device. A tablet is wide AND
+   hover-less, so it got the hiding without the revealing and the control was
+   unreachable (bug #695). Pair every hover-revealed control with
+   `can-hover:` on its hidden state so touch devices fall through to the
+   touch branch instead. */
+@custom-variant can-hover (@media (hover: hover));
+
 /* Text truncation utilities */
 .truncate-text {
   overflow: hidden;
