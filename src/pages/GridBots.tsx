@@ -1095,6 +1095,11 @@ const GridBots: React.FC = () => {
         {
           id: 'drawdown',
           header: 'DRAWDOWN',
+          // `stats.drawdownPercent` is stored as a POSITIVE magnitude (see
+          // core/src/bot/gridMonitor.ts); sort/filter on that magnitude, but
+          // feed the chip a negative so it is coloured as a loss, like every
+          // other drawdown cell in the app.
+          accessorFn: (row) => Math.abs(row.stats?.drawdownPercent || 0) * 100,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.drawdown,
@@ -1104,7 +1109,7 @@ const GridBots: React.FC = () => {
             const drawdownPerc = bot.stats?.drawdownPercent || 0;
             return (
               <ProfitLossPercChip
-                value={Math.abs(drawdownPerc) * 100}
+                value={-Math.abs(drawdownPerc) * 100}
                 size="sm"
                 showSign={false}
               />
@@ -1114,6 +1119,7 @@ const GridBots: React.FC = () => {
         {
           id: 'runUp',
           header: 'RUN UP',
+          accessorFn: (row) => (row.stats?.runUpPercent || 0) * 100,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.runUp,

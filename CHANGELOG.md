@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.52.2] - 2026-09-06
+
+### Fixed
+
+- Grid bots table: the Drawdown column was coloured and read as a gain — a 9%
+  drawdown showed as a green 9.06%. It is now shown in the loss colour, like
+  drawdown everywhere else in the app. Drawdown and Run Up can also be sorted
+  and filtered again; both columns previously ignored sorting and showed no
+  filter input.
+- Chart trade markers were placed at the order's update time instead of the
+  fill time.
+
 ## [2.52.1] - 2026-09-06
 
 ### Fixed
