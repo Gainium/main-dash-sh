@@ -970,7 +970,14 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
             sl: order.sl,
             clientOrderId: order.clientOrderId,
             reduceFundsId: order.reduceFundsId,
-            time: order.updateTime,
+            // The moment the order EXECUTED, not the moment its row was last
+            // written. `updateTime` gets bumped long after the fill (deal
+            // close, partial-fill reconcile), and this field is what the
+            // chart plots its buy/sell markers on — so a July fill was drawn
+            // on an August candle. `formatted.time` is
+            // `time || transactTime || updateTime`, the same value
+            // `createTime` above already uses.
+            time: formatted.time,
             executedQty: order.executedQty,
           };
         });

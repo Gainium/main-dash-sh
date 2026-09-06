@@ -1168,7 +1168,10 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         price: +o.price,
         side: o.side === 'BUY' ? BotOrderSideEnum.buy : BotOrderSideEnum.sell,
         id: o.clientOrderId,
-        time: o.updateTime || o.time,
+        // Fill time, not last-write time: `updateTime` is rewritten after the
+        // fact (cancel of a partially-filled remainder, deal close) and would
+        // place the marker on whatever candle happened to be current then.
+        time: o.time || o.transactTime || o.updateTime,
       })
     );
     exampleOrdersStore.setTransactions(mappedTransactions);
