@@ -898,6 +898,11 @@ note
                   base
                   quote
                 }
+                feeByAsset {
+                  asset
+                  total
+                  totalUsd
+                }
                 avgPrice
                 displayAvg
                 commission
@@ -1130,6 +1135,11 @@ moveSlActivated
                 feePaid {
                   base
                   quote
+                }
+                feeByAsset {
+                  asset
+                  total
+                  totalUsd
                 }
                 avgPrice
                 displayAvg

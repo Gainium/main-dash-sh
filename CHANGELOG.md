@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.52.5] - 2026-09-07
+
+### Added
+
+- DCA and combo deal queries now request `feeByAsset` (per-asset fee
+  breakdown) alongside the existing `feePaid` field, matching the field
+  app-sh now records. Not surfaced in any view yet — data plumbing only.
+
 ## [2.52.4] - 2026-09-07
 
 ### Fixed
