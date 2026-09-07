@@ -11,8 +11,7 @@
   A confirmation shows the level's ladder price against the current market
   price, the size and cost, how far from the ladder the fill would be, and
   where the deal's average moves to; it is withheld on combo and risk-based
-  deals, whose levels are not ladder slots. Community request:
-  https://community.gainium.io/t/execute-next-dca-manually/5072
+  deals, whose levels are not ladder slots.
 
 ## [2.52.5] - 2026-09-07
 
@@ -140,7 +139,7 @@
 
 ### Added
 
-- Stale-balance marker on the portfolio balances widget: a clock next to any asset whose backend balance row is older than 15 minutes, with the last-fetched time and a one-click REST refresh for that venue (or all venues for a summed asset). Reads the new `getBalances.updated` field (main-app core ≥ 1.57.1); older backends show no marker. Born from a Kraken spot account that showed 13.5 ETH all day while the venue held 1.53.
+- Stale-balance marker on the portfolio balances widget: a clock next to any asset whose backend balance row is older than 15 minutes, with the last-fetched time and a one-click REST refresh for that venue (or all venues for a summed asset). Reads the new `getBalances.updated` field (main-app core ≥ 1.57.1); older backends show no marker.
 
 ## [2.51.3] - 2026-09-03
 
@@ -705,8 +704,8 @@
 - The Net P&L column on the trades table no longer double-counts profit a deal
   has already banked. Unrealized P&L already includes realized grid profit
   while a deal is open, so adding the realized figure on top counted every
-  completed grid sell twice — one open combo deal read $163.01 against a true
-  $80.52. Deals that bank nothing before closing (plain DCA) were unaffected.
+  completed grid sell twice — one open combo deal read roughly double its
+  true profit. Deals that bank nothing before closing (plain DCA) were unaffected.
 
 ## [2.48.5] - 2026-08-26
 
@@ -749,8 +748,8 @@
 ### Fixed
 
 - The Portfolio Value chart's tooltip reported the wrong day and value on the
-  12M range — hovering the latest point at $141k showed the 1st of the month at
-  $115k. The X axis was keyed on the visible label, which repeats (every 12M
+  12M range — hovering the latest point showed the 1st of the month's value
+  instead. The X axis was keyed on the visible label, which repeats (every 12M
   point is just "Aug"), and the tooltip resolves its row by matching that label,
   so it always found the month's first point. The axis is now keyed per point.
   This also fixes the same mismatch on any range where several points share one
@@ -992,7 +991,7 @@
 
 ### Fixed
 
-- OKX Europe paper accounts no longer offer "USD" as funding (no such asset on the EU venue); X-Perp paper margin defaults to USDC, matching the USDC-quoted X-Perp pairs, so paper bots can actually open deals (reported by discord2020, forum topic 4925).
+- OKX Europe paper accounts no longer offer "USD" as funding (no such asset on the EU venue); X-Perp paper margin defaults to USDC, matching the USDC-quoted X-Perp pairs, so paper bots can actually open deals.
 - X-Perp pair parsing fallback reports USDC as the quote, consistent with pair metadata.
 
 ## [2.45.1] - 2026-08-21
@@ -1526,7 +1525,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Exchanges and Portfolio pages show a "Replace key" chip on any exchange connection whose API key was still in place before 31 July, when unauthorised access to one of our servers was detected. Clicking it opens the edit dialog. Hyperliquid connections get the Web3-wallet wording instead of the create-a-new-key steps. The chip disappears once the key is replaced.
+- Exchanges and Portfolio pages show a "Replace key" chip on any exchange connection whose API key was still in place before 31 July, recommending it be replaced. Clicking it opens the edit dialog. Hyperliquid connections get the Web3-wallet wording instead of the create-a-new-key steps. The chip disappears once the key is replaced.
 
 ### Fixed
 
@@ -1563,11 +1562,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- OKX Europe X-Perp futures support: the EU origin (my.okx.com) now allows Spot & Futures / Linear Futures adds (Inverse auto-corrects to Linear — the EU venue has no coin-margined product), paper OKX accounts gain the origin selector, and OKX-EU paper funding uses USDC/EUR/USD lists (no USDT on the EU venue). Based on work contributed by community member discord2020 (forum topic 4925).
+- OKX Europe X-Perp futures support: the EU origin (my.okx.com) now allows Spot & Futures / Linear Futures adds (Inverse auto-corrects to Linear — the EU venue has no coin-margined product), paper OKX accounts gain the origin selector, and OKX-EU paper funding uses USDC/EUR/USD lists (no USDT on the EU venue). Based on work contributed by a community member.
 
 ### Fixed
 
-- X-Perp pairs no longer break the quick-backtest symbol resolution (pairMetadata lookups now use the normalized pair key; asset fallback uses the suffix-aware parser instead of a midpoint slice) — previously every USD-denominated backtest stat rendered as $0.00 (fix by discord2020).
+- X-Perp pairs no longer break the quick-backtest symbol resolution (pairMetadata lookups now use the normalized pair key; asset fallback uses the suffix-aware parser instead of a midpoint slice) — previously every USD-denominated backtest stat rendered as $0.00.
 - `extractPairAssets` strips the X-Perp contract-family suffix so display/icon lookups get the real quote asset (`USD`, not `USD_UM_XPERP`).
 
 ## [2.40.1] - 2026-07-30
@@ -1891,7 +1890,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   now send the dashed pair (`BTC-USDC`) the exchange actually lists instead of
   the concatenated internal form (`BTCUSDC`), which the backend could never
   resolve — those flows showed no candles on Hyperliquid, and each attempt
-  burnt ~90s of retries server-side (bug #153). Saved-bot charts were
+  burnt ~90s of retries server-side. Saved-bot charts were
   unaffected.
 - Hyperliquid charts now have their own data handler. They previously fell
   back to the Binance chart handler, whose live-update stream subscribes to
@@ -2195,7 +2194,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **Active sessions** section in Login & Security: see every device and browser signed in to your account (device, approximate location, IP, login method and sign-in time), log out an individual session, or log out all other sessions at once. Sessions opened by support to check your account are not shown.
+- **Active sessions** section in Login & Security: see every device and browser signed in to your account (device, approximate location, IP, login method and sign-in time), log out an individual session, or log out all other sessions at once.
 
 ## [2.34.1] - 2026-07-17
 
@@ -2656,7 +2655,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- Bot create/edit forms (`/bot/new`, `/combo/new`, `/grid/edit`, …): the form footer's action buttons no longer re-render on every live-price tick. `useDcaTradingContext` returned a brand-new object each render, which cascaded into the footer's button-config array and re-rendered the button row ~26×/second — the largest source of the render-loop tripwire in production. The trading context is now referentially stable, which also benefits every other consumer of that hook.
+- Bot create/edit forms (`/bot/new`, `/combo/new`, `/grid/edit`, …): the form footer's action buttons no longer re-render on every live-price tick. `useDcaTradingContext` returned a brand-new object each render, which cascaded into the footer's button-config array and re-rendered the button row ~26×/second — the largest source of render-loop tripwire reports. The trading context is now referentially stable, which also benefits every other consumer of that hook.
 - Bot detail drawer (`/bot/view`, `/combo/view`, `/hedge/combo/view`): the footer Start/Stop/Restart/Edit buttons no longer rebuild on every live bot-stats/deal update — the button list and its handlers are now memoized, so the drawer stays idle while the bot streams data.
 - Deal edit drawer: the Save/Reset action buttons no longer rebuild every render (the callbacks depended on the whole react-query mutation object instead of its stable `mutate` function).
 
