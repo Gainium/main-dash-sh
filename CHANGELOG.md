@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.52.4] - 2026-09-07
+
+### Fixed
+
+- Trading Bots → Deals no longer stops at 500 trades. The Closed view fetched a
+  single page and reported that page's length as the total, so an account with
+  more than 500 closed deals always read "Closed (500)" and could not reach
+  anything older than the newest 500. The list now pages until the server's own
+  count is reached.
+
 ## [2.52.3] - 2026-09-06
 
 ### Fixed

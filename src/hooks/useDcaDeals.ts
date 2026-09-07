@@ -300,16 +300,32 @@ export function useDcaDeals(
       const client = new GraphQLClient(endpoint, config.token, paperContext);
 
       const allDeals: DCADeals[] = [];
-      const MAX_PAGES = isTerminal ? 5 : 1; // Only autopaginate for terminal deals
+      /** Server caps each page at 500 rows; mirror that as the page size. */
       const PAGE_SIZE = 500;
-      let totalPages = MAX_PAGES;
+      /**
+       * Safety bound so a pathological account (or a backend that never returns
+       * a short page) can't spin forever — same shape and size as
+       * `useHedgeDeals`' HEDGE_DEAL_MAX_PAGES. 40 × 500 = 20k deals; if we ever
+       * hit it we log and keep what we have rather than truncating silently.
+       */
+      const MAX_PAGES = 40;
+      /**
+       * The authoritative count, read from the operation's own `total` field.
+       * This resolver leaves `data.totalPages` / `data.totalResults` NULL — the
+       * same asymmetry `useHedgeDeals` and `useBotSpecificDeals` already page
+       * against — so the old `data.totalPages || MAX_PAGES` collapsed to the
+       * cap. With the Deals tab fetching as `terminal: false` that cap was ONE
+       * page, and an account with 1457 closed deals both showed and counted
+       * exactly 500 (bug #698).
+       */
+      let serverTotal = Infinity;
       // Whether we fetched the full result set (vs. stopping at the page cap
       // with more pages remaining). Only a complete snapshot may absence-delete
       // in reconcileDeals — pruning against a capped page drops genuine deals.
       let reachedEnd = false;
 
-      // Fetch pages sequentially (0-based) until we reach max pages or no more pages
-      for (let page = 0; page < MAX_PAGES && page < totalPages; page++) {
+      // Fetch pages sequentially (0-based) until the server's total is drained
+      for (let page = 0; page < MAX_PAGES; page++) {
         const pageInput = {
           ...input,
           dataGridInput: {
@@ -334,21 +350,21 @@ export function useDcaDeals(
             : [];
 
           allDeals.push(...pageDeals);
-          totalPages = result.dcaDealList.data.totalPages || MAX_PAGES;
+          if (typeof result.dcaDealList.total === 'number') {
+            serverTotal = result.dcaDealList.total;
+          }
 
-          logger.debug(`[useDcaDeals] Fetched page ${page + 1}/${totalPages}`, {
+          logger.debug(`[useDcaDeals] Fetched page ${page + 1}`, {
             pageDeals: pageDeals.length,
             totalDeals: allDeals.length,
+            serverTotal,
             isTerminal,
           });
 
-          // If this page has fewer deals than page size, we've reached the last page
-          if (pageDeals.length < PAGE_SIZE) {
-            reachedEnd = true;
-            break;
-          }
-          // Fetched every page the backend reports -> snapshot is complete.
-          if (page + 1 >= totalPages) {
+          // A short page means the server has no more rows; otherwise stop once
+          // we hold everything it says exists. Either way the snapshot is
+          // complete and may absence-delete.
+          if (pageDeals.length < PAGE_SIZE || allDeals.length >= serverTotal) {
             reachedEnd = true;
             break;
           }
@@ -356,6 +372,12 @@ export function useDcaDeals(
           // If page fails, stop pagination
           break;
         }
+      }
+
+      if (!reachedEnd) {
+        logger.warn(
+          `[useDcaDeals] Stopped paginating at ${MAX_PAGES} pages; collected ${allDeals.length}/${serverTotal}. Some deals are not shown.`
+        );
       }
 
       // Apply client-side filtering
@@ -414,7 +436,7 @@ export function useDcaDeals(
           status: 'OK',
           data: {
             page: 0,
-            totalPages: Math.min(totalPages, MAX_PAGES),
+            totalPages: Math.max(1, Math.ceil(allDeals.length / PAGE_SIZE)),
             totalResults: allDeals.length,
             result: normalizedDeals,
           },
