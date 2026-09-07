@@ -929,6 +929,27 @@ export const dealQueries = {
     return { query, variables };
   },
 
+  executeNextDca: (input: {
+    dealId: string;
+    botId: string;
+    /**
+     * The level the confirmation dialog quoted. The engine refuses if the deal
+     * has since filled that level on its own, so a stale confirmation can never
+     * execute a different level than the one the user saw priced.
+     */
+    expectedLevel?: number;
+  }) => {
+    const query = `mutation executeNextDca($input: executeNextDcaInput!) {
+  executeNextDca(input: $input) {
+  status
+  reason
+  data
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   cancelTerminalDealOrder: (input: {
     dealId: string;
     botId: string;

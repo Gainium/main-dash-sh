@@ -48,6 +48,17 @@ interface AdjustFundsInput {
   mode: AdjustFundsDialogMode;
 }
 
+interface ExecuteNextDcaInput {
+  dealId: string;
+  botId: string;
+  /**
+   * The level the confirmation dialog quoted. Passed through so the engine can
+   * refuse if the deal filled that level on its own in the meantime — a stale
+   * confirmation must never execute a level other than the one it priced.
+   */
+  expectedLevel?: number;
+}
+
 interface MoveDealToTerminalInput {
   dealId: string;
   botId: string;
@@ -249,6 +260,69 @@ export function useAdjustFunds(options?: UseAdjustFundsOptions) {
       logger.error('[useCloseDCADeal] Failed to adjust funds in DCA deal:', {
         dealId: variables.dealId,
         mode: variables.mode,
+        error: error.message,
+      });
+    },
+  });
+}
+
+/**
+ * Fill a DCA deal's next safety order now, at market, rather than waiting for
+ * price (or its indicator signal) to reach it. The deal books it as that level
+ * and carries on with the next one at its original price.
+ * https://community.gainium.io/t/execute-next-dca-manually/5072
+ *
+ * Like adjust-funds this is a QUEUED request: an OK response means the engine
+ * accepted it, not that the order filled. The fill (or the exchange's refusal)
+ * arrives later over the websocket.
+ */
+export function useExecuteNextDca() {
+  const { tokens } = useAuthStore();
+
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  const client = new GraphQLClient(
+    import.meta.env['VITE_API_ENDPOINT'],
+    tokens?.accessToken,
+    !isLiveTrading
+  );
+
+  return useMutation<DealResponse, Error, ExecuteNextDcaInput>({
+    meta: { errorToast: true },
+    mutationFn: async (input) => {
+      logger.info('[useExecuteNextDca] Executing next DCA level:', input);
+
+      const { query, variables } = dealQueries.executeNextDca(input);
+
+      const response = await client.request<{
+        executeNextDca: DealResponse;
+      }>(query, variables);
+
+      if (response.executeNextDca?.status !== 'OK') {
+        throw new Error(
+          response.executeNextDca?.reason || 'Failed to execute the next DCA'
+        );
+      }
+
+      return response.executeNextDca;
+    },
+    onSuccess: (response, variables) => {
+      logger.info('[useExecuteNextDca] Request accepted:', {
+        dealId: variables.dealId,
+        expectedLevel: variables.expectedLevel,
+        response,
+      });
+      // Echo the backend's "scheduled" wording rather than implying the level
+      // already filled — same reasoning as useAdjustFunds.
+      const scheduledMsg =
+        typeof response?.data === 'string' && response.data.trim()
+          ? response.data
+          : 'Execute next DCA scheduled';
+      toast.info(scheduledMsg);
+    },
+    onError: (error, variables) => {
+      logger.error('[useExecuteNextDca] Failed to execute next DCA level:', {
+        dealId: variables.dealId,
         error: error.message,
       });
     },

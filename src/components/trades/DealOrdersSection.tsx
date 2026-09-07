@@ -11,6 +11,7 @@ import {
   TrendingDown,
   TrendingUp,
   XCircle,
+  Zap,
 } from 'lucide-react';
 import React, {
   createContext,
@@ -72,6 +73,14 @@ interface DealOrdersSectionProps {
   pendingAddFunds?: PendingFundsEntry[];
   /** Deal's pending manual "reduce funds" requests (see `pendingAddFunds`). */
   pendingReduceFunds?: PendingFundsEntry[];
+  /**
+   * When set, the NEXT safety-order row gets an "Execute now" action that fills
+   * that level at market instead of waiting for its price. The parent owns the
+   * confirmation dialog and the mutation — this component only offers the
+   * affordance on the one row it belongs on.
+   * https://community.gainium.io/t/execute-next-dca-manually/5072
+   */
+  onExecuteNextDca?: (() => void) | undefined;
 }
 
 const getStatusColor = (status: string) => {
@@ -418,6 +427,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
   chartOrders = [],
   chartTransactions = [],
   smartOrders = [],
+  onExecuteNextDca,
   strategy = StrategyEnum.long,
   pendingAddFunds = [],
   pendingReduceFunds = [],
@@ -521,6 +531,33 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
     },
     [pendingAddFunds, pendingReduceFunds]
   );
+
+  /**
+   * The row "Execute next DCA" acts on: the nearest unfilled safety order.
+   * `pendingData` is already sorted as a ladder from the current price outward,
+   * so the FIRST `dealRegular` row is the next level — for a long that is the
+   * highest-priced safety order, for a short the lowest.
+   *
+   * Two exclusions matter. The take profit is `dealTP`, so filtering on
+   * `dealRegular` drops it (it sorts first for a long, being above price).
+   * A pending manual add/reduce-funds order is ALSO `dealRegular` and would
+   * otherwise be offered as "the next DCA level" — it is not a ladder level at
+   * all, so `findPendingFundsForOrder` screens it out by limit price, the same
+   * way the cancel path tells the two apart.
+   *
+   * Smart (projected) rows are deliberately eligible: for a `dcaByMarket` deal,
+   * or beyond `activeOrdersCount` with smart orders on, the next level is only
+   * ever projected — nothing rests on the venue for it.
+   */
+  const nextDcaRowId = useMemo(() => {
+    if (!onExecuteNextDca) {
+      return null;
+    }
+    const next = pendingData.find(
+      (o) => o.typeOrder === 'dealRegular' && !findPendingFundsForOrder(o)
+    );
+    return next?.id ?? null;
+  }, [onExecuteNextDca, pendingData, findPendingFundsForOrder]);
 
   // Mirrors legacy `shouldHaveCancel`: only real (non-projected) open DCA /
   // add-funds / reduce-funds orders are cancellable. Grid orders use a
@@ -682,23 +719,39 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         enableSorting: false,
         cell: ({ row }) => {
           const order = row.original;
-          if (!isOrderCancellable(order)) return null;
+          const isNextDca = !!nextDcaRowId && order.id === nextDcaRowId;
+          if (!isNextDca && !isOrderCancellable(order)) return null;
           return (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-              disabled={isCanceling}
-              title="Cancel order"
-              onClick={() => setCancelTarget(order)}
-            >
-              <XCircle className="w-4 h-4" />
-            </Button>
+            <div className="flex items-center justify-end gap-xs">
+              {isNextDca && onExecuteNextDca ? (
+                <Button
+                  size="sm"
+                  className="h-8"
+                  title="Fill this level at market now instead of waiting for its price"
+                  onClick={onExecuteNextDca}
+                >
+                  <Zap className="w-3.5 h-3.5 mr-1" />
+                  Execute now
+                </Button>
+              ) : null}
+              {isOrderCancellable(order) ? (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={isCanceling}
+                  title="Cancel order"
+                  onClick={() => setCancelTarget(order)}
+                >
+                  <XCircle className="w-4 h-4" />
+                </Button>
+              ) : null}
+            </div>
           );
         },
       },
     ],
-    [isOrderCancellable, isCanceling]
+    [isOrderCancellable, isCanceling, nextDcaRowId, onExecuteNextDca]
   );
 
   const cardContext = useMemo<OrderCardContextValue>(

@@ -4,12 +4,15 @@ import {
     AdjustFundsDialog,
     ChangeDcaLevelsDialog,
     CloseOptionsDialog,
+    ExecuteNextDcaDialog,
+    canExecuteNextDca,
     type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { useChartColors } from '@/hooks/useChartColors';
 import {
     useDealActions,
     useEditDeal,
+    useExecuteNextDca,
     useMoveDealToTerminal,
     useRestoreDeal,
 } from '@/hooks/useDealActions';
@@ -45,6 +48,7 @@ import {
     SlidersHorizontal,
     X,
     XCircle,
+    Zap,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -343,6 +347,7 @@ const EnhancedCard = React.memo(
     const [ordersDialogOpen, setOrdersDialogOpen] = useState(false);
     const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
     const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
+    const [executeNextDcaOpen, setExecuteNextDcaOpen] = useState(false);
     const handleAddFunds = () => {
       setAdjustFundsDialog('add');
     };
@@ -924,6 +929,26 @@ const EnhancedCard = React.memo(
       },
       [editDealMutation, trade.botId, trade.id, changeDcaBotType]
     );
+
+    // Execute next DCA — offered on open, non-risk-based DCA deals that still
+    // have a level left. Same gate as "Change DCA levels" plus that last part.
+    const canShowExecuteNextDca = canExecuteNextDca(trade);
+    const executeNextDcaMutation = useExecuteNextDca();
+    const handleExecuteNextDcaConfirm = useCallback(
+      (expectedLevel: number) => {
+        if (!trade.botId) {
+          toast.error('Cannot execute the next DCA - missing bot ID');
+          return;
+        }
+        executeNextDcaMutation.mutate({
+          dealId: trade.id,
+          botId: trade.botId,
+          expectedLevel,
+        });
+        setExecuteNextDcaOpen(false);
+      },
+      [executeNextDcaMutation, trade.botId, trade.id]
+    );
     // The inverse of "Move to Terminal": only terminal deals can be moved back
     // into a bot, and only while open (a closed deal has no position to adopt).
     const canShowMoveToBot = useMemo(
@@ -1113,6 +1138,16 @@ const EnhancedCard = React.memo(
           cancelText="Cancel"
           onConfirm={handleRestoreConfirm}
         />
+        {canShowExecuteNextDca && (
+          <ExecuteNextDcaDialog
+            open={executeNextDcaOpen}
+            onOpenChange={setExecuteNextDcaOpen}
+            trade={trade}
+            currentPrice={currentPrice}
+            onConfirm={handleExecuteNextDcaConfirm}
+            isProcessing={executeNextDcaMutation.isPending}
+          />
+        )}
         <ChangeDcaLevelsDialog
           open={changeDcaDialogOpen}
           onOpenChange={setChangeDcaDialogOpen}
@@ -1202,6 +1237,15 @@ const EnhancedCard = React.memo(
                   <BookOpen className="w-4 h-4 mr-2" />
                   Add to Journal
                 </DropdownMenuItem>
+                {canShowExecuteNextDca && (
+                  <DropdownMenuItem
+                    onClick={() => setExecuteNextDcaOpen(true)}
+                    disabled={!isDealOpen}
+                  >
+                    <Zap className="w-4 h-4 mr-2" />
+                    Execute next DCA
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={handleAddFunds}
                   disabled={!isDealOpen}

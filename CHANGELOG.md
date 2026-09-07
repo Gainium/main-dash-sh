@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.53.0] - 2026-09-07
+
+### Added
+
+- Execute a DCA deal's next safety order on demand, at market, instead of
+  waiting for price to reach it. The action sits on the deal actions menu
+  (deals list, bot drawer and open-orders widget) and inline on the deal's
+  own ladder, on the one row it applies to — the next unfilled safety order.
+  A confirmation shows the level's ladder price against the current market
+  price, the size and cost, how far from the ladder the fill would be, and
+  where the deal's average moves to; it is withheld on combo and risk-based
+  deals, whose levels are not ladder slots. Community request:
+  https://community.gainium.io/t/execute-next-dca-manually/5072
+
 ## [2.52.5] - 2026-09-07
 
 ### Fixed

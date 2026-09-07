@@ -9,6 +9,8 @@ import {
     AdjustFundsDialog,
     ChangeDcaLevelsDialog,
     CloseOptionsDialog,
+    ExecuteNextDcaDialog,
+    canExecuteNextDca,
     type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
@@ -17,6 +19,7 @@ import {
     useAdjustFunds,
     useDealActions,
     useEditDeal,
+    useExecuteNextDca,
     useMoveDealToTerminal,
     useRestoreDeal,
 } from '@/hooks/useDealActions';
@@ -91,6 +94,7 @@ import {
     SlidersHorizontal,
     X,
     XCircle,
+    Zap,
 } from 'lucide-react';
 import React, {
     useCallback,
@@ -432,6 +436,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
   const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
+  const [executeNextDcaOpen, setExecuteNextDcaOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
@@ -460,6 +465,26 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const changeDcaMaxLevel = (trade.levels?.all || 1) - 1;
   const changeDcaBotType =
     trade.type === 'Combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
+
+  // Execute next DCA — see canExecuteNextDca (DCA only, open, not risk-based,
+  // and a level still left to execute).
+  const canShowExecuteNextDca = canExecuteNextDca(trade);
+  const executeNextDcaMutation = useExecuteNextDca();
+  const handleExecuteNextDcaConfirm = useCallback(
+    (expectedLevel: number) => {
+      if (!trade.botId) {
+        toast.error('Cannot execute the next DCA - missing bot ID');
+        return;
+      }
+      executeNextDcaMutation.mutate({
+        dealId: trade.id,
+        botId: trade.botId,
+        expectedLevel,
+      });
+      setExecuteNextDcaOpen(false);
+    },
+    [executeNextDcaMutation, trade.botId, trade.id]
+  );
   const editDealMutation = useEditDeal({
     onSuccess: () => {
       toast.success('DCA levels updated');
@@ -830,6 +855,15 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
             <Edit className="w-4 h-4 mr-2" />
             Edit
           </DropdownMenuItem>
+          {canShowExecuteNextDca && (
+            <DropdownMenuItem
+              onClick={() => setExecuteNextDcaOpen(true)}
+              disabled={!isDealOpen}
+            >
+              <Zap className="w-4 h-4 mr-2" />
+              Execute next DCA
+            </DropdownMenuItem>
+          )}
           {canShowChangeDca && (
             <DropdownMenuItem
               onClick={() => setChangeDcaDialogOpen(true)}
@@ -917,6 +951,15 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
           onConfirm={handleChangeDcaConfirm}
           isProcessing={editDealMutation.isPending}
         />
+        {canShowExecuteNextDca && (
+          <ExecuteNextDcaDialog
+            open={executeNextDcaOpen}
+            onOpenChange={setExecuteNextDcaOpen}
+            trade={trade}
+            onConfirm={handleExecuteNextDcaConfirm}
+            isProcessing={executeNextDcaMutation.isPending}
+          />
+        )}
         <MoveDealToBotDialog
           open={moveToBotDialogOpen}
           onOpenChange={setMoveToBotDialogOpen}
