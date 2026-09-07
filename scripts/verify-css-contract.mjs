@@ -101,6 +101,50 @@ const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const selectorRe = (cls, tail) =>
   new RegExp(esc(selectorText(cls)) + (tail ?? ''));
 
+/**
+ * The at-rule context each declaration of `rule` sits under, one chain per
+ * group of declarations.
+ *
+ * Tailwind v4 does not always wrap a variant's at-rule AROUND the utility
+ * rule. For a `@custom-variant` (and for the built-in breakpoints) it emits
+ * the at-rules NESTED INSIDE it instead:
+ *
+ *   .can-hover\:sm\:opacity-0 {
+ *     @media (hover: hover) { @media (width >= 40rem) { opacity: 0%; } }
+ *   }
+ *
+ * so an ancestor-only walk sees nothing but `@layer utilities` and cannot
+ * tell a hover-gated rule from an ungated one. Look in both directions, and
+ * report every path that reaches a declaration — a variant that gates only
+ * some of its declarations is still broken.
+ */
+const atRuleChainsFor = (rule) => {
+  const ancestors = [];
+  for (let p = rule.parent; p && p.type === 'atrule'; p = p.parent) {
+    ancestors.unshift(`@${p.name} ${p.params}`);
+  }
+  const chains = [];
+  const visit = (node, chain) => {
+    let hasDecl = false;
+    let hasNested = false;
+    for (const child of node.nodes ?? []) {
+      if (child.type === 'decl') {
+        hasDecl = true;
+      } else if (child.type === 'atrule') {
+        hasNested = true;
+        visit(child, [...chain, `@${child.name} ${child.params}`]);
+      } else if (child.type === 'rule') {
+        hasNested = true;
+        visit(child, chain);
+      }
+    }
+    // Declarations here, or an empty rule that produces nothing at all.
+    if (hasDecl || !hasNested) chains.push(chain);
+  };
+  visit(rule, ancestors);
+  return chains;
+};
+
 const failures = [];
 const fail = (msg) => failures.push(msg);
 
@@ -193,22 +237,22 @@ const run = async () => {
   //     leaving the controls permanently on screen — or silently degrades to
   //     a plain `sm:` rule, which is the tablet defect from bug #695.
   const canHoverTarget = selectorText('can-hover:sm:opacity-0');
-  let canHoverChain = null;
+  let canHoverChains = null;
   root.walkRules((r) => {
-    if (canHoverChain || !r.selector.includes(canHoverTarget)) return;
-    const chain = [];
-    for (let p = r.parent; p && p.type === 'atrule'; p = p.parent) {
-      chain.unshift(`@${p.name} ${p.params}`);
-    }
-    canHoverChain = chain.join(' > ');
+    if (canHoverChains || !r.selector.includes(canHoverTarget)) return;
+    canHoverChains = atRuleChainsFor(r).map((c) => c.join(' > ') || '(none)');
   });
-  if (canHoverChain === null) {
+  if (canHoverChains === null) {
     fail('can-hover:sm:opacity-0 is not generated — restore the ' +
          "`@custom-variant can-hover (@media (hover: hover))` declaration.");
-  } else if (!/hover\s*:\s*hover/.test(canHoverChain)) {
-    fail(`can-hover: does not compile to a hover media query (got ` +
-         `"${canHoverChain}"). Hover-revealed widget chrome would then be ` +
-         'hidden on touch devices that can never reveal it.');
+  } else {
+    const ungated = canHoverChains.filter((c) => !/hover\s*:\s*hover/.test(c));
+    if (ungated.length) {
+      fail(`can-hover: does not compile to a hover media query (declarations ` +
+           `sit under ${ungated.map((c) => `"${c}"`).join(', ')}). ` +
+           'Hover-revealed widget chrome would then be hidden on touch ' +
+           'devices that can never reveal it.');
+    }
   }
 
   // 5. The spacing scale must not hijack the container scale.

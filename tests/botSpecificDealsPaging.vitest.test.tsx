@@ -49,7 +49,7 @@ import { useBotSpecificDeals } from '@/hooks/useBotSpecificDeals';
 
 const BOT_ID = '6a8b89e98e06bef801add796'; // the reporter's bot
 const PAGE_SIZE = 100;
-const MAX_PAGES = 5; // the hook's display ceiling
+const MAX_PAGES = 50; // the hook's DISPLAY_MAX_PAGES runaway backstop
 const NETWORK_MS = 120; // realistic RTT — longer than the loader's 100ms step
 const STEP_MS = 50;
 
@@ -213,28 +213,72 @@ describe('useBotSpecificDeals — paginated auto-loader (bug #510)', () => {
   });
 
   it('does not absence-delete beyond the maxPages display cap', async () => {
-    // 700 deals but the display loader stops at 5 pages, so the snapshot is
+    // More deals than the display loader will walk, so the snapshot is
     // page-capped and must NOT prune the deals past it.
-    fixture = { total: 700, status: 'closed' };
+    const beyond = MAX_PAGES * PAGE_SIZE + 200;
+    fixture = { total: beyond, status: 'closed' };
     const beyondCap = {
-      ...dealAt(650), // page 6 — never fetched by the display loader
-      _id: 'deal-650',
+      ...dealAt(beyond - 1), // last page — never fetched by the display loader
+      _id: `deal-${beyond - 1}`,
       dealType: 'dca',
     };
     useDealStore.setState({
-      deals: { [BOT_ID]: { 'deal-650': beyondCap } },
+      deals: { [BOT_ID]: { [`deal-${beyond - 1}`]: beyondCap } },
       _hasHydrated: true,
     } as never);
 
     const get = renderClosed();
-    await runTimeline(40_000, () => get().deals.length);
+    await runTimeline(60_000, () => get().deals.length);
 
     // The loader settled at its cap rather than hanging...
     expect(get().isFetching).toBe(false);
-    // ...and the deal beyond the cap survived the reconcile: the 500 the
-    // display loader fetched, plus the one it never asked for. Before the fix
-    // the page-capped snapshot absence-deleted it.
-    expect(useDealStore.getState().deals[BOT_ID]?.['deal-650']).toBeTruthy();
+    // ...and the deal beyond the cap survived the reconcile: everything the
+    // display loader fetched, plus the one it never asked for. Before the bug
+    // #510 fix the page-capped snapshot absence-deleted it.
+    expect(
+      useDealStore.getState().deals[BOT_ID]?.[`deal-${beyond - 1}`]
+    ).toBeTruthy();
     expect(get().deals.length).toBe(MAX_PAGES * PAGE_SIZE + 1);
+  });
+});
+
+/**
+ * Bug #698 — a bot's own Deals tab showed a fixed 500 trades.
+ *
+ * Spec 006 §2.2/§2.3: the display auto-loader's page ceiling was a hard
+ * `maxPages = 5`, and `getBotDeals` clamps `pageSize` to 100 server-side, so
+ * every bot was truncated at exactly 500 deals — the reporter's bot
+ * (`6a8b89e98e06bef801add796`) has 1000. The other two terms of the loop's
+ * stop condition were already "page until the server's `total`"; only the
+ * ceiling was wrong.
+ */
+describe('useBotSpecificDeals — 500-deal display cap (bug #698)', () => {
+  it("reaches every closed deal on the reporter's 1000-deal bot", async () => {
+    fixture = { total: 1000, status: 'closed' }; // measured live, spec 006 §2.1
+    const get = renderClosed();
+    const timeline = await runTimeline(60_000, () => get().deals.length);
+
+    // The whole point of the bug: the tab must not stop at 500.
+    expect(get().deals.length).toBe(1000);
+    // The hook reports the server's count, and the table now actually holds it.
+    expect(get().total).toBe(1000);
+    // It walked all ten pages instead of stopping at page 4.
+    expect([...new Set(requestedPages)].sort((a, b) => a - b)).toEqual([
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,
+    ]);
+    // ...and having covered the total, the run settles instead of spinning.
+    expect(get().isFetching).toBe(false);
+    expect(timeline.at(-1)?.n).toBe(1000);
+  });
+
+  it('still stops on a short page without over-walking', async () => {
+    // 620 deals = pages of 100 ×6 + 20. Regression guard: the loop must stop at
+    // the short page, not keep asking for empty pages up to the runaway bound.
+    fixture = { total: 620, status: 'closed' };
+    const get = renderClosed();
+    await runTimeline(60_000, () => get().deals.length);
+
+    expect(get().deals.length).toBe(620);
+    expect(Math.max(...requestedPages)).toBe(6);
   });
 });

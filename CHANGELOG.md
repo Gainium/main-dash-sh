@@ -1,12 +1,35 @@
 # Changelog
 
-## [2.52.5] - 2026-09-07
+## [2.53.1] - 2026-09-07
 
 ### Added
 
 - DCA and combo deal queries now request `feeByAsset` (per-asset fee
   breakdown) alongside the existing `feePaid` field, matching the field
   app-sh now records. Not surfaced in any view yet — data plumbing only.
+
+## [2.53.0] - 2026-09-07
+
+### Added
+
+- Execute a DCA deal's next safety order on demand, at market, instead of
+  waiting for price to reach it. The action sits on the deal actions menu
+  (deals list, bot drawer and open-orders widget) and inline on the deal's
+  own ladder, on the one row it applies to — the next unfilled safety order.
+  A confirmation shows the level's ladder price against the current market
+  price, the size and cost, how far from the ladder the fill would be, and
+  where the deal's average moves to; it is withheld on combo and risk-based
+  deals, whose levels are not ladder slots. Community request:
+  https://community.gainium.io/t/execute-next-dca-manually/5072
+
+## [2.52.5] - 2026-09-07
+
+### Fixed
+
+- A bot's own Deals tab no longer stops at 500 trades. Opening a bot and
+  switching its deals to Closed loaded at most 500 rows however many the bot
+  had — the footer even said "500 of 1,000" — so older deals were reachable
+  only through the CSV export. The tab now loads every deal the server reports.
 
 ## [2.52.4] - 2026-09-07
 
