@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.52.5] - 2026-09-07
+
+### Fixed
+
+- A bot's own Deals tab no longer stops at 500 trades. Opening a bot and
+  switching its deals to Closed loaded at most 500 rows however many the bot
+  had — the footer even said "500 of 1,000" — so older deals were reachable
+  only through the CSV export. The tab now loads every deal the server reports.
+
 ## [2.52.4] - 2026-09-07
 
 ### Fixed
