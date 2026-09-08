@@ -28,6 +28,16 @@
    touch branch instead. */
 @custom-variant can-hover (@media (hover: hover));
 
+/* The other half of the same problem. `can-hover:` keeps a *hide* rule off a
+   touch device; `no-hover:` puts a *reveal* rule on one. Falling through to
+   the touch branch is not enough on its own: that branch only paints while a
+   finger is down, so at rest the control is still invisible and nothing on
+   screen hints it exists. Pair it with `sm:` — `no-hover:sm:*` means "touch
+   device, tablet-width or wider", which is the population that both lacks
+   hover and has room to show the control permanently. Phones stay on
+   tap-to-reveal, because there this chrome overlaps the widget title. */
+@custom-variant no-hover (@media (hover: none));
+
 /* Text truncation utilities */
 .truncate-text {
   overflow: hidden;

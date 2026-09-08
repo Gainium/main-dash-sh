@@ -83,7 +83,11 @@ const BUILTIN_GUARD = [
 
 /** Variant forms — dead for years while the utilities were hand-written. */
 const VARIANT_PROBES = ['md:p-md', 'sm:gap-xs', 'lg:space-y-xl', 'hover:mb-lg',
-                        'can-hover:sm:opacity-0'];
+                        'can-hover:sm:opacity-0',
+                        // `no-hover:sm:*` is what shows the widget controls at
+                        // rest on a tablet. If it stops compiling the controls
+                        // silently go back to being invisible until touched.
+                        'no-hover:sm:flex'];
 
 const probeClasses = [
   ...Object.keys(FAMILIES).flatMap((f) => TOKENS.map((t) => `${f}-${t}`)),
@@ -252,6 +256,27 @@ const run = async () => {
            `sit under ${ungated.map((c) => `"${c}"`).join(', ')}). ` +
            'Hover-revealed widget chrome would then be hidden on touch ' +
            'devices that can never reveal it.');
+    }
+  }
+
+  // 4c. `no-hover:` is the reveal half of the same pair — it is what puts the
+  //     widget controls on screen at rest on a tablet. If it degrades to an
+  //     ungated rule the controls appear on desktop too, permanently.
+  const noHoverTarget = selectorText('no-hover:sm:flex');
+  let noHoverChains = null;
+  root.walkRules((r) => {
+    if (noHoverChains || !r.selector.includes(noHoverTarget)) return;
+    noHoverChains = atRuleChainsFor(r).map((c) => c.join(' > ') || '(none)');
+  });
+  if (noHoverChains === null) {
+    fail('no-hover:sm:flex is not generated — restore the ' +
+         "`@custom-variant no-hover (@media (hover: none))` declaration.");
+  } else {
+    const ungated = noHoverChains.filter((c) => !/hover\s*:\s*none/.test(c));
+    if (ungated.length) {
+      fail(`no-hover: does not compile to a hover media query (declarations ` +
+           `sit under ${ungated.map((c) => `"${c}"`).join(', ')}). ` +
+           'The tablet-only widget controls would then show on desktop too.');
     }
   }
 

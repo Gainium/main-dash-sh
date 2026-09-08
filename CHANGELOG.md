@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.53.4] - 2026-09-08
+
+### Fixed
+
+- Widgets: on touch devices the expand/full-screen control is now visible as
+  soon as the widget is, on both dashboard widgets and the bot details
+  drawer. It was previously drawn only while a finger was on the widget and
+  hidden again a few seconds later, so on a tablet there was nothing on
+  screen to indicate the control existed. Behaviour on devices with a mouse
+  is unchanged — the controls still appear on hover.
+
 ## [2.53.3] - 2026-09-08
 
 ### Added

@@ -1799,7 +1799,13 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
                   // controls while the `group-hover` rule that reveals them
                   // could never match. Scoping the hidden state to hovering
                   // devices lets touch fall through to the branch above.
-                  'can-hover:sm:pointer-events-none can-hover:sm:opacity-0 can-hover:sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0'
+                  'can-hover:sm:pointer-events-none can-hover:sm:opacity-0 can-hover:sm:translate-x-3 sm:group-hover:pointer-events-auto sm:group-hover:opacity-100 sm:group-hover:translate-x-0 sm:group-focus-within:pointer-events-auto sm:group-focus-within:opacity-100 sm:group-focus-within:translate-x-0',
+                  // Falling through to the touch branch still leaves the
+                  // cluster invisible until a finger is down, and it hides
+                  // again 3s later — undiscoverable. On a hover-less device
+                  // wide enough to have room for it, show it at rest. Kept off
+                  // phones (`sm:`), where it would overlap the widget title.
+                  'no-hover:sm:opacity-100 no-hover:sm:translate-x-0 no-hover:sm:pointer-events-auto'
                 )}
               >
                 {controlButtons}
@@ -1956,10 +1962,14 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
                   isEditable ? 'right-10' : 'right-2',
                   mobileControlsVisible ? 'flex' : 'hidden',
                   // See the control-cluster comment above: `can-hover:` keeps
-                  // the hidden state off tablets, which cannot hover.
+                  // the hidden state off tablets, which cannot hover, and
+                  // `no-hover:sm:` then shows it at rest there. Drawer widgets
+                  // draw no header and no drag handle, so this button is their
+                  // only affordance — with neither rule it stayed invisible
+                  // until touched.
                   controlsAlwaysVisible
                     ? 'sm:flex'
-                    : 'can-hover:sm:hidden sm:group-hover:flex sm:group-focus-within:flex'
+                    : 'can-hover:sm:hidden sm:group-hover:flex sm:group-focus-within:flex no-hover:sm:flex'
                 )}
                 title="Enter fullscreen"
                 aria-label="Enter fullscreen"

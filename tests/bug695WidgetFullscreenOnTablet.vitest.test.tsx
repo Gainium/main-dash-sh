@@ -154,15 +154,53 @@ describe('bug #695 — widget full-screen on a tablet', () => {
     }
   });
 
-  // spec §1.2.A
-  it('keeps the touch-revealed classes ungated by sm:', () => {
+  // spec 009 §1.2.A. Spec 004 made the controls *reachable* on touch by
+  // scoping the `sm:` hide rules with `can-hover:`, but the branch it falls
+  // through to only paints while a finger is down and hides again 3 s later,
+  // so at rest the cluster was still invisible and nothing hinted it existed.
+  // `no-hover:sm:*` is the reveal half of that pair. Replaces spec 004's
+  // "keeps the touch-revealed classes ungated by sm:".
+  it('reveals the control cluster at rest on a wide device that cannot hover', () => {
     mount(gridWidget());
     const cls = must(controlCluster(), 'the control cluster').className;
 
-    // With the hide rules hover-scoped, these base utilities are what a
-    // tablet actually applies once `showMobileControls` flips on touch.
-    expect(cls).toMatch(/(^|\s)opacity-0(\s|$)/);
-    expect(cls).toMatch(/(^|\s)pointer-events-none(\s|$)/);
+    for (const [hidden, shown] of [
+      ['opacity-0', 'opacity-100'],
+      ['translate-x-3', 'translate-x-0'],
+      ['pointer-events-none', 'pointer-events-auto'],
+    ]) {
+      // The at-rest hidden state stays — phones keep tap-to-reveal.
+      expect(cls).toMatch(new RegExp(`(^|\\s)${hidden}(\\s|$)`));
+      // ...and a hover-less tablet overrides it.
+      expect(
+        cls,
+        `\`no-hover:sm:${shown}\` is what puts the control on screen at rest ` +
+          'on a tablet; without it the cluster is invisible until touched'
+      ).toContain(`no-hover:sm:${shown}`);
+    }
+  });
+
+  // spec 009 §1.1 — desktop and phone behaviour are deliberately unchanged.
+  it('leaves the hover reveal and the phone tap-to-reveal intact', () => {
+    mount(gridWidget());
+    const cls = must(controlCluster(), 'the control cluster').className;
+
+    // Desktop: hidden at rest, revealed on hover.
+    expect(cls).toContain('can-hover:sm:opacity-0');
+    expect(cls).toContain('sm:group-hover:opacity-100');
+    // Phone: the reveal is `sm:`-gated, so below 640px nothing changed. An
+    // ungated `no-hover:opacity-100` would overlap the widget title there.
+    expect(cls).not.toMatch(/(^|\s)no-hover:opacity-100(\s|$)/);
+  });
+
+  // spec 009 §1.2.B — the drawer's only affordance. Drawer widgets render no
+  // header and no drag handle, so with neither rule nothing shows at rest.
+  it('reveals the headerless full-screen control at rest without hover', () => {
+    mount(drawerWidget());
+    const cls = must(fullscreenControl(), 'the full-screen control').className;
+
+    expect(cls).toContain('no-hover:sm:flex');
+    expect(cls).toContain('can-hover:sm:hidden');
   });
 
   // spec §1.2.B
