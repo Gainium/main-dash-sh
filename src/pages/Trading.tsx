@@ -897,6 +897,7 @@ const Trading: React.FC = () => {
             strategy: deal.strategy || 'Terminal',
             status: deal.status || 'Unknown',
             exchange: deal.exchange || 'Unknown',
+            exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || undefined,
             currentBalance: {
@@ -1014,6 +1015,7 @@ const Trading: React.FC = () => {
             strategy: 'Grid Trading',
             status: bot.status || 'Unknown',
             exchange: bot.exchange || 'Unknown',
+            exchangeUUID: bot.exchangeUUID,
             botId: bot._id, // Add botId for orders fetching
             botName: bot.settings?.name || undefined,
             currentBalance: {

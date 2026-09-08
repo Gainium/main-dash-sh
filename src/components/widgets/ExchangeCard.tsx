@@ -232,8 +232,23 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
     return { currentValue, changeValue, changePercent, chartData, breakdown };
   }, [snapshots, exchangeId, balanceUuid]);
 
-  const exchange =
-    exchanges.find((e) => e.id === exchangeId) || exchanges[0] || null;
+  // Resolve by id ONLY — never substitute a different row.
+  //
+  // There used to be an `|| exchanges[0]` fallback here. `exchanges[0]` is
+  // always the synthetic "All Exchanges" aggregate, so a card pinned to an id
+  // that no longer resolves (a removed account, a stale saved layout, an id
+  // that outlived its connection) silently re-badged itself as All Exchanges
+  // and showed the user's WHOLE portfolio balance where one account's balance
+  // belonged. Worse than the label: the Edit / Delete / Refresh handlers below
+  // are handed `resolveExchangeData(exchange)`, so they would have acted on a
+  // synthesized `uuid: 'ALL'` record rather than the account the card claimed
+  // to be.
+  //
+  // Unresolved is a real answer, and this component already renders it: the
+  // identity block is gated on `exchange`, the title falls back to "Exchange",
+  // `statusKey` returns null and all three handlers are guarded. Prefer that
+  // over impersonating another row.
+  const exchange = exchanges.find((e) => e.id === exchangeId) ?? null;
 
   // Pull the full record so we can show the connection status indicator
   // (the transformed UIExchange carries `status` but not `lastUpdated`).

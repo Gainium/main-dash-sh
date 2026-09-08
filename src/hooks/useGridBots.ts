@@ -74,6 +74,19 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   const isArchivedQuery =
     !!filter?.status?.length && filter.status.includes('archive');
 
+  // Same failure mode, second cause (see useDcaBots): the shared store holds a
+  // single trading context — the globally selected one (`!isLiveTrading`), which
+  // is what every ambient caller writes. A caller pinned to the OTHER context
+  // cannot be served from that store and, worse, REPLACES it; an empty paper
+  // list wipes the live bots, which is why a live/paper pair mounted together
+  // (Subscription → Active Bots) renders 0/0. Isolate it like the archived query.
+  const isForeignContextQuery =
+    typeof filter?.paperContext === 'boolean' &&
+    filter.paperContext !== !isLiveTrading;
+
+  // Reads and writes its OWN React Query result instead of the shared store.
+  const isIsolatedQuery = isArchivedQuery || isForeignContextQuery;
+
   // Share-mode visitors must not fetch the visitor's grid bot list.
   const { isDemo } = useShareContext();
 
@@ -91,9 +104,9 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   );
 
   // Update store when query succeeds (React Query v5 pattern). Skip for the
-  // archived query so it never clobbers / is clobbered by the active store.
+  // isolated queries so they never clobber / are clobbered by the active store.
   useEffect(() => {
-    if (isArchivedQuery) return;
+    if (isIsolatedQuery) return;
     if (queryResult.data?.status === 'OK' && queryResult.data.data) {
       const bots = Array.isArray(queryResult.data.data)
         ? queryResult.data.data
@@ -107,7 +120,10 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
       }));
       useGridBotsStore.getState().updateBots(normalizedBots);
     }
-  }, [currentPaperContext, queryResult.data, isArchivedQuery]);
+    // `isIsolatedQuery` MUST stay in the deps: it flips when the global trading
+    // mode settles after cold start, and a pinned query that becomes native
+    // would otherwise never write its bots to the store.
+  }, [currentPaperContext, queryResult.data, isIsolatedQuery]);
 
   // Apply client-side filtering if needed
   const filteredBots = useMemo(
@@ -118,9 +134,10 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
     [botsFromStore, currentPaperContext]
   );
 
-  // Archived list: derive bots from THIS query's own result (isolated).
-  const archivedBots = useMemo(() => {
-    if (!isArchivedQuery) return null;
+  // Isolated list (archived, or pinned to the non-selected trading context):
+  // derive bots from THIS query's own result rather than the shared store.
+  const isolatedBots = useMemo(() => {
+    if (!isIsolatedQuery) return null;
     const data = queryResult.data?.data;
     const arr = Array.isArray(data) ? data : [];
     return arr
@@ -132,7 +149,7 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
             : currentPaperContext,
       }))
       .filter((bot: GridBot) => bot.paperContext === currentPaperContext);
-  }, [isArchivedQuery, queryResult.data, currentPaperContext]);
+  }, [isIsolatedQuery, queryResult.data, currentPaperContext]);
 
   // 3. Only show loading on initial load (when store is empty) OR while IDB
   // is still rehydrating — otherwise the table flashes empty on hard refresh
@@ -144,8 +161,8 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   //    an empty result so cached bots from a prior logged-in session
   //    never leak into share-URL renders.
   const result = useMemo(() => {
-    if (isArchivedQuery && !isDemo) {
-      const bots = archivedBots ?? [];
+    if (isIsolatedQuery && !isDemo) {
+      const bots = isolatedBots ?? [];
       return {
         ...queryResult,
         data: queryResult.data?.data || null,
@@ -165,7 +182,7 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
       isError: isDemo ? false : queryResult.isError,
       error: isDemo ? null : queryResult.error,
     };
-  }, [isArchivedQuery, archivedBots, isDemo, queryResult, filteredBots, isInitialLoad]);
+  }, [isIsolatedQuery, isolatedBots, isDemo, queryResult, filteredBots, isInitialLoad]);
   return result;
 }
 
