@@ -1906,6 +1906,48 @@ const DEFAULT_COLUMN_WIDTH = 192;
 const DEFAULT_MIN_COLUMN_WIDTH = 80;
 const COMPACT_ACTIONS_COLUMN_WIDTH = 56;
 
+/**
+ * Re-insert the columns the user currently has HIDDEN into a reordered list of
+ * the visible ones, so a drag persists a complete column order.
+ *
+ * Each hidden column is anchored to the visible column it used to sit behind
+ * (or to the head of the table) and comes back in that same slot, even if the
+ * anchor itself was the column that moved.
+ *
+ * @param previousOrder every leaf column id, visible and hidden, in the order
+ *   the table currently holds them.
+ * @param newVisibleOrder the visible column ids after the drop.
+ */
+const mergeHiddenColumnOrder = (
+  previousOrder: string[],
+  newVisibleOrder: string[]
+): string[] => {
+  const visible = new Set(newVisibleOrder);
+  // anchor id ('' = before every visible column) -> the hidden ids that
+  // followed it, in their previous order.
+  const hiddenAfter = new Map<string, string[]>();
+  let anchor = '';
+  for (const id of previousOrder) {
+    if (visible.has(id)) {
+      anchor = id;
+      continue;
+    }
+    const trailing = hiddenAfter.get(anchor);
+    if (trailing) trailing.push(id);
+    else hiddenAfter.set(anchor, [id]);
+  }
+
+  if (hiddenAfter.size === 0) return newVisibleOrder;
+
+  const merged = [...(hiddenAfter.get('') ?? [])];
+  for (const id of newVisibleOrder) {
+    merged.push(id);
+    const trailing = hiddenAfter.get(id);
+    if (trailing) merged.push(...trailing);
+  }
+  return merged;
+};
+
 const RowCard = <TData,>({
   row,
   index,
@@ -3116,14 +3158,6 @@ function DataTableComponent<TData, TValue>(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rowSelection, tableId]);
 
-  // Compute the visual column order from the table's header groups
-  // This ensures SortableContext items match the actual rendered order
-  const visualColumnOrder = useMemo(() => {
-    const headerGroups = table.getHeaderGroups();
-    if (headerGroups.length === 0) return columnOrder;
-    return headerGroups[0].headers.map((h) => h.column.id);
-  }, [table, columnOrder]);
-
   // Handle column drag end
   const handleDragEnd = useCallback(
     (event: DragEndEvent) => {
@@ -3136,6 +3170,21 @@ function DataTableComponent<TData, TValue>(
       if (active && over && active.id !== over.id) {
         const activeId = active.id as string;
         const overId = over.id as string;
+
+        // Read the rendered header order LIVE, at drop time.
+        // This used to be a `useMemo` keyed on `[table, columnOrder]`, which
+        // could never see a visibility change: `useReactTable` builds the
+        // `table` object once (`useState`) so its identity never changes, and
+        // enabling a column from the Columns menu writes `columnVisibility`,
+        // not `columnOrder`. The memo therefore still described the pre-toggle
+        // table, the just-enabled column resolved to `indexOf(...) === -1`,
+        // and the drop below was silently discarded until the page was
+        // remounted (bug #655).
+        const headerGroups = table.getHeaderGroups();
+        const visualColumnOrder =
+          headerGroups.length === 0
+            ? effectiveColumnOrder
+            : headerGroups[0].headers.map((h) => h.column.id);
 
         // Don't allow dragging pinned columns (the source column)
         if (
@@ -3176,11 +3225,21 @@ function DataTableComponent<TData, TValue>(
             oldIndex,
             newIndex
           );
-          setColumnOrder(newVisualOrder);
+          // Header groups hold only the VISIBLE columns, so persisting the
+          // dragged order verbatim dropped every hidden column out of
+          // `columnOrder`; `effectiveColumnOrder` then treats them as new and
+          // re-appends them, so re-enabling one landed it at the far right
+          // instead of where the user left it. Put them back first.
+          setColumnOrder(
+            mergeHiddenColumnOrder(
+              table.getAllLeafColumns().map((col) => col.id),
+              newVisualOrder
+            )
+          );
         }
       }
     },
-    [visualColumnOrder, setColumnOrder, effectivePinnedColumns]
+    [table, effectiveColumnOrder, setColumnOrder, effectivePinnedColumns]
   );
 
   // Handle column drag start to prevent propagation
