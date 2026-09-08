@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.53.2] - 2026-09-08
+
+### Fixed
+
+- Tables: a column switched on from the Columns menu could not be moved until
+  the page was left and reopened, and dragging any column reset the saved
+  position of every column that was switched off. A drag now reads the column
+  layout as it is actually rendered at that moment, and puts hidden columns
+  back beside the column they were left next to.
+- Bot form: the credits chip could quote a fractional cost slightly above the
+  whole number of credits a bot is actually charged, when extra pairs put the
+  cost on a half credit. It now shows the charged figure; the hover breakdown
+  still itemises the unrounded parts.
+
 ## [2.53.1] - 2026-09-08
 
 ### Fixed

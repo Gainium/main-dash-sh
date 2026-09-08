@@ -386,15 +386,25 @@ interface CreditsChipProps {
  * be hidden behind the in-button adornment. Credits can be fractional
  * (e.g. +0.5 per extra pair), so amounts are shown with decimals.
  */
-const CreditsChip: React.FC<CreditsChipProps> = ({
+export const CreditsChip: React.FC<CreditsChipProps> = ({
   isCompact,
   credits,
   affiliate,
 }) => {
   const [open, setOpen] = useState(false)
-  const total =
-    credits.base + credits.pairs + credits.indicators + credits.deals
-  const totalLabel = fmtNumber(total, 2)
+  // Quote `credits.total`, NOT the sum of the component rows. The backend
+  // charges `Math.floor(base + pairs + indicators + deals)` per bot
+  // (main-app `calculateCost`), and `calculateCost`'s `total` already carries
+  // that floor — re-adding the components here loses it and quoted a
+  // fractional 154.5 for a 130-pair bot the backend charges 154 for (bug #701).
+  // The rows below stay unrounded on purpose: they explain where the cost comes
+  // from, the total is what you are actually charged. When the two differ the
+  // total row says so, so a 50 + 64.5 + 40 breakdown over a "154" total doesn't
+  // read as an arithmetic slip.
+  const totalLabel = fmtNumber(credits.total, 2)
+  const isRoundedDown =
+    credits.base + credits.pairs + credits.indicators + credits.deals >
+    credits.total
   const rows = [
     { label: 'Base cost', value: credits.base },
     { label: 'Extra pairs', value: credits.pairs },
@@ -443,7 +453,7 @@ const CreditsChip: React.FC<CreditsChipProps> = ({
               </div>
             ))}
             <div className='mt-1 flex items-center justify-between border-t border-border pt-1 font-semibold text-foreground'>
-              <span>Total</span>
+              <span>{isRoundedDown ? 'Total (rounded down)' : 'Total'}</span>
               <span className='tabular-nums'>{totalLabel}</span>
             </div>
           </div>
