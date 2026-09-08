@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.53.1] - 2026-09-08
+
+### Fixed
+
+- Subscription: the Active Bots breakdown counted zero live bots for accounts
+  with no paper bots (and vice versa). The panel loads both trading contexts at
+  once, and each list replaced the other's cached bots as it arrived, so the
+  empty context wiped the populated one. A list pinned to a context other than
+  the one currently selected now reads its own result and leaves the shared
+  cache alone.
+
 ## [2.53.0] - 2026-09-07
 
 ### Added

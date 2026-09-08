@@ -150,6 +150,23 @@ export function useDcaBots(
   // read/write that directly and stay out of the shared store entirely.
   const isArchivedQuery = !!filter?.status?.length && filter.status.includes('archive');
 
+  // Same failure mode, second cause: the shared store can only ever hold ONE
+  // trading context. Every ambient caller (no explicit `filter.paperContext`)
+  // fetches and writes `!isLiveTrading`, so that is the context the record
+  // holds. A caller pinned to the OTHER context is both unserviceable by the
+  // store (its bots aren't in there) and destructive to it (its response
+  // REPLACES the other context's bots — an empty paper list wipes the live
+  // one, which is why a live/paper pair mounted together, as on Subscription →
+  // Active Bots, renders 0/0). Isolate it exactly like the archived query.
+  // At most one side of such a pair is foreign, so the other still owns the
+  // store and no instance is left without a data source.
+  const isForeignContextQuery =
+    typeof filter?.paperContext === 'boolean' &&
+    filter.paperContext !== !isLiveTrading;
+
+  // Reads and writes its OWN React Query result instead of the shared store.
+  const isIsolatedQuery = isArchivedQuery || isForeignContextQuery;
+
   // The paper/live trading context is baked into this query's cache key AND the
   // `paper-context` request header. On cold start `isLiveTrading` defaults to
   // paper and `usePaperContext()` flips it to the profile's real value a tick
@@ -195,10 +212,11 @@ export function useDcaBots(
   );
 
   // Update store when query succeeds (React Query v5 pattern). Skip for the
-  // archived query — writing archived bots into the shared active store would
-  // both clobber active consumers and be clobbered back by them.
+  // isolated queries — writing archived bots, or bots from the non-selected
+  // trading context, into the shared active store would both clobber active
+  // consumers and be clobbered back by them.
   useEffect(() => {
-    if (isArchivedQuery) return;
+    if (isIsolatedQuery) return;
     if (queryResult.data?.status === 'OK' && queryResult.data.data) {
       const bots = Array.isArray(queryResult.data.data)
         ? queryResult.data.data
@@ -212,7 +230,10 @@ export function useDcaBots(
       }));
       useDcaBotsStore.getState().updateBots(normalizedBots);
     }
-  }, [currentPaperContext, queryResult.data, isArchivedQuery]);
+    // `isIsolatedQuery` MUST stay in the deps: it flips when the global trading
+    // mode settles after cold start, and a pinned query that becomes native
+    // would otherwise never write its bots to the store.
+  }, [currentPaperContext, queryResult.data, isIsolatedQuery]);
 
   // If there's an error, log it
   if (queryResult.error) {
@@ -243,10 +264,11 @@ export function useDcaBots(
     [botsFromStore, currentPaperContext, filter]
   );
 
-  // Archived list: derive bots from THIS query's own result (isolated from the
-  // shared store), applying the same paperContext/terminal client filters.
-  const archivedBots = useMemo(() => {
-    if (!isArchivedQuery) return null;
+  // Isolated list (archived, or pinned to the non-selected trading context):
+  // derive bots from THIS query's own result rather than the shared store,
+  // applying the same paperContext/terminal client filters.
+  const isolatedBots = useMemo(() => {
+    if (!isIsolatedQuery) return null;
     const data = queryResult.data?.data;
     const arr = Array.isArray(data) ? data : [];
     return arr
@@ -265,7 +287,7 @@ export function useDcaBots(
           return false;
         return true;
       });
-  }, [isArchivedQuery, queryResult.data, currentPaperContext, filter]);
+  }, [isIsolatedQuery, queryResult.data, currentPaperContext, filter]);
 
   // 3. Only show loading on initial load (when store is empty) OR while IDB
   // is still rehydrating — otherwise the table flashes empty on hard refresh
@@ -284,9 +306,9 @@ export function useDcaBots(
   //    persisted bot list from a prior logged-in session must not leak
   //    into share-URL renders.
   const result = useMemo(() => {
-    // Archived list is isolated from the shared store (see isArchivedQuery).
-    if (isArchivedQuery && !isDemo) {
-      const bots = archivedBots ?? [];
+    // Isolated lists read their own result, not the shared store.
+    if (isIsolatedQuery && !isDemo) {
+      const bots = isolatedBots ?? [];
       return {
         data: queryResult.data?.data || null,
         bots,
@@ -311,8 +333,8 @@ export function useDcaBots(
       refetch: queryResult.refetch,
     };
   }, [
-    isArchivedQuery,
-    archivedBots,
+    isIsolatedQuery,
+    isolatedBots,
     isDemo,
     queryResult.data,
     queryResult.isLoading,
