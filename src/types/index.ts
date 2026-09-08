@@ -3234,6 +3234,7 @@ export type DCADeals = {
     base?: number;
     quote?: number;
   };
+  feeByAsset?: { asset: string; total: number; totalUsd: number }[];
   avgPrice: number;
   displayAvg?: number;
   commission: number;
