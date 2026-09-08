@@ -42,11 +42,23 @@ export const ExchangeChip: React.FC<ExchangeChipProps> = ({
 }) => {
   const { exchanges, isLoading } = useTransformedExchangesFromContext();
 
-  // Look up the user's custom exchange name by UUID first, then by provider
+  // Resolve the user's account by UUID ONLY.
+  //
+  // There used to be a `find(ex => ex.provider === exchangeId)` fallback here,
+  // so a caller passing a bare provider ("binance") would resolve to whichever
+  // account happened to sit first in the user's list. For anyone holding more
+  // than one account on the same venue that is a coin flip presented as fact:
+  // the chip rendered a real, specific, WRONG account name with no visual hint
+  // that it had guessed. Terminal and Grid rows hit exactly this — they never
+  // carried `exchangeUUID`, so every one of them was labelled with the user's
+  // first account on that venue.
+  //
+  // A provider is not an account. When we only know the venue we now say only
+  // the venue ("Binance") and name no account at all. Do not reintroduce a
+  // "best guess" here: pass the real `exchangeUUID`, or accept the venue-only
+  // label.
   const userExchange = useMemo(
-    () =>
-      exchanges.find((ex) => ex.id === exchangeId) ||
-      exchanges.find((ex) => ex.provider === exchangeId),
+    () => exchanges.find((ex) => ex.id === exchangeId),
     [exchanges, exchangeId]
   );
   const userCustomName = useMemo(
