@@ -152,25 +152,25 @@ describe('useDcaBots — live/paper cross-context clobber (bug #701)', () => {
     // Declaration order as on Subscription.tsx: live first, paper second — so
     // the empty paper response is the one that writes last.
     const ref = renderHooks({
-      live: () => useDcaBotStats(liveFilter),
-      paper: () => useDcaBotStats(paperFilter),
+      useLive: () => useDcaBotStats(liveFilter),
+      usePaper: () => useDcaBotStats(paperFilter),
     });
     await settle();
 
     // Before the fix: 0 and 0.
-    expect(totalOf(ref.current.live as never)).toBe(4);
-    expect(totalOf(ref.current.paper as never)).toBe(0);
+    expect(totalOf(ref.current.useLive as never)).toBe(4);
+    expect(totalOf(ref.current.usePaper as never)).toBe(0);
   });
 
   it('§1.1 is independent of which context is declared first', async () => {
     const ref = renderHooks({
-      paper: () => useDcaBotStats(paperFilter),
-      live: () => useDcaBotStats(liveFilter),
+      usePaper: () => useDcaBotStats(paperFilter),
+      useLive: () => useDcaBotStats(liveFilter),
     });
     await settle();
 
-    expect(totalOf(ref.current.live as never)).toBe(4);
-    expect(totalOf(ref.current.paper as never)).toBe(0);
+    expect(totalOf(ref.current.useLive as never)).toBe(4);
+    expect(totalOf(ref.current.usePaper as never)).toBe(0);
   });
 
   it('§1.3 holds while the app is globally in paper mode', async () => {
@@ -181,13 +181,13 @@ describe('useDcaBots — live/paper cross-context clobber (bug #701)', () => {
     } as never);
 
     const ref = renderHooks({
-      live: () => useDcaBotStats(liveFilter),
-      paper: () => useDcaBotStats(paperFilter),
+      useLive: () => useDcaBotStats(liveFilter),
+      usePaper: () => useDcaBotStats(paperFilter),
     });
     await settle();
 
-    expect(totalOf(ref.current.live as never)).toBe(4);
-    expect(totalOf(ref.current.paper as never)).toBe(0);
+    expect(totalOf(ref.current.useLive as never)).toBe(4);
+    expect(totalOf(ref.current.usePaper as never)).toBe(0);
   });
 
   it('§1.3 a context-pinned query does not empty the store the ambient list reads', async () => {
@@ -195,12 +195,12 @@ describe('useDcaBots — live/paper cross-context clobber (bug #701)', () => {
     // the shared store. A paper-pinned widget mounted next to it must not wipe
     // the live bots it is showing.
     const ref = renderHooks({
-      ambient: () => useDcaBots({ status: [...ACTIVE], terminal: false }),
-      paperPinned: () => useDcaBots(paperFilter),
+      useAmbient: () => useDcaBots({ status: [...ACTIVE], terminal: false }),
+      usePaperPinned: () => useDcaBots(paperFilter),
     });
     await settle();
 
-    expect((ref.current.ambient as { bots: unknown[] }).bots.length).toBe(4);
+    expect((ref.current.useAmbient as { bots: unknown[] }).bots.length).toBe(4);
     expect(Object.keys(useDcaBotsStore.getState().bots).length).toBe(4);
   });
 });
