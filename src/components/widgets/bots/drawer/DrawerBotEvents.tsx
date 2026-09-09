@@ -15,6 +15,7 @@ import { cn } from '../../../../lib/utils';
 import { copyToClipboard } from '../../../../lib/webhookUtils';
 import { toast } from '../../../../lib/toast';
 import CoinPair from '../../shared/CoinPair';
+import { DrawerSection } from './DrawerSection';
 import { BotTypesEnum, type GridFilterModel } from '../../../../types';
 import { Alert, AlertDescription } from '../../../ui/alert';
 import { Badge } from '../../../ui/badge';
@@ -192,6 +193,7 @@ export interface DrawerBotEventsProps {
 // Event interface removed - not needed without real events
 
 export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
+  widgetId,
   botId,
   bot: botProp,
 }) => {
@@ -598,109 +600,121 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
     );
   }
 
+  // DrawerSection (a headerless WidgetWrapper) is what carries the "Enter
+  // fullscreen" control; without it this tab had no route into full-screen at
+  // all — not the button, not the triple-tap. `bare` keeps the title off the tab
+  // body (the tab bar right above already says "Events") while still naming
+  // the widget in the full-screen view.
   return (
-    <div className="w-full h-full flex flex-col">
-      {/* Search and Refresh Bar */}
-      <div className="flex items-center gap-xs mb-4">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-          <Input
-            placeholder="Search events..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-10 pr-10 h-9 text-sm"
-          />
-          {searchQuery && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => setSearchQuery('')}
-              className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
-            >
-              <X className="w-3 h-3" />
-            </Button>
-          )}
-        </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleRefresh}
-          disabled={eventsLoading || isRefreshing}
-          className="h-9"
-        >
-          <RefreshCw
-            className={cn(
-              'w-4 h-4 mr-2 transition-transform duration-200',
-              (eventsLoading || isRefreshing) && 'animate-spin'
+    <DrawerSection
+      widgetId={widgetId}
+      widgetType="drawer-bot-events"
+      title="Events"
+      bare
+    >
+      <div className="w-full h-full flex flex-col">
+        {/* Search and Refresh Bar */}
+        <div className="flex items-center gap-xs mb-4">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              placeholder="Search events..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="pl-10 pr-10 h-9 text-sm"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSearchQuery('')}
+                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
+              >
+                <X className="w-3 h-3" />
+              </Button>
             )}
-          />
-          {isRefreshing ? 'Refreshing...' : 'Refresh'}
-        </Button>
-      </div>
-
-      <Tabs
-        value={selectedTab}
-        onValueChange={(value) =>
-          setSelectedTab(value as 'recent' | 'deals' | 'alerts')
-        }
-      >
-        <TabsList className="grid w-full grid-cols-3 h-auto">
-          <TabsTrigger
-            value="recent"
-            className="flex items-center gap-xs text-xs"
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={eventsLoading || isRefreshing}
+            className="h-9"
           >
-            <Clock className="w-4 h-4" />
-            Recent ({counts.recent})
-          </TabsTrigger>
-          {!isGrid && (
+            <RefreshCw
+              className={cn(
+                'w-4 h-4 mr-2 transition-transform duration-200',
+                (eventsLoading || isRefreshing) && 'animate-spin'
+              )}
+            />
+            {isRefreshing ? 'Refreshing...' : 'Refresh'}
+          </Button>
+        </div>
+
+        <Tabs
+          value={selectedTab}
+          onValueChange={(value) =>
+            setSelectedTab(value as 'recent' | 'deals' | 'alerts')
+          }
+        >
+          <TabsList className="grid w-full grid-cols-3 h-auto">
             <TabsTrigger
-              value="deals"
+              value="recent"
               className="flex items-center gap-xs text-xs"
             >
-              <Activity className="w-4 h-4" />
-              Deals ({counts.deals})
+              <Clock className="w-4 h-4" />
+              Recent ({counts.recent})
             </TabsTrigger>
-          )}
-          <TabsTrigger
-            value="alerts"
-            className="flex items-center gap-xs text-xs"
-          >
-            <AlertCircle className="w-4 h-4" />
-            Alerts ({counts.alerts})
-          </TabsTrigger>
-        </TabsList>
+            {!isGrid && (
+              <TabsTrigger
+                value="deals"
+                className="flex items-center gap-xs text-xs"
+              >
+                <Activity className="w-4 h-4" />
+                Deals ({counts.deals})
+              </TabsTrigger>
+            )}
+            <TabsTrigger
+              value="alerts"
+              className="flex items-center gap-xs text-xs"
+            >
+              <AlertCircle className="w-4 h-4" />
+              Alerts ({counts.alerts})
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Search Results Indicator */}
-        {debouncedSearch && (
-          <div className="mt-2 mb-2">
-            <div className="text-xs text-muted-foreground">
-              {totalMatches > 0 ? (
-                <>
-                  Found {totalMatches} event
-                  {totalMatches !== 1 ? 's' : ''} matching "{debouncedSearch}"
-                </>
-              ) : (
-                <>No events found matching "{debouncedSearch}"</>
-              )}
+          {/* Search Results Indicator */}
+          {debouncedSearch && (
+            <div className="mt-2 mb-2">
+              <div className="text-xs text-muted-foreground">
+                {totalMatches > 0 ? (
+                  <>
+                    Found {totalMatches} event
+                    {totalMatches !== 1 ? 's' : ''} matching "{debouncedSearch}"
+                  </>
+                ) : (
+                  <>No events found matching "{debouncedSearch}"</>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <TabsContent value="recent" className="mt-4 flex-1 overflow-hidden">
-          {renderEventTimeline(events, 'No Recent Activity', Clock)}
-        </TabsContent>
-
-        {!isGrid && (
-          <TabsContent value="deals" className="mt-4 flex-1 overflow-hidden">
-            {renderEventTimeline(events, 'No Deal Events', TrendingUp)}
+          <TabsContent value="recent" className="mt-4 flex-1 overflow-hidden">
+            {renderEventTimeline(events, 'No Recent Activity', Clock)}
           </TabsContent>
-        )}
 
-        <TabsContent value="alerts" className="mt-4 flex-1 overflow-hidden">
-          {renderEventTimeline(events, 'No Alerts', AlertCircle)}
-        </TabsContent>
-      </Tabs>
-    </div>
+          {!isGrid && (
+            <TabsContent value="deals" className="mt-4 flex-1 overflow-hidden">
+              {renderEventTimeline(events, 'No Deal Events', TrendingUp)}
+            </TabsContent>
+          )}
+
+          <TabsContent value="alerts" className="mt-4 flex-1 overflow-hidden">
+            {renderEventTimeline(events, 'No Alerts', AlertCircle)}
+          </TabsContent>
+        </Tabs>
+      </div>
+    </DrawerSection>
   );
 };
 

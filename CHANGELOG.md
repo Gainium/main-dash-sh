@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.53.7] - 2026-09-09
+
+### Fixed
+
+- The bot details panel can now be expanded to full screen from every tab. The
+  Deals, Stats, Events and Settings tabs rendered no expand control at all — on
+  a touch device, where there is no hover and no triple-click, that left their
+  content permanently confined to the panel's width, the deals table worst of
+  all. Overview and Webhook already had it, and are unchanged.
+
 ## [2.53.6] - 2026-09-09
 
 ### Fixed

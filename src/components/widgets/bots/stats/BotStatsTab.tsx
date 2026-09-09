@@ -20,6 +20,8 @@ import { useShareContext } from '@/hooks/useShareContext';
 import type { BotTypesEnum } from '@/types';
 import { useMemo, type FC } from 'react';
 
+import { DrawerSection } from '../drawer/DrawerSection';
+
 import { BotStatsBreakdown } from './BotStatsBreakdown';
 import { BotStatsOverview } from './BotStatsOverview';
 import { BotSymbolStatsTable } from './BotSymbolStatsTable';
@@ -109,12 +111,26 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
   // in read as a duplicate of the tab bar right above it. Legacy main-dash
   // needed the switcher because its widget lived inline on the bot page with
   // no tab of its own; here the drawer tab does that job.
+  // DrawerSection (a headerless WidgetWrapper) is what carries the "Enter
+  // fullscreen" control; without it this tab had no route into full-screen at
+  // all. This component is rendered straight into the tab rather than through
+  // the drawer widget registry, so it has no widget id of its own — derive a
+  // stable one from the bot. `bare` keeps the title off
+  // the tab body (the tab bar above already says "Stats") while still naming
+  // the widget in the full-screen view.
   return (
-    <div className="flex flex-col gap-md">
-      <BotStatsOverview vm={headline} />
-      <BotStatsBreakdown vm={breakdown} />
-      {/* Per-pair breakdown only earns its space on multi-pair bots. */}
-      {symbolRows.length > 1 && <BotSymbolStatsTable rows={symbolRows} />}
-    </div>
+    <DrawerSection
+      widgetId={`drawer-bot-stats-${botId}`}
+      widgetType="drawer-bot-stats"
+      title="Statistics"
+      bare
+    >
+      <div className="flex flex-col gap-md">
+        <BotStatsOverview vm={headline} />
+        <BotStatsBreakdown vm={breakdown} />
+        {/* Per-pair breakdown only earns its space on multi-pair bots. */}
+        {symbolRows.length > 1 && <BotSymbolStatsTable rows={symbolRows} />}
+      </div>
+    </DrawerSection>
   );
 };

@@ -129,6 +129,7 @@ import { Skeleton } from '../../../ui/skeleton';
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
+import { DrawerSection } from './DrawerSection';
 interface TradeCardWrapperProps {
   item: TransformedTrade;
   index: number;
@@ -3255,94 +3256,109 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
 
   return (
     <>
-      <div className="w-full h-full flex flex-col">
-        {showTable ? (
-          <DataTable
-            tableId={`${widgetId}-${selectedTab}-deals`}
-            columns={columns}
-            data={dealsData}
-            enableGlobalFilter
-            enableColumnFilters
-            enableSorting
-            enableColumnVisibility
-            defaultColumnVisibility={defaultColumnVisibility}
-            defaultPinnedColumns={{ left: [], right: ['actions'] }}
-            enableCardView
-            cardComponent={cardComponentWrapper}
-            defaultView={defaultView}
-            cardViewBreakpoints={cardViewBreakpoints}
-            cardViewGap={cardViewGap}
-            emptyMessage={emptyMessage}
-            onRowClick={onRowClick}
-            getRowIsSelected={getRowIsSelected}
-            bulkActions={bulkActions}
-            getRowId={getRowId}
-            firstToolbarActions={firstToolbarAction}
-            firstToolbarActionsCompact={firstToolbarActionCompact}
-            getExportData={getExportData}
-            serverTotalRows={dealsServerTotal}
-            exportFilename={`${selectedTab === 'active' ? 'open' : 'closed'}-deals`}
-          />
-        ) : (
-          <div className="flex flex-col">
-            {/* Keep the Open/Closed status filter reachable even when the
-                current tab has no deals — otherwise closed deals are
-                stranded behind an empty "Open" tab (e.g. a combo bot with
-                0 open but 42 closed deals). */}
-            <div className="flex items-center py-2">
-              <Select
-                value={selectedTab}
-                onValueChange={(value) =>
-                  setSelectedTab(value as 'active' | 'closed')
-                }
-              >
-                <SelectTrigger className="h-9 w-40">
-                  <SelectValue placeholder={`Open (${activeDealsCount})`} />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">
-                    Open ({activeDealsCount})
-                  </SelectItem>
-                  <SelectItem value="closed">
-                    Closed ({closedDealsCount})
-                  </SelectItem>
-                </SelectContent>
-              </Select>
+      {/* DrawerSection (i.e. a headerless WidgetWrapper) is what carries the
+          "Enter fullscreen" control. Without it this tab had no way into
+          full-screen at all — not the button, not the triple-tap — which on a
+          tablet left the widest table in the drawer stuck at drawer width.
+          `bare` keeps the title out of the tab body (the tab bar right above
+          already says "Deals") while still naming the widget for the
+          full-screen view. The dialogs below stay outside the section; they
+          portal to `body` anyway. */}
+      <DrawerSection
+        widgetId={widgetId}
+        widgetType="drawer-deals-table"
+        title="Deals"
+        bare
+      >
+        <div className="w-full h-full flex flex-col">
+          {showTable ? (
+            <DataTable
+              tableId={`${widgetId}-${selectedTab}-deals`}
+              columns={columns}
+              data={dealsData}
+              enableGlobalFilter
+              enableColumnFilters
+              enableSorting
+              enableColumnVisibility
+              defaultColumnVisibility={defaultColumnVisibility}
+              defaultPinnedColumns={{ left: [], right: ['actions'] }}
+              enableCardView
+              cardComponent={cardComponentWrapper}
+              defaultView={defaultView}
+              cardViewBreakpoints={cardViewBreakpoints}
+              cardViewGap={cardViewGap}
+              emptyMessage={emptyMessage}
+              onRowClick={onRowClick}
+              getRowIsSelected={getRowIsSelected}
+              bulkActions={bulkActions}
+              getRowId={getRowId}
+              firstToolbarActions={firstToolbarAction}
+              firstToolbarActionsCompact={firstToolbarActionCompact}
+              getExportData={getExportData}
+              serverTotalRows={dealsServerTotal}
+              exportFilename={`${selectedTab === 'active' ? 'open' : 'closed'}-deals`}
+            />
+          ) : (
+            <div className="flex flex-col">
+              {/* Keep the Open/Closed status filter reachable even when the
+                  current tab has no deals — otherwise closed deals are
+                  stranded behind an empty "Open" tab (e.g. a combo bot with
+                  0 open but 42 closed deals). */}
+              <div className="flex items-center py-2">
+                <Select
+                  value={selectedTab}
+                  onValueChange={(value) =>
+                    setSelectedTab(value as 'active' | 'closed')
+                  }
+                >
+                  <SelectTrigger className="h-9 w-40">
+                    <SelectValue placeholder={`Open (${activeDealsCount})`} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">
+                      Open ({activeDealsCount})
+                    </SelectItem>
+                    <SelectItem value="closed">
+                      Closed ({closedDealsCount})
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="text-center py-8 text-muted-foreground">
+                {selectedTab === 'active' ? (
+                  <Handshake className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                ) : (
+                  <Square className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                )}
+                <p>
+                  {selectedTab === 'active'
+                    ? 'No active deals'
+                    : 'No closed deals'}
+                </p>
+                <p className="text-sm">
+                  {selectedTab === 'active'
+                    ? 'Deals will appear here when the bot starts trading'
+                    : 'Completed deals will appear here'}
+                </p>
+                {selectedTab === 'active' ? (
+                  <div className="flex items-center justify-center gap-4 ">
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={handleOpenNewDeal}
+                      disabled={isOpenDealPending || !botId}
+                      className="mt-4 gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      Open New Deal
+                    </Button>
+                  </div>
+                ) : null}
+              </div>
             </div>
-            <div className="text-center py-8 text-muted-foreground">
-              {selectedTab === 'active' ? (
-                <Handshake className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              ) : (
-                <Square className="w-8 h-8 mx-auto mb-2 opacity-50" />
-              )}
-              <p>
-                {selectedTab === 'active'
-                  ? 'No active deals'
-                  : 'No closed deals'}
-              </p>
-              <p className="text-sm">
-                {selectedTab === 'active'
-                  ? 'Deals will appear here when the bot starts trading'
-                  : 'Completed deals will appear here'}
-              </p>
-              {selectedTab === 'active' ? (
-                <div className="flex items-center justify-center gap-4 ">
-                  <Button
-                    variant="default"
-                    size="sm"
-                    onClick={handleOpenNewDeal}
-                    disabled={isOpenDealPending || !botId}
-                    className="mt-4 gap-1"
-                  >
-                    <Plus className="w-4 h-4" />
-                    Open New Deal
-                  </Button>
-                </div>
-              ) : null}
-            </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      </DrawerSection>
 
       {/* Orders Dialog */}
       {selectedDealForOrders && (

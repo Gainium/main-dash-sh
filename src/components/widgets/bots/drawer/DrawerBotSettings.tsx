@@ -6,6 +6,7 @@ import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Card } from '../../../ui/card';
 import ReadOnlyBotForm from '@/features/bots/widgets/BotForm/ReadOnlyBotForm';
+import { DrawerSection } from './DrawerSection';
 
 const LOG_PREFIX = 'DrawerBotSettings';
 
@@ -31,7 +32,10 @@ const resolveBotType = (bot: DrawerBot): BotTypesEnum => {
   return BotTypesEnum.dca;
 };
 
-const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({ bot }) => {
+const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({
+  widgetId,
+  bot,
+}) => {
   const navigate = useNavigate();
 
   const botType = useMemo(
@@ -59,13 +63,26 @@ const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({ bot }) => {
     navigate(editPath);
   };
 
+  // DrawerSection (a headerless WidgetWrapper) is what carries the "Enter
+  // fullscreen" control; without it this tab had no route into full-screen at
+  // all. Its button is a sibling of the wrapper's children, so it sits OUTSIDE
+  // the read-only form's disabled <fieldset> and stays clickable. `bare` keeps
+  // the title off the tab body (the tab bar right above already says
+  // "Settings") while still naming the widget in the full-screen view.
   return (
-    <ReadOnlyBotForm
-      bot={bot as unknown as DCABot | ComboBot | Bot}
-      botType={botType}
-      showNavigation
-      onEditClick={handleEdit}
-    />
+    <DrawerSection
+      widgetId={widgetId}
+      widgetType="drawer-bot-settings"
+      title="Settings"
+      bare
+    >
+      <ReadOnlyBotForm
+        bot={bot as unknown as DCABot | ComboBot | Bot}
+        botType={botType}
+        showNavigation
+        onEditClick={handleEdit}
+      />
+    </DrawerSection>
   );
 };
 
