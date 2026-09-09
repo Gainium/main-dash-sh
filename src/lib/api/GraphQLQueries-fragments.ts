@@ -437,6 +437,7 @@ comboSmartGridsCount
                 useMinTP
                 minTp
                 closeDealType
+                closeOrderType
                 terminalDealType
                 useMultiTp
                 multiTp {
@@ -721,6 +722,7 @@ useCloseAfterXwin
                 useMinTP
                 minTp
                 closeDealType
+                closeOrderType
                 terminalDealType
                 useMultiTp
                 multiTp {
@@ -964,6 +966,7 @@ baseSlOn
                     useMinTP
                     minTp
                     closeDealType
+                    closeOrderType
                     orderSizeType
                     useMultiSl
                     multiSl {
@@ -1202,6 +1205,7 @@ baseSlOn
                     useMinTP
                     minTp
                     closeDealType
+                    closeOrderType
                     orderSizeType
                     useMultiSl
                     multiSl {

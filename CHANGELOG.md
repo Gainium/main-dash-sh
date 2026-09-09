@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.53.8] - 2026-09-09
+
+### Fixed
+
+- The take-profit "Close order type" now shows the value the bot actually has.
+  It was never requested when a bot's settings were loaded, so the form fell
+  back to its Limit default no matter what was stored, and — because the
+  setting is written on every save — the next save persisted that default over
+  the user's choice. Combo bots were affected silently, having no control for
+  it, and a deal's own override is now shown in the deal editor.
+
 ## [2.53.7] - 2026-09-09
 
 ### Fixed
