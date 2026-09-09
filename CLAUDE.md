@@ -73,6 +73,13 @@ Follow the repo's existing commit style — see recent `git log` for the
 convention. Co-author trailers are fine; the CLA workflow allowlists the
 common AI assistant emails.
 
+This repository is public, and so is its history. A commit message describes
+the change and why the old behaviour was wrong, in the code's own terms. Keep
+out of it anything that is not about the code: tracker or ticket numbers and
+links, support threads, user names, ids or account details, figures taken from
+live accounts, and internal tooling. History cannot be cleaned afterwards
+without rewriting it, so write it right the first time.
+
 ## Things this repo does NOT do
 
 - No mocks of the trading backend; integration tests hit a real `app-sh`.
