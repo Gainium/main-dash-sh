@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.53.9] - 2026-09-10
+
+### Fixed
+
+- Portfolio balances: with "Aggregate" on and one or more accounts selected,
+  every token held on more than one exchange disappeared from the table while
+  tokens held on a single exchange stayed. Aggregating sums a token across
+  venues, so the summed row can no longer name one and its exchange field is
+  blank — and the table then filtered those rows out by that same blank field.
+  The selection is now applied before the sum, so the totals mean "across the
+  selected accounts" and nothing is dropped afterwards.
+
 ## [2.53.8] - 2026-09-09
 
 ### Fixed

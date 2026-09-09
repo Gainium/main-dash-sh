@@ -191,6 +191,13 @@ export interface BalanceCalculationInput {
   // Optional raw balances (from getBalances) to improve free/used accuracy
   balances?: Asset[];
 
+  // Exchange selection to restrict the calculation to. Applied to `balances`
+  // BEFORE aggregation, because summing blanks a row's `exchangeUUID` (an
+  // aggregate spans venues and cannot name one) and a caller filtering the
+  // RESULT therefore drops every multi-venue token. `['ALL']` or omitted =
+  // no restriction.
+  selectedExchanges?: string[];
+
   // Coin metadata
   coins?: Array<{
     symbol: string;

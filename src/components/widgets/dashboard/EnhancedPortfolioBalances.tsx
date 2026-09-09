@@ -401,6 +401,12 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
         prices,
         coins,
         balances,
+        // Restrict BEFORE aggregating. Summing blanks `exchangeUUID` (an
+        // aggregate row spans venues), so the exchange filter below can only
+        // see a uuid on tokens held at exactly one venue — leaving it as the
+        // sole filter silently dropped every multi-venue token whenever
+        // Aggregate was on with a venue selected.
+        selectedExchanges,
       },
       shouldSumBalance
     );
@@ -866,8 +872,11 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
       filtered = filtered.filter((item) => selectedCoins.includes(item.token));
     }
 
-    // Apply exchange filter
-    if (!selectedExchanges.includes('ALL')) {
+    // Apply exchange filter. Aggregated rows are already restricted to the
+    // selection upstream (`calculateEnhancedBalances`) and carry no
+    // `exchangeUUID` by design, so re-filtering them here would throw the
+    // whole table away.
+    if (!selectedExchanges.includes('ALL') && !shouldSumBalance) {
       filtered = filtered.filter((item) => {
         const exchangeId = item.exchangeUUID || item.exchange || '';
         return exchangeId ? selectedExchanges.includes(exchangeId) : false;
@@ -875,7 +884,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
     }
 
     return filtered;
-  }, [data, selectedCoins, selectedExchanges]);
+  }, [data, selectedCoins, selectedExchanges, shouldSumBalance]);
 
   // Dynamic height calculation (CRITICAL MISSING FEATURE - FIXED)
   const calculateDynamicHeight = () => {
