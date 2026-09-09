@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.53.5] - 2026-09-09
+
+### Fixed
+
+- Adaptive Close is no longer offered on futures bots. The setting re-sizes a
+  closing order the exchange refused for lack of funds down to the amount of
+  the traded coin held in the wallet, which is only a meaningful quantity on a
+  spot account — a futures wallet holds collateral rather than the coin. The
+  engine now applies it to spot bots only, but the toggle was shown on every
+  DCA and combo bot regardless, so a futures bot could switch on a setting
+  that could never take effect. Spot bots are unchanged.
+
 ## [2.53.4] - 2026-09-08
 
 ### Fixed

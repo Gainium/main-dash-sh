@@ -194,8 +194,13 @@ export const computeExperimentalSectionState = (
         ? !!formData.combo.remainderFullAmount
         : !!formData.dca.remainderFullAmount,
     },
+    // Spot only. Adaptive close re-sizes a refused close from the wallet's
+    // free balance of the base asset, which is the closeable quantity on spot
+    // and nothing of the sort on futures — a perp wallet holds collateral, not
+    // the coin. The engine now refuses to run it on futures, so offering the
+    // toggle there would advertise a setting that provably does nothing.
     adaptiveClose: {
-      visible: true,
+      visible: !isFutures,
       checked: isComboBot
         ? !!formData.combo.adaptiveClose
         : !!formData.dca.adaptiveClose,
