@@ -175,6 +175,30 @@ const trailingSlConfigured = (s: Partial<DCABotSettings>): boolean =>
   );
 
 /**
+ * True when the engine would actually arm a `slPerc`-derived stop — its own
+ * `isDealForStopLoss` / `getDealStopLossPrice` condition.
+ *
+ * `slPerc` is only a PRICE when the stop loss closes on price
+ * (`dealCloseConditionSL === tp`). Under `webhook` or `techInd` the stop fires
+ * on an external signal and the engine never compares price to `slPerc` at all;
+ * under `dynamicAr` it stops out at an ATR/ADR offset instead. In every one of
+ * those cases the percentage only becomes a live level once Move SL fires and
+ * overwrites `slPerc` with `moveSLValue` — which is exactly what the engine
+ * tests for. Without this, a deal that can only ever be closed by a webhook
+ * still drew a stop-loss line nothing would ever execute.
+ */
+const percentSlArmed = (
+  s: Partial<DCABotSettings>,
+  moveSlActivated: boolean
+): boolean =>
+  Boolean(
+    s.useSl &&
+      (!s.trailingSl || s.useMultiSl) &&
+      (s.dealCloseConditionSL === CloseConditionEnum.tp ||
+        (s.moveSL && moveSlActivated && num(s.slPerc) === num(s.moveSLValue)))
+  );
+
+/**
  * Resolves a deal's trailing state for display.
  *
  * @param deal      the raw deal (NOT the lossy `TradeDetails`).
@@ -260,7 +284,8 @@ export function getDealTrailing(
  * overwrites `settings.slPerc` with `moveSLValue` and flips `moveSlActivated`,
  * so the price has to be recomputed here (`getDealStopLossPrice`).
  *
- * Returns `price: 0` when the deal has no drawable stop: either SL is off, or
+ * Returns `price: 0` when the deal has no drawable stop: SL is off, the engine
+ * has not armed a percentage stop on this deal ({@link percentSlArmed}), or
  * `slPerc` is at/below -100% (the "never stop out" setting), which would put
  * the line at ~0 and collapse the chart's price scale.
  */
@@ -292,8 +317,12 @@ export function getDealSl(
   const slPerc = num(settings.slPerc);
   const fee = settings.useFixedSLPrices ? 0 : takerFee * 2;
 
-  const price =
-    settings.useFixedSLPrices && isSetNumber(settings.fixedSlPrice)
+  // The engine's fixed-price branch sits INSIDE the same gated `else if`, so an
+  // unarmed stop draws nothing whether its price comes from a percentage or
+  // from `fixedSlPrice`.
+  const price = !percentSlArmed(settings, moveSlActivated)
+    ? 0
+    : settings.useFixedSLPrices && isSetNumber(settings.fixedSlPrice)
       ? num(settings.fixedSlPrice)
       : slPerc <= -100
         ? 0

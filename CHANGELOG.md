@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.53.6] - 2026-09-09
+
+### Fixed
+
+- The deal chart no longer draws a stop-loss line for a stop the bot engine
+  will not act on. When a deal's stop loss closes on an external signal
+  (webhook or indicator condition) rather than on price, the stop-loss
+  percentage is not a price level — it only becomes one after Move SL fires
+  and replaces it. The chart drew it anyway, showing a stop far below the
+  entry that nothing would ever execute. The Move stop loss trigger line is
+  unchanged, and the moved stop still appears once Move SL has fired.
+
 ## [2.53.5] - 2026-09-09
 
 ### Fixed
