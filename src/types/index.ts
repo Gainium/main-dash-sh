@@ -1165,6 +1165,13 @@ export type AlertTemplate = {
 export type AlertTemplateVariable = {
   name: string;
   description: string;
+  /** Stand-in value the preview and a test send both use. */
+  sample: string | null;
+};
+
+export type SendTestAlertInput = {
+  header: string;
+  body: string;
 };
 
 export type GetAlertTemplatesData = {

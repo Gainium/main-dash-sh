@@ -14,6 +14,7 @@ import type {
   SurveyResult,
   ChangeAlertsInput,
   ChangeAlertTemplatesInput,
+  SendTestAlertInput,
   BotOrderSideEnum,
   GlobalVariablesTypeEnum,
   ResetAccountTypeEnum,
@@ -2000,11 +2001,27 @@ export const otherQueries = {
   default { subject header body }
   custom { subject header body }
   }
-  variables { name description }
+  variables { name description sample }
   }
   }
   }`;
     return { query, variables: {} };
+  },
+
+  /**
+   * Send the given wording to the user's own Telegram as a one-off preview.
+   * Takes the text from the caller, not from storage, so an unsaved edit can
+   * be tried before it is committed.
+   */
+  sendTestAlert: (input: SendTestAlertInput) => {
+    const query = `mutation sendTestAlert($input: sendTestAlertInput!) {
+  sendTestAlert(input: $input) {
+  status
+  reason
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
   },
 
   changeAlertTemplates: (input: ChangeAlertTemplatesInput) => {
