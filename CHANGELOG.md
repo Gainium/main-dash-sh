@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.0] - 2026-09-10
+
+### Added
+
+- Settings → Notifications has a new "Safety Order Filled" row, so a DCA bot
+  can tell you over Telegram each time one of its safety orders fills and which
+  one it was. It sits with the other order-fill rows, is off by default, and
+  offers no Email column — a deal fills one of these per level, so an email per
+  fill would be a mailbox flood.
+- A Template column on the same table lets you rewrite the wording of any
+  notification. The editor shows the variables you can use, previews the
+  message as it will arrive, and flags unknown variables or formatting the
+  messenger cannot render before you save. Anything you leave alone keeps the
+  maintained default, so wording you never changed keeps improving.
+
 ## [2.53.10] - 2026-09-10
 
 ### Fixed

@@ -1125,7 +1125,17 @@ export enum AlertType {
   dca80 = 'dca80',
   dca100 = 'dca100',
   priceOutOfRange = 'priceOutOfRange',
+  safetyOrderFilled = 'safetyOrderFilled',
 }
+
+/**
+ * Alert types the backend only ever delivers over Telegram — a safety-order
+ * fill happens once per DCA level, so an email per fill would be a mailbox
+ * flood. The preferences table renders no Email cell for these.
+ */
+export const telegramOnlyAlertTypes: AlertType[] = [
+  AlertType.safetyOrderFilled,
+];
 
 export type UserAlerts = {
   type: AlertType;
@@ -1134,6 +1144,44 @@ export type UserAlerts = {
 
 export type ChangeAlertsInput = {
   data: UserAlerts;
+};
+
+/** The three editable parts of an alert template. */
+export type AlertTemplateFields = {
+  subject: string | null;
+  header: string | null;
+  body: string | null;
+};
+
+export type AlertTemplate = {
+  type: AlertType;
+  terminal: boolean;
+  /** Admin-managed wording — what the user falls back to. */
+  default: AlertTemplateFields | null;
+  /** The user's own wording; null for any field they have not overridden. */
+  custom: AlertTemplateFields | null;
+};
+
+export type AlertTemplateVariable = {
+  name: string;
+  description: string;
+};
+
+export type GetAlertTemplatesData = {
+  templates: AlertTemplate[];
+  variables: AlertTemplateVariable[];
+};
+
+export type UserAlertTemplateInput = {
+  type: AlertType;
+  terminal?: boolean;
+  subject?: string;
+  header?: string;
+  body?: string;
+};
+
+export type ChangeAlertTemplatesInput = {
+  data: UserAlertTemplateInput[];
 };
 
 export enum ActionsEnum {

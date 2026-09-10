@@ -16,7 +16,8 @@ export type NotificationType =
   | 'serverSideBacktest'
   | 'dca80Percent'
   | 'dca100Percent'
-  | 'priceOutOfRange';
+  | 'priceOutOfRange'
+  | 'safetyOrderFilled';
 
 export interface NotificationChannels {
   telegram: boolean;
@@ -108,6 +109,7 @@ const DEFAULT_SETTINGS: NotificationSettings = {
   dca80Percent: { telegram: false, email: false, inApp: false },
   dca100Percent: { telegram: false, email: false, inApp: false },
   priceOutOfRange: { telegram: false, email: false, inApp: false },
+  safetyOrderFilled: { telegram: false, email: false, inApp: false },
 };
 
 export const useNotificationsSettingsStore =
@@ -229,6 +231,7 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
   dca80Percent: '80% DCA',
   dca100Percent: '100% DCA (alert for deals that have DCA activated)',
   priceOutOfRange: 'Price Out of Range',
+  safetyOrderFilled: 'Safety Order Filled',
 };
 
 // Ordered list of notification types for display
@@ -241,6 +244,7 @@ export const NOTIFICATION_TYPES_ORDER: NotificationType[] = [
   'dealPartiallyClosedWithPnL',
   'buyOrderFilled',
   'sellOrderFilled',
+  'safetyOrderFilled',
   'gridCloseTrigger',
   'botControllerWebhooksEvents',
   'serverSideBacktest',

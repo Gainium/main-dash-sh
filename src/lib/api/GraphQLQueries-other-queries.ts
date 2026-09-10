@@ -13,6 +13,7 @@ import type {
   TrackEventEnum,
   SurveyResult,
   ChangeAlertsInput,
+  ChangeAlertTemplatesInput,
   BotOrderSideEnum,
   GlobalVariablesTypeEnum,
   ResetAccountTypeEnum,
@@ -1975,6 +1976,46 @@ export const otherQueries = {
   data {
   type
   providers
+  }
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  /**
+   * The admin-managed default wording for every alert type, this user's own
+   * overrides, and the placeholders they may use — one round trip so the
+   * template editor can render, preview and reset without a second request.
+   */
+  getAlertTemplates: () => {
+    const query = `query getAlertTemplates {
+  getAlertTemplates {
+  status
+  reason
+  data {
+  templates {
+  type
+  terminal
+  default { subject header body }
+  custom { subject header body }
+  }
+  variables { name description }
+  }
+  }
+  }`;
+    return { query, variables: {} };
+  },
+
+  changeAlertTemplates: (input: ChangeAlertTemplatesInput) => {
+    const query = `mutation changeAlertTemplates($input: userAlertTemplatesInput!) {
+  changeAlertTemplates(input: $input) {
+  status
+  reason
+  data {
+  type
+  terminal
+  custom { subject header body }
   }
   }
   }`;
