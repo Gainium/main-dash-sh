@@ -10,9 +10,12 @@
   offers no Email column — a deal fills one of these per level, so an email per
   fill would be a mailbox flood.
 - A Template column on the same table lets you rewrite the wording of any
-  notification. The editor shows the variables you can use, previews the
-  message as it will arrive, and flags unknown variables or formatting the
-  messenger cannot render before you save. Anything you leave alone keeps the
+  notification, in Markdown — `**bold**`, `*italic*`, `` `code` ``,
+  `[text](url)`, `||spoiler||`, and a new line where you type one. The editor
+  previews the message with the same renderer the notes widget uses, lists the
+  variables you can use, and flags a variable that does not exist. Nothing else
+  can be got wrong: anything that is not Markdown is shown exactly as typed, so
+  a template can never break a notification. Anything you leave alone keeps the
   maintained default, so wording you never changed keeps improving.
 
 ## [2.53.10] - 2026-09-10
