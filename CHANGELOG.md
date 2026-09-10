@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.53.10] - 2026-09-10
+
+### Fixed
+
+- The "Execute next DCA" confirmation now always shows the order's size, its
+  estimated cost and where the deal's average price lands. It read those from
+  an order resting on the exchange, so it showed none of them on bots that
+  never rest their safety orders — DCA-by-market bots and bots whose DCA is
+  triggered by indicators — leaving the confirmation with no figures at all.
+  It now falls back to the same projected ladder the deal chart draws.
+
+### Added
+
+- The same confirmation now names the level that comes *after* the one being
+  executed, with its price and size, so it is visible that executing early
+  does not move the levels below: every level is worked out from the deal's
+  opening price and the bot's settings, not from where an earlier one filled.
+
 ## [2.53.9] - 2026-09-10
 
 ### Fixed

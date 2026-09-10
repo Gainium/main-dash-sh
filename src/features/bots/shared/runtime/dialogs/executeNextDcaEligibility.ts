@@ -54,3 +54,59 @@ export function canExecuteNextDca(trade: ExecuteNextDcaEligibilityTrade) {
     complete < all
   );
 }
+
+/**
+ * One rung of the deal's remaining DCA ladder, normalised from whichever source
+ * knew about it.
+ */
+export interface LadderLevel {
+  price: number;
+  qty: number;
+  baseAsset?: string | undefined;
+  quoteAsset?: string | undefined;
+  /**
+   * True when nothing rests on the venue for this level and the figures come
+   * from the client-side projection. That is the normal state for a
+   * `dcaByMarket` deal and for every indicator-triggered deal — their safety
+   * orders are never placed until they trigger — and it is also true of any
+   * level past `activeOrdersCount` when smart orders are on.
+   */
+  projected: boolean;
+}
+
+/**
+ * The deal's remaining ladder, nearest rung first.
+ *
+ * "Nearest" is by price and depends on direction: a long's safety orders sit
+ * BELOW the current price and deepen downwards, so the highest is next; a
+ * short's mirror that. Sorting rather than trusting input order matters
+ * because the two sources arrive separately — real resting orders from the
+ * exchange, projected rungs from the client-side ladder — and neither knows
+ * about the other's positions.
+ *
+ * Levels at the same price are the same level counted twice (a resting order
+ * and the projection that predicted it), so the real one wins: it carries the
+ * venue's own assets and quantity.
+ */
+export function ladderAhead(
+  levels: LadderLevel[],
+  isLong: boolean
+): LadderLevel[] {
+  const byPrice = new Map<number, LadderLevel>();
+  for (const level of levels) {
+    if (!Number.isFinite(level.price) || level.price <= 0) {
+      continue;
+    }
+    if (!Number.isFinite(level.qty) || level.qty <= 0) {
+      continue;
+    }
+    const existing = byPrice.get(level.price);
+    // A real order beats a projection at the same price; otherwise first wins.
+    if (!existing || (existing.projected && !level.projected)) {
+      byPrice.set(level.price, level);
+    }
+  }
+  return [...byPrice.values()].sort((a, b) =>
+    isLong ? b.price - a.price : a.price - b.price
+  );
+}

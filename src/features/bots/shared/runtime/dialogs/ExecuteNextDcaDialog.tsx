@@ -12,9 +12,16 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import getLatestPrices from '@/helper/price';
-import { BotTypesEnum } from '@/types';
+import { BotTypesEnum, type DCABotSettings } from '@/types';
 import { formatNumber } from '@/utils/numberFormatter';
-import { nextDcaLevelNumber } from './executeNextDcaEligibility';
+import { useDealStore } from '@/stores/live';
+import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
+import { splitDealOrders } from '@/utils/orders/viewOrder';
+import {
+  ladderAhead,
+  nextDcaLevelNumber,
+  type LadderLevel,
+} from './executeNextDcaEligibility';
 
 /** What this dialog reads off a deal. */
 export interface ExecuteNextDcaTrade {
@@ -140,35 +147,79 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
    * safety orders never rest on the venue — the dialog degrades to prose there,
    * which is correct: those levels have no ladder price to quote.
    */
-  const nextOrder = React.useMemo(() => {
-    if (!open) {
-      return undefined;
-    }
-    const resting = orders.filter(
-      (o) =>
-        o.typeOrder === 'dealRegular' &&
-        (o.status === 'NEW' || o.status === 'PARTIALLY_FILLED') &&
-        Number.isFinite(parseFloat(o.price)) &&
-        parseFloat(o.price) > 0
-    );
-    if (!resting.length) {
-      return undefined;
-    }
-    return resting.sort((a, b) =>
-      isLong
-        ? parseFloat(b.price) - parseFloat(a.price)
-        : parseFloat(a.price) - parseFloat(b.price)
-    )[0];
-  }, [open, orders, isLong]);
+  /**
+   * The raw deal, straight off the live store. It carries both its own settings
+   * snapshot and `dcaBot.settings`, which is everything the ladder projection
+   * needs — so no extra query is required to know a level's size.
+   */
+  const rawDeal = useDealStore((s) =>
+    trade.botId && trade.id ? s.getDeal(trade.botId, trade.id) : null
+  );
 
-  // The order carries its own assets, which beats re-splitting a concatenated
+  const { pendingOrders, completedOrders } = React.useMemo(
+    () => splitDealOrders(open ? orders : []),
+    [open, orders]
+  );
+
+  /**
+   * Levels the bot has not placed on the venue. This is the whole ladder for a
+   * `dcaByMarket` deal and for every indicator-triggered deal — they rest
+   * nothing — and the tail beyond `activeOrdersCount` when smart orders are on.
+   * Without it the dialog had no size to show on those deals at all.
+   */
+  const { smartOrders } = useDealSmartOrders({
+    bot: {
+      settings: rawDeal?.dcaBot?.settings as DCABotSettings | undefined,
+      exchangeUUID: rawDeal?.exchangeUUID,
+    },
+    deal: rawDeal,
+    pendingOrders,
+    completedOrders,
+    enabled: open,
+  });
+
+  /** Remaining ladder, nearest rung first, real orders and projections merged. */
+  const ahead = React.useMemo(() => {
+    if (!open) {
+      return [];
+    }
+    const fromResting: LadderLevel[] = orders
+      .filter(
+        (o) =>
+          o.typeOrder === 'dealRegular' &&
+          (o.status === 'NEW' || o.status === 'PARTIALLY_FILLED')
+      )
+      .map((o) => ({
+        price: parseFloat(o.price),
+        qty: parseFloat(o.origQty),
+        baseAsset: o.baseAsset,
+        quoteAsset: o.quoteAsset,
+        projected: false,
+      }));
+    const fromSmart: LadderLevel[] = smartOrders.map((o) => ({
+      price: o.price,
+      qty: o.amount,
+      baseAsset: o.baseAsset,
+      quoteAsset: o.quoteAsset,
+      projected: true,
+    }));
+    return ladderAhead([...fromResting, ...fromSmart], isLong);
+  }, [open, orders, smartOrders, isLong]);
+
+  const nextLevel = ahead[0];
+  /** The rung after the one being executed — shown so it is visible that it
+   *  does not move. Its price and size come from the deal's own settings, not
+   *  from where this execution fills. */
+  const levelAfter = ahead[1];
+
+  // The level carries its own assets, which beats re-splitting a concatenated
   // pair string (the splitter has genuine ambiguity on 4-char quotes).
   const symbolObj = typeof trade.symbol === 'object' ? trade.symbol : undefined;
-  const baseAsset = nextOrder?.baseAsset ?? symbolObj?.baseAsset ?? '';
-  const quoteAsset = nextOrder?.quoteAsset ?? symbolObj?.quoteAsset ?? '';
+  const baseAsset = nextLevel?.baseAsset ?? symbolObj?.baseAsset ?? '';
+  const quoteAsset = nextLevel?.quoteAsset ?? symbolObj?.quoteAsset ?? '';
 
-  const ladderPrice = nextOrder ? parseFloat(nextOrder.price) : undefined;
-  const qty = nextOrder ? parseFloat(nextOrder.origQty) : undefined;
+  const ladderPrice = nextLevel?.price;
+  const qty = nextLevel?.qty;
 
   // How far from the ladder price we would be filling. Signed so that a
   // POSITIVE number always means "worse for this deal" on either side.
@@ -289,7 +340,13 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                   </span>
                 </div>
               ) : null}
-              <div className="flex justify-between px-sm py-xs">
+              <div
+                className={
+                  levelAfter
+                    ? 'flex justify-between px-sm py-xs border-b border-border/60'
+                    : 'flex justify-between px-sm py-xs'
+                }
+              >
                 <span className="text-muted-foreground">DCA level</span>
                 <span>
                   {usedLevels} / {maxLevels}
@@ -297,6 +354,24 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                   {usedLevels + 1} / {maxLevels}
                 </span>
               </div>
+              {/* The rung after this one, spelled out. Executing early does not
+                  move it: every level's price and size come from the deal's
+                  opening price and the bot's settings, never from where an
+                  earlier level actually filled — so showing it is the clearest
+                  way to say "nothing below shifts". */}
+              {levelAfter ? (
+                <div className="flex justify-between px-sm py-xs">
+                  <span className="text-muted-foreground">
+                    Level {level + 1} after this
+                  </span>
+                  <span>
+                    {fmt(levelAfter.qty)} {baseAsset}
+                    <span className="text-muted-foreground"> @ </span>
+                    {fmt(levelAfter.price)}
+                    <span className="text-muted-foreground"> · unchanged</span>
+                  </span>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -309,9 +384,10 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
               {ladderPrice
                 ? 'Any resting order at that level is cancelled first. '
                 : ''}
-              The remaining levels keep their original prices, and the take
-              profit is re-placed against the new average. Figures here are
-              estimates.
+              The levels below keep the prices and sizes they were configured
+              with — they are worked out from the deal's opening price, not
+              from where this one fills — and the take profit is re-placed
+              against the new average. Figures here are estimates.
             </AlertDescription>
           </Alert>
         </div>
