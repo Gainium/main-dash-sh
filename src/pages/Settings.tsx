@@ -2064,7 +2064,15 @@ const Settings: React.FC = () => {
                   </thead>
                   <tbody>
                     {NOTIFICATION_TYPES_ORDER.map((type) => {
-                      const settings = notificationsSettings[type];
+                      // Never assume the store has a row for every type: a
+                      // persisted settings object written before a type was
+                      // added will not, and reading through undefined here
+                      // takes down the whole page.
+                      const settings = notificationsSettings[type] ?? {
+                        telegram: false,
+                        email: false,
+                        inApp: false,
+                      };
                       // Only these 4 notification types can have in-app enabled
                       const inAppEnabled = [
                         'buyOrderFilled',

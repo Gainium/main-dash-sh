@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.1] - 2026-09-10
+
+### Fixed
+
+- Settings no longer fails to open for anyone who had used the page before.
+  Notification preferences are stored in the browser, and a stored copy written
+  before a notification type existed did not contain it; the page then read
+  through a missing entry while drawing that row and stopped rendering. Stored
+  preferences are now merged with the current set, so a newly added type arrives
+  with its default and existing choices are kept, and a missing entry can no
+  longer break the page.
+
 ## [2.54.0] - 2026-09-10
 
 ### Added
