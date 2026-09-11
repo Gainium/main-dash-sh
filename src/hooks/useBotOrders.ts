@@ -6,6 +6,7 @@ import { BotTypesEnum, type OrderData } from '../types';
 import { useGraphQL } from './useGraphQL';
 import { useShareContext } from './useShareContext';
 import { logger } from '../lib/loggerInstance';
+import { getOrderExecutionTime } from '../utils/orders/executionTime';
 
 export type BotOrder = OrderData; /* {
   clientOrderId: string;
@@ -340,6 +341,7 @@ export const formatOrderForDisplay = (order: BotOrder) => ({
   side: mapOrderSide(order.typeOrder, order.side), // Pass backend side for accurate mapping
   category: mapOrderCategory(order.typeOrder), // Add category field
   time: order.time || order.transactTime || order.updateTime,
+  executionTime: getOrderExecutionTime(order),
   updateTime: order.updateTime,
   symbol: order.symbol,
   baseAsset: order.baseAsset,

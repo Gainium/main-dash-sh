@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.2] - 2026-09-11
+
+### Fixed
+
+- A take profit, safety order or grid level that rested on the order book before
+  filling was drawn on the chart at the moment it was placed, not the moment it
+  filled, so a sell could appear on a candle that never traded at its price.
+  Chart buy and sell markers now sit on the fill for orders that filled their
+  whole size; an order that only partly filled keeps its placement time, because
+  its last update is the later cancel of the unfilled remainder.
+
 ## [2.54.1] - 2026-09-10
 
 ### Fixed

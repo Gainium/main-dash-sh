@@ -57,10 +57,10 @@ export const orderDataToViewOrder = (
     sl: order.sl,
     clientOrderId: order.clientOrderId,
     reduceFundsId: order.reduceFundsId,
-    // Execution time, not last-write time — see the note on the duplicate of
-    // this mapping in `BotDetailsDrawer`. `updateTime` is bumped whenever the
-    // row is touched afterwards, which drags chart markers off their candle.
-    time: formatted.time,
+    // Execution time, which chart markers are plotted on — see
+    // `getOrderExecutionTime` for why neither placement time nor `updateTime`
+    // is right for every order.
+    time: formatted.executionTime,
     executedQty: order.executedQty,
   };
 };
