@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 
 import {
+  BotMarginTypeEnum,
   BotOrderSideEnum,
   DCAOrderTypeEnum,
   StrategyEnum,
@@ -214,4 +215,26 @@ test('deal context prefers per-deal overrides and refuses spot / unlevered / emp
     buildDealLiquidationContext(botSettings, { ...deal, currentBalances: { base: 0 } })
   ).toBeNull();
   expect(buildDealLiquidationContext(botSettings, null)).toBeNull();
+});
+
+test('deal context refuses cross margin, where the wallet balance also backs the position', () => {
+  const botSettings = { futures: true, leverage: 10, strategy: StrategyEnum.long };
+  const deal = { avgPrice: 100, currentBalances: { base: 3 }, settings: {} };
+
+  expect(
+    buildDealLiquidationContext({ ...botSettings, marginType: BotMarginTypeEnum.cross }, deal)
+  ).toBeNull();
+  // A per-deal override wins in both directions.
+  expect(
+    buildDealLiquidationContext(botSettings, {
+      ...deal,
+      settings: { marginType: BotMarginTypeEnum.cross },
+    })
+  ).toBeNull();
+  expect(
+    buildDealLiquidationContext(
+      { ...botSettings, marginType: BotMarginTypeEnum.cross },
+      { ...deal, settings: { marginType: BotMarginTypeEnum.isolated } }
+    )
+  ).not.toBeNull();
 });

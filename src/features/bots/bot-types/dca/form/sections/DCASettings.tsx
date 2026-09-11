@@ -454,12 +454,13 @@ const useDcaOverviewSource = (
 
   // Estimated liquidation projection across the ladder — drives the liq line on
   // the graph and the two liq columns on the table. Null (and therefore
-  // invisible) for spot bots and leverage <= 1.
+  // invisible) for spot bots, leverage <= 1 and cross margin, where the free
+  // wallet balance also backs the position and the figure is not the real one.
   const futures = useBotFormSelector('futures');
   const leverage = useBotFormSelector('leverage');
   const strategy = useBotFormSelector('strategy');
   const marginType = useBotFormSelector('marginType');
-  const { liquidation } = useLadderLiquidation(
+  const { liquidation, isCross } = useLadderLiquidation(
     {
       futures,
       leverage: Number(leverage) || 0,
@@ -475,7 +476,7 @@ const useDcaOverviewSource = (
     // Passed to the table/graph as an override only in read-only mode; the live
     // form leaves it undefined so those components read the store.
     ordersOverride,
-    liquidation,
+    liquidation: isCross ? null : liquidation,
   };
 };
 

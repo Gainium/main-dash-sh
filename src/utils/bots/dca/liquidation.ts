@@ -21,7 +21,12 @@
  * With leverage <= 1 there is no liquidation (0 for long, +inf for short).
  */
 
-import { BotOrderSideEnum, StrategyEnum, type DCAGrid } from '@/types';
+import {
+  BotMarginTypeEnum,
+  BotOrderSideEnum,
+  StrategyEnum,
+  type DCAGrid,
+} from '@/types';
 
 /**
  * Fallback maintenance-margin rate when the exchange tier is unknown.
@@ -351,11 +356,20 @@ export const computeDealLiquidation = (
 /**
  * Pull the liquidation inputs out of a deal + its bot's settings. Per-deal
  * setting overrides win over the bot's, matching `mergeDealSettings`. Returns
- * null for spot, leverage <= 1, or a deal with no position yet.
+ * null for spot, leverage <= 1, cross margin, or a deal with no position yet.
+ *
+ * Cross margin is excluded because the free wallet balance also backs the
+ * position: this model counts only the deal's own margin, so on cross it draws
+ * a line well short of where the exchange would actually liquidate.
  */
 export const buildDealLiquidationContext = (
   botSettings:
-    | { futures?: boolean; leverage?: number; strategy?: string }
+    | {
+        futures?: boolean;
+        leverage?: number;
+        strategy?: string;
+        marginType?: string;
+      }
     | null
     | undefined,
   deal:
@@ -363,7 +377,11 @@ export const buildDealLiquidationContext = (
         avgPrice?: number;
         strategy?: string;
         currentBalances?: { base?: number };
-        settings?: { futures?: boolean; leverage?: number };
+        settings?: {
+          futures?: boolean;
+          leverage?: number;
+          marginType?: string;
+        };
       }
     | null
     | undefined
@@ -372,6 +390,9 @@ export const buildDealLiquidationContext = (
 
   const futures = deal.settings?.futures ?? botSettings?.futures;
   if (!futures) return null;
+
+  const marginType = deal.settings?.marginType ?? botSettings?.marginType;
+  if (marginType === BotMarginTypeEnum.cross) return null;
 
   const leverage = Number(deal.settings?.leverage ?? botSettings?.leverage ?? 0);
   if (!(leverage > 1)) return null;

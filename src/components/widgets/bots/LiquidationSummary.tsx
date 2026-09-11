@@ -41,7 +41,7 @@ const DOT_CLASS: Record<LiquidationRisk, string> = {
 
 export interface LiquidationSummaryProps {
   liquidation: LadderLiquidation | null;
-  /** Cross margin borrows from the whole wallet — the estimate is a floor. */
+  /** Cross margin liquidates against the whole wallet — no figure is shown. */
   isCross?: boolean;
   quoteAsset?: string;
   className?: string;
@@ -54,6 +54,23 @@ export const LiquidationSummary: React.FC<LiquidationSummaryProps> = ({
   className = '',
 }) => {
   if (!liquidation || !liquidation.initial?.liquidationPrice) return null;
+
+  // Cross margin: the exchange liquidates against the whole wallet — free
+  // balance and every other open position — none of which this estimate can
+  // see. Any figure, risk rating or cascade warning would be invented, so none
+  // is shown.
+  if (isCross) {
+    return (
+      <p
+        className={`border-t border-border/60 pt-sm text-xs leading-snug text-muted-foreground ${className}`}
+        data-testid="liquidation-summary"
+      >
+        Cross margin uses your whole free balance as collateral, so the
+        liquidation price depends on your balance and your other open positions.
+        Your exchange shows it once the position is open.
+      </p>
+    );
+  }
 
   const { initial, final, effective, cascadeSteps, risk } = liquidation;
   const mmrPercent = (
@@ -121,7 +138,7 @@ export const LiquidationSummary: React.FC<LiquidationSummaryProps> = ({
         )}
       </div>
 
-      {cascadeSteps.length > 0 && (
+      {cascades && (
         <p className="rounded-md border border-loss/25 bg-loss/10 p-xs text-xs leading-snug text-loss">
           <strong>Cascade risk:</strong> filling order #
           {cascadeSteps[0].index + 1} at {priceLabel(cascadeSteps[0].orderPrice)}{' '}
@@ -129,13 +146,6 @@ export const LiquidationSummary: React.FC<LiquidationSummaryProps> = ({
           past the trigger of the next safety order — the ladder would liquidate
           before it finishes deploying. Widen the spacing, cut the order size or
           lower the leverage.
-        </p>
-      )}
-
-      {isCross && (
-        <p className="text-xs leading-snug text-muted-foreground">
-          Cross margin: your free wallet balance also backs this position, so
-          the real liquidation price sits further away than shown.
         </p>
       )}
     </div>

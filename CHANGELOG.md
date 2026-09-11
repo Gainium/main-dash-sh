@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.54.3] - 2026-09-11
+
+### Changed
+
+- Cross-margin futures bots no longer show an estimated liquidation price.
+  Cross margin liquidates against the whole wallet — free balance and every
+  other open position — so the estimate, which counted only the bot's own
+  margin, printed a figure much closer than the real one along with a risk
+  rating and cascade warning derived from it. The Margin & Leverage section
+  now shows a short note instead, and the liquidation line is no longer drawn
+  on the bot chart, the deal chart or the order ladder graph. Isolated margin
+  is unchanged.
+
 ## [2.54.2] - 2026-09-11
 
 ### Fixed
