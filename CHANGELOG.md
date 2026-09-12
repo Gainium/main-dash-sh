@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.5] - 2026-09-12
+
+### Added
+
+- Saved bot templates are now reachable from the bot form itself: the save-row
+  options menu lists them under "Load template", next to "Save as template".
+  Previously the only ways back to a template were the Quick Setup picker —
+  which also reapplies a risk profile on top of your settings — and a hotkey
+  you had to assign while saving, so a template saved from Manual mode looked
+  like it had never been saved.
+
+### Changed
+
+- Saving a bot template now confirms with a message naming the template and
+  where to reopen it, and both template dialogs state that templates are kept
+  in the current browser.
+
 ## [2.54.4] - 2026-09-12
 
 ### Fixed

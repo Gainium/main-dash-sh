@@ -12,4 +12,9 @@ export {
 } from './MultiPairCalibrationStatus';
 export { PresetCard } from './PresetCard';
 export { PresetOverwriteDialog } from './PresetOverwriteDialog';
-export { TemplatesPopover } from './TemplatesPopover';
+export {
+  BotTemplatesList,
+  TemplateDeleteConfirmation,
+  TemplatesPopover,
+  type PendingTemplateDelete,
+} from './TemplatesPopover';

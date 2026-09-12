@@ -1,6 +1,7 @@
 import { track as posthogEvent } from '@/lib/analytics'
 import {
   ArrowRight,
+  BookMarked,
   BookmarkIcon,
   CalendarRange,
   Check,
@@ -56,7 +57,10 @@ import { useAuthStore } from '@/stores/authStore'
 import { toast } from '@/lib/toast'
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog'
 import { cn } from '@/lib/utils'
-import type { BotTemplate } from '@/stores/botTemplatesStore'
+import {
+  useBotTemplatesStore,
+  type BotTemplate,
+} from '@/stores/botTemplatesStore'
 import {
   BotTypesEnum,
   BuyTypeEnum,
@@ -75,6 +79,7 @@ import { useBotDealCapital } from '@/hooks/bots/dca/useBotDealCapital'
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext'
 import { useVerifyTerminalBalance } from '@/hooks/bots/dca/useVerifyTerminalBalance'
 import { BotFormSaveTemplateDialog } from './BotFormSaveTemplateDialog'
+import { BotFormLoadTemplateDialog } from './BotFormLoadTemplateDialog'
 import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog'
 import GridStopBotDialog from '@/features/bots/shared/runtime/dialogs/GridStopBotDialog'
 
@@ -777,6 +782,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const [startDialogOpen, setStartDialogOpen] = useState(false)
     const [stopGridDialogOpen, setStopGridDialogOpen] = useState(false)
     const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
+    const [loadTemplateOpen, setLoadTemplateOpen] = useState(false)
     const [showResetConfirm, setShowResetConfirm] = useState(false)
 
     // "Capital required" chip. Funds to fully fund the whole bot:
@@ -1335,6 +1341,15 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const showSaveAsTemplate =
       !hideTemplates && !!onLoadTemplate && mode === 'create'
 
+    // Saved templates are listed right next to the action that creates them.
+    // Without this the only ways back to a template were the Quick Setup
+    // picker (which also reapplies a risk-profile preset) and a hotkey the
+    // user had to assign while saving — so saving one from Manual mode read
+    // as "it didn't save".
+    const templateCount = useBotTemplatesStore(
+      (s) => s.templates.filter((t) => t.botType === botType).length,
+    )
+
     // Add terminal-specific menu items (reset) so terminal forms have a 3-dots menu
     const { resetFormData } = useBotFormState()
     const combinedOverflowMenuItems = useMemo((): OverflowMenuItem[] => {
@@ -1347,6 +1362,19 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           label: 'Save as template',
           icon: BookmarkIcon,
           onSelect: () => setSaveTemplateOpen(true),
+        })
+        items.push({
+          type: 'item',
+          id: 'load-template',
+          // Same wording as the Quick Setup picker's own entry, so the empty
+          // state explains itself rather than looking broken.
+          label:
+            templateCount > 0
+              ? `Load template (${templateCount})`
+              : 'No saved templates',
+          icon: BookMarked,
+          disabled: templateCount === 0,
+          onSelect: () => setLoadTemplateOpen(true),
         })
       }
 
@@ -1364,7 +1392,13 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
 
       return items
-    }, [baseOverflowMenuItems, isTerminal, mode, showSaveAsTemplate])
+    }, [
+      baseOverflowMenuItems,
+      isTerminal,
+      mode,
+      showSaveAsTemplate,
+      templateCount,
+    ])
 
     const handleGridStartSubmit = useCallback(
       (buyType: BuyTypeEnum, buyCount?: string, buyAmount?: number) => {
@@ -1739,12 +1773,25 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           isProcessing={Boolean(togglePending)}
         />
         {showSaveAsTemplate && (
-          <BotFormSaveTemplateDialog
-            open={saveTemplateOpen}
-            onOpenChange={setSaveTemplateOpen}
-            botType={botType}
-            currentFormData={formData}
-          />
+          <>
+            <BotFormSaveTemplateDialog
+              open={saveTemplateOpen}
+              onOpenChange={setSaveTemplateOpen}
+              botType={botType}
+              currentFormData={formData}
+            />
+            <BotFormLoadTemplateDialog
+              open={loadTemplateOpen}
+              onOpenChange={setLoadTemplateOpen}
+              botType={botType}
+              onApply={(templateId) => {
+                const template = useBotTemplatesStore
+                  .getState()
+                  .getTemplate(templateId)
+                if (template) onLoadTemplate?.(template)
+              }}
+            />
+          </>
         )}
         <ConfirmationDialog
           open={showResetConfirm}

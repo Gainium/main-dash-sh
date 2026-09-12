@@ -16,6 +16,7 @@ import {
 import { areShortcutKeysEqual, useShortcutStore } from '@/stores/shortcutStore';
 import { BotTypesEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+import { toast } from '@/lib/toast';
 import { parseShortcutString } from '@/utils/shortcuts';
 import React, { useEffect, useState } from 'react';
 
@@ -91,6 +92,13 @@ export const BotFormSaveTemplateDialog: React.FC<Props> = ({
     if (templateHotkey && created) {
       updateTemplate(created.id, { shortcut: templateHotkey });
     }
+
+    // The dialog used to just close, which is indistinguishable from a save
+    // that silently failed — say what was saved and where to find it again.
+    toast.success(
+      `Template "${created.name}" saved — reopen it from "Load template" in the same menu.`,
+      { duration: 5000 }
+    );
 
     onOpenChange(false);
   };
@@ -205,6 +213,10 @@ export const BotFormSaveTemplateDialog: React.FC<Props> = ({
               className="cursor-pointer"
             />
           </div>
+          <p className="text-xs text-muted-foreground">
+            Templates are stored in this browser, so they won&apos;t follow you
+            to another device.
+          </p>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
