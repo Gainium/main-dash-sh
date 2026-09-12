@@ -19,6 +19,7 @@ import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { useLiveUpdate } from '@/contexts/LiveUpdateContext';
 import { mapFromDataToDealSettings } from '@/components/deals/dealEditSettingsDiff';
+import { buildDealEditSeedSettings } from '@/components/deals/dealEditSeedSettings';
 import {
   BotFormProvider,
   useBotFormSelector,
@@ -272,23 +273,7 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
         if (seededDealKeyRef.current === dealKey) return;
         seededDealKeyRef.current = dealKey;
         const isSingle = trade.length === 1;
-        const combinedSettings = isSingle
-          ? {
-              ...trade[0].dcaBot?.settings,
-              ...trade[0].settings,
-              // Breakeven price: seed from the deal's manual override if set,
-              // else its live computed average, so the input always reflects
-              // the current breakeven and the field exists for updateFormData.
-              avgPrice: trade[0].settings?.avgPrice ?? trade[0].avgPrice,
-              // Which multi-target uuids already executed. The deal keeps
-              // filled targets in `multiTp` on purpose — the engine sizes the
-              // remaining targets as `amount / (100 - <filled amounts>)`
-              // (main-app `dcaHelper.getTPOrder`), so dropping them would
-              // silently shrink every surviving take-profit. They must stay in
-              // the payload and be presented as spent instead.
-              tpSlTargetFilled: trade[0].tpSlTargetFilled ?? [],
-            }
-          : { ...DCA_FORM_DEFAULTS };
+        const combinedSettings = buildDealEditSeedSettings(trade);
         setFormData((prev) => {
           const clonedPrev = JSON.parse(JSON.stringify(prev)) as BotFormData;
           clonedPrev.exchangeUUID = trade[0].exchangeUUID;

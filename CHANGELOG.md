@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.4] - 2026-09-12
+
+### Fixed
+
+- Editing a take profit or stop loss on an open SHORT deal no longer computes
+  the target price in the long direction. The Edit Deal form never carried the
+  deal's direction, so it fell back to long: typing a take profit percentage on
+  a short deal produced a price ABOVE the breakeven instead of below it, and
+  saving stored that price as the deal's fixed take profit. Long deals are
+  unaffected.
+
 ## [2.54.3] - 2026-09-11
 
 ### Changed
