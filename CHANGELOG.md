@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.6] - 2026-09-12
+
+### Fixed
+
+- Quick Setup's Investment field can be typed into again. The figure was
+  re-derived from the per-order sizes it had been split into and written back
+  over the text as you typed, so a keystroke landed on a number you had not
+  entered and the field settled on something else entirely.
+- Quick Setup now funds a bot with the investment you asked for. The base
+  order and every safety order were given the same rounded share, which
+  restricted the reachable total to multiples of the whole ladder — the base
+  order now carries the remainder, so the total matches what you set and the
+  investment slider deploys the share of your balance it reports.
+
 ## [2.54.5] - 2026-09-12
 
 ### Added

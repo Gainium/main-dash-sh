@@ -335,10 +335,23 @@ export const computeInvestmentFromDca = (
     (Number.isFinite(order) ? order : 0) * (divisor - 1);
 };
 
-/** Distribute a target total-investment evenly into baseOrderSize / orderSize.
+/** Distribute a target total-investment into baseOrderSize / orderSize.
  *  `precision` controls the per-order decimal places — defaults to 2 (the
  *  quote-currency case), bumped higher when the investment is denominated
- *  in base (e.g. BTC at 5-8 decimals). */
+ *  in base (e.g. BTC at 5-8 decimals).
+ *
+ *  The safety orders take an even share rounded DOWN to those decimals and the
+ *  base order takes the remainder, so `computeInvestmentFromDca` gives back the
+ *  figure that went in. Giving both the same rounded share instead quantized
+ *  the reachable total to `divisor x 10^-precision` — half a unit of quote on
+ *  an 8-order, 1.5-volume-scale ladder — so the Investment field could not
+ *  represent most of what a user typed into it, and answered each keystroke
+ *  with a different number.
+ *
+ *  Rounding DOWN rather than to nearest is what keeps the remainder
+ *  non-negative: the base order is then never left below a safety order, and
+ *  so never below the exchange per-order minimum that the safety orders
+ *  already clear. It is bounded by one rounding unit per safety order. */
 export const distributeInvestmentToDca = (
   investment: number,
   dca: QuickSetupDcaLike,
@@ -346,8 +359,15 @@ export const distributeInvestmentToDca = (
 ): { baseOrderSize: string; orderSize: string } => {
   const safe = Number.isFinite(investment) && investment >= 0 ? investment : 0;
   const divisor = computeInvestmentDivisor(dca.ordersCount, dca.volumeScale);
-  const perOrder = divisor > 0 ? safe / divisor : safe;
   const decimals = Math.max(0, Math.min(20, Math.floor(precision)));
-  const formatted = perOrder.toFixed(decimals);
-  return { baseOrderSize: formatted, orderSize: formatted };
+  const factor = Math.pow(10, decimals);
+  const perOrder =
+    divisor > 0
+      ? Math.floor(Number(((safe / divisor) * factor).toPrecision(12))) / factor
+      : safe;
+  const base = Math.max(0, safe - perOrder * (divisor - 1));
+  return {
+    baseOrderSize: base.toFixed(decimals),
+    orderSize: perOrder.toFixed(decimals),
+  };
 };

@@ -385,16 +385,23 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
     { navId }
   );
 
-  // Handle input focus. `isEditing` is only engaged in commit-on-blur mode:
-  // it freezes the prop->draft sync so an in-flight edit isn't clobbered by a
-  // derived value arriving mid-typing. In commit-on-change mode the sync must
-  // keep running (guards clamp the value as you type).
+  // Handle input focus. `isEditing` freezes the prop->draft sync for as long
+  // as the field has focus, in BOTH commit modes.
+  //
+  // It used to be engaged only in commit-on-blur mode, on the reasoning that a
+  // commit-on-change consumer needs the sync running so its guards can clamp
+  // the value as you type. But what comes back from a consumer is not always
+  // the number it was handed: a field whose value is *derived* (Quick setup's
+  // Investment is recomputed from the per-order sizes it was distributed into)
+  // answers a keystroke with a different figure, and writing that over the
+  // text that keystroke was part of means the next character lands on a value
+  // the user never typed — so the field can never be typed into at all.
+  // Clamping still lands; it lands when the edit ends rather than inside it,
+  // which is what a text input is expected to do.
   const handleInputFocus = useCallback(() => {
-    if (commitOn === 'blur') {
-      setIsEditing(true);
-    }
+    setIsEditing(true);
     onFocus?.();
-  }, [commitOn, onFocus]);
+  }, [onFocus]);
 
   // Handle input blur
   const handleInputBlur = useCallback(() => {
