@@ -1,5 +1,13 @@
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
+/**
+ * Earliest timestamp (ms) a bot `stats.chart` point can plausibly carry
+ * (2001-09-09). A point at or before it is a corrupt write — e.g. a daily
+ * point stamped `-86400000` (1969-12-31) — not history. Plotted, the time
+ * axis would span ~56 years and squeeze the real series against one edge.
+ */
+export const MIN_CHART_POINT_TIME = 1e12;
+
 export type TimeframeKey = '1d' | '3d' | '1w' | '1m' | '3m' | '1y' | 'all';
 
 export const TIMEFRAME_WINDOWS: Record<TimeframeKey, number | null> = {
@@ -89,7 +97,7 @@ export const sanitizeChartPoints = (
   points.forEach((point) => {
     const timestamp = coerceToTimestamp(point?.time);
 
-    if (!Number.isFinite(timestamp)) {
+    if (!Number.isFinite(timestamp) || timestamp <= MIN_CHART_POINT_TIME) {
       return;
     }
 

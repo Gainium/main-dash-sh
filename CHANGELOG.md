@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.54.7] - 2026-09-14
+
+### Fixed
+
+- A bot's Performance chart no longer stretches its time axis back to 1969.
+  A daily chart point stored with an invalid date was plotted as the series'
+  first point, so under the default "All" range the real history was squeezed
+  into a thin sliver at the right edge. Points dated before 2001 are now
+  ignored by both bot performance charts.
+
 ## [2.54.6] - 2026-09-12
 
 ### Fixed

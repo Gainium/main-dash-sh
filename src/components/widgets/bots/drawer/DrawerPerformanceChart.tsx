@@ -29,6 +29,7 @@ import { cn } from '../../../../lib/utils';
 import { formatPriceWithPrecision } from '../../../../utils/formatters';
 import { formatCurrency } from '../../../../utils/numberFormatter';
 import { useUIStore } from '../../../../stores/uiStore';
+import { MIN_CHART_POINT_TIME } from '../../../../utils/chartData';
 import {
   DealReturnsPanel,
   type ScatterPoint,
@@ -342,7 +343,12 @@ export const DrawerPerformanceChart: React.FC<DrawerPerformanceChartProps> = ({
           formattedTime: new Date(timeValue).toLocaleDateString(),
         };
       })
-      .filter((p: { time: number }) => Number.isFinite(p.time))
+      // A point stamped before MIN_CHART_POINT_TIME (e.g. 1969-12-31) is a
+      // corrupt write; under ALL it would stretch the axis back ~56 years.
+      .filter(
+        (p: { time: number }) =>
+          Number.isFinite(p.time) && p.time > MIN_CHART_POINT_TIME
+      )
       // The backend builds stats.chart via filter/push churn (and trims by
       // insertion order, not time), so points arrive unsorted. Without this
       // the lines zigzag and "Realized Profit" appears to fall over time.
