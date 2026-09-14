@@ -119,7 +119,11 @@ export function ladderAhead(
  * would shift every level after it by one.
  */
 export function dcaLadderLevels(
-  fullLadder: ReadonlyArray<{ type: string; price: number; qty: number }>,
+  fullLadder: ReadonlyArray<{
+    type?: string | undefined;
+    price: number;
+    qty: number;
+  }>,
   dcaType: string
 ): LadderLevel[] {
   return fullLadder
