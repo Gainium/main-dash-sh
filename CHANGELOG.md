@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.8] - 2026-09-14
+
+### Fixed
+
+- The "Execute next DCA" confirmation still showed no amount, estimated cost
+  or average price when opened from the deals list, and on bots that don't
+  rest their safety orders on the exchange — DCA by market and DCA triggered
+  by indicators. It was sizing the level from the bot settings carried on the
+  deal, which the deals list only fetches in part. It now reads the bot's full
+  settings and picks the level by its position in the ladder, the same way the
+  bot does, so figures appear on every eligible deal and a deal that has
+  already bought some levels at market is never quoted an earlier level again.
+- A pending limit "Add funds" order is no longer mistaken for the next DCA
+  level in that confirmation.
+
 ## [2.54.7] - 2026-09-14
 
 ### Fixed

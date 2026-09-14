@@ -1,9 +1,12 @@
 import { test, expect } from '@playwright/test';
 
 import {
+  dcaLadderLevels,
   ladderAhead,
+  resolveNextLevels,
   type LadderLevel,
 } from '@/features/bots/shared/runtime/dialogs/executeNextDcaEligibility';
+import { DCAOrderTypeEnum } from '@/types';
 
 /**
  * Spec 017 §5 (main-app-sh `specs/017.execute-next-dca-order-controls.md`).
@@ -108,4 +111,115 @@ test('unusable rungs are dropped rather than quoted as a zero-size order', () =>
 
 test('an empty ladder yields nothing, not an undefined-shaped level', () => {
   expect(ladderAhead([], true)).toEqual([]);
+});
+
+/* ------------------------------------------------------------------------- *
+ * Selecting the level by POSITION, the way the engine does.
+ *
+ * The first projection-based version returned nothing at all on the deals list,
+ * and on a bot that rests nothing on the venue it could not have been trusted
+ * even with full settings: levels already bought at market no longer sit at
+ * their ladder prices, so a price-proximity pick would quote level 1 on a deal
+ * that is on level 3. The engine picks `levelNumber === levels.complete`; so do
+ * these.
+ * ------------------------------------------------------------------------- */
+
+
+// A 4-level long ladder as the generator emits it: start order, then each DCA
+// level in order, then TP — sizes doubling so a wrong index is obvious.
+const generated = [
+  { type: DCAOrderTypeEnum.bo, price: 100, qty: 0.2 },
+  { type: DCAOrderTypeEnum.dca, price: 98, qty: 0.2 },
+  { type: DCAOrderTypeEnum.dca, price: 96, qty: 0.4 },
+  { type: DCAOrderTypeEnum.dca, price: 94, qty: 0.8 },
+  { type: DCAOrderTypeEnum.dca, price: 92, qty: 1.6 },
+  { type: DCAOrderTypeEnum.tp, price: 105, qty: 3.2 },
+];
+const ladder = dcaLadderLevels(generated, DCAOrderTypeEnum.dca);
+
+test('the ladder keeps only DCA levels, in level order', () => {
+  expect(ladder.map((l) => l.price)).toEqual([98, 96, 94, 92]);
+});
+
+test('nothing resting: the next level is chosen by position, not by price', () => {
+  // A by-market / indicator deal on its 3rd DCA level: base + 2 levels filled,
+  // so levels.complete = 3 and nothing rests on the venue.
+  const { current, after } = resolveNextLevels({
+    resting: [],
+    ladder,
+    levelsComplete: 3,
+    isLong: true,
+  });
+
+  expect(current?.price).toBe(94);
+  expect(current?.qty).toBe(0.8);
+  expect(after?.price).toBe(92);
+});
+
+test('a fresh deal quotes level 1, and the level after it', () => {
+  const { current, after } = resolveNextLevels({
+    resting: [],
+    ladder,
+    levelsComplete: 1,
+    isLong: true,
+  });
+
+  expect(current?.price).toBe(98);
+  expect(after?.price).toBe(96);
+});
+
+test('on the last level there is no level after it', () => {
+  const { current, after } = resolveNextLevels({
+    resting: [],
+    ladder,
+    levelsComplete: 4,
+    isLong: true,
+  });
+
+  expect(current?.price).toBe(92);
+  expect(after).toBeUndefined();
+});
+
+test('a resting order supplies price and size — the venue is authoritative', () => {
+  // Smart orders on: only the next level rests, with the venue's own rounding.
+  const { current, after } = resolveNextLevels({
+    resting: [{ price: 94, qty: 0.79, projected: false }],
+    ladder,
+    levelsComplete: 3,
+    isLong: true,
+  });
+
+  expect(current?.qty).toBe(0.79);
+  expect(current?.projected).toBe(false);
+  // Nothing else rests, so the level after it comes from the ladder by position.
+  expect(after?.price).toBe(92);
+});
+
+test('a pending add-funds limit order is not taken for the next DCA level', () => {
+  // It is a dealRegular order resting CLOSER to price than the real level, so
+  // without the exclusion it would be quoted as "next DCA" at the wrong size.
+  const { current } = resolveNextLevels({
+    resting: [
+      { price: 97, qty: 0.05, projected: false },
+      { price: 94, qty: 0.8, projected: false },
+    ],
+    ladder,
+    levelsComplete: 3,
+    isLong: true,
+    excludePrices: [97],
+  });
+
+  expect(current?.price).toBe(94);
+});
+
+test('no settings and nothing resting yields no level rather than a wrong one', () => {
+  const { current, after } = resolveNextLevels({
+    resting: [],
+    ladder: [],
+    levelsComplete: 2,
+    isLong: true,
+  });
+
+  expect(current).toBeUndefined();
+  expect(after).toBeUndefined();
 });

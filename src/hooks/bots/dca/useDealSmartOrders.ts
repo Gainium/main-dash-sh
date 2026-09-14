@@ -47,6 +47,13 @@ export interface UseDealSmartOrdersParams {
   isCombo?: boolean;
   /** Master switch (e.g. selected deal id matches). */
   enabled?: boolean;
+  /**
+   * Build the ladder even when the bot has smart orders off. The projected-row
+   * output keeps its own rules either way; this exists for callers that need
+   * `fullLadder` — the whole configured ladder, level by level — on every bot,
+   * including those whose safety orders all rest on the venue.
+   */
+  computeRegardlessOfSmartOrders?: boolean;
 }
 
 export interface UseDealSmartOrdersResult {
@@ -55,12 +62,21 @@ export interface UseDealSmartOrdersResult {
   /** Projected grey levels for the price chart (grey:true → renders grey). */
   smartChartOrders: DCAGrid[];
   strategy: StrategyEnum;
+  /**
+   * Every level the bot's settings define, in level order, unfiltered — the
+   * base order, each DCA level, TP and SL entries as the generator emitted
+   * them. Unlike `smartOrders` it is not bounded by resting orders or deduped by
+   * price, so level N is the Nth DCA entry: the same identity the engine uses
+   * (`levelNumber === levels.complete`). Empty unless the guard passed.
+   */
+  fullLadder: DCAGrid[];
 }
 
 const EMPTY: UseDealSmartOrdersResult = {
   smartOrders: [],
   smartChartOrders: [],
   strategy: StrategyEnum.long,
+  fullLadder: [],
 };
 
 /**
@@ -94,6 +110,7 @@ export function useDealSmartOrders({
   completedOrders,
   isCombo = false,
   enabled = true,
+  computeRegardlessOfSmartOrders = false,
 }: UseDealSmartOrdersParams): UseDealSmartOrdersResult {
   const { pairsByExchange } = useTradingPairsFromContext();
   const allBalances = useBalanceStore((s) => s.balances);
@@ -162,7 +179,9 @@ export function useDealSmartOrders({
       mergedSettings &&
       (isCombo
         ? mergedSettings.comboUseSmartGrids
-        : mergedSettings.useSmartOrders || isIndicatorDca)
+        : mergedSettings.useSmartOrders ||
+          isIndicatorDca ||
+          computeRegardlessOfSmartOrders)
   );
 
   const balances = useMemo<Asset[]>(() => {
@@ -384,7 +403,7 @@ export function useDealSmartOrders({
       } as SmartViewOrder;
     });
 
-    return { smartOrders, smartChartOrders, strategy };
+    return { smartOrders, smartChartOrders, strategy, fullLadder: ladder };
   }, [
     guardPass,
     deal,

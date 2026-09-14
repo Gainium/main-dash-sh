@@ -12,14 +12,19 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import getLatestPrices from '@/helper/price';
-import { BotTypesEnum, type DCABotSettings } from '@/types';
+import {
+  BotTypesEnum,
+  DCAOrderTypeEnum,
+  type DCABotSettings,
+} from '@/types';
 import { formatNumber } from '@/utils/numberFormatter';
-import { useDealStore } from '@/stores/live';
+import { useDcaBotsStore, useDealStore } from '@/stores/live';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import {
-  ladderAhead,
+  dcaLadderLevels,
   nextDcaLevelNumber,
+  resolveNextLevels,
   type LadderLevel,
 } from './executeNextDcaEligibility';
 
@@ -139,22 +144,25 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
       : undefined;
 
   /**
-   * The level about to be filled: the open `dealRegular` order nearest the
-   * current price. For a long that is the HIGHEST-priced resting safety order,
-   * because the ladder descends away from it (mirror for a short).
-   *
-   * Absent for `dcaCondition: 'indicators'` and for `dcaByMarket` deals, whose
-   * safety orders never rest on the venue — the dialog degrades to prose there,
-   * which is correct: those levels have no ladder price to quote.
-   */
-  /**
-   * The raw deal, straight off the live store. It carries both its own settings
-   * snapshot and `dcaBot.settings`, which is everything the ladder projection
-   * needs — so no extra query is required to know a level's size.
+   * The raw deal off the live store — initialPrice, grid breakpoints, per-deal
+   * settings, pending add-funds. The same source the deal drawer projects from.
    */
   const rawDeal = useDealStore((s) =>
-    trade.botId && trade.id ? s.getDeal(trade.botId, trade.id) : null
+    trade.botId ? (s.deals[trade.botId]?.[trade.id] ?? null) : null
   );
+
+  /**
+   * The bot's FULL settings, from the live DCA bots store — again the deal
+   * drawer's source. It has to be the bot record: the deals list fetches deals
+   * with a settings stub (`futures`, `coinm`) and `dcaBot.settings { name }`, so
+   * nothing on the deal itself can size a level. Reading `dcaBot.settings` off
+   * the deal was exactly why this dialog showed no figures from the list.
+   */
+  const bot = useDcaBotsStore((s) =>
+    trade.botId ? s.bots[trade.botId] : undefined
+  );
+  const botSettings = (bot as { settings?: DCABotSettings } | undefined)
+    ?.settings;
 
   const { pendingOrders, completedOrders } = React.useMemo(
     () => splitDealOrders(open ? orders : []),
@@ -162,28 +170,39 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
   );
 
   /**
-   * Levels the bot has not placed on the venue. This is the whole ladder for a
-   * `dcaByMarket` deal and for every indicator-triggered deal — they rest
-   * nothing — and the tail beyond `activeOrdersCount` when smart orders are on.
-   * Without it the dialog had no size to show on those deals at all.
+   * The whole configured ladder, built from the bot's settings and the deal's
+   * opening price — computed regardless of smart orders, because the level is
+   * picked from it by POSITION below, not from its projected rows.
    */
-  const { smartOrders } = useDealSmartOrders({
-    bot: {
-      settings: rawDeal?.dcaBot?.settings as DCABotSettings | undefined,
-      exchangeUUID: rawDeal?.exchangeUUID,
-    },
+  const { fullLadder } = useDealSmartOrders({
+    bot: botSettings
+      ? {
+          settings: botSettings,
+          exchangeUUID:
+            (bot as { exchangeUUID?: string } | undefined)?.exchangeUUID ??
+            rawDeal?.exchangeUUID,
+        }
+      : null,
     deal: rawDeal,
     pendingOrders,
     completedOrders,
     enabled: open,
+    computeRegardlessOfSmartOrders: true,
   });
 
-  /** Remaining ladder, nearest rung first, real orders and projections merged. */
-  const ahead = React.useMemo(() => {
+  /**
+   * Indicator-triggered levels fire on a signal plus a minimum move, not at a
+   * price, so they have no ladder price worth quoting. Every other condition's
+   * level does — for DCA-by-market it is the price that triggers the market
+   * buy.
+   */
+  const isIndicatorDca = botSettings?.dcaCondition === 'indicators';
+
+  const { current: nextLevel, after: levelAfter } = React.useMemo(() => {
     if (!open) {
-      return [];
+      return { current: undefined, after: undefined };
     }
-    const fromResting: LadderLevel[] = orders
+    const resting: LadderLevel[] = orders
       .filter(
         (o) =>
           o.typeOrder === 'dealRegular' &&
@@ -196,29 +215,37 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
         quoteAsset: o.quoteAsset,
         projected: false,
       }));
-    const fromSmart: LadderLevel[] = smartOrders.map((o) => ({
-      price: o.price,
-      qty: o.amount,
-      baseAsset: o.baseAsset,
-      quoteAsset: o.quoteAsset,
-      projected: true,
-    }));
-    return ladderAhead([...fromResting, ...fromSmart], isLong);
-  }, [open, orders, smartOrders, isLong]);
-
-  const nextLevel = ahead[0];
-  /** The rung after the one being executed — shown so it is visible that it
-   *  does not move. Its price and size come from the deal's own settings, not
-   *  from where this execution fills. */
-  const levelAfter = ahead[1];
+    // A resting limit add-funds order is dealRegular too; it is not a level.
+    const excludePrices = (rawDeal?.pendingAddFunds ?? [])
+      .filter((p) => p.useLimitPrice && p.limitPrice)
+      .map((p) => Number(p.limitPrice));
+    return resolveNextLevels({
+      resting,
+      ladder: dcaLadderLevels(fullLadder, DCAOrderTypeEnum.dca),
+      levelsComplete: trade.levels?.complete ?? 1,
+      isLong,
+      excludePrices,
+    });
+  }, [open, orders, fullLadder, rawDeal, trade.levels?.complete, isLong]);
 
   // The level carries its own assets, which beats re-splitting a concatenated
   // pair string (the splitter has genuine ambiguity on 4-char quotes).
+  // When the level comes from the ladder rather than a resting order it has no
+  // assets of its own, and on the deals list `trade.symbol` is a bare string —
+  // so fall back to the raw deal's symbol, or the figures render unitless.
   const symbolObj = typeof trade.symbol === 'object' ? trade.symbol : undefined;
-  const baseAsset = nextLevel?.baseAsset ?? symbolObj?.baseAsset ?? '';
-  const quoteAsset = nextLevel?.quoteAsset ?? symbolObj?.quoteAsset ?? '';
+  const baseAsset =
+    nextLevel?.baseAsset ??
+    symbolObj?.baseAsset ??
+    rawDeal?.symbol?.baseAsset ??
+    '';
+  const quoteAsset =
+    nextLevel?.quoteAsset ??
+    symbolObj?.quoteAsset ??
+    rawDeal?.symbol?.quoteAsset ??
+    '';
 
-  const ladderPrice = nextLevel?.price;
+  const ladderPrice = isIndicatorDca ? undefined : nextLevel?.price;
   const qty = nextLevel?.qty;
 
   // How far from the ladder price we would be filling. Signed so that a

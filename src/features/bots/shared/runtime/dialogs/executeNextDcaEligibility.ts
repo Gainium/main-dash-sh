@@ -110,3 +110,60 @@ export function ladderAhead(
     isLong ? b.price - a.price : a.price - b.price
   );
 }
+
+/**
+ * The deal's configured DCA levels, in level order, from a full generated
+ * ladder. Non-DCA entries (start order, take profit, stop loss) are dropped;
+ * everything else is kept — including a level carrying a "won't be placed"
+ * note — because the engine numbers levels by position, and skipping one here
+ * would shift every level after it by one.
+ */
+export function dcaLadderLevels(
+  fullLadder: ReadonlyArray<{ type: string; price: number; qty: number }>,
+  dcaType: string
+): LadderLevel[] {
+  return fullLadder
+    .filter((o) => o.type === dcaType)
+    .map((o) => ({ price: o.price, qty: o.qty, projected: true }));
+}
+
+/**
+ * Which level "Execute next DCA" is about to fill, and which one comes after.
+ *
+ * Identity comes from the level's position, exactly as the engine selects it
+ * (`levelNumber === levels.complete`, where `levels.complete` counts the start
+ * order as 1): the next level is `ladder[complete - 1]`, the one after it
+ * `ladder[complete]`. Choosing by position rather than by price proximity is
+ * what keeps this right on bots that rest nothing on the venue — by-market and
+ * indicator-triggered DCA — where levels already filled at market prices no
+ * longer line up with their ladder prices and would otherwise be quoted again.
+ *
+ * Where orders DO rest, the nearest resting ones supply price and size instead,
+ * because the venue's quantity is authoritative. A resting order at a pending
+ * add-funds limit price is not a ladder level at all and is ignored — it is
+ * also a `dealRegular` order, and would otherwise be offered as "the next DCA".
+ */
+export function resolveNextLevels({
+  resting,
+  ladder,
+  levelsComplete,
+  isLong,
+  excludePrices = [],
+}: {
+  resting: LadderLevel[];
+  ladder: LadderLevel[];
+  levelsComplete: number;
+  isLong: boolean;
+  excludePrices?: ReadonlyArray<number>;
+}): { current: LadderLevel | undefined; after: LadderLevel | undefined } {
+  const excluded = new Set(excludePrices.filter((p) => Number.isFinite(p)));
+  const restingAhead = ladderAhead(
+    resting.filter((l) => !excluded.has(l.price)),
+    isLong
+  );
+  const nextIndex = Math.max(0, Math.floor(levelsComplete) - 1);
+  return {
+    current: restingAhead[0] ?? ladder[nextIndex],
+    after: restingAhead[1] ?? ladder[nextIndex + 1],
+  };
+}
