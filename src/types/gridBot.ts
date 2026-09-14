@@ -356,9 +356,15 @@ export function transformGridBotToBot(
       valueCurrent = res.profit.totalUsd + initialBalance / leverage;
       valueChange = res.profit.totalUsd;
     } else {
+      // Profit is denominated in the profit currency: base-profit bots must
+      // be priced before it joins the quote-denominated value.
+      const profitBase = res.settings.profitCurrency === 'base';
+      const profitTotal = res.profit?.total || 0;
       valueCurrent =
-        res.currentBalances.base * res.lastPrice + res.currentBalances.quote;
-      valueCurrent += res.profit?.total || 0;
+        (res.currentBalances.base + (profitBase ? profitTotal : 0)) *
+          res.lastPrice +
+        res.currentBalances.quote +
+        (profitBase ? 0 : profitTotal);
       valueCurrent *= res.lastUsdRate;
     }
   } else {

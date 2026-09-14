@@ -165,6 +165,7 @@ assets {
     }
 }
 lastPrice
+lastUsdRate
 avgPrice
 usdRate
 share
