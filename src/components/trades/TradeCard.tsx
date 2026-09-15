@@ -924,7 +924,7 @@ const EnhancedCard = React.memo(
           settings:
             newMax === 0
               ? { useDca: false }
-              : { useDca: true, ordersCount: `${newMax}` },
+              : { useDca: true, ordersCount: newMax },
         });
       },
       [editDealMutation, trade.botId, trade.id, changeDcaBotType]

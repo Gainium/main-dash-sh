@@ -9,7 +9,10 @@ import {
   type AddFundsSettings,
   type DCADealsSettings,
 } from '@/types';
-import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
+import {
+  dealQueries,
+  type DealSettingsInput,
+} from '@/lib/api/GraphQLQueries-deal-queries';
 import { toast } from '@/lib/toast';
 import type { AdjustFundsDialogMode } from '@/features/bots/shared/runtime';
 import { useAuthStore } from '@/stores/authStore';
@@ -723,7 +726,9 @@ export function useMoveDealToBot() {
 export type ChangeDealInput = {
   botId: string;
   dealId: string;
-  settings: Partial<DCADealsSettings>;
+  // Wire-shaped, not form-shaped: `ordersCount`/`activeOrdersCount` are `Int`
+  // on main-app's deal-settings input sets. See `DealSettingsInput`.
+  settings: DealSettingsInput;
 };
 export type UseEditDealOptions = ChangeDealInput & {
   type: BotTypesEnum;
@@ -733,7 +738,9 @@ export type ResetDealInput = { botId: string; dealId: string };
 export type UseResetDealOptions = ResetDealInput & {
   type: BotTypesEnum;
   terminal?: boolean;
-  originalSettings: Partial<DCADealsSettings>;
+  // Same shape the edit mutation carries; kept local to the optimistic store
+  // merge (resetDealSettings sends only botId/dealId over the wire).
+  originalSettings: DealSettingsInput;
 };
 type EditOptions = {
   onSuccess?: () => void;
@@ -797,7 +804,13 @@ export function useResetDeal(options?: EditOptions) {
           botId,
           {
             ...get,
-            settings: { ...get.settings, ...originalSettings },
+            // See the matching note in useEditDeal's onSuccess: the deal's
+            // `ordersCount`/`activeOrdersCount` really are numbers at runtime,
+            // `DCADealsSettings` just inherits the form's string label.
+            settings: {
+              ...get.settings,
+              ...originalSettings,
+            } as DCADealsSettings,
           },
           type === BotTypesEnum.combo ? 'combo' : terminal ? 'terminal' : 'dca'
         );
@@ -869,7 +882,14 @@ export function useEditDeal(options?: EditOptions) {
           botId,
           {
             ...get,
-            settings: { ...get.settings, ...settings },
+            // `DCADealsSettings` labels `ordersCount`/`activeOrdersCount` as
+            // `string` only because it picks from the form-shaped
+            // `DCABotSettings`; a deal read back over GraphQL carries them as
+            // numbers (`Int`), which is also what we just sent. The merge is
+            // right at runtime — only the label is off — and widening the
+            // shared bot-settings type would ripple through the whole bot
+            // form, so keep the cast on this optimistic store write.
+            settings: { ...get.settings, ...settings } as DCADealsSettings,
           },
           type === BotTypesEnum.combo ? 'combo' : terminal ? 'terminal' : 'dca'
         );

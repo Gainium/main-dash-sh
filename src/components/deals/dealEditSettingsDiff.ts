@@ -5,6 +5,25 @@ import {
   type DCADealsSettings,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+// TYPE-ONLY, deliberately. This module is driven directly by
+// tests/dealEditPayloadSchema.unit.test.ts on the Playwright unit runner, which
+// has no Vite pipeline and therefore no `import.meta.env`. A type import is
+// erased at compile time; a VALUE import from the query modules would pull in
+// GraphQLQueries-fragments' `import.meta.env` read and crash the whole core
+// suite at collection. That is why the key list below is restated rather than
+// imported.
+import type { DealSettingsInput } from '@/lib/api/GraphQLQueries-deal-queries';
+
+/**
+ * Keys main-app declares as `Int` on `{dca,combo}DealSettingsInputSet`, and so
+ * the keys this diff must emit as numbers rather than in their form-shaped
+ * string form. Keep in step with `INT_DEAL_SETTING_KEYS` in
+ * GraphQLQueries-deal-queries, which enforces the same thing on the wire.
+ */
+const INT_DEAL_SETTING_KEY_SET = new Set<string>([
+  'ordersCount',
+  'activeOrdersCount',
+]);
 
 /**
  * The deal-edit diff: form state in, the settings object the editDeal mutation
@@ -167,7 +186,7 @@ export const mapFromDataToDealSettings = (
     }
     return isMultiple ? k !== 'baseOrderSize' && k !== 'orderSize' : true;
   }) as (keyof DCADealsSettings)[];
-  const result: Partial<DCADealsSettings> = keys.reduce((acc, key) => {
+  const result: DealSettingsInput = keys.reduce((acc, key) => {
     const k = key as keyof DCADealsSettings;
     if (!(k in newState)) {
       return acc;
@@ -191,9 +210,23 @@ export const mapFromDataToDealSettings = (
     if (typeof original === 'number' && typeof newValue === 'string') {
       newValue = parseFloat(newValue);
     }
+    let finalValue = reset ? (original ?? newValue) : (newValue ?? original);
+    // `ordersCount` / `activeOrdersCount` are `Int` on main-app's deal-settings
+    // input sets, so they have to leave here as numbers or the whole mutation
+    // is rejected before the resolver runs. The number/string branch above only
+    // fires when `original` is already a number, which is true when the caller
+    // passed the DEAL's own settings (GraphQL hands them back as `Int`) but
+    // false on a single-deal save, where `originalState` falls back to the
+    // BOT's settings and the form keeps every numeric field as a string.
+    if (INT_DEAL_SETTING_KEY_SET.has(k) && typeof finalValue === 'string') {
+      const parsed = parseFloat(finalValue);
+      if (Number.isFinite(parsed)) {
+        finalValue = parsed;
+      }
+    }
     //@ts-expect-error accumulator typing
-    acc[k] = reset ? (original ?? newValue) : (newValue ?? original);
+    acc[k] = finalValue;
     return acc;
-  }, {} as DCADealsSettings);
+  }, {} as DealSettingsInput);
   return result;
 };

@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.10] - 2026-09-14
+
+### Fixed
+
+- "Change DCA levels" failed on an open deal for every level count except 0.
+  The dialog sent the new count as text while the API declares it as a whole
+  number, so the request was rejected before it reached the deal — nothing was
+  changed either way, and the only value that worked was 0, which takes a
+  different branch and simply turns further DCA orders off. The deal-edit
+  mutations now convert the order-count fields where they build the request,
+  so every entry point is fixed together: the dialog in the deal card, the
+  deals table in the bot drawer, the open-orders widget, and the Edit Deal
+  drawer, which sent the same count as text when saving a single deal.
+
 ## [2.54.9] - 2026-09-14
 
 ### Fixed

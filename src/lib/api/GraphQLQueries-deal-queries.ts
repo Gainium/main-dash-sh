@@ -16,6 +16,71 @@ import {
   orders,
 } from './GraphQLQueries-fragments';
 
+/**
+ * Keys that main-app declares as `Int` on `dcaDealSettingsInputSet` /
+ * `comboDealSettingsInputSet` (main-app `core/src/graphql/schema.ts`).
+ *
+ * Everything else on those input sets is `String`/`Float`/`Boolean`/an enum,
+ * so these two are the only members whose form-shaped string representation
+ * is rejected on the wire.
+ */
+const INT_DEAL_SETTING_KEYS = ['ordersCount', 'activeOrdersCount'] as const;
+const INT_DEAL_SETTING_KEY_SET: ReadonlySet<string> = new Set(
+  INT_DEAL_SETTING_KEYS
+);
+
+/**
+ * The settings object the deal-edit mutations actually put on the wire.
+ *
+ * Deliberately NOT `Partial<DCADealsSettings>`. That type is form-shaped — it
+ * picks from `DCABotSettings`, which keeps numeric fields as `string` so they
+ * can back a text input — while main-app declares `ordersCount` and
+ * `activeOrdersCount` as `Int`. GraphQL does not coerce a string into an
+ * `Int`, so a string fails variable validation with
+ *   Variable "$input" got invalid value … Int cannot represent non-integer value: "5"
+ * and the ENTIRE mutation is rejected with BAD_USER_INPUT before the resolver
+ * runs — the deal is never touched and the user only sees a generic failure.
+ * Typing these as `string` is what pushed callers into sending `` `${n}` ``.
+ */
+export type DealSettingsInput = Omit<
+  Partial<DCADealsSettings>,
+  (typeof INT_DEAL_SETTING_KEYS)[number]
+> & {
+  ordersCount?: number;
+  activeOrdersCount?: number;
+};
+
+/**
+ * Last line of defence at the choke point every deal-edit path funnels
+ * through: coerce the `Int` members to a real number no matter which caller
+ * built the object. `DealSettingsInput` makes the contract honest for new
+ * callers, but the deal-edit diff assembles its result with `@ts-expect-error`
+ * over a form-shaped accumulator, so the compiler alone cannot guarantee this.
+ *
+ * Mirrors legacy main-dash, which does the same `parseFloat` on these two keys
+ * (plus `avgPrice`, already a `Float` and already numeric here) right before
+ * calling the same mutations. A value that does not parse to a finite number
+ * is dropped rather than sent as `NaN` → `null`, which would blank the
+ * setting instead of leaving it alone.
+ */
+const toDealSettingsInput = (settings: DealSettingsInput): DealSettingsInput =>
+  Object.fromEntries(
+    Object.entries(settings).flatMap(([key, value]) => {
+      if (
+        !INT_DEAL_SETTING_KEY_SET.has(key) ||
+        value === undefined ||
+        value === null
+      ) {
+        return [[key, value]];
+      }
+      const parsed = parseFloat(`${value}`);
+      // Returning no entry DROPS the key. Sending it unparsed is not an option:
+      // `NaN` serialises to `null`, and these fields are nullable `Int`, so it
+      // would blank the setting instead of leaving the deal's value alone.
+      return Number.isFinite(parsed) ? [[key, parsed]] : [];
+    })
+  ) as DealSettingsInput;
+
 export const dealQueries = {
   getDCADeals: (input?: { terminal?: boolean }) => {
     const query = `query getDCADeals($input: getDCADealsInput) {
@@ -1069,7 +1134,7 @@ export const dealQueries = {
   changeDCADealSettings: (input: {
     botId: string;
     dealId: string;
-    settings: Partial<DCADealsSettings>;
+    settings: DealSettingsInput;
   }) => {
     const query = `mutation changeDCADealSettings($input: dcaDealSettingsInput!) {
   changeDCADealSettings(input: $input) {
@@ -1078,14 +1143,16 @@ export const dealQueries = {
   data
   }
   }`;
-    const variables = { input };
+    const variables = {
+      input: { ...input, settings: toDealSettingsInput(input.settings) },
+    };
     return { query, variables };
   },
 
   changeComboDealSettings: (input: {
     botId: string;
     dealId: string;
-    settings: Partial<DCADealsSettings>;
+    settings: DealSettingsInput;
   }) => {
     const query = `mutation changeComboDealSettings($input: comboDealSettingsInput!) {
   changeComboDealSettings(input: $input) {
@@ -1094,7 +1161,9 @@ export const dealQueries = {
   data
   }
   }`;
-    const variables = { input };
+    const variables = {
+      input: { ...input, settings: toDealSettingsInput(input.settings) },
+    };
     return { query, variables };
   },
 
