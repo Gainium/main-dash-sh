@@ -616,41 +616,25 @@ const buildOverrides = (
     // `customIndicators.js` (`percentileBand`) instead.
   }
 
-  // Define oscillators that will use separate price scale
-  const oscillatorTypes = new Set<string>([
-    IndicatorEnum.rsi,
-    IndicatorEnum.cci,
-    IndicatorEnum.mfi,
-    IndicatorEnum.wr,
-    IndicatorEnum.stoch,
-    IndicatorEnum.stochRSI,
-    IndicatorEnum.ao,
-    IndicatorEnum.mom,
-    IndicatorEnum.vo,
-    IndicatorEnum.uo,
-    IndicatorEnum.adx,
-    IndicatorEnum.macd,
-    IndicatorEnum.bbw,
-    IndicatorEnum.mar,
-    IndicatorEnum.ath,
-  ]);
-
-  // Don't set explicit limit overrides for oscillators - let them auto-scale
-  // Only set limits for non-oscillator indicators or when explicitly needed
-  const shouldSetLimits = oscillatorTypes.has(type);
-
-  if (shouldSetLimits && indicator.lowerLimit !== undefined) {
+  // Move the study's two hline bands onto the levels the user's condition
+  // names, for every study that has a level — legacy does the same with no
+  // type test. Studies that must not show a threshold (the price overlays,
+  // whose levels are price-unit nonsense on a study scale) have these
+  // overrides stripped again further down; that strip list is the only filter.
+  // Without the `.value` overrides a study keeps the band positions baked into
+  // its PineJS definition — for the %B studies 1 and 0 — so `hlines
+  // background` below shades the whole pane instead of the user's band.
+  if (indicator.lowerLimit !== undefined) {
     overrides['lowerLimit.value'] = indicator.lowerLimit;
     overrides['lowerLimit.visible'] = true;
   }
 
-  if (shouldSetLimits && indicator.upperLimit !== undefined) {
+  if (indicator.upperLimit !== undefined) {
     overrides['upperLimit.value'] = indicator.upperLimit;
     overrides['upperLimit.visible'] = true;
   }
 
   if (
-    shouldSetLimits &&
     indicator.upperLimit !== undefined &&
     indicator.lowerLimit !== undefined
   ) {

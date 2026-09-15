@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.54.13] - 2026-09-15
+
+### Fixed
+
+- The chart ignored an indicator's threshold levels unless the indicator was
+  one of fifteen listed types. On Bollinger Bands %B, Keltner Channel %B,
+  Bollinger Bands Width Percentile, ATR and ADR a condition such as
+  "crosses up 0.03" drew no level line at all, and a range condition such as
+  "less than 0.05" shaded the study's full default range instead of the range
+  the condition actually names. The threshold now follows the condition for
+  every study, as it does in the legacy dashboard; price overlays still show
+  no threshold lines.
+
 ## [2.54.12] - 2026-09-15
 
 ### Fixed
