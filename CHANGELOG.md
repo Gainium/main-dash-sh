@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.54.11] - 2026-09-15
+
+### Fixed
+
+- Bollinger Bands %B and Keltner Channel %B were drawn on top of the candles
+  instead of in their own pane below the chart. Both plot a unitless 0–1
+  ratio rather than a price, so the chart showed two unrelated vertical
+  scales at once and the indicator line ran through the price series. They
+  were flagged as price overlays alongside Bollinger Bands and Keltner
+  Channel themselves, which overrode the studies' own declaration that they
+  are not price studies. Both now get their own pane, as the other
+  oscillators do.
+
 ## [2.54.10] - 2026-09-14
 
 ### Fixed

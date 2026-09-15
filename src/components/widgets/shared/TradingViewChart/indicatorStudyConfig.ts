@@ -82,12 +82,17 @@ const MA_STUDY_NAME_MAP: Omit<Record<MAEnum, string>, MAEnum.price> = {
   [MAEnum.rma]: 'RMA',
 };
 
+// Studies that plot in PRICE units and therefore belong on the candle pane.
+// Membership becomes `createStudy`'s `forceOverlay` argument, which overrides
+// the study's own `is_price_study` — so an oscillator listed here is dragged
+// onto the price pane and drawn over the candles on a second, unrelated axis.
+// The %B studies (bbpb/kcpb) output a unitless 0…1 ratio and declare
+// `is_price_study: false`; like every other oscillator they get their own
+// pane, as they do in legacy. Only price-unit studies go in this set.
 const OVERLAY_TYPES = new Set<string>([
   IndicatorEnum.ma,
   IndicatorEnum.bb,
-  IndicatorEnum.bbpb,
   IndicatorEnum.kc,
-  IndicatorEnum.kcpb,
   IndicatorEnum.psar,
   IndicatorEnum.st,
   IndicatorEnum.pp,
