@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.14] - 2026-09-15
+
+### Fixed
+
+- A "greater than" or "less than" indicator condition shaded only as far as
+  the indicator's nominal range instead of continuing past it. Because
+  Bollinger Bands %B drops below 0 whenever price closes under the lower
+  band, a condition such as "less than 0.05" left most of the bars it selects
+  outside the shaded region; at the other end, ATR and ADR are quoted in
+  price units and run well above 100, so a "greater than" condition on them
+  produced an empty or inverted band. The shading now continues past the
+  level without limit, matching the legacy dashboard. Conditions were always
+  evaluated against the real values; only the drawing was affected.
+
 ## [2.54.13] - 2026-09-15
 
 ### Fixed

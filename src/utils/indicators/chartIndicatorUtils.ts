@@ -298,6 +298,24 @@ export type ChartIndicatorsContext = {
   useRiskRewardIndicators: boolean;
 };
 
+/**
+ * The open edge of a one-sided threshold band.
+ *
+ * `greater than X` is satisfied by every value above X, and `less than X` by
+ * every value below it, so the shaded band has to run off the top (or bottom)
+ * of the pane. This anchors that open end somewhere no indicator's values can
+ * reach — it is a drawing device, not a claim about any indicator's range,
+ * which is why it is the same number for every type. Bounding it to a nominal
+ * `0 … 100` instead truncates the fill exactly where the condition is
+ * satisfied hardest: %B goes below 0 on any close under the lower band, and
+ * ATR/ADR are quoted in price units and sit far above 100.
+ *
+ * Finite on purpose — `Infinity` does not survive serialisation into the
+ * `upperLimit.value` / `lowerLimit.value` study overrides. Same sentinel the
+ * legacy dashboard uses.
+ */
+const OPEN_BAND_EDGE = 1e6;
+
 function buildChartIndicator(
   i: IndicatorConfig,
   context: ChartIndicatorsContext
@@ -335,7 +353,7 @@ function buildChartIndicator(
             : i.indicatorCondition === IndicatorStartConditionEnum.gt
               ? i.type === IndicatorEnum.ath
                 ? 0
-                : 100
+                : OPEN_BAND_EDGE
               : i.indicatorValue
                 ? i.type === IndicatorEnum.ath
                   ? Math.abs(parseFloat(i.indicatorValue)) * -1
@@ -372,7 +390,7 @@ function buildChartIndicator(
               : i.indicatorCondition === IndicatorStartConditionEnum.lt
                 ? i.type === IndicatorEnum.ath
                   ? -100
-                  : 0
+                  : -OPEN_BAND_EDGE
                 : undefined,
     type: i.type,
     maType: i.maType,
