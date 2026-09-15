@@ -75,6 +75,7 @@ import {
   BacktestSettingsDialog,
   type BacktestConfig,
 } from '@/features/bots/widgets/BotForm/components/BacktestSettingsDialog';
+import { toBacktestFee } from '@/utils/bots/backtestFee';
 import { BotFormSaveTemplateDialog } from '@/features/bots/widgets/BotForm/components/BotFormSaveTemplateDialog';
 import { BotSettingsImportExportDialog } from '@/features/bots/widgets/BotForm/components/BotSettingsImportExportDialog';
 import { QuickModeToggle } from '@/features/bots/widgets/BotForm/components/QuickModeToggle';
@@ -1385,6 +1386,20 @@ export const HedgeBotEditLayout: React.FC = () => {
           toast.error('Pick a pair on both legs before backtesting.');
           return;
         }
+        // The footer hands over no fee. Use the long leg's looked-up fee —
+        // the one the settings dialog shows — and never run an unknown fee
+        // as 0.
+        const userFee = toBacktestFee(
+          cfg.userFee ?? snap.longFormData.userFee?.takerCommission
+        );
+        if (userFee === null) {
+          toast.error(
+            'Exchange fee is unknown for this pair. Set it in the backtest settings, then run again.'
+          );
+          setDialogSnapshot(snap);
+          setBacktestDialogOpen(true);
+          return;
+        }
         // Don't open the dialog — runner's progress flows through
         // the footer instead. Dialog state stays untouched.
         const from = cfg.startDate
@@ -1396,7 +1411,7 @@ export const HedgeBotEditLayout: React.FC = () => {
           ...(from !== undefined ? { from } : {}),
           ...(to !== undefined ? { to } : {}),
           slippagePercent: cfg.slippagePercent ?? 0,
-          userFee: cfg.userFee ?? 0,
+          userFee,
           RFR: cfg.RFR ?? '2',
           MAR: cfg.MAR ?? '7',
         });
@@ -2221,6 +2236,11 @@ export const HedgeBotEditLayout: React.FC = () => {
             // progress only in the footer, which the user reported
             // as inconsistent. The dialog also auto-closes after a
             // successful run via the runner's resolution.
+            const userFee = toBacktestFee(cfg.userFee);
+            if (userFee === null) {
+              toast.error('Enter an exchange fee to run the backtest.');
+              return;
+            }
             await backtestRunner.run({
               timeframe: cfg.timeframe,
               from: cfg.startDate
@@ -2228,7 +2248,7 @@ export const HedgeBotEditLayout: React.FC = () => {
                 : undefined,
               to: cfg.endDate ? new Date(cfg.endDate).getTime() : undefined,
               slippagePercent: cfg.slippagePercent,
-              userFee: cfg.userFee,
+              userFee,
               RFR: cfg.RFR,
               MAR: cfg.MAR,
               ...(cfg.periodId && !['auto', 'custom'].includes(cfg.periodId)

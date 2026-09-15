@@ -161,6 +161,13 @@ export const useBotFormInitialization = (
         ) {
           nextFormState.pairPrecisionMap = previous.pairPrecisionMap;
         }
+        // Same race for `userFee`: it comes from the account fee lookup, which
+        // also dedupes per pair, and the mapper seeds it as `null`. A re-map
+        // after the lookup resolved wiped the fee for good, and quick
+        // backtests then ran at 0%.
+        if (!mappingResult.formData.userFee) {
+          nextFormState.userFee = previous.userFee;
+        }
 
         nextFormState.originalBot =
           nextFormState.type === BotTypesEnum.dca

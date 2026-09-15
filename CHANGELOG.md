@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.12] - 2026-09-15
+
+### Fixed
+
+- Backtests could run with a 0% exchange fee while the backtest settings showed
+  the real fee. Loading a bot's settings into the edit form reset the fee that
+  had already been looked up for the account, and the lookup does not repeat
+  for the same pair, so it stayed empty for the rest of the session. The
+  quick "Run backtest" button then fell back to 0%; runs started from the
+  settings dialog used the fee shown there and were unaffected, which is why
+  identical-looking settings could give very different results. The form now
+  keeps the looked-up fee across reloads. Quick runs also use the fee of the
+  last run from the settings dialog, and a backtest whose fee is unknown no
+  longer runs as 0% — the settings dialog opens instead, with the fee field
+  empty. Hedge bots' quick run, which always ran at 0%, now uses the fee as
+  well.
+
 ## [2.54.11] - 2026-09-15
 
 ### Fixed

@@ -112,9 +112,11 @@ export const BacktestSettingsDialog: React.FC<{
   );
   const [running, setRunning] = useState(false);
   const [userFee, setUserFee] = useState<string | number>(
+    // Empty, not 0, while the account fee is unknown: a 0% field reads as a
+    // real fee and runs as one.
     (initialData?.userFee as string | number) ??
       formData?.userFee?.takerCommission ??
-      0
+      ''
   );
 
   useEffect(() => {

@@ -147,6 +147,7 @@ import { COMBO_BOT_TYPE_ID } from '../../registry';
 import BacktestSettingsDialog, {
   type BacktestConfig,
 } from './components/BacktestSettingsDialog';
+import { toBacktestFee } from '@/utils/bots/backtestFee';
 import {
   BacktestResultsFullModal,
   buildBacktestViewModel,
@@ -2916,8 +2917,34 @@ const BotForm: React.FC<BotFormProps> = ({
     </div>
   );
 
+  // Fee of the last settings-dialog run, keyed by exchange + pair. The footer's
+  // quick-run hands over no fee, so it used to ignore what the dialog shows and
+  // fall back to the looked-up account fee — or to 0 whenever that lookup had
+  // failed, silently backtesting without fees.
+  const lastDialogFeeRef = useRef<{ key: string; fee: number } | null>(null);
+
   const onRunBacktest = useCallback(
     async (cfg: BacktestConfig) => {
+      const feeKey = `${currentExchange?.uuid ?? ''}::${[formData.pair].flat().join(',')}`;
+      // A dialog run always carries its field (possibly cleared); quick-run
+      // carries none and reuses the dialog's last fee, then the account fee.
+      const fromDialog = cfg.userFee !== undefined;
+      const userFee = fromDialog
+        ? toBacktestFee(cfg.userFee)
+        : lastDialogFeeRef.current?.key === feeKey
+          ? lastDialogFeeRef.current.fee
+          : toBacktestFee(formData.userFee?.takerCommission);
+      if (userFee === null) {
+        toast.error(
+          'Exchange fee is unknown for this pair. Set it in the backtest settings, then run again.'
+        );
+        setShowBacktestDialog(true);
+        return;
+      }
+      if (fromDialog) {
+        lastDialogFeeRef.current = { key: feeKey, fee: userFee };
+      }
+
       if (cfg.mode === 'server') {
         // Use the existing handler from useFormHandlers which runs the server
         // mutation — and hand it what the dialog collected. Calling it bare
@@ -2928,7 +2955,7 @@ const BotForm: React.FC<BotFormProps> = ({
           startDate: cfg.startDate,
           endDate: cfg.endDate,
           slippagePercent: cfg.slippagePercent,
-          userFee: cfg.userFee,
+          userFee,
         });
       } else {
         try {
@@ -3017,7 +3044,7 @@ const BotForm: React.FC<BotFormProps> = ({
           const lastDataTime = new Date(cfg.endDate).getTime();
 
           const resolvedBacktestConfig: BacktestingSettings = {
-            userFee: `${cfg.userFee ?? formData.userFee?.takerCommission ?? 0}`,
+            userFee: `${userFee}`,
             slippage: `${cfg.slippagePercent ?? 0}`,
             RFR: cfg.RFR ?? '2',
             MAR: cfg.MAR ?? '7',
@@ -3067,7 +3094,7 @@ const BotForm: React.FC<BotFormProps> = ({
               exchange: currentExchange.provider,
               symbols,
               settings: gridSettings,
-              userFee: +(cfg.userFee ?? formData.userFee?.takerCommission ?? 0),
+              userFee,
               prices: getLocalPrices(),
               balances: queryBalances ?? [],
               interval: cfg.timeframe,
@@ -3283,7 +3310,7 @@ const BotForm: React.FC<BotFormProps> = ({
                 name: formData.name,
                 pair: [formData.pair].flat(),
               },
-              userFee: +(cfg.userFee ?? formData.userFee?.takerCommission ?? 0),
+              userFee,
               prices: getLocalPrices(),
               balances: queryBalances ?? [],
               interval: cfg.timeframe,
