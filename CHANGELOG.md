@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.15] - 2026-09-17
+
+### Fixed
+
+- Bot backtests on Hyperliquid builder-deployed (HIP-3) markets such as
+  `xyz:EUR-USDC` always returned 0 deals. The backtester asked for the pair's
+  candles in upper case, and the exchange only recognises these markets under
+  their exact native symbol, so no candles loaded and nothing could trade. The
+  chart was unaffected because it already used the native symbol. Backtests
+  now request candles under the native symbol too; every other pair is
+  requested exactly as before.
+
 ## [2.54.14] - 2026-09-15
 
 ### Fixed
