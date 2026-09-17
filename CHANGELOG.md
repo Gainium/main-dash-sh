@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.54.16] - 2026-09-17
+
+### Fixed
+
+- Quick Setup's risk profiles always fell back to default values on
+  Hyperliquid builder-deployed (HIP-3) markets such as `xyz:GOLD-USDC`,
+  because the past year of daily candles was requested under the upper-cased
+  symbol, which the exchange does not recognise. The request now uses the
+  market's native symbol, as backtests do since 2.54.15.
+
 ## [2.54.15] - 2026-09-17
 
 ### Fixed

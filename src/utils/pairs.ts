@@ -200,6 +200,24 @@ export const resolveStoredPairSymbol = (
   return normalizePairKey(symbol);
 };
 
+/**
+ * The symbol to request candles (or anything else exchange-bound) under, for a
+ * pair taken from `formData.pair`.
+ *
+ * `formData.pair` is upper-cased, but some venues only know a market under its
+ * mixed-case native symbol and reject the upper-cased one as unknown:
+ * Hyperliquid HIP-3 markets (`xyz:EUR-USDC`, never `XYZ:EUR-USDC`) and
+ * tokenized stocks (`AAPLx-USD`). Use the native symbol whenever its case
+ * differs; all-uppercase natives keep the stored symbol byte-identically.
+ */
+export const resolveNativePairSymbol = (
+  stored: string,
+  metadata?: PairIdentitySource | null
+): string => {
+  const native = metadata?.pair?.trim();
+  return native && native !== native.toUpperCase() ? native : stored;
+};
+
 export const extractPairAssets = (symbol: string) => {
   if (!symbol) return { baseAsset: '', quoteAsset: '' };
 

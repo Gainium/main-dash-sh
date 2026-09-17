@@ -1,5 +1,6 @@
 import { ExchangeEnum, ExchangeIntervals, timeIntervalMap } from '@/types';
 import { removePaperPrefix } from '@/utils/exchangeUtils';
+import { isTokenizedStockPair } from '@/utils/pairs';
 import { requestCandles } from '@/utils/tradingView/historyApi';
 import type { CandleResponse } from '@/utils/tradingView/types';
 
@@ -34,9 +35,11 @@ export const normalizeSymbol = (raw: string | undefined | null): string =>
   // untyped channels (sessionStorage `botConfig`, URL hints). A numeric pair
   // slipped through and `(raw ?? '').trim()` threw during QuickBotForm's
   // render. Matches the `String(x ?? '').trim()` idiom used elsewhere.
-  String(raw ?? '')
-    .trim()
-    .toUpperCase();
+  // Mixed-case native symbols (HIP-3 `xyz:EUR-USDC`, xStock `AAPLx-USD`) keep
+  // their case: those venues reject the upper-cased form as an unknown pair.
+  ((s) => (s.includes(':') || isTokenizedStockPair(s) ? s : s.toUpperCase()))(
+    String(raw ?? '').trim()
+  );
 
 const TTL_MS = 5 * 60 * 1000;
 

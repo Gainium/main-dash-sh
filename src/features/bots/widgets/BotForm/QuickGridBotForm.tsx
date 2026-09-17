@@ -46,6 +46,7 @@ import {
   useQuickBalance,
 } from './components/quick-setup/shared';
 import { useMarketStats } from './hooks/useMarketStats';
+import { normalizePairKey, resolveNativePairSymbol } from '@/utils/pairs';
 
 const PRESET_LABELS = QUICK_GRID_PRESETS.map((p) => p.label);
 
@@ -151,7 +152,12 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
   // Single-pair calibration. Grid never goes multi-pair, so no
   // "Recalculate across pairs" UI here.
   const { data: marketStats, isLoading: marketStatsLoading } = useMarketStats({
-    symbol: firstPair || null,
+    symbol: firstPair
+      ? resolveNativePairSymbol(
+          firstPair,
+          formData.pairMetadata?.[normalizePairKey(firstPair)]
+        )
+      : null,
     exchange: currentExchange?.provider ?? null,
     enabled: Boolean(firstPair && currentExchange?.provider),
   });

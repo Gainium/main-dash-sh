@@ -77,7 +77,11 @@ import {
   type ExchangeMinimumBumpEvent,
 } from '@/hooks/bots/forms/useExchangeMinimumBump';
 import { useBacktestPersistence } from '@/hooks/useBacktestPersistence';
-import { extractPairAssets, normalizePairKey } from '@/utils/pairs';
+import {
+  extractPairAssets,
+  normalizePairKey,
+  resolveNativePairSymbol,
+} from '@/utils/pairs';
 import { useBotArchive } from '@/hooks/useBotMutations';
 import { useBotTemplateShortcuts } from '@/hooks/useBotTemplatesSync';
 import { getLocalPrices } from '@/helper/price';
@@ -3005,17 +3009,10 @@ const BotForm: React.FC<BotFormProps> = ({
             const fallback = extractPairAssets(p);
             const base = meta?.baseAsset?.name ?? fallback.baseAsset;
             const quote = meta?.quoteAsset?.name ?? fallback.quoteAsset;
-            // `formData.pair` is upper-cased, but some venues are case-
-            // sensitive on the native symbol: Hyperliquid HIP-3 markets are
-            // `xyz:EUR-USDC`, and `XYZ:EUR-USDC` is rejected as an unknown
-            // pair — so the run loaded 0 candles and reported 0 deals. Use
-            // the native symbol whenever its case differs; all-uppercase
-            // pairs keep today's stored form byte-identically.
-            const native = meta?.pair;
-            const pair =
-              native && native !== native.toUpperCase() ? native : p;
             return {
-              pair,
+              // Case-sensitive venues (HIP-3 `xyz:EUR-USDC`) reject the
+              // upper-cased stored pair: 0 candles, 0 deals.
+              pair: resolveNativePairSymbol(p, meta),
               baseAsset: {
                 name: base,
                 minAmount: meta?.baseAsset?.minAmount,

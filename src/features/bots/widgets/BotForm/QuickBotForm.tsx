@@ -49,6 +49,7 @@ import {
   useQuickBalance,
 } from './components/quick-setup/shared';
 import { useMarketStats } from './hooks/useMarketStats';
+import { normalizePairKey, resolveNativePairSymbol } from '@/utils/pairs';
 import { useMultiPairMarketStats } from './hooks/useMultiPairMarketStats';
 
 const PRESET_LABELS = QUICK_SETUP_PRESETS.map((p) => p.label);
@@ -251,7 +252,12 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   // can show stats even before the user opts into multi-pair mode.
   const { data: singlePairStats, isLoading: singlePairLoading } =
     useMarketStats({
-      symbol: firstPair || null,
+      symbol: firstPair
+        ? resolveNativePairSymbol(
+            firstPair,
+            formData.pairMetadata?.[normalizePairKey(firstPair)]
+          )
+        : null,
       exchange: currentExchange?.provider ?? null,
       enabled: Boolean(firstPair && currentExchange?.provider),
     });
@@ -293,7 +299,9 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
     isLoading: multiPairLoading,
     refetch: refetchMultiPair,
   } = useMultiPairMarketStats({
-    symbols: submittedSymbols ?? [],
+    symbols: (submittedSymbols ?? []).map((p) =>
+      resolveNativePairSymbol(p, formData.pairMetadata?.[normalizePairKey(p)])
+    ),
     exchange: currentExchange?.provider ?? null,
     // Combo never opts into multi-pair calibration — keep the hook idle.
     enabled:
