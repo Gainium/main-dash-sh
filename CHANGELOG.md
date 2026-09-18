@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.22] - 2026-09-18
+
+### Fixed
+
+- Table filters now survive leaving the page and coming back. A table mirrors
+  its filters into a `filters_<table>` link parameter so that a reload or a
+  shared link restores them, but that mirror is written on a short delay and the
+  delay is cancelled by the very navigation that leaves the page — so the last
+  change made before leaving never reached it. Every later mount read the mirror
+  back and saved it, overwriting the real filters with an older copy of
+  themselves and deleting outright any column the link did not mention. The link
+  is now read once, on the page load it arrives with, and a column it does not
+  mention keeps its saved filter.
+
 ## [2.54.21] - 2026-09-18
 
 ### Fixed

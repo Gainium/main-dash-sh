@@ -285,6 +285,35 @@ const isSortingState = (parsed: unknown): parsed is SortingState =>
       typeof (entry as { id?: unknown }).id === 'string'
   );
 
+// Table ids that have already taken their state from the URL in THIS document.
+//
+// `filters_<tableId>` / `sort_<tableId>` describe an INBOUND link — someone
+// opened or reloaded the page with them — and they are authoritative for that
+// document load only. Inside a document the persisted table preferences are the
+// source of truth, and the params are a debounced `history.replaceState` MIRROR
+// of them: a change made within 250ms of leaving the page never reaches the URL
+// at all. Re-reading that mirror on every component mount (tab switch, route
+// change and back, live-data skeleton flip) therefore wrote an older snapshot
+// of the filters back over the saved ones — permanently, since the reader
+// persists what it read. Module scope, not a ref: it must outlive the
+// component but die with the document, which is exactly what "a real reload
+// still restores the link's filters" needs.
+const urlSyncedTableIds = new Set<string>();
+
+/**
+ * Overlay the filters a link carries onto the ones already saved for the table.
+ *
+ * A link only ever mentions the columns it filters on, so a column it omits
+ * must keep whatever the user had saved for it rather than being deleted.
+ */
+const mergeUrlFilters = (
+  fromUrl: ColumnFiltersState,
+  saved: ColumnFiltersState
+): ColumnFiltersState => {
+  const overridden = new Set(fromUrl.map((f) => f.id));
+  return [...fromUrl, ...saved.filter((f) => !overridden.has(f.id))];
+};
+
 // Global search filter.
 //
 // `rankItem` defaults to `rankings.MATCHES`, which passes any value containing
@@ -2488,10 +2517,15 @@ function DataTableComponent<TData, TValue>(
 
   // serialize and deserialize now imported from ./urlSync
 
-  // Initialize filters and sorting from URL on mount
+  // Initialize filters and sorting from the URL on the mount that the link
+  // arrived with — the first one for this tableId in this document. Later
+  // mounts keep the persisted preferences; see `urlSyncedTableIds`.
   useEffect(() => {
     if (!enableUrlSync) return;
     try {
+      if (urlSyncedTableIds.has(tableId)) return;
+      urlSyncedTableIds.add(tableId);
+
       const params = new URLSearchParams(window.location.search);
       const filtersStr = params.get(filtersParamKey);
       const sortStr = params.get(sortingParamKey);
@@ -2506,7 +2540,7 @@ function DataTableComponent<TData, TValue>(
         // cleared the table's filters.
         const parsed = deserializeFilters<ColumnFiltersState>(filtersStr);
         if (isColumnFiltersState(parsed)) {
-          setColumnFilters(parsed);
+          setColumnFilters((prev) => mergeUrlFilters(parsed, prev));
           setShowColumnFilters(true);
         }
       }
