@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.17] - 2026-09-18
+
+### Fixed
+
+- Deal lists could keep showing a deal as open after it had closed. The lists
+  are updated live, so a deal that closed while the connection was down, the
+  computer was asleep or the tab was in the background stayed listed until
+  the page was reloaded, and its Close button kept failing. Deal lists now
+  refresh when the live connection comes back and when you return to a tab
+  that has been in the background for more than 30 seconds.
+- Closing or canceling a deal that has already finished now says so ("This
+  deal had already closed") and removes it from the list, instead of
+  reporting "Failed to close deal" and leaving it there to be tried again.
+
 ## [2.54.16] - 2026-09-17
 
 ### Fixed

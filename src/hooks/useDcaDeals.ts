@@ -1,5 +1,6 @@
 import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDealResyncStore } from '@/stores/live/dealResync';
 import getLatestPrices /* , { setActiveExchanges }  */ from '../helper/price';
 import { dealQueries } from '../lib/api/GraphQLQueries-deal-queries';
 import {
@@ -480,6 +481,17 @@ export function useDcaDeals(
   useEffect(() => {
     void fetchAllPages();
   }, [fetchAllPages]);
+
+  // Re-fetch on a resync request (socket reconnect, tab back after a while, a
+  // close answered "already closed"): this list is otherwise patched only by
+  // socket events, so one that never landed would keep a finished deal open.
+  const resyncNonce = useDealResyncStore((s) => s.nonce);
+  const handledResyncRef = useRef(resyncNonce);
+  useEffect(() => {
+    if (handledResyncRef.current === resyncNonce) return;
+    handledResyncRef.current = resyncNonce;
+    void fetchAllPages();
+  }, [resyncNonce, fetchAllPages]);
 
   // Refetch function to manually trigger a new fetch
   const refetch = useCallback(async () => {

@@ -2,6 +2,7 @@ import { useDealStore, type DealType, type DealWithType } from '@/stores/live';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useDealResyncStore } from '@/stores/live/dealResync';
 import {
   GraphQLClient,
   getGraphQLConfig,
@@ -398,24 +399,35 @@ export function useBotSpecificDeals(
   // which would only re-hit the *current* page and make reconcileDeals
   // absence-delete the other pages' deals on multi-page bots.
   const { refetch } = queryResult;
+  const resnapshot = useCallback(() => {
+    setLoadedPages(new Set([0]));
+    accumulatedRef.current = new Map();
+    setIntermediateDeals([]);
+    if (currentPageLoading !== 0) {
+      // Off page 0 (multi-page bot): resetting the page changes the query
+      // variables, which re-runs the sequential load from page 0 on its own.
+      setCurrentPageLoading(0);
+    } else {
+      // Already on page 0: variables are unchanged, so force a network
+      // refetch to obtain a fresh snapshot stamp that prunes closed deals.
+      void refetch();
+    }
+  }, [currentPageLoading, refetch]);
   useEffect(() => {
     if (!filter.botId) return undefined;
-    const intervalId = setInterval(() => {
-      setLoadedPages(new Set([0]));
-      accumulatedRef.current = new Map();
-      setIntermediateDeals([]);
-      if (currentPageLoading !== 0) {
-        // Off page 0 (multi-page bot): resetting the page changes the query
-        // variables, which re-runs the sequential load from page 0 on its own.
-        setCurrentPageLoading(0);
-      } else {
-        // Already on page 0: variables are unchanged, so force a network
-        // refetch to obtain a fresh snapshot stamp that prunes closed deals.
-        void refetch();
-      }
-    }, 30_000);
+    const intervalId = setInterval(resnapshot, 30_000);
     return () => clearInterval(intervalId);
-  }, [filter.botId, filter.status, filter.dealType, currentPageLoading, refetch]);
+  }, [filter.botId, filter.status, filter.dealType, resnapshot]);
+
+  // A resync request (socket reconnect, tab back after a while, a close
+  // answered "already closed") re-snapshots now rather than at the next tick.
+  const resyncNonce = useDealResyncStore((s) => s.nonce);
+  const handledResyncRef = useRef(resyncNonce);
+  useEffect(() => {
+    if (handledResyncRef.current === resyncNonce) return;
+    handledResyncRef.current = resyncNonce;
+    if (filter.botId) resnapshot();
+  }, [resyncNonce, filter.botId, resnapshot]);
 
   // Merge the live store with the last-fetched snapshot, deduped by id. The
   // store wins on conflict so active deals keep their live updates; the

@@ -76,6 +76,8 @@ import {
     useExecuteNextDca,
     useMoveDealToTerminal,
     useRestoreDeal,
+    isDealNotOpenError,
+    toastDealCloseError,
 } from '@/hooks/useDealActions';
 import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -392,7 +394,7 @@ const DealActionsMenu: React.FC<{
             botId: trade.botId,
             error,
           });
-          toast.error('Failed to cancel deal');
+          toastDealCloseError(error, 'Failed to cancel deal');
           setCancelDialogOpen(false);
         },
       }
@@ -430,7 +432,7 @@ const DealActionsMenu: React.FC<{
             botId: trade.botId,
             error,
           });
-          toast.error('Failed to cancel deal');
+          toastDealCloseError(error, 'Failed to cancel deal');
           setCancelDialogOpen(false);
         },
       }
@@ -1758,6 +1760,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
 
       let successCount = 0;
       let errorCount = 0;
+      let endedCount = 0;
 
       const closeFn = isComboLike
         ? bulkCloseDealMutation.closeComboDeal
@@ -1788,7 +1791,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
                 });
               },
               onError: (error) => {
-                errorCount++;
+                if (isDealNotOpenError(error)) endedCount++;
+                else errorCount++;
                 logger.error(`${LOG_PREFIX}: Failed to close deal`, {
                   dealId: deal.id,
                   botId: deal.botId,
@@ -1813,6 +1817,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (errorCount > 0) {
           toast.error(`Failed to close ${errorCount} deal(s)`);
         }
+        if (endedCount > 0) {
+          toast.info(
+            `${endedCount} deal(s) had already ended. The list has been refreshed.`
+          );
+        }
       }, 500);
     },
     [bulkCloseDealMutation, closeBulkDialogOpen, isComboLike]
@@ -1833,6 +1842,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
 
     let successCount = 0;
     let errorCount = 0;
+    let endedCount = 0;
 
     const closeFn = isComboLike
       ? bulkCloseDealMutation.closeComboDeal
@@ -1863,7 +1873,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               });
             },
             onError: (error) => {
-              errorCount++;
+              if (isDealNotOpenError(error)) endedCount++;
+              else errorCount++;
               logger.error(`${LOG_PREFIX}: Failed to cancel deal`, {
                 dealId: deal.id,
                 botId: deal.botId,
@@ -1887,6 +1898,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       }
       if (errorCount > 0) {
         toast.error(`Failed to cancel ${errorCount} deal(s)`);
+      }
+      if (endedCount > 0) {
+        toast.info(
+          `${endedCount} deal(s) had already ended. The list has been refreshed.`
+        );
       }
     }, 500);
   }, [bulkCloseDealMutation, cancelBulkDialogOpen, isComboLike]);

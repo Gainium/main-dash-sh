@@ -26,6 +26,7 @@ import { useDealStore } from './dealStore';
 import { useOrderStore } from './orderStore';
 import { useTransactionsStore } from './transactionsStore';
 import { useMinigridsStore, type ComboMinigrid } from './minigridsStore';
+import { startDealResyncTriggers, stopDealResyncTriggers } from './dealResync';
 import logger from '@/lib/loggerInstance';
 import type { Transaction } from '@/types';
 
@@ -34,6 +35,10 @@ import type { Transaction } from '@/types';
  * Call this once when the app mounts (e.g., in _app.tsx or a root layout)
  */
 export function initializeSocketIntegration() {
+  // Deal lists are patched only by socket events; refetch them after anything
+  // that may have dropped one (reconnect, long-hidden tab).
+  startDealResyncTriggers();
+
   // Subscribe to 'bot sends settings' - route by botType to appropriate store
   botWebSocketManager.subscribe('bot sends settings', {
     id: 'bot-settings-router',
@@ -234,6 +239,7 @@ export function cleanupSocketIntegration() {
     'transaction-updates'
   );
   botWebSocketManager.unsubscribe('bot minigrid update', 'minigrid-updates');
+  stopDealResyncTriggers();
 
   logger.info('[SocketIntegration] 🧹 All store subscriptions cleaned up');
 }

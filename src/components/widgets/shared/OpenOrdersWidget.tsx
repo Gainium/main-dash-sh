@@ -22,6 +22,8 @@ import {
     useExecuteNextDca,
     useMoveDealToTerminal,
     useRestoreDeal,
+    isDealNotOpenError,
+    toastDealCloseError,
 } from '@/hooks/useDealActions';
 import { fetchDealOrders } from '@/hooks/useDealOrders';
 import { useSetDealNote } from '@/hooks/useSetDealNote';
@@ -672,7 +674,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         dealId: trade.id,
         botId: trade.botId,
       });
-      toast.error('Failed to cancel deal');
+      toastDealCloseError(error, 'Failed to cancel deal');
       setCancelDialogOpen(false);
     }
   };
@@ -712,7 +714,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
         dealId: trade.id,
         botId: trade.botId,
       });
-      toast.error('Failed to close deal');
+      toastDealCloseError(error, 'Failed to close deal');
       setCloseDialogOpen(false);
     }
   };
@@ -3440,6 +3442,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const handleCancelConfirm = async () => {
     let successCount = 0;
     let errorCount = 0;
+    let endedCount = 0;
 
     for (const trade of cancelDialogOpen) {
       if (!trade.botId) {
@@ -3466,7 +3469,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         }
         successCount += 1;
       } catch (error) {
-        errorCount += 1;
+        if (isDealNotOpenError(error)) endedCount += 1;
+        else errorCount += 1;
         logger.error(`${LOG_PREFIX}: Failed bulk cancel`, {
           error,
           dealId: trade.id,
@@ -3483,11 +3487,17 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     if (errorCount > 0) {
       toast.error(`Failed to cancel ${errorCount} deal(s)`);
     }
+    if (endedCount > 0) {
+      toast.info(
+        `${endedCount} deal(s) had already ended. The list has been refreshed.`
+      );
+    }
   };
 
   const handleCloseConfirm = async (type: CloseDCATypeEnum) => {
     let successCount = 0;
     let errorCount = 0;
+    let endedCount = 0;
 
     for (const trade of closeDialogOpen) {
       if (!trade.botId) {
@@ -3514,7 +3524,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         }
         successCount += 1;
       } catch (error) {
-        errorCount += 1;
+        if (isDealNotOpenError(error)) endedCount += 1;
+        else errorCount += 1;
         logger.error(`${LOG_PREFIX}: Failed bulk close`, {
           error,
           dealId: trade.id,
@@ -3530,6 +3541,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     }
     if (errorCount > 0) {
       toast.error(`Failed to close ${errorCount} deal(s)`);
+    }
+    if (endedCount > 0) {
+      toast.info(
+        `${endedCount} deal(s) had already ended. The list has been refreshed.`
+      );
     }
   };
 

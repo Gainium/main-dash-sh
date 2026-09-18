@@ -19,6 +19,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useDealStore } from '@/stores/live';
 import { recordDealTombstone } from '@/stores/live/staleWriteGuard';
+import { requestDealResync } from '@/stores/live/dealResync';
 import {
   removeDealFromListCaches,
   invalidateListCaches,
@@ -105,6 +106,14 @@ function optimisticallyMarkDealClosed(
   if (!newStatus || !botId || !dealId) {
     return;
   }
+  markDealEnded(botId, dealId, newStatus);
+}
+
+function markDealEnded(
+  botId: string,
+  dealId: string,
+  newStatus: DCADealStatusEnum.closed | DCADealStatusEnum.canceled
+) {
   const store = useDealStore.getState();
   const existing = store.getDeal(botId, dealId);
   if (existing) {
@@ -116,6 +125,85 @@ function optimisticallyMarkDealClosed(
   recordDealTombstone(botId, dealId, newStatus, existing?.updateTime ?? 0);
   removeDealFromListCaches(dealId, DEAL_LIST_QUERY_KEYS);
   invalidateListCaches(DEAL_LIST_QUERY_KEYS);
+}
+
+/**
+ * A close or cancel the server refused because the deal is no longer open.
+ *
+ * Reaching one means the list the user clicked in was out of date: it missed
+ * the deal's close event, so it kept offering a Close that can never succeed.
+ * The close hooks repair the list before rethrowing; callers show `message`
+ * as news rather than as a failure (see {@link toastDealCloseError}).
+ */
+export class DealNotOpenError extends Error {
+  /** How the deal ended, or null when the server no longer knows it. */
+  readonly endedAs: DCADealStatusEnum.closed | DCADealStatusEnum.canceled | null;
+
+  constructor(
+    endedAs: DCADealStatusEnum.closed | DCADealStatusEnum.canceled | null
+  ) {
+    super(
+      endedAs === DCADealStatusEnum.closed
+        ? 'This deal had already closed. The list has been refreshed.'
+        : endedAs === DCADealStatusEnum.canceled
+          ? 'This deal had already been canceled. The list has been refreshed.'
+          : 'This deal is no longer open. The list has been refreshed.'
+    );
+    this.name = 'DealNotOpenError';
+    this.endedAs = endedAs;
+  }
+}
+
+/**
+ * The server's answer to closing a deal that is not open (main-app
+ * `Bot.dealNotOpen`), or null for any other refusal.
+ */
+export function dealNotOpenFromReason(
+  reason: string | undefined
+): DealNotOpenError | null {
+  switch (reason) {
+    case 'Deal already closed':
+      return new DealNotOpenError(DCADealStatusEnum.closed);
+    case 'Deal already canceled':
+      return new DealNotOpenError(DCADealStatusEnum.canceled);
+    // Backends older than the two answers above report every finished deal
+    // this way; either way the deal is not open and must leave the list.
+    case 'Deal not found':
+      return new DealNotOpenError(null);
+    default:
+      return null;
+  }
+}
+
+/** Drop a deal the server says is not open, then refetch every deal list. */
+function settleDealNotOpen(
+  botId: string,
+  dealId: string,
+  error: DealNotOpenError
+) {
+  if (error.endedAs) {
+    markDealEnded(botId, dealId, error.endedAs);
+  } else {
+    useDealStore.getState().removeDeal(botId, dealId);
+    removeDealFromListCaches(dealId, DEAL_LIST_QUERY_KEYS);
+  }
+  requestDealResync('close answered: deal not open');
+}
+
+export function isDealNotOpenError(error: unknown): error is DealNotOpenError {
+  return error instanceof DealNotOpenError;
+}
+
+/**
+ * Toast for a failed close or cancel. A deal that had already ended is news,
+ * not a failure: the list was out of date and has been repaired.
+ */
+export function toastDealCloseError(error: unknown, fallback: string): void {
+  if (error instanceof DealNotOpenError) {
+    toast.info(error.message);
+  } else {
+    toast.error(fallback);
+  }
 }
 
 // Hook for closing DCA deals
@@ -146,7 +234,10 @@ export function useCloseDCADeal() {
       }>(query, variables);
 
       if (response.closeDCADeal.status !== 'OK') {
-        throw new Error(response.closeDCADeal.reason || 'Failed to close deal');
+        throw (
+          dealNotOpenFromReason(response.closeDCADeal.reason) ??
+          new Error(response.closeDCADeal.reason || 'Failed to close deal')
+        );
       }
 
       return response.closeDCADeal;
@@ -164,6 +255,9 @@ export function useCloseDCADeal() {
       );
     },
     onError: (error, variables) => {
+      if (error instanceof DealNotOpenError) {
+        settleDealNotOpen(variables.botId, variables.dealId, error);
+      }
       logger.error('[useCloseDCADeal] Failed to close DCA deal:', {
         dealId: variables.dealId,
         type: variables.type,
@@ -359,8 +453,11 @@ export function useCloseComboDeal() {
       }>(query, variables);
 
       if (response.closeComboDeal.status !== 'OK') {
-        throw new Error(
-          response.closeComboDeal.reason || 'Failed to close combo deal'
+        throw (
+          dealNotOpenFromReason(response.closeComboDeal.reason) ??
+          new Error(
+            response.closeComboDeal.reason || 'Failed to close combo deal'
+          )
         );
       }
 
@@ -379,6 +476,9 @@ export function useCloseComboDeal() {
       );
     },
     onError: (error, variables) => {
+      if (error instanceof DealNotOpenError) {
+        settleDealNotOpen(variables.botId, variables.dealId, error);
+      }
       logger.error('[useCloseComboDeal] Failed to close combo deal:', {
         dealId: variables.dealId,
         type: variables.type,

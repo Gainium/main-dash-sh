@@ -15,6 +15,7 @@ import {
     useExecuteNextDca,
     useMoveDealToTerminal,
     useRestoreDeal,
+    toastDealCloseError,
 } from '@/hooks/useDealActions';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useLongPressMenu } from '@/hooks/useLongPressMenu';
@@ -990,7 +991,7 @@ const EnhancedCard = React.memo(
               botId: trade.botId,
               error,
             });
-            toast.error('Failed to cancel deal');
+            toastDealCloseError(error, 'Failed to cancel deal');
             setCancelDialogOpen(false);
           },
         }
@@ -1028,7 +1029,7 @@ const EnhancedCard = React.memo(
               botId: trade.botId,
               error,
             });
-            toast.error('Failed to cancel deal');
+            toastDealCloseError(error, 'Failed to cancel deal');
             setCancelDialogOpen(false);
           },
         }
