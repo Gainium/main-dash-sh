@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.21] - 2026-09-18
+
+### Fixed
+
+- "Execute next DCA" now quotes the order the bot will actually send. A safety
+  order sized in the quote currency spends its configured order size whatever
+  the price does — the quantity floats — but the confirmation took the quantity
+  the level was drawn with, at its own ladder price, and then priced that at the
+  current market, counting the price move twice. On a deal whose ladder sits far
+  from today's price the amount, the estimated cost and the projected new
+  average were all overstated. For an indicator-triggered deal the level after
+  it is now stated as the budget it will still spend, rather than as a quantity
+  at a trigger price that condition never uses.
+
 ## [2.54.20] - 2026-09-18
 
 ### Fixed

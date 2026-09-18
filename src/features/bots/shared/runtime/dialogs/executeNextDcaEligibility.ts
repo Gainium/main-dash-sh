@@ -132,6 +132,60 @@ export function dcaLadderLevels(
 }
 
 /**
+ * What a level is configured to spend, in quote.
+ *
+ * Every rung the ladder produces was sized by dividing its order size by its own
+ * price, so `price * qty` gives that order size back — for a quote-denominated
+ * level it IS the configured budget, whether the rung came from the client-side
+ * projection or from the resting exchange order the engine placed the same way.
+ */
+export function levelQuoteBudget(
+  level: Pick<LadderLevel, 'price' | 'qty'> | undefined
+): number | undefined {
+  if (!level) {
+    return undefined;
+  }
+  const budget = level.price * level.qty;
+  return Number.isFinite(budget) && budget > 0 ? budget : undefined;
+}
+
+/**
+ * The quantity the engine will actually send for a level filled NOW, at market.
+ *
+ * A level is drawn on the ladder at its own price, but executing it early does
+ * not fill it there. `executeNextDcaLevel` regenerates the ladder with the
+ * current price as `createInitialDealOrders`' sizing argument, which for a
+ * quote-denominated level makes the quantity `budget / market` and keeps the
+ * quote spend at the level's budget — the engine's own comment calls this
+ * "keeping an early execution from overspending the level's budget". Quoting the
+ * ladder quantity at the market price instead counts the price move twice, once
+ * in the size and once in the price.
+ *
+ * `resizesWithPrice` is the caller's reading of `orderSizeType`, and only
+ * `quote` qualifies: `base` is a fixed quantity, `usd` divides by the deal's
+ * opening price on both sides, and the two percent-of-balance types divide by the
+ * level's own ladder price on both sides. Without a market price there is nothing
+ * to re-size against, so the configured quantity stands.
+ */
+export function levelSizeAtMarket(
+  level: Pick<LadderLevel, 'price' | 'qty'> | undefined,
+  market: number | undefined,
+  resizesWithPrice: boolean
+): number | undefined {
+  if (!level) {
+    return undefined;
+  }
+  if (!resizesWithPrice || !market || !Number.isFinite(market) || market <= 0) {
+    return level.qty;
+  }
+  const budget = levelQuoteBudget(level);
+  if (budget === undefined) {
+    return level.qty;
+  }
+  return budget / market;
+}
+
+/**
  * Which level "Execute next DCA" is about to fill, and which one comes after.
  *
  * Identity comes from the level's position, exactly as the engine selects it

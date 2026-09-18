@@ -3,6 +3,8 @@ import { test, expect } from '@playwright/test';
 import {
   dcaLadderLevels,
   ladderAhead,
+  levelQuoteBudget,
+  levelSizeAtMarket,
   resolveNextLevels,
   type LadderLevel,
 } from '@/features/bots/shared/runtime/dialogs/executeNextDcaEligibility';
@@ -222,4 +224,62 @@ test('no settings and nothing resting yields no level rather than a wrong one', 
 
   expect(current).toBeUndefined();
   expect(after).toBeUndefined();
+});
+
+/**
+ * Spec `021` (`main-dash-redesign` `specs/021.…`) — a level executed NOW is not
+ * sized the way the ladder drew it.
+ *
+ * The client ladder sizes every quote-denominated level against its OWN price,
+ * chained off `deal.initialPrice`. The engine, asked to fill that level early,
+ * regenerates the ladder with the market price as the sizing argument
+ * (`createInitialDealOrders`' 5th parameter), so the quantity floats and the
+ * quote spend stays the level's budget. Quoting the ladder quantity at the
+ * market price counts the price move twice.
+ */
+
+const QUOTE_LEVEL = level(61799, 300 / 61799, true);
+
+test("a level's budget is its price times its quantity", () => {
+  // For a quote-sized level this IS the configured order size — that is what
+  // makes it the figure both sides agree on.
+  expect(levelQuoteBudget(QUOTE_LEVEL)).toBeCloseTo(300, 6);
+  expect(levelQuoteBudget(undefined)).toBeUndefined();
+  expect(levelQuoteBudget(level(0, 5))).toBeUndefined();
+});
+
+test('a quote level executed now spends its budget, not its budget scaled by the move', () => {
+  const market = 80617;
+
+  const qty = levelSizeAtMarket(QUOTE_LEVEL, market, true);
+
+  // What the engine sends, and therefore what the dialog must quote.
+  expect(qty).toBeCloseTo(300 / market, 12);
+  expect((qty ?? 0) * market).toBeCloseTo(300, 6);
+  // The ladder quantity priced at market is the defect: 30% over budget here.
+  expect(QUOTE_LEVEL.qty * market).toBeGreaterThan(390);
+});
+
+test('the rescaled quantity is the budget divided by the fill price', () => {
+  // The deal's own filled safety orders: three different prices, one budget.
+  for (const price of [60154.96, 62514.55, 64555.66]) {
+    const qty = levelSizeAtMarket(QUOTE_LEVEL, price, true);
+    expect((qty ?? 0) * price).toBeCloseTo(300, 6);
+  }
+});
+
+test('a level that does not re-size with price keeps its configured quantity', () => {
+  // `base` is a fixed quantity; `usd` and the two percent types divide by a
+  // price the engine reads identically on both sides. None may be rescaled.
+  const baseLevel = level(61799, 0.004, true);
+
+  expect(levelSizeAtMarket(baseLevel, 80617, false)).toBe(0.004);
+});
+
+test('no market price falls back to the configured quantity', () => {
+  // The dialog's price feed is best-effort; without it the rows must still
+  // render what the ladder knows rather than blanking.
+  expect(levelSizeAtMarket(QUOTE_LEVEL, undefined, true)).toBe(QUOTE_LEVEL.qty);
+  expect(levelSizeAtMarket(QUOTE_LEVEL, 0, true)).toBe(QUOTE_LEVEL.qty);
+  expect(levelSizeAtMarket(undefined, 80617, true)).toBeUndefined();
 });

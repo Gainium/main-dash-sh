@@ -71,6 +71,14 @@ export interface UseDealSmartOrdersResult {
    * (`levelNumber === levels.complete`). Empty unless the guard passed.
    */
   fullLadder: DCAGrid[];
+  /**
+   * The settings the ladder above was actually built from — the bot's, with the
+   * deal's own overrides applied and its frozen indicator levels restored. A
+   * caller that has to reason about a level (what denominates it, which
+   * condition drew it) must read it from here rather than re-deriving the merge
+   * off the bot, or it describes a ladder it is not looking at.
+   */
+  settings: DCABotSettings | null;
 }
 
 const EMPTY: UseDealSmartOrdersResult = {
@@ -78,6 +86,7 @@ const EMPTY: UseDealSmartOrdersResult = {
   smartChartOrders: [],
   strategy: StrategyEnum.long,
   fullLadder: [],
+  settings: null,
 };
 
 /**
@@ -407,13 +416,20 @@ export function useDealSmartOrders({
       } as SmartViewOrder;
     });
 
-    return { smartOrders, smartChartOrders, strategy, fullLadder: ladder };
+    return {
+      smartOrders,
+      smartChartOrders,
+      strategy,
+      fullLadder: ladder,
+      settings: mergedSettings,
+    };
   }, [
     guardPass,
     deal,
     symbol,
     ladder,
     strategy,
+    mergedSettings,
     isCombo,
     isIndicatorDca,
     minPercFromLast,

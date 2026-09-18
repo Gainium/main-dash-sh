@@ -15,6 +15,7 @@ import getLatestPrices from '@/helper/price';
 import {
   BotTypesEnum,
   DCAOrderTypeEnum,
+  OrderSizeTypeEnum,
   type DCABotSettings,
 } from '@/types';
 import { formatNumber } from '@/utils/numberFormatter';
@@ -23,6 +24,8 @@ import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import {
   dcaLadderLevels,
+  levelQuoteBudget,
+  levelSizeAtMarket,
   nextDcaLevelNumber,
   resolveNextLevels,
   type LadderLevel,
@@ -174,7 +177,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
    * opening price — computed regardless of smart orders, because the level is
    * picked from it by POSITION below, not from its projected rows.
    */
-  const { fullLadder } = useDealSmartOrders({
+  const { fullLadder, settings: ladderSettings } = useDealSmartOrders({
     bot: botSettings
       ? {
           settings: botSettings,
@@ -195,8 +198,13 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
    * price, so they have no ladder price worth quoting. Every other condition's
    * level does — for DCA-by-market it is the price that triggers the market
    * buy.
+   *
+   * Read off the settings the ladder was built from, which are the bot's with
+   * the deal's own overrides applied: asking the bot directly would let this
+   * dialog show a ladder drawn under one condition and describe it as another.
    */
-  const isIndicatorDca = botSettings?.dcaCondition === 'indicators';
+  const isIndicatorDca =
+    (ladderSettings ?? botSettings)?.dcaCondition === 'indicators';
 
   const { current: nextLevel, after: levelAfter } = React.useMemo(() => {
     if (!open) {
@@ -246,7 +254,23 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
     '';
 
   const ladderPrice = isIndicatorDca ? undefined : nextLevel?.price;
-  const qty = nextLevel?.qty;
+
+  /**
+   * Only a quote-denominated level is re-sized when it is executed early — see
+   * `levelSizeAtMarket`. Read off the settings the ladder was BUILT from, not
+   * off the bot: a deal carries its own `orderSizeType`.
+   */
+  const resizesWithPrice =
+    (ladderSettings?.orderSizeType ?? botSettings?.orderSizeType) ===
+    OrderSizeTypeEnum.quote;
+
+  /**
+   * The size the engine will send, not the size the level was drawn at. The
+   * ladder prices this level against its own rung; filling it now spends the
+   * level's budget at the market price instead, so `qty * market` below is the
+   * budget by construction rather than the budget scaled by the price move.
+   */
+  const qty = levelSizeAtMarket(nextLevel, market, resizesWithPrice);
 
   // How far from the ladder price we would be filling. Signed so that a
   // POSITIVE number always means "worse for this deal" on either side.
@@ -385,16 +409,36 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                   move it: every level's price and size come from the deal's
                   opening price and the bot's settings, never from where an
                   earlier level actually filled — so showing it is the clearest
-                  way to say "nothing below shifts". */}
+                  way to say "nothing below shifts".
+
+                  An indicator-triggered level has no ladder price worth quoting
+                  (the rest of this dialog hides it for exactly that reason), and
+                  its quantity is only meaningful AT that price — so state what
+                  is genuinely unchanged there: the budget it will spend
+                  whenever its signal fires. */}
               {levelAfter ? (
                 <div className="flex justify-between px-sm py-xs">
                   <span className="text-muted-foreground">
                     Level {level + 1} after this
                   </span>
                   <span>
-                    {fmt(levelAfter.qty)} {baseAsset}
-                    <span className="text-muted-foreground"> @ </span>
-                    {fmt(levelAfter.price)}
+                    {isIndicatorDca ? (
+                      resizesWithPrice ? (
+                        <>
+                          {fmt(levelQuoteBudget(levelAfter))} {quoteAsset}
+                        </>
+                      ) : (
+                        <>
+                          {fmt(levelAfter.qty)} {baseAsset}
+                        </>
+                      )
+                    ) : (
+                      <>
+                        {fmt(levelAfter.qty)} {baseAsset}
+                        <span className="text-muted-foreground"> @ </span>
+                        {fmt(levelAfter.price)}
+                      </>
+                    )}
                     <span className="text-muted-foreground"> · unchanged</span>
                   </span>
                 </div>
