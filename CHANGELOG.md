@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.54.19] - 2026-09-18
+
+### Fixed
+
+- A running deal on an indicator-DCA bot now shows the safety-order sizes and
+  distances it will actually use. After a bot's indicator order sizes were
+  changed, the deal view projected the next safety order at the size meant for
+  new deals. Needs the matching backend release.
+
 ## [2.54.18] - 2026-09-18
 
 ### Fixed

@@ -1757,6 +1757,16 @@ export enum DCAConditionEnum {
   dynamicAr = 'dynamicAr',
 }
 
+/**
+ * One indicator-DCA ladder level as it stood when the deal opened (level N is
+ * the N-th startDca indicator). Frozen per deal by main-app, so a bot-settings
+ * save does not resize or move a running deal's safety orders.
+ */
+export type DCAIndicatorLevel = {
+  orderSize?: string | null;
+  minPercFromLast?: string | null;
+};
+
 export type DCACustom = {
   _id?: string;
   step: string;
@@ -3214,6 +3224,7 @@ export type DCADealsSettings = Pick<
 > & {
   avgPrice: number;
   changed: boolean;
+  dcaIndicatorLevels?: DCAIndicatorLevel[] | null;
   orderSizePercQty?: number;
   slChangedByUser?: boolean;
   updatedComboAdjustments?: boolean;

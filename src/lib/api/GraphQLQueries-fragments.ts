@@ -941,6 +941,10 @@ baseSlOn
                       step
                       size
                     }
+                    dcaIndicatorLevels {
+                      orderSize
+                      minPercFromLast
+                    }
                     ordersCount
                     tpPerc
                     slPerc

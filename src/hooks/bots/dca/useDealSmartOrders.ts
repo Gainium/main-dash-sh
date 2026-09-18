@@ -15,6 +15,7 @@ import {
   type Symbols,
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
+import { applyFrozenIndicatorLevels } from '@/utils/bots/dca/frozen-indicator-levels';
 import { projectIndicatorDcaThresholds } from '@/utils/bots/dca/indicator-dca-thresholds';
 import {
   createComboOrders,
@@ -119,7 +120,10 @@ export function useDealSmartOrders({
 
   const mergedSettings = useMemo<DCABotSettings | null>(() => {
     if (!bot?.settings) return null;
-    return { ...bot.settings, ...(deal?.settings ?? {}) } as DCABotSettings;
+    return applyFrozenIndicatorLevels({
+      ...bot.settings,
+      ...(deal?.settings ?? {}),
+    }) as DCABotSettings;
   }, [bot?.settings, deal?.settings]);
 
   const strategy = (mergedSettings?.strategy ??
