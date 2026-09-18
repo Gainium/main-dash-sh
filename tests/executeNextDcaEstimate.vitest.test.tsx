@@ -110,9 +110,17 @@ describe('spec 021 — Execute next DCA quotes the order the engine will send', 
     });
 
     // 300 / 80,617 — what `createInitialDealOrders` produces when handed the
-    // market price as its sizing argument. The ladder's own 4.85e-3 BTC would
-    // have cost ~391.
-    expect(rowValue('Amount')).toBe('3.72e-3 BTC');
+    // market price as its sizing argument. The ladder's own 0.00485445 BTC
+    // would have cost ~391.
+    //
+    // The quantity is what this spec pins; its RENDERING belongs to spec 023,
+    // which stopped putting a sub-0.01 amount through `formatNumber` (it
+    // returns `toExponential`, so this row used to read `3.72e-3 BTC`).
+    expect(Number(rowValue('Amount').replace(' BTC', ''))).toBeCloseTo(
+      300 / 80_617,
+      8
+    );
+    expect(rowValue('Amount')).toBe('0.0037213 BTC');
     expect(rowValue('Estimated cost')).toBe('300 USDT');
   });
 
@@ -137,8 +145,10 @@ describe('spec 021 — Execute next DCA quotes the order the engine will send', 
     });
 
     // `base` is a fixed quantity — the engine does not re-size it, so neither
-    // may the dialog. This is the ladder's own qty for level 4.
-    expect(rowValue('Amount')).toBe('4.85e-3 BTC');
+    // may the dialog. This is the ladder's own qty for level 4, rendered per
+    // spec 023 (it read `4.85e-3 BTC` while amounts went through
+    // `formatNumber`).
+    expect(rowValue('Amount')).toBe('0.00485445 BTC');
   });
 
   it('keeps quoting a percentage-condition level at its own ladder price', () => {

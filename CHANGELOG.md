@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.54.23] - 2026-09-18
+
+### Fixed
+
+- Projected DCA levels now follow the bot's global variables. A setting that is
+  bound to a global variable keeps its superseded literal in the bot's own
+  document, and the client-side ladder — the grey projected levels on a deal's
+  chart, and the figures the "Execute next DCA" confirmation quotes — was built
+  from those literals instead of from the variables' current values. A bot whose
+  safety-order size or minimum-% distance is driven by a variable was therefore
+  shown a budget and rungs its engine would not use. The bindings are now
+  resolved before the ladder is computed, and the resolved settings are what the
+  projection reports.
+- Amounts in the "Execute next DCA" confirmation are shown in units of the
+  asset. A quantity below 0.01 was rendered in scientific notation
+  (`3.70e-3 BTC`), which cannot be compared against an exchange screen; it now
+  reads `0.00407 BTC`. Prices keep their compact form.
+
 ## [2.54.22] - 2026-09-18
 
 ### Fixed

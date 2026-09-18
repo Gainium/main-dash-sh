@@ -15,6 +15,7 @@ import {
 } from '@/stores/live';
 import {
   BotTypesEnum,
+  type BotVars,
   type DCABotSettings,
   type DCAGrid,
 } from '@/types';
@@ -193,6 +194,7 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
       ? {
           settings: (chartBot as { settings?: DCABotSettings }).settings,
           exchangeUUID: trade.exchangeUUID ?? rawDeal?.exchangeUUID,
+          vars: (chartBot as { vars?: BotVars | null }).vars,
         }
       : null,
     deal: rawDeal,

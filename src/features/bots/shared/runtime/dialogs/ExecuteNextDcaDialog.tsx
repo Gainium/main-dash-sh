@@ -16,9 +16,10 @@ import {
   BotTypesEnum,
   DCAOrderTypeEnum,
   OrderSizeTypeEnum,
+  type BotVars,
   type DCABotSettings,
 } from '@/types';
-import { formatNumber } from '@/utils/numberFormatter';
+import { formatBalance, formatNumber } from '@/utils/numberFormatter';
 import { useDcaBotsStore, useDealStore } from '@/stores/live';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
@@ -184,6 +185,10 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
           exchangeUUID:
             (bot as { exchangeUUID?: string } | undefined)?.exchangeUUID ??
             rawDeal?.exchangeUUID,
+          // Without the bot's variable bindings the ladder is sized from the
+          // superseded literals still on the bot, so every figure below quotes
+          // a budget the engine will not spend.
+          vars: (bot as { vars?: BotVars | null } | undefined)?.vars,
         }
       : null,
     deal: rawDeal,
@@ -319,8 +324,19 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
     qty,
   ]);
 
+  /** Prices and ratios — compact is what you want on a magnitude (`80.9K`). */
   const fmt = (v: number | undefined) =>
     typeof v === 'number' && isFinite(v) ? formatNumber(v) : '—';
+
+  /**
+   * Amounts of an asset. NOT `fmt`: `formatNumber` returns `toExponential(2)`
+   * for anything under 0.01 — and does so above its own `precise` branch, so
+   * `precise` is no escape — which renders a safety order as `3.70e-3 BTC`,
+   * a figure nobody can check against an exchange screen. `formatBalance`
+   * gives the asset its own decimals, as the sibling runtime dialogs do.
+   */
+  const fmtAmount = (v: number | undefined, asset: string) =>
+    typeof v === 'number' && isFinite(v) ? formatBalance(v, asset) : '—';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -359,7 +375,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                 <div className="flex justify-between px-sm py-xs border-b border-border/60">
                   <span className="text-muted-foreground">Amount</span>
                   <span>
-                    {fmt(qty)} {baseAsset}
+                    {fmtAmount(qty, baseAsset)} {baseAsset}
                   </span>
                 </div>
               ) : null}
@@ -367,7 +383,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                 <div className="flex justify-between px-sm py-xs border-b border-border/60">
                   <span className="text-muted-foreground">Estimated cost</span>
                   <span>
-                    {fmt(qty * market)} {quoteAsset}
+                    {fmtAmount(qty * market, quoteAsset)} {quoteAsset}
                   </span>
                 </div>
               ) : null}
@@ -425,16 +441,17 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
                     {isIndicatorDca ? (
                       resizesWithPrice ? (
                         <>
-                          {fmt(levelQuoteBudget(levelAfter))} {quoteAsset}
+                          {fmtAmount(levelQuoteBudget(levelAfter), quoteAsset)}{' '}
+                          {quoteAsset}
                         </>
                       ) : (
                         <>
-                          {fmt(levelAfter.qty)} {baseAsset}
+                          {fmtAmount(levelAfter.qty, baseAsset)} {baseAsset}
                         </>
                       )
                     ) : (
                       <>
-                        {fmt(levelAfter.qty)} {baseAsset}
+                        {fmtAmount(levelAfter.qty, baseAsset)} {baseAsset}
                         <span className="text-muted-foreground"> @ </span>
                         {fmt(levelAfter.price)}
                       </>

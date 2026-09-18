@@ -13,6 +13,7 @@ import {
   type AvgPrice,
   type BotStatus,
   type DCABot,
+  type BotVars,
   type DCABotSettings,
   type DCADeals,
   type HedgeBotSettings,
@@ -1174,6 +1175,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       bot: {
         settings: bot.settings as DCABotSettings | undefined,
         exchangeUUID: bot.exchangeUUID ?? chartRawDeal?.exchangeUUID,
+        vars: (bot as { vars?: BotVars | null }).vars,
       },
       deal: chartRawDeal,
       pendingOrders: chartDealOrders.pending,

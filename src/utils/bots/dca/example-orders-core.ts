@@ -277,6 +277,30 @@ async function replaceVarsInSettings(
   s.multiSl = await replaceVarsInMultiTpSettings(s.multiSl, botVars, 'sl');
   return s;
 }
+
+/**
+ * Settings with every global-variable binding resolved to the variable's
+ * current value.
+ *
+ * A bound setting keeps its old literal in the bot document, so anything that
+ * reads the raw settings is reading a value the engine will not use. Both order
+ * generators below run this before they read a single field; it is exported so
+ * a caller that needs the resolved settings for its own arithmetic — rather
+ * than only the ladder they produce — can resolve once and hand the result
+ * straight to the generator instead of resolving twice or, worse, projecting
+ * from the stale copy.
+ *
+ * `botVars` null/empty is the identity case: no request is made and the
+ * settings come back unchanged (deep-cloned).
+ */
+export async function resolveSettingsVars<T extends LocalDCASettings>(
+  settings: T,
+  botVars: BotVars | null | undefined
+): Promise<T> {
+  await globalVariablesStore.getVariablesByIds(botVars?.list ?? []);
+  return (await replaceVarsInSettings(settings, botVars)) as T;
+}
+
 function getAssetPrecision(symbol: Symbols, type: 'base' | 'quote') {
   if (!symbol) {
     return 8;
@@ -345,8 +369,7 @@ export async function createDCAOrders(
   }
   if (!Object.entries(errors).filter(([_k, v]) => !!v).length || noCheck) {
     let settings = JSON.parse(JSON.stringify(_settings)) as LocalDCASettings;
-    await globalVariablesStore.getVariablesByIds(botVars?.list ?? []);
-    settings = await replaceVarsInSettings(settings, botVars);
+    settings = await resolveSettingsVars(settings, botVars);
     const baseOrderSize = parseFloat(settings.baseOrderSize);
     const _orderSize = parseFloat(settings.orderSize);
     const tpPerc = parseFloat(settings.tpPerc) / 100;

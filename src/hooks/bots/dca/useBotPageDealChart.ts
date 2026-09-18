@@ -11,6 +11,7 @@ import {
   BotTypesEnum,
   DCADealStatusEnum,
   StrategyEnum,
+  type BotVars,
   type DCABotSettings,
   type DCAGrid,
   type TransactionChart,
@@ -166,6 +167,7 @@ export function useBotPageDealChart({
             exchangeUUID:
               (bot as { exchangeUUID?: string }).exchangeUUID ??
               deal?.exchangeUUID,
+            vars: (bot as { vars?: BotVars | null }).vars,
           }
         : null,
     [bot, deal?.exchangeUUID]

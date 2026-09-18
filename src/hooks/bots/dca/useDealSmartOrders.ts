@@ -9,6 +9,7 @@ import {
   IndicatorAction,
   StrategyEnum,
   type Asset,
+  type BotVars,
   type DCABotSettings,
   type DCADeals,
   type DCAGrid,
@@ -23,6 +24,7 @@ import {
   DCA_BY_MARKET_LABEL,
   DCA_MIN_PERC_LABEL,
   defaultContext,
+  resolveSettingsVars,
   type ExampleOrdersStoreContext,
 } from '@/utils/bots/dca/example-orders-core';
 import { useBalanceStore } from '@/stores/live/balanceStore';
@@ -36,8 +38,19 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 export type SmartViewOrder = ViewOrder & { __smart: true };
 
 export interface UseDealSmartOrdersParams {
-  /** Bot whose settings seed the ladder (merged with the deal's own settings). */
-  bot: { settings?: DCABotSettings; exchangeUUID?: string } | null | undefined;
+  /**
+   * Bot whose settings seed the ladder (merged with the deal's own settings).
+   *
+   * `vars` is the bot's global-variable bindings and is NOT optional in
+   * practice: a bound setting keeps its superseded literal in the bot document,
+   * so a ladder built without the bindings is built from values the engine will
+   * not use. Every caller holds a full bot record, on which `vars` is both
+   * typed and GraphQL-selected — pass it.
+   */
+  bot:
+    | { settings?: DCABotSettings; exchangeUUID?: string; vars?: BotVars | null }
+    | null
+    | undefined;
   /** The raw deal (NOT the lossy TradeDetails). */
   deal: DCADeals | null | undefined;
   /** Real placed orders for this deal — used for the legacy price bound + dedup. */
@@ -88,6 +101,33 @@ const EMPTY: UseDealSmartOrdersResult = {
   fullLadder: [],
   settings: null,
 };
+
+/** One async ladder compute's output — the three pieces must move together. */
+interface ComputedLadder {
+  ladder: DCAGrid[];
+  /** The settings the ladder was built from, variable bindings resolved. */
+  settings: DCABotSettings | null;
+  /** Per-level "Minimum % from last filled order", in startDca order. */
+  minPercFromLast: number[];
+}
+
+const NO_LADDER: ComputedLadder = {
+  ladder: [],
+  settings: null,
+  minPercFromLast: [],
+};
+
+/**
+ * Per-level "Minimum % from last filled order", in startDca order, as a
+ * fraction. Read it off the settings the ladder was built from: these are
+ * bindable, so the literals on the bot are not the distances the engine uses.
+ */
+function startDcaMinPercs(settings: DCABotSettings | null): number[] {
+  return (settings?.indicators ?? [])
+    .filter((i) => i.indicatorAction === IndicatorAction.startDca)
+    .map((i) => +(i.minPercFromLast ?? '0') / 100)
+    .map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
+}
 
 /**
  * Computes the projected (not-yet-placed) ladder for an active deal, mirroring
@@ -149,14 +189,12 @@ export function useDealSmartOrders({
     !isCombo && mergedSettings?.dcaCondition === DCAConditionEnum.indicators
   );
 
-  /** Per-level "Minimum % from last filled order", in startDca order. */
-  const minPercFromLast = useMemo<number[]>(() => {
-    if (!isIndicatorDca) return [];
-    return (mergedSettings?.indicators ?? [])
-      .filter((i) => i.indicatorAction === IndicatorAction.startDca)
-      .map((i) => +(i.minPercFromLast ?? '0') / 100)
-      .map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
-  }, [isIndicatorDca, mergedSettings?.indicators]);
+  /**
+   * The bot's global-variable bindings. A bound setting keeps its superseded
+   * literal in the bot document, so the ladder — and everything derived from it
+   * below — has to be computed from the RESOLVED settings, not from these.
+   */
+  const botVars = bot?.vars ?? null;
 
   const projectionLabel = isCombo
     ? 'Combo grid order'
@@ -208,7 +246,8 @@ export function useDealSmartOrders({
       }));
   }, [allBalances, bot?.exchangeUUID]);
 
-  const [ladder, setLadder] = useState<DCAGrid[]>([]);
+  const [computed, setComputed] = useState<ComputedLadder>(NO_LADDER);
+  const { ladder } = computed;
   // Key the async compute on the stable inputs that change the ladder.
   const computeKey = useMemo(() => {
     if (!guardPass || !deal || !mergedSettings || !symbol) return '';
@@ -232,7 +271,15 @@ export function useDealSmartOrders({
       combo: isCombo,
       // Indicator-condition ladders size themselves off the startDca indicator
       // list (level count + per-level order size), so it has to key the compute.
-      inds: isIndicatorDca ? minPercFromLast : undefined,
+      inds: isIndicatorDca
+        ? (mergedSettings.indicators ?? [])
+            .filter((i) => i.indicatorAction === IndicatorAction.startDca)
+            .map((i) => [i.minPercFromLast, i.orderSize])
+        : undefined,
+      // Any of the above may be BOUND to a global variable, in which case the
+      // literal keyed above is not what the ladder is built from — rebind and
+      // the ladder has to be recomputed.
+      vars: botVars,
     });
   }, [
     guardPass,
@@ -242,13 +289,13 @@ export function useDealSmartOrders({
     usdRate,
     isCombo,
     isIndicatorDca,
-    minPercFromLast,
+    botVars,
   ]);
 
   const lastKeyRef = useRef<string>('');
   useEffect(() => {
     if (!guardPass || !mergedSettings || !symbol || !deal) {
-      if (ladder.length) setLadder([]);
+      if (ladder.length) setComputed(NO_LADDER);
       lastKeyRef.current = '';
       return;
     }
@@ -257,31 +304,45 @@ export function useDealSmartOrders({
 
     let cancelled = false;
     const userFee = getCachedFee(bot?.exchangeUUID ?? '', symbol.pair)?.maker;
-    const context: ExampleOrdersStoreContext = {
-      ...defaultContext,
-      settings: mergedSettings,
-      symbol,
-      errors: {},
-      botVars: null,
-      inputLatestPrice: deal.initialPrice || 0,
-      usdPrice: usdRate || 0,
-      balances,
-      breakpoints: deal.gridBreakpoints ?? [],
-      tpSlTargetFilled: deal.tpSlTargetFilled ?? [],
-      dcaArValues: deal.dynamicAr ?? [],
-      percOrderSize: deal.settings?.orderSizePercQty ?? 0,
-      userFee: typeof userFee === 'number' ? userFee : 0.001,
+
+    // Resolve the bot's variable bindings ONCE, here, rather than letting the
+    // generator do it internally: the resolved settings are an input to the
+    // indicator re-anchoring below and to what this hook reports as `settings`,
+    // and those must describe the same ladder. The generator re-runs the
+    // resolution on the way in, which with `botVars: null` is an exact no-op.
+    const compute = async (): Promise<ComputedLadder> => {
+      const settings = await resolveSettingsVars(mergedSettings, botVars);
+      const context: ExampleOrdersStoreContext = {
+        ...defaultContext,
+        settings,
+        symbol,
+        errors: {},
+        botVars: null,
+        inputLatestPrice: deal.initialPrice || 0,
+        usdPrice: usdRate || 0,
+        balances,
+        breakpoints: deal.gridBreakpoints ?? [],
+        tpSlTargetFilled: deal.tpSlTargetFilled ?? [],
+        dcaArValues: deal.dynamicAr ?? [],
+        percOrderSize: deal.settings?.orderSizePercQty ?? 0,
+        userFee: typeof userFee === 'number' ? userFee : 0.001,
+      };
+      const run = isCombo ? createComboOrders : createDCAOrders;
+      return {
+        ladder: (await run({ all: true, noCheck: true }, context)) ?? [],
+        settings,
+        minPercFromLast: startDcaMinPercs(settings),
+      };
     };
 
-    const run = isCombo ? createComboOrders : createDCAOrders;
-    run({ all: true, noCheck: true }, context)
+    compute()
       .then((res) => {
-        if (!cancelled) setLadder(res ?? []);
+        if (!cancelled) setComputed(res);
       })
       .catch((err) => {
         if (!cancelled) {
           logger.error('[useDealSmartOrders] ladder compute failed', err);
-          setLadder([]);
+          setComputed(NO_LADDER);
         }
       });
     return () => {
@@ -293,6 +354,10 @@ export function useDealSmartOrders({
   const result = useMemo<UseDealSmartOrdersResult>(() => {
     if (!guardPass || !deal || !symbol || ladder.length === 0) return EMPTY;
 
+    // Read off the same compute the ladder came from, never off the raw bot —
+    // both are variable-resolved, and mixing the two would re-anchor a resolved
+    // ladder on unresolved distances.
+    const { settings: ladderSettings, minPercFromLast } = computed;
     const isLong = strategy === StrategyEnum.long;
     const projType = isCombo ? DCAOrderTypeEnum.grid : DCAOrderTypeEnum.dca;
 
@@ -421,18 +486,17 @@ export function useDealSmartOrders({
       smartChartOrders,
       strategy,
       fullLadder: ladder,
-      settings: mergedSettings,
+      settings: ladderSettings,
     };
   }, [
     guardPass,
     deal,
     symbol,
     ladder,
+    computed,
     strategy,
-    mergedSettings,
     isCombo,
     isIndicatorDca,
-    minPercFromLast,
     projectionLabel,
     pendingOrders,
     completedOrders,
