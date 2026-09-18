@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.54.18] - 2026-09-18
+
+### Fixed
+
+- Watchlist rows for Binance USD-M pairs sat on "Connecting..." forever while
+  rows for other venues in the same widget updated normally. The widget dialled
+  a Binance USD-M address that accepts a subscription but never sends any
+  market data, so no price could ever arrive and nothing reported an error. It
+  now uses the same USD-M feed the chart streams from.
+
 ## [2.54.17] - 2026-09-18
 
 ### Fixed

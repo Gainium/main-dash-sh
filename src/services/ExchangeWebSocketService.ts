@@ -59,7 +59,15 @@ export const resolveStreamVenue = (
       return {
         family: 'binance',
         key: 'binance:usdm',
-        url: 'wss://fstream.binance.com/ws',
+        // USD-M market data is only published on `/market/ws`. The bare
+        // `/ws` base path completes the handshake and even answers a
+        // SUBSCRIBE with `{"result":null,"id":…}`, but never pushes a
+        // ticker — which left every USD-M row on "Connecting..." with no
+        // error to show for it. This is the endpoint the chart's Binance
+        // datafeed already streams USD-M candles from
+        // (`utils/tradingView/exchanges/binance.ts` websocketUrls.usdm);
+        // COIN-M and spot below are healthy on their own base paths.
+        url: 'wss://fstream.binance.com/market/ws',
       };
     }
     if (id === 'binanceus') {
