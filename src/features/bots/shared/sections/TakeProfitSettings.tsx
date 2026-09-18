@@ -90,6 +90,7 @@ import {
     calculateExpectedAverageProfit,
     collectMultiTargetWarnings,
     derivePresetClickEffects,
+    deriveSingleTargetPercentageSyncEffects,
     deriveTimerAvailabilityEffects,
     deriveTimerValueChangeEffects,
     enforceMinTpGuardAvailability,
@@ -1313,13 +1314,25 @@ export const TakeProfitSettings: React.FC = () => {
 
       const formattedPercentage = formatNumericString(nextPercentage);
 
+      // Typing a percentage on the single target of a DEAL means
+      // percentage-of-average again, so the absolute price is dropped rather
+      // than recomputed — see the sync block below. The card still renders a
+      // price: the `multiTargets` memo derives one for any entry without a
+      // `fixed`.
+      const percentageRestoresPercentMode =
+        isSingleDealEdit && multiTargets.length === 1;
+
       const nextTargets = multiTargets.map((entry, targetIndex) => {
         if (targetIndex !== index) {
           return entry;
         }
 
         // For terminal bots, recalculate fixed price from percentage
-        if (supportsPriceTargets && currentPrice > 0) {
+        if (
+          supportsPriceTargets &&
+          currentPrice > 0 &&
+          !percentageRestoresPercentMode
+        ) {
           const computedFixed = calculateValueFromPercent(
             isShort,
             formattedPercentage,
@@ -1348,23 +1361,32 @@ export const TakeProfitSettings: React.FC = () => {
 
       // When there's only one target, sync with legacy single target value
       if (clamped.length === 1 && clamped[0]) {
-        updateFormData('tpPerc', clamped[0].target);
-        if (supportsPriceTargets) {
-          updateFormData('useFixedTPPrices', true);
-          updateFormData('fixedTpPrice', clamped[0].fixed || '');
-        }
+        applyUpdates(
+          deriveSingleTargetPercentageSyncEffects({
+            percentage: clamped[0].target,
+            fixedPrice: clamped[0].fixed,
+            isTerminalForm: Boolean(formTerminal),
+            isSingleDealEdit,
+            useFixedTPPrices: Boolean(useFixedTPPrices),
+            fixedTpPrice: fixedTpPrice ?? '',
+          })
+        );
       }
     },
     [
+      applyUpdates,
       boundPercentagePaths,
       currentPrice,
       filledTargetIds,
+      fixedTpPrice,
+      formTerminal,
+      isSingleDealEdit,
       supportsPriceTargets,
       isShort,
       minTpToUse,
       multiTargets,
       setMultiTargets,
-      updateFormData,
+      useFixedTPPrices,
     ]
   );
 

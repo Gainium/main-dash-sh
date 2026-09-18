@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.20] - 2026-09-18
+
+### Fixed
+
+- Changing a running deal's take-profit percentage keeps it a percentage of the
+  deal's average price. It was being stored as the fixed price that percentage
+  resolved to at that moment, so each further safety order moved the average
+  while the close order stayed put and the percentage read back higher every
+  time. Setting a take-profit by price — typing it, dragging the chart line or
+  picking it — still pins that price, and the trading terminal is unchanged.
+
 ## [2.54.19] - 2026-09-18
 
 ### Fixed
