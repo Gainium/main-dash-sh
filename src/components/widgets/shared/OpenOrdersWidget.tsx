@@ -79,6 +79,7 @@ import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatDuration } from '@/utils/formatters';
 import { formatNumber } from '@/utils/numberFormatter';
 import { extractPairAssets } from '@/utils/pairs';
+import { SYMBOL_COLUMN_FILTER_META } from '@/components/widgets/shared/symbolColumnFilterMeta';
 import { calculateExecutionsSummary } from '@/utils/tradeJournalMetrics';
 import { type ColumnDef } from '@tanstack/react-table';
 import {
@@ -2334,25 +2335,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     baseCols.push({
       accessorKey: 'symbol',
       header: 'Symbol',
-      meta: {
-        filterType: 'array',
-        getFilterValue: (row: unknown) => {
-          const trade = row as Record<string, unknown>;
-          const symbol = (trade['symbol'] as string) || '';
-          const pair = (trade['pair'] as string) || '';
-
-          // Extract base and quote assets from symbol using shared helper
-          const { baseAsset, quoteAsset } = extractPairAssets(symbol);
-
-          return [
-            symbol,
-            pair,
-            baseAsset,
-            quoteAsset,
-            symbol.replace('/', ''),
-          ].filter(Boolean);
-        },
-      },
+      meta: SYMBOL_COLUMN_FILTER_META,
       cell: ({ row }) => {
         const symbol = row.getValue('symbol') as string;
         const { baseAsset, quoteAsset } = extractPairAssets(symbol);

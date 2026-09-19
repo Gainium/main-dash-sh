@@ -184,6 +184,24 @@ const DateRangeFilterInput: React.FC<{
 // MultiSelectFilterInput
 // ---------------------------------------------------------------------------
 
+/**
+ * How many options the dropdown puts in the DOM at once. This is a RENDER cap
+ * and nothing else: it is applied after the search term has been matched
+ * against the FULL option set, so every option stays reachable by typing.
+ * Capping the option set itself instead made anything sorting past the cut
+ * invisible to the search box too — on a 100-symbol deals table the list ended
+ * inside the `E`s and typing `g` returned nothing at all.
+ */
+const MAX_RENDERED_OPTIONS = 200;
+
+/** Drop blanks/placeholder junk and sort — the shared tail of option building. */
+const finalizeOptions = (values: Iterable<string>): string[] =>
+  Array.from(values)
+    .filter(
+      (v) => v && v !== 'undefined' && v !== 'null' && v !== '[object Object]'
+    )
+    .sort((a, b) => a.localeCompare(b));
+
 const MultiSelectFilterInput: React.FC<{
   value: unknown;
   onChange: (value: unknown) => void;
@@ -232,34 +250,41 @@ const MultiSelectFilterInput: React.FC<{
           const v = toDisplayString(opt);
           if (v) uniqueValues.add(v);
         });
-        return Array.from(uniqueValues)
-          .filter(
-            (v) =>
-              v && v !== 'undefined' && v !== 'null' && v !== '[object Object]'
-          )
-          .sort((a, b) => a.localeCompare(b))
-          .slice(0, 100);
+        return finalizeOptions(uniqueValues);
       }
 
-      // Use meta.getFilterValue if available — same function used for filtering
+      // `meta.getOptionValue` answers "what is this row's VALUE for this
+      // column?" — one canonical string, which is what a list of discrete
+      // choices needs. `meta.getFilterValue` answers a different question:
+      // "which strings should a typed search term be matched against?", and a
+      // column is free to return several variants per row (the Symbol column
+      // returns five: symbol, pair, base, quote, slash-stripped symbol).
+      // Using the matching helper as the option source turned N symbols into
+      // ~3N entries, most of them bare assets rather than values the column
+      // ever holds. Prefer the canonical accessor; fall back to the matching
+      // one only for columns that haven't declared it.
+      const getOptionValueFn = meta?.['getOptionValue'] as
+        | ((original: unknown) => string | string[])
+        | undefined;
       const getFilterValueFn = meta?.['getFilterValue'] as
         | ((original: unknown) => string | string[])
         | undefined;
+      const optionSourceFn = getOptionValueFn ?? getFilterValueFn;
 
       rows.forEach((row) => {
         try {
           const extracted: string[] = [];
 
-          // 1. Use getFilterValue from meta (primary source)
-          if (getFilterValueFn) {
-            const result = getFilterValueFn(row.original);
+          // 1. Use the column's own accessor (primary source)
+          if (optionSourceFn) {
+            const result = optionSourceFn(row.original);
             const vals = Array.isArray(result) ? result : [result];
             vals.forEach((v) => {
               if (v && typeof v === 'string') extracted.push(v);
             });
           }
 
-          // 2. Try getGroupingValue if getFilterValue didn't yield results
+          // 2. Try getGroupingValue if the accessor didn't yield results
           if (
             extracted.length === 0 &&
             typeof colDef.getGroupingValue === 'function'
@@ -304,21 +329,23 @@ const MultiSelectFilterInput: React.FC<{
       return [];
     }
 
-    return Array.from(uniqueValues)
-      .filter(
-        (v) => v && v !== 'undefined' && v !== 'null' && v !== '[object Object]'
-      )
-      .sort((a, b) => a.localeCompare(b))
-      .slice(0, 100);
+    return finalizeOptions(uniqueValues);
   }, [column]);
 
-  // Filter options based on input
+  // Filter options based on input — over the FULL option set, so a term can
+  // reach an option the render cap below would not have shown.
   const filteredOptions = useMemo(() => {
     if (!inputValue.trim()) return availableOptions;
     return availableOptions.filter((option) =>
       option.toLowerCase().includes(inputValue.toLowerCase())
     );
   }, [availableOptions, inputValue]);
+
+  const visibleOptions = useMemo(
+    () => filteredOptions.slice(0, MAX_RENDERED_OPTIONS),
+    [filteredOptions]
+  );
+  const hiddenOptionCount = filteredOptions.length - visibleOptions.length;
 
   const addValue = (newValue: string) => {
     if (newValue.trim() && !values.includes(newValue.trim())) {
@@ -423,9 +450,10 @@ const MultiSelectFilterInput: React.FC<{
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <div className="py-1">
-            {filteredOptions.map((option, index) => (
+            {visibleOptions.map((option, index) => (
               <div
                 key={index}
+                data-filter-option={option}
                 onClick={() => addValue(option)}
                 className="px-2 py-1 text-xs hover:bg-muted cursor-pointer flex items-center justify-between"
               >
@@ -437,6 +465,11 @@ const MultiSelectFilterInput: React.FC<{
                 )}
               </div>
             ))}
+            {hiddenOptionCount > 0 && (
+              <div className="px-2 py-1 text-xs text-muted-foreground border-t">
+                {hiddenOptionCount} more — keep typing to narrow
+              </div>
+            )}
           </div>
         </PopoverContent>
       </Popover>

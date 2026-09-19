@@ -1,5 +1,41 @@
 # Changelog
 
+## [2.54.25] - 2026-09-19
+
+### Fixed
+
+- The Symbol filter on the deals tables now offers one entry per symbol in the
+  table, and its search box searches all of them. The dropdown was built from
+  the column's search-matching helper, which deliberately returns several
+  strings per row — the symbol, the pair, the base asset, the quote asset — so
+  a table of N symbols produced roughly 3N entries, most of them bare assets
+  rather than anything the column holds. That list was then sorted and cut to
+  its first 100 entries, and the search box filtered the cut list rather than
+  the full one, so a symbol sorting past the cut point could be reached neither
+  by scrolling nor by typing. Options now come from a dedicated accessor, the
+  cut applies only to how many rows are drawn at once (with a "keep typing to
+  narrow" hint when more match), and typing always searches every option.
+- Deal rows derived the base leg of their display pair by deleting the quote
+  asset from the symbol as a substring, which left the separator behind on
+  venues whose symbols are hyphenated: `ABC-USD` became `ABC-/USD`. The base
+  asset reported alongside the symbol is used instead, falling back to the
+  shared pair-splitting helper.
+
+## [2.54.24] - 2026-09-18
+
+### Fixed
+
+- Bot settings bound to a global variable at the top level of the bot — base
+  order size, DCA order amount, take profit, minimum take profit, price step
+  and the rest — are now resolved before any projection is computed. Only
+  bindings on indicators, custom DCA levels and multi take-profit/stop-loss
+  targets were resolved; a binding on a plain setting was skipped, so the
+  projected ladder and the figures derived from it were built from the literal
+  the bot document still carries rather than the variable's value the engine
+  spends. A running deal keeps sizing from the values it froze when it opened,
+  so those are applied over the resolved settings, in the same order the engine
+  aggregates them — moving a variable changes new deals, not open ones.
+
 ## [2.54.23] - 2026-09-18
 
 ### Fixed

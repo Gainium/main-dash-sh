@@ -15,13 +15,20 @@ import {
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import { extractPairAssets } from '@/utils/pairs';
 import { formatDuration } from '@/utils/formatters';
 import { ExchangeEnum, type DCADeals } from '@/types';
 import { percentBasisFromDeal } from '@/types/dcaDeal';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
   const symbol = deal.symbol?.symbol || 'Unknown';
-  const baseSymbol = symbol.replace(deal.symbol?.quoteAsset || '', '');
+  // Not `symbol.replace(quoteAsset, '')`: that strips only the quote substring
+  // and leaves the venue's separator behind, so a hyphen-native symbol became a
+  // pair no one uses (`GAIB-USD` -> `GAIB-` -> `GAIB-/USD`). The API already
+  // reports the base asset; `extractPairAssets` is the shared fallback the
+  // Symbol cell itself renders through.
+  const baseSymbol =
+    deal.symbol?.baseAsset || extractPairAssets(symbol).baseAsset || symbol;
   const quoteSymbol = deal.symbol?.quoteAsset || 'USD';
   const pair = `${baseSymbol}/${quoteSymbol}`;
   // Cost/size must be strategy-aware: usage is tracked on the QUOTE side for

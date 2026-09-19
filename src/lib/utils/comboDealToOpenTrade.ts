@@ -13,6 +13,7 @@ import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
 import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
 import { formatDuration } from '@/utils/formatters';
+import { extractPairAssets } from '@/utils/pairs';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -20,7 +21,13 @@ export function comboDealToOpenTrade(
   botNameFallback?: (botId: string) => string | undefined
 ) {
   const symbol = deal.symbol?.symbol || 'Unknown';
-  const baseSymbol = symbol.replace(deal.symbol?.quoteAsset || '', '');
+  // Not `symbol.replace(quoteAsset, '')`: that strips only the quote substring
+  // and leaves the venue's separator behind, so a hyphen-native symbol became a
+  // pair no one uses (`GAIB-USD` -> `GAIB-` -> `GAIB-/USD`). The API already
+  // reports the base asset; `extractPairAssets` is the shared fallback the
+  // Symbol cell itself renders through.
+  const baseSymbol =
+    deal.symbol?.baseAsset || extractPairAssets(symbol).baseAsset || symbol;
   const quoteSymbol = deal.symbol?.quoteAsset || 'USD';
   const pair = `${baseSymbol}/${quoteSymbol}`;
   const cost = deal.usage?.current?.quote || 0;
