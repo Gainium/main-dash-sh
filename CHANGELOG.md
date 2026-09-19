@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.26] - 2026-09-19
+
+### Fixed
+
+- Picking a symbol in the Symbol filter on the deals tables now returns that
+  symbol and nothing else. Every selected value was matched as a substring, so
+  choosing a short ticker also returned any longer symbol containing it —
+  `AKE-USD` also brought back `CAKE-USD`, and `BTC/USDT` also brought back
+  `WBTC/USDT` — with nothing in the table to show why. "Is none of" is the
+  inverse of the same test and so silently hid those rows instead. A value
+  chosen from the dropdown is now compared exactly against the symbol the row
+  actually holds; a term typed by hand still matches loosely — against the
+  pair, the base and quote assets and the unslashed symbol — as before. Columns
+  that do not offer a fixed list of choices are unchanged.
+
 ## [2.54.25] - 2026-09-19
 
 ### Fixed

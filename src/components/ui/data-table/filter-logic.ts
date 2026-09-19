@@ -66,7 +66,8 @@ function applyOperator(
   cellValue: unknown,
   operator: string,
   value: unknown,
-  searchableStrings?: string[] | null
+  searchableStrings?: string[] | null,
+  optionStrings?: string[] | null
 ): boolean {
   const strings = searchableStrings || [String(cellValue ?? '')];
 
@@ -129,47 +130,59 @@ function applyOperator(
       return new Date(cellValue as string) <= new Date(value as string);
 
     // -- Array / multi-select operators --
+    //
+    // `isNoneOf` is the exact negation of `isAnyOf` (an empty selection aside,
+    // where both mean "no filter applied"), so the two share one matcher.
+    // Keeping them as hand-mirrored copies is what let the over-matching below
+    // exist twice, once in each direction.
     case 'isAnyOf':
-      if (Array.isArray(value)) {
-        if (value.length === 0) return true;
-        if (searchableStrings) {
-          return value.some((v) => includesAny(strings, String(v)));
-        }
-        if (Array.isArray(cellValue)) {
-          return value.some((filterVal) =>
-            cellValue.some((cellVal) =>
-              String(cellVal)
-                .toLowerCase()
-                .includes(String(filterVal).toLowerCase())
-            )
-          );
-        }
-        return value.some((v) =>
-          String(cellValue).toLowerCase().includes(String(v).toLowerCase())
-        );
-      }
-      return includesAny(strings, String(value));
+    case 'isNoneOf': {
+      const negate = operator === 'isNoneOf';
 
-    case 'isNoneOf':
-      if (Array.isArray(value)) {
-        if (value.length === 0) return true;
-        if (searchableStrings) {
-          return !value.some((v) => includesAny(strings, String(v)));
+      /**
+       * Match ONE value of a multi-select selection against this row.
+       *
+       * A selected value is either a DISCRETE OPTION the user picked from the
+       * dropdown, or free text they typed. The input snaps a typed term to a
+       * matching option whenever one exists, so free text can only ever be a
+       * term that matches NO option. Therefore: a value that is a substring of
+       * this row's canonical option value (`meta.getOptionValue`) came from
+       * the option list, and must be compared EXACTLY — picking `AKE-USD` may
+       * not also return `CAKE-USD`, and `isNoneOf` may not silently hide it.
+       *
+       * Everything else keeps the generous substring match over
+       * `meta.getFilterValue`'s variants (for the Symbol column: symbol, pair,
+       * base, quote, unslashed symbol), which is what free text needs.
+       * Columns that declare no `getOptionValue` have no canonical value to
+       * compare against and keep today's behaviour unchanged.
+       */
+      const matchesSelection = (v: string): boolean => {
+        if (optionStrings?.length && includesAny(optionStrings, v)) {
+          return equalsAny(optionStrings, v);
         }
+        if (searchableStrings) return includesAny(strings, v);
         if (Array.isArray(cellValue)) {
-          return !value.some((filterVal) =>
-            cellValue.some((cellVal) =>
-              String(cellVal)
-                .toLowerCase()
-                .includes(String(filterVal).toLowerCase())
-            )
+          return cellValue.some((cellVal) =>
+            String(cellVal).toLowerCase().includes(v.toLowerCase())
           );
         }
-        return !value.some((v) =>
-          String(cellValue).toLowerCase().includes(String(v).toLowerCase())
-        );
+        return String(cellValue).toLowerCase().includes(v.toLowerCase());
+      };
+
+      if (Array.isArray(value)) {
+        if (value.length === 0) return true;
+        const matched = value.some((v) => matchesSelection(String(v)));
+        return negate ? !matched : matched;
       }
-      return !includesAny(strings, String(value));
+
+      // Degenerate single-value shape (a filter restored from a link, say).
+      // Without canonical option values there is nothing to compare exactly
+      // against, so this stays on the pre-existing substring path verbatim.
+      const matched = optionStrings?.length
+        ? matchesSelection(String(value))
+        : includesAny(strings, String(value));
+      return negate ? !matched : matched;
+    }
 
     default:
       return true;
@@ -187,7 +200,8 @@ function applyOperator(
 function matchesSingleFilter(
   cellValue: unknown,
   singleFilter: unknown,
-  searchableStrings?: string[] | null
+  searchableStrings?: string[] | null,
+  optionStrings?: string[] | null
 ): boolean {
   // Legacy plain-string filter
   if (typeof singleFilter === 'string') {
@@ -214,7 +228,13 @@ function matchesSingleFilter(
     // No value provided → show all rows
     if (value === '' || value === null || value === undefined) return true;
 
-    return applyOperator(cellValue, operator, value, searchableStrings);
+    return applyOperator(
+      cellValue,
+      operator,
+      value,
+      searchableStrings,
+      optionStrings
+    );
   }
 
   return true;
@@ -252,6 +272,28 @@ function resolveFilterValue(
 }
 
 /**
+ * Resolve the row's CANONICAL value(s) for a column — what the multi-select
+ * dropdown offers as discrete choices (`meta.getOptionValue`, the same
+ * accessor `filter-components` builds its option list from).
+ *
+ * This answers a different question from `getFilterValue`: "what IS this
+ * row's value for this column?", not "which strings should a typed term be
+ * matched against?". `isAnyOf` / `isNoneOf` need the former to tell a picked
+ * option apart from free text.
+ */
+function resolveOptionValues(
+  row: { original?: unknown },
+  getOptionValueFn?: ((original: unknown) => string | string[]) | null
+): string[] | null {
+  if (!getOptionValueFn || row.original === undefined) return null;
+  const result = getOptionValueFn(row.original);
+  const values = (Array.isArray(result) ? result : [result])
+    .filter(Boolean)
+    .map(String);
+  return values.length > 0 ? values : null;
+}
+
+/**
  * Create a column filter function.
  *
  * If `meta.getFilterValue` is present, the filter matches against the
@@ -275,6 +317,9 @@ export function createEnhancedColumnFilter(
   const getFilterValueFn = meta?.['getFilterValue'] as
     | ((original: unknown) => string | string[])
     | undefined;
+  const getOptionValueFn = meta?.['getOptionValue'] as
+    | ((original: unknown) => string | string[])
+    | undefined;
 
   return (
     row: { getValue: (columnId: string) => unknown; original?: unknown },
@@ -288,11 +333,12 @@ export function createEnhancedColumnFilter(
       columnId,
       getFilterValueFn
     );
+    const optionStrings = resolveOptionValues(row, getOptionValueFn);
 
     // Array of filter conditions → AND logic
     if (Array.isArray(filterValue)) {
       return filterValue.every((f) =>
-        matchesSingleFilter(cellValue, f, searchableStrings)
+        matchesSingleFilter(cellValue, f, searchableStrings, optionStrings)
       );
     }
 
@@ -305,7 +351,12 @@ export function createEnhancedColumnFilter(
     }
 
     // Object-based filter
-    return matchesSingleFilter(cellValue, filterValue, searchableStrings);
+    return matchesSingleFilter(
+      cellValue,
+      filterValue,
+      searchableStrings,
+      optionStrings
+    );
   };
 }
 
