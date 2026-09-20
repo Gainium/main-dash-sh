@@ -52,6 +52,37 @@ const migrateOrderData = (
 
 export type OrderType = 'filled' | 'new';
 
+/**
+ * Flatten the two buckets for one bot into the single list consumers expect,
+ * with **one row per `clientOrderId`**.
+ *
+ * The buckets are keyed independently, so the same order can sit in both: a
+ * fetch response is a snapshot, and React Query replays a cached one on
+ * remount — long after the socket moved that order to `filled` and dropped it
+ * from `new`. That replay writes the pre-fill copy back, and nothing removes
+ * it again: no further socket event arrives for a terminal order, and
+ * `reconcileDealOrders` only prunes orders the backend has stopped returning.
+ *
+ * Returning both copies made one order render as two rows in contradicting
+ * states — a phantom resting level on the deal's ladder and chart beside the
+ * real filled row. The `filled` copy wins because that bucket is only ever
+ * written for an order whose own status is FILLED, so it is by construction
+ * the terminal state and a `new` copy of the same id can only be older.
+ */
+const mergeBuckets = (
+  newOrders: Record<string, OrderData> | undefined,
+  filledOrders: Record<string, OrderData> | undefined
+): OrderData[] => {
+  const byClientOrderId = new Map<string, OrderData>();
+  for (const order of Object.values(newOrders || {})) {
+    byClientOrderId.set(order.clientOrderId, order);
+  }
+  for (const order of Object.values(filledOrders || {})) {
+    byClientOrderId.set(order.clientOrderId, order);
+  }
+  return [...byClientOrderId.values()];
+};
+
 interface OrderStoreState {
   // Orders by type, then by bot ID - each bot has orders keyed by clientOrderId
   orders: Record<OrderType, Record<string, Record<string, OrderData>>>;
@@ -292,33 +323,22 @@ export const useOrderStore = create<OrderStoreState>()(
           });
         },
 
-        getOrders: (botId: string) => {
-          const newOrdersObj = get().orders.new[botId] || {};
-          const filledOrdersObj = get().orders.filled[botId] || {};
-          return [
-            ...Object.values(newOrdersObj),
-            ...Object.values(filledOrdersObj),
-          ];
-        },
+        getOrders: (botId: string) =>
+          mergeBuckets(get().orders.new[botId], get().orders.filled[botId]),
 
         getAllOrders: () => {
           const combinedOrders: Record<string, OrderData[]> = {};
           const newOrders = get().orders.new;
           const filledOrders = get().orders.filled;
 
-          // Combine orders from both 'new' and 'filled' types
-          for (const botId in newOrders) {
-            combinedOrders[botId] = [
-              ...(combinedOrders[botId] || []),
-              ...Object.values(newOrders[botId]),
-            ];
-          }
-
-          for (const botId in filledOrders) {
-            combinedOrders[botId] = [
-              ...(combinedOrders[botId] || []),
-              ...Object.values(filledOrders[botId]),
-            ];
+          for (const botId of new Set([
+            ...Object.keys(newOrders),
+            ...Object.keys(filledOrders),
+          ])) {
+            combinedOrders[botId] = mergeBuckets(
+              newOrders[botId],
+              filledOrders[botId]
+            );
           }
 
           return combinedOrders;

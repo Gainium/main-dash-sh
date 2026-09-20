@@ -83,6 +83,17 @@ interface DealOrdersSectionProps {
   onExecuteNextDca?: (() => void) | undefined;
 }
 
+/**
+ * Is this row still working on the venue — something that can yet execute?
+ *
+ * Terminal rows (`filled` / `cancelled`) are not, and no action that fills a
+ * level belongs on them. Projected `__smart` rows are: they are the levels the
+ * bot has not placed yet, which is exactly what "Execute now" acts on for a
+ * `dcaByMarket` deal or beyond `activeOrdersCount`.
+ */
+const isRestingRow = (order: OrderRowModel): boolean =>
+  !!order.__smart || order.status === 'pending' || order.status === 'partial';
+
 const getStatusColor = (status: string) => {
   switch (status) {
     case 'pending':
@@ -548,16 +559,26 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
    * Smart (projected) rows are deliberately eligible: for a `dcaByMarket` deal,
    * or beyond `activeOrdersCount` with smart orders on, the next level is only
    * ever projected — nothing rests on the venue for it.
+   *
+   * The action belongs to the pending ladder, so it is offered only while that
+   * tab is the one being read: `columns` is shared with the Completed table,
+   * and a row is matched by bare id, so without this an order that reached the
+   * section twice (same `clientOrderId`, one copy per status) put the button on
+   * its own completed 100%-filled row. `isRestingRow` screens out a terminal
+   * row whichever table it is drawn in.
    */
   const nextDcaRowId = useMemo(() => {
-    if (!onExecuteNextDca) {
+    if (!onExecuteNextDca || activeTab !== 'pending') {
       return null;
     }
     const next = pendingData.find(
-      (o) => o.typeOrder === 'dealRegular' && !findPendingFundsForOrder(o)
+      (o) =>
+        o.typeOrder === 'dealRegular' &&
+        isRestingRow(o) &&
+        !findPendingFundsForOrder(o)
     );
     return next?.id ?? null;
-  }, [onExecuteNextDca, pendingData, findPendingFundsForOrder]);
+  }, [onExecuteNextDca, activeTab, pendingData, findPendingFundsForOrder]);
 
   // Mirrors legacy `shouldHaveCancel`: only real (non-projected) open DCA /
   // add-funds / reduce-funds orders are cancellable. Grid orders use a
@@ -697,7 +718,12 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         ),
       },
       {
-        accessorKey: 'createTime',
+        // When the order EXECUTED, not when it was placed — the same
+        // `getOrderExecutionTime` value the deal's chart plots its marker on,
+        // and what legacy shows in this column. A resting limit fills hours or
+        // days after it is placed, so the two are different events; placement
+        // time stays available under "Created" in the expanded card.
+        accessorKey: 'time',
         header: 'TIME',
         enableSorting: true,
         sortingFn: 'basic',
@@ -719,7 +745,8 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         enableSorting: false,
         cell: ({ row }) => {
           const order = row.original;
-          const isNextDca = !!nextDcaRowId && order.id === nextDcaRowId;
+          const isNextDca =
+            !!nextDcaRowId && order.id === nextDcaRowId && isRestingRow(order);
           if (!isNextDca && !isOrderCancellable(order)) return null;
           return (
             <div className="flex items-center justify-end gap-xs">

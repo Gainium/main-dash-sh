@@ -1,5 +1,26 @@
 # Changelog
 
+## [2.54.28] - 2026-09-20
+
+### Fixed
+
+- The deal's Orders table no longer offers "Execute now" beside an order that
+  has already executed. The action belongs to the next resting safety order,
+  but it was matched to a row by id alone using a column set the Completed tab
+  shares with Pending, so an order that reached the section twice lit the
+  button on its own 100%-filled row. It is now offered only on the Pending tab
+  and only on a level that is still working.
+- An order could be listed twice, once as still resting and once as executed.
+  Live and executed orders are held separately and were combined without
+  matching them up, so replaying a cached fetch after a fill left a stale copy
+  behind: a level that had already filled kept a phantom entry on the deal's
+  order list and a phantom line on its chart for the rest of the session.
+- The `TIME` column of a deal's Orders table now shows when each order
+  executed rather than when it was placed. A resting limit order — every DCA
+  safety order and every take profit — fills long after it is placed, so the
+  column disagreed with the marker the same order has on the deal's chart.
+  Placement time is still shown as "Created" when a row is expanded.
+
 ## [2.54.27] - 2026-09-20
 
 ### Fixed
