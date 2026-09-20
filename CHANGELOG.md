@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.32] - 2026-09-20
+
+### Fixed
+
+- Stop offering "Hide column" in a table's column header menu on tables that
+  have no Columns dropdown. That dropdown — and the Reset Table item nested
+  inside it — is the only way to bring a hidden column back, so on those tables
+  hiding a column was a one-way door and it persisted across reloads. A column
+  already hidden this way is shown again on the next load. The Orders table in
+  a deal's details is the one users could walk into.
+
 ## [2.54.31] - 2026-09-20
 
 ### Fixed

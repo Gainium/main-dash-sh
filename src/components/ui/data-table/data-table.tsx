@@ -350,6 +350,7 @@ interface DraggableColumnHeaderProps {
   maxColumnWidth?: number;
   enableColumnResizing?: boolean;
   enableColumnFilters?: boolean;
+  enableColumnVisibility?: boolean;
   onToggleFilters?: () => void;
   stickyPosition?: React.CSSProperties;
 }
@@ -366,6 +367,7 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
   maxColumnWidth,
   enableColumnResizing = true,
   enableColumnFilters = true,
+  enableColumnVisibility = true,
   onToggleFilters,
   stickyPosition = {},
 }) => {
@@ -762,17 +764,25 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
                 </>
               )}
 
-              {/* Hide column option */}
-              <DropdownMenuItem
-                onClick={(e) => {
-                  e.stopPropagation();
-                  header.column.toggleVisibility(false);
-                }}
-                className="text-xs"
-              >
-                <EyeOff className="h-3 w-3 mr-2" />
-                Hide column
-              </DropdownMenuItem>
+              {/* Hide column option.
+                  Gated on the same flag as the toolbar's Columns dropdown,
+                  which is the only place a hidden column can be brought back
+                  (and which holds Reset Table). Offering Hide on a table that
+                  opts out of column visibility made the choice unrecoverable:
+                  the hidden state is persisted per table, so it survived
+                  reloads with no UI able to undo it. */}
+              {enableColumnVisibility && (
+                <DropdownMenuItem
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    header.column.toggleVisibility(false);
+                  }}
+                  className="text-xs"
+                >
+                  <EyeOff className="h-3 w-3 mr-2" />
+                  Hide column
+                </DropdownMenuItem>
+              )}
 
               {/* Group by column option */}
               {header.column.getCanGroup() && (
@@ -2251,7 +2261,7 @@ function DataTableComponent<TData, TValue>(
   // Get persisted preferences from Zustand store
   const {
     columnOrder,
-    columnVisibility,
+    columnVisibility: persistedColumnVisibility,
     columnWidths,
     pinnedColumns,
     pagination,
@@ -2277,6 +2287,17 @@ function DataTableComponent<TData, TValue>(
     defaultView,
     pinnedColumnsArg
   );
+
+  // A table that doesn't manage column visibility offers no way to bring a
+  // hidden column back — no Columns dropdown, and Reset Table lives inside it.
+  // Its columns are therefore whatever the call site declared, and a
+  // `columnVisibility` persisted for it (by an older build, which offered Hide
+  // in the header menu regardless) must not be applied, or the column stays
+  // gone forever. Ignored rather than deleted: the same key also holds the
+  // widths/sorting/filters this table does use.
+  const columnVisibility = enableColumnVisibility
+    ? persistedColumnVisibility
+    : stableDefaultColumnVisibility;
 
   // On mobile, never pin any columns regardless of persisted preferences
   const effectivePinnedColumns = useMemo(
@@ -4163,6 +4184,7 @@ function DataTableComponent<TData, TValue>(
                               onTogglePin={toggleColumnPin}
                               onAutoResize={autoResizeSingleColumn}
                               enableColumnFilters={enableColumnFilters}
+                              enableColumnVisibility={enableColumnVisibility}
                               onToggleFilters={handleToggleColumnFilters}
                               stickyPosition={calculateStickyPosition(
                                 columnId,
