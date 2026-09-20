@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.29] - 2026-09-20
+
+### Fixed
+
+- Restore the dashboard build. The data-table column filter anchors its
+  multi-select dropdown to the whole filter cell through a virtual anchor,
+  but handed the positioning library a cell reference that is empty until
+  the cell is attached — which that library's type does not permit. The
+  type check that gates the build rejected it, so the build stopped before
+  bundling. The anchor is now built from the cell element once it exists;
+  the dropdown still spans the column exactly as before.
+
 ## [2.54.28] - 2026-09-20
 
 ### Fixed

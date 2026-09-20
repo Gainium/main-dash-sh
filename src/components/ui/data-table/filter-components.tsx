@@ -422,7 +422,14 @@ const MultiSelectFilterInput: React.FC<{
           and the column had to be dragged wider to read it. Anchor to the
           filter cell instead; a virtual anchor renders no DOM of its own. */}
       {cellAnchorRef?.current && (
-        <PopoverAnchor virtualRef={cellAnchorRef} />
+        /* Rebuild the ref from the element the guard just proved is there:
+           Radix types `virtualRef` as `RefObject<Measurable>`, whose
+           `current` is non-null, and the guard narrows the render rather
+           than the context object's type. Radix re-reads `.current` on
+           every anchor render and only reacts when the resolved ELEMENT
+           changes, so a per-render object is no staler than a memoized one
+           and costs no extra positioning work. */
+        <PopoverAnchor virtualRef={{ current: cellAnchorRef.current }} />
       )}
       {/* Single row, never wrapping: this renders inside a fixed-height table
           filter cell whose width is the column width, so wrapping would push
