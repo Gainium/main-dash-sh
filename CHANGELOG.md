@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.33] - 2026-09-20
+
+### Fixed
+
+- Show the bot drawer's DCA Analysis — deviation covered, averaging power,
+  total funds and the projected order table — using the current value of any
+  global variable the bot's settings are bound to. It was built from the
+  literal each field held before it was bound, so a bound bot reported capital
+  and coverage figures no deal on it would ever have. The same figures in the
+  read-only view of a bot's settings are fixed with it, and they now follow a
+  rebind without a reload.
+
 ## [2.54.32] - 2026-09-20
 
 ### Fixed

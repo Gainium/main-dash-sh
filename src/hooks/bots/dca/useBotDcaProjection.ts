@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import {
   BotTypesEnum,
   OrderTypeEnum,
+  type BotVars,
   type DCAGrid,
   type ExchangeEnum,
   type Prices,
@@ -34,6 +35,10 @@ interface ProjectionBot {
   _id?: string;
   id?: string;
   settings?: unknown;
+  /** The bot's global-variable bindings. A bound setting keeps its old
+   *  literal in the bot document, so a projection built without these is
+   *  built from a value the engine will not spend. */
+  vars?: BotVars | null;
 }
 
 type EngineSettings = EngineDCASettings & {
@@ -146,7 +151,10 @@ export const buildBotProjectionContext = (
     settings,
     symbol,
     errors: {},
-    botVars: null,
+    // Hand the generators the bindings, not a stripped copy: they run
+    // `resolveSettingsVars` themselves before reading a field, so this is the
+    // whole of what a bound bot needs to project at the value it trades at.
+    botVars: bot.vars ?? null,
     userFee: 0,
     usdPrice: 1,
     inputLatestPrice: price ?? 0,
@@ -185,6 +193,12 @@ export const useBotDcaProjection = (
   const botType = bot?.type;
   const botPair = bot?.pair;
   const botExchange = bot?.exchange;
+  // Primitive identity of the bot's variable bindings, so a rebind (or a swap
+  // to a different variable) recomputes the projection. `bot.settings` is
+  // immutable per loaded bot but `vars` is not — the same bot id can come back
+  // bound differently — and depending on the object itself would re-run on
+  // every parent render.
+  const botVarsKey = JSON.stringify(bot?.vars ?? null);
   // Primitive that advances when the trading-pairs cache changes, so the symbol
   // lookup re-runs once metadata finishes loading — without re-running on every
   // render (depending on the `bot` object directly would).
@@ -220,10 +234,10 @@ export const useBotDcaProjection = (
       active = false;
     };
     // `bot.settings` is immutable per loaded bot, so keying on `botId` (+ pair/
-    // exchange/type and the pairs-cache version) is sufficient and avoids a
-    // re-run on every parent render.
+    // exchange/type, the bindings and the pairs-cache version) is sufficient
+    // and avoids a re-run on every parent render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [botId, botType, botPair, botExchange, pairsVersion]);
+  }, [botId, botType, botPair, botExchange, botVarsKey, pairsVersion]);
 
   return result;
 };
