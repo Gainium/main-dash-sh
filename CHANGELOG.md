@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.54.31] - 2026-09-20
+
+### Fixed
+
+- Resolve a global-variable binding made directly on a bot setting — base
+  order size, DCA order size, take profit, minimum take profit and the like.
+  Only bindings inside the indicator, custom DCA and multi take-profit /
+  stop-loss lists were being resolved, so the projected order ladder and the
+  funds, coverage and chart levels derived from it were built from the literal
+  the binding had superseded instead of the variable's value.
+- Keep a deal's own settings ahead of the variable's current value in that
+  projection. A deal is sized from the snapshot taken when it opened, so
+  editing a variable applies to new deals only.
+
+## [2.54.30] - 2026-09-20
+
+### Fixed
+
+- Stop the column header menu from offering "Hide column" on tables that do
+  not expose the Columns dropdown. That dropdown — which also holds Reset
+  Table — is the only way to bring a hidden column back, so on those tables
+  hiding one was permanent: the choice is saved per table and survived
+  reloads with nothing in the interface able to undo it. Those tables now
+  also ignore a column-visibility preference saved by an earlier build, so a
+  column already lost this way comes back on the next load.
+
 ## [2.54.29] - 2026-09-20
 
 ### Fixed

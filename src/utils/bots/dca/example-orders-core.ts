@@ -264,6 +264,13 @@ async function replaceVarsInMultiTpSettings(
   const pathPrefix = section === 'tp' ? 'multiTp' : 'multiSl';
   return _baseReplaceVarsInSettings(settings, botVars, pathPrefix);
 }
+/**
+ * The sections whose bindings are addressed as `<section>.<uuid>.<key>` and
+ * resolved by the four array walks above. Every other binding path is a bare
+ * top-level settings key.
+ */
+const VAR_PATH_SECTIONS = ['indicators', 'dcaCustom', 'multiTp', 'multiSl'];
+
 async function replaceVarsInSettings(
   settings: LocalDCASettings,
   botVars: BotVars | null | undefined
@@ -275,6 +282,24 @@ async function replaceVarsInSettings(
   s.dcaCustom = await replaceVarsInDCACustomSettings(s.dcaCustom, botVars);
   s.multiTp = await replaceVarsInMultiTpSettings(s.multiTp, botVars, 'tp');
   s.multiSl = await replaceVarsInMultiTpSettings(s.multiSl, botVars, 'sl');
+  // A binding path is either one of the four uuid-keyed sections above or a
+  // bare top-level settings key — `baseOrderSize`, `orderSize`, `tpPerc`,
+  // `step`, … The bot engine splits on exactly that shape and resolves the
+  // top-level ones directly, so a projection that walks only the sections is
+  // built from the literal the user superseded when they bound the field.
+  const record = s as unknown as Record<string, unknown>;
+  for (const { path } of botVars?.paths ?? []) {
+    if (VAR_PATH_SECTIONS.some((section) => path.includes(section))) {
+      continue;
+    }
+    // A bot can bind settings this ladder's slice does not carry (deal-start
+    // filters, open-deal caps, …). Leave those alone rather than inventing
+    // the key on the object.
+    if (typeof record[path] === 'undefined') {
+      continue;
+    }
+    record[path] = await replaceInputVars(botVars, path, record[path]);
+  }
   return s;
 }
 

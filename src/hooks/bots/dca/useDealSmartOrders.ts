@@ -310,8 +310,23 @@ export function useDealSmartOrders({
     // indicator re-anchoring below and to what this hook reports as `settings`,
     // and those must describe the same ladder. The generator re-runs the
     // resolution on the way in, which with `botVars: null` is an exact no-op.
+    //
+    // Resolve the BOT's settings and spread the deal's snapshot over the
+    // result, rather than resolving the already-merged object. The engine
+    // aggregates in exactly that order, so a value the deal froze when it
+    // opened — its own base order size, DCA order size, take profit, step, … —
+    // wins over the variable's current value: moving a variable applies to NEW
+    // deals only. Resolving after the merge would re-resolve those frozen keys
+    // and quote a number this deal will never be sized at. The deal's frozen
+    // indicator levels go on last for the same reason.
     const compute = async (): Promise<ComputedLadder> => {
-      const settings = await resolveSettingsVars(mergedSettings, botVars);
+      const settings = applyFrozenIndicatorLevels({
+        ...(await resolveSettingsVars(
+          (bot?.settings ?? {}) as DCABotSettings,
+          botVars
+        )),
+        ...(deal.settings ?? {}),
+      }) as DCABotSettings;
       const context: ExampleOrdersStoreContext = {
         ...defaultContext,
         settings,
