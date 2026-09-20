@@ -1,5 +1,5 @@
 import type { TradingPair } from '@/hooks/useTradingPairs';
-import { resolveStoredPairSymbol } from '@/utils/pairs';
+import { resolveStoredPairSymbol, splitPastedPairTokens } from '@/utils/pairs';
 
 type NormalizePairFn = (pair: string) => string;
 type ResolvePairMetadataFn = (pairKey: string) => TradingPair | undefined;
@@ -68,10 +68,7 @@ export const processPairsPaste = (
     return null;
   }
 
-  const tokens = raw
-    .split(/[\s,;\n\r\t]+/u)
-    .map((token) => token.replace(/['"]/g, '').trim())
-    .filter(Boolean);
+  const tokens = splitPastedPairTokens(raw);
 
   if (!tokens.length) {
     return null;

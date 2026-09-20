@@ -6,6 +6,7 @@ import { formatExchangeProvider } from '../../../utils/exchangeUtils';
 import {
   isPairSymbolReconstructable,
   normalizePairKey,
+  splitPastedPairTokens,
 } from '../../../utils/pairs';
 import { Chip } from '../../ui/chip';
 import { Checkbox } from '../../ui/checkbox';
@@ -110,7 +111,13 @@ interface ListModalProps {
   searchPlaceholder?: string;
   isLoading?: boolean;
   loadingMessage?: string;
-  onPaste?: (raw: string) => void;
+  /**
+   * Bulk-add a paste that carries SEVERAL symbols. Only called for those — a
+   * single-symbol paste is a search and is left to the input. Return a message
+   * to show inside the dialog (the caller's own error slot is behind the
+   * overlay and unreadable while this modal is open).
+   */
+  onPaste?: (raw: string) => string | undefined;
   // Sort + favorites (optional — enabled by the pair selector)
   sortMode?: string;
   sortOptions?: ListModalSortOption[];
@@ -660,6 +667,10 @@ export const ListModal: React.FC<ListModalProps> = ({
   onAssetClassChange,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  // What the last bulk-add paste reported, shown in this dialog. The bot form
+  // has its own error slot, but it sits behind the modal overlay — a message
+  // written there while the picker is open is one the user never sees.
+  const [pasteNotice, setPasteNotice] = useState<string | null>(null);
   // "Canonical only" filter — ON by default. Hides permissionless
   // (non-canonical) listings, currently Hyperliquid HIP-1 spot tokens. Only
   // relevant when the list actually contains non-canonical items.
@@ -790,6 +801,12 @@ export const ListModal: React.FC<ListModalProps> = ({
 
     return [...header, ...ordered];
   }, [filteredItems, showSort, sortMode, favoritesFirst]);
+
+  // A paste message describes one paste in one dialog session — don't let it
+  // greet the next person who opens the picker.
+  useEffect(() => {
+    setPasteNotice(null);
+  }, [isOpen]);
 
   // Close on Escape for a better keyboard UX (hook called unconditionally)
   useEffect(() => {
@@ -930,7 +947,10 @@ export const ListModal: React.FC<ListModalProps> = ({
               type="text"
               placeholder={searchPlaceholder}
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setPasteNotice(null);
+              }}
               disabled={isLoading}
               className="w-full pl-10 pr-3 py-2 text-sm bg-foreground/[0.04] hover:bg-foreground/[0.06] border border-border/50 rounded-md text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors"
               onPaste={(event) => {
@@ -941,8 +961,17 @@ export const ListModal: React.FC<ListModalProps> = ({
                 if (!text?.trim()) {
                   return;
                 }
+                // Only a paste carrying SEVERAL symbols is a bulk add. One
+                // symbol is someone searching, and claiming it left the box
+                // empty and the list unfiltered — which made the clipboard
+                // useless for finding a pair, the only practical way in when
+                // the ticker isn't on your keyboard.
+                if (splitPastedPairTokens(text).length < 2) {
+                  setPasteNotice(null);
+                  return;
+                }
                 event.preventDefault();
-                onPaste(text);
+                setPasteNotice(onPaste(text) || null);
               }}
             />
           </div>
@@ -982,6 +1011,19 @@ export const ListModal: React.FC<ListModalProps> = ({
             </button>
           )}
           </div>
+
+          {/* Outcome of the last bulk-add paste. It belongs here, in the
+              dialog the paste happened in — the bot form's error slot is
+              behind this modal. */}
+          {pasteNotice && (
+            <p
+              data-testid="list-modal-paste-notice"
+              role="status"
+              className="text-xs text-destructive"
+            >
+              {pasteNotice}
+            </p>
+          )}
         </div>
 
         {/* Items List */}

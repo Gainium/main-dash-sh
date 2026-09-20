@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.34] - 2026-09-20
+
+### Fixed
+
+- Let a pasted symbol land in the pair picker's search box. The box claimed
+  every paste for the bulk "add several pairs" feature, so pasting a single
+  symbol left the field unchanged and the list unfiltered — which made the
+  clipboard useless for finding a pair, and that is the only practical way in
+  when the ticker is not on your keyboard. Only a paste carrying more than one
+  symbol is treated as a bulk add now. Bulk add is also no longer offered in
+  the single-pair "Change pair" dialog, where the one-pair limit meant it could
+  never add anything and could only answer that the maximum had been reached —
+  and a message from a paste made in the picker is now shown in the picker,
+  instead of on the form behind it where the open dialog covered it.
+
 ## [2.54.33] - 2026-09-20
 
 ### Fixed

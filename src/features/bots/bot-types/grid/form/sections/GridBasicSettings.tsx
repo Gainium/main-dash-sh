@@ -520,7 +520,9 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
   );
 
   const applyPairsInput = React.useCallback(
-    (rawValue: string) => {
+    // `surfaceError: false` for input coming from the pair dialog: the form's
+    // error slot is behind that modal, so the dialog shows the message itself.
+    (rawValue: string, options?: { surfaceError?: boolean }) => {
       if (isPairsLocked) {
         return null;
       }
@@ -546,10 +548,12 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
         clearPairError();
       }
 
-      if (typeof result.error === 'string' && result.error) {
-        setErrors((prev) => ({ ...prev, pair: result.error }));
-      } else {
-        clearPairError();
+      if (options?.surfaceError !== false) {
+        if (typeof result.error === 'string' && result.error) {
+          setErrors((prev) => ({ ...prev, pair: result.error }));
+        } else {
+          clearPairError();
+        }
       }
 
       return result;
@@ -565,9 +569,8 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
   );
 
   const handlePairsPaste = React.useCallback(
-    (raw: string) => {
-      applyPairsInput(raw);
-    },
+    (raw: string) =>
+      applyPairsInput(raw, { surfaceError: false })?.error || undefined,
     [applyPairsInput]
   );
 

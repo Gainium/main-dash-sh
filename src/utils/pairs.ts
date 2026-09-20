@@ -106,6 +106,23 @@ export const balanceAssetToPairBase = (asset: string): string =>
 export const normalizePairKey = (pair: string): string =>
   pair.replace(/[\s/_-]/gu, '').toUpperCase();
 
+/**
+ * Split a pasted blob into candidate pair tokens: whitespace, commas and
+ * semicolons all separate, and surrounding quotes are stripped.
+ *
+ * Lives here, next to `normalizePairKey`, because two places have to agree on
+ * it. The picker's search box only hands a paste to the bulk-add handler when
+ * this yields more than one token — a one-symbol paste is someone searching,
+ * and has to be left alone to land in the input. The bulk-add handler then
+ * re-splits the same way. Two copies of the rule would let a paste be routed
+ * as "several pairs" and then parsed as one, or the reverse.
+ */
+export const splitPastedPairTokens = (raw: string): string[] =>
+  raw
+    .split(/[\s,;\n\r\t]+/u)
+    .map((token) => token.replace(/['"]/g, '').trim())
+    .filter(Boolean);
+
 /** Minimal shape of a loaded trading pair needed to resolve its identity. */
 export interface PairIdentitySource {
   pair?: string | null;

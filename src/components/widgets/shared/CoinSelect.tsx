@@ -43,7 +43,8 @@ export interface CoinFilterProps {
   mode?: 'coins' | 'pairs';
   /** Provider identifier (e.g. BINANCE). When supplied we filter pairs to that exchange */
   /* exchangeProvider?: string; */
-  onPairsPaste?: (raw: string) => void;
+  /** Bulk-add several pasted pairs; returns a message to show in the dialog. */
+  onPairsPaste?: (raw: string) => string | undefined;
   helperTokens?: CoinFilterHelperToken[];
   shouldShowAddButton?: boolean;
   showAllOption?: boolean;
@@ -740,7 +741,13 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
               onSortModeChange: setSortMode,
             }
           : {})}
-        {...(isPairsMode && onPairsPaste ? { onPaste: onPairsPaste } : {})}
+        {...(isPairsMode && onPairsPaste && replacingSymbol === null
+          ? // Bulk add is a multi-select feature. In replace mode the bot's
+            // existing pair is still selected and the cap is 1, so every
+            // pasted symbol is truncated away before it can be added — the
+            // handler could only ever answer "Maximum pairs to choose is 1".
+            { onPaste: onPairsPaste }
+          : {})}
       />
     </>
   );
