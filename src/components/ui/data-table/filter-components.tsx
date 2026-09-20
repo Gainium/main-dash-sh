@@ -20,7 +20,12 @@ import {
   DropdownMenuTrigger,
 } from '../dropdown-menu';
 import { Input } from '../input';
-import { Popover, PopoverContent, PopoverTrigger } from '../popover';
+import {
+  Popover,
+  PopoverAnchor,
+  PopoverContent,
+  PopoverTrigger,
+} from '../popover';
 import {
   Select,
   SelectContent,
@@ -194,6 +199,29 @@ const DateRangeFilterInput: React.FC<{
  */
 const MAX_RENDERED_OPTIONS = 200;
 
+/**
+ * The filter cell a dropdown should measure and align itself to.
+ *
+ * `ColumnFilter` owns the cell — operator button, input slot and clear button
+ * — and renders the operator's input component into a `flex-1 min-w-0` slot.
+ * That slot collapses to a few pixels once selected chips fill the row, so an
+ * input that anchors its popover to itself gets a sliver pinned to the right
+ * of the chips. Anchoring to the cell instead keeps the list the width of the
+ * column, wherever the next chip happens to land.
+ *
+ * Null when an input is rendered outside a `ColumnFilter`; the popover then
+ * falls back to anchoring on its own trigger.
+ *
+ * Carries a fresh object per cell element rather than one mutable ref: Radix
+ * re-reads `virtualRef` only when the anchor re-renders, and mutating a ref's
+ * `.current` triggers no render. With a stable ref the anchor latched the
+ * value read on the first pass — null under StrictMode's remount — and the
+ * list was positioned against a 0x0 box at the viewport origin.
+ */
+const FilterCellAnchorContext = React.createContext<{
+  current: HTMLDivElement | null;
+} | null>(null);
+
 /** Drop blanks/placeholder junk and sort — the shared tail of option building. */
 const finalizeOptions = (values: Iterable<string>): string[] =>
   Array.from(values)
@@ -211,6 +239,7 @@ const MultiSelectFilterInput: React.FC<{
 }> = ({ value, onChange, placeholder = 'Select values...', column }) => {
   const [inputValue, setInputValue] = useState('');
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const cellAnchorRef = React.useContext(FilterCellAnchorContext);
   const values = Array.isArray(value) ? value : value ? [value] : [];
 
   // Extract unique display-friendly values from column data
@@ -382,32 +411,41 @@ const MultiSelectFilterInput: React.FC<{
   };
 
   return (
-    // Single row, never wrapping: this renders inside a fixed-height table
-    // filter cell whose width is the column width, so wrapping would push the
-    // chips out of the cell. Chips shrink and truncate instead.
-    <div className="flex flex-nowrap items-center gap-1 h-8 w-full min-w-0 overflow-hidden">
-      {/* Selected values */}
-      {values.length > 0 &&
-        values.map((val: string, index: number) => (
-          <Badge
-            key={index}
-            variant="secondary"
-            className="text-xs px-2 py-0 h-5 cursor-pointer hover:bg-destructive/20 min-w-0 shrink"
-            onClick={() => removeValue(val)}
-            title={`${val} — click to remove`}
-          >
-            <span className="truncate">{val}</span>
-            <X className="h-3 w-3 shrink-0" />
-          </Badge>
-        ))}
+    <Popover
+      open={dropdownOpen && filteredOptions.length > 0}
+      onOpenChange={setDropdownOpen}
+    >
+      {/* Radix sizes and aligns the option list from the ANCHOR, and with no
+          explicit anchor the trigger becomes its own. The trigger here is only
+          the residual input, which `shrink-0` pins at 24px once chips appear —
+          so the list opened as a sliver in the gap where the next chip goes,
+          and the column had to be dragged wider to read it. Anchor to the
+          filter cell instead; a virtual anchor renders no DOM of its own. */}
+      {cellAnchorRef?.current && (
+        <PopoverAnchor virtualRef={cellAnchorRef} />
+      )}
+      {/* Single row, never wrapping: this renders inside a fixed-height table
+          filter cell whose width is the column width, so wrapping would push
+          the chips out of the cell. Chips shrink and truncate instead. */}
+      <div className="flex flex-nowrap items-center gap-1 h-8 w-full min-w-0 overflow-hidden">
+        {/* Selected values */}
+        {values.length > 0 &&
+          values.map((val: string, index: number) => (
+            <Badge
+              key={index}
+              variant="secondary"
+              className="text-xs px-2 py-0 h-5 cursor-pointer hover:bg-destructive/20 min-w-0 shrink"
+              onClick={() => removeValue(val)}
+              title={`${val} — click to remove`}
+            >
+              <span className="truncate">{val}</span>
+              <X className="h-3 w-3 shrink-0" />
+            </Badge>
+          ))}
 
-      <Popover
-        open={dropdownOpen && filteredOptions.length > 0}
-        onOpenChange={setDropdownOpen}
-      >
         <PopoverTrigger asChild>
           {/* Grows to fill the row when nothing is selected, but `shrink-0` +
-              `min-w-8` pins it at chevron width once chips appear — so the
+              `min-w-6` pins it at chevron width once chips appear — so the
               chips absorb the shrinking and stay readable instead of the
               (empty) text field holding space they need. */}
           <div className="relative flex-1 min-w-6 shrink-0">
@@ -444,36 +482,38 @@ const MultiSelectFilterInput: React.FC<{
             </Button>
           </div>
         </PopoverTrigger>
-        <PopoverContent
-          className="p-0 max-h-48 overflow-y-auto w-(--radix-popover-trigger-width)"
-          align="start"
-          onOpenAutoFocus={(e) => e.preventDefault()}
-        >
-          <div className="py-1">
-            {visibleOptions.map((option, index) => (
-              <div
-                key={index}
-                data-filter-option={option}
-                onClick={() => addValue(option)}
-                className="px-2 py-1 text-xs hover:bg-muted cursor-pointer flex items-center justify-between"
-              >
-                <span>{option}</span>
-                {values.includes(option) && (
-                  <Badge variant="secondary" className="h-4 text-xs px-1">
-                    ✓
-                  </Badge>
-                )}
-              </div>
-            ))}
-            {hiddenOptionCount > 0 && (
-              <div className="px-2 py-1 text-xs text-muted-foreground border-t">
-                {hiddenOptionCount} more — keep typing to narrow
-              </div>
-            )}
-          </div>
-        </PopoverContent>
-      </Popover>
-    </div>
+      </div>
+      {/* Width tracks the anchor — the filter cell — with a floor so a very
+          narrow column still yields a legible list rather than a sliver. */}
+      <PopoverContent
+        className="p-0 max-h-48 overflow-y-auto w-(--radix-popover-trigger-width) min-w-48"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+      >
+        <div className="py-1">
+          {visibleOptions.map((option, index) => (
+            <div
+              key={index}
+              data-filter-option={option}
+              onClick={() => addValue(option)}
+              className="px-2 py-1 text-xs hover:bg-muted cursor-pointer flex items-center justify-between"
+            >
+              <span>{option}</span>
+              {values.includes(option) && (
+                <Badge variant="secondary" className="h-4 text-xs px-1">
+                  ✓
+                </Badge>
+              )}
+            </div>
+          ))}
+          {hiddenOptionCount > 0 && (
+            <div className="px-2 py-1 text-xs text-muted-foreground border-t">
+              {hiddenOptionCount} more — keep typing to narrow
+            </div>
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
   );
 };
 
@@ -725,6 +765,11 @@ export const ColumnFilter: React.FC<{
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   column: Column<any, unknown>;
 }> = ({ column }) => {
+  // What a filter's dropdown measures and aligns to — see
+  // FilterCellAnchorContext. State, so that attaching the element re-renders
+  // the anchor and Radix actually picks it up.
+  const [cellEl, setCellEl] = React.useState<HTMLDivElement | null>(null);
+  const cellAnchor = React.useMemo(() => ({ current: cellEl }), [cellEl]);
   const fieldType =
     (column.columnDef.meta as Record<string, unknown>)?.['filterType'] ??
     'string';
@@ -820,7 +865,7 @@ export const ColumnFilter: React.FC<{
   }
 
   return (
-    <div className="flex items-center space-x-1 w-full">
+    <div ref={setCellEl} className="flex items-center space-x-1 w-full">
       {/* Filter input with operator as start adornment */}
       {FilterComponent && needsInput && (
         <div className="relative flex-1 min-w-0 flex bg-input/50 border border-input rounded-lg overflow-hidden">
@@ -876,12 +921,17 @@ export const ColumnFilter: React.FC<{
               width — without it the input overflows the bordered container in
               any column narrower than its content. */}
           <div className="flex-1 min-w-0">
-            <FilterComponent
-              value={currentFilter.value}
-              onChange={handleValueChange}
-              placeholder={selectedOperator?.label || 'Filter...'}
-              column={column}
-            />
+            {/* The input sits in this collapsing slot but its dropdown must be
+                sized and aligned to the whole cell — see
+                FilterCellAnchorContext. */}
+            <FilterCellAnchorContext.Provider value={cellAnchor}>
+              <FilterComponent
+                value={currentFilter.value}
+                onChange={handleValueChange}
+                placeholder={selectedOperator?.label || 'Filter...'}
+                column={column}
+              />
+            </FilterCellAnchorContext.Provider>
           </div>
         </div>
       )}

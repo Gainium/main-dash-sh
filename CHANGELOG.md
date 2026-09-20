@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.27] - 2026-09-20
+
+### Fixed
+
+- The Symbol filter's dropdown on the deals tables now opens across the width
+  of the column instead of squeezing into the gap beside the values already
+  chosen. The list took its width and position from the small text field left
+  over to the right of the selected chips, so each further selection shrank it
+  — at two symbols it was a sliver a couple of characters wide, and the column
+  had to be dragged wider to read the options at all. It is now measured and
+  aligned against the whole filter cell and will not render narrower than a
+  legible minimum. The chips still absorb the shrinking rather than the field,
+  so they stay readable in a narrow column.
+
 ## [2.54.26] - 2026-09-19
 
 ### Fixed
