@@ -2,6 +2,15 @@ import { useMutation } from '@tanstack/react-query';
 import { GraphQLClient, type ReturnResult } from '@/lib/api';
 import GraphQlQuery from '@/lib/api/GraphQLQueries';
 import { useAuthStore } from '@/stores/authStore';
+import {
+  validatePassword,
+  type PasswordValidation,
+} from '@/components/auth/passwordRules';
+
+// Re-exported so existing importers of this module keep working; the rules
+// themselves live with the shared rule set.
+export { validatePassword };
+export type { PasswordValidation };
 
 import { logger } from '@/lib/loggerInstance';
 
@@ -13,32 +22,6 @@ export interface PasswordChangeInput {
    * password, which made any leaked token a full account takeover.
    */
   currentPassword: string;
-}
-
-export interface PasswordValidation {
-  minLength: boolean;
-  hasNumber: boolean;
-  hasCapital: boolean;
-  passwordsMatch: boolean;
-  /** The current-password box is non-empty. Correctness is checked server-side. */
-  currentPasswordProvided: boolean;
-}
-
-/**
- * Validates password strength and matching
- */
-export function validatePassword(
-  password: string,
-  confirmPassword: string,
-  currentPassword = ''
-): PasswordValidation {
-  return {
-    minLength: password.length >= 6,
-    hasNumber: /\d/.test(password),
-    hasCapital: /[A-Z]/.test(password),
-    passwordsMatch: password === confirmPassword && password.length > 0,
-    currentPasswordProvided: currentPassword.length > 0,
-  };
 }
 
 /**

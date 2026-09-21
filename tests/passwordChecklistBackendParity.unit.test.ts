@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-import { passwordMeetsAllRules } from '@/components/auth/passwordRules';
+import {
+  passwordMeetsAllRules,
+  validatePassword,
+} from '@/components/auth/passwordRules';
 
 /**
  * The checklist is the only password guidance a user sees, and it gates the
@@ -85,5 +88,42 @@ test.describe('password checklist / backend parity', () => {
     // Guards the sweep itself: if a future edit made the checklist reject
     // everything, the loop above would pass vacuously.
     expect(accepted).toBeGreaterThan(100);
+  });
+
+  test('the Settings change-password form enforces the same rules', () => {
+    // Settings renders its own checklist layout rather than the shared
+    // component, so it gets its own assertion. It previously carried a
+    // separate copy of the rules that never checked for a lowercase letter.
+    const allOf = (v: ReturnType<typeof validatePassword>) =>
+      Object.values(v).every(Boolean);
+
+    // No lowercase letter — the endpoint this form posts to requires one.
+    expect(allOf(validatePassword('PASSWORT123', 'PASSWORT123', 'old'))).toBe(
+      false,
+    );
+    expect(acceptedByChangePasswordEndpoint('PASSWORT123')).toBe(false);
+
+    // Short enough that the old 6-character rule would have passed it.
+    expect(allOf(validatePassword('Haus12', 'Haus12', 'old'))).toBe(false);
+
+    // A password that satisfies the endpoint still gets through.
+    expect(allOf(validatePassword('Passwort1', 'Passwort1', 'old'))).toBe(true);
+    expect(acceptedByChangePasswordEndpoint('Passwort1')).toBe(true);
+
+    // The current-password box is still a required gate on top of strength.
+    expect(allOf(validatePassword('Passwort1', 'Passwort1', ''))).toBe(false);
+  });
+
+  test('both forms agree, rule for rule', () => {
+    for (const pw of ['Passwort1', 'PASSWORT123', 'Haus12', 'wetter2024', '']) {
+      const settings = validatePassword(pw, pw, 'old');
+      const strengthOnly = Object.entries(settings)
+        .filter(([k]) => k !== 'currentPasswordProvided')
+        .every(([, v]) => v);
+      expect(
+        strengthOnly,
+        `Settings and the shared checklist disagree on ${JSON.stringify(pw)}`,
+      ).toBe(passwordMeetsAllRules(pw, pw));
+    }
   });
 });

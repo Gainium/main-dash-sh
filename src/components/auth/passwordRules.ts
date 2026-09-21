@@ -19,6 +19,19 @@
 export const MIN_PASSWORD_LENGTH = 8;
 export const MAX_PASSWORD_LENGTH = 200;
 
+// The atomic predicates, exported so every password form in the app tests the
+// same thing. Settings has its own checklist layout and cannot reuse the
+// PasswordChecklist component wholesale, but it must not re-derive the rules:
+// that is how it ended up with its own copy that never checked for a lowercase
+// letter while the changePassword endpoint required one.
+export const hasMinLength = (p: string) =>
+  p.length >= MIN_PASSWORD_LENGTH && p.length <= MAX_PASSWORD_LENGTH;
+export const hasNumber = (p: string) => /\d/.test(p);
+// ASCII on purpose — see the note above the rule list.
+export const hasUppercase = (p: string) => /[A-Z]/.test(p);
+export const hasLowercase = (p: string) => /[a-z]/.test(p);
+export const passwordsMatch = (p: string, c: string) => p.length > 0 && p === c;
+
 export interface PasswordRule {
   label: string;
   passes: (password: string, confirm: string) => boolean;
@@ -27,28 +40,23 @@ export interface PasswordRule {
 export const PASSWORD_RULES: PasswordRule[] = [
   {
     label: `Between ${MIN_PASSWORD_LENGTH} and ${MAX_PASSWORD_LENGTH} characters`,
-    passes: (p) =>
-      p.length >= MIN_PASSWORD_LENGTH && p.length <= MAX_PASSWORD_LENGTH,
+    passes: (p) => hasMinLength(p),
   },
   {
     label: 'Contains a number',
-    passes: (p) => /\d/.test(p),
+    passes: (p) => hasNumber(p),
   },
-  // The case rules stay deliberately ASCII, mirroring the backend's [A-Z] and
-  // [a-z] exactly. A Unicode-aware check here (\p{Lu}) would accept `Ärger1`
-  // as having an uppercase letter while the server would not — the same class
-  // of mismatch this file exists to prevent.
   {
     label: 'Contains an uppercase letter',
-    passes: (p) => /[A-Z]/.test(p),
+    passes: (p) => hasUppercase(p),
   },
   {
     label: 'Contains a lowercase letter',
-    passes: (p) => /[a-z]/.test(p),
+    passes: (p) => hasLowercase(p),
   },
   {
     label: 'Passwords match',
-    passes: (p, c) => p.length > 0 && p === c,
+    passes: (p, c) => passwordsMatch(p, c),
   },
 ];
 
@@ -56,3 +64,33 @@ export const passwordMeetsAllRules = (
   password: string,
   confirm: string,
 ): boolean => PASSWORD_RULES.every((r) => r.passes(password, confirm));
+
+export interface PasswordValidation {
+  minLength: boolean;
+  hasNumber: boolean;
+  hasCapital: boolean;
+  hasLowercase: boolean;
+  passwordsMatch: boolean;
+  /** The current-password box is non-empty. Correctness is checked server-side. */
+  currentPasswordProvided: boolean;
+}
+
+/**
+ * Per-rule breakdown for the Settings change-password form, which renders its
+ * own checklist layout. It lives here, next to the rules it reports on, so it
+ * cannot drift from them the way the previous copy in usePasswordChange did.
+ */
+export function validatePassword(
+  password: string,
+  confirmPassword: string,
+  currentPassword = ''
+): PasswordValidation {
+  return {
+    minLength: hasMinLength(password),
+    hasNumber: hasNumber(password),
+    hasCapital: hasUppercase(password),
+    hasLowercase: hasLowercase(password),
+    passwordsMatch: passwordsMatch(password, confirmPassword),
+    currentPasswordProvided: currentPassword.length > 0,
+  };
+}

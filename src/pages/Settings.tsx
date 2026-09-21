@@ -1090,7 +1090,7 @@ const Settings: React.FC = () => {
                     <span
                       className={`text-sm ${passwordValidation.minLength ? 'text-green-500' : 'text-red-500'}`}
                     >
-                      Password has at least 6 characters
+                      Password has between 8 and 200 characters
                     </span>
                   </div>
                   <div className="flex items-center gap-xs">
@@ -1115,6 +1115,18 @@ const Settings: React.FC = () => {
                       className={`text-sm ${passwordValidation.hasCapital ? 'text-green-500' : 'text-red-500'}`}
                     >
                       Password has a capital letter
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-xs">
+                    {passwordValidation.hasLowercase ? (
+                      <Check className="w-4 h-4 text-green-500" />
+                    ) : (
+                      <X className="w-4 h-4 text-red-500" />
+                    )}
+                    <span
+                      className={`text-sm ${passwordValidation.hasLowercase ? 'text-green-500' : 'text-red-500'}`}
+                    >
+                      Password has a lowercase letter
                     </span>
                   </div>
                   <div className="flex items-center gap-xs">

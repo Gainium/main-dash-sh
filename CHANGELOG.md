@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.41] - 2026-09-21
+
+### Fixed
+
+- The change-password form in Settings now lists the same password rules as
+  the rest of the app, including the lowercase letter it never mentioned. It
+  carried its own separate copy of the rules, so a password such as
+  `PASSWORT123` showed a full set of green ticks and was still refused with
+  "Password not valid". All three password forms now read from one rule set
+  rather than each keeping their own.
+
 ## [2.54.40] - 2026-09-21
 
 ### Fixed
