@@ -84,6 +84,7 @@ import { QuickFilterBar } from './QuickFilterBar';
 import { QuickFilters, type QuickFilterConfig } from './QuickFilters';
 import { deserializeFilters, deserializeSorting, serialize } from './urlSync';
 
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useRenderLoopTripwire } from '@/hooks/useRenderLoopTripwire';
@@ -2068,6 +2069,11 @@ function DataTableComponent<TData, TValue>(
   );
 
   const isMobile = useMediaQuery('(max-width: 767px)');
+  // The zone a `filterType: 'date'` column's DAY is measured in. Resolved here
+  // rather than inside filter-logic so that module stays free of app state, and
+  // so changing the Settings timezone rebuilds the filter fns (it is a dep of
+  // `enhancedColumns`) instead of leaving the table filtering on the old day.
+  const accountTimeZone = useAccountTimeZone();
   const {
     tableId,
     columns: initialColumns,
@@ -2849,7 +2855,8 @@ function DataTableComponent<TData, TValue>(
           typeof declared === 'function'
             ? declared
             : createEnhancedColumnFilter(
-                column.meta as Record<string, unknown> | undefined
+                column.meta as Record<string, unknown> | undefined,
+                accountTimeZone
               ),
       };
     });
@@ -2861,7 +2868,7 @@ function DataTableComponent<TData, TValue>(
     }
 
     return baseColumns;
-  }, [columns, selectionColumn]);
+  }, [columns, selectionColumn, accountTimeZone]);
 
   /**
    * CRITICAL: Clear row selection when data changes

@@ -12,6 +12,8 @@
 
 import type { ColumnFiltersState } from '@tanstack/react-table';
 
+import { getTzDayBounds } from '@/utils/timeUtils';
+
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
@@ -67,22 +69,37 @@ const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
  * no row's `closeTime` is exactly `2026-09-20T00:00:00`. A day therefore
  * resolves to the whole interval it covers.
  *
- * LOCAL, not UTC: the column renders the timestamp with
- * `toLocaleDateString()`, so the day the user reads in the cell — and picks
- * in the filter — is the local one. `new Date('2026-09-20')` would instead
- * parse to UTC midnight, which is a different (and invisible) boundary.
+ * WHOSE day: the ACCOUNT's, via `timeZone` — the user's Settings timezone,
+ * which is the platform's canonical per-user day boundary (`getProfitByUser`
+ * buckets daily profit by it, and the Profit / Hero Balance widgets ask for it
+ * by name). The date columns render in that same zone, so the day the user
+ * reads in the cell is the day they get when they pick it in the filter, and
+ * both agree with what the daily-profit surfaces counted. Without it the
+ * boundary was the BROWSER's midnight, which files one deal under two
+ * different days for anyone whose account zone is not their machine's.
+ *
+ * No zone, or one the engine cannot resolve, falls back to browser-local —
+ * which is exactly what `getValidTimezone` hands back for an account that
+ * never set the field, so nothing moves for them.
  *
  * Anything that is not a bare day keeps today's meaning: the single instant
  * it parses to, so a filter restored from an older saved preference or link
  * behaves exactly as before.
  */
-function dayBounds(value: unknown): { start: number; end: number } | null {
+function dayBounds(
+  value: unknown,
+  timeZone?: string | null
+): { start: number; end: number } | null {
   const match = DATE_ONLY.exec(String(value ?? ''));
   if (!match) {
     const instant = new Date(value as string).getTime();
     return Number.isNaN(instant) ? null : { start: instant, end: instant };
   }
   const [, year, month, day] = match.map(Number);
+  if (timeZone) {
+    const inZone = getTzDayBounds(year, month, day, timeZone);
+    if (inZone) return inZone;
+  }
   return {
     start: new Date(year, month - 1, day, 0, 0, 0, 0).getTime(),
     end: new Date(year, month - 1, day, 23, 59, 59, 999).getTime(),
@@ -121,6 +138,10 @@ function cellTime(cellValue: unknown): number | null {
  * to tell a DATE column's `equals` / `between` apart from the string and
  * number operator sets, which share those two operator ids; the remaining
  * date operators exist in no other set.
+ *
+ * `timeZone` is the account timezone every date operator bounds its day by
+ * (see `dayBounds`). It is threaded in rather than read from a store so this
+ * module stays free of app state.
  */
 function applyOperator(
   cellValue: unknown,
@@ -128,7 +149,8 @@ function applyOperator(
   value: unknown,
   searchableStrings?: string[] | null,
   optionStrings?: string[] | null,
-  filterType?: string | null
+  filterType?: string | null,
+  timeZone?: string | null
 ): boolean {
   const strings = searchableStrings || [String(cellValue ?? '')];
 
@@ -144,7 +166,7 @@ function applyOperator(
       // once an epoch-ms accessor sends it through `Number()` — so the
       // operator matched no row at all.
       if (filterType === 'date') {
-        const bounds = dayBounds(value);
+        const bounds = dayBounds(value, timeZone);
         const time = cellTime(cellValue);
         return (
           bounds !== null &&
@@ -190,8 +212,8 @@ function applyOperator(
           // the table.
           const time = cellTime(cellValue);
           if (time === null) return false;
-          const from = value[0] === '' ? null : dayBounds(value[0]);
-          const to = value[1] === '' ? null : dayBounds(value[1]);
+          const from = value[0] === '' ? null : dayBounds(value[0], timeZone);
+          const to = value[1] === '' ? null : dayBounds(value[1], timeZone);
           return (
             (from === null || time >= from.start) &&
             (to === null || time <= to.end)
@@ -220,7 +242,7 @@ function applyOperator(
     case 'before':
     case 'onOrAfter':
     case 'onOrBefore': {
-      const bounds = dayBounds(value);
+      const bounds = dayBounds(value, timeZone);
       const time = cellTime(cellValue);
       if (bounds === null || time === null) return false;
       if (operator === 'after') return time > bounds.end;
@@ -302,7 +324,8 @@ function matchesSingleFilter(
   singleFilter: unknown,
   searchableStrings?: string[] | null,
   optionStrings?: string[] | null,
-  filterType?: string | null
+  filterType?: string | null,
+  timeZone?: string | null
 ): boolean {
   // Legacy plain-string filter
   if (typeof singleFilter === 'string') {
@@ -335,7 +358,8 @@ function matchesSingleFilter(
       value,
       searchableStrings,
       optionStrings,
-      filterType
+      filterType,
+      timeZone
     );
   }
 
@@ -414,7 +438,8 @@ function resolveOptionValues(
  * }
  */
 export function createEnhancedColumnFilter(
-  meta?: Record<string, unknown> | null
+  meta?: Record<string, unknown> | null,
+  timeZone?: string | null
 ) {
   const getFilterValueFn = meta?.['getFilterValue'] as
     | ((original: unknown) => string | string[])
@@ -449,7 +474,8 @@ export function createEnhancedColumnFilter(
           f,
           searchableStrings,
           optionStrings,
-          filterType
+          filterType,
+          timeZone
         )
       );
     }
@@ -468,7 +494,8 @@ export function createEnhancedColumnFilter(
       filterValue,
       searchableStrings,
       optionStrings,
-      filterType
+      filterType,
+      timeZone
     );
   };
 }

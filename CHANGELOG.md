@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.43] - 2026-09-21
+
+### Fixed
+
+- Date columns in tables now treat a day as the day in your account's time
+  zone (Settings → Time Zone) rather than the one your browser happens to be
+  in. That is the same boundary the Profit and Balance figures on the overview
+  already use, so a deal is no longer counted on one day there and shown on
+  another by the deals table — and filtering a date column for the day those
+  figures put it on now returns it. Accounts that have not set a time
+  zone, or stored one that cannot be recognised, are unaffected and keep using
+  the browser's. Filtering a day that changes clocks covers the whole real
+  day, whether it is 23, 24 or 25 hours long.
+
 ## [2.54.42] - 2026-09-21
 
 ### Fixed

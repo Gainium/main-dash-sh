@@ -3,6 +3,7 @@
 // the Trading dashboard Open Orders widget wrapper, and the Trading Terminal panel.
 // Not used in the bot drawer (see DrawerDealsTable for drawer deals UI).
 import { dealStartBlockedSummary } from '@/lib/utils/dealStartBlocked';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
 import {
@@ -2296,6 +2297,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   );
   handleAdjustFundsConfirmRef.current = handleAdjustFundsConfirm;
   // Define table columns
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the daily-profit surfaces use — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   const columns: ColumnDef<OpenTrade>[] = useMemo(() => {
     const comboTypes = new Set(['Combo', 'Hedge Combo']);
     const hasComboFilter = filteredBotTypes.some((type) =>
@@ -2806,11 +2810,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (!value) return <span className="text-muted-foreground">-</span>;
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{value.toLocaleDateString()}</span>
+              <span className="text-sm">
+                {value.toLocaleDateString(undefined, {
+                  timeZone: accountTimeZone,
+                })}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {value.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: accountTimeZone,
                 })}
               </span>
             </div>
@@ -3118,11 +3127,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           const date = new Date(value);
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{date.toLocaleDateString()}</span>
+              <span className="text-sm">
+                {date.toLocaleDateString(undefined, {
+                  timeZone: accountTimeZone,
+                })}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {date.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: accountTimeZone,
                 })}
               </span>
             </div>
@@ -3142,11 +3156,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           const date = new Date(value);
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{date.toLocaleDateString()}</span>
+              <span className="text-sm">
+                {date.toLocaleDateString(undefined, {
+                  timeZone: accountTimeZone,
+                })}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {date.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: accountTimeZone,
                 })}
               </span>
             </div>
@@ -3309,6 +3328,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     handleEdit,
     allKnownDeals,
     openEditDrawerFor,
+    accountTimeZone,
   ]);
 
   // Wrapper component to adapt props for TradeCard.

@@ -2,6 +2,7 @@
 // Usage: bot details drawer deals table (active/closed tabs) rendered via DrawerWidgetRenderer.
 // Not used by the Trading page or the Trading Terminal; those use OpenOrdersWidget.
 import { dealStartBlockedSummary } from '@/lib/utils/dealStartBlocked';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -2128,6 +2129,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   );
 
   // Define columns for the DataTable
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the daily-profit surfaces use — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   const columns = useMemo<
     ColumnDef<ReturnType<typeof transformDealToTradeWrapper>>[]
   >(() => {
@@ -2348,12 +2352,15 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               {createdDate ? (
                 <div className="flex flex-col">
                   <span className="font-medium">
-                    {createdDate.toLocaleDateString()}
+                    {createdDate.toLocaleDateString(undefined, {
+                      timeZone: accountTimeZone,
+                    })}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {createdDate.toLocaleTimeString([], {
                       hour: '2-digit',
                       minute: '2-digit',
+                      timeZone: accountTimeZone,
                     })}
                   </span>
                 </div>
@@ -2747,11 +2754,16 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           const date = new Date(value);
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{date.toLocaleDateString()}</span>
+              <span className="text-sm">
+                {date.toLocaleDateString(undefined, {
+                  timeZone: accountTimeZone,
+                })}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {date.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: accountTimeZone,
                 })}
               </span>
             </div>
@@ -2772,11 +2784,16 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           const date = new Date(value);
           return (
             <div className="flex flex-col">
-              <span className="text-sm">{date.toLocaleDateString()}</span>
+              <span className="text-sm">
+                {date.toLocaleDateString(undefined, {
+                  timeZone: accountTimeZone,
+                })}
+              </span>
               <span className="text-xs text-muted-foreground">
                 {date.toLocaleTimeString([], {
                   hour: '2-digit',
                   minute: '2-digit',
+                  timeZone: accountTimeZone,
                 })}
               </span>
             </div>
@@ -3099,6 +3116,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     selectedTab,
     handleEdit,
     handleMoveToTerminal,
+    accountTimeZone,
   ]);
 
   const dealsData = useMemo(

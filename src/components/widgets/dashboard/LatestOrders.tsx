@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { GraphQlQuery } from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
@@ -124,6 +125,9 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
   }, [ordersResponse]);
 
   // Memoize columns to prevent infinite renders
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the daily-profit surfaces use — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   const columns = useMemo<ColumnDef<RealOrderData>[]>(
     () => [
       {
@@ -206,8 +210,12 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
         cell: ({ getValue }) => {
           const timestamp = getValue() as number;
           const date = new Date(timestamp);
-          const dateString = date.toLocaleDateString();
-          const timeString = date.toLocaleTimeString();
+          const dateString = date.toLocaleDateString(undefined, {
+            timeZone: accountTimeZone,
+          });
+          const timeString = date.toLocaleTimeString(undefined, {
+            timeZone: accountTimeZone,
+          });
           return (
             <div className="text-sm text-muted-foreground whitespace-nowrap">
               <div>{dateString}</div>
@@ -256,7 +264,7 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
         meta: { filterType: 'string' },
       },
     ],
-    []
+    [accountTimeZone]
   );
 
   // Use all orders - pagination will handle the display

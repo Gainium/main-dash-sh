@@ -211,6 +211,44 @@ export function getTimezoneAwareMidnightISO(
 }
 
 /**
+ * The half-open interval a CALENDAR DAY covers in `timeZone`, as epoch ms —
+ * `{ start: that day's midnight, end: the last millisecond before the next
+ * day's midnight }`.
+ *
+ * `end` is derived from the NEXT day's midnight rather than from 23:59:59.999,
+ * so a day that is 23 or 25 hours long because its zone changed offset is still
+ * exactly one day: the two `01:30`s of a DST-ending day both fall inside it,
+ * and it still ends precisely where the following day begins. `Date.UTC`
+ * normalises `day + 1` across month and year ends, so no boundary is special.
+ *
+ * Returns `null` when the zone cannot be resolved — callers must fall back
+ * rather than treat that as an empty interval, which would silently match
+ * nothing.
+ */
+export function getTzDayBounds(
+  year: number,
+  month: number,
+  day: number,
+  timeZone: string
+): { start: number; end: number } | null {
+  const midnight = (d: number): number => {
+    // The wall clock we want, encoded as if it were UTC…
+    const asUTC = Date.UTC(year, month - 1, d, 0, 0, 0, 0);
+    if (!Number.isFinite(asUTC)) return NaN;
+    // …plus the zone's (negated) offset AT that point, which is what turns it
+    // into the real instant of that wall clock in `timeZone`. Resolved per day
+    // so each side of a DST transition keys off its own offset — the same shape
+    // `getTimezoneAwareMidnightISO` uses.
+    return asUTC + getTimezoneOffsetMs(new Date(asUTC), timeZone);
+  };
+
+  const start = midnight(day);
+  const nextStart = midnight(day + 1);
+  if (!Number.isFinite(start) || !Number.isFinite(nextStart)) return null;
+  return { start, end: nextStart - 1 };
+}
+
+/**
  * Parse one `getProfitByUser` result row's `date` into a Date.
  *
  * The backend encodes the bucket key differently per requested timeframe:

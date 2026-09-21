@@ -1,4 +1,5 @@
 import { type ColumnDef } from '@tanstack/react-table';
+import { AccountDateTimeCell } from '@/components/ui/data-table/AccountDateTimeCell';
 import { Link } from 'react-router-dom';
 import {
   ChevronDown,
@@ -484,7 +485,7 @@ export function buildOrderColumns(
       accessorFn: (r) => new Date(r.created),
       header: 'Creation date',
       meta: { filterType: 'date' },
-      cell: ({ row }) => new Date(row.original.created).toLocaleString(),
+      cell: ({ row }) => <AccountDateTimeCell value={row.original.created} />,
     },
     {
       id: 'actions',
@@ -691,7 +692,7 @@ export function buildPositionColumns(
       accessorFn: (r) => new Date(r.created),
       header: 'Creation date',
       meta: { filterType: 'date' },
-      cell: ({ row }) => new Date(row.original.created).toLocaleString(),
+      cell: ({ row }) => <AccountDateTimeCell value={row.original.created} />,
     },
     {
       id: 'actions',

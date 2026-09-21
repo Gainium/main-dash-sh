@@ -1,4 +1,5 @@
 import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion, type Transition } from 'framer-motion';
 import {
@@ -1035,6 +1036,9 @@ const TradingBots: React.FC = () => {
     return map;
   }, [dcaBots]);
 
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the daily-profit surfaces use — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   // Define columns for the data table
   const columns: ColumnDef<ReturnType<typeof transformDcaBotToBot>>[] = useMemo(
     () => [
@@ -1510,6 +1514,7 @@ const TradingBots: React.FC = () => {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
+            timeZone: accountTimeZone,
           });
         },
       },
@@ -1625,7 +1630,7 @@ const TradingBots: React.FC = () => {
         size: 56,
       },
     ],
-    [botDataMap, privacyMode]
+    [botDataMap, privacyMode, accountTimeZone]
   );
 
   // Apply advanced filtering with archive support
