@@ -1524,7 +1524,7 @@ function ToolbarButtonRow<TData>({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-[150px] max-h-[400px] overflow-y-auto"
+              className="w-auto min-w-[150px] max-w-[min(24rem,calc(100vw-2rem))] max-h-[400px] overflow-y-auto"
             >
               {tableRef.current
                 .getAllColumns()
@@ -1571,7 +1571,7 @@ function ToolbarButtonRow<TData>({
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
-              className="w-[150px] max-h-[400px] overflow-y-auto"
+              className="w-auto min-w-[150px] max-w-[min(24rem,calc(100vw-2rem))] max-h-[400px] overflow-y-auto"
             >
               {tableRef.current
                 .getAllColumns()

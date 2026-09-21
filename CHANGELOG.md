@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.45] - 2026-09-21
+
+### Fixed
+
+- The "Columns" menu on a table toolbar now sizes itself to the column names it
+  lists, instead of sitting at a fixed 150px that cut longer names off mid-word
+  with no ellipsis. Where several columns share a long prefix and differ only
+  at the end — the market screener's price-change columns, which differ only by
+  their trailing timeframe — the truncated rows read as the same string, so
+  there was no way to tell which column a checkbox toggled. Menus whose names
+  already fit are unchanged, and the menu never grows wider than the screen.
+
 ## [2.54.44] - 2026-09-21
 
 ### Fixed
