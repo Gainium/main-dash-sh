@@ -1062,7 +1062,14 @@ const GridBots: React.FC = () => {
           accessorKey: 'status',
           header: 'BOT STATUS',
           meta: {
-            filterType: 'string',
+            // Bot status is a closed enum, so it filters like one. `array` is
+            // the filter type that offers `Is any of` / `Is none of` and the
+            // checkbox multi-select, letting ONE condition select several
+            // statuses. Two separate conditions on a column are ANDed, so
+            // without this a user wanting "open or range" can only build a
+            // filter that matches nothing. Same declaration as the DCA bots
+            // status column, and as EXCHANGE on this page.
+            filterType: 'array',
             description: BOT_METRIC_DESCRIPTIONS.grid.status,
           },
           cell: ({ getValue, row }) => {

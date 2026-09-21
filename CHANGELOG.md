@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.36] - 2026-09-21
+
+### Fixed
+
+- Let the grid bots and combo bots lists filter on several statuses at once.
+  Their status column filtered as free text, so the only way to ask for two
+  statuses was to add two conditions to the column — and conditions on one
+  column are combined with AND, which no single bot can satisfy, so the table
+  came back empty. Status is a closed set of values, and the column now filters
+  like one: `Is any of` selects open and range together as a single condition,
+  matching how the DCA bots list has always behaved.
+
 ## [2.54.35] - 2026-09-21
 
 ### Fixed

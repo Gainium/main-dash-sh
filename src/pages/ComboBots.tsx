@@ -1291,7 +1291,10 @@ const ComboBots: React.FC = () => {
         accessorKey: 'status',
         header: 'STATUS',
         meta: {
-          filterType: 'string',
+          // Closed enum — see the note on the grid bots status column. `array`
+          // is what offers `Is any of`, so several statuses can be selected as
+          // ONE condition instead of several ANDed ones.
+          filterType: 'array',
           description: BOT_METRIC_DESCRIPTIONS.combo.status,
         },
         cell: ({ getValue, row }) => {
