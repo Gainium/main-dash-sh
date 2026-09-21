@@ -1,5 +1,23 @@
 # Changelog
 
+## [2.54.38] - 2026-09-21
+
+### Fixed
+
+- Reject a grid take profit or stop loss price that every price in the grid's
+  own range already satisfies. The two `priceReached` triggers are prices, and
+  which side of the range each belongs on depends on the grid's direction: a
+  long grid takes profit as the price rises and stops out as it falls, a short
+  grid the other way round. Entered the wrong way round — a long grid's take
+  profit at the bottom of its range, say — the trigger is true at every price
+  the bot could trade at, so the bot stops on its first candle without filling
+  a single level. There was nothing to see afterwards: a backtest of such a bot
+  returns no results and no transactions, which reads as a backtest that
+  failed rather than a bot that did exactly what it was configured to do. The
+  form now names the problem while the bot is being set up. A trigger placed
+  inside the range is still allowed — ending early is a legitimate choice, and
+  only the always-true case is refused.
+
 ## [2.54.37] - 2026-09-21
 
 ### Fixed

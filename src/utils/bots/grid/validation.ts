@@ -62,6 +62,7 @@ export const validateGridFormData = ({
     | 'slCondition'
     | 'slLowPrice'
     | 'slPerc'
+    | 'strategy'
     | 'useStartPrice'
     | 'startPrice'
     | 'useOrderInAdvance'
@@ -128,6 +129,48 @@ export const validateGridFormData = ({
         !isPositiveNumber(grid.slLowPrice)))
   ) {
     errors['sl'] = 'Configure stop loss percentage or target price.';
+  }
+
+  // A `priceReached` trigger that every price in the grid range already
+  // satisfies stops the bot on its first candle, before a single level fills.
+  // A backtest of it comes back with no results and no transactions, and a
+  // live bot closes immediately — in both cases with nothing to say why.
+  // A long grid takes profit on the way up and stops out on the way down, so
+  // a take profit at or below the low price, or a stop loss at or above the
+  // top price, is true everywhere inside the range. A short grid runs the
+  // other way round.
+  const rangeTop = parseFloat(String(grid.topPrice));
+  const rangeLow = parseFloat(String(grid.lowPrice));
+  const hasRange =
+    Number.isFinite(rangeTop) && Number.isFinite(rangeLow) && rangeTop > rangeLow;
+  const isShortGrid = grid.strategy === 'SHORT';
+
+  if (
+    hasRange &&
+    grid.tpSl &&
+    grid.tpSlCondition === 'priceReached' &&
+    isPositiveNumber(grid.tpTopPrice)
+  ) {
+    const tp = parseFloat(String(grid.tpTopPrice));
+    if (isShortGrid ? tp >= rangeTop : tp <= rangeLow) {
+      errors['tpSl'] = isShortGrid
+        ? 'Take profit price must be below the top price — a short grid takes profit as the price falls.'
+        : 'Take profit price must be above the low price — a long grid takes profit as the price rises.';
+    }
+  }
+
+  if (
+    hasRange &&
+    grid.sl &&
+    grid.slCondition === 'priceReached' &&
+    isPositiveNumber(grid.slLowPrice)
+  ) {
+    const stop = parseFloat(String(grid.slLowPrice));
+    if (isShortGrid ? stop <= rangeLow : stop >= rangeTop) {
+      errors['sl'] = isShortGrid
+        ? 'Stop loss price must be above the low price — a short grid stops out as the price rises.'
+        : 'Stop loss price must be below the top price — a long grid stops out as the price falls.';
+    }
   }
 
   if (grid.useStartPrice && !isPositiveNumber(grid.startPrice)) {
