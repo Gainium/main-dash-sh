@@ -28,7 +28,7 @@
  * fill. A long deal is checked alongside so the direction split cannot regress
  * the case that already worked.
  */
-import { describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -156,8 +156,22 @@ const makeTrade = (long: boolean) => ({
   entryPrice: 62889.14,
 });
 
+// Warmed in `beforeAll`, NOT inside a test body. The module graph behind
+// TradeCard is large and Vite transforms it lazily on first import, so paying
+// for it inside a test bills the whole cold transform to whichever `it()` runs
+// first — ~17s here, against vitest's 5s default timeout, while the render
+// itself takes ~50ms. That is what made both tests "time out in 5000ms" on a
+// clean checkout. A hook carries its own timeout, so the cost is no longer
+// charged to a test. (Module scope would be simpler, but top-level await is not
+// available at this project's es2020 build target.) The `vi.mock` factories
+// above are hoisted above all imports, so they still apply.
+let TradeCard: unknown;
+
+beforeAll(async () => {
+  ({ TradeCard } = await import('@/components/trades/TradeCard'));
+}, 120_000);
+
 async function renderCard(long: boolean) {
-  const { TradeCard } = await import('@/components/trades/TradeCard');
   ordersForTest = long ? LONG_ORDERS : SHORT_ORDERS;
   captured.rows = null;
 
