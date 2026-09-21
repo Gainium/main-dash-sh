@@ -1,7 +1,7 @@
 import { Check, X } from 'lucide-react';
 import React from 'react';
 
-export const MIN_PASSWORD_LENGTH = 6;
+import { PASSWORD_RULES } from '@/components/auth/passwordRules';
 
 interface PasswordChecklistProps {
   password: string;
@@ -9,36 +9,12 @@ interface PasswordChecklistProps {
   onChange: (isValid: boolean) => void;
 }
 
-interface Rule {
-  label: string;
-  passes: (password: string, confirm: string) => boolean;
-}
-
-const RULES: Rule[] = [
-  {
-    label: `At least ${MIN_PASSWORD_LENGTH} characters`,
-    passes: (p) => p.length >= MIN_PASSWORD_LENGTH,
-  },
-  {
-    label: 'Contains a number',
-    passes: (p) => /\d/.test(p),
-  },
-  {
-    label: 'Contains an uppercase letter',
-    passes: (p) => /[A-Z]/.test(p),
-  },
-  {
-    label: 'Passwords match',
-    passes: (p, c) => p.length > 0 && p === c,
-  },
-];
-
 export const PasswordChecklist: React.FC<PasswordChecklistProps> = ({
   password,
   confirmPassword,
   onChange,
 }) => {
-  const results = RULES.map((r) => ({
+  const results = PASSWORD_RULES.map((r) => ({
     label: r.label,
     ok: r.passes(password, confirmPassword),
   }));

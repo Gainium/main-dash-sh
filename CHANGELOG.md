@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.40] - 2026-09-21
+
+### Fixed
+
+- The password rules shown while signing up or resetting a password now match
+  the ones the server actually applies. The checklist asked for 6 characters
+  and never mentioned a lowercase letter, while the reset endpoint requires 8
+  and the change-password endpoint requires a lowercase letter — so a password
+  such as `Haus12` could tick every rule on screen and still be refused on
+  submit, with nothing on the form to explain why. The checklist is now the
+  strictest of the three: 8 to 200 characters, with an uppercase letter, a
+  lowercase letter and a digit. The case rules stay ASCII-only, matching the
+  server, so an accented capital is not counted as an uppercase letter by one
+  side and rejected by the other.
+
 ## [2.54.39] - 2026-09-21
 
 ### Fixed
