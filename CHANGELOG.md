@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.44] - 2026-09-21
+
+### Fixed
+
+- Settings → Time Zone is now chosen from the list of known time zones instead
+  of typed in. Anything typed was previously saved as-is, and a spelling the
+  app cannot recognise ("Chicago" rather than "America/Chicago") was then
+  quietly ignored: every surface that keys off the account time zone — the
+  overview Profit and Balance figures, table date columns, deal start
+  schedules — fell back to the browser's zone while the field kept showing
+  what had been typed, so there was no way to tell the setting was not in
+  effect. An unrecognised zone that is already stored is now called out on the
+  page, naming the zone actually in use and offering the browser's own as a
+  one-click replacement, and it can no longer be re-saved by changing Week
+  Start alone. A recognised zone that is already stored stays selectable even
+  when it is an alias the bundled list does not spell out.
+
 ## [2.54.43] - 2026-09-21
 
 ### Fixed

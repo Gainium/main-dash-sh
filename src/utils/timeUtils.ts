@@ -1,3 +1,5 @@
+import { timezones } from '@/utils/timezones';
+
 /**
  * Get relative time string from timestamp
  * @param timestamp - Unix timestamp in milliseconds
@@ -103,6 +105,40 @@ export function getValidTimezone(tz?: string | null): string {
   } catch {
     return 'UTC';
   }
+}
+
+/**
+ * True when `tz` is a zone the runtime actually resolves — i.e. the stored
+ * value is the one in effect rather than something `getValidTimezone` quietly
+ * replaced with the browser's zone. An empty/absent value is "never chosen",
+ * not "chosen and wrong", so it is false here too.
+ */
+export function isValidTimezone(tz?: string | null): boolean {
+  return !!tz && getValidTimezone(tz) === tz;
+}
+
+/**
+ * The zone list the account TIME ZONE picker offers.
+ *
+ * The bundled IANA list is the floor, but it is not the whole truth: it omits
+ * aliases and `Etc/*` ids that real accounts hold (`Asia/Kolkata`, `UTC`,
+ * `Europe/Kyiv`, `Etc/GMT±N`, …), and `Intl.supportedValuesOf('timeZone')` is
+ * no better — it returns only what the runtime's own ICU build considers
+ * canonical, so it varies per browser and omits those same ids. So the
+ * account's stored zone is unioned in whenever the runtime accepts it, which
+ * is what stops a closed picker from blanking — or overwriting — a setting
+ * that was already correct. The browser-resolved zone is unioned in too, so
+ * the suggested default is always selectable.
+ */
+export function getTimezoneOptions(stored?: string | null): string[] {
+  const options = new Set<string>(timezones);
+  // The bundled list carries no UTC spelling at all — not `UTC`, not `Etc/UTC`
+  // — and unlike the aliases above nothing in it is equivalent, so without
+  // this a closed picker could not express "UTC" at all.
+  options.add('UTC');
+  options.add(getValidTimezone(null));
+  if (isValidTimezone(stored)) options.add(stored as string);
+  return [...options].sort();
 }
 
 /**

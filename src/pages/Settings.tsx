@@ -30,7 +30,7 @@ import {
   VolumeX,
   X,
 } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
@@ -93,6 +93,11 @@ import {
   useNotificationsSettingsStore,
 } from '../stores/notificationsSettingsStore';
 import { playNotificationSound } from '../utils/soundUtils';
+import {
+  getTimezoneOptions,
+  getValidTimezone,
+  isValidTimezone,
+} from '../utils/timeUtils';
 import { useVisualSettingsStore } from '../stores/visualSettingsStore';
 import { useShortcutStore } from '../stores/shortcutStore';
 import { useUIStore } from '../stores/uiStore';
@@ -449,6 +454,22 @@ const Settings: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [invoiceAddress, setInvoiceAddress] = useState('');
 
+  // The account TIME ZONE is the platform's canonical per-user day boundary,
+  // so a value the runtime cannot resolve does not fail loudly — every surface
+  // that reads it falls through `getValidTimezone` to the BROWSER's zone and
+  // the user is silently ignored. Offer a closed list so such a value cannot
+  // be entered, and say so when one is already stored.
+  const browserTimezone = getValidTimezone(null);
+  const timezoneOptions = useMemo(
+    () => getTimezoneOptions(user?.timezone),
+    [user?.timezone]
+  );
+  const storedTimezoneRejected =
+    !!user?.timezone && !isValidTimezone(user.timezone);
+  // A rejected value matches no option, so the picker reads as unset while
+  // `timezone` still holds the original string until a choice is made.
+  const selectedTimezone = isValidTimezone(timezone) ? timezone : '';
+
   // Initialize invoice address from local settings
   useEffect(() => {
     setInvoiceAddress(localSettings.invoiceAddress || '');
@@ -545,6 +566,14 @@ const Settings: React.FC = () => {
   };
 
   const handleTimezoneSubmit = () => {
+    // An account that already stores a rejected zone can reach this from a
+    // WEEK START-only edit — saving then re-persists the rejected value and it
+    // stays invisible. Make it the one thing that has to be fixed first. An
+    // empty zone is "never chosen" and keeps saving as before.
+    if (timezone && !isValidTimezone(timezone)) {
+      toast.error('Pick a time zone from the list before saving');
+      return;
+    }
     if (timezone !== user?.timezone || weekStart !== user?.weekStart) {
       updateTimezone({ timezone, weekStart });
       logger.info('Timezone settings updated successfully');
@@ -771,14 +800,39 @@ const Settings: React.FC = () => {
                   >
                     TIME ZONE
                   </Label>
-                  <Input
-                    id="timezone"
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    className="mt-1"
+                  <Select
+                    value={selectedTimezone}
+                    onValueChange={(v) => setTimezone(v)}
                     disabled={isLoading}
-                    placeholder="e.g., Asia/Bangkok"
-                  />
+                  >
+                    <SelectTrigger id="timezone" className="mt-1 w-full">
+                      <SelectValue placeholder="Select a time zone" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {timezoneOptions.map((tz) => (
+                        <SelectItem key={tz} value={tz}>
+                          {tz}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {/* Only while nothing valid is picked — once it is, the
+                      field shows the replacement and repeating the warning
+                      reads as if the new choice were the rejected one. */}
+                  {storedTimezoneRejected && !selectedTimezone && (
+                    <p className="text-xs text-warning mt-1">
+                      &quot;{user?.timezone}&quot; is not a time zone we can
+                      use, so Gainium is using {browserTimezone} instead.{' '}
+                      <button
+                        type="button"
+                        className="underline underline-offset-2"
+                        onClick={() => setTimezone(browserTimezone)}
+                      >
+                        Use {browserTimezone}
+                      </button>
+                      , or pick one above.
+                    </p>
+                  )}
                 </div>
 
                 <div>
