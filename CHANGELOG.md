@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.47] - 2026-09-21
+
+### Fixed
+
+- The dashboard profit charts now name each day in the account's time zone
+  rather than the browser's. Daily profit is bucketed by the account's calendar
+  day, but the axis labels and tooltips were rendered in whatever zone the
+  browser was in, so on a browser west of UTC every bar carried its day's
+  profit under the previous day's name and disagreed with the Deals list
+  filtered for that date. The 30-day window is now built from account calendar
+  days too, so a day can no longer drop out of it when that zone changes
+  offset. The same correction applies to the Accumulated profit widget — which
+  additionally requested its series in UTC regardless of the account setting,
+  drawing different day boundaries than the Profit widget beside it — and to
+  the daily chart in the bot drawer, whose buckets were keyed by UTC day while
+  its slots were named in the browser's.
+
 ## [2.54.46] - 2026-09-21
 
 ### Fixed

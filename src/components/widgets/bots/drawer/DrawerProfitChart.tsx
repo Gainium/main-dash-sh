@@ -1,4 +1,6 @@
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
+import { getTzDateKey, getTzDayBounds } from '@/utils/timeUtils';
 import { BarChart3 } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import {
@@ -48,6 +50,13 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
   botId,
   bot,
 }) => {
+  // The account's day boundary — the same one the dashboard Profit widget and
+  // the Deals table use. The daily series below used to key its buckets by UTC
+  // day and then name the slots in the BROWSER's day, so the two disagreed
+  // whenever the browser's time-of-day sat on the other side of UTC midnight
+  // and every deal appeared one slot off.
+  const userTimezone = useAccountTimeZone();
+
   // State for filters
   const [timeFilter, setTimeFilter] = useState('Daily');
   const [selectedExchanges, setSelectedExchanges] = useState(['ALL']);
@@ -131,16 +140,21 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
     let avgDaily = 0;
 
     if (timeFilter === 'Daily') {
-      // Calculate daily profits
+      // Calculate daily profits, bucketed by the deal's day in the ACCOUNT's
+      // timezone — one convention for the keys, the window and the labels.
       const dailyProfits = new Map<string, number>();
       completedDeals.forEach((deal) => {
-        const date = new Date(deal.createTime).toISOString().split('T')[0];
-        const current = dailyProfits.get(date) || 0;
-        dailyProfits.set(date, current + (deal.profit?.totalUsd || 0));
+        const dayKey = getTzDateKey(new Date(deal.createTime), userTimezone);
+        if (!dayKey) return;
+        const current = dailyProfits.get(dayKey) || 0;
+        dailyProfits.set(dayKey, current + (deal.profit?.totalUsd || 0));
       });
 
-      // Get last 30 days
-      const todayDate = new Date();
+      // Get last 30 account-timezone calendar days
+      const todayKey =
+        getTzDateKey(new Date(), userTimezone) ||
+        new Date().toISOString().slice(0, 10);
+      const [todayYear, todayMonth, todayDay] = todayKey.split('-').map(Number);
       const chartDataArray: Array<{
         date: string;
         value: number;
@@ -150,9 +164,20 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       }> = [];
       let runningTotal = 0;
       for (let i = 29; i >= 0; i--) {
-        const date = new Date(todayDate);
-        date.setDate(todayDate.getDate() - i);
-        const dateString = date.toISOString().split('T')[0];
+        // `Date.UTC` normalises the subtraction across month and year ends.
+        const dayUTC = new Date(
+          Date.UTC(todayYear, todayMonth - 1, todayDay - i)
+        );
+        if (!Number.isFinite(dayUTC.getTime())) continue;
+        const dateString = dayUTC.toISOString().slice(0, 10);
+        const bounds = getTzDayBounds(
+          todayYear,
+          todayMonth,
+          todayDay - i,
+          userTimezone
+        );
+        // That day's own midnight instant, so the tooltip resolves back to it.
+        const slot = bounds ? new Date(bounds.start) : dayUTC;
         const profitValue = dailyProfits.get(dateString) || 0;
         runningTotal += profitValue;
 
@@ -161,14 +186,17 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           : undefined;
 
         chartDataArray.push({
-          date: date.toLocaleDateString('en-US', {
+          date: slot.toLocaleDateString('en-US', {
+            timeZone: userTimezone,
             month: 'short',
             day: 'numeric',
           }),
           value: runningTotal,
           ...(buyAndHoldValue !== undefined && { buyAndHoldValue }),
-          fullDate: date.toISOString(),
-          label: date.toLocaleDateString(),
+          fullDate: slot.toISOString(),
+          label: slot.toLocaleDateString(undefined, {
+            timeZone: userTimezone,
+          }),
         });
       }
       chartData = chartDataArray;
@@ -354,7 +382,31 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       // value, so the axis is keyed on the row index — see `withAxisIndex`.
       chartData: withAxisIndex(chartData),
     };
-  }, [botDeals, bot, timeFilter, showBuyAndHold]);
+  }, [botDeals, bot, timeFilter, showBuyAndHold, userTimezone]);
+
+  // The shared tooltip's default date line re-derives the day from the row's
+  // `fullDate` with a bare `toLocaleDateString`, which puts the BROWSER's zone
+  // back on a daily slot that was just resolved in the account's. Name it in
+  // the account's zone instead, keeping the default's exact wording. The axis
+  // is keyed on the row index (see `withAxisIndex`), so that index is what
+  // arrives here. Other timeframes keep the default: their points are built
+  // from browser-local dates, so a zone argument would move them.
+  const tooltipLabel = useMemo(() => {
+    if (timeFilter !== 'Daily') return undefined;
+    const rows = currentProfitData.chartData;
+    return (axisValue: unknown): React.ReactNode => {
+      const row = rows[Number(axisValue)];
+      const date = row ? new Date(row.fullDate) : new Date(NaN);
+      if (Number.isNaN(date.getTime())) return row?.label ?? '';
+      return date.toLocaleDateString('en-US', {
+        timeZone: userTimezone,
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+  }, [timeFilter, currentProfitData.chartData, userTimezone]);
 
   // Create stats data array for the WidgetStats component
   const createStatsData = () => {
@@ -554,7 +606,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                   tickFormatter={(value) => `$${value}`}
                   width={40}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={false} />
+                <Tooltip
+                  content={<CustomTooltip labelFormatter={tooltipLabel} />}
+                  cursor={false}
+                />
                 <Bar
                   isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]}>
                   {currentProfitData.chartData.map((entry, index) => (

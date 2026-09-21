@@ -201,6 +201,37 @@ export function getTimezoneOffsetMs(date: Date, timeZone: string): number {
 }
 
 /**
+ * `date`'s CALENDAR DAY in `timeZone`, as `YYYY-MM-DD`.
+ *
+ * This is the app's day key: two instants belong to the same day when this
+ * returns the same string for both. Comparing calendar days rather than exact
+ * midnight instants is what keeps the daily profit buckets matching across a
+ * DST transition — the backend keys them by the zone's STANDARD-offset
+ * midnight and does not apply DST, so in summer its instant for a zone is an
+ * hour off a DST-aware midnight and an instant-equality match finds nothing.
+ *
+ * Returns `''` for an invalid date or a zone the runtime cannot format, so it
+ * never throws: `Intl.DateTimeFormat.prototype.format` throws
+ * "Invalid time value" on an Invalid Date (unlike `toLocaleDateString`, which
+ * returns the string "Invalid Date"), and one such row used to take the whole
+ * widget down with it. Callers treat `''` as "no day for this instant".
+ */
+export function getTzDateKey(date: Date, timeZone: string): string {
+  if (!Number.isFinite(date.getTime())) return '';
+  try {
+    // en-CA renders ISO-ordered `YYYY-MM-DD`, which sorts lexicographically.
+    return new Intl.DateTimeFormat('en-CA', {
+      timeZone,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(date);
+  } catch {
+    return '';
+  }
+}
+
+/**
  * The instant of `date`'s calendar-day midnight in `timeZone`, as an ISO
  * string — the key shape `getProfitByUser` returns for daily rows (Europe/Kyiv
  * midnight Jan 15 → `"2024-01-14T22:00:00.000Z"`).
@@ -220,20 +251,11 @@ export function getTimezoneAwareMidnightISO(
 ): string {
   if (!Number.isFinite(date.getTime())) return '';
 
-  let midnightUTC: Date;
-  try {
-    // e.g. "2024-01-15"
-    const dateInTZ = new Intl.DateTimeFormat('en-CA', {
-      timeZone,
-      year: 'numeric',
-      month: '2-digit',
-      day: '2-digit',
-    }).format(date);
-    const [year, month, day] = dateInTZ.split('-').map(Number);
-    midnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
-  } catch {
-    return '';
-  }
+  // e.g. "2024-01-15"
+  const dateInTZ = getTzDateKey(date, timeZone);
+  if (!dateInTZ) return '';
+  const [year, month, day] = dateInTZ.split('-').map(Number);
+  const midnightUTC = new Date(Date.UTC(year, month - 1, day, 0, 0, 0, 0));
   if (!Number.isFinite(midnightUTC.getTime())) return '';
 
   // Resolve the offset AT that midnight, not at `date`, so a day that straddles

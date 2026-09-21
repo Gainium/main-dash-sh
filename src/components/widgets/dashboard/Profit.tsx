@@ -1,9 +1,7 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useNowTick } from '@/hooks/useNowTick';
-import {
-  getTimezoneAwareMidnightISO,
-  getValidTimezone,
-} from '@/utils/timeUtils';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
+import { getTzDateKey, getTzDayBounds } from '@/utils/timeUtils';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
 import logger from '@/lib/loggerInstance';
@@ -26,7 +24,6 @@ import {
   useWidgetSettings,
   type ProfitWidgetSettings,
 } from '../../../hooks/useWidgetSettings';
-import { useAuthStore } from '../../../stores/authStore';
 import { useUIStore } from '../../../stores/uiStore';
 import CustomTooltip from '../../charts/CustomTooltip';
 import WidgetWrapper from '../WidgetWrapper';
@@ -89,12 +86,11 @@ export const Profit: React.FC<ProfitProps> = ({
   // Get privacy mode state
   const privacyMode = useUIStore((s) => s.privacyMode);
 
-  // Get user timezone
-  const user = useAuthStore((s) => s.user);
-  // Stored timezone is free-text and may be an invalid IANA id (e.g. the
-  // localized "Europa/Roma"), which makes getProfitByUser return NOTOK and
-  // Intl throw — blanking this widget. Sanitize to a valid zone.
-  const userTimezone = getValidTimezone(user?.timezone);
+  // The account's day boundary — the platform's one answer to "which day is
+  // this instant?", shared with the Deals table and the other profit surfaces.
+  // It also sanitizes a free-text stored zone (the localized "Europa/Roma"),
+  // which otherwise makes getProfitByUser return NOTOK and Intl throw.
+  const userTimezone = useAccountTimeZone();
 
   // Persisted settings for this widget instance
   const [timeFilter, setTimeFilter] = usePersistedState('timeFilter', 'Daily');
@@ -157,18 +153,9 @@ export const Profit: React.FC<ProfitProps> = ({
     // (which is 22:00 on Jan 14 in UTC, representing midnight Jan 15 in Kyiv)
     // We need to generate keys that match this format.
 
-    // Calendar date (YYYY-MM-DD) in the user's timezone. The backend keys daily
-    // rows by the timezone's STANDARD-offset midnight and does NOT apply DST, so
-    // in summer its instants (e.g. Europe/Rome "…T23:00:00Z") never match a
-    // DST-aware midnight (`…T22:00:00Z`). Matching on the calendar day instead of
-    // an exact ISO instant stays correct across DST in both directions.
-    const toTzDateKey = (date: Date): string =>
-      new Intl.DateTimeFormat('en-CA', {
-        timeZone: userTimezone,
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit',
-      }).format(date);
+    // Calendar date (YYYY-MM-DD) in the user's timezone — see `getTzDateKey`
+    // for why the match is on the calendar day rather than the exact instant.
+    const toTzDateKey = (date: Date): string => getTzDateKey(date, userTimezone);
 
     // If no data or error, return fallback data
     if (!response || response.status !== 'OK' || !response.data?.result) {
@@ -279,15 +266,44 @@ export const Profit: React.FC<ProfitProps> = ({
       const timeSeries: Array<{ date: string | number; value: number }> = [];
 
       if (timeframe === 0) {
-        // Daily: Generate last 30 days
+        // Daily: the last 30 CALENDAR DAYS OF THE ACCOUNT'S TIMEZONE — which is
+        // the boundary the backend bucketed by, and the one the Deals table
+        // filters on. Walking browser-local days instead was only accidentally
+        // equivalent: across a DST change in the ACCOUNT's zone the two
+        // calendars disagree on how many days apart two same-wall-clock
+        // instants are, and a day silently dropped out of the window.
+        // `userTimezone` is already sanitized by `getValidTimezone`, so the key
+        // is only ever empty for an unusable clock; fall back to the instant's
+        // own UTC day rather than rendering an empty chart.
+        const [todayYear, todayMonth, todayDay] = (
+          toTzDateKey(today) ||
+          new Date(Number.isFinite(today.getTime()) ? today.getTime() : Date.now())
+            .toISOString()
+            .slice(0, 10)
+        )
+          .split('-')
+          .map(Number);
         for (let i = 29; i >= 0; i--) {
-          const date = new Date(today);
-          date.setDate(today.getDate() - i);
-          // Display key stays the tz-aware midnight ISO; the data lookup uses the
-          // tz calendar day so it matches the backend's non-DST daily instants.
-          const dateString = getTimezoneAwareMidnightISO(date, userTimezone);
-          const value = dataMap.get(toTzDateKey(date)) || 0;
-          timeSeries.push({ date: dateString, value });
+          // `Date.UTC` normalises a negative/overflowing day across month and
+          // year ends, so no boundary is special.
+          const dayUTC = new Date(
+            Date.UTC(todayYear, todayMonth - 1, todayDay - i)
+          );
+          if (!Number.isFinite(dayUTC.getTime())) continue;
+          // The lookup key is the account-tz calendar day; the display key
+          // stays that day's tz-aware midnight instant, so the axis label and
+          // the tooltip both resolve back to this same day.
+          const key = dayUTC.toISOString().slice(0, 10);
+          const bounds = getTzDayBounds(
+            todayYear,
+            todayMonth,
+            todayDay - i,
+            userTimezone
+          );
+          const dateString = (
+            bounds ? new Date(bounds.start) : dayUTC
+          ).toISOString();
+          timeSeries.push({ date: dateString, value: dataMap.get(key) || 0 });
         }
       } else if (timeframe === 1) {
         // Weekly: legacy behavior, from first available week up to next week
@@ -461,12 +477,17 @@ export const Profit: React.FC<ProfitProps> = ({
       let fullDateForTooltip: string;
 
       if (timeframe === 0) {
-        // Daily format
+        // Daily format. `date` is an INSTANT (the account tz's midnight), so it
+        // has to be named in that same zone — without `timeZone` the browser's
+        // own zone decides, and west of UTC every bar took the previous day's
+        // name while still carrying its own day's profit.
         shortDate = date.toLocaleDateString('en-US', {
+          timeZone: userTimezone,
           month: 'short',
           day: 'numeric',
         });
         label = date.toLocaleDateString('en-US', {
+          timeZone: userTimezone,
           weekday: 'short',
           month: 'short',
           day: 'numeric',
@@ -567,6 +588,32 @@ export const Profit: React.FC<ProfitProps> = ({
     () => processGraphQLData(profitResponse),
     [processGraphQLData, profitResponse]
   );
+
+  // The shared tooltip's default date line re-derives the day from the row's
+  // `fullDate` with a bare `toLocaleDateString`, i.e. in the BROWSER's zone —
+  // the same off-by-one the axis had, and it wins over whatever the row's own
+  // `label` says. Name the daily instant in the account's zone instead, keeping
+  // the default's exact wording so only the zone moves. Other timeframes fall
+  // through to the default: their buckets are decoded into browser-local dates
+  // by `parseDate`, so a zone argument there would move them a month.
+  const tooltipLabelFormatter = useMemo(() => {
+    if (timeframe !== 0) return undefined;
+    const isoByAxisValue = new Map(
+      realProfitData.chartData.map((row) => [row.date, row.fullDate])
+    );
+    return (axisValue: unknown): React.ReactNode => {
+      const iso = isoByAxisValue.get(String(axisValue));
+      const date = iso ? new Date(iso) : new Date(NaN);
+      if (Number.isNaN(date.getTime())) return String(axisValue ?? '');
+      return date.toLocaleDateString('en-US', {
+        timeZone: userTimezone,
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+  }, [timeframe, realProfitData.chartData, userTimezone]);
 
   // Update timeframe when time filter changes
   useEffect(() => {
@@ -801,6 +848,7 @@ export const Profit: React.FC<ProfitProps> = ({
               <Tooltip
                 content={
                   <CustomTooltip
+                    labelFormatter={tooltipLabelFormatter}
                     valueFormatter={
                       privacyMode ? () => ['***', ''] as const : undefined
                     }
@@ -850,6 +898,7 @@ export const Profit: React.FC<ProfitProps> = ({
       privacyMode,
       timeFilter,
       setTimeFilter,
+      tooltipLabelFormatter,
       widgetId,
     ]
   );

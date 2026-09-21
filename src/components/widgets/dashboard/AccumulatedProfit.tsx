@@ -1,6 +1,7 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { parseProfitBucketDate } from '@/utils/timeUtils';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -67,6 +68,9 @@ const WINDOW_DAYS_BY_FILTER: Record<string, number | null> = {
   All: null,
 };
 
+/** Timeframe 0 is the only one whose bucket key is a real instant. */
+const DAILY_TIMEFRAME = 0;
+
 /** Timeframe 3 is the all-time aggregate: a single row summing every deal. */
 const TOTAL_TIMEFRAME = 3;
 
@@ -105,6 +109,13 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   // Get privacy mode state
   const privacyMode = useUIStore((s) => s.privacyMode);
 
+  // The day boundary every other profit surface uses — the Profit widget next
+  // to this one on the same dashboard, and the Deals table's date filter. This
+  // widget used to pin the request to UTC and then name the buckets in the
+  // BROWSER's zone, so on a non-UTC account it drew different days than its
+  // neighbour, and west of UTC every point was labelled with the previous day.
+  const userTimezone = useAccountTimeZone();
+
   // Persisted settings for this widget instance
   const [timeFilter, setTimeFilter] = usePersistedState('timeFilter', '30D');
   const [customName, setCustomName] = usePersistedState('customName', '');
@@ -121,10 +132,10 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   const accumulatedProfitQuery = useMemo(
     () =>
       GraphQlQuery.getProfitByUser({
-        timezone: 'UTC',
+        timezone: userTimezone,
         timeframe,
       }),
-    [timeframe]
+    [timeframe, userTimezone]
   );
 
   // Use the same GraphQL approach as the Profit widget
@@ -230,18 +241,28 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
     const periodStart = hasBaseline ? rawPeriodStart : 0;
     const changePercent = hasBaseline ? (change / rawPeriodStart) * 100 : null;
 
+    const bucketZone =
+      timeframe === DAILY_TIMEFRAME ? { timeZone: userTimezone } : {};
+
     let accumulated = periodStart;
     const chartData = buckets.map((bucket) => {
       accumulated += bucket.profit;
       return {
         date: bucket.date.toISOString(),
         value: accumulated,
+        // Daily buckets are INSTANTS (the account zone's midnight), so they are
+        // named in that zone. Weekly/monthly/total keys decode to browser-local
+        // dates in `parseProfitBucketDate`, and naming those in a far-away zone
+        // would move them to the neighbouring week/month — so zone them only
+        // for the daily timeframe.
         label: bucket.date.toLocaleDateString('en-US', {
+          ...bucketZone,
           month: 'short',
           day: 'numeric',
         }),
         dailyProfit: bucket.profit,
         fullDate: bucket.date.toLocaleDateString('en-US', {
+          ...bucketZone,
           weekday: 'short',
           month: 'long',
           day: 'numeric',
