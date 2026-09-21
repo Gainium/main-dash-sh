@@ -52,6 +52,61 @@ function equalsAny(strings: string[], search: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Date helpers
+// ---------------------------------------------------------------------------
+
+/** What `<input type="date">` emits — a calendar day, never an instant. */
+const DATE_ONLY = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+/**
+ * The interval a date filter value denotes.
+ *
+ * Every date operator's input is an `<input type="date">`, so its value is a
+ * DAY (`YYYY-MM-DD`) while the cell it is compared against holds a full
+ * timestamp. Comparing the two as instants is what makes `=` match nothing:
+ * no row's `closeTime` is exactly `2026-09-20T00:00:00`. A day therefore
+ * resolves to the whole interval it covers.
+ *
+ * LOCAL, not UTC: the column renders the timestamp with
+ * `toLocaleDateString()`, so the day the user reads in the cell — and picks
+ * in the filter — is the local one. `new Date('2026-09-20')` would instead
+ * parse to UTC midnight, which is a different (and invisible) boundary.
+ *
+ * Anything that is not a bare day keeps today's meaning: the single instant
+ * it parses to, so a filter restored from an older saved preference or link
+ * behaves exactly as before.
+ */
+function dayBounds(value: unknown): { start: number; end: number } | null {
+  const match = DATE_ONLY.exec(String(value ?? ''));
+  if (!match) {
+    const instant = new Date(value as string).getTime();
+    return Number.isNaN(instant) ? null : { start: instant, end: instant };
+  }
+  const [, year, month, day] = match.map(Number);
+  return {
+    start: new Date(year, month - 1, day, 0, 0, 0, 0).getTime(),
+    end: new Date(year, month - 1, day, 23, 59, 59, 999).getTime(),
+  };
+}
+
+/**
+ * A row's date cell as epoch ms. Date columns reach here in three shapes —
+ * an ISO string (`dcaDealToOpenTrade`), epoch ms (the `Update Time`
+ * accessor) and a `Date` (the terminal's order columns). A cell with no date
+ * is `null`, which no date operator matches: an unfinished deal has no close
+ * time, so it is neither on, before nor after the selected day.
+ */
+function cellTime(cellValue: unknown): number | null {
+  if (cellValue === null || cellValue === undefined || cellValue === '')
+    return null;
+  const time =
+    cellValue instanceof Date
+      ? cellValue.getTime()
+      : new Date(cellValue as string | number).getTime();
+  return Number.isNaN(time) ? null : time;
+}
+
+// ---------------------------------------------------------------------------
 // Core operator matching
 // ---------------------------------------------------------------------------
 
@@ -61,13 +116,19 @@ function equalsAny(strings: string[], search: string): boolean {
  * When `searchableStrings` is provided (from `meta.getFilterValue`), string-
  * based operators match against ANY of the provided strings (OR logic).
  * Numeric / date operators always use `cellValue` directly.
+ *
+ * `filterType` is the column's declared `meta.filterType`. It is only needed
+ * to tell a DATE column's `equals` / `between` apart from the string and
+ * number operator sets, which share those two operator ids; the remaining
+ * date operators exist in no other set.
  */
 function applyOperator(
   cellValue: unknown,
   operator: string,
   value: unknown,
   searchableStrings?: string[] | null,
-  optionStrings?: string[] | null
+  optionStrings?: string[] | null,
+  filterType?: string | null
 ): boolean {
   const strings = searchableStrings || [String(cellValue ?? '')];
 
@@ -77,6 +138,21 @@ function applyOperator(
       return includesAny(strings, String(value));
 
     case 'equals':
+      // On a date column `=` means "anywhere inside the selected day".
+      // Without this the generic branches below compare a full timestamp
+      // against a bare `YYYY-MM-DD` — never equal as a string, and `NaN`
+      // once an epoch-ms accessor sends it through `Number()` — so the
+      // operator matched no row at all.
+      if (filterType === 'date') {
+        const bounds = dayBounds(value);
+        const time = cellTime(cellValue);
+        return (
+          bounds !== null &&
+          time !== null &&
+          time >= bounds.start &&
+          time <= bounds.end
+        );
+      }
       if (searchableStrings) return equalsAny(strings, String(value));
       if (typeof cellValue === 'number' && typeof value === 'string')
         return cellValue === Number(value);
@@ -105,6 +181,22 @@ function applyOperator(
 
     case 'between':
       if (Array.isArray(value) && value.length === 2) {
+        if (filterType === 'date') {
+          // Each side is a DAY, so the range runs from the start of the
+          // first to the END of the last — otherwise picking the same day
+          // twice spans a zero-width instant and returns nothing. A side
+          // left blank is unbounded, the same open-ended behaviour the
+          // numeric range below has, so a half-typed range doesn't empty
+          // the table.
+          const time = cellTime(cellValue);
+          if (time === null) return false;
+          const from = value[0] === '' ? null : dayBounds(value[0]);
+          const to = value[1] === '' ? null : dayBounds(value[1]);
+          return (
+            (from === null || time >= from.start) &&
+            (to === null || time <= to.end)
+          );
+        }
         if (typeof value[0] === 'number' || typeof value[1] === 'number') {
           const numValue = Number(cellValue);
           const min = value[0] !== '' ? Number(value[0]) : -Infinity;
@@ -120,14 +212,22 @@ function applyOperator(
       return true;
 
     // -- Date operators --
+    //
+    // All four bound the SELECTED DAY rather than its midnight. Against the
+    // instant, `>` still returned every row later that same day (making it
+    // indistinguishable from `≥`) and `≤` dropped the selected day entirely.
     case 'after':
-      return new Date(cellValue as string) > new Date(value as string);
     case 'before':
-      return new Date(cellValue as string) < new Date(value as string);
     case 'onOrAfter':
-      return new Date(cellValue as string) >= new Date(value as string);
-    case 'onOrBefore':
-      return new Date(cellValue as string) <= new Date(value as string);
+    case 'onOrBefore': {
+      const bounds = dayBounds(value);
+      const time = cellTime(cellValue);
+      if (bounds === null || time === null) return false;
+      if (operator === 'after') return time > bounds.end;
+      if (operator === 'before') return time < bounds.start;
+      if (operator === 'onOrAfter') return time >= bounds.start;
+      return time <= bounds.end;
+    }
 
     // -- Array / multi-select operators --
     //
@@ -201,7 +301,8 @@ function matchesSingleFilter(
   cellValue: unknown,
   singleFilter: unknown,
   searchableStrings?: string[] | null,
-  optionStrings?: string[] | null
+  optionStrings?: string[] | null,
+  filterType?: string | null
 ): boolean {
   // Legacy plain-string filter
   if (typeof singleFilter === 'string') {
@@ -233,7 +334,8 @@ function matchesSingleFilter(
       operator,
       value,
       searchableStrings,
-      optionStrings
+      optionStrings,
+      filterType
     );
   }
 
@@ -320,6 +422,10 @@ export function createEnhancedColumnFilter(
   const getOptionValueFn = meta?.['getOptionValue'] as
     | ((original: unknown) => string | string[])
     | undefined;
+  // The same declaration `filter-components` picks the operator set from, so
+  // a date column's `equals` / `between` are matched as the date operators
+  // the user was offered rather than as their string / number namesakes.
+  const filterType = meta?.['filterType'] as string | undefined;
 
   return (
     row: { getValue: (columnId: string) => unknown; original?: unknown },
@@ -338,7 +444,13 @@ export function createEnhancedColumnFilter(
     // Array of filter conditions → AND logic
     if (Array.isArray(filterValue)) {
       return filterValue.every((f) =>
-        matchesSingleFilter(cellValue, f, searchableStrings, optionStrings)
+        matchesSingleFilter(
+          cellValue,
+          f,
+          searchableStrings,
+          optionStrings,
+          filterType
+        )
       );
     }
 
@@ -355,7 +467,8 @@ export function createEnhancedColumnFilter(
       cellValue,
       filterValue,
       searchableStrings,
-      optionStrings
+      optionStrings,
+      filterType
     );
   };
 }

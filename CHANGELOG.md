@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.54.39] - 2026-09-21
+
+### Fixed
+
+- Filter a date column by a single day and get that day. The date filters take
+  their value from a date picker, so what is chosen is always a calendar day,
+  never a moment within it — but each operator compared the row's full
+  timestamp against midnight of that day. `=` could therefore match nothing at
+  all: no deal closes at exactly midnight, so picking a day on Close Time
+  emptied the table. The rest of the set was skewed the same way — `≤ a day`
+  dropped that whole day, `> a day` still returned rows from it (leaving it
+  indistinguishable from `≥`), and a range of one day against itself spanned a
+  zero-width instant and returned nothing. Every date operator now bounds the
+  day as the column displays it: `=` anywhere inside it, `>` past its end, `<`
+  before its start, `≥` from its start, `≤` to its end, and a range from the
+  start of its first day to the end of its last. A range with one side still
+  blank stays open-ended instead of emptying the table while it is being typed,
+  and a row with no date is no longer returned by `<`.
+
 ## [2.54.38] - 2026-09-21
 
 ### Fixed
