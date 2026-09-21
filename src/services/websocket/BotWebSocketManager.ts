@@ -23,6 +23,8 @@ export type WebSocketEventType =
   | 'chat msg out'
   | 'chat error'
   | 'chat message update'
+  | 'permission error'
+  | 'permission success'
   | 'credit-update'
   | 'connect'
   | 'disconnect';
@@ -108,6 +110,9 @@ export interface ChatMessage {
   toolArgs?: string;
   permissionId?: string;
   permissionMessage?: string;
+  /** Epoch ms after which the backend stops waiting for an answer to this
+   *  confirmation. */
+  permissionExpiresAt?: number;
   toolParameters?: Record<string, unknown>;
 }
 
@@ -373,6 +378,26 @@ export class BotWebSocketManager {
         });
       }
     );
+
+    // The server's verdict on an answered confirmation card. Without these
+    // the client could not tell an accepted approval from one the backend
+    // discarded — a click that landed after the confirmation window closed
+    // left the card reading "approved" while nothing ran.
+    this.socket.on('permission error', (msg: { reason?: string }) => {
+      this.emitToSubscribers({
+        type: 'permission error',
+        data: (msg ?? {}) as Record<string, unknown>,
+        timestamp: Date.now(),
+      });
+    });
+
+    this.socket.on('permission success', (msg: { reason?: string }) => {
+      this.emitToSubscribers({
+        type: 'permission success',
+        data: (msg ?? {}) as Record<string, unknown>,
+        timestamp: Date.now(),
+      });
+    });
 
     this.socket.on(
       'credit-update',

@@ -397,6 +397,9 @@ const Socket: React.FC = () => {
             ...(msg.permissionMessage !== undefined && {
               permissionMessage: msg.permissionMessage,
             }),
+            ...(msg.permissionExpiresAt !== undefined && {
+              permissionExpiresAt: msg.permissionExpiresAt,
+            }),
             ...(msg.toolParameters !== undefined && {
               toolParameters: msg.toolParameters,
             }),
