@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.42] - 2026-09-21
+
+### Fixed
+
+- Coin icons no longer stretch into ovals when a row's text needs more room
+  than the column gives it. The icon was a flex item that was allowed to
+  shrink, so its width was compressed while its height stayed fixed; it now
+  holds its size. Larger-than-default browser font sizes made this obvious,
+  because the icon scales with the root font size while the column width does
+  not.
+
 ## [2.54.41] - 2026-09-21
 
 ### Fixed

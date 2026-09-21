@@ -342,7 +342,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
   if (!symbol) {
     return (
       <div
-        className={`${sizeClass} rounded-full overflow-hidden flex items-center justify-center ${
+        className={`${sizeClass} shrink-0 rounded-full overflow-hidden flex items-center justify-center ${
           isQuote ? 'relative z-0' : 'relative z-10'
         } ${className} relative bg-muted`}
       >
@@ -353,7 +353,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
 
   return (
     <div
-      className={`${sizeClass} rounded-full overflow-hidden flex items-center justify-center ${
+      className={`${sizeClass} shrink-0 rounded-full overflow-hidden flex items-center justify-center ${
         isQuote ? 'relative z-0' : 'relative z-10'
       } ${className} relative ${imageSrc ? 'bg-background' : 'bg-muted'}`}
       style={{
