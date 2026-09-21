@@ -49,7 +49,7 @@ export const useBasicSettingsTab = (
   const { pairsByExchange, isLoading: tradingPairsLoading } =
     useTradingPairsFromContext();
 
-  const { pairMetadata } = useBotFormQuery();
+  const { pairMetadata, hasStoredPair } = useBotFormQuery();
   const { userProfile } = useUserProfile();
 
   const pairMetadataStringRef = useRef<string>('');
@@ -219,8 +219,9 @@ export const useBasicSettingsTab = (
         externallyLocked: isFieldLocked?.('pair'),
         mode,
         useMulti: Boolean(useMulti),
+        hasStoredPair,
       }),
-    [useMulti, isFieldLocked, mode]
+    [useMulti, isFieldLocked, mode, hasStoredPair]
   );
 
   const isExchangeLocked = useMemo(() => !!id, [id]);

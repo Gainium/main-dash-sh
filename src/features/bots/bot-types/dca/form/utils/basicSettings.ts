@@ -173,6 +173,14 @@ export interface ResolvePairsLockStateInput {
   externallyLocked: boolean | null | undefined;
   mode: BotFormMode;
   useMulti: boolean;
+  /**
+   * Whether the SAVED bot still carries at least one pair.
+   *
+   * Optional, and omitting it keeps the pre-existing lock — a caller that
+   * cannot answer (the grid form, whose `changeBot` ignores `pair` outright)
+   * is unaffected, and so is the window before the saved settings load.
+   */
+  hasStoredPair?: boolean;
 }
 
 export interface ResolvePairsLockStateResult {
@@ -185,6 +193,22 @@ export const resolvePairsLockState = (
 ): ResolvePairsLockStateResult => {
   if (input.externallyLocked === true) {
     return { locked: true, reason: 'external-lock' };
+  }
+
+  // A single-pair bot whose STORED pair list is empty is the one exception.
+  // That is not a configured bot: it is one the engine emptied when its only
+  // pair stopped being listed, and it can never open a deal again until a pair
+  // is put back. `changeDCABot`/`changeComboBot` accept exactly one pair for
+  // that case, so the picker has to be reachable — leaving it read-only makes
+  // the damage permanent. Everything else keeps the lock below.
+  //
+  // Kept byte-identical with the copy in `@/utils/bots/dca/basic-settings`.
+  if (
+    input.mode === 'edit' &&
+    !input.useMulti &&
+    input.hasStoredPair === false
+  ) {
+    return { locked: false, reason: null };
   }
 
   // The backend refuses pair changes on a saved single-pair bot

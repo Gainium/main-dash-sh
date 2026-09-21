@@ -565,6 +565,12 @@ const ReadOnlyBotForm: React.FC<ReadOnlyBotFormProps> = ({
       balances: null,
       pairItems: [],
       pairMetadata: { bySelectionSymbol: {}, byPair: {} },
+      // Always `true` here: this whole form renders inside a disabled
+      // `<fieldset>`, so the empty-pair unlock would only swap a read-only chip
+      // list for a picker that cannot be operated. An emptied bot keeps showing
+      // "No pairs configured", which is the truth; the repair happens in the
+      // real editor.
+      hasStoredPair: true,
     };
   }, [bot, botType, stubExchange]);
 

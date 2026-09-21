@@ -50,6 +50,20 @@ export type BotFormQueryContextValue = UseBotFormDataQueryResult & {
   balances?: Asset[] | null;
   pairItems: CoinListItem[];
   pairMetadata: CoinFilterPairMetadata;
+  /**
+   * Whether the SAVED bot still carries at least one pair in `settings.pair`.
+   *
+   * `false` means the bot was stored with an empty pair list — the shape the
+   * engine leaves behind when it prunes a pair that stopped being listed and
+   * that was the bot's only one. Such a bot can never open a deal, and
+   * main-app accepts exactly one pair back for it, so the form has to both
+   * offer the picker and send the result.
+   *
+   * `true` in create mode and while the saved settings are still loading, so
+   * every consumer's default is the pre-existing behaviour and the unlock is
+   * only ever reached on positive knowledge.
+   */
+  hasStoredPair: boolean;
 };
 
 export const BotFormQueryContext = createContext<
@@ -325,8 +339,23 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       // staring at a useless form when their saved pair doesn't exist
       // on the current exchange — e.g. BTCUSDT default on Hyperliquid,
       // which only has BTCUSDC).
+      //
+      // CREATE ONLY. That scenario is a create-mode one: the user just picked
+      // an exchange that doesn't list the pair the form was seeded with. In
+      // edit mode the exchange selector is locked (`isExchangeLocked = !!id`),
+      // so the filter can only empty because the SAVED bot has no pair that
+      // this venue lists — and substituting one there invents a pair the bot
+      // was never configured with, indistinguishable in the UI from a real
+      // setting. That is what happened to single-pair bots whose only pair the
+      // engine pruned when the venue stopped listing it: the editor showed a
+      // contract they had never chosen (whichever one `pickDefaultPair`
+      // reached for), and the single-pair lock made it uncorrectable. An empty
+      // picker is the honest rendering of a bot that genuinely has no pair.
+      // The seeding effect above is gated the same way, and cloning runs
+      // through the create page (`?load=`), so it keeps the fallback.
       let nextPairs = filteredPairs;
       if (
+        mode === 'create' &&
         nextPairs.length === 0 &&
         Object.keys(pairMetadata.byPair).length > 0
       ) {
@@ -350,7 +379,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       }
       setShouldCheckPairs(false);
     }
-  }, [shouldCheckPairs, formPair, pairMetadata, updateFormData]);
+  }, [shouldCheckPairs, formPair, pairMetadata, updateFormData, mode]);
 
   // Sync the market-type flags (`futures`/`coinm`) and the profit-currency
   // default off the selected exchange. Derive all three together, once per
@@ -414,6 +443,19 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     updateFormData,
   ]);
 
+  // Read from `botSettings` — the same payload `map-bot-settings-to-form-data`
+  // builds the form from — rather than from `formData.pair`, which the form's
+  // own filtering can empty for reasons that have nothing to do with what was
+  // saved.
+  const hasStoredPair = useMemo(() => {
+    if (mode !== 'edit') return true;
+    const storedPair = (
+      queryResult.botSettings?.settings as { pair?: unknown } | undefined
+    )?.pair;
+    if (storedPair === undefined) return true;
+    return [storedPair].flat().filter(Boolean).length > 0;
+  }, [mode, queryResult.botSettings]);
+
   const contextValue = useMemo<BotFormQueryContextValue>(
     () => ({
       ...queryResult,
@@ -422,8 +464,17 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
       currentExchange,
       pairItems,
       pairMetadata,
+      hasStoredPair,
     }),
-    [queryResult, mode, botId, currentExchange, pairItems, pairMetadata]
+    [
+      queryResult,
+      mode,
+      botId,
+      currentExchange,
+      pairItems,
+      pairMetadata,
+      hasStoredPair,
+    ]
   );
 
   // Use the extracted useUserFee hook
@@ -544,6 +595,9 @@ export const useBotFormQuery = (): BotFormQueryContextValue => {
         balances: null,
         pairItems: [],
         pairMetadata: { bySelectionSymbol: {}, byPair: {} },
+        // The conservative default: keeps the single-pair lock during HMR
+        // rather than flashing an editable picker.
+        hasStoredPair: true,
       } as BotFormQueryContextValue;
 
       return fallback;

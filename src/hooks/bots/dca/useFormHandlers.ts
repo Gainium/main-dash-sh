@@ -112,7 +112,7 @@ export const useFormHandlers = (
 ): UseFormHandlersReturn => {
   const mode: BotFormMode = options.mode ?? 'edit';
   const { botVars, setAlerts } = useBotFormState();
-  const { currentExchange } = useBotFormQuery();
+  const { currentExchange, hasStoredPair } = useBotFormQuery();
   // After a successful edit-mode save, flip the form back to view mode.
   // Without this the user sees the success toast but the toolbar stays
   // in edit mode with the (now-disabled, since `isDirty=false`) Save
@@ -378,10 +378,16 @@ export const useFormHandlers = (
       // by tests/botSavePayloadSchema.unit.test.ts — add a form field the
       // schema has never heard of and that test tells you, instead of every
       // save of that bot type breaking in production.
+      //
+      // `hasStoredPair` is the one case that overrides the "single-pair bots
+      // don't send `pair`" rule: a bot the engine emptied has no stored pair
+      // to protect, `changeDCABot`/`changeComboBot` accept exactly one back
+      // for it, and stripping the user's choice here would silently revert the
+      // only edit that can make the bot tradeable again.
       if (formData.type === BotTypesEnum.dca) {
         const upb = stripUndeclaredUpdateFields(
           updatePayloadBase as Record<string, unknown>,
-          { botType: 'dca', stripPair: !useMulti }
+          { botType: 'dca', stripPair: !useMulti && hasStoredPair }
         ) as UpdateDCABotPayload;
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
@@ -393,7 +399,12 @@ export const useFormHandlers = (
       if (formData.type === BotTypesEnum.combo) {
         const upb = stripUndeclaredUpdateFields(
           updatePayloadBase as Record<string, unknown>,
-          { botType: 'combo', stripPair: true }
+          // Combo strips `pair` on every save today, multi or not; only the
+          // emptied-bot repair above is exempted. Keyed on `hasStoredPair`
+          // alone rather than `!useMulti && hasStoredPair` so a multi-pair
+          // combo bot keeps sending nothing — starting to send its
+          // client-filtered pair list is a different change with its own risk.
+          { botType: 'combo', stripPair: hasStoredPair }
         ) as UpdateDCABotPayload;
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({

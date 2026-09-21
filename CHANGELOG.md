@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.37] - 2026-09-21
+
+### Fixed
+
+- Stop the bot editor showing a trading pair a bot was never configured with.
+  When a bot's saved pair list came back empty against the exchange's current
+  listings, the form substituted a default pair from that venue — helpful while
+  creating a bot, where the exchange is still being chosen, but in the editor it
+  presented an invented contract as if it were the bot's own setting. The editor
+  now shows no pair when the bot has none.
+- Let a single-pair bot whose saved pair was removed be given one back. The pair
+  field is read-only when editing a single-pair bot, because a configured bot's
+  pair cannot be changed. A bot left with no pair at all was caught by the same
+  rule, so the one change that would make it able to trade again was the one
+  change the form refused to offer. Such a bot now gets an editable pair field
+  and its choice is sent on save; a bot that still has its pair is unaffected.
+
 ## [2.54.36] - 2026-09-21
 
 ### Fixed
