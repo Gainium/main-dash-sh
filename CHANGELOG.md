@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.46] - 2026-09-21
+
+### Fixed
+
+- Typing a letter while a dropdown is open no longer triggers a single-letter
+  navigation shortcut. The global shortcuts stood down only for text fields, so
+  in a picker — the Settings time zone list, for example — pressing `p` to reach
+  a `Pacific/…` entry left the page for Portfolio instead, and the list's own
+  type-ahead never ran because the keystroke was consumed before it arrived.
+  Dropdowns, select menus and their triggers now keep the keys they use, and the
+  shortcuts resume as soon as focus leaves the field.
+
 ## [2.54.45] - 2026-09-21
 
 ### Fixed

@@ -131,6 +131,27 @@ function modifiersMatch(
 }
 
 /**
+ * Widgets that consume a plain typed character for themselves. A native
+ * `<select>` and every dropdown we build have type-ahead, so an unmodified
+ * letter belongs to the open list, not to the navigation layer.
+ *
+ * Matched against the target's own ancestry rather than a trigger's subtree:
+ * an open list is rendered through a portal at the end of `<body>`, so the
+ * focused option is nowhere underneath the field it belongs to. The trigger
+ * itself (`combobox`) counts too — a closed but focused dropdown still
+ * type-aheads.
+ */
+const TYPEAHEAD_ROLE_SELECTOR = [
+  '[role="combobox"]',
+  '[role="listbox"]',
+  '[role="option"]',
+  '[role="menu"]',
+  '[role="menuitem"]',
+  '[role="menuitemcheckbox"]',
+  '[role="menuitemradio"]',
+].join(',');
+
+/**
  * Helper function to check if target element should block shortcuts
  */
 function shouldBlockShortcut(
@@ -139,10 +160,17 @@ function shouldBlockShortcut(
 ): boolean {
   if (allowInInputs) return false;
 
-  return (
+  if (
     target instanceof HTMLInputElement ||
     target instanceof HTMLTextAreaElement ||
+    target instanceof HTMLSelectElement ||
     (target instanceof HTMLElement && target.isContentEditable)
+  ) {
+    return true;
+  }
+
+  return (
+    target instanceof Element && target.closest(TYPEAHEAD_ROLE_SELECTOR) !== null
   );
 }
 
