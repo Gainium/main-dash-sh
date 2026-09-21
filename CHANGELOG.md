@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.54.35] - 2026-09-21
+
+### Fixed
+
+- Tell the chat what the server decided about a confirmation it answered. The
+  assistant's confirmation cards were answered optimistically — the card
+  changed state on the click — but the backend refuses an answer that arrives
+  after the confirmation window has closed, and said so only on socket events
+  nothing subscribed to. A late answer therefore vanished without a word while
+  the card claimed it had gone through and nothing ran. The two verdict events
+  are relayed to subscribers, and the card now carries the deadline the
+  backend stops waiting at, so it can retire its buttons instead of offering
+  one that is discarded on arrival.
+
 ## [2.54.34] - 2026-09-20
 
 ### Fixed
