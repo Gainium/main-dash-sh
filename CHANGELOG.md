@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.49] - 2026-09-22
+
+### Fixed
+
+- Starting or stopping a combo, DCA or hedge bot no longer records a "Manual
+  buy" entry in the bot's event log. The status toggle sent a manual-buy mode
+  of "all" on every call, even though only grid bots act on one, so an
+  ordinary Start or Stop was logged as a buy the user never made — including
+  on the way down, where a stop appeared alongside "Buy type: all". The buy
+  mode is now sent only for grid bots, or when the user actually picked one in
+  the start dialog. The orders a bot places on restart are unaffected.
+
 ## [2.54.48] - 2026-09-22
 
 ### Fixed

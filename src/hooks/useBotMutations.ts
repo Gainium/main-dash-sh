@@ -220,12 +220,27 @@ export function useBotStatusToggle(type: BotTypesEnum) {
           : type === BotTypesEnum.grid
             ? closeType
             : (closeType ?? CloseDCATypeEnum.leave);
+      // `buyType` is the manual-buy mode picked in the grid start dialog.
+      // Grid is the only bot type whose worker actually consumes it — the
+      // backend forwards it as the worker's swap type — so a grid start keeps
+      // defaulting to `all` when a caller (a list row, a bulk action) starts
+      // one without going through the dialog.
+      //
+      // The combo/DCA/hedge workers never receive it: the backend
+      // destructures `buyType` out of the status input and posts none of it
+      // to those workers. Its only effect there is a `Buy dialog` event row,
+      // which the event log renders as "Manual buy" — so defaulting it
+      // labelled every plain Start/Stop of a combo or DCA bot a manual "Buy
+      // type: all" the user never made. The legacy dashboard sends no
+      // `buyType` at all on those paths; this restores that.
+      const resolvedBuyType =
+        type === BotTypesEnum.grid ? (buyType ?? BuyTypeEnum.all) : buyType;
       const input: ChangeStatusInput = {
         id: `${id}`, // Use template literal like old dashboard
         status: status === 'open' ? 'open' : 'closed', // Toggle between open/closed
         ...(resolvedCloseType ? { closeType: resolvedCloseType } : {}),
         type, // Add type parameter - backend might require it even for DCA bots
-        buyType: buyType || BuyTypeEnum.all,
+        ...(resolvedBuyType ? { buyType: resolvedBuyType } : {}),
         buyAmount,
         buyCount,
         cancelPartiallyFilled,
