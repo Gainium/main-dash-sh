@@ -38,6 +38,7 @@ import { GraphQlQuery } from '@/lib/api'; */
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 import {
     canAdjustDealFunds,
+    isComboFundsTarget,
     type BulkAdjustFundsTarget,
 } from '@/components/deals/actions/bulkAdjustFundsTargets';
 import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFunds';
@@ -470,6 +471,11 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
   const changeDcaBotType =
     trade.type === 'Combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
 
+  // Add/Reduce Funds — not offered on combo deals, the same rule the bulk
+  // action below already applies. The mutation behind it resolves the bot out
+  // of the DCA bots only, so on a combo deal it can do nothing but fail.
+  const canShowAdjustFunds = !isComboFundsTarget(trade.type);
+
   // Execute next DCA — see canExecuteNextDca (DCA only, open, not risk-based,
   // and a level still left to execute).
   const canShowExecuteNextDca = canExecuteNextDca(trade);
@@ -847,14 +853,21 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
             <BookOpen className="w-4 h-4 mr-2" />
             Add to Journal
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleAddFunds} disabled={!isDealOpen}>
-            <PlusCircle className="w-4 h-4 mr-2" />
-            Add Funds
-          </DropdownMenuItem>
-          <DropdownMenuItem onClick={handleReduceFunds} disabled={!isDealOpen}>
-            <MinusCircle className="w-4 h-4 mr-2" />
-            Reduce Funds
-          </DropdownMenuItem>
+          {canShowAdjustFunds && (
+            <>
+              <DropdownMenuItem onClick={handleAddFunds} disabled={!isDealOpen}>
+                <PlusCircle className="w-4 h-4 mr-2" />
+                Add Funds
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={handleReduceFunds}
+                disabled={!isDealOpen}
+              >
+                <MinusCircle className="w-4 h-4 mr-2" />
+                Reduce Funds
+              </DropdownMenuItem>
+            </>
+          )}
           <DropdownMenuItem onClick={handleEdit} disabled={!isDealOpen}>
             <Edit className="w-4 h-4 mr-2" />
             Edit

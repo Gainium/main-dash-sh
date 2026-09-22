@@ -1,4 +1,5 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
+import { isComboFundsTarget } from '@/components/deals/actions/bulkAdjustFundsTargets';
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import {
     AdjustFundsDialog,
@@ -931,6 +932,13 @@ const EnhancedCard = React.memo(
       [editDealMutation, trade.botId, trade.id, changeDcaBotType]
     );
 
+    // Add/Reduce Funds — not offered on combo deals, the same rule the drawer's
+    // row menu and the bulk action already apply. The mutation behind it
+    // resolves the bot out of the DCA bots only, so on a combo deal it can do
+    // nothing but fail. Both bot-type sources are consulted: rendered from the
+    // drawer the deal itself carries no type, only the bot does.
+    const canShowAdjustFunds = !isComboFundsTarget(trade.type, botType);
+
     // Execute next DCA — offered on open, non-risk-based DCA deals that still
     // have a level left. Same gate as "Change DCA levels" plus that last part.
     const canShowExecuteNextDca = canExecuteNextDca(trade);
@@ -1247,20 +1255,24 @@ const EnhancedCard = React.memo(
                     Execute next DCA
                   </DropdownMenuItem>
                 )}
-                <DropdownMenuItem
-                  onClick={handleAddFunds}
-                  disabled={!isDealOpen}
-                >
-                  <PlusCircle className="w-4 h-4 mr-2" />
-                  Add Funds
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={handleReduceFunds}
-                  disabled={!isDealOpen}
-                >
-                  <MinusCircle className="w-4 h-4 mr-2" />
-                  Reduce Funds
-                </DropdownMenuItem>
+                {canShowAdjustFunds && (
+                  <>
+                    <DropdownMenuItem
+                      onClick={handleAddFunds}
+                      disabled={!isDealOpen}
+                    >
+                      <PlusCircle className="w-4 h-4 mr-2" />
+                      Add Funds
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={handleReduceFunds}
+                      disabled={!isDealOpen}
+                    >
+                      <MinusCircle className="w-4 h-4 mr-2" />
+                      Reduce Funds
+                    </DropdownMenuItem>
+                  </>
+                )}
                 <DropdownMenuItem onClick={handleEdit} disabled={!isDealOpen}>
                   <Edit className="w-4 h-4 mr-2" />
                   Edit

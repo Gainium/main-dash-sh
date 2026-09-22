@@ -3,7 +3,7 @@
 // Split out of `useBulkAdjustFunds` so they can be exercised without pulling a
 // React tree — and the logger's `import.meta.env` access — into the runner.
 import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
-import { DCADealStatusEnum } from '@/types';
+import { BotTypesEnum, DCADealStatusEnum } from '@/types';
 
 /** A selected deal row reduced to what the adjust-funds flow needs. */
 export interface BulkAdjustFundsTarget {
@@ -49,6 +49,31 @@ export const sharedTargetValue = (
 
 /** Combo legs are managed by the combo engine, not the deal funds mutation. */
 const COMBO_TYPES = new Set(['Combo', 'Hedge Combo']);
+const COMBO_BOT_TYPES = new Set<BotTypesEnum>([
+  BotTypesEnum.combo,
+  BotTypesEnum.hedgeCombo,
+]);
+
+/**
+ * Whether a deal belongs to a combo bot, and so cannot take a funds
+ * adjustment: the mutation behind Add/Reduce Funds resolves the bot out of the
+ * DCA bots only, and answers "Bot not found" for a combo one.
+ *
+ * Deal rows carry their bot type in one of two shapes and both are read here,
+ * because neither is present everywhere. `type` is the string the tables render
+ * ('DCA', 'Combo', 'Hedge Combo', …); `botType` is the enum the card views take
+ * as a prop. Inside the bot drawer a deal carries no type of its own — only the
+ * bot's is known — so a test on `type` alone would pass every combo deal there.
+ */
+export function isComboFundsTarget(
+  type: string | undefined,
+  botType?: BotTypesEnum
+): boolean {
+  return (
+    COMBO_TYPES.has(String(type ?? '')) ||
+    (botType !== undefined && COMBO_BOT_TYPES.has(botType))
+  );
+}
 
 /**
  * Same rule the per-row Add/Reduce Funds menu items apply: the deal must be
@@ -58,7 +83,7 @@ export function canAdjustDealFunds(target: BulkAdjustFundsTarget): boolean {
   return (
     !!target.dealId &&
     !!target.botId &&
-    !COMBO_TYPES.has(String(target.type ?? '')) &&
+    !isComboFundsTarget(target.type) &&
     String(target.status ?? '').toLowerCase() === DCADealStatusEnum.open
   );
 }

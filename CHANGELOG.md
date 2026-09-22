@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.51] - 2026-09-22
+
+### Fixed
+
+- Combo bot deals no longer offer "Add Funds" / "Reduce Funds". Adjusting a
+  deal's funds is a DCA capability — it resolves the bot among the DCA bots, so
+  on a combo deal it could only ever answer "Bot not found" — and the bot
+  drawer's deal list and the bulk deal actions already left it out. The deal
+  card's menu and the deals table's row menu did not, so on the combo bots page
+  and everywhere else they are used the action looked available and then failed
+  once confirmed.
+
 ## [2.54.50] - 2026-09-22
 
 ### Fixed
