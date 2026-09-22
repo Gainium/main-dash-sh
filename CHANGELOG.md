@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.54.52] - 2026-09-22
+
+### Fixed
+
+- The Deal History widget's per-deal "Add funds" and "Reduce funds" buttons now
+  actually adjust the deal. Both opened a confirmation dialog whose confirm
+  button re-ran the same handler with the same action, which only re-opened the
+  dialog, so it stayed on screen and no order was ever placed — for every bot
+  type. They now open the same funds dialog the deal card, the open-orders table
+  and the bot drawer use, and are hidden on combo bots for the same reason those
+  surfaces hide them.
+
+### Removed
+
+- The Deal History widget's per-deal "Edit" button. It had no edit flow behind
+  it and shared the dialog loop above, so it could never do anything.
+
 ## [2.54.51] - 2026-09-22
 
 ### Fixed

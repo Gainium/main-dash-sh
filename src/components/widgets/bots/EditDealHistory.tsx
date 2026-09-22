@@ -1,12 +1,19 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
-import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
+import { dealWorkingMs, isLongStrategy } from '@/lib/utils/tradingMetrics';
 import { formatDuration } from '@/utils/formatters';
+import { isComboFundsTarget } from '@/components/deals/actions/bulkAdjustFundsTargets';
+import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { isFuturesExchange } from '@/utils/exchangeUtils';
+import {
+  AdjustFundsDialog,
+  type AdjustFundsDialogMode,
+} from '@/features/bots/shared/runtime';
+import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
 import {
   ArrowUpDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
-  Edit,
   History,
   Minus,
   Play,
@@ -33,6 +40,7 @@ import { useBotSpecificDeals } from '../../../hooks/useBotSpecificDeals';
 import { useBotTransactions } from '../../../hooks/useBotTransactions';
 import { useDcaBots } from '../../../hooks/useDcaBots';
 import {
+  useAdjustFunds,
   useDealActions,
   useRestoreDeal,
 } from '../../../hooks/useDealActions';
@@ -42,6 +50,7 @@ import {
   BotTypesEnum,
   CloseDCATypeEnum,
   DCADealStatusEnum,
+  type AddFundsSettings,
 } from '../../../types';
 import { ConfirmationDialog } from '../../ui/confirmation-dialog';
 import { Tabs, TabsList, TabsTrigger } from '../../ui/tabs';
@@ -63,6 +72,72 @@ export interface EditDealHistoryProps {
   ) => void;
   menuActions?: WidgetMenuActions;
 }
+
+/**
+ * What the per-row deal actions need from a transformed deal row.
+ *
+ * The trailing fields exist purely so the funds dialog can be told the truth
+ * about the deal: it defaults `long` to true and decides which asset an ADD
+ * spends from it, so a short deal with no `long` would be funded in the wrong
+ * currency. They are derived from the raw deal in the transform below, with the
+ * helpers the other funds call sites already use.
+ */
+interface TransformedDeal {
+  botId: string;
+  id: string;
+  symbol: string;
+  baseAsset?: string | undefined;
+  quoteAsset?: string | undefined;
+  exchange?: string | undefined;
+  exchangeUUID?: string | undefined;
+  futures: boolean;
+  long: boolean;
+  percentBasis?: PercentBasis | undefined;
+}
+
+/**
+ * The funds-dialog inputs for one raw deal, assembled from the helpers the
+ * other funds call sites already use.
+ *
+ * The parameter is structural rather than `DCADeals` because this widget's deal
+ * list is a union: for a grid bot the rows are synthesised from transactions and
+ * carry none of these fields. Those rows are always `closed`, so they never
+ * reach the Add/Reduce funds controls, and resolving them to the neutral
+ * defaults below is correct rather than merely convenient.
+ */
+const fundsInputsFromDeal = (deal: {
+  symbol?: { symbol?: string; baseAsset?: string; quoteAsset?: string };
+  strategy?: string;
+  exchange?: string;
+  exchangeUUID?: string;
+  settings?: {
+    futures?: boolean;
+    coinm?: boolean;
+    leverage?: number;
+    marginType?: string;
+  };
+  avgPrice?: number;
+  lastPrice?: number;
+  usage?: { current?: { base?: number; quote?: number } };
+  currentBalances?: { base?: number };
+  initialBalances?: { base?: number };
+}) => ({
+  baseAsset: deal.symbol?.baseAsset,
+  quoteAsset: deal.symbol?.quoteAsset,
+  exchange: deal.exchange,
+  exchangeUUID: deal.exchangeUUID,
+  // A deal's own `settings.futures` wins when the bot set one; otherwise the
+  // venue decides. The same precedence `transformDealToTrade` applies.
+  futures:
+    deal.settings?.futures !== undefined &&
+    `${deal.settings.futures}` !== 'null'
+      ? !!deal.settings.futures
+      : isFuturesExchange(deal.exchange),
+  long: isLongStrategy(deal.strategy),
+  // The shared derivation, so the percentage preview here and the one in the
+  // drawer / trades table can never disagree about the same deal.
+  percentBasis: percentBasisFromDeal(deal) ?? undefined,
+});
 
 const EditDealHistory: React.FC<EditDealHistoryProps> = ({
   widgetId,
@@ -265,11 +340,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
   ]);
 
   // Deal actions hook
-  const {
-    closeDeal,
-    isLoading: isActionLoading,
-    error: actionError,
-  } = useDealActions();
+  const { closeDeal } = useDealActions();
 
   // Handle errors
   const hasError = Boolean(dcaBotsError) || Boolean(dealsError);
@@ -289,73 +360,61 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
   );
   const [expandedDeal, setExpandedDeal] = React.useState<string | null>(null);
 
-  // Action dialog states
-  const [actionDialog, setActionDialog] = React.useState<{
-    open: boolean;
-    type: 'edit' | 'cancel' | 'close' | 'addFunds' | 'reduceFunds' | null;
-    deal: {
-      botId: string;
-      id: string;
-      type: string;
-      amount: number;
-      price: number;
-      total: number;
-      profit: number;
-      status: string;
-      timestamp: number;
-      symbol: string;
-    } | null;
-  }>({
-    open: false,
-    type: null,
-    deal: null,
-  });
+  // The deal a funds adjustment is being composed for, and in which direction.
+  // Null while the dialog is closed.
+  const [adjustFundsDialog, setAdjustFundsDialog] = React.useState<{
+    mode: AdjustFundsDialogMode;
+    deal: TransformedDeal;
+  } | null>(null);
 
-  // Action handlers
+  // Add/Reduce Funds — not offered on combo bots, the same rule TradeCard, the
+  // open-orders table and the bulk action apply: `addDealFunds`/`reduceDealFunds`
+  // resolve the bot out of the DCA bots only, so on a combo bot they can do
+  // nothing but fail.
+  //
+  // The predicate is fed the WIDGET's bot type, not the row's: a deal here
+  // carries `type: 'active' | 'completed'` (which tab it falls under), never a
+  // bot-type string, so testing the row would be a gate that never gates.
+  const canShowAdjustFunds = !isComboFundsTarget(undefined, resolvedBotType);
+
+  const adjustFundsMutation = useAdjustFunds();
+
+  const handleAdjustFundsConfirm = React.useCallback(
+    (settings: AddFundsSettings) => {
+      if (!adjustFundsDialog?.deal.botId) {
+        return;
+      }
+      adjustFundsMutation.mutate({
+        dealId: adjustFundsDialog.deal.id,
+        botId: adjustFundsDialog.deal.botId,
+        settings,
+        mode: adjustFundsDialog.mode,
+      });
+      setAdjustFundsDialog(null);
+    },
+    // Stable `mutate` ref, not the whole react-query mutation object (new every
+    // render) — the same reason the other funds call sites depend on it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [adjustFundsMutation.mutate, adjustFundsDialog]
+  );
+
+  // Action handlers. Only the two terminal actions live here; both close the
+  // deal outright and neither opens a dialog.
   const handleDealAction = async (
-    type: 'edit' | 'cancel' | 'close' | 'addFunds' | 'reduceFunds',
-    deal: {
-      botId: string;
-      id: string;
-      type: string;
-      amount: number;
-      price: number;
-      total: number;
-      profit: number;
-      status: string;
-      timestamp: number;
-      symbol: string;
-    }
+    type: 'cancel' | 'close',
+    deal: TransformedDeal
   ) => {
     try {
-      if (type === 'close') {
-        await closeDeal(deal.id, deal.botId, CloseDCATypeEnum.closeByMarket);
-        handleCloseActionDialog();
-        // TODO: Implement refetch logic
-      } else if (type === 'cancel') {
-        await closeDeal(deal.id, deal.botId, CloseDCATypeEnum.cancel);
-        handleCloseActionDialog();
-        // TODO: Implement refetch logic
-      } else {
-        // For other actions, just open the dialog for now
-        setActionDialog({
-          open: true,
-          type,
-          deal,
-        });
-      }
+      await closeDeal(
+        deal.id,
+        deal.botId,
+        type === 'close' ? CloseDCATypeEnum.closeByMarket : CloseDCATypeEnum.cancel
+      );
+      // TODO: Implement refetch logic
     } catch (error) {
       console.error(`Failed to ${type} deal:`, error);
       // TODO: Show error message to user
     }
-  };
-
-  const handleCloseActionDialog = () => {
-    setActionDialog({
-      open: false,
-      type: null,
-      deal: null,
-    });
   };
 
   // Restore — only for canceled deals of DCA and terminal bots (no grid/combo,
@@ -451,6 +510,8 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
       ordersTotal: deal.levels?.all || 0,
       entryPrice: deal.initialPrice || 0,
       currentPrice: deal.avgPrice || 0,
+      // Inputs for the Add/Reduce funds dialog.
+      ...fundsInputsFromDeal(deal),
     }));
 
     // Apply sorting
@@ -766,33 +827,34 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                 deal.status === 'error' ||
                                 deal.status === 'start') && (
                                 <>
-                                  <button
-                                    onClick={() =>
-                                      handleDealAction('edit', deal)
-                                    }
-                                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                                    title="Edit deal"
-                                  >
-                                    <Edit className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDealAction('addFunds', deal)
-                                    }
-                                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                                    title="Add funds"
-                                  >
-                                    <Plus className="w-4 h-4" />
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleDealAction('reduceFunds', deal)
-                                    }
-                                    className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
-                                    title="Reduce funds"
-                                  >
-                                    <Minus className="w-4 h-4" />
-                                  </button>
+                                  {canShowAdjustFunds && (
+                                    <>
+                                      <button
+                                        onClick={() =>
+                                          setAdjustFundsDialog({
+                                            mode: 'add',
+                                            deal,
+                                          })
+                                        }
+                                        className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                                        title="Add funds"
+                                      >
+                                        <Plus className="w-4 h-4" />
+                                      </button>
+                                      <button
+                                        onClick={() =>
+                                          setAdjustFundsDialog({
+                                            mode: 'reduce',
+                                            deal,
+                                          })
+                                        }
+                                        className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+                                        title="Reduce funds"
+                                      >
+                                        <Minus className="w-4 h-4" />
+                                      </button>
+                                    </>
+                                  )}
                                   <button
                                     onClick={() =>
                                       handleDealAction('cancel', deal)
@@ -1087,105 +1149,25 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
         )}
       </div>
 
-      {/* Action Dialog */}
-      {actionDialog.open && actionDialog.deal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-background border border-border rounded-lg p-lg max-w-md w-full mx-4">
-            <div className="flex items-center gap-sm mb-4">
-              {actionDialog.type === 'edit' && (
-                <Edit className="w-5 h-5 text-blue-500" />
-              )}
-              {actionDialog.type === 'cancel' && (
-                <X className="w-5 h-5 text-red-500" />
-              )}
-              {actionDialog.type === 'close' && (
-                <TrendingUp className="w-5 h-5 text-green-500" />
-              )}
-              {actionDialog.type === 'addFunds' && (
-                <Plus className="w-5 h-5 text-blue-500" />
-              )}
-              {actionDialog.type === 'reduceFunds' && (
-                <Minus className="w-5 h-5 text-orange-500" />
-              )}
-
-              <h3 className="text-lg font-semibold capitalize">
-                {actionDialog.type === 'addFunds'
-                  ? 'Add Funds'
-                  : actionDialog.type === 'reduceFunds'
-                    ? 'Reduce Funds'
-                    : actionDialog.type}
-              </h3>
-            </div>
-
-            <div className="space-y-sm mb-6">
-              <p className="text-sm text-muted-foreground">
-                {actionDialog.type === 'edit' &&
-                  'Edit deal settings and parameters'}
-                {actionDialog.type === 'cancel' &&
-                  'Cancel this deal? This action cannot be undone.'}
-                {actionDialog.type === 'close' &&
-                  'Close this deal and realize profits/losses?'}
-                {actionDialog.type === 'addFunds' &&
-                  'Add additional funds to this deal'}
-                {actionDialog.type === 'reduceFunds' &&
-                  'Reduce funds from this deal'}
-              </p>
-
-              {actionError && (
-                <div className="bg-red-50 border border-red-200 rounded p-sm">
-                  <p className="text-sm text-red-600">
-                    Error: {actionError.message}
-                  </p>
-                </div>
-              )}
-
-              <div className="bg-muted/30 rounded p-sm text-xs">
-                <div className="font-medium">{actionDialog.deal.symbol}</div>
-                <div>Amount: {actionDialog.deal.amount.toFixed(4)}</div>
-                <div>Price: ${actionDialog.deal.price.toFixed(2)}</div>
-                <div>Total: ${actionDialog.deal.total.toFixed(2)}</div>
-              </div>
-            </div>
-
-            <div className="flex gap-sm">
-              <button
-                onClick={handleCloseActionDialog}
-                className="flex-1 px-4 py-2 text-sm border border-border rounded hover:bg-muted transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  // TODO: Implement actual action logic
-                  if (actionDialog.deal && actionDialog.type) {
-                    handleDealAction(actionDialog.type, actionDialog.deal);
-                  }
-                }}
-                disabled={isActionLoading}
-                className={`flex-1 px-4 py-2 text-sm text-white rounded transition-colors ${
-                  actionDialog.type === 'cancel'
-                    ? 'bg-red-600 hover:bg-red-700'
-                    : actionDialog.type === 'close'
-                      ? 'bg-green-600 hover:bg-green-700'
-                      : 'bg-blue-600 hover:bg-blue-700'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {isActionLoading
-                  ? 'Processing...'
-                  : actionDialog.type === 'edit'
-                    ? 'Edit'
-                    : actionDialog.type === 'cancel'
-                      ? 'Cancel Deal'
-                      : actionDialog.type === 'close'
-                        ? 'Close Deal'
-                        : actionDialog.type === 'addFunds'
-                          ? 'Add Funds'
-                          : 'Reduce Funds'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Add / Reduce funds — the product's shared funds flow, the same dialog
+          and mutation the trade card, the open-orders table and the bot drawer
+          use. */}
+      <AdjustFundsDialog
+        open={!!adjustFundsDialog}
+        mode={adjustFundsDialog?.mode || 'add'}
+        onOpenChange={(open) => {
+          if (!open) setAdjustFundsDialog(null);
+        }}
+        onConfirm={handleAdjustFundsConfirm}
+        baseAsset={adjustFundsDialog?.deal.baseAsset}
+        quoteAsset={adjustFundsDialog?.deal.quoteAsset}
+        symbol={adjustFundsDialog?.deal.symbol}
+        exchange={adjustFundsDialog?.deal.exchange}
+        exchangeUUID={adjustFundsDialog?.deal.exchangeUUID}
+        percentBasis={adjustFundsDialog?.deal.percentBasis}
+        futures={!!adjustFundsDialog?.deal.futures}
+        long={adjustFundsDialog?.deal.long ?? true}
+      />
       <ConfirmationDialog
         open={!!restoreDialogDeal}
         onOpenChange={(open) => {
