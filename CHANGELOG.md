@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.54.48] - 2026-09-22
+
+### Fixed
+
+- Searching the notifications panel no longer brings dismissed bot
+  notifications back. The panel's default load asks for the unread bot feed,
+  but as soon as the search box held a term — or a page past the first was
+  requested — it asked for the full archive instead, so notifications that had
+  already been marked as read reappeared in the results wearing the "New"
+  chip, counted toward the unread badge, and offered a mark-as-read control
+  that could never remove them. Every path now requests the same unread feed
+  the default load does.
+- "Mark all as read" on bot notifications no longer reports success when the
+  backend rejected the request; the single-message action already checked.
+
 ## [2.54.47] - 2026-09-21
 
 ### Fixed

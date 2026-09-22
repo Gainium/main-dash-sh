@@ -110,7 +110,17 @@ export function useNotifications(
     } else {
       // Use parameters for specific queries (like notifications.tsx line 137)
       params = {
-        unreadOnly: false, // Always false to match legacy behavior
+        // The panel's bot feed is the UNREAD feed: the branch above sends no
+        // input at all and the backend's getBotMessage defaults unreadOnly to
+        // true. Asking for `false` here silently switched the SAME panel to the
+        // archive as soon as a search box was filled (or a caller asked for
+        // page > 1): dismissed messages came back wearing the "New" chip, the
+        // unread badge and a mark-as-read control, and re-dismissing them could
+        // not remove them because the archive query matches them either way.
+        // Legacy's `unreadOnly: false` belongs to V1's standalone
+        // /notifications ARCHIVE page, which V2 never ported — V1's own bell
+        // dropdown, which this panel is, calls getMessageBot() with no input.
+        unreadOnly: true,
         page,
         pageSize,
       };
@@ -749,8 +759,16 @@ export function useNotifications(
       // Mark bot notifications as read = delete them on the backend
       // (parity with legacy main-dash, which has no per-message isRead).
       // deleteBotMessage({}) clears the whole bot inbox in one call.
+      // Same status check as markAsRead above: mutateAsync resolves on a
+      // `status: 'NOTOK'` payload, so without it the panel's bulk handlers
+      // toast "Marked N notifications as read" over a backend failure.
       if (botNotifications.length > 0) {
-        await deleteBotMessageMutation.mutateAsync(undefined);
+        const result = await deleteBotMessageMutation.mutateAsync(undefined);
+        if ((result as any)?.deleteBotMessage?.status !== 'OK') {
+          throw new Error(
+            `Backend failed: ${(result as any)?.deleteBotMessage?.reason || 'Unknown error'}`
+          );
+        }
       }
 
       // Mark changelog notifications as read
