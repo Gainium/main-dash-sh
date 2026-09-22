@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.54.50] - 2026-09-22
+
+### Fixed
+
+- Keyboard-shortcut hints no longer appear on tablets. The "Next time, press
+  ..." toast was suppressed only below 768px, so a tablet — which has no
+  keyboard to press the shortcut on — still got the hint every time it used a
+  button that has one. The hint is now held back for the whole phone and
+  tablet range, and for a touch-only screen in landscape that is wider than
+  that range; a touchscreen laptop still sees its hints.
+
 ## [2.54.49] - 2026-09-22
 
 ### Fixed

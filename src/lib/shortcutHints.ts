@@ -2,10 +2,18 @@ import { SHORTCUT_IDS } from '@/config/shortcuts';
 import { formatShortcut, useShortcutStore } from '@/stores/shortcutStore';
 import { toast } from './toast';
 
-// Check if device is mobile
-function isMobileDevice(): boolean {
+// A shortcut hint is useless without a keyboard, so suppress it on phones and
+// tablets. 1023px is the repo-wide tablet ceiling (see useResponsive); the
+// coarse-pointer/no-hover pair catches a tablet held in landscape, which is
+// wider than that, while a touchscreen laptop still reports hover from its
+// trackpad and keeps its hints.
+function isTouchLayout(): boolean {
   if (typeof window === 'undefined') return false;
-  return window.innerWidth <= 767;
+  if (window.innerWidth <= 1023) return true;
+  return (
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(pointer: coarse) and (hover: none)').matches
+  );
 }
 
 // Features that have global shortcuts in the app - mapping to shortcut IDs
@@ -50,8 +58,8 @@ function markShown(feature: ShortcutFeature): void {
 }
 
 export function showShortcutHint(feature: ShortcutFeature): void {
-  // Do not show hints on mobile
-  if (isMobileDevice()) return;
+  // Do not show hints on phones or tablets
+  if (isTouchLayout()) return;
 
   // Respect global disable flag
   try {
@@ -96,8 +104,8 @@ export function showShortcutHint(feature: ShortcutFeature): void {
 export function showShortcutHintById(shortcutId: string): void {
   if (!shortcutId) return;
 
-  // Do not show hints on mobile
-  if (isMobileDevice()) return;
+  // Do not show hints on phones or tablets
+  if (isTouchLayout()) return;
 
   // Respect global disable flag
   try {
