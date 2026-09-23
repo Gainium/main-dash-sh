@@ -27,7 +27,14 @@
  * `convertToFlatPairsByExchange` produces.
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { act, createElement, useCallback, useRef, useState } from 'react';
+import {
+  act,
+  createElement,
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 
 import type { TradingPair } from '@/hooks/useTradingPairs';
@@ -216,9 +223,10 @@ let root: Root | null = null;
 const render = (mode: 'edit' | 'create') => {
   container = document.createElement('div');
   document.body.appendChild(container);
-  root = createRoot(container);
+  const r = createRoot(container);
+  root = r;
   act(() => {
-    root!.render(
+    r.render(
       createElement(
         BotFormQueryProvider,
         { mode, botId: mode === 'edit' ? BOT_ID : undefined },
@@ -385,7 +393,9 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
    * so the test is about the strip decision and nothing else.
    */
   const sentSettings: Array<Record<string, unknown>> = [];
-  let save: (() => Promise<void>) | null = null;
+  // Filled by SaveProbe's effect: a component may not reassign an outer
+  // variable during render, so the handler is handed out through an object.
+  const probe: { save: (() => Promise<void>) | null } = { save: null };
 
   const SaveProbe = ({ botType }: { botType: 'dca' | 'combo' }) => {
     const formData = {
@@ -413,16 +423,19 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
       },
       false
     );
-    save = handlers.handleSave;
+    useEffect(() => {
+      probe.save = handlers.handleSave;
+    });
     return null;
   };
 
   const mountProbe = (botType: 'dca' | 'combo') => {
     container = document.createElement('div');
     document.body.appendChild(container);
-    root = createRoot(container);
+    const r = createRoot(container);
+    root = r;
     act(() => {
-      root!.render(
+      r.render(
         createElement(
           BotFormQueryProvider,
           { mode: 'edit', botId: BOT_ID },
@@ -434,7 +447,7 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
 
   beforeEach(() => {
     sentSettings.length = 0;
-    save = null;
+    probe.save = null;
     // The emptied bot's form state: single-pair, no pair yet, user just picked
     // BTCUSD in the (now unlocked) picker.
     store = {
@@ -449,7 +462,7 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
     it(`${botType}: the chosen pair reaches the change mutation`, async () => {
       mountProbe(botType);
       await act(async () => {
-        await save!();
+        await probe.save?.();
       });
 
       expect(sentSettings).toHaveLength(1);

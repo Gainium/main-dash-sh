@@ -53,6 +53,12 @@ vi.mock('@/components/ui/popover', async (importOriginal) => {
 
 import { ColumnFilter } from '@/components/ui/data-table/filter-components';
 
+/** Narrow a query result, failing the test with a message instead of a TypeError. */
+const must = <T,>(value: T | null | undefined, what: string): T => {
+  if (value == null) throw new Error(`${what} not found`);
+  return value;
+};
+
 const SYMBOLS = ['ADI-USD', 'AI-USD', '0G-USD', '2Z-USD', 'A-USD', 'ACU-USD'];
 const SELECTED = ['ADI-USD', 'AI-USD'];
 
@@ -103,22 +109,28 @@ describe('multi-select column filter dropdown anchoring', () => {
 
   test('§1.1 the option list tracks the anchor width with a legible floor', () => {
     const { container } = render(<ColumnFilter column={makeColumn()} />);
-    const trigger = container.querySelector('[data-slot="popover-trigger"]')!;
+    const trigger = must(
+      container.querySelector('[data-slot="popover-trigger"]'),
+      'popover trigger'
+    );
     act(() => {
-      fireEvent.click(trigger.querySelector('button')!);
+      fireEvent.click(must(trigger.querySelector('button'), 'trigger button'));
     });
 
     const content = document.querySelector('[data-slot="popover-content"]');
     expect(content, 'the dropdown must be open').not.toBeNull();
-    expect(content!.className).toContain('w-(--radix-popover-trigger-width)');
+    expect(content?.className).toContain('w-(--radix-popover-trigger-width)');
     // A floor, so a very narrow column still yields a readable list rather
     // than a sliver.
-    expect(content!.className).toContain('min-w-48');
+    expect(content?.className).toContain('min-w-48');
   });
 
   test('§4 the residual input still lets the chips absorb the shrinking', () => {
     const { container } = render(<ColumnFilter column={makeColumn()} />);
-    const trigger = container.querySelector('[data-slot="popover-trigger"]')!;
+    const trigger = must(
+      container.querySelector('[data-slot="popover-trigger"]'),
+      'popover trigger'
+    );
     // Widening this back out would "fix" the dropdown by re-breaking chip
     // readability in a narrow column.
     expect(trigger.className).toContain('min-w-6');

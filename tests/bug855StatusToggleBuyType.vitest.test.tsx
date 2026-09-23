@@ -124,7 +124,9 @@ async function toggle(
   });
   await settle();
   expect(sentInputs.length).toBe(1);
-  return sentInputs[0]!;
+  const [sent] = sentInputs;
+  if (!sent) throw new Error('no status mutation was sent');
+  return sent;
 }
 
 describe('bug #855 — status toggle must not invent a manual-buy mode', () => {

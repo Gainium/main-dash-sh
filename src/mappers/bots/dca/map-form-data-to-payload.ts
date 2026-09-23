@@ -17,7 +17,6 @@ import {
   type FieldMappingResult,
   type GridFieldMappingResult,
 } from './field-mapping';
-import { DECLARED_BY_DCA_ONLY } from './update-payload-denylist';
 
 export interface MapFormDataToPayloadOptions {
   mode?: BotFormMode;
@@ -587,10 +586,10 @@ export const mapFormDataToPayload = (
     useExperimental?: boolean;
   };
 
-  // DCA-only settings reach a combo form through the DCA_FORM_DEFAULTS spread;
-  // the combo inputs do not declare them.
+  // DCA-only settings (DECLARED_BY_DCA_ONLY) reach a combo form through the
+  // DCA_FORM_DEFAULTS spread; the combo inputs do not declare them.
   if (isComboBot) {
-    for (const field of DECLARED_BY_DCA_ONLY) delete updatePayload[field];
+    delete updatePayload.allowRaiseToExchangeMin;
   }
 
   const sanitizedUpdatePayload = sanitizeSettingsForApi(
@@ -664,7 +663,7 @@ export const mapFormDataToPayload = (
   if (createPayload) {
     if (isComboBot) {
       delete createPayload.importFrom;
-      for (const field of DECLARED_BY_DCA_ONLY) delete createPayload[field];
+      delete createPayload.allowRaiseToExchangeMin;
     }
     successResult.createPayload = createPayload;
   }

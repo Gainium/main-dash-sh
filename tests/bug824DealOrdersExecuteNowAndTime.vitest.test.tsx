@@ -24,7 +24,7 @@ import { createRoot, type Root } from 'react-dom/client';
 
 import { MemoryRouter } from 'react-router-dom';
 
-import { StrategyEnum } from '@/types';
+import { StrategyEnum, type OrderData } from '@/types';
 import type { ViewOrder } from '@/types/bots';
 
 vi.mock('@/hooks/useOrderActions', () => ({
@@ -37,7 +37,6 @@ vi.mock('@/hooks/useOrderActions', () => ({
 
 import { DealOrdersSection } from '@/components/trades/DealOrdersSection';
 import { useOrderStore } from '@/stores/live/orderStore';
-import type { OrderData } from '@/types';
 
 const BOT_ID = '6a8b89e98e06bef801add796';
 const DEAL_ID = '6aaf5177e607ba4cdf363513';
@@ -122,9 +121,10 @@ const render = (props: {
 }) => {
   host = document.createElement('div');
   document.body.appendChild(host);
-  root = createRoot(host);
+  const r = createRoot(host);
+  root = r;
   act(() => {
-    root!.render(
+    r.render(
       createElement(
         MemoryRouter,
         null,
@@ -157,15 +157,16 @@ const clickTab = (el: HTMLElement, label: string) => {
   );
   expect(tab, `tab "${label}" exists`).toBeTruthy();
   act(() => {
-    tab!.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
-    tab!.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
-    tab!.click();
+    tab?.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+    tab?.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+    tab?.click();
   });
 };
 
 afterEach(() => {
-  if (root) {
-    act(() => root!.unmount());
+  const r = root;
+  if (r) {
+    act(() => r.unmount());
     root = null;
   }
   host?.remove();
@@ -196,7 +197,7 @@ describe('order store dedupe (spec 028 §3.2 / §4.2a)', () => {
 
     const rows = useOrderStore.getState().getOrders(BOT_ID);
     expect(rows.map((r) => r.clientOrderId)).toEqual([FILLED.clientOrderId]);
-    expect(rows[0]!.status).toBe('FILLED');
+    expect(rows[0]?.status).toBe('FILLED');
   });
 
   it('keeps an order that lives in only one bucket', () => {
@@ -248,7 +249,7 @@ describe('Execute now scope (spec 028 §2 / §4.2b)', () => {
     });
     const buttons = executeNowButtons(el);
     expect(buttons.length).toBe(1);
-    const row = buttons[0]!.closest('tr');
+    const row = buttons[0]?.closest('tr');
     expect(row?.textContent).toContain('2.5');
   });
 
