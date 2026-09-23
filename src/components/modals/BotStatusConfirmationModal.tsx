@@ -57,6 +57,17 @@ export interface BotStatusConfirmationModalProps {
   gridHasOpenPosition?: boolean;
   /** Grid + spot only: short strategy flips the base action to "buy". */
   gridIsShort?: boolean;
+  /**
+   * Bulk mode: number of bots the action will apply to. When set, the
+   * dialog talks about a count instead of quoting `botName`.
+   */
+  bulkCount?: number;
+  /**
+   * Bulk mode: how many bots were selected. Selected bots already in the
+   * target state are skipped; the dialog says so when this exceeds
+   * `bulkCount`.
+   */
+  bulkSelectedCount?: number;
 }
 
 export default function BotStatusConfirmationModal({
@@ -72,7 +83,16 @@ export default function BotStatusConfirmationModal({
   gridFutures = false,
   gridHasOpenPosition,
   gridIsShort = false,
+  bulkCount,
+  bulkSelectedCount,
 }: BotStatusConfirmationModalProps) {
+  const isBulk = bulkCount !== undefined;
+  const plural = isBulk && bulkCount !== 1;
+  const bulkLabel = `${bulkCount} bot${plural ? 's' : ''}`;
+  const skippedCount =
+    isBulk && bulkSelectedCount !== undefined
+      ? Math.max(0, bulkSelectedCount - bulkCount)
+      : 0;
   const [closeType, setCloseType] = useState<string>('leave');
   const isGrid = botType === BotTypesEnum.grid;
   // Grid stop selection — defaults to "cancel all orders" (never a no-op).
@@ -148,6 +168,9 @@ export default function BotStatusConfirmationModal({
   };
 
   const getTitle = () => {
+    if (isBulk) {
+      return `${isStarting ? 'Start' : 'Stop'} ${bulkLabel}`;
+    }
     if (isStarting) {
       return 'Start the bot';
     } else {
@@ -156,6 +179,14 @@ export default function BotStatusConfirmationModal({
   };
 
   const getDescription = () => {
+    if (isBulk) {
+      const verb = isStarting ? 'start' : 'stop';
+      if (skippedCount > 0) {
+        const state = isStarting ? 'running' : 'stopped';
+        return `Are you sure you want to ${verb} ${bulkCount} of the ${bulkSelectedCount} selected bots? ${skippedCount} ${skippedCount === 1 ? 'is' : 'are'} already ${state} and will be skipped.`;
+      }
+      return `Are you sure you want to ${verb} ${plural ? `these ${bulkLabel}` : 'this bot'}?`;
+    }
     if (isStarting) {
       return `Are you sure you want to start "${botName}"?`;
     } else {
@@ -164,10 +195,11 @@ export default function BotStatusConfirmationModal({
   };
 
   const getButtonText = () => {
+    const noun = plural ? 'Bots' : 'Bot';
     if (isStarting) {
-      return 'Start Bot';
+      return `Start ${noun}`;
     } else {
-      return 'Stop Bot';
+      return `Stop ${noun}`;
     }
   };
 
@@ -193,20 +225,22 @@ export default function BotStatusConfirmationModal({
         </DialogHeader>
 
         <div className="px-6 space-y-md sm:space-y-5">
-          {/* Bot Information */}
-          <div className="space-y-xs">
-            <div className="flex items-center gap-xs">
-              <span className="text-sm font-medium">{botName}</span>
-              <span className="text-muted-foreground">·</span>
-              <StatusChip status={currentStatus} size="xs" chipStyle="soft" />
+          {/* Bot Information (single bot only — bulk states the count above) */}
+          {!isBulk && (
+            <div className="space-y-xs">
+              <div className="flex items-center gap-xs">
+                <span className="text-sm font-medium">{botName}</span>
+                <span className="text-muted-foreground">·</span>
+                <StatusChip status={currentStatus} size="xs" chipStyle="soft" />
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Grid close-type selection (parity with V1) */}
           {isStopping && isGrid && (
             <div className="space-y-sm pb-2">
               <Label className="text-sm font-medium">
-                How do you want to stop the bot?
+                How do you want to stop the {plural ? 'bots' : 'bot'}?
               </Label>
               <div className="space-y-sm">
                 {Object.entries(gridCloseOptions).map(([key, option]) => {

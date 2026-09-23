@@ -502,6 +502,7 @@ const TradingBots: React.FC = () => {
 
   // Bulk status change modal state
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
+  const [bulkStatusSelectedCount, setBulkStatusSelectedCount] = useState(0);
   const [bulkStatusTargets, setBulkStatusTargets] = useState<
     ReturnType<typeof transformDcaBotToBot>[]
   >([]);
@@ -688,6 +689,7 @@ const TradingBots: React.FC = () => {
         );
         return;
       }
+      setBulkStatusSelectedCount(bots.length);
       setBulkStatusTargets(filteredBots);
       setBulkStatusAction(action);
       setBulkStatusOpen(true);
@@ -2370,6 +2372,8 @@ const TradingBots: React.FC = () => {
                           onOpenChange={setBulkStatusOpen}
                           onConfirm={handleConfirmBulkStatusChange}
                           botName={`${bulkStatusTargets.length} bot${bulkStatusTargets.length === 1 ? '' : 's'}`}
+                          bulkCount={bulkStatusTargets.length}
+                          bulkSelectedCount={bulkStatusSelectedCount}
                           currentStatus={
                             bulkStatusAction === 'start' ? 'closed' : 'open'
                           }

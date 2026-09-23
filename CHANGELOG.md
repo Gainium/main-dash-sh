@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.56.1] - 2026-09-23
+
+### Fixed
+
+- Bulk Start/Stop confirmation on the DCA, Combo and Grid bot lists showed
+  the bot count as if it were a bot's name ("stop \"1 bot\"") and did not
+  mention selected bots that would be skipped. It now reads "Stop N bots" and
+  says how many selected bots are already in that state.
+
 ## [2.56.0] - 2026-09-23
 
 ### Changed
