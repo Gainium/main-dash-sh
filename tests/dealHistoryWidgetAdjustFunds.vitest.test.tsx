@@ -2,7 +2,10 @@
  * Runner note: `.vitest.test.tsx` (not `.unit.test.ts`) because this renders the
  * real widget in jsdom and mocks modules — Playwright's core suite never
  * collects it. Run from the parent:
- * `npx vitest run core/tests/dealHistoryWidgetAdjustFunds.vitest.test.tsx`.
+ * `NODE_ENV=development npx vitest run core/tests/dealHistoryWidgetAdjustFunds.vitest.test.tsx`.
+ * (`NODE_ENV=development` is required on the VPS, where the shell exports
+ * `NODE_ENV=production`: Vite then resolves React's production build, which has
+ * no `act`, and every test dies with `act is not a function`.)
  *
  * Spec 047. Bug #910 — the "Deal History" widget's per-row Add funds / Reduce
  * funds / Edit buttons were dead UI for every bot type.
@@ -18,7 +21,7 @@
  * order IS the behaviour under test: a dialog that closes but sends nothing
  * would be the same defect with better manners.
  */
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, createElement } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { QueryClientProvider, QueryClient } from '@tanstack/react-query';
@@ -115,7 +118,7 @@ vi.mock('../src/contexts/bots/grid/GridPageProvider', () => ({
 }));
 
 import EditDealHistory from '../src/components/widgets/bots/EditDealHistory';
-import { BotTypesEnum } from '../src/types';
+import { BotTypesEnum, CloseDCATypeEnum } from '../src/types';
 
 let container: HTMLDivElement;
 let root: Root;
@@ -232,6 +235,15 @@ beforeEach(() => {
   captured.closed.length = 0;
 });
 
+// Unmount between tests so a dialog left open by one cannot be found by the
+// next one's document-wide button lookup.
+afterEach(async () => {
+  await act(async () => {
+    root.unmount();
+  });
+  container.remove();
+});
+
 describe('Deal History widget — per-row deal actions', () => {
   // §3.1 — the defect. Open the funds flow from the row, confirm it, and a
   // request must actually be made. Before the fix nothing was ever sent.
@@ -294,21 +306,62 @@ describe('Deal History widget — per-row deal actions', () => {
     expect(byTitle('Reduce funds').length).toBe(0);
   });
 
-  // §6.1 — the two controls that already worked must keep working: they are
-  // explicitly out of scope for this change. Note the single click: Cancel
-  // takes the direct `closeDeal` path and shows no confirmation of any kind,
-  // which is why removing the unreachable ad-hoc dialog cannot affect it.
-  it('still cancels a deal on one click, with no confirmation step', async () => {
+  // Spec 048 §5.1/§5.2 — bug #911. Cancel used to fire `closeDeal` on the
+  // first click, with no confirmation of any kind. It must now ask first, with
+  // the copy the widget's author wrote for it, and cancel only on confirm.
+  it('asks before cancelling a deal, and cancels only on confirm', async () => {
     await mount(BotTypesEnum.dca);
 
     const cancelButtons = byTitle('Cancel deal');
     expect(cancelButtons.length).toBe(1);
     await click(cancelButtons[0]);
 
-    expect(captured.closed.length).toBe(1);
-    expect(captured.closed[0]).toMatchObject({
-      dealId: 'deal-1',
-      botId: 'bot-1',
-    });
+    expect(captured.closed.length).toBe(0);
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain(
+      'Cancel this deal? This action cannot be undone.'
+    );
+
+    await click(enabledButton('Cancel Deal'));
+
+    expect(captured.closed).toEqual([
+      { dealId: 'deal-1', botId: 'bot-1', type: CloseDCATypeEnum.cancel },
+    ]);
+  });
+
+  // Spec 048 §5.3 — backing out must send nothing.
+  it('sends nothing when the cancel confirmation is dismissed', async () => {
+    await mount(BotTypesEnum.dca);
+
+    await click(byTitle('Cancel deal')[0]);
+    await click(enabledButton('Keep Deal'));
+
+    expect(captured.closed.length).toBe(0);
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  });
+
+  // Spec 048 §5.4/§5.5 — Close opens the shared close-options dialog, and its
+  // default still sends exactly what the one-click button used to: a market
+  // close.
+  it('asks before closing a deal, and closes at market by default', async () => {
+    await mount(BotTypesEnum.dca);
+
+    const closeButtons = byTitle('Close deal');
+    expect(closeButtons.length).toBe(1);
+    await click(closeButtons[0]);
+
+    expect(captured.closed.length).toBe(0);
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog?.textContent).toContain('Close deal options');
+
+    await click(enabledButton('Close deal'));
+
+    expect(captured.closed).toEqual([
+      {
+        dealId: 'deal-1',
+        botId: 'bot-1',
+        type: CloseDCATypeEnum.closeByMarket,
+      },
+    ]);
   });
 });

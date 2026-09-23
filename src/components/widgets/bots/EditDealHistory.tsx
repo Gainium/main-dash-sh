@@ -6,6 +6,7 @@ import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import {
   AdjustFundsDialog,
+  CloseOptionsDialog,
   type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
 import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
@@ -398,18 +399,20 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
     [adjustFundsMutation.mutate, adjustFundsDialog]
   );
 
-  // Action handlers. Only the two terminal actions live here; both close the
-  // deal outright and neither opens a dialog.
+  // Cancel / Close — the row buttons only open a confirmation, the same way the
+  // bot drawer's deals table and the open-orders widget ask before either one.
+  // The deal is sent only from a dialog's confirm. Null while closed.
+  const [cancelDialogDeal, setCancelDialogDeal] =
+    React.useState<TransformedDeal | null>(null);
+  const [closeDialogDeal, setCloseDialogDeal] =
+    React.useState<TransformedDeal | null>(null);
+
   const handleDealAction = async (
-    type: 'cancel' | 'close',
+    type: CloseDCATypeEnum,
     deal: TransformedDeal
   ) => {
     try {
-      await closeDeal(
-        deal.id,
-        deal.botId,
-        type === 'close' ? CloseDCATypeEnum.closeByMarket : CloseDCATypeEnum.cancel
-      );
+      await closeDeal(deal.id, deal.botId, type);
       // TODO: Implement refetch logic
     } catch (error) {
       console.error(`Failed to ${type} deal:`, error);
@@ -856,9 +859,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                     </>
                                   )}
                                   <button
-                                    onClick={() =>
-                                      handleDealAction('cancel', deal)
-                                    }
+                                    onClick={() => setCancelDialogDeal(deal)}
                                     className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-red-500 transition-colors"
                                     title="Cancel deal"
                                   >
@@ -870,9 +871,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                 deal.status === 'error' ||
                                 deal.status === 'start') && (
                                 <button
-                                  onClick={() =>
-                                    handleDealAction('close', deal)
-                                  }
+                                  onClick={() => setCloseDialogDeal(deal)}
                                   className="p-1.5 hover:bg-muted rounded text-muted-foreground hover:text-green-600 transition-colors"
                                   title="Close deal"
                                 >
@@ -1167,6 +1166,37 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
         percentBasis={adjustFundsDialog?.deal.percentBasis}
         futures={!!adjustFundsDialog?.deal.futures}
         long={adjustFundsDialog?.deal.long ?? true}
+      />
+      <ConfirmationDialog
+        open={!!cancelDialogDeal}
+        onOpenChange={(open) => {
+          if (!open) setCancelDialogDeal(null);
+        }}
+        title="Cancel Deal"
+        description="Cancel this deal? This action cannot be undone."
+        confirmText="Cancel Deal"
+        cancelText="Keep Deal"
+        variant="destructive"
+        onConfirm={() => {
+          if (cancelDialogDeal) {
+            void handleDealAction(CloseDCATypeEnum.cancel, cancelDialogDeal);
+          }
+        }}
+      />
+      <CloseOptionsDialog
+        open={!!closeDialogDeal}
+        onOpenChange={(open) => {
+          if (!open) setCloseDialogDeal(null);
+        }}
+        onConfirm={(type) => {
+          if (closeDialogDeal) {
+            void handleDealAction(type, closeDialogDeal);
+          }
+          setCloseDialogDeal(null);
+        }}
+        defaultCloseType={CloseDCATypeEnum.closeByMarket}
+        ignoreOptions={[CloseDCATypeEnum.leave]}
+        mode="deal"
       />
       <ConfirmationDialog
         open={!!restoreDialogDeal}
