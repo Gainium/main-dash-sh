@@ -68,6 +68,8 @@ export interface BotStatusConfirmationModalProps {
    * `bulkCount`.
    */
   bulkSelectedCount?: number;
+  /** Bulk mode: an extra line under the description (e.g. mixed bot types). */
+  bulkNote?: string;
 }
 
 export default function BotStatusConfirmationModal({
@@ -85,6 +87,7 @@ export default function BotStatusConfirmationModal({
   gridIsShort = false,
   bulkCount,
   bulkSelectedCount,
+  bulkNote,
 }: BotStatusConfirmationModalProps) {
   const isBulk = bulkCount !== undefined;
   const plural = isBulk && bulkCount !== 1;
@@ -225,6 +228,10 @@ export default function BotStatusConfirmationModal({
         </DialogHeader>
 
         <div className="px-6 space-y-md sm:space-y-5">
+          {isBulk && bulkNote && (
+            <p className="text-sm text-muted-foreground">{bulkNote}</p>
+          )}
+
           {/* Bot Information (single bot only — bulk states the count above) */}
           {!isBulk && (
             <div className="space-y-xs">

@@ -3435,6 +3435,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         defaultCloseType={CloseDCATypeEnum.closeByMarket}
         ignoreOptions={[CloseDCATypeEnum.leave]}
         mode="deal"
+        count={closeBulkDialogOpen.length}
       />
 
       <ConfirmationDialog

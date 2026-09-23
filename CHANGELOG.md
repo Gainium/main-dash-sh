@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.56.2] - 2026-09-23
+
+### Fixed
+
+- Trading page: bulk Stop never stopped anything and bulk Start re-sent
+  Start to bots that were already running. Both now ask for confirmation
+  (Stop offers the usual options for active deals) and send each bot's own
+  type, so selected Combo and Grid bots are started and stopped correctly.
+- Bot lists: bulk Delete no longer shows "Bot Name: N bots" and a placeholder
+  "Last Activity", and its copy is pluralised.
+- Bot lists: bulk Restart and Archive / Unarchive now ask for confirmation and
+  say how many selected bots are skipped. Archive skips running bots instead of
+  sending requests the server rejects.
+- Closing several deals at once now shows the number of deals in the dialog.
+  The bulk Cancel dialog in the deals widget uses plural wording.
+
 ## [2.56.1] - 2026-09-23
 
 ### Fixed

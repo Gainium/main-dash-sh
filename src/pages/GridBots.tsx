@@ -18,6 +18,7 @@ import {
   filterStartableBots,
   filterStoppableBots,
 } from '@/utils/botStatusUtils';
+import { useBulkBotConfirm } from '@/hooks/useBulkBotConfirm';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
 import {
@@ -234,6 +235,8 @@ const GridBots: React.FC = () => {
 
   const deleteMutation = useBotDelete();
   const archiveMutation = useBotArchive();
+  const { confirmRestart, confirmArchive, confirmDialog } =
+    useBulkBotConfirm();
 
   // Bulk delete modal state
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -329,28 +332,22 @@ const GridBots: React.FC = () => {
     setBulkStatusOpen(true);
   };
 
-  const handleBulkRestart = async (
+  const handleBulkRestart = (
     bots: ReturnType<typeof transformGridBotToBot>[]
-  ) => {
-    const restartableBots = filterRestartableBots(bots);
-
-    if (restartableBots.length === 0) {
-      toast.info('No active bots selected');
-      return;
-    }
-
-    try {
-      for (const b of restartableBots) {
-        await restartMutation.mutateAsync({
-          id: b.id,
-          type: BotTypesEnum.grid,
-        });
+  ) =>
+    confirmRestart(bots, async (restartableBots) => {
+      try {
+        for (const b of restartableBots) {
+          await restartMutation.mutateAsync({
+            id: b.id,
+            type: BotTypesEnum.grid,
+          });
+        }
+        toast.success(`Restarted ${restartableBots.length} bot(s)`);
+      } catch {
+        toast.error('Failed to restart selected bots');
       }
-      toast.success(`Restarted ${restartableBots.length} bot(s)`);
-    } catch {
-      toast.error('Failed to restart selected bots');
-    }
-  };
+    });
 
   // Confirm bulk status change
   const handleConfirmBulkStatusChange = async (
@@ -1615,15 +1612,16 @@ const GridBots: React.FC = () => {
                             id: 'archive',
                             label: showArchived ? 'Unarchive' : 'Archive',
                             icon: Archive,
-                            onAction: (bots) => {
-                              bots.forEach((b) =>
-                                archiveMutation.mutate({
-                                  id: b.id,
-                                  archive: !showArchived,
-                                  type: BotTypesEnum.grid,
-                                })
-                              );
-                            },
+                            onAction: (bots) =>
+                              confirmArchive(bots, !showArchived, (targets) =>
+                                targets.forEach((b) =>
+                                  archiveMutation.mutate({
+                                    id: b.id,
+                                    archive: !showArchived,
+                                    type: BotTypesEnum.grid,
+                                  })
+                                )
+                              ),
                           },
                         ]
                   }
@@ -1670,6 +1668,7 @@ const GridBots: React.FC = () => {
                   title={`Delete ${bulkDeleteTargets.length} bot${bulkDeleteTargets.length === 1 ? '' : 's'}`}
                   description={`Are you sure you want to delete ${bulkDeleteTargets.length} selected bot${bulkDeleteTargets.length === 1 ? '' : 's'}? This action cannot be undone.`}
                   itemName={`${bulkDeleteTargets.length} bots`}
+                  bulkCount={bulkDeleteTargets.length}
                   itemType="bot"
                   additionalInfo={{
                     activeDeals: /*  bulkDeleteTargets.reduce(
@@ -1688,10 +1687,11 @@ const GridBots: React.FC = () => {
                     ),
                     currency:
                       bulkDeleteTargets[0]?.pair?.split('/')[1] || 'USD',
-                    lastActivity: 'Multiple',
                   }}
                   isLoading={bulkDeleteLoading}
                 />
+
+                {confirmDialog}
 
                 {/* Bulk status change modal */}
                 <BotStatusConfirmationModal

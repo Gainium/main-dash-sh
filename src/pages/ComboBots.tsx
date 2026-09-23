@@ -19,6 +19,7 @@ import {
   filterStartableBots,
   filterStoppableBots,
 } from '@/utils/botStatusUtils';
+import { useBulkBotConfirm } from '@/hooks/useBulkBotConfirm';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
 import {
@@ -267,6 +268,8 @@ const ComboBots: React.FC = () => {
 
   const deleteMutation = useBotDelete();
   const archiveMutation = useBotArchive();
+  const { confirmRestart, confirmArchive, confirmDialog } =
+    useBulkBotConfirm();
 
   // Bulk delete modal state
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
@@ -381,28 +384,22 @@ const ComboBots: React.FC = () => {
     setBulkStatusOpen(true);
   };
 
-  const handleBulkRestart = async (
+  const handleBulkRestart = (
     bots: ReturnType<typeof transformDcaBotToBot>[]
-  ) => {
-    const restartableBots = filterRestartableBots(bots);
-
-    if (restartableBots.length === 0) {
-      toast.info('No active bots selected');
-      return;
-    }
-
-    try {
-      for (const b of restartableBots) {
-        await restartMutation.mutateAsync({
-          id: b.id,
-          type: BotTypesEnum.combo,
-        });
+  ) =>
+    confirmRestart(bots, async (restartableBots) => {
+      try {
+        for (const b of restartableBots) {
+          await restartMutation.mutateAsync({
+            id: b.id,
+            type: BotTypesEnum.combo,
+          });
+        }
+        toast.success(`Restarted ${restartableBots.length} bot(s)`);
+      } catch {
+        toast.error('Failed to restart selected bots');
       }
-      toast.success(`Restarted ${restartableBots.length} bot(s)`);
-    } catch {
-      toast.error('Failed to restart selected bots');
-    }
-  };
+    });
 
   // Confirm bulk status change
   const handleConfirmBulkStatusChange = async (closeType?: string) => {
@@ -1862,15 +1859,19 @@ const ComboBots: React.FC = () => {
                                 id: 'archive',
                                 label: showArchived ? 'Unarchive' : 'Archive',
                                 icon: Archive,
-                                onAction: (bots) => {
-                                  bots.forEach((b) =>
-                                    archiveMutation.mutate({
-                                      id: b.id,
-                                      archive: !showArchived,
-                                      type: BotTypesEnum.combo,
-                                    })
-                                  );
-                                },
+                                onAction: (bots) =>
+                                  confirmArchive(
+                                    bots,
+                                    !showArchived,
+                                    (targets) =>
+                                      targets.forEach((b) =>
+                                        archiveMutation.mutate({
+                                          id: b.id,
+                                          archive: !showArchived,
+                                          type: BotTypesEnum.combo,
+                                        })
+                                      )
+                                  ),
                               },
                             ]
                       }
@@ -1922,6 +1923,7 @@ const ComboBots: React.FC = () => {
                       title={`Delete ${bulkDeleteTargets.length} bot${bulkDeleteTargets.length === 1 ? '' : 's'}`}
                       description={`Are you sure you want to delete ${bulkDeleteTargets.length} selected bot${bulkDeleteTargets.length === 1 ? '' : 's'}? This action cannot be undone.`}
                       itemName={`${bulkDeleteTargets.length} bots`}
+                      bulkCount={bulkDeleteTargets.length}
                       itemType="bot"
                       additionalInfo={{
                         activeDeals: bulkDeleteTargets.reduce(
@@ -1941,10 +1943,11 @@ const ComboBots: React.FC = () => {
                         currency:
                           getOriginalComboBot(bulkDeleteTargets[0]?.id ?? '')
                             ?.symbol?.[0]?.value?.quoteAsset || 'USD',
-                        lastActivity: 'Multiple',
                       }}
                       isLoading={bulkDeleteLoading}
                     />
+
+                    {confirmDialog}
 
                     {/* Bulk status change modal */}
                     <BotStatusConfirmationModal

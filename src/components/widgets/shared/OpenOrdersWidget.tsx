@@ -3698,10 +3698,14 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       <ConfirmationDialog
         open={!!cancelDialogOpen.length}
         onOpenChange={() => setCancelDialogOpen([])}
-        title="Cancel Trade"
+        title={cancelDialogOpen.length > 1 ? 'Cancel Trades' : 'Cancel Trade'}
         description={`Are you sure you want to cancel ${cancelDialogOpen.length} ${cancelDialogOpen.length > 1 ? 'trades' : 'trade'}? This action cannot be undone.`}
-        confirmText="Cancel Trade"
-        cancelText="Keep Trade"
+        confirmText={
+          cancelDialogOpen.length > 1
+            ? `Cancel ${cancelDialogOpen.length} Trades`
+            : 'Cancel Trade'
+        }
+        cancelText={cancelDialogOpen.length > 1 ? 'Keep Trades' : 'Keep Trade'}
         variant="destructive"
         onConfirm={handleCancelConfirm}
       />
@@ -3712,6 +3716,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         defaultCloseType={CloseDCATypeEnum.closeByMarket}
         ignoreOptions={[CloseDCATypeEnum.leave]}
         mode="deal"
+        count={closeDialogOpen.length}
       />
       {bulkAdjustFundsDialog}
       <ConfirmationDialog

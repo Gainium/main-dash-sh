@@ -21,6 +21,8 @@ type CloseOptionItem = {
   dealTitle?: string;
   description: string;
   dealDescription?: string;
+  /** Deal mode, several deals selected. Falls back to `dealDescription`. */
+  dealsDescription?: string;
 };
 
 const CLOSE_TYPE_OPTIONS: CloseOptionItem[] = [
@@ -40,6 +42,8 @@ const CLOSE_TYPE_OPTIONS: CloseOptionItem[] = [
       "The position will remain open on your exchange but will be removed from Gainium. You'll need to manage it manually on your exchange if necessary.",
     dealDescription:
       "The position will remain open on your exchange but will be removed from Gainium. You'll need to manage it manually on your exchange if necessary.",
+    dealsDescription:
+      "The positions will remain open on your exchange but will be removed from Gainium. You'll need to manage them manually on your exchange if necessary.",
   },
   {
     value: CloseDCATypeEnum.closeByMarket,
@@ -48,6 +52,8 @@ const CLOSE_TYPE_OPTIONS: CloseOptionItem[] = [
       'Close all active positions immediately using market orders. May incur slippage and taker fees.',
     dealDescription:
       'Close this deal immediately using market orders. May incur slippage and taker fees.',
+    dealsDescription:
+      'Close these deals immediately using market orders. May incur slippage and taker fees.',
   },
   {
     value: CloseDCATypeEnum.closeByLimit,
@@ -67,6 +73,8 @@ export interface CloseOptionsDialogProps {
   defaultCloseType?: CloseTypeOption;
   ignoreOptions?: CloseDCATypeEnum[];
   mode?: 'deal' | 'bot';
+  /** Deal mode: number of deals being closed (bulk). Defaults to 1. */
+  count?: number;
 }
 
 export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
@@ -77,7 +85,9 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
   defaultCloseType = CloseDCATypeEnum.leave,
   ignoreOptions = [],
   mode = 'bot',
+  count = 1,
 }) => {
+  const isBulkDeals = mode === 'deal' && count > 1;
   const [selected, setSelected] = useState<CloseTypeOption>(defaultCloseType);
 
   useEffect(() => {
@@ -104,8 +114,12 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
 
   const title = useMemo(
     () =>
-      mode === 'bot' ? 'Stop bot & close positions' : 'Close deal options',
-    [mode]
+      mode === 'bot'
+        ? 'Stop bot & close positions'
+        : isBulkDeals
+          ? `Close ${count} deals`
+          : 'Close deal options',
+    [mode, isBulkDeals, count]
   );
 
   const isDeal = useMemo(() => mode === 'deal', [mode]);
@@ -152,11 +166,16 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                   disabled={isProcessing}
                 >
                   <div className="font-medium text-sm sm:text-base text-card-foreground">
-                    {isDeal && option.dealTitle ? option.dealTitle : option.title}
+                    {isDeal && option.dealTitle
+                      ? isBulkDeals
+                        ? `${option.dealTitle}s`
+                        : option.dealTitle
+                      : option.title}
                   </div>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                     {isDeal && option.dealDescription
-                      ? option.dealDescription
+                      ? (isBulkDeals && option.dealsDescription) ||
+                        option.dealDescription
                       : option.description}
                   </p>
                 </button>
@@ -187,7 +206,9 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                 ? 'Closing…'
                 : 'Stopping…'
               : isDeal
-                ? 'Close deal'
+                ? isBulkDeals
+                  ? `Close ${count} deals`
+                  : 'Close deal'
                 : 'Stop bot'}
           </Button>
         </DialogFooter>

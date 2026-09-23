@@ -32,6 +32,11 @@ export interface DeleteConfirmationModalProps {
     lastActivity?: string;
   };
   isLoading?: boolean;
+  /**
+   * Bulk mode: number of items being deleted. Hides the single "Name" row
+   * (the title/description carry the count) and pluralises the copy.
+   */
+  bulkCount?: number;
 }
 
 export const DeleteConfirmationModal: React.FC<
@@ -48,7 +53,10 @@ export const DeleteConfirmationModal: React.FC<
   requireConfirmation = true,
   additionalInfo,
   isLoading = false,
+  bulkCount,
 }) => {
+  const isBulk = bulkCount !== undefined;
+  const plural = isBulk && bulkCount !== 1;
   const [confirmationText, setConfirmationText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -98,7 +106,9 @@ export const DeleteConfirmationModal: React.FC<
   const getWarningMessage = () => {
     switch (itemType) {
       case 'bot':
-        return 'This will permanently delete the bot and all its associated data, including deal history, performance metrics, and configuration settings.';
+        return plural
+          ? 'This will permanently delete these bots and all their associated data, including deal history, performance metrics, and configuration settings.'
+          : 'This will permanently delete the bot and all its associated data, including deal history, performance metrics, and configuration settings.';
       case 'deal':
         return 'This will permanently close the deal and may result in losses if the position is not profitable.';
       default:
@@ -120,15 +130,17 @@ export const DeleteConfirmationModal: React.FC<
         </DialogHeader>
 
         <div className="px-6 space-y-md sm:space-y-5">
-          {/* Item Information */}
-          <Card className="p-sm bg-muted/20">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-muted-foreground">
-                {itemType.charAt(0).toUpperCase() + itemType.slice(1)} Name:
-              </span>
-              <span className="font-medium text-sm">{itemName}</span>
-            </div>
-          </Card>
+          {/* Item Information (single item only) */}
+          {!isBulk && (
+            <Card className="p-sm bg-muted/20">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-muted-foreground">
+                  {itemType.charAt(0).toUpperCase() + itemType.slice(1)} Name:
+                </span>
+                <span className="font-medium text-sm">{itemName}</span>
+              </div>
+            </Card>
+          )}
 
           {/* Additional Information */}
           {additionalInfo && (
@@ -238,6 +250,7 @@ export const DeleteConfirmationModal: React.FC<
               <>
                 <Trash2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
                 Delete {itemType.charAt(0).toUpperCase() + itemType.slice(1)}
+                {plural ? 's' : ''}
               </>
             )}
           </Button>

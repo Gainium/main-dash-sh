@@ -80,6 +80,7 @@ import {
   filterStoppableBots,
   isBotActive,
 } from '@/utils/botStatusUtils';
+import { useBulkBotConfirm } from '@/hooks/useBulkBotConfirm';
 import {
   Tabs,
   TabsContent,
@@ -1813,17 +1814,22 @@ const TradingBots: React.FC = () => {
     [handleSelectBot]
   );
 
+  const { confirmRestart, confirmArchive, confirmDialog } =
+    useBulkBotConfirm();
+
   const handleBulkArchive = useCallback(
     (bots: ReturnType<typeof transformDcaBotToBot>[]) => {
-      bots.forEach((b) =>
-        archiveMutation.mutate({
-          id: b.id,
-          archive: !showArchived,
-          type: BotTypesEnum.dca,
-        })
+      confirmArchive(bots, !showArchived, (targets) =>
+        targets.forEach((b) =>
+          archiveMutation.mutate({
+            id: b.id,
+            archive: !showArchived,
+            type: BotTypesEnum.dca,
+          })
+        )
       );
     },
-    [archiveMutation, showArchived]
+    [archiveMutation, confirmArchive, showArchived]
   );
 
   const handleBulkStart = useCallback(
@@ -1841,27 +1847,22 @@ const TradingBots: React.FC = () => {
   );
 
   const handleBulkRestart = useCallback(
-    async (bots: ReturnType<typeof transformDcaBotToBot>[]) => {
-      const restartableBots = filterRestartableBots(bots);
-
-      if (restartableBots.length === 0) {
-        toast.info('No active bots selected');
-        return;
-      }
-
-      try {
-        for (const b of restartableBots) {
-          await restartMutation.mutateAsync({
-            id: b.id,
-            type: BotTypesEnum.dca,
-          });
+    (bots: ReturnType<typeof transformDcaBotToBot>[]) => {
+      confirmRestart(bots, async (restartableBots) => {
+        try {
+          for (const b of restartableBots) {
+            await restartMutation.mutateAsync({
+              id: b.id,
+              type: BotTypesEnum.dca,
+            });
+          }
+          toast.success(`Restarted ${restartableBots.length} bot(s)`);
+        } catch {
+          toast.error('Failed to restart selected bots');
         }
-        toast.success(`Restarted ${restartableBots.length} bot(s)`);
-      } catch {
-        toast.error('Failed to restart selected bots');
-      }
+      });
     },
-    [restartMutation]
+    [confirmRestart, restartMutation]
   );
 
   const handleBulkDelete = useCallback(
@@ -2061,7 +2062,6 @@ const TradingBots: React.FC = () => {
       currency:
         getOriginalBot(bulkDeleteTargets[0]?.id ?? '')?.symbol?.[0]?.value
           ?.quoteAsset || 'USD',
-      lastActivity: 'Multiple',
     }),
     [bulkDeleteTargets, getOriginalBot]
   );
@@ -2361,10 +2361,13 @@ const TradingBots: React.FC = () => {
                           title={`Delete ${bulkDeleteTargets.length} bot${bulkDeleteTargets.length === 1 ? '' : 's'}`}
                           description={`Are you sure you want to delete ${bulkDeleteTargets.length} selected bot${bulkDeleteTargets.length === 1 ? '' : 's'}? This action cannot be undone.`}
                           itemName={`${bulkDeleteTargets.length} bots`}
+                          bulkCount={bulkDeleteTargets.length}
                           itemType="bot"
                           additionalInfo={bulkDeleteAdditionalInfo}
                           isLoading={bulkDeleteLoading}
                         />
+
+                        {confirmDialog}
 
                         {/* Bulk status change modal */}
                         <BotStatusConfirmationModal

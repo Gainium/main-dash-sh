@@ -35,6 +35,11 @@ import {
   StrategyChip,
 } from '../components/ui/chip';
 import { useBotStatusToggle } from '../hooks/useBotMutations';
+import { BotStatusConfirmationModal } from '@/components/modals';
+import {
+  filterStartableBots,
+  filterStoppableBots,
+} from '@/utils/botStatusUtils';
 // useDealActions not currently used (placeholder)
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatDuration } from '@/utils/formatters';
@@ -87,6 +92,8 @@ import {
   type ComboBot,
   type DCABot,
   BotTypesEnum,
+  CloseDCATypeEnum,
+  CloseGRIDTypeEnum,
   DCADealStatusEnum,
   StrategyEnum,
 } from '@/types';
@@ -1678,11 +1685,118 @@ const Trading: React.FC = () => {
     [privacyMode]
   );
 
-  const statusToggleMutation = useBotStatusToggle(BotTypesEnum.dca);
-  // react-query's `mutate` is a stable reference across renders; the mutation
-  // object itself is not. Bind the stable fn so downstream memos can depend on
-  // it without rebuilding every render.
-  const toggleBotStatus = statusToggleMutation.mutate;
+  // One mutation per bot type: changeStatus takes the bot's `type`, so a
+  // combo or grid bot must not go through the DCA mutation. `mutateAsync` is
+  // a stable reference across renders; the mutation object itself is not.
+  const dcaStatusToggle = useBotStatusToggle(BotTypesEnum.dca).mutateAsync;
+  const comboStatusToggle = useBotStatusToggle(BotTypesEnum.combo).mutateAsync;
+  const gridStatusToggle = useBotStatusToggle(BotTypesEnum.grid).mutateAsync;
+
+  // Bulk start/stop confirmation — same flow as the per-type bot lists.
+  const [bulkStatus, setBulkStatus] = useState<{
+    action: 'start' | 'stop';
+    targets: BotTableRow[];
+    selectedCount: number;
+  } | null>(null);
+  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
+
+  const openBulkStatus = useCallback(
+    (selected: BotTableRow[], action: 'start' | 'stop') => {
+      const withStatus = selected.map((b) => ({
+        ...b,
+        status: b.status || '',
+      }));
+      const targets =
+        action === 'start'
+          ? filterStartableBots(withStatus)
+          : filterStoppableBots(withStatus);
+      if (targets.length === 0) {
+        toast.info(
+          action === 'start'
+            ? 'No stopped bots selected'
+            : 'No active bots selected'
+        );
+        return;
+      }
+      setBulkStatus({ action, targets, selectedCount: selected.length });
+    },
+    []
+  );
+
+  const bulkAllGrid =
+    !!bulkStatus &&
+    bulkStatus.targets.every((b) => b.botType === BotTypesEnum.grid);
+  const bulkHasGrid =
+    !!bulkStatus &&
+    bulkStatus.targets.some((b) => b.botType === BotTypesEnum.grid);
+  const bulkHasActiveDeals =
+    !!bulkStatus &&
+    bulkStatus.targets.some(
+      (b) =>
+        b.botType !== BotTypesEnum.grid &&
+        (b.originalBot?.dealsInBot?.active || 0) > 0
+    );
+
+  const handleConfirmBulkStatus = useCallback(
+    async (closeType?: string, cancelPartiallyFilled?: boolean) => {
+      if (!bulkStatus) return;
+      const { action, targets } = bulkStatus;
+      const status = action === 'start' ? 'open' : 'closed';
+      const isStop = action === 'stop';
+      setBulkStatusLoading(true);
+      try {
+        for (const b of targets) {
+          if (b.botType === BotTypesEnum.grid) {
+            // Grid-only selection: the dialog showed grid options. Mixed
+            // selection: the dialog showed DCA options, so grid bots take
+            // the grid default (cancel all orders).
+            await gridStatusToggle({
+              id: b.id,
+              status,
+              closeGridType: isStop
+                ? bulkAllGrid
+                  ? (closeType as CloseGRIDTypeEnum | undefined)
+                  : CloseGRIDTypeEnum.cancel
+                : undefined,
+              cancelPartiallyFilled: isStop
+                ? bulkAllGrid
+                  ? cancelPartiallyFilled
+                  : true
+                : undefined,
+            });
+          } else {
+            const toggle =
+              b.botType === BotTypesEnum.combo
+                ? comboStatusToggle
+                : dcaStatusToggle;
+            await toggle({
+              id: b.id,
+              status,
+              closeType: isStop
+                ? (closeType as CloseDCATypeEnum | undefined)
+                : undefined,
+            });
+          }
+        }
+        toast.success(
+          `${action === 'start' ? 'Started' : 'Stopped'} ${targets.length} bot(s)`
+        );
+      } catch (error) {
+        logger.error('Failed to change status for selected bots:', error);
+        toast.error('Failed to change status for selected bots');
+      } finally {
+        setBulkStatusLoading(false);
+        setBulkStatus(null);
+      }
+    },
+    [
+      bulkStatus,
+      bulkAllGrid,
+      dcaStatusToggle,
+      comboStatusToggle,
+      gridStatusToggle,
+    ]
+  );
   // placeholder: useDealActions not required for now; kept for future trade bulk actions
   const readOnly = isReadOnly();
 
@@ -1899,17 +2013,7 @@ const Trading: React.FC = () => {
         icon: Play,
         destructive: false,
         disabled: readOnly,
-        onAction: (selected) => {
-          const stopped = selected.filter((b) => b.status !== 'active');
-          if (stopped.length === 0) {
-            toast.info('No stopped bots selected');
-            return;
-          }
-          stopped.forEach((b) =>
-            toggleBotStatus({ id: b.id, status: 'open' })
-          );
-          toast.success(`Starting ${stopped.length} bot(s)`);
-        },
+        onAction: (selected) => openBulkStatus(selected, 'start'),
       },
       {
         id: 'stop',
@@ -1917,17 +2021,7 @@ const Trading: React.FC = () => {
         icon: Square,
         destructive: true,
         disabled: readOnly,
-        onAction: (selected) => {
-          const active = selected.filter((b) => b.status === 'active');
-          if (active.length === 0) {
-            toast.info('No active bots selected');
-            return;
-          }
-          active.forEach((b) =>
-            toggleBotStatus({ id: b.id, status: 'closed' })
-          );
-          toast.success(`Stopping ${active.length} bot(s)`);
-        },
+        onAction: (selected) => openBulkStatus(selected, 'stop'),
       },
     ],
     // Depend on the stable `mutate` fn, NOT the whole mutation object —
@@ -1935,7 +2029,7 @@ const Trading: React.FC = () => {
     // this memo (and therefore the data-table toolbar's button array) rebuild
     // on every parent re-render, re-rendering ResponsiveButtonRow ~26x/s under
     // live bot-stats churn (RenderLoopTripwire on /trading).
-    [readOnly, toggleBotStatus]
+    [readOnly, openBulkStatus]
   );
 
   if (hasError) {
@@ -2158,6 +2252,28 @@ const Trading: React.FC = () => {
               </TradeDetailDrawer>
             );
           })()}
+        <BotStatusConfirmationModal
+          open={!!bulkStatus}
+          onOpenChange={(open) => {
+            if (!open) setBulkStatus(null);
+          }}
+          onConfirm={handleConfirmBulkStatus}
+          botName=""
+          bulkCount={bulkStatus?.targets.length ?? 0}
+          bulkSelectedCount={bulkStatus?.selectedCount}
+          currentStatus={bulkStatus?.action === 'start' ? 'closed' : 'open'}
+          targetStatus={bulkStatus?.action === 'start' ? 'open' : 'closed'}
+          hasActiveDeals={bulkHasActiveDeals}
+          botType={bulkAllGrid ? BotTypesEnum.grid : undefined}
+          gridFutures
+          gridHasOpenPosition
+          bulkNote={
+            bulkStatus?.action === 'stop' && bulkHasGrid && !bulkAllGrid
+              ? 'Grid bots in this selection stop with all their open orders cancelled.'
+              : undefined
+          }
+          isLoading={bulkStatusLoading}
+        />
       </WidgetContainer>
     </MainLayout>
   );
