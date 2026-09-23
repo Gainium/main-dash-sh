@@ -29,6 +29,25 @@ type GetCandlesInput = {
   signal?: AbortSignal | undefined;
 };
 
+// The IndexedDB cache is an optimisation, never a dependency: an open or
+// transaction that never settles (a blocked upgrade, a wedged browser store)
+// must not hold up the candles the caller is waiting for — a chart's getBars
+// awaits this whole path. Past this bound a read counts as a cache miss and a
+// write is left to finish in the background.
+export const CANDLE_CACHE_IO_TIMEOUT_MS = 5_000;
+
+const TIMED_OUT = Symbol('timedOut');
+
+const withinCacheBudget = <T>(
+  work: Promise<T>
+): Promise<T | typeof TIMED_OUT> => {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const timeout = new Promise<typeof TIMED_OUT>((resolve) => {
+    timer = setTimeout(() => resolve(TIMED_OUT), CANDLE_CACHE_IO_TIMEOUT_MS);
+  });
+  return Promise.race([work, timeout]).finally(() => clearTimeout(timer));
+};
+
 class Candles {
   private exchangeName: ExchangeEnum;
 
@@ -151,7 +170,11 @@ class Candles {
         quoteAsset,
         firstTime,
       };
-      await save(entry);
+      if ((await withinCacheBudget(save(entry))) === TIMED_OUT) {
+        logger.warn(
+          `[Candles.saveLocal] Cache write for ${entry.id} still pending after ${CANDLE_CACHE_IO_TIMEOUT_MS}ms — not waiting for it`
+        );
+      }
     } catch (e) {
       const error = (e as Error)?.message || e;
       if (error && `${error}` !== 'QuotaExceededError') {
@@ -163,13 +186,23 @@ class Candles {
   private async getLocal(
     symbol: string,
     interval: ExchangeIntervals
-  ): Promise<{ bars: Bar[]; firstTime?: number | undefined }> {
+  ): Promise<{
+    bars: Bar[];
+    firstTime?: number | undefined;
+    readTimedOut?: boolean;
+  }> {
     if (this._stop) {
       return { bars: [] };
     }
     try {
       const id = this.getId(symbol, interval);
-      const value = await getById(id, true);
+      const value = await withinCacheBudget(getById(id, true));
+      if (value === TIMED_OUT) {
+        logger.warn(
+          `[Candles.getLocal] Cache read for ${id} still pending after ${CANDLE_CACHE_IO_TIMEOUT_MS}ms — treating it as a miss`
+        );
+        return { bars: [], readTimedOut: true };
+      }
       if (value) {
         return {
           bars: this.convertCSVToCandles(value.data),
@@ -451,14 +484,18 @@ class Candles {
           firstTime = candidateFirstTime;
         }
       }
-      await this.saveLocal(
-        symbol,
-        interval,
-        [...toSave, ...local.bars].sort((a, b) => a.time - b.time),
-        baseAsset,
-        quoteAsset,
-        firstTime
-      );
+      // An unread entry must not be overwritten by this call's bars alone —
+      // that would drop the history the read never returned.
+      if (!local.readTimedOut) {
+        await this.saveLocal(
+          symbol,
+          interval,
+          [...toSave, ...local.bars].sort((a, b) => a.time - b.time),
+          baseAsset,
+          quoteAsset,
+          firstTime
+        );
+      }
       const map: Map<number, Bar> = new Map();
       for (const r of required) {
         map.set(r.time, r);

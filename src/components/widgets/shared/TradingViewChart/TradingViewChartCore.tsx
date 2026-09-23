@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { Button } from '@/components/ui/button';
 import { useTradingViewAutoSave } from '@/hooks/useTradingViewAutoSave';
 import { logger } from '@/lib/loggerInstance';
 import { getCSSVar } from '@/lib/utils/chart';
@@ -180,27 +181,28 @@ export const TradingViewChartCore = forwardRef<
       []
     );
 
-    const { widgetRef, isLoading, error, isChartReady } = useInitializeWidget({
-      initialSymbol,
-      initialInterval,
-      ...(indicatorValueCallback ? { indicatorValueCallback } : {}),
-      ...(datafeed ? { datafeed } : {}),
-      // cast because hook expects non-nullable but ref is filled after mount
-      containerRef:
-        chartContainerRef as unknown as React.RefObject<HTMLDivElement>,
-      onChartReady,
-      onVisibleRange: proxyVisibleRange,
-      onSymbolChange,
-      onIntervalChange: proxyIntervalChange,
-      enableAutoSave,
-      enableLoadLastChart,
-      enableSeparateDrawingsStorage,
-      initialLayoutId,
-      initialLayoutName,
-      initialTimeframe,
-      ...(layoutPersistenceKey ? { layoutPersistenceKey } : {}),
-      ...(onLayoutChange ? { onLayoutChange } : {}),
-    });
+    const { widgetRef, isLoading, error, isChartReady, stalled, retry } =
+      useInitializeWidget({
+        initialSymbol,
+        initialInterval,
+        ...(indicatorValueCallback ? { indicatorValueCallback } : {}),
+        ...(datafeed ? { datafeed } : {}),
+        // cast because hook expects non-nullable but ref is filled after mount
+        containerRef:
+          chartContainerRef as unknown as React.RefObject<HTMLDivElement>,
+        onChartReady,
+        onVisibleRange: proxyVisibleRange,
+        onSymbolChange,
+        onIntervalChange: proxyIntervalChange,
+        enableAutoSave,
+        enableLoadLastChart,
+        enableSeparateDrawingsStorage,
+        initialLayoutId,
+        initialLayoutName,
+        initialTimeframe,
+        ...(layoutPersistenceKey ? { layoutPersistenceKey } : {}),
+        ...(onLayoutChange ? { onLayoutChange } : {}),
+      });
 
     useTradingViewAutoSave(
       widgetRef.current,
@@ -1934,9 +1936,17 @@ export const TradingViewChartCore = forwardRef<
         className="h-full w-full relative flex flex-col"
         style={{ minHeight: '300px' }}
       >
-        {isLoading && (
+        {isLoading && !stalled && (
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10">
             Loading chart...
+          </div>
+        )}
+        {isLoading && stalled && (
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 z-10 flex flex-col items-center gap-2 text-sm">
+            <span className="text-muted-foreground">Chart failed to load.</span>
+            <Button size="sm" variant="outline" onClick={retry}>
+              Retry
+            </Button>
           </div>
         )}
         {error && (

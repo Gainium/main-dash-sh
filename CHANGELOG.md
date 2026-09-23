@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.56.5] - 2026-09-23
+
+### Fixed
+
+- A chart whose candle request never answered stayed on "Loading chart..."
+  forever, and none of its order, breakeven or fill lines were drawn:
+  TradingView only reports the chart ready once the main series' history
+  requests are answered. Every candle request now answers within 45 seconds,
+  with an error if it has to, and the local candle cache can no longer hold
+  one up: a cache read or write that does not finish within 5 seconds is
+  skipped (a skipped read counts as a miss) instead of being waited on.
+- A chart that is still not ready 30 seconds after it was created now shows
+  "Chart failed to load." with a Retry button instead of spinning
+  indefinitely. It also sends one diagnostic error report describing what
+  the chart was still waiting on. If the chart's data did load and only the
+  ready signal is missing, it finishes loading and draws its lines.
+
 ## [2.56.4] - 2026-09-23
 
 ### Fixed

@@ -9,6 +9,7 @@ import { hyperliquidHandler } from './exchanges/hyperliquid';
 import { krakenHandler } from './exchanges/kraken';
 import { kucoinHandler } from './exchanges/kucoin';
 import { okxHandler } from './exchanges/okx';
+import { trackBarRequest } from './barRequestTracker';
 import { getCandles } from './historyApi';
 import { createRealtimeBarGuard } from './realtimeBarGuard';
 import {
@@ -226,6 +227,11 @@ export const abortActiveCandleFetch = (): void => {
   }
   activeFetchKey = null;
 };
+
+// Upper bound on one getBars call. One candle request may take up to 30s
+// before its own timeout, so this leaves room for that plus cache I/O; past
+// it the chart is better off with an error it can recover from.
+export const GET_BARS_DEADLINE_MS = 45_000;
 
 // Defence in depth for the realtime callback: never hand TradingView a bar
 // older than the newest one it has (from getBars or an earlier tick). The
@@ -634,6 +640,39 @@ export const createDatafeed = (): IBasicDataFeed => ({
     onResult: HistoryCallback,
     onError: ErrorCallback
   ) => {
+    // TradingView keeps the chart on its loading state until the main
+    // series' requests are answered, so every call must end in exactly one
+    // callback. The fetch path can take arbitrarily long (IndexedDB cache,
+    // paginated fetches of up to 30s each), so a deadline answers with an
+    // error instead of leaving the chart waiting forever. A result arriving
+    // after that is dropped — TradingView rejects a second callback.
+    const untrack = trackBarRequest({
+      ticker: symbolInfo.ticker ?? symbolInfo.name,
+      resolution,
+      from: periodParams.from,
+      to: periodParams.to,
+      countBack: periodParams.countBack,
+      firstDataRequest: periodParams.firstDataRequest,
+    });
+    const answerBars = onResult;
+    const answerError = onError;
+    let settled = false;
+    const settle = (answer: () => void) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(deadline);
+      untrack();
+      answer();
+    };
+    const deadline = setTimeout(() => {
+      logger.warn(
+        `[tradingView/factory] getBars for ${symbolInfo.ticker} ${resolution} unanswered after ${GET_BARS_DEADLINE_MS}ms — failing it so the chart can finish loading`
+      );
+      settle(() => answerError('timeout'));
+    }, GET_BARS_DEADLINE_MS);
+    onResult = (bars, meta) => settle(() => answerBars(bars, meta));
+    onError = (reason) => settle(() => answerError(reason));
+
     try {
       logger.info('[ScrollLoadBars] getBars called', {
         symbol: symbolInfo.name,
