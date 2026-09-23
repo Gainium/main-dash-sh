@@ -151,6 +151,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
   const reinvestValue = useBotFormSelector('reinvestValue');
   const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
+  const rejectBelowExchangeMin = useBotFormSelector('rejectBelowExchangeMin');
   const futures = useBotFormSelector('futures');
   // Estimated liquidation price for the ladder this form describes. Null for
   // spot bots and leverage <= 1, in which case nothing renders.
@@ -631,6 +632,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
           (isLimitOrder &&
             (!!notUseLimitReposition || isEnterMarketTimeoutEnabled)) ||
           !!skipBalanceCheck ||
+          (!isComboBot && !!rejectBelowExchangeMin) ||
           !!isRiskReductionEnabled ||
           !!useReinvest
         }
@@ -759,6 +761,22 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
             />
           )}
         </SettingsRow>
+
+        {!isComboBot && (
+          <SettingsRow
+            name="Reject Orders Below Exchange Minimum"
+            tooltip="When a Base or Safety Order is smaller than the exchange's minimum order size for a pair, the bot normally increases it to that minimum so the exchange accepts it. Turn this on to skip the deal on that pair instead and get notified, so your configured order sizes are never exceeded."
+            trailing={
+              <Switch
+                id="reject-below-exchange-min"
+                checked={!!rejectBelowExchangeMin}
+                onCheckedChange={(checked) =>
+                  updateFormData('rejectBelowExchangeMin', checked)
+                }
+              />
+            }
+          />
+        )}
 
         <SettingsRow
           name="Risk Reduction"

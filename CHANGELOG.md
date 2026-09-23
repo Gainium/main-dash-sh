@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.55.0] - 2026-09-23
+
+### Added
+
+- DCA bot setting "Reject Orders Below Exchange Minimum" (Strategy → advanced).
+  When a Base or Safety Order is smaller than the pair's exchange minimum, the
+  bot skips the deal on that pair and notifies you, instead of increasing the
+  order to the minimum. Off by default. Requires main-app 2.96.0.
+
 ## [2.54.54] - 2026-09-23
 
 ### Fixed

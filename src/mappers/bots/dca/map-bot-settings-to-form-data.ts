@@ -869,6 +869,7 @@ export const mapBotSettingsToFormData = (
     comboSlLimit: getBoolean('comboSlLimit', false),
     useSmartOrders: getBoolean('useSmartOrders'),
     dcaByMarket: getBoolean('dcaByMarket', false),
+    rejectBelowExchangeMin: getBoolean('rejectBelowExchangeMin', false),
     maxNumberOfOpenDeals: getString('maxNumberOfOpenDeals', '1'),
     type: getValue<DCATypeEnum>('type', DCATypeEnum.regular),
     startDealLogic,

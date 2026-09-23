@@ -800,6 +800,9 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
   const dcaByMarket = isComboBot
     ? formData.combo.dcaByMarket
     : formData.dca.dcaByMarket;
+  const rejectBelowExchangeMin = isComboBot
+    ? false
+    : formData.dca.rejectBelowExchangeMin;
   const _activeOrdersCount = isComboBot
     ? formData.combo.activeOrdersCount
     : formData.dca.activeOrdersCount;
@@ -923,6 +926,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         | 'ordersCount'
         | 'useSmartOrders'
         | 'dcaByMarket'
+        | 'rejectBelowExchangeMin'
         | 'activeOrdersCount'
         | 'gridLevel'
         | 'baseGridLevels'
@@ -993,6 +997,12 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
 
     dcaFields['dcaByMarket'] = Boolean(dcaByMarket);
     fieldsMapped.push('dcaByMarket');
+
+    // DCA bots only — the combo engine does not implement the refusal.
+    if (!isComboBot) {
+      dcaFields['rejectBelowExchangeMin'] = Boolean(rejectBelowExchangeMin);
+      fieldsMapped.push('rejectBelowExchangeMin');
+    }
 
     if (useSmartOrders) {
       const activeOrdersCount = Number(_activeOrdersCount ?? 0);

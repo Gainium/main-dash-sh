@@ -198,6 +198,7 @@ dcaCondition
     dcaVolumeRequiredChangeRef
     dcaVolumeMaxValue
 skipBalanceCheck
+rejectBelowExchangeMin
 baseSlOn
 closeByTimer
                     closeByTimerValue
