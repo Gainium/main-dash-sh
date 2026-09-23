@@ -342,7 +342,28 @@ const mexcSupported: ExchangeIntervals[] = [
   ExchangeIntervals.oneW,
 ];
 
-const krakenSupported: ExchangeIntervals[] = [
+// Kraken spot serves eight widths natively; the backend builds 3m/2h/8h by
+// aggregating a finer native one. Mirrors `NATIVE_MINUTES` ∪ `AGGREGATED_FROM`
+// in exchange-connector `core/src/exchange/exchanges/kraken/candles.ts` and
+// main-app `krakenSpotSupported` (`core/src/indicators/index.ts`), which is
+// what the indicator service will actually subscribe.
+const krakenSpotSupported: ExchangeIntervals[] = [
+  ExchangeIntervals.oneM,
+  ExchangeIntervals.threeM,
+  ExchangeIntervals.fiveM,
+  ExchangeIntervals.fifteenM,
+  ExchangeIntervals.thirtyM,
+  ExchangeIntervals.oneH,
+  ExchangeIntervals.twoH,
+  ExchangeIntervals.fourH,
+  ExchangeIntervals.eightH,
+  ExchangeIntervals.oneD,
+  ExchangeIntervals.oneW,
+];
+
+// Kraken futures has no aggregation step, so it keeps the native widths only.
+// Mirrors main-app `krakenUsdmSupported`.
+const krakenUsdmSupported: ExchangeIntervals[] = [
   ExchangeIntervals.oneM,
   ExchangeIntervals.fiveM,
   ExchangeIntervals.fifteenM,
@@ -466,8 +487,11 @@ export const filterIntervalsByExchange = (
   if ([ExchangeEnum.mexc].includes(exchange)) {
     return intervals.filter((i) => mexcSupported.includes(i));
   }
-  if ([ExchangeEnum.kraken, ExchangeEnum.krakenUsdm].includes(exchange)) {
-    return intervals.filter((i) => krakenSupported.includes(i));
+  if ([ExchangeEnum.kraken].includes(exchange)) {
+    return intervals.filter((i) => krakenSpotSupported.includes(i));
+  }
+  if ([ExchangeEnum.krakenUsdm].includes(exchange)) {
+    return intervals.filter((i) => krakenUsdmSupported.includes(i));
   }
   return intervals;
 };

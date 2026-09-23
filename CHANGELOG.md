@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.54.54] - 2026-09-23
+
+### Fixed
+
+- The indicator interval list for a Kraken spot bot now includes 3m, 2h and 8h.
+  Kraken spot does not serve these widths directly, but the platform builds
+  them from a shorter width Kraken does serve. The list was never updated to
+  include them, so they could not be chosen. Kraken futures still offers only
+  the widths its own candle feed provides.
+
 ## [2.54.53] - 2026-09-23
 
 ### Fixed
