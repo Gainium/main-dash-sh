@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.54.53] - 2026-09-23
+
+### Fixed
+
+- The Portfolio Allocation widget showed "No portfolio data available" under an
+  "All exchanges" title when its saved exchange selection was empty. An empty
+  selection now shows the whole portfolio, the same as "All exchanges".
+- The Portfolio Allocation widget's exchange filter is now available while the
+  widget is loading or has nothing to show. Previously the filter area was an
+  empty strip in those states, so a selection that showed nothing could not be
+  changed from the widget.
+
 ## [2.54.52] - 2026-09-22
 
 ### Fixed

@@ -90,9 +90,16 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
   const portfolioContext = useContext(PortfolioContext);
 
   // Persisted settings for this widget instance
-  const [selectedExchanges, setSelectedExchanges] = usePersistedState(
+  const [storedSelectedExchanges, setSelectedExchanges] = usePersistedState(
     'selectedExchanges',
     ['ALL']
+  );
+  // An empty stored selection means "all", as the widget title already reads
+  // it (buildExchangeDisplay); filtering by it would hide every holding.
+  const selectedExchanges = React.useMemo(
+    () =>
+      storedSelectedExchanges.length === 0 ? ['ALL'] : storedSelectedExchanges,
+    [storedSelectedExchanges]
   );
   const [selectedCurrency] = useState('USD');
   const [customName, setCustomName] = usePersistedState('customName', '');
@@ -607,6 +614,78 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     );
   };
 
+  // Check if any filters are active (not default state)
+  const filtersActive =
+    !selectedExchanges.includes('ALL') || selectedExchanges.length > 1;
+
+  // Clear all filters to default state
+  const clearAllFilters = () => {
+    setSelectedExchanges(['ALL']);
+    if (portfolioContext?.setSelectedExchanges) {
+      portfolioContext.setSelectedExchanges(['ALL']);
+    }
+  };
+
+  // Create exchange filter items for the generic filter system
+  const exchangeFilterItems: FilterItem[] = exchanges
+    .filter((exchange) => exchange.id !== 'ALL') // Exclude ALL since it's handled separately
+    .map((exchange) => ({
+      id: exchange.id, // Use UUID for consistency
+      name: exchange.name,
+      icon: exchange.icon,
+      color: exchange.color || '#64748b',
+      isExchange: true,
+    }));
+
+  // Prepare exchange data for ListModal
+  const exchangeModalItems = [
+    {
+      symbol: 'ALL',
+      name: 'All Exchanges',
+      icon: '🏢',
+      color: '#3b82f6',
+      subtitle: 'Total portfolio value',
+      isExchange: true,
+    },
+    ...exchanges
+      .filter((exchange) => exchange.id !== 'ALL')
+      .map((exchange) => ({
+        symbol: exchange.id, // Use UUID for internal tracking
+        name: exchange.name, // Just the name
+        icon: exchange.icon,
+        color: exchange.color || '#64748b',
+        subtitle: exchange.provider, // Pass raw provider string
+        balance: exchange.balance,
+        isExchange: true,
+      })),
+  ];
+
+  // Create filter content using the generic filter system
+  const filterContent = (
+    <div className="space-y-md">
+      <FilterSection
+        title="Exchanges"
+        selectedItems={selectedExchanges}
+        availableItems={exchangeFilterItems}
+        onItemRemove={handleRemoveExchange}
+        onShowDialog={() => setShowExchangeDialog(true)}
+        addButtonText="Add exchanges"
+        showAllOption={true}
+      />
+
+      {/* Use ListModal for exchange selection with proper icon rendering */}
+      <ListModal
+        isOpen={showExchangeDialog}
+        onClose={() => setShowExchangeDialog(false)}
+        title="Select Exchanges"
+        items={exchangeModalItems}
+        selectedItems={selectedExchanges}
+        onItemToggle={handleExchangeToggle}
+        searchPlaceholder="Search exchanges..."
+      />
+    </div>
+  );
+
   // Handle loading and error states
   if (isLoading) {
     return (
@@ -619,9 +698,9 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
             displayName: customName || 'Portfolio Allocation',
             hasOptions: true,
             hasFilters: true,
-            filterContent: <div />,
-            filtersActive: false,
-            onClearFilters: () => {},
+            filterContent,
+            filtersActive,
+            onClearFilters: clearAllFilters,
           },
           isEditable,
           isCollapsible,
@@ -665,9 +744,9 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
             displayName: customName || 'Portfolio Allocation',
             hasOptions: true,
             hasFilters: true,
-            filterContent: <div />,
-            filtersActive: false,
-            onClearFilters: () => {},
+            filterContent,
+            filtersActive,
+            onClearFilters: clearAllFilters,
           },
           isEditable,
           isCollapsible,
@@ -796,78 +875,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
           </div>
         </div>
       </div>
-    </div>
-  );
-
-  // Check if any filters are active (not default state)
-  const filtersActive =
-    !selectedExchanges.includes('ALL') || selectedExchanges.length > 1;
-
-  // Clear all filters to default state
-  const clearAllFilters = () => {
-    setSelectedExchanges(['ALL']);
-    if (portfolioContext?.setSelectedExchanges) {
-      portfolioContext.setSelectedExchanges(['ALL']);
-    }
-  };
-
-  // Create exchange filter items for the generic filter system
-  const exchangeFilterItems: FilterItem[] = exchanges
-    .filter((exchange) => exchange.id !== 'ALL') // Exclude ALL since it's handled separately
-    .map((exchange) => ({
-      id: exchange.id, // Use UUID for consistency
-      name: exchange.name,
-      icon: exchange.icon,
-      color: exchange.color || '#64748b',
-      isExchange: true,
-    }));
-
-  // Prepare exchange data for ListModal
-  const exchangeModalItems = [
-    {
-      symbol: 'ALL',
-      name: 'All Exchanges',
-      icon: '🏢',
-      color: '#3b82f6',
-      subtitle: 'Total portfolio value',
-      isExchange: true,
-    },
-    ...exchanges
-      .filter((exchange) => exchange.id !== 'ALL')
-      .map((exchange) => ({
-        symbol: exchange.id, // Use UUID for internal tracking
-        name: exchange.name, // Just the name
-        icon: exchange.icon,
-        color: exchange.color || '#64748b',
-        subtitle: exchange.provider, // Pass raw provider string
-        balance: exchange.balance,
-        isExchange: true,
-      })),
-  ];
-
-  // Create filter content using the generic filter system
-  const filterContent = (
-    <div className="space-y-md">
-      <FilterSection
-        title="Exchanges"
-        selectedItems={selectedExchanges}
-        availableItems={exchangeFilterItems}
-        onItemRemove={handleRemoveExchange}
-        onShowDialog={() => setShowExchangeDialog(true)}
-        addButtonText="Add exchanges"
-        showAllOption={true}
-      />
-
-      {/* Use ListModal for exchange selection with proper icon rendering */}
-      <ListModal
-        isOpen={showExchangeDialog}
-        onClose={() => setShowExchangeDialog(false)}
-        title="Select Exchanges"
-        items={exchangeModalItems}
-        selectedItems={selectedExchanges}
-        onItemToggle={handleExchangeToggle}
-        searchPlaceholder="Search exchanges..."
-      />
     </div>
   );
 
