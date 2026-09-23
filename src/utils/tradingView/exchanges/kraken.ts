@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-dynamic-delete */
 import { extractPairAssets } from '@/utils/pairs';
 import type {
   Bar,
@@ -113,8 +112,6 @@ const paginationLogic: PaginationLogic = {
   },
 };
 
-type MarketType = 'spot' | 'futures';
-
 const isFuturesExchange = (exchange: string): boolean =>
   exchange.toLowerCase().includes('usdm') ||
   exchange.toLowerCase().includes('linear');
@@ -137,33 +134,54 @@ const buildSpotSymbol = (symbolInfo: LibrarySymbolInfo): string | null => {
   return null;
 };
 
-// Persistent WS connections per market type — TradingView calls
-// subscribe / unsubscribe for many symbols against the same chart and
-// rebuilding the socket every time is wasteful. Each socket is created
-// lazily on first subscribe and torn down when the last subscription
-// for it is removed.
+// Persistent WS connections — TradingView calls subscribe / unsubscribe
+// for many symbols against the same chart and rebuilding the socket every
+// time is wasteful. Each socket is created lazily on first subscribe and
+// torn down when its last listener is removed.
+//
+// Spot gets one socket PER INTERVAL. Kraken's v2 `ohlc` channel accepts a
+// single interval per symbol per connection ("Already subscribed to one
+// ohlc interval on this symbol"), and TradingView subscribes a new
+// resolution before it unsubscribes the old one (lazily, ~10s later). On a
+// shared socket the new interval was rejected and never retried, so the
+// chart stopped updating live after a timeframe change.
+//
+// Exchange subscriptions ("streams") are ref-counted: listeners on the same
+// stream share one subscription, so one of them leaving does not cut the
+// others off, and a second subscribe (which Kraken rejects) is never sent.
 type Connection = {
   ws: WebSocket;
   ready: Promise<void>;
   // listenerGuid → handler attached to `ws.onmessage`
   listeners: Map<string, (data: unknown) => void>;
-  // listenerGuid → cleanup that fires its unsubscribe frame
+  // listenerGuid → cleanup that releases its stream
   cleanups: Map<string, () => void>;
+  // stream key → number of listeners that want it
+  wanted: Map<string, number>;
+  // stream keys whose subscribe frame has been sent
+  live: Set<string>;
 };
 
-const connections: { spot?: Connection; futures?: Connection } = {};
+type StreamFrames = { subscribe: string; unsubscribe: string };
 
-const ensureConnection = (market: MarketType): Connection => {
-  if (connections[market]) return connections[market];
-  const ws = new WebSocket(market === 'spot' ? SPOT_WS_URL : FUTURES_WS_URL);
+const connections = new Map<string, Connection>();
+
+const ensureConnection = (key: string, url: string): Connection => {
+  const existing = connections.get(key);
+  if (existing) return existing;
+  const ws = new WebSocket(url);
   const conn: Connection = {
     ws,
+    // Settles on open, or on close when torn down before it ever opened.
     ready: new Promise<void>((resolve, reject) => {
       ws.addEventListener('open', () => resolve(), { once: true });
       ws.addEventListener('error', (e) => reject(e), { once: true });
+      ws.addEventListener('close', () => resolve(), { once: true });
     }),
     listeners: new Map(),
     cleanups: new Map(),
+    wanted: new Map(),
+    live: new Set(),
   };
   ws.addEventListener('message', (event) => {
     let parsed: unknown;
@@ -177,14 +195,14 @@ const ensureConnection = (market: MarketType): Connection => {
     }
   });
   ws.addEventListener('close', () => {
-    delete connections[market];
+    if (connections.get(key) === conn) connections.delete(key);
   });
-  connections[market] = conn;
+  connections.set(key, conn);
   return conn;
 };
 
-const closeIfIdle = (market: MarketType) => {
-  const conn = connections[market];
+const closeIfIdle = (key: string) => {
+  const conn = connections.get(key);
   if (!conn) return;
   if (conn.listeners.size === 0) {
     try {
@@ -192,8 +210,56 @@ const closeIfIdle = (market: MarketType) => {
     } catch {
       // ignore — socket may already be closing
     }
-    delete connections[market];
+    connections.delete(key);
   }
+};
+
+// Bring the exchange-side subscription in line with whether any listener
+// still wants the stream. Idempotent; a no-op until the socket is open.
+const syncStream = (conn: Connection, key: string, frames: StreamFrames) => {
+  if (conn.ws.readyState !== WebSocket.OPEN) return;
+  const wanted = (conn.wanted.get(key) ?? 0) > 0;
+  const live = conn.live.has(key);
+  try {
+    if (wanted && !live) {
+      conn.ws.send(frames.subscribe);
+      conn.live.add(key);
+    } else if (!wanted && live) {
+      conn.ws.send(frames.unsubscribe);
+      conn.live.delete(key);
+    }
+  } catch {
+    // socket closing — nothing to keep in sync any more
+  }
+};
+
+// Register the listener synchronously (so a concurrent unsubscribe of
+// another listener can't see the socket as idle and close it under us),
+// then subscribe once the socket is open.
+const attachListener = async (
+  conn: Connection,
+  listenerGuid: string,
+  handler: (data: unknown) => void,
+  streamKey: string,
+  frames: StreamFrames
+): Promise<void> => {
+  conn.listeners.set(listenerGuid, handler);
+  conn.wanted.set(streamKey, (conn.wanted.get(streamKey) ?? 0) + 1);
+  conn.cleanups.set(listenerGuid, () => {
+    const left = (conn.wanted.get(streamKey) ?? 1) - 1;
+    if (left > 0) conn.wanted.set(streamKey, left);
+    else conn.wanted.delete(streamKey);
+    syncStream(conn, streamKey, frames);
+  });
+  try {
+    await conn.ready;
+  } catch (err) {
+    // A socket closed while connecting (its last listener left) reports an
+    // error too — only a listener that is still attached cares.
+    if (conn.listeners.has(listenerGuid)) throw err;
+    return;
+  }
+  syncStream(conn, streamKey, frames);
 };
 
 const subscribeSpot = async (
@@ -215,8 +281,7 @@ const subscribeSpot = async (
     console.error('[Kraken] Unsupported spot resolution:', resolution);
     return;
   }
-  const conn = ensureConnection('spot');
-  await conn.ready;
+  const conn = ensureConnection(`spot:${intervalMin}`, SPOT_WS_URL);
 
   const handler = (msg: unknown) => {
     const m = msg as {
@@ -267,25 +332,10 @@ const subscribeSpot = async (
     bars.forEach(onTick);
   };
 
-  conn.listeners.set(listenerGuid, handler);
-  conn.ws.send(
-    JSON.stringify({
-      method: 'subscribe',
-      params: { channel: 'ohlc', symbol: [symbol], interval: intervalMin },
-    })
-  );
-
-  conn.cleanups.set(listenerGuid, () => {
-    try {
-      conn.ws.send(
-        JSON.stringify({
-          method: 'unsubscribe',
-          params: { channel: 'ohlc', symbol: [symbol], interval: intervalMin },
-        })
-      );
-    } catch {
-      // socket may already be closed — fine
-    }
+  const params = { channel: 'ohlc', symbol: [symbol], interval: intervalMin };
+  await attachListener(conn, listenerGuid, handler, symbol, {
+    subscribe: JSON.stringify({ method: 'subscribe', params }),
+    unsubscribe: JSON.stringify({ method: 'unsubscribe', params }),
   });
 };
 
@@ -313,8 +363,7 @@ const subscribeFutures = async (
     return;
   }
   const feed = `candles_trade_${label}`;
-  const conn = ensureConnection('futures');
-  await conn.ready;
+  const conn = ensureConnection('futures', FUTURES_WS_URL);
 
   const handler = (msg: unknown) => {
     const m = msg as {
@@ -342,27 +391,10 @@ const subscribeFutures = async (
     });
   };
 
-  conn.listeners.set(listenerGuid, handler);
-  conn.ws.send(
-    JSON.stringify({
-      event: 'subscribe',
-      feed,
-      product_ids: [productId],
-    })
-  );
-
-  conn.cleanups.set(listenerGuid, () => {
-    try {
-      conn.ws.send(
-        JSON.stringify({
-          event: 'unsubscribe',
-          feed,
-          product_ids: [productId],
-        })
-      );
-    } catch {
-      // ignore
-    }
+  const request = { feed, product_ids: [productId] };
+  await attachListener(conn, listenerGuid, handler, `${feed}|${productId}`, {
+    subscribe: JSON.stringify({ event: 'subscribe', ...request }),
+    unsubscribe: JSON.stringify({ event: 'unsubscribe', ...request }),
   });
 };
 
@@ -384,16 +416,14 @@ const subscribe = async (
 };
 
 const unsubscribe = (listenerGuid: string): void => {
-  for (const market of ['spot', 'futures'] as MarketType[]) {
-    const conn = connections[market];
-    if (!conn) continue;
+  for (const [key, conn] of [...connections]) {
     const cleanup = conn.cleanups.get(listenerGuid);
     if (cleanup) {
-      cleanup();
       conn.cleanups.delete(listenerGuid);
+      cleanup();
     }
     if (conn.listeners.delete(listenerGuid)) {
-      closeIfIdle(market);
+      closeIfIdle(key);
     }
   }
 };
