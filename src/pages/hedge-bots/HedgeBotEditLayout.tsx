@@ -125,6 +125,7 @@ import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { BotFormAlertButton } from '@/features/bots/widgets/BotForm/components/BotFormAlertButton';
 import { navigateToSetting } from '@/hooks/bots/useSettingsNavigation';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
+import { buildBotListRoute, buildBotViewRoute } from '@/utils/bots/navigation';
 import HedgeChartPanel from './HedgeChartPanel';
 import { HedgeNameInput } from './HedgeNameInput';
 import HedgeQuickLeg, {
@@ -1022,6 +1023,10 @@ export const HedgeBotEditLayout: React.FC = () => {
   const [showCelebration, setShowCelebration] = useState(false);
   const [createdBotId, setCreatedBotId] = useState<string | undefined>();
 
+  // Set by the dialog's buttons so the onClose that Celebration fires right
+  // after them doesn't override their navigation with the edit page.
+  const celebrationActionRef = useRef(false);
+
   const buildHedgeEditPath = useCallback(
     (id: string) =>
       botType === BotTypesEnum.hedgeCombo
@@ -1032,6 +1037,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
   const handleHedgeCelebrationStartBot = useCallback(() => {
     if (!createdBotId) return;
+    celebrationActionRef.current = true;
     const idToStart = createdBotId;
     // Fire-and-forget: navigate immediately, let the start mutation
     // resolve in the background. Matches the DCA/Combo/Grid pattern in
@@ -1072,21 +1078,31 @@ export const HedgeBotEditLayout: React.FC = () => {
         toast.error(`Failed to start hedge bot: ${message}`);
       }
     })();
-    navigate(buildHedgeEditPath(idToStart));
-  }, [
-    createdBotId,
-    botType,
-    tokens,
-    isLiveTrading,
-    navigate,
-    buildHedgeEditPath,
-  ]);
+    // `{base}/view/:id` is the list page with the bot open in its sidebar.
+    navigate(buildBotViewRoute(botType, idToStart));
+  }, [createdBotId, botType, tokens, isLiveTrading, navigate]);
 
+  const handleHedgeCelebrationAllBots = useCallback(() => {
+    celebrationActionRef.current = true;
+    navigate(buildBotListRoute(botType));
+  }, [botType, navigate]);
+
+  // The create pages key the form on the navigation, so pushing the create
+  // route again remounts it with defaults.
+  const handleHedgeCelebrationNewBot = useCallback(() => {
+    celebrationActionRef.current = true;
+    navigate(`${buildBotListRoute(botType)}/new`);
+  }, [botType, navigate]);
+
+  // Dismissing without a button (X / Esc) opens the new bot's edit page.
   const handleHedgeCelebrationClose = useCallback(() => {
     setShowCelebration(false);
-    if (createdBotId) {
+    const acted = celebrationActionRef.current;
+    celebrationActionRef.current = false;
+    if (createdBotId && !acted) {
       navigate(buildHedgeEditPath(createdBotId));
     }
+    setCreatedBotId(undefined);
   }, [createdBotId, navigate, buildHedgeEditPath]);
   const handleHedgeToggleStatus = useCallback(
     async (payload: { nextStatus: string; closeType?: string }) => {
@@ -2377,15 +2393,16 @@ export const HedgeBotEditLayout: React.FC = () => {
         open={showCelebration}
         onClose={handleHedgeCelebrationClose}
         title="🎉 Hedge bot created successfully!"
-        description="Your new hedge bot is ready to go. You can start it now or make additional adjustments first."
-        primaryAction={{
-          label: 'Start bot',
-          onClick: handleHedgeCelebrationStartBot,
-        }}
-        secondaryAction={{
-          label: 'Close',
-          variant: 'outline',
-        }}
+        description="Your new hedge bot is ready to go."
+        actions={[
+          { label: 'To all bots', onClick: handleHedgeCelebrationAllBots },
+          { label: 'New bot', onClick: handleHedgeCelebrationNewBot },
+          {
+            label: 'Start',
+            onClick: handleHedgeCelebrationStartBot,
+            variant: 'default',
+          },
+        ]}
       />
     </div>
   );

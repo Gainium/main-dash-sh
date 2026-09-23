@@ -23,6 +23,8 @@ interface CelebrationProps {
   description?: string;
   primaryAction?: CelebrationAction;
   secondaryAction?: CelebrationAction;
+  /** Buttons rendered left to right. Replaces primary/secondary when set. */
+  actions?: CelebrationAction[];
   /** Optional body rendered between the header and the actions. */
   children?: React.ReactNode;
 }
@@ -34,6 +36,7 @@ const Celebration: React.FC<CelebrationProps> = ({
   description,
   primaryAction,
   secondaryAction,
+  actions,
   children,
 }) => {
   const [confettiSize, setConfettiSize] = useState({
@@ -92,7 +95,17 @@ const Celebration: React.FC<CelebrationProps> = ({
           </DialogHeader>
           {children}
           <DialogFooter className="sm:justify-center gap-sm">
-            {secondaryAction && (
+            {actions?.map((action) => (
+              <Button
+                key={action.label}
+                type="button"
+                variant={action.variant ?? 'outline'}
+                onClick={() => handleAction(action)}
+              >
+                {action.label}
+              </Button>
+            ))}
+            {!actions && secondaryAction && (
               <Button
                 type="button"
                 variant={secondaryAction.variant ?? 'outline'}
@@ -101,7 +114,7 @@ const Celebration: React.FC<CelebrationProps> = ({
                 {secondaryAction.label}
               </Button>
             )}
-            {primaryAction && (
+            {!actions && primaryAction && (
               <Button
                 type="button"
                 variant={primaryAction.variant ?? 'default'}

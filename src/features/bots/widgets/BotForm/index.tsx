@@ -36,7 +36,6 @@ import WidgetWrapper, {
   type WidgetMenuActionItem,
 } from '@/components/widgets/WidgetWrapper';
 import {
-  createDefaultFormState,
   useBotFormEditing,
   useBotFormSelector,
   useBotFormState,
@@ -145,7 +144,11 @@ import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
 import { validateGridFormData } from '@/utils/bots/grid/validation';
-import { buildBotCloneRoute, buildBotEditRoute } from '@/utils/bots/navigation';
+import {
+  buildBotCloneRoute,
+  buildBotListRoute,
+  buildBotViewRoute,
+} from '@/utils/bots/navigation';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { COMBO_BOT_TYPE_ID } from '../../registry';
 import BacktestSettingsDialog, {
@@ -575,6 +578,7 @@ const BotForm: React.FC<BotFormProps> = ({
     setIsDirty,
     formData,
     setFormData,
+    resetFormData,
     isFieldLocked,
     features,
     updateFormData,
@@ -870,16 +874,29 @@ const BotForm: React.FC<BotFormProps> = ({
     [debugEnabled, refetchExchanges, getBalances, clearDraft]
   );
 
+  // Post-create dialog actions. Celebration calls onClose after each one,
+  // which clears createdBotId — so read it before navigating.
   const handleCelebrationStartBot = useCallback(() => {
     if (!createdBotId) return;
     statusToggleMutation.mutate(
       { id: createdBotId, status: 'open' },
-      {
-        onSuccess: () => toast.success('Bot started'),
-      }
+      { onSuccess: () => toast.success('Bot started') }
     );
-    navigate(buildBotEditRoute(botExperience.id, createdBotId));
+    // Don't wait for the mutation: `{base}/view/:id` is the list page with
+    // the bot open in its sidebar, which reflects the status once it lands.
+    navigate(buildBotViewRoute(botExperience.id, createdBotId));
   }, [createdBotId, botExperience.id, navigate, statusToggleMutation]);
+
+  const handleCelebrationAllBots = useCallback(() => {
+    navigate(buildBotListRoute(botExperience.id));
+  }, [botExperience.id, navigate]);
+
+  const handleCelebrationNewBot = useCallback(() => {
+    // Already on the create page, so the route alone would not remount the
+    // form — clear the just-submitted settings explicitly.
+    resetFormData();
+    navigate(`${buildBotListRoute(botExperience.id)}/new`);
+  }, [botExperience.id, navigate, resetFormData]);
 
   const handleCelebrationClose = useCallback(() => {
     setShowCelebration(false);
@@ -3913,7 +3930,7 @@ const BotForm: React.FC<BotFormProps> = ({
         confirmText="Reset"
         variant="destructive"
         onConfirm={() => {
-          setFormData(createDefaultFormState(mode, isTerminal));
+          resetFormData();
           toast.success('Settings reset to defaults');
         }}
       />
@@ -3996,15 +4013,16 @@ const BotForm: React.FC<BotFormProps> = ({
           open={showCelebration}
           onClose={handleCelebrationClose}
           title="🎉 Bot Created Successfully!"
-          description="Your new bot is ready to go. You can start it now or make additional adjustments first."
-          primaryAction={{
-            label: 'Start bot',
-            onClick: handleCelebrationStartBot,
-          }}
-          secondaryAction={{
-            label: 'Close',
-            variant: 'outline',
-          }}
+          description="Your new bot is ready to go."
+          actions={[
+            { label: 'To all bots', onClick: handleCelebrationAllBots },
+            { label: 'New bot', onClick: handleCelebrationNewBot },
+            {
+              label: 'Start',
+              onClick: handleCelebrationStartBot,
+              variant: 'default',
+            },
+          ]}
         />
       )}
     </>
@@ -4333,7 +4351,7 @@ const BotForm: React.FC<BotFormProps> = ({
         confirmText="Reset"
         variant="destructive"
         onConfirm={() => {
-          setFormData(createDefaultFormState(mode, isTerminal));
+          resetFormData();
           toast.success('Settings reset to defaults');
         }}
       />
@@ -4413,15 +4431,16 @@ const BotForm: React.FC<BotFormProps> = ({
         open={showCelebration}
         onClose={handleCelebrationClose}
         title="🎉 Bot Created Successfully!"
-        description="Your new bot is ready to go. You can start it now or make additional adjustments first."
-        primaryAction={{
-          label: 'Start bot',
-          onClick: handleCelebrationStartBot,
-        }}
-        secondaryAction={{
-          label: 'Close',
-          variant: 'outline',
-        }}
+        description="Your new bot is ready to go."
+        actions={[
+          { label: 'To all bots', onClick: handleCelebrationAllBots },
+          { label: 'New bot', onClick: handleCelebrationNewBot },
+          {
+            label: 'Start',
+            onClick: handleCelebrationStartBot,
+            variant: 'default',
+          },
+        ]}
       />
     </div>
   );

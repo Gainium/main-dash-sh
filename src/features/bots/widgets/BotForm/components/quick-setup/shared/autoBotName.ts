@@ -145,12 +145,14 @@ export const decideAutoBotName = ({
   const isOurs =
     // Already exactly what we'd write — ours, nothing to change.
     current === name ||
+    // The form default: a fresh form, or one reset to defaults (Reset, or
+    // "New bot" after a create) — either way not a name the user typed.
+    current === 'New Bot' ||
     (lastAutoName === null
-      ? // First run this mount: adopt an empty/default name, or one that
-        // matches the shape we'd generate for THIS prefix (survives a
-        // remount that reset `lastAutoName` without clobbering user edits).
+      ? // First run this mount: adopt an empty name, or one that matches
+        // the shape we'd generate for THIS prefix (survives a remount that
+        // reset `lastAutoName` without clobbering user edits).
         current === '' ||
-        current === 'New Bot' ||
         matchesAutoShape(current, prefix, botTypeLabel, presetLabels)
       : // We've written before: only the exact value we wrote is still
         // ours. Anything else (incl. the user clearing it) is the user's.

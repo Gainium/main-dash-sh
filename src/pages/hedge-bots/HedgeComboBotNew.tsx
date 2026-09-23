@@ -12,7 +12,7 @@
  *
  * Routes: `/hedge/combo/new` (mirrors legacy convention).
  */
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { hedgeComboPageDescriptor } from '@/components/bots/workbench/descriptors';
@@ -23,6 +23,9 @@ import HedgeBotEditLayout from './HedgeBotEditLayout';
 
 const HedgeComboBotNew = () => {
   const [searchParams] = useSearchParams();
+  // Keyed on the navigation so re-opening this page from its own "New bot"
+  // button remounts the form with defaults.
+  const location = useLocation();
   const loadFromBotId = searchParams.get('load') ?? undefined;
   return (
     <BotPageBoundary descriptor={hedgeComboPageDescriptor} mode="create">
@@ -33,6 +36,7 @@ const HedgeComboBotNew = () => {
         navigationBack
       >
         <HedgeBotFormProvider
+          key={location.key}
           mode="create"
           botType={BotTypesEnum.hedgeCombo}
           {...(loadFromBotId ? { botId: loadFromBotId } : {})}

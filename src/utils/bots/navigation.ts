@@ -99,6 +99,24 @@ export function buildBotEditRoute(
   return (builder ?? DEFAULT_EDIT_ROUTE)(botId);
 }
 
+const LIST_ROUTES: Record<string, string> = {
+  [GRID_BOT_TYPE_ID]: '/grid',
+  [COMBO_BOT_TYPE_ID]: '/combo',
+  [HEDGE_BOT_TYPE_ID]: '/hedge/bot',
+  [HEDGE_DCA_BOT_TYPE_ID]: '/hedge/bot',
+  [HEDGE_COMBO_BOT_TYPE_ID]: '/hedge/combo',
+  hedgeDca: '/hedge/bot',
+  hedgeCombo: '/hedge/combo',
+};
+
+/**
+ * Build the list route for a bot type (e.g. '/bot', '/grid'). Append
+ * `/new` for the create page.
+ */
+export function buildBotListRoute(botTypeId: string | null | undefined): string {
+  return (botTypeId && LIST_ROUTES[botTypeId]) || '/bot';
+}
+
 // Cloning opens the matching *create* page pre-loaded with the source bot's
 // settings (`?load=<id>`) rather than immediately creating a copy. This keeps
 // the pair/exchange editable before saving — the create form treats `?load=`

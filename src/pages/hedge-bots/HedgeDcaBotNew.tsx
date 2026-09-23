@@ -12,7 +12,7 @@
  *
  * Routes: `/hedge/bot/new` (mirrors legacy convention).
  */
-import { useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { hedgeDcaPageDescriptor } from '@/components/bots/workbench/descriptors';
@@ -23,6 +23,9 @@ import HedgeBotEditLayout from './HedgeBotEditLayout';
 
 const HedgeDcaBotNew = () => {
   const [searchParams] = useSearchParams();
+  // Keyed on the navigation so re-opening this page from its own "New bot"
+  // button remounts the form with defaults.
+  const location = useLocation();
   // The legacy "load from template" flow used `?load=<botId>` to seed defaults.
   // We honor the same shape so existing share/template links keep working.
   const loadFromBotId = searchParams.get('load') ?? undefined;
@@ -35,6 +38,7 @@ const HedgeDcaBotNew = () => {
         navigationBack
       >
         <HedgeBotFormProvider
+          key={location.key}
           mode="create"
           botType={BotTypesEnum.hedgeDca}
           {...(loadFromBotId ? { botId: loadFromBotId } : {})}
