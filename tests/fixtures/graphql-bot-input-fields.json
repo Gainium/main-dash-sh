@@ -3,16 +3,17 @@
   "source": {
     "repo": "main-app",
     "path": "core/src/graphql/schema.ts",
-    "commit": "cfbe5520a2db7556c2f0eb37d427d24e164e31a3",
-    "commitShort": "cfbe552"
+    "commit": "ef46b2d9feeaf80194264a029086f0b25fb7ca51",
+    "commitShort": "ef46b2d"
   },
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 163,
+      "fieldCount": 165,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
+        "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
         "baseOrderPrice",
@@ -103,6 +104,7 @@
         "profitCurrency",
         "quoteAsset",
         "reinvestValue",
+        "rejectBelowExchangeMin",
         "relativeVolumeTop",
         "relativeVolumeValue",
         "remainderFullAmount",
@@ -407,10 +409,11 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 175,
+      "fieldCount": 177,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
+        "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
         "baseGridLevels",
@@ -507,6 +510,7 @@
         "profitCurrency",
         "quoteAsset",
         "reinvestValue",
+        "rejectBelowExchangeMin",
         "relativeVolumeTop",
         "relativeVolumeValue",
         "remainderFullAmount",
