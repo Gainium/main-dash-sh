@@ -1811,8 +1811,8 @@ export interface DCABotSettings extends BaseSettings {
   dcaVolumeRequiredChangeRef?: DcaVolumeRequiredChangeRef;
   dcaVolumeMaxValue?: string;
   dcaByMarket?: boolean;
-  /** Refuse a deal whose BO/SO the exchange minimum would raise; notify instead. */
-  rejectBelowExchangeMin?: boolean;
+  /** Raise BO/SO to the exchange minimum. Off/missing: refuse the deal and notify. */
+  allowRaiseToExchangeMin?: boolean;
   dcaCustom?: DCACustom[] | undefined;
   strategy: StrategyEnum;
   baseOrderSize: string;

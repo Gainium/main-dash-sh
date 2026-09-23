@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.56.0] - 2026-09-23
+
+### Changed
+
+- The DCA bot setting is now "Allow increasing orders to exchange minimum",
+  off by default for new bots. With it off, a deal whose Base or Safety Order
+  is below the pair's exchange minimum is not opened and you are notified.
+  Bots created before this change have it on, so they keep increasing orders
+  as before. Not shown for Hedge DCA or Combo bots. Requires main-app 2.97.0.
+
 ## [2.55.0] - 2026-09-23
 
 ### Added

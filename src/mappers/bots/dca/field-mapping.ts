@@ -800,9 +800,9 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
   const dcaByMarket = isComboBot
     ? formData.combo.dcaByMarket
     : formData.dca.dcaByMarket;
-  const rejectBelowExchangeMin = isComboBot
+  const allowRaiseToExchangeMin = isComboBot
     ? false
-    : formData.dca.rejectBelowExchangeMin;
+    : formData.dca.allowRaiseToExchangeMin;
   const _activeOrdersCount = isComboBot
     ? formData.combo.activeOrdersCount
     : formData.dca.activeOrdersCount;
@@ -926,7 +926,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         | 'ordersCount'
         | 'useSmartOrders'
         | 'dcaByMarket'
-        | 'rejectBelowExchangeMin'
+        | 'allowRaiseToExchangeMin'
         | 'activeOrdersCount'
         | 'gridLevel'
         | 'baseGridLevels'
@@ -998,10 +998,12 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     dcaFields['dcaByMarket'] = Boolean(dcaByMarket);
     fieldsMapped.push('dcaByMarket');
 
-    // DCA bots only — the combo engine does not implement the refusal.
+    // DCA bots only — the combo engine does not implement the refusal. Always
+    // written explicitly so a new bot stores `false` rather than relying on
+    // the engine's missing-means-refuse.
     if (!isComboBot) {
-      dcaFields['rejectBelowExchangeMin'] = Boolean(rejectBelowExchangeMin);
-      fieldsMapped.push('rejectBelowExchangeMin');
+      dcaFields['allowRaiseToExchangeMin'] = Boolean(allowRaiseToExchangeMin);
+      fieldsMapped.push('allowRaiseToExchangeMin');
     }
 
     if (useSmartOrders) {

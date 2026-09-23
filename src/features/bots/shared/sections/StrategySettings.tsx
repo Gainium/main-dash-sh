@@ -41,6 +41,7 @@ import type { DcaBot } from '@/types/dcaBot';
 import type { GlobalVariable } from '@/types/globalVariables';
 import React, { useCallback, useMemo } from 'react';
 import { useStrategySettingsTab } from '../../bot-types/dca/form/hooks/useStrategySettignsTab';
+import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvider';
 import { formatNumericInput } from '../../bot-types/dca/form/hooks/useTerminalControls';
 import { PERCENTAGE_GUARD } from '../utils/order-guard';
 
@@ -151,7 +152,10 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
   const reinvestValue = useBotFormSelector('reinvestValue');
   const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
-  const rejectBelowExchangeMin = useBotFormSelector('rejectBelowExchangeMin');
+  const allowRaiseToExchangeMin = useBotFormSelector('allowRaiseToExchangeMin');
+  // Hedge-DCA legs render this form too, but the engine never refuses on a
+  // hedge leg, so the switch would do nothing there.
+  const isHedgeContext = useHedgeBotFormOptional() !== undefined;
   const futures = useBotFormSelector('futures');
   // Estimated liquidation price for the ladder this form describes. Null for
   // spot bots and leverage <= 1, in which case nothing renders.
@@ -632,7 +636,6 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
           (isLimitOrder &&
             (!!notUseLimitReposition || isEnterMarketTimeoutEnabled)) ||
           !!skipBalanceCheck ||
-          (!isComboBot && !!rejectBelowExchangeMin) ||
           !!isRiskReductionEnabled ||
           !!useReinvest
         }
@@ -762,16 +765,16 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
           )}
         </SettingsRow>
 
-        {!isComboBot && (
+        {!isComboBot && !isHedgeContext && (
           <SettingsRow
-            name="Reject Orders Below Exchange Minimum"
-            tooltip="When a Base or Safety Order is smaller than the exchange's minimum order size for a pair, the bot normally increases it to that minimum so the exchange accepts it. Turn this on to skip the deal on that pair instead and get notified, so your configured order sizes are never exceeded."
+            name="Allow increasing orders to exchange minimum"
+            tooltip="If a Base or Safety Order is smaller than the exchange's minimum order size for a pair, the bot won't open a deal on that pair and will notify you, so your configured sizes are never exceeded. Turn this on to let the bot increase those orders to the exchange minimum instead. Increases of up to 10% (rounding) are always allowed."
             trailing={
               <Switch
-                id="reject-below-exchange-min"
-                checked={!!rejectBelowExchangeMin}
+                id="allow-raise-to-exchange-min"
+                checked={!!allowRaiseToExchangeMin}
                 onCheckedChange={(checked) =>
-                  updateFormData('rejectBelowExchangeMin', checked)
+                  updateFormData('allowRaiseToExchangeMin', checked)
                 }
               />
             }
