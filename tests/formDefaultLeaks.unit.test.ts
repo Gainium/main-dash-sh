@@ -230,9 +230,14 @@ test.describe('no mapper gap can revert a field to its factory default', () => {
    * Removed from the payload on purpose, so "absent" is the correct outcome
    * here and not a revert — neither `change*BotInput` accepts them.
    * map-form-data-to-payload.ts strips both; botFormRoundTrip's VERDICT table
-   * classifies them `by-design`.
+   * classifies them `by-design`. `allowRaiseToExchangeMin` is DCA-only
+   * (DECLARED_BY_DCA_ONLY): mapped for DCA, stripped for combo.
    */
-  const STRIPPED_BY_DESIGN = new Set(['useExperimental', 'avgPrice']);
+  const STRIPPED_BY_DESIGN = new Set([
+    'useExperimental',
+    'avgPrice',
+    'allowRaiseToExchangeMin',
+  ]);
 
   /** A value valid for the field's type but different from `current`. */
   const distinctFrom = (current: unknown): unknown | undefined => {

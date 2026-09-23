@@ -63,6 +63,13 @@ export const DECLARED_BY_COMBO_ONLY = [
 ] as const;
 
 /**
+ * DCA-only settings: declared by `changeDCABotInput` / `createDCABotInput` but
+ * NOT by the combo inputs. `COMBO_FORM_DEFAULTS` spreads `DCA_FORM_DEFAULTS`,
+ * so a combo form carries them anyway and a combo save has to drop them.
+ */
+export const DECLARED_BY_DCA_ONLY = ['allowRaiseToExchangeMin'] as const;
+
+/**
  * Grid-form bookkeeping flags that `changeBotInput` does not declare.
  *
  * Both live in `GRID_FORM_DEFAULTS` and both default to `true`. They tell the
@@ -102,6 +109,7 @@ export const denylistFor = (
 ): string[] => [
   ...UNDECLARED_BY_ALL_INPUTS,
   ...(botType === 'dca' ? DECLARED_BY_COMBO_ONLY : []),
+  ...(botType === 'combo' ? DECLARED_BY_DCA_ONLY : []),
   ...(botType === 'grid' ? UNDECLARED_GRID_FORM_FIELDS : []),
   ...(stripPair ? ['pair'] : []),
 ];
