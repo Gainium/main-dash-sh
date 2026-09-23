@@ -221,6 +221,7 @@ const subscribeSpot = async (
   const handler = (msg: unknown) => {
     const m = msg as {
       channel?: string;
+      type?: string;
       data?: Array<{
         symbol?: string;
         open?: string | number;
@@ -229,12 +230,15 @@ const subscribeSpot = async (
         close?: string | number;
         volume?: string | number;
         interval_begin?: string;
+        interval?: number;
         timestamp?: string;
       }>;
     };
     if (m.channel !== 'ohlc' || !Array.isArray(m.data)) return;
+    const bars: Bar[] = [];
     for (const c of m.data) {
       if (c.symbol !== symbol) continue;
+      if (c.interval !== undefined && c.interval !== intervalMin) continue;
       // Kraken v2 ohlc gives a candle close timestamp; `interval_begin`
       // is the open time, which is what TradingView wants.
       const time = c.interval_begin
@@ -242,7 +246,7 @@ const subscribeSpot = async (
         : c.timestamp
           ? +new Date(c.timestamp) - intervalMin * 60_000
           : Date.now();
-      onTick({
+      bars.push({
         time,
         open: parseFloat(String(c.open ?? 0)),
         high: parseFloat(String(c.high ?? 0)),
@@ -251,6 +255,16 @@ const subscribeSpot = async (
         volume: parseFloat(String(c.volume ?? 0)),
       });
     }
+    if (bars.length === 0) return;
+    // Every subscribe is answered with a `snapshot` of the day's candles,
+    // oldest first. getBars already loaded that history, and TradingView
+    // rejects a realtime bar older than the newest one it holds — so only
+    // the forming candle (the newest) is live data here.
+    if (m.type === 'snapshot') {
+      onTick(bars.reduce((a, b) => (b.time > a.time ? b : a)));
+      return;
+    }
+    bars.forEach(onTick);
   };
 
   conn.listeners.set(listenerGuid, handler);

@@ -10,6 +10,7 @@ import { krakenHandler } from './exchanges/kraken';
 import { kucoinHandler } from './exchanges/kucoin';
 import { okxHandler } from './exchanges/okx';
 import { getCandles } from './historyApi';
+import { createRealtimeBarGuard } from './realtimeBarGuard';
 import {
   type DatafeedConfiguration,
   type ErrorCallback,
@@ -225,6 +226,16 @@ export const abortActiveCandleFetch = (): void => {
   }
   activeFetchKey = null;
 };
+
+// Defence in depth for the realtime callback: never hand TradingView a bar
+// older than the newest one it has (from getBars or an earlier tick). The
+// exchange handlers must not produce one; this only stops a regression there
+// from flooding the console with "time violation" rejections.
+const realtimeBarGuard = createRealtimeBarGuard();
+const seriesKey = (
+  symbolInfo: LibrarySymbolInfo,
+  resolution: ResolutionString
+): string => `${symbolInfo.ticker}|${resolution}`;
 
 // Export functions to set up the datafeed
 export const setAvailableSymbols = (symbols: Symbol[]): void => {
@@ -689,6 +700,7 @@ export const createDatafeed = (): IBasicDataFeed => ({
             : null,
       });
 
+      realtimeBarGuard.noteHistory(seriesKey(symbolInfo, resolution), bars);
       onResult(bars, { noData: bars.length === 0 });
     } catch (error) {
       console.error('Error in getBars:', error);
@@ -722,7 +734,16 @@ export const createDatafeed = (): IBasicDataFeed => ({
       ); */
 
       const handler = await getExchangeHandler(exchange);
-      await handler.subscribe(symbolInfo, resolution, onTick, listenerGuid);
+      const key = seriesKey(symbolInfo, resolution);
+      let warned = false;
+      const guardedTick = realtimeBarGuard.wrap(key, onTick, (bar, newest) => {
+        if (warned) return;
+        warned = true;
+        logger.warn(
+          `[tradingView/factory] ${symbolInfo.exchange} handler sent a realtime bar older than the chart's newest (${new Date(bar.time).toISOString()} < ${new Date(newest).toISOString()}) for ${key} — dropped`
+        );
+      });
+      await handler.subscribe(symbolInfo, resolution, guardedTick, listenerGuid);
     } catch (error) {
       console.error('Error in subscribeBars:', error);
     }

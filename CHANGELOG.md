@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.56.3] - 2026-09-23
+
+### Fixed
+
+- Kraken spot charts no longer replay the day's candles as live updates when
+  a chart subscribes (on open, pair change or timeframe change). Kraken
+  answers each subscription with a snapshot of recent candles, oldest first;
+  all of them were forwarded to TradingView, which rejected every one older
+  than its newest bar and logged a "time violation" console error for each.
+  Only the forming candle is forwarded now, and candles of another interval
+  on the shared socket are ignored. The chart datafeed also drops any
+  realtime bar older than the newest bar the chart already has.
+
 ## [2.56.2] - 2026-09-23
 
 ### Fixed
