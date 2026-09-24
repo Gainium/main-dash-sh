@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.57.5] - 2026-09-24
+
+### Changed
+
+- Portfolio Futures card: net exposure values read "Long $428" / "Short $300"
+  (Total: "Net long …") in neutral text instead of a green "+$428", which
+  looked like profit. Green and red remain on the bars, meaning long and
+  short.
+
 ## [2.57.4] - 2026-09-24
 
 ### Changed

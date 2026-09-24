@@ -149,7 +149,7 @@ describe('FuturesSummaryCard', () => {
     );
     expect(otherRow).toBeDefined();
     expect(otherRow?.querySelector('[data-testid="exposure-bar"]')).toBeNull();
-    expect(otherRow?.textContent).toContain('+$540.00');
+    expect(otherRow?.textContent).toContain('Long $540.00');
   });
 
   it('§2.3.6/§2.3.7 titled exposure section; Total row under Other with long / short / net on its own scale', () => {
@@ -167,7 +167,7 @@ describe('FuturesSummaryCard', () => {
     expect(total?.textContent).toContain('Total');
     expect(total?.textContent).toContain('$5,000.00');
     expect(total?.textContent).toContain('$2,000.00');
-    expect(total?.textContent).toContain('+$3,000.00');
+    expect(total?.textContent).toContain('Net long $3,000.00');
     const w = (id: string) => total?.querySelector<HTMLElement>(`[data-testid="${id}"]`)?.style.width;
     // own scale: the larger side (5000) fills half the track
     expect(w('exposure-long')).toBe('50%');
@@ -196,7 +196,26 @@ describe('FuturesSummaryCard', () => {
     expect(w('exposure-long')).toBe('50%');
     expect(w('exposure-short')).toBe('37.5%');
     expect(w('exposure-bar')).toBe('12.5%');
-    expect(btc?.textContent).toContain('+$200.00');
+    expect(btc?.textContent).toContain('Long $200.00');
+  });
+
+  it('§2.3.3a exposure values read as direction + size, never as green/red profit', () => {
+    render(
+      createElement(FuturesSummaryView, {
+        summary: summaryWith([['BTC', 5000], ['ETH', -2000]]),
+        error: null,
+      })
+    );
+    const rows = [...container.querySelectorAll('[data-testid="exposure-row"]')];
+    const value = (asset: string) =>
+      rows.find((r) => r.textContent?.startsWith(asset))?.querySelector('[data-testid="exposure-value"]');
+    expect(value('BTC')?.textContent).toBe('Long $5,000.00');
+    expect(value('ETH')?.textContent).toBe('Short $2,000.00');
+    for (const r of rows) {
+      const v = r.querySelector('[data-testid="exposure-value"]');
+      expect(v?.textContent).not.toMatch(/^[+−-]/);
+      expect(v?.innerHTML).not.toMatch(/text-(profit|loss)/);
+    }
   });
 
   it('§2.4.1 the only action is the Manage in Terminal link', () => {

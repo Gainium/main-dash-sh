@@ -44,6 +44,21 @@ function Money({
   );
 }
 
+/**
+ * Exposure is a position size, not profit: direction word + unsigned amount,
+ * neutral colour (spec §2.3.3a). Green/red belong to the bars only.
+ */
+function ExposureValue({ net, total = false }: { net: number; total?: boolean }) {
+  const privacyMode = useUIStore((s) => s.privacyMode);
+  const side = net > 0 ? 'Long' : net < 0 ? 'Short' : 'Flat';
+  const word = total && net !== 0 ? `Net ${side.toLowerCase()}` : side;
+  return (
+    <span data-testid="exposure-value" className="tabular-nums">
+      {privacyMode ? `${word} ***` : `${word} ${usd(Math.abs(net))}`}
+    </span>
+  );
+}
+
 const pct = (v: number, scale: number) =>
   scale > 0 ? `${Math.min(50, (Math.abs(v) / scale) * 50)}%` : '0%';
 
@@ -113,7 +128,7 @@ function ExposureLine({
         </div>
       )}
       <div className="text-right">
-        <Money value={row.net} signed colored />
+        <ExposureValue net={row.net} total={total} />
       </div>
       {sides && (
         <>
