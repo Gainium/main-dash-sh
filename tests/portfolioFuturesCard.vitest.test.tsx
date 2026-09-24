@@ -130,6 +130,28 @@ describe('FuturesSummaryCard', () => {
     expect(other?.textContent).toContain('AVAX');
   });
 
+  it('§2.3.3 bars scale to the largest asset row; the Other row has no bar', () => {
+    const nets: Array<[string, number]> = [
+      ['BTC', 400], ['ETH', -200], ['SOL', 300], ['XRP', 100], ['DOGE', 100],
+      // a long tail whose sum (6 × 90 = 540) exceeds every single asset
+      ['A1', 90], ['A2', 90], ['A3', 90], ['A4', 90], ['A5', 90], ['A6', 90],
+    ];
+    render(createElement(FuturesSummaryView, { summary: summaryWith(nets), error: null }));
+    const bar = (asset: string) =>
+      [...container.querySelectorAll('[data-testid="exposure-row"]')]
+        .find((r) => r.textContent?.startsWith(asset))
+        ?.querySelector<HTMLElement>('[data-testid="exposure-bar"]');
+    expect(bar('BTC')?.style.width).toBe('50%');
+    expect(bar('SOL')?.style.width).toBe('37.5%');
+    expect(bar('ETH')?.style.width).toBe('25%');
+    const otherRow = [...container.querySelectorAll('[data-testid="exposure-row"]')].find((r) =>
+      r.textContent?.includes('Other 6')
+    );
+    expect(otherRow).toBeDefined();
+    expect(otherRow?.querySelector('[data-testid="exposure-bar"]')).toBeNull();
+    expect(otherRow?.textContent).toContain('+$540.00');
+  });
+
   it('§2.4.1 the only action is the Manage in Terminal link', () => {
     render(createElement(FuturesSummaryView, { summary: summaryWith([['BTC', 5000]]), error: null }));
     const links = container.querySelectorAll('a');

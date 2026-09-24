@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.57.2] - 2026-09-24
+
+### Fixed
+
+- Portfolio Futures card: net exposure bars are scaled to the largest single
+  coin. The "Other" row shows its total without a bar, so a long tail of small
+  positions no longer flattens every other bar to a sliver.
+
 ## [2.57.1] - 2026-09-24
 
 ### Fixed

@@ -47,17 +47,27 @@ function ExposureLine({
   label,
   row,
   scale,
+  showBar = true,
 }: {
   label: React.ReactNode;
   row: Pick<ExposureRow, 'net'>;
   scale: number;
+  /** False for the "Other" sum: it would dwarf every single asset (§2.3.3). */
+  showBar?: boolean;
 }) {
   const width = scale > 0 ? Math.min(50, (Math.abs(row.net) / scale) * 50) : 0;
   return (
-    <div className="grid grid-cols-[5rem_minmax(0,1fr)_7rem] items-center gap-xs text-sm py-0.5">
+    <div
+      data-testid="exposure-row"
+      className="grid grid-cols-[5rem_minmax(0,1fr)_7rem] items-center gap-xs text-sm py-0.5"
+    >
       <div className="min-w-0 truncate">{label}</div>
+      {!showBar ? (
+        <div aria-hidden="true" />
+      ) : (
       <div className="relative h-2.5 rounded-sm bg-muted" aria-hidden="true">
         <div
+          data-testid="exposure-bar"
           className={cn(
             'absolute top-0 h-full',
             row.net >= 0 ? 'bg-profit rounded-r-sm' : 'bg-loss rounded-l-sm'
@@ -70,6 +80,7 @@ function ExposureLine({
         />
         <div className="absolute inset-y-[-2px] left-1/2 w-px bg-border" />
       </div>
+      )}
       <div className="text-right">
         <Money value={row.net} signed colored />
       </div>
@@ -88,11 +99,8 @@ export function FuturesSummaryView({
 }) {
   const [otherOpen, setOtherOpen] = useState(false);
   const { rows, total, exposure, openPositions } = summary;
-  const scale = Math.max(
-    0,
-    ...exposure.top.map((r) => Math.abs(r.net)),
-    exposure.other ? Math.abs(exposure.other.net) : 0
-  );
+  // Scale to the largest single asset; the "Other" sum has no bar.
+  const scale = Math.max(0, ...exposure.top.map((r) => Math.abs(r.net)));
 
   return (
     <section
@@ -214,6 +222,7 @@ export function FuturesSummaryView({
                     }
                     row={exposure.other}
                     scale={scale}
+                    showBar={false}
                   />
                   {otherOpen && (
                     <div className="pl-sm" data-testid="futures-exposure-other">
