@@ -242,12 +242,13 @@ export function FuturesSummaryView({
 /**
  * Read-only futures summary on the Portfolio page: per-account wallet /
  * unrealized PnL / equity and net exposure. Positions are managed in the
- * terminal; this card only links there. Renders nothing for users without a
- * futures account.
+ * terminal; this card only links there. Follows the My Accounts selection
+ * like the other Portfolio widgets, and renders nothing when that selection
+ * (or the user) has no futures account.
  */
 export default function FuturesSummaryCard() {
-  const { hasFutures, summary, error, isLoading } = useFuturesSummary();
-  if (!hasFutures) return null;
+  const { hasSelectedFutures, summary, error, isLoading } = useFuturesSummary();
+  if (!hasSelectedFutures) return null;
   return (
     <FuturesSummaryView summary={summary} error={error} isLoading={isLoading} />
   );

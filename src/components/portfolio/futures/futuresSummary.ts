@@ -1,6 +1,6 @@
 import type { ExchangeEnum } from '@/types/exchange.types';
 import type { RowPosition } from '@/features/trading-terminal/components/exchangeOrderColumns';
-import { isCoinmExchange } from '@/utils/exchangeUtils';
+import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 
 import { balanceBasisFor } from './balanceBasis';
 
@@ -56,6 +56,40 @@ export type FuturesSummary = {
 };
 
 export const EXPOSURE_TOP_N = 5;
+
+/** A My Accounts entry, as `useTransformedExchanges` returns it. */
+type ExchangeEntry = {
+  id: string;
+  type: 'exchange' | 'aggregate';
+  name: string;
+  provider: ExchangeEnum | string;
+  balance?: number | null | undefined;
+};
+
+/**
+ * The futures accounts covered by the Portfolio page's account selection
+ * (`PortfolioContext.selectedExchanges`). `['ALL']`, `[]` and no page context
+ * all mean every account, as for the other Portfolio widgets.
+ */
+export function selectFuturesAccounts(
+  exchanges: ExchangeEntry[],
+  selection: string[] | undefined
+): FuturesAccountInput[] {
+  const all = !selection || selection.length === 0 || selection.includes('ALL');
+  return exchanges
+    .filter(
+      (ex) =>
+        ex.type === 'exchange' &&
+        isFuturesExchange(ex.provider) &&
+        (all || selection.includes(ex.id))
+    )
+    .map((ex) => ({
+      id: ex.id,
+      name: ex.name,
+      provider: ex.provider,
+      balance: ex.balance,
+    }));
+}
 
 /** Quote assets counted 1:1 as USD. Anything else is treated as unpriced. */
 const USD_LIKE_QUOTES = new Set(['USD', 'USDT', 'USDC', 'USDH', 'FDUSD', 'BUSD']);

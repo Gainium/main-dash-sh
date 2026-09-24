@@ -18,6 +18,7 @@ import { ExchangeEnum } from '../src/types/exchange.types';
 import { computePositionPnl } from '../src/features/trading-terminal/utils/positionPnl';
 import { balanceBasisFor } from '../src/components/portfolio/futures/balanceBasis';
 import {
+  selectFuturesAccounts,
   summarizeFutures,
   type FuturesAccountInput,
   type FuturesPositionInput,
@@ -284,5 +285,44 @@ describe('summarizeFutures — net exposure (spec §2.3)', () => {
       positions: [position({ exchangeUUID: 'a', side: 'LONG', base: 'BTC', qty: 1, entry: 60000, mark: 60000 })],
     });
     expect(s.total.equity).toBe(1000);
+  });
+});
+
+describe('selectFuturesAccounts — follows the My Accounts selection (spec §2.1.4)', () => {
+  const exchanges = [
+    { id: 'ALL', type: 'aggregate' as const, name: 'All Exchanges', provider: 'all', balance: 0 },
+    { id: 'f1', type: 'exchange' as const, name: 'F1', provider: ExchangeEnum.binanceUsdm, balance: 100 },
+    { id: 'f2', type: 'exchange' as const, name: 'F2', provider: ExchangeEnum.bybitUsdm, balance: 200 },
+    { id: 's1', type: 'exchange' as const, name: 'S1', provider: ExchangeEnum.binance, balance: 300 },
+  ];
+  const ids = (sel: string[] | undefined) =>
+    selectFuturesAccounts(exchanges, sel).map((a) => a.id);
+
+  it('"All", an empty selection or no page context → every futures account', () => {
+    expect(ids(['ALL'])).toEqual(['f1', 'f2']);
+    expect(ids([])).toEqual(['f1', 'f2']);
+    expect(ids(undefined)).toEqual(['f1', 'f2']);
+  });
+
+  it('a selection → only the selected futures accounts', () => {
+    expect(ids(['f2'])).toEqual(['f2']);
+    expect(ids(['s1', 'f1'])).toEqual(['f1']);
+  });
+
+  it('a spot-only selection → no futures accounts (the card hides)', () => {
+    expect(ids(['s1'])).toEqual([]);
+  });
+
+  it('positions of unselected accounts leave the count and the exposure', () => {
+    const s = summarizeFutures({
+      accounts: selectFuturesAccounts(exchanges, ['f2']),
+      positions: [
+        position({ exchangeUUID: 'f1', side: 'LONG', base: 'BTC', qty: 1, entry: 100, mark: 100 }),
+        position({ exchangeUUID: 'f2', side: 'SHORT', base: 'ETH', qty: 1, entry: 50, mark: 50 }),
+      ],
+    });
+    expect(s.rows.map((r) => r.id)).toEqual(['f2']);
+    expect(s.openPositions).toBe(1);
+    expect(s.exposure.top).toEqual([{ asset: 'ETH', net: -50 }]);
   });
 });

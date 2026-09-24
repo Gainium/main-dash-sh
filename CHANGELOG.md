@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.57.1] - 2026-09-24
+
+### Fixed
+
+- Portfolio: the Futures card now follows the account selection in My
+  Accounts like the other Portfolio widgets, and hides when the selection
+  holds no futures account.
+
+### Changed
+
+- Portfolio: My Accounts makes it obvious when it is filtering the page. A
+  "Filtered: N accounts" line with a Show all shortcut appears above the list,
+  selected accounts are checked and highlighted, and the rest are muted.
+
 ## [2.57.0] - 2026-09-24
 
 ### Added

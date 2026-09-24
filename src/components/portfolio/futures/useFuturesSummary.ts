@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useContext, useMemo } from 'react';
 
 import {
   useTradingPairsFromContext,
@@ -7,9 +7,9 @@ import {
 import { addSymbolToPositions } from '@/features/trading-terminal/components/exchangeOrderColumns';
 import { useMarkPrices } from '@/features/trading-terminal/utils/useMarkPrices';
 import { useExchangePositions } from '@/hooks/useExchangeOrdersPositions';
-import { isFuturesExchange } from '@/utils/exchangeUtils';
+import { PortfolioContext } from '@/contexts/PortfolioContext';
 
-import { summarizeFutures, type FuturesAccountInput } from './futuresSummary';
+import { selectFuturesAccounts, summarizeFutures } from './futuresSummary';
 
 /**
  * Wires the Portfolio futures card to the data the terminal's Positions tab
@@ -21,19 +21,19 @@ export function useFuturesSummary() {
   const { exchanges } = useTransformedExchangesFromContext();
   const { pairsByExchange } = useTradingPairsFromContext();
 
-  const accounts = useMemo<FuturesAccountInput[]>(
-    () =>
-      exchanges
-        .filter((ex) => ex.type === 'exchange' && isFuturesExchange(ex.provider))
-        .map((ex) => ({
-          id: ex.id,
-          name: ex.name,
-          provider: ex.provider,
-          balance: ex.balance,
-        })),
+  const selection = useContext(PortfolioContext)?.selectedExchanges;
+
+  // Every futures account decides whether to fetch at all; the selection only
+  // decides what is shown, so switching it never issues a request.
+  const allFutures = useMemo(
+    () => selectFuturesAccounts(exchanges, undefined),
     [exchanges]
   );
-  const hasFutures = accounts.length > 0;
+  const accounts = useMemo(
+    () => selectFuturesAccounts(exchanges, selection),
+    [exchanges, selection]
+  );
+  const hasFutures = allFutures.length > 0;
 
   const positionsQ = useExchangePositions('all', hasFutures);
   const markPriceFor = useMarkPrices(hasFutures);
@@ -60,6 +60,8 @@ export function useFuturesSummary() {
 
   return {
     hasFutures,
+    // False when the account selection leaves no futures account: hide.
+    hasSelectedFutures: accounts.length > 0,
     accounts,
     summary,
     isLoading: positionsQ.isLoading,

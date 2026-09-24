@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { isReadOnly } from '@/lib/demoMode';
-import { Edit, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react';
+import { Check, Edit, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react';
 import React from 'react';
 import { usePortfolioContext } from '../../hooks/usePortfolioContext';
 import { useUIStore } from '../../stores/uiStore';
@@ -101,6 +101,10 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
       setSelectedExchanges([...next, exchangeId]);
     }
   };
+
+  // Every Portfolio widget follows this selection, so say so while one is on.
+  const filterIds = selectedExchanges.filter((id) => id !== 'ALL');
+  const isFiltering = filterIds.length > 0;
 
   const handleEditExchange = (exchange: any, e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent exchange selection
@@ -239,25 +243,61 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
         </div>
       </div>
 
+      {isFiltering && (
+        <div
+          data-testid="accounts-filter-status"
+          className="flex items-center justify-between gap-xs mb-2 px-xs py-1.5 rounded-lg bg-primary/10 text-xs shrink-0"
+          role="status"
+        >
+          <span className="text-foreground">
+            Filtered: {filterIds.length}{' '}
+            {filterIds.length === 1 ? 'account' : 'accounts'}
+          </span>
+          <button
+            type="button"
+            className="font-medium text-primary hover:underline"
+            onClick={() => setSelectedExchanges(['ALL'])}
+          >
+            Show all
+          </button>
+        </div>
+      )}
+
       <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto">
-        {exchanges.map((exchange) => (
+        {exchanges.map((exchange) => {
+          const isSelected = selectedExchanges.includes(exchange.id);
+          const isMuted = isFiltering && !isSelected;
+          return (
           <div
             key={exchange.id}
+            data-testid="account-row"
+            data-muted={isMuted ? 'true' : 'false'}
+            aria-pressed={isFiltering ? isSelected : undefined}
             className={`group p-xs rounded-lg cursor-pointer transition-colors ${
-              selectedExchanges.includes(exchange.id)
-                ? 'bg-inner-container'
-                : 'hover:bg-card/50'
-            }`}
+              isFiltering && isSelected
+                ? 'bg-primary/10'
+                : isSelected
+                  ? 'bg-inner-container'
+                  : 'hover:bg-card/50'
+            } ${isMuted ? 'opacity-50 hover:opacity-100' : ''}`}
             onClick={() => handleExchangeSelect(exchange.id)}
           >
             <div className="flex items-center justify-between relative">
               <div className="flex items-center gap-xs min-w-0 flex-1">
                 <div className="text-xs sm:text-sm font-medium flex items-center gap-xs min-w-0">
                   <span className="shrink-0">
-                    <ExchangeIcon
-                      icon={exchange.icon}
-                      size="w-3 h-3 sm:w-4 sm:h-4"
-                    />
+                    {isFiltering && isSelected ? (
+                      <Check
+                        data-selected-check
+                        aria-label="Selected"
+                        className="w-3 h-3 sm:w-4 sm:h-4 text-primary"
+                      />
+                    ) : (
+                      <ExchangeIcon
+                        icon={exchange.icon}
+                        size="w-3 h-3 sm:w-4 sm:h-4"
+                      />
+                    )}
                   </span>
                   <span className="truncate">{exchange.name}</span>
                   <RotationChip
@@ -399,7 +439,8 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
               </div>
             )}
           </div>
-        ))}
+          );
+        })}
       </div>
     </Widget>
   );

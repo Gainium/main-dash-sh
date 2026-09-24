@@ -22,6 +22,7 @@ import { useUIStore } from '../src/stores/uiStore';
 const hook = vi.hoisted(() => ({
   state: {
     hasFutures: false,
+    hasSelectedFutures: false,
     summary: undefined as unknown,
     error: null as Error | null,
     isLoading: false,
@@ -86,13 +87,19 @@ const summaryWith = (
 
 describe('FuturesSummaryCard', () => {
   it('§2.1.1 renders nothing without a futures account', () => {
-    hook.state = { hasFutures: false, summary: summaryWith([]), error: null, isLoading: false };
+    hook.state = { hasFutures: false, hasSelectedFutures: false, summary: summaryWith([]), error: null, isLoading: false };
+    render(createElement(FuturesSummaryCard));
+    expect(container.textContent).toBe('');
+  });
+
+  it('§2.1.4 renders nothing when the account selection holds no futures account', () => {
+    hook.state = { hasFutures: true, hasSelectedFutures: false, summary: summaryWith([]), error: null, isLoading: false };
     render(createElement(FuturesSummaryCard));
     expect(container.textContent).toBe('');
   });
 
   it('§2.1.1/§2.2.1 renders one row per futures account, labelled with the account name', () => {
-    hook.state = { hasFutures: true, summary: summaryWith([['BTC', 5000]]), error: null, isLoading: false };
+    hook.state = { hasFutures: true, hasSelectedFutures: true, summary: summaryWith([['BTC', 5000]]), error: null, isLoading: false };
     render(createElement(FuturesSummaryCard));
     const rows = container.querySelectorAll('[data-testid="futures-account-row"]');
     expect(rows).toHaveLength(2);
