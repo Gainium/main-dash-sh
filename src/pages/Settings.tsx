@@ -77,6 +77,8 @@ import {
 import { useAPIKeysOperations } from '../hooks/useAPIKeys';
 import { useLicenseKeyOperations } from '../hooks/useLicenseKey';
 import { usePasswordOperations } from '../hooks/usePasswordChange';
+import { useRequestPasswordReset } from '../hooks/usePasswordReset';
+import { passwordMeetsAllRules } from '../components/auth/passwordRules';
 import {
   useUserSettingsOperations,
   useSetAllowedLoginMethods,
@@ -535,6 +537,31 @@ const Settings: React.FC = () => {
     confirmPassword,
     currentPassword
   );
+  // The current password is NOT required to submit: an account created with an
+  // email link or Google has never had a password to enter, and the server
+  // lets it choose its first one without. Whether one is needed is the
+  // server's call; its rejection says what to do next.
+  const newPasswordValid = passwordMeetsAllRules(newPassword, confirmPassword);
+
+  // Works for every account, including one whose owner does not know the
+  // current password: proving control of the inbox is enough to set a new one.
+  const requestPasswordLink = useRequestPasswordReset();
+  const handleEmailPasswordLink = () => {
+    if (!email) return;
+    requestPasswordLink.mutate(
+      { email },
+      {
+        onSuccess: () =>
+          toast.success(
+            `We sent a link to ${email}. Open it within 15 minutes to set your password.`
+          ),
+        onError: (error) =>
+          toast.error(
+            error instanceof Error ? error.message : 'Could not send the link'
+          ),
+      }
+    );
+  };
 
   // Form submission handler - sends a single mutation with all changed fields
   const handlePersonalDataSubmit = () => {
@@ -581,7 +608,7 @@ const Settings: React.FC = () => {
   };
 
   const handlePasswordSubmit = () => {
-    if (!Object.values(passwordValidation).every(Boolean)) return;
+    if (!newPasswordValid) return;
 
     passwordOps.changePassword(
       { password: newPassword, currentPassword },
@@ -1071,6 +1098,11 @@ const Settings: React.FC = () => {
                         )}
                       </button>
                     </div>
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Don&apos;t know it? If you signed up with an email link or
+                      Google, use &quot;Email me a link to set a password&quot;
+                      below.
+                    </p>
                   </div>
 
                   <div>
@@ -1198,14 +1230,23 @@ const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex justify-end pt-4">
+              <div className="flex flex-wrap items-center justify-between gap-sm pt-4">
+                <Button
+                  type="button"
+                  variant="link"
+                  className="px-0 text-muted-foreground"
+                  onClick={handleEmailPasswordLink}
+                  disabled={requestPasswordLink.isPending || !email}
+                >
+                  {requestPasswordLink.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                  Email me a link to set a password
+                </Button>
                 <Button
                   className="bg-primary"
                   onClick={handlePasswordSubmit}
-                  disabled={
-                    passwordOps.isChangingPassword ||
-                    !Object.values(passwordValidation).every(Boolean)
-                  }
+                  disabled={passwordOps.isChangingPassword || !newPasswordValid}
                 >
                   {passwordOps.isChangingPassword && (
                     <Loader2 className="w-4 h-4 animate-spin" />

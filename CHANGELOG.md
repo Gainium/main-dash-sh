@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.62.3] - 2026-09-24
+
+### Fixed
+
+- Settings → Change Password no longer insists on a current password. An
+  account created with an email sign-in link or Google never had a password
+  to enter, so the form could not be submitted and a password could not be
+  chosen. The current password is now optional; the server decides whether it
+  is needed and says what to do when it is.
+- Settings → Change Password has an **Email me a link to set a password**
+  button, which works for any account, including one whose owner does not know
+  the current password.
+
 ## [2.62.2] - 2026-09-24
 
 ### Added
