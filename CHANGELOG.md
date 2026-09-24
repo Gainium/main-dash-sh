@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.59.2] - 2026-09-24
+
+### Fixed
+
+- Trading terminal: an inverse (coin-margined) order on a pooled-collateral
+  account is checked against the pooled margin on isolated margin too. The
+  terminal defaults to isolated, and the previous release only consulted the
+  pool for cross margin, so the default order was still refused with "Not
+  enough assets to place order". The exchange decides whether it funds the
+  position.
+
 ## [2.59.1] - 2026-09-24
 
 ### Fixed

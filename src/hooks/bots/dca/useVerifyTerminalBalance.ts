@@ -41,14 +41,14 @@ export const useVerifyTerminalBalance = (
     dca?.marginType !== BotMarginTypeEnum.inherit
       ? Number(dca?.leverage) || 1
       : 1;
-  // Only a COIN-M order the base-coin balance cannot cover needs the pool;
-  // an isolated bot keeps the per-coin rule, as the engine does.
+  // Only a COIN-M order the base-coin balance cannot cover needs the pool.
+  // Isolated orders ask too (the terminal defaults to isolated): the venue,
+  // not this gate, decides whether it funds an isolated position from it.
   const askPool =
     !dca?.skipBalanceCheck &&
     !!dca?.futures &&
     !!dca?.coinm &&
     dca?.terminalDealType !== TerminalDealTypeEnum.import &&
-    dca?.marginType !== BotMarginTypeEnum.isolated &&
     !!formData.exchangeUUID &&
     (aggregated?.base?.free ?? 0) <
       (Number(summary?.totalCapitalBase) || 0) / marginDenom;
