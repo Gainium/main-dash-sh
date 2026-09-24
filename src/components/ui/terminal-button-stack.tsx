@@ -15,6 +15,8 @@ interface TerminalButtonStackProps {
   onValueChange: (value: string) => void;
   className?: string;
   disabled?: boolean;
+  /** Rendered after the option buttons, inside the same wrapping row. */
+  trailing?: React.ReactNode;
 }
 
 export const TerminalButtonStack: React.FC<TerminalButtonStackProps> = ({
@@ -23,6 +25,7 @@ export const TerminalButtonStack: React.FC<TerminalButtonStackProps> = ({
   onValueChange,
   className,
   disabled = false,
+  trailing,
 }) => {
   return (
     <div className={cn('flex flex-wrap gap-2', className)}>
@@ -59,6 +62,7 @@ export const TerminalButtonStack: React.FC<TerminalButtonStackProps> = ({
           </Button>
         );
       })}
+      {trailing}
     </div>
   );
 };

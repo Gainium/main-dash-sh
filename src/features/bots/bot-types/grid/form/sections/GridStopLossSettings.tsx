@@ -16,6 +16,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
+import { CustomPercentChip } from '@/features/bots/shared/components/CustomPercentChip';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
@@ -52,6 +53,8 @@ const priceFromPercent = (basePrice: number, percent: number): string => {
   if (!Number.isFinite(basePrice) || basePrice <= 0) return '';
   return (basePrice * (1 + percent / 100)).toFixed(6);
 };
+
+const PRICE_PERCENT_PRESETS = [-5, -10];
 
 export const GridStopLossSettings: React.FC = () => {
   const {
@@ -129,7 +132,7 @@ export const GridStopLossSettings: React.FC = () => {
 
   const pricePresetOptions = React.useMemo(
     () =>
-      [-5, -10].map((percent) => ({
+      PRICE_PERCENT_PRESETS.map((percent) => ({
         percent,
         value: percent.toString(),
         label: `${percent}%`,
@@ -303,6 +306,18 @@ export const GridStopLossSettings: React.FC = () => {
                     buttonClassName,
                   })
                 )}
+                trailing={
+                  <CustomPercentChip
+                    sign={-1}
+                    currentPercent={
+                      startPrice > 0
+                        ? (Number(slLowPrice) / startPrice - 1) * 100
+                        : NaN
+                    }
+                    presets={PRICE_PERCENT_PRESETS}
+                    onApply={applyPricePercent}
+                  />
+                }
               />
             </div>
           </SettingsRow>

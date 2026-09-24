@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.62.2] - 2026-09-24
+
+### Added
+
+- Grid bot form: a **Custom %** field after the quick % buttons on Top price,
+  Low price, Take profit price and Stop loss price. Type the size of the move
+  (for example `50` on Low price for 50% below the start price); the direction
+  is fixed by the field. When a price matches no preset, the field shows its %.
+
 ## [2.62.1] - 2026-09-24
 
 ### Changed

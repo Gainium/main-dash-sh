@@ -5,6 +5,7 @@ import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
+import { CustomPercentChip } from '@/features/bots/shared/components/CustomPercentChip';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import { cn } from '@/lib/utils';
@@ -30,6 +31,9 @@ const parseNumber = (value: string | number | undefined): number => {
   const parsed = typeof value === 'number' ? value : parseFloat(value);
   return Number.isFinite(parsed) ? parsed : NaN;
 };
+
+const TOP_PRICE_PRESETS = [5, 10, 20, 30];
+const LOW_PRICE_PRESETS = [-5, -10, -20, -30];
 
 const computePriceFromPercent = (
   basePrice: number,
@@ -287,11 +291,19 @@ export const GridRangeSettings: React.FC = () => {
                   applyPercentToTop(numeric);
                 }
               }}
-              options={[5, 10, 20, 30].map((percent) => ({
+              options={TOP_PRICE_PRESETS.map((percent) => ({
                 value: formatPercent(percent),
                 label: `+${percent}%`,
                 buttonClassName: 'min-w-[64px] px-2',
               }))}
+              trailing={
+                <CustomPercentChip
+                  sign={1}
+                  currentPercent={Number.parseFloat(topPercent)}
+                  presets={TOP_PRICE_PRESETS}
+                  onApply={applyPercentToTop}
+                />
+              }
             />
             <p className="text-xs text-muted-foreground max-w-[540px]">
               Quick adjustments use your start price ({startPrice || 'n/a'}) as
@@ -369,11 +381,19 @@ export const GridRangeSettings: React.FC = () => {
                   applyPercentToLow(numeric);
                 }
               }}
-              options={[-5, -10, -20, -30].map((percent) => ({
+              options={LOW_PRICE_PRESETS.map((percent) => ({
                 value: formatPercent(percent),
                 label: `${percent}%`,
                 buttonClassName: 'min-w-[64px] px-2',
               }))}
+              trailing={
+                <CustomPercentChip
+                  sign={-1}
+                  currentPercent={Number.parseFloat(lowPercent)}
+                  presets={LOW_PRICE_PRESETS}
+                  onApply={applyPercentToLow}
+                />
+              }
             />
           </div>
         </SettingsRow>
