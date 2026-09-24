@@ -16,9 +16,9 @@ import type {
   ServerSideBacktestPayload,
   CloseDCATypeEnum,
   ExchangeIntervals,
-} from '../../types';
-import type { ExchangeEnum } from '../../types/exchange.types';
-import type { BotWebhookOption } from '../../types/webhook';
+} from "../../types";
+import type { ExchangeEnum } from "../../types/exchange.types";
+import type { BotWebhookOption } from "../../types/webhook";
 import {
   backtest,
   botFragment,
@@ -40,7 +40,7 @@ import {
   sharedSettings,
   statsFragment,
   symbolsStatsFragment,
-} from './GraphQLQueries-fragments';
+} from "./GraphQLQueries-fragments";
 
 /**
  * Stats-only selection for the live-bot Statistics tab.
@@ -67,8 +67,8 @@ const botWebhookOptionsFragment = `
   uuid`;
 
 type CreateBotInput = Omit<
-  DCABot['settings'],
-  'ordersCount' | 'activeOrdersCount'
+  DCABot["settings"],
+  "ordersCount" | "activeOrdersCount"
 > & {
   pair?: string[];
   baseAsset?: string[];
@@ -176,6 +176,18 @@ export const botQueries = {
                           step
                           min
                         }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  getPooledMarginAvailable: (input: { uuid: string }) => {
+    const query = `query getPooledMarginAvailable($input: getLeverageInput!){
+                    getPooledMarginAvailable(input: $input) {
+                        status
+                        reason
+                        data
                     }
                 }`;
     const variables = { input };
@@ -659,7 +671,7 @@ export const botQueries = {
 
   botList: (
     input?: { status?: BotStatus[]; dataGridInput?: DataGridFilterInput },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query botList($input: getDcaBotListInput) {
                         botList(input: $input) {
@@ -765,7 +777,7 @@ export const botQueries = {
       status?: BotStatus[];
       dataGridInput?: DataGridFilterInput;
     },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query dcaBotList($input: getDcaBotListInput) {
                         dcaBotList(input: $input) {
@@ -790,7 +802,7 @@ export const botQueries = {
       status?: BotStatus[];
       dataGridInput?: DataGridFilterInput;
     },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query comboBotList($input: getDcaBotListInput) {
                         comboBotList(input: $input) {
@@ -815,7 +827,7 @@ export const botQueries = {
       status?: BotStatus[];
       dataGridInput?: DataGridFilterInput;
     },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query hedgeComboBotList($input: getDcaBotListInput) {
                         hedgeComboBotList(input: $input) {
@@ -839,7 +851,7 @@ export const botQueries = {
       status?: BotStatus[];
       dataGridInput?: DataGridFilterInput;
     },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query hedgeDCABotList($input: getDcaBotListInput) {
                         hedgeDCABotList(input: $input) {
@@ -1112,7 +1124,7 @@ export const botQueries = {
       exchange: string;
       exchangeUUID: string;
       settings: CreateBotInput;
-    }
+    },
   ) => {
     const query = `mutation saveBacktest($input: backtestInput!) { 
                     saveBacktest(input: $input) {
@@ -1135,8 +1147,8 @@ export const botQueries = {
       config: BacktestingSettings;
       exchange: string;
       exchangeUUID: string;
-      settings: Bot['settings'];
-    }
+      settings: Bot["settings"];
+    },
   ) => {
     const query = `mutation saveGridBacktest($input: gridBacktestInput!) { 
                     saveGridBacktest(input: $input) {
@@ -1300,7 +1312,7 @@ export const botQueries = {
     hedge?: boolean;
     combo?: boolean;
     shareId?: string;
-    category?: 'recent' | 'deals' | 'alerts';
+    category?: "recent" | "deals" | "alerts";
   }) => {
     const query = `query getBotEvents($input: getBotEventsInput!) {
       getBotEvents(input: $input) {
@@ -1357,7 +1369,7 @@ export const botQueries = {
       shareId?: string;
       page: number;
     },
-    fields?: string
+    fields?: string,
   ) => {
     const query = `query getBotTransactions($input: getBotTransactionsInput!) { 
   getBotTransactions(input: $input) {
@@ -1928,13 +1940,13 @@ export const botQueries = {
   },
 
   createBot: (
-    input: Bot['settings'] & {
+    input: Bot["settings"] & {
       baseAsset: string;
       quoteAsset: string;
       exchange: ExchangeEnum;
       exchangeUUID: string;
       vars?: BotVars | null;
-    }
+    },
   ) => {
     const query = `mutation createBot($input: createBotInput!) { 
   createBot(input: $input) {
@@ -1957,7 +1969,7 @@ export const botQueries = {
       buyCount?: string;
       buyAmount?: number;
       vars?: BotVars | null;
-    } & Partial<Bot['settings']>
+    } & Partial<Bot["settings"]>,
   ) => {
     const query = `mutation changeBot($input: changeBotInput!) { 
   changeBot(input: $input) {
@@ -2022,8 +2034,8 @@ export const botQueries = {
 
   createMultiPairDCABot: (
     input: Omit<
-      DCABot['settings'],
-      'ordersCount' | 'activeOrdersCount' | 'pair' | 'baseAsset' | 'quoteAsset'
+      DCABot["settings"],
+      "ordersCount" | "activeOrdersCount" | "pair" | "baseAsset" | "quoteAsset"
     > & {
       pairs?: string[];
       baseAssets: string[];
@@ -2032,7 +2044,7 @@ export const botQueries = {
       activeOrdersCount: number;
       exchange: ExchangeEnum;
       exchangeUUID: string;
-    }
+    },
   ) => {
     const query = `mutation createMultiPairDCABot($input: createMultiPairDCABotInput!) { 
   createMultiPairDCABot(input: $input) {
@@ -2048,7 +2060,7 @@ export const botQueries = {
   },
 
   changeDCABot: (
-    input: { id: string; vars?: BotVars | null } & Partial<DCABot['settings']>
+    input: { id: string; vars?: BotVars | null } & Partial<DCABot["settings"]>,
   ) => {
     const query = `mutation changeDCABot($input: changeDCABotInput!) { 
   changeDCABot(input: $input) {
@@ -2062,7 +2074,9 @@ export const botQueries = {
   },
 
   changeComboBot: (
-    input: { id: string; vars?: BotVars | null } & Partial<ComboBot['settings']>
+    input: { id: string; vars?: BotVars | null } & Partial<
+      ComboBot["settings"]
+    >,
   ) => {
     const query = `mutation changeComboBot($input: changeComboBotInput!) { 
   changeComboBot(input: $input) {
@@ -2076,9 +2090,9 @@ export const botQueries = {
   },
 
   changeHedgeComboBot: (input: {
-    long: { id: string; vars?: BotVars | null } & Partial<ComboBot['settings']>;
+    long: { id: string; vars?: BotVars | null } & Partial<ComboBot["settings"]>;
     short: { id: string; vars?: BotVars | null } & Partial<
-      ComboBot['settings']
+      ComboBot["settings"]
     >;
     id: string;
     sharedSettings?: HedgeBotSettings;
@@ -2095,9 +2109,9 @@ export const botQueries = {
   },
 
   changeHedgeDCABot: (input: {
-    long: { id: string; vars?: BotVars | null } & Partial<ComboBot['settings']>;
+    long: { id: string; vars?: BotVars | null } & Partial<ComboBot["settings"]>;
     short: { id: string; vars?: BotVars | null } & Partial<
-      ComboBot['settings']
+      ComboBot["settings"]
     >;
     id: string;
     sharedSettings?: HedgeBotSettings;
@@ -2114,7 +2128,7 @@ export const botQueries = {
   },
 
   changeMultiPairDCABot: (
-    input: { id: string } & Partial<DCABot['settings'] & { pairs: string[] }>
+    input: { id: string } & Partial<DCABot["settings"] & { pairs: string[] }>,
   ) => {
     const query = `mutation changeMultiPairDCABot($input: changeMultiPairDCABotInput!) { 
   changeMultiPairDCABot(input: $input) {

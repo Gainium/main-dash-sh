@@ -1,8 +1,10 @@
-import { useMemo } from 'react';
-import { useDealOverviewData } from '@/components/widgets/trading/DealOverview';
-import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from '@/types';
-import type { BotFormData } from '@/types/bots/form';
-import type { DcaTradingContext } from './useDcaTradingContext';
+import { useMemo } from "react";
+import { useDealOverviewData } from "@/components/widgets/trading/DealOverview";
+import { useGraphQL } from "@/hooks/useGraphQL";
+import { botQueries } from "@/lib/api/GraphQLQueries-bot-queries";
+import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from "@/types";
+import type { BotFormData } from "@/types/bots/form";
+import type { DcaTradingContext } from "./useDcaTradingContext";
 
 /**
  * Client-side balance gate for the trading-terminal "place order" / import
@@ -19,15 +21,50 @@ import type { DcaTradingContext } from './useDcaTradingContext';
  *
  * The order capital comes from the same example-orders deal summary the footer
  * "Capital required" chip reads, so the gate and the chip agree by construction.
+ *
+ * COIN-M on a pooled-collateral account (Bitget Unified in `multi_assets`
+ * mode): every coin in the wallet margins the inverse contract, so a
+ * USDT-funded account holds no base coin and still funds the order. When the
+ * base-coin check comes up short we ask the connection for its pool (USD,
+ * `null` when not pooled) and compare the order's USD notional against it.
  */
 export const useVerifyTerminalBalance = (
   formData: BotFormData,
-  tradingContext: DcaTradingContext
+  tradingContext: DcaTradingContext,
 ): boolean => {
   const { summary } = useDealOverviewData();
   const dca = formData.dca;
   const aggregated = tradingContext.aggregatedBalances;
   const fee = tradingContext.fee ?? 0;
+
+  const marginDenom =
+    dca?.marginType !== BotMarginTypeEnum.inherit
+      ? Number(dca?.leverage) || 1
+      : 1;
+  // Only a COIN-M order the base-coin balance cannot cover needs the pool;
+  // an isolated bot keeps the per-coin rule, as the engine does.
+  const askPool =
+    !dca?.skipBalanceCheck &&
+    !!dca?.futures &&
+    !!dca?.coinm &&
+    dca?.terminalDealType !== TerminalDealTypeEnum.import &&
+    dca?.marginType !== BotMarginTypeEnum.isolated &&
+    !!formData.exchangeUUID &&
+    (aggregated?.base?.free ?? 0) <
+      (Number(summary?.totalCapitalBase) || 0) / marginDenom;
+  const poolQuery = useGraphQL<number | null>(
+    "getPooledMarginAvailable",
+    botQueries.getPooledMarginAvailable({ uuid: formData.exchangeUUID ?? "" }),
+    { enabled: askPool, staleTime: 15 * 1000 },
+  );
+  const pooledUsd =
+    askPool &&
+    poolQuery.data?.status === "OK" &&
+    typeof poolQuery.data.data === "number"
+      ? poolQuery.data.data
+      : null;
+  // Not answered yet: can't judge, so don't block (the engine still checks).
+  const poolPending = askPool && poolQuery.isPending && !poolQuery.error;
 
   return useMemo(() => {
     // Legacy addNewBot: when skipBalanceCheck is set, the whole verify is
@@ -60,14 +97,14 @@ export const useVerifyTerminalBalance = (
     if (futures) {
       if (isImport) return true;
       // Compare margin (notional / leverage). Inherited margin keeps the raw
-      // notional. COIN-M is base-margined, USDⓈ-M is quote-margined.
-      const denom =
-        dca?.marginType !== BotMarginTypeEnum.inherit
-          ? Number(dca?.leverage) || 1
-          : 1;
-      base /= denom;
-      quote /= denom;
-      return coinm ? freeBase >= base : freeQuote >= quote;
+      // notional. COIN-M is base-margined, USDⓈ-M is quote-margined — unless
+      // the account pools its collateral, when the USD notional is what the
+      // pool has to cover.
+      base /= marginDenom;
+      quote /= marginDenom;
+      if (!coinm) return freeQuote >= quote;
+      if (freeBase >= base || poolPending) return true;
+      return pooledUsd !== null && pooledUsd >= quote;
     }
 
     // Spot import: you already hold the position, so verify the held side —
@@ -82,5 +119,5 @@ export const useVerifyTerminalBalance = (
     // Spot, normal: a long spends quote to buy base; a short delivers base.
     if (isLong) return freeQuote >= quote;
     return freeBase >= base;
-  }, [summary, aggregated, fee, dca]);
+  }, [summary, aggregated, fee, dca, marginDenom, pooledUsd, poolPending]);
 };

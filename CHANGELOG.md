@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.58.0] - 2026-09-24
+
+### Added
+
+- Trading terminal: an inverse (coin-margined) futures order on an account that
+  pools its collateral — a Bitget Unified Trading Account in multi-assets mode —
+  is no longer refused with "Not enough assets to place order" just because the
+  wallet holds none of the contract's own coin. When the coin balance falls
+  short, the terminal asks the connection for its pooled margin and lets the
+  order through if that covers it. Isolated-margin orders and accounts that do
+  not pool collateral keep the per-coin check.
+
 ## [2.57.9] - 2026-09-24
 
 ### Fixed
