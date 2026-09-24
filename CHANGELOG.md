@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.59.3] - 2026-09-24
+
+### Fixed
+
+- A chart whose page learns its pair only after the chart has started — the
+  trading terminal restoring an unsaved bot, for one — now opens straight on
+  that pair. The chart used to start on a default pair and could switch only
+  once that pair's history had finished loading, which for a pair with little
+  history includes asking for the years before it listed; the chart sat on
+  "Loading chart…" for a pair nobody chose, for up to half a minute. A pair
+  that arrives before the chart is ready now rebuilds the chart on it instead.
+
 ## [2.59.2] - 2026-09-24
 
 ### Fixed

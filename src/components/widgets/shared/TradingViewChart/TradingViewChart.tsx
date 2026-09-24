@@ -924,6 +924,32 @@ const TradingViewChartComponent = forwardRef<
     return 'BTCUSDT@BINANCE';
   }, [symbol]);
 
+  // A symbol that arrives before the chart is ready rebuilds the widget
+  // rather than waiting to be applied. TradingView takes a symbol change only
+  // after `onChartReady`, and that waits until the INITIAL symbol's history
+  // fills the view — every page of it, including pages from before the pair
+  // listed, which the archive can take tens of seconds to answer empty. A page
+  // that mounts the chart before it knows its pair (the terminal restoring an
+  // unsaved bot) therefore sat on "Loading chart…" for a default pair nobody
+  // asked for, and switched only once that finished. Once the chart is ready,
+  // symbol changes go through `setSymbol` as before.
+  const [widgetGeneration, setWidgetGeneration] = useState(0);
+  const widgetSymbolRef = useRef(safeInitialSymbol);
+  useEffect(() => {
+    if (isChartReady) return;
+    const normalize = (s: string): string => s.replace(/:/g, '_').toLowerCase();
+    if (normalize(safeInitialSymbol) === normalize(widgetSymbolRef.current)) {
+      return;
+    }
+    logger.info('Symbol changed before chart ready — rebuilding widget', {
+      from: widgetSymbolRef.current,
+      to: safeInitialSymbol,
+      widgetId: widgetId || 'unknown',
+    });
+    widgetSymbolRef.current = safeInitialSymbol;
+    setWidgetGeneration((g) => g + 1);
+  }, [safeInitialSymbol, isChartReady, widgetId]);
+
   const onSymbolChange = useCallback(
     (fullSymbol: string) => {
       // A custom datafeed is self-contained; don't write the shared live
@@ -975,6 +1001,7 @@ const TradingViewChartComponent = forwardRef<
 
   return (
     <TradingViewWidgetRenderer
+      key={widgetGeneration}
       ref={coreChartRef}
       initialSymbol={safeInitialSymbol}
       initialInterval={interval}
