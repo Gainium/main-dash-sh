@@ -110,8 +110,12 @@ export const ShortcutsList: React.FC<ShortcutsListProps> = ({
 
     const query = searchQuery.toLowerCase();
     return shortcuts.filter((shortcut) => {
-      const matchesLabel = shortcut.label.toLowerCase().includes(query);
-      const matchesCategory = shortcut.category.toLowerCase().includes(query);
+      const matchesLabel = (shortcut.label ?? '')
+        .toLowerCase()
+        .includes(query);
+      const matchesCategory = (shortcut.category ?? '')
+        .toLowerCase()
+        .includes(query);
       const path = shortcut.path || '';
       const matchesPath = path.toLowerCase().includes(query);
       return matchesLabel || matchesPath || matchesCategory;
@@ -169,7 +173,7 @@ export const ShortcutsList: React.FC<ShortcutsListProps> = ({
     // Check for existing identical label or path
     const duplicates = shortcuts.filter(
       (s) =>
-        (s.label.toLowerCase() === label.toLowerCase() &&
+        ((s.label ?? '').toLowerCase() === label.toLowerCase() &&
           s.category === 'custom') ||
         (s.path && s.path === path)
     );

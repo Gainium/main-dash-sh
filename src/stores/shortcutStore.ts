@@ -73,6 +73,7 @@ export const useShortcutStore = create<ShortcutStore>()(
       disableShortcutHints: false,
 
       updateShortcut: (id: string, key: ShortcutKey) => {
+        if (!get().shortcuts[id]) return;
         set((state) => ({
           shortcuts: {
             ...state.shortcuts,
@@ -87,6 +88,7 @@ export const useShortcutStore = create<ShortcutStore>()(
       },
 
       resetShortcut: (id: string) => {
+        if (!get().shortcuts[id]) return;
         set((state) => {
           // For dynamic per-dashboard shortcuts, "reset" should clear (disable) rather than enable
           if (id.startsWith('nav-dashboard-')) {
@@ -147,6 +149,7 @@ export const useShortcutStore = create<ShortcutStore>()(
       },
 
       toggleShortcut: (id: string) => {
+        if (!get().shortcuts[id]) return;
         set((state) => ({
           shortcuts: {
             ...state.shortcuts,
@@ -159,6 +162,10 @@ export const useShortcutStore = create<ShortcutStore>()(
       },
 
       deleteShortcut: (id: string) => {
+        // Callers delete ids that may never have been registered (a bot
+        // template without a shortcut, legacy ids); spreading an absent
+        // entry would persist a stub with no label/category.
+        if (!get().shortcuts[id]) return;
         set((state) => {
           // Remove custom nav shortcuts completely instead of marking deleted
           if (id.startsWith('nav-custom-')) {
@@ -329,6 +336,23 @@ export const useShortcutStore = create<ShortcutStore>()(
           ])
         ),
       }),
+      // Drop stubs persisted by older builds (entries with no label or
+      // category); defaults are re-registered with full metadata on boot.
+      merge: (persisted, current) => {
+        const p = (persisted ?? {}) as Partial<ShortcutStore>;
+        if (!p.shortcuts) return { ...current, ...p };
+        return {
+          ...current,
+          ...p,
+          shortcuts: Object.fromEntries(
+            Object.entries(p.shortcuts).filter(
+              ([, sc]) =>
+                typeof sc?.label === 'string' &&
+                typeof sc?.category === 'string'
+            )
+          ),
+        };
+      },
     }
   )
 );

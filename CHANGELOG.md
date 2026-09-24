@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.62.5] - 2026-09-24
+
+### Fixed
+
+- Settings → Shortcuts: typing in **Search shortcuts** no longer shows
+  "Something went wrong". Removing a shortcut that was never registered (for
+  example deleting a bot template that had no shortcut) saved an empty entry,
+  and the search crashed on it. Such entries are no longer created, and ones
+  saved by earlier versions are dropped when the page loads.
+
 ## [2.62.4] - 2026-09-24
 
 ### Fixed
