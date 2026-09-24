@@ -112,12 +112,12 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
     if (!bot || !usage) return null;
 
     // How many DCAs a deal can be said to have used is capped by the ladder it
-    // is measured against. The old per-deal fold used the projection engine's
-    // count for the bot's CURRENT settings, falling back to that deal's own
-    // `levels.all - 1` when the projection wasn't ready — so ceilings are
-    // per-bucket, not global, and both branches are reproduced here exactly.
+    // is measured against: the projection engine's count for the bot's CURRENT
+    // settings, or that deal's own `levels.all - 1` when it ran a longer
+    // ladder. A deal that filled 38 DCAs under a 45-order ladder stays a 38,
+    // even after the bot is cut to 30 orders.
     const ceilingOf = (bucket: DcaUsageBucket) =>
-      configuredDcaCount > 0 ? configuredDcaCount : bucket.configured;
+      Math.max(configuredDcaCount, bucket.configured);
 
     const fold = (buckets: DcaUsageBucket[]) => {
       const byDcas = new Map<number, number>();

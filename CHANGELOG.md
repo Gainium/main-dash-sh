@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.56.6] - 2026-09-24
+
+### Fixed
+
+- DCA Analysis: a finished deal that filled more DCA orders than the bot is
+  set to now (the bot's order count was lowered after the deal ran) is shown
+  in its own "Finished Deals by DCA Count" bar and counts towards "Max DCAs"
+  and "Avg DCAs" with its real number, instead of being folded into the bar
+  for the bot's current order count. Its coverage is measured against the
+  ladder it actually ran.
+
 ## [2.56.5] - 2026-09-23
 
 ### Fixed
