@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { RefreshCw } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -14,6 +15,7 @@ import {
   PortfolioExchangeDistribution,
   PortfolioValue,
 } from '../components/portfolio';
+import FuturesSummaryCard from '../components/portfolio/futures/FuturesSummaryCard';
 import { Slot } from '../lib/extensions';
 import { Button } from '../components/ui/button';
 import { useTransformedExchangesFromContext } from '../contexts/ExchangeDataContext';
@@ -25,6 +27,7 @@ import { type ExchangeInUser } from '../types/exchange.types';
 
 const Portfolio: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { exchanges, isLoading: exchangesLoading } =
     useTransformedExchangesFromContext();
   const initialLoaded = useExchangesStore((s) => s.initialLoaded);
@@ -99,6 +102,10 @@ const Portfolio: React.FC = () => {
 
   // Handle refresh balances
   const handleRefreshBalances = async () => {
+    // The futures card reads live positions; refresh them with the balances.
+    void queryClient.invalidateQueries({
+      queryKey: ['getAllOpenPositions'],
+    });
     try {
       await updateAllBalances();
     } catch (error) {
@@ -181,6 +188,9 @@ const Portfolio: React.FC = () => {
                 height="600px"
                 className="w-full"
               />
+
+              {/* Futures summary — renders nothing without a futures account. */}
+              <FuturesSummaryCard />
 
               {/* Portfolio Analytics Grid - 2x3 on Desktop, Stacked on Mobile */}
               <WidgetContainer

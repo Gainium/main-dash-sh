@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.57.0] - 2026-09-24
+
+### Added
+
+- Portfolio: a Futures card for users with a futures account. It lists each
+  futures account's wallet balance, unrealized PnL and equity, and the net
+  exposure per asset across all open positions (notional at mark; the five
+  largest are shown and the rest fold into an expandable "Other" row).
+  Unrealized PnL uses the same live prices and calculation as the terminal's
+  Positions tab. Venues whose reported balance already includes unrealized PnL
+  are not counted twice. The card is read-only and links to the terminal to
+  manage positions.
+
 ## [2.56.6] - 2026-09-24
 
 ### Fixed
