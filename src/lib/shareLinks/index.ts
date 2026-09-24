@@ -100,3 +100,23 @@ export function buildBotShareUrl(args: {
   }
   return base;
 }
+
+/**
+ * Whether a backtest has a copy on the server, i.e. whether the share
+ * mutations can find it. A run whose remote save returned no id is kept only
+ * in this browser under a `<SYMBOL>-<time>` id (see useBacktestPersistence)
+ * and can never be shared; the server's ids are Mongo ObjectIds. An existing
+ * `shareId` is enough on its own — the share hook returns it without asking
+ * the server. `serverSide` is not a signal here: it means "ran on the server".
+ */
+export function isStoredBacktest(
+  backtest: { _id?: string | null; shareId?: string | null } | null | undefined
+): boolean {
+  if (!backtest) return false;
+  if (backtest.shareId && backtest.shareId.trim().length > 0) return true;
+  return /^[0-9a-f]{24}$/i.test(backtest._id ?? '');
+}
+
+/** Why Share is greyed out on a result that {@link isStoredBacktest} rejects. */
+export const NOT_STORED_SHARE_HINT =
+  'Saved in this browser only. Run the backtest again to share it.';

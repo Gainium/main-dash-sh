@@ -2,7 +2,7 @@ import { Share2 } from 'lucide-react';
 import { useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { useShareBacktest } from '@/hooks/useBacktestDataManagement';
-import { buildBacktestShareUrl } from '@/lib/shareLinks';
+import { buildBacktestShareUrl, isStoredBacktest } from '@/lib/shareLinks';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
 
@@ -107,7 +107,12 @@ export function ShareBacktestButton(props: ShareBacktestButtonProps) {
     shareBacktestMutation,
   ]);
 
-  if (!canShare) return null;
+  // A result held only in this browser has no server copy to share.
+  if (
+    !canShare ||
+    !isStoredBacktest({ _id: backtestId, shareId: existingShareId })
+  )
+    return null;
 
   return (
     <Button

@@ -21,6 +21,7 @@ import {
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
+import { isStoredBacktest, NOT_STORED_SHARE_HINT } from '@/lib/shareLinks';
 import { BotTypesEnum, type DCABacktestingResultHistory } from '@/types';
 
 /**
@@ -427,6 +428,8 @@ export function buildComboBacktestColumns(
       // Only locally-stored backtests (full payload hydrated in IndexedDB,
       // same signal as the Database icon on the Name column) can be exported.
       const canExport = (backtest.deals?.length ?? 0) > 0;
+      // A row kept only in this browser has no server copy to share.
+      const stored = isStoredBacktest(backtest);
       return (
         <div className="flex items-center justify-end">
           <DropdownMenu>
@@ -436,9 +439,19 @@ export function buildComboBacktestColumns(
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => onShare(backtest)}>
+              <DropdownMenuItem
+                disabled={!stored}
+                onClick={() => onShare(backtest)}
+              >
                 <Share2 className="mr-2 h-4 w-4" />
-                Share
+                {stored ? (
+                  'Share'
+                ) : (
+                  <span className="flex flex-col">
+                    <span>Share</span>
+                    <span className="text-xs">{NOT_STORED_SHARE_HINT}</span>
+                  </span>
+                )}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onLoadIntoForm(backtest)}>
                 <Upload className="mr-2 h-4 w-4" />

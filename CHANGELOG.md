@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.57.7] - 2026-09-24
+
+### Fixed
+
+- Backtests: Share is no longer offered on a backtest result that is saved
+  only in this browser (its save to your account did not complete), where it
+  could only fail with "Backtest not found". The option is greyed out with a
+  note to run the backtest again. Sharing a saved backtest is unchanged.
+
 ## [2.57.6] - 2026-09-24
 
 ### Fixed

@@ -36,7 +36,11 @@ import {
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { useShareBacktest } from '@/hooks/useBacktestDataManagement';
-import { buildBacktestShareUrl } from '@/lib/shareLinks';
+import {
+  buildBacktestShareUrl,
+  isStoredBacktest,
+  NOT_STORED_SHARE_HINT,
+} from '@/lib/shareLinks';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
@@ -367,7 +371,8 @@ export function BacktestResultsFullModal({
   const [saveTemplateOpen, setSaveTemplateOpen] = useState(false);
 
   // Share target — id/owner come from the raw result (dca/combo via vm.raw,
-  // grid via gridResult). Only the owner of a persisted backtest can share.
+  // grid via gridResult). Only the owner of a persisted backtest can share;
+  // a result held only in this browser has no server copy to share.
   const shareInfo = useMemo(() => {
     const raw = (vm?.raw ?? gridResult ?? null) as {
       _id?: string;
@@ -375,6 +380,8 @@ export function BacktestResultsFullModal({
       shareId?: string | null;
     } | null;
     const id = raw?._id ?? '';
+    const isOwner = !!id && !!user?.id && raw?.userId === user.id;
+    const stored = isStoredBacktest(raw);
     return {
       id,
       existingShareId: raw?.shareId ?? undefined,
@@ -384,7 +391,8 @@ export function BacktestResultsFullModal({
           : kind === 'grid'
             ? '/grid/backtests'
             : '/bot/backtests',
-      canShare: !!id && !!user?.id && raw?.userId === user.id,
+      canShare: isOwner && stored,
+      notStored: isOwner && !stored,
     };
   }, [vm, gridResult, kind, user?.id]);
 
@@ -580,7 +588,14 @@ export function BacktestResultsFullModal({
                   }}
                 >
                   <Share2 className="mr-2 h-3.5 w-3.5" />
-                  Share
+                  {shareInfo.notStored ? (
+                    <span className="flex flex-col">
+                      <span>Share</span>
+                      <span className="text-xs">{NOT_STORED_SHARE_HINT}</span>
+                    </span>
+                  ) : (
+                    'Share'
+                  )}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
