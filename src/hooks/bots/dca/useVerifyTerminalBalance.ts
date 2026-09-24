@@ -1,10 +1,9 @@
-import { useMemo } from "react";
-import { useDealOverviewData } from "@/components/widgets/trading/DealOverview";
-import { useGraphQL } from "@/hooks/useGraphQL";
-import { botQueries } from "@/lib/api/GraphQLQueries-bot-queries";
-import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from "@/types";
-import type { BotFormData } from "@/types/bots/form";
-import type { DcaTradingContext } from "./useDcaTradingContext";
+import { useMemo } from 'react';
+import { useDealOverviewData } from '@/components/widgets/trading/DealOverview';
+import { usePooledMarginUsd } from './usePooledMarginUsd';
+import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from '@/types';
+import type { BotFormData } from '@/types/bots/form';
+import type { DcaTradingContext } from './useDcaTradingContext';
 
 /**
  * Client-side balance gate for the trading-terminal "place order" / import
@@ -30,7 +29,7 @@ import type { DcaTradingContext } from "./useDcaTradingContext";
  */
 export const useVerifyTerminalBalance = (
   formData: BotFormData,
-  tradingContext: DcaTradingContext,
+  tradingContext: DcaTradingContext
 ): boolean => {
   const { summary } = useDealOverviewData();
   const dca = formData.dca;
@@ -49,22 +48,13 @@ export const useVerifyTerminalBalance = (
     !!dca?.futures &&
     !!dca?.coinm &&
     dca?.terminalDealType !== TerminalDealTypeEnum.import &&
-    !!formData.exchangeUUID &&
     (aggregated?.base?.free ?? 0) <
       (Number(summary?.totalCapitalBase) || 0) / marginDenom;
-  const poolQuery = useGraphQL<number | null>(
-    "getPooledMarginAvailable",
-    botQueries.getPooledMarginAvailable({ uuid: formData.exchangeUUID ?? "" }),
-    { enabled: askPool, staleTime: 15 * 1000 },
-  );
-  const pooledUsd =
-    askPool &&
-    poolQuery.data?.status === "OK" &&
-    typeof poolQuery.data.data === "number"
-      ? poolQuery.data.data
-      : null;
   // Not answered yet: can't judge, so don't block (the engine still checks).
-  const poolPending = askPool && poolQuery.isPending && !poolQuery.error;
+  const { pooledUsd, pending: poolPending } = usePooledMarginUsd(
+    formData.exchangeUUID,
+    askPool
+  );
 
   return useMemo(() => {
     // Legacy addNewBot: when skipBalanceCheck is set, the whole verify is

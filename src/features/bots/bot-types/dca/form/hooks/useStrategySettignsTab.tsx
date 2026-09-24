@@ -41,6 +41,7 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type StrategySettingsProps } from '../sections';
 import { useBalanceRefreshControl } from './useBalanceRefreshControl';
+import { usePooledMarginUsd } from '@/hooks/bots/dca/usePooledMarginUsd';
 
 /**
  * Decimals kept when showing a base amount that was DERIVED from the quote
@@ -1014,6 +1015,29 @@ export const useStrategySettingsTab = ({
 
   // --- Dual Amount/Total derivations (legacy `amount`/`total`, lines 298-355) -
   const effectivePrice = latestPrice ?? 0;
+
+  // Pooled collateral (Bitget Unified `multi_assets`, exchange-connector spec
+  // 028): the account margins an inverse contract from any coin it holds, so
+  // the base-coin wallet understates what a COIN-M order can use. Count the
+  // pool, converted to the base coin at the current price, as the funding
+  // balance whenever it is larger; `null` keeps every figure as before.
+  const { pooledUsd: pooledMarginUsd } = usePooledMarginUsd(
+    resolvedExchangeUuid,
+    !!futures && !!coinm && !isPaperTrading
+  );
+  const fundingBalances = useMemo(() => {
+    const pooledBase =
+      pooledMarginUsd !== null && effectivePrice > 0
+        ? pooledMarginUsd / effectivePrice
+        : 0;
+    if (pooledBase <= aggregatedBalances.base.free) {
+      return aggregatedBalances;
+    }
+    return {
+      ...aggregatedBalances,
+      base: { ...aggregatedBalances.base, free: pooledBase },
+    };
+  }, [aggregatedBalances, pooledMarginUsd, effectivePrice]);
   const minAmount = useMemo(
     () => (coinm ? (quoteMinAmount ?? 1) : 1),
     [coinm, quoteMinAmount]
@@ -1118,8 +1142,8 @@ export const useStrategySettingsTab = ({
   const maxAmount = useMemo(
     () =>
       computeMaxAmount({
-        baseFree: aggregatedBalances.base.free,
-        quoteFree: aggregatedBalances.quote.free,
+        baseFree: fundingBalances.base.free,
+        quoteFree: fundingBalances.quote.free,
         price: effectivePrice,
         fee: baseOrderFee,
         ...(strategy ? { strategy } : {}),
@@ -1133,8 +1157,8 @@ export const useStrategySettingsTab = ({
         precisionQuote,
       }),
     [
-      aggregatedBalances.base.free,
-      aggregatedBalances.quote.free,
+      fundingBalances.base.free,
+      fundingBalances.quote.free,
       effectivePrice,
       baseOrderFee,
       strategy,
@@ -1151,8 +1175,8 @@ export const useStrategySettingsTab = ({
   const maxTotal = useMemo(
     () =>
       computeMaxTotal({
-        baseFree: aggregatedBalances.base.free,
-        quoteFree: aggregatedBalances.quote.free,
+        baseFree: fundingBalances.base.free,
+        quoteFree: fundingBalances.quote.free,
         price: effectivePrice,
         fee: baseOrderFee,
         ...(strategy ? { strategy } : {}),
@@ -1166,8 +1190,8 @@ export const useStrategySettingsTab = ({
         precisionQuote,
       }),
     [
-      aggregatedBalances.base.free,
-      aggregatedBalances.quote.free,
+      fundingBalances.base.free,
+      fundingBalances.quote.free,
       effectivePrice,
       baseOrderFee,
       strategy,
@@ -1474,7 +1498,7 @@ export const useStrategySettingsTab = ({
       resolveBaseOrderContext({
         currencyReference: orderSizeType,
         strategy: strategy,
-        aggregatedBalances,
+        aggregatedBalances: fundingBalances,
         futures: !!futures,
         coinm: !!coinm,
         ...(terminalDealType ? { terminalDealType } : {}),
@@ -1485,7 +1509,7 @@ export const useStrategySettingsTab = ({
     [
       orderSizeType,
       strategy,
-      aggregatedBalances,
+      fundingBalances,
       futures,
       coinm,
       terminalDealType,
@@ -1597,6 +1621,8 @@ export const useStrategySettingsTab = ({
     amountUsdEquivalent,
     maxAmount,
     maxTotal,
+    // USD pool on a pooled-collateral COIN-M connection, else null.
+    pooledMarginUsd,
     // Decimals for whichever of the Amount/Total pair is currently DERIVED.
     // The canonical field formats with its own order guard; the derived one
     // can't — the guard describes the other unit, so a BTC amount shown at the

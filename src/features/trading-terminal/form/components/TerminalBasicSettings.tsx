@@ -357,6 +357,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     amountUsdEquivalent,
     maxAmount,
     maxTotal,
+    pooledMarginUsd,
     derivedAmountPrecision,
     derivedTotalPrecision,
     providerIsBybit,
@@ -434,6 +435,12 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     const quoteFree = tradingContext.aggregatedBalances.quote.free;
     const longUsesBase = coinm;
     const shortUsesBase = futures ? coinm : true;
+    // A pooled-collateral COIN-M account funds both directions from the
+    // whole wallet, not the base coin: show the pool instead.
+    if (coinm && pooledMarginUsd !== null) {
+      const pooled = `${formatBalance(pooledMarginUsd, 'USD')} USD`;
+      return { longBalanceLabel: pooled, shortBalanceLabel: pooled };
+    }
     return {
       longBalanceLabel: longUsesBase
         ? `${formatBalance(baseFree, displayBaseAsset)} ${displayBaseAsset}`
@@ -447,6 +454,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     tradingContext.aggregatedBalances.quote.free,
     coinm,
     futures,
+    pooledMarginUsd,
     displayBaseAsset,
     displayQuoteAsset,
   ]);
@@ -718,8 +726,17 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                     derivedAmountPrecision={derivedAmountPrecision}
                     derivedTotalPrecision={derivedTotalPrecision}
                     disabled={isBaseOrderVarBound || baseOrderLocked}
-                    fundingBalanceAmount={baseOrderContext.balanceAmount}
-                    fundingBalanceCurrency={baseOrderContext.balanceCurrency}
+                    // A pooled-collateral COIN-M account funds the order
+                    // from its whole wallet: show that pool, in USD, rather
+                    // than the (usually empty) base-coin wallet.
+                    fundingBalanceAmount={
+                      pooledMarginUsd ?? baseOrderContext.balanceAmount
+                    }
+                    fundingBalanceCurrency={
+                      pooledMarginUsd !== null
+                        ? 'USD'
+                        : baseOrderContext.balanceCurrency
+                    }
                     onRefreshBalance={handleRefreshBalances}
                     showRefreshButton={
                       canTriggerBalanceRefresh &&

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.59.6] - 2026-09-24
+
+### Fixed
+
+- Trading terminal: on an account that pools its collateral — a Bitget
+  Unified Trading Account in multi-assets mode — an inverse (coin-margined)
+  pair showed a balance of 0 and a maximum order of 0 whenever the wallet held
+  none of the contract's own coin, although the account funds such orders from
+  its whole wallet. The balance under the order fields and the Buy/Sell
+  buttons now shows the pooled margin in USD, and the maximum amount, maximum
+  total and percentage buttons are sized from it.
+
 ## [2.59.5] - 2026-09-24
 
 ### Fixed
