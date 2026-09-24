@@ -108,6 +108,8 @@ const PairSelector: React.FC<PairSelectorProps> = ({
           return (
             pair.pair.toLowerCase().includes(term) ||
             pair.baseAsset.name.toLowerCase().includes(term) ||
+            // A stock's company name (`Apple Inc.`), so it can be searched.
+            (pair.baseAsset.displayName ?? '').toLowerCase().includes(term) ||
             pair.quoteAsset.name.toLowerCase().includes(term)
           );
         }

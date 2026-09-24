@@ -745,6 +745,9 @@ export const ListModal: React.FC<ListModalProps> = ({
         normalizePairKey(item.name),
         normalizePairKey(item.symbol),
         item.subtitle || '',
+        // The company name shown under a stock's ticker (`Apple Inc.` for
+        // RAAPL), so a stock can be found by its name, not only its ticker.
+        item.baseDisplayName || '',
       ]
         .join(' ')
         .toLowerCase();

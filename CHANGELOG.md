@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.59.9] - 2026-09-24
+
+### Fixed
+
+- The pair search finds a stock by its company name as well as its ticker:
+  typing "apple" lists the Apple pairs.
+
 ## [2.59.8] - 2026-09-24
 
 ### Fixed
