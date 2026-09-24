@@ -5,11 +5,10 @@ import {
   subscribePwaUpdateUrgency,
 } from '@/lib/pwaUpdateUrgency';
 
-// A pending bundle update is auto-applied at the next SAFE moment instead of an
-// immediate reload: the tab going hidden, or the user being input-idle (no
-// keyboard/pointer/scroll) for this long while the tab is visible. Never
-// interrupts active use. Maintenance (cloud) lowers this via the urgency store.
-const DEFAULT_IDLE_MS = 60_000;
+// A pending bundle update is applied only when the user clicks "Update Now".
+// The one exception is an imminent maintenance window (cloud), which raises an
+// urgency via the store below: then it is auto-applied at the next SAFE moment
+// — the tab going hidden, or the user being input-idle for that long.
 const IDLE_CHECK_INTERVAL_MS = 5_000;
 
 interface PWAUpdateState {
@@ -37,6 +36,9 @@ export function usePWAUpdate(): PWAUpdateState {
   // Held in a ref (not state) so the idle auto-apply effect can reach the
   // current registration without re-arming, and nothing re-renders on it.
   const registrationRef = useRef<ServiceWorkerRegistration | null>(null);
+  // True once THIS tab asked for the update. Another tab applying it also fires
+  // controllerchange here; that must not reload a tab whose user didn't click.
+  const updateRequestedRef = useRef(false);
 
   // Maintenance (cloud) can lower the idle threshold via this external store so
   // stale clients refresh promptly before a scheduled outage. Null = default.
@@ -120,6 +122,12 @@ export function usePWAUpdate(): PWAUpdateState {
 
     navigator.serviceWorker.addEventListener('controllerchange', () => {
       if (!reloadOnControllerChange) return;
+      if (!updateRequestedRef.current) {
+        // Activated from another tab: keep offering the update here instead
+        // of reloading under the user. Clicking it just reloads.
+        setUpdateAvailable(true);
+        return;
+      }
       setUpdateInstalled(true);
       setTimeout(() => {
         setUpdateInstalled(false);
@@ -130,22 +138,25 @@ export function usePWAUpdate(): PWAUpdateState {
 
   const applyWaitingUpdate = useCallback(() => {
     const reg = registrationRef.current;
+    updateRequestedRef.current = true;
     if (reg?.waiting) {
       reg.waiting.postMessage({ type: 'SKIP_WAITING' });
       setUpdateAvailable(false);
+    } else {
+      // Already activated by another tab — only this page is still stale.
+      window.location.reload();
     }
   }, []);
 
-  // Auto-apply a pending update at the next SAFE moment rather than forcing an
-  // immediate reload that could interrupt a bot-create or any in-progress form.
+  // During a maintenance window only: auto-apply a pending update at the next
+  // SAFE moment so stale clients pick up the maintenance UI before the outage.
   // "Safe" = the tab is hidden (user switched away) OR the user has been
-  // input-idle for `idleMs`. `applyWaitingUpdate` posts SKIP_WAITING; the SW's
-  // controllerchange handler above then reloads onto the fresh bundle. The
-  // manual "update now" button (PWAStatus) still applies immediately.
+  // input-idle for `urgentIdleMs`. Outside a window nothing happens until the
+  // user clicks "Update Now" (PWAStatus).
   useEffect(() => {
-    if (isDev || !updateAvailable) return;
+    if (isDev || !updateAvailable || urgentIdleMs == null) return;
 
-    const idleMs = urgentIdleMs ?? DEFAULT_IDLE_MS;
+    const idleMs = urgentIdleMs;
     let lastActivityMs = Date.now();
     const markActive = () => {
       lastActivityMs = Date.now();

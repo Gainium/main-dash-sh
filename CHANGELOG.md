@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.57.6] - 2026-09-24
+
+### Fixed
+
+- App updates are applied only when you click "Update Now"; a new version
+  no longer reloads the page on its own after the update notice appears.
+
 ## [2.57.5] - 2026-09-24
 
 ### Changed

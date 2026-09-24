@@ -315,7 +315,10 @@ export default defineConfig({
           /^\/workbox-.*\.js$/,
         ],
         cleanupOutdatedCaches: true,
-        skipWaiting: true,
+        // The new SW waits until the user clicks "Update Now" (usePWAUpdate
+        // posts SKIP_WAITING). `true` activated it on download and reloaded
+        // the page with nobody asking.
+        skipWaiting: false,
         clientsClaim: true,
         runtimeCaching: [
           {

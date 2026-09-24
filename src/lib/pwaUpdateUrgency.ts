@@ -1,10 +1,10 @@
 /**
  * Lets cloud-only code (scheduled maintenance) tell the general PWA update flow
- * to apply a pending bundle update more eagerly than the default idle window.
+ * to auto-apply a pending bundle update at idle instead of waiting for a click.
  *
  * Kept in core (not the cloud overlay) so `usePWAUpdate` can read it without a
  * cloud -> core dependency, but it's inert for self-hosted: nothing there sets
- * an urgent value, so the default idle threshold always applies.
+ * an urgent value, so updates stay click-only.
  */
 
 let urgentIdleMs: number | null = null;
