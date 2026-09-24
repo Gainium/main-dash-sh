@@ -39,6 +39,9 @@ interface ListItem {
   // Human-readable base-asset name (e.g. "Apple Inc."), shown under the ticker
   // in pair rows. Optional: falls back to just the ticker when absent.
   baseDisplayName?: string;
+  // The base as the exchange spells it (`rMCD`); shown instead of the
+  // upper-cased `baseAsset` when present.
+  baseLabel?: string;
   // Exchange-specific properties
   isExchange?: boolean;
   isHelper?: boolean;
@@ -466,7 +469,7 @@ const ListModalRow = React.memo<ListModalRowProps>(
                   <>
                     <div className="flex items-baseline gap-1.5 min-w-0">
                       <span className="text-foreground font-semibold text-sm truncate leading-tight">
-                        {item.baseAsset}
+                        {item.baseLabel ?? item.baseAsset}
                       </span>
                       {/* Contract markets (`BTCUSD_261225`, `BTCUSDT-25SEP26`,
                           `BTCMU26`) are all `BASE / QUOTE` — the expiry lives in

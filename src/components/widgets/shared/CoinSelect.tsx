@@ -346,6 +346,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           ...(item.baseDisplayName
             ? { baseDisplayName: item.baseDisplayName }
             : {}),
+          ...(item.baseLabel ? { baseLabel: item.baseLabel } : {}),
           ...(item.subtitle ? { subtitle: item.subtitle } : {}),
           ...(item.isHelper ? { isHelper: true } : {}),
           ...(item.disabledReason

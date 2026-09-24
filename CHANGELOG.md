@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.60.1] - 2026-09-24
+
+### Fixed
+
+- The pair picker shows a stock's ticker as the exchange spells it: Bitget
+  Reality tokens read `rMCD`, matching the selected pair, instead of `RMCD`.
+
 ## [2.60.0] - 2026-09-24
 
 ### Added

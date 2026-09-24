@@ -224,6 +224,11 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
           // Human-readable base-asset name for display alongside the ticker
           // (falls back to the ticker in the UI when unresolved).
           baseDisplayName: pair.baseAsset?.displayName,
+          // A stock keeps the exchange's own spelling on screen (Bitget's
+          // Reality `rMCD`, not `RMCD`), matching the selected-pair chip.
+          ...(pair.assetCategory === 'stock' || pair.assetCategory === 'etf'
+            ? { baseLabel: pair.baseAsset?.name }
+            : {}),
           // Carry the venue so CoinIcon can normalize tokenized-stock tickers
           // (the base is upper-cased here, so the lower-case wrapper hint is
           // gone — exchange is the only signal left to strip RAAPL/AAPLX).

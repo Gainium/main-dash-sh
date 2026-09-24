@@ -5118,6 +5118,9 @@ export interface CoinListItem {
   // resolved backend-side. Optional: absent until resolved; the UI falls back
   // to the ticker (`baseAsset`). Shown alongside the ticker in the pair picker.
   baseDisplayName?: string;
+  // The base as the exchange spells it (`rMCD`), for display; `baseAsset`
+  // stays upper-cased because matching and market lookups key on it.
+  baseLabel?: string;
   subtitle?: string;
   isHelper?: boolean;
   // The base pair's exchange (ExchangeEnum value). Forwarded to CoinIcon so it
