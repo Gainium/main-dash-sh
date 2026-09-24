@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.61.1] - 2026-09-24
+
+### Fixed
+
+- Editing a DCA or Combo bot no longer changes its Enter Market Timeout when
+  the timeout is switched off: the edit form now loads the saved seconds
+  (or the same default as a new bot) instead of 0, so saving an unrelated
+  change leaves the timeout as it was.
+
 ## [2.61.0] - 2026-09-24
 
 ### Added

@@ -533,14 +533,20 @@ export const mapBotSettingsToFormData = (
         ? rawUseLimitTimeout
         : Boolean(normalizedSeconds && normalizedSeconds > 0);
 
+    // Keep the stored seconds even when the toggle is off. Rewriting them to
+    // '0' made the edit form diverge from the new-bot form (default '20'),
+    // so any unrelated save wrote `limitTimeout: "0"` back to the bot.
+    const storedSeconds =
+      normalizedSeconds !== null && normalizedSeconds > 0
+        ? String(Math.min(normalizedSeconds, 600))
+        : DCA_FORM_DEFAULTS.limitTimeout;
+
     if (!isEnabled || normalizedSeconds === null || normalizedSeconds <= 0) {
-      return { seconds: '0', enabled: false } as const;
+      return { seconds: storedSeconds, enabled: false } as const;
     }
 
-    const boundedSeconds = Math.min(normalizedSeconds, 600);
-
     return {
-      seconds: String(boundedSeconds),
+      seconds: storedSeconds,
       enabled: true,
     } as const;
   };
