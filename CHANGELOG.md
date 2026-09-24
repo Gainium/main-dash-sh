@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.59.1] - 2026-09-24
+
+### Fixed
+
+- Charts on Bitget Reality stock tokens (`RAAPLUSDT` and the rest) update
+  live. Bitget accepts the usual candle subscription for these pairs and then
+  sends nothing, so their charts showed history but never moved until
+  reloaded. They now stream from the exchange's unified kline feed at 1m, 5m,
+  15m, 1h and 4h, and the 30m, 6h, 12h, daily and weekly charts are built from
+  the next finer stream into the same UTC-aligned bars the history uses.
+
 ## [2.59.0] - 2026-09-24
 
 ### Added

@@ -8,6 +8,7 @@ import type {
   Bar,
   PeriodParams,
 } from '../types';
+import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 
 // Bitget supported resolutions
 const BITGET_RESOLUTIONS = [
@@ -130,6 +131,196 @@ const getBitgetInstType = (marketType: 'spot' | 'linear'): string => {
 
 // WebSocket subscription management
 const subscriptions: Record<string, WebSocket> = {};
+const keepalives: Record<string, ReturnType<typeof setInterval>> = {};
+
+/*
+ * Reality stock tokens (`RAAPLUSDT`). Bitget accepts a v2 `candle*`
+ * subscription for them and then sends nothing; their candles are pushed only
+ * on the v3 `kline` topic, and only at 1m/5m/15m/1H/4H (its 1D bucket opens at
+ * 16:00 UTC, not the UTC-midnight bar the chart shows). Wider widths are built
+ * here from a finer stream, into the same UTC-aligned buckets the history is
+ * aggregated into by the exchange connection. A pair is a Reality token when
+ * it is a Bitget SPOT pair of class `stock` — the connection lists only the
+ * rows Bitget itself flags `isReality` as spot stocks.
+ */
+const REALITY_WS_URL = 'wss://ws.bitget.com/v3/ws/public';
+const MIN = 60_000;
+const REALITY_NATIVE: Record<string, string> = {
+  '1': '1m',
+  '5': '5m',
+  '15': '15m',
+  '60': '1H',
+  '240': '4H',
+};
+const REALITY_FOLDED: Record<
+  string,
+  { interval: string; baseType: string; stepMs: number; weekly?: boolean }
+> = {
+  '30': { interval: '15m', baseType: '15min', stepMs: 30 * MIN },
+  '360': { interval: '1H', baseType: '1h', stepMs: 360 * MIN },
+  '720': { interval: '4H', baseType: '4h', stepMs: 720 * MIN },
+  '1D': { interval: '4H', baseType: '4h', stepMs: 1440 * MIN },
+  '1W': { interval: '4H', baseType: '4h', stepMs: 7 * 1440 * MIN, weekly: true },
+};
+/** 1970-01-01 was a Thursday; weeks start on Monday, 4 days later. */
+const WEEK_ALIGN_MS = 4 * 1440 * MIN;
+
+const isRealityPair = (symbolInfo: LibrarySymbolInfo): boolean => {
+  const venue = (symbolInfo.exchange || '').toLowerCase();
+  if (venue.replace(/^paper/, '') !== 'bitget') return false;
+  const { pairsByProvider } = useTradingPairsDataStore.getState();
+  const key = Object.keys(pairsByProvider).find(
+    (k) => k.toLowerCase() === venue
+  );
+  return (
+    !!key && pairsByProvider[key]?.[symbolInfo.name]?.assetCategory === 'stock'
+  );
+};
+
+type BaseCandle = { o: number; h: number; l: number; c: number; v: number };
+
+/** The candles of the running bucket at the base width, from the history API. */
+const seedBucket = async (
+  pair: string,
+  baseType: string,
+  bucketStart: number
+): Promise<Map<number, BaseCandle>> => {
+  const seeded = new Map<number, BaseCandle>();
+  try {
+    const url = new URL(`${import.meta.env.VITE_API_ENDPOINT}/candles`);
+    url.searchParams.set('exchange', 'bitget');
+    url.searchParams.set('symbol', pair);
+    url.searchParams.set('type', baseType);
+    url.searchParams.set('startAt', `${bucketStart}`);
+    url.searchParams.set('endAt', `${Date.now()}`);
+    const res = await (await fetch(url.toString())).json();
+    for (const c of res?.data ?? []) {
+      if (+c.time >= bucketStart) {
+        seeded.set(+c.time, {
+          o: +c.open,
+          h: +c.high,
+          l: +c.low,
+          c: +c.close,
+          v: +c.volume,
+        });
+      }
+    }
+  } catch (error) {
+    console.error('Bitget Reality bucket seed failed:', error);
+  }
+  return seeded;
+};
+
+const subscribeReality = (
+  symbolInfo: LibrarySymbolInfo,
+  resolution: ResolutionString,
+  onTick: SubscribeBarsCallback,
+  listenerGuid: string
+): boolean => {
+  const native = REALITY_NATIVE[resolution];
+  const folded = REALITY_FOLDED[resolution];
+  if (!native && !folded) return false;
+  const interval = native ?? folded.interval;
+  const pair = symbolInfo.name;
+
+  // Folded widths: the base candles of the running bucket, keyed by start.
+  let bucketStart = -1;
+  let base = new Map<number, BaseCandle>();
+  let seeding: Promise<void> | null = null;
+  const bucketOf = (t: number) => {
+    const offset = folded?.weekly ? WEEK_ALIGN_MS : 0;
+    return Math.floor((t - offset) / folded.stepMs) * folded.stepMs + offset;
+  };
+  const emitFolded = () => {
+    const starts = [...base.keys()].sort((a, b) => a - b);
+    if (!starts.length) return;
+    const first = base.get(starts[0]) as BaseCandle;
+    const last = base.get(starts[starts.length - 1]) as BaseCandle;
+    let high = -Infinity;
+    let low = Infinity;
+    let volume = 0;
+    for (const c of base.values()) {
+      high = Math.max(high, c.h);
+      low = Math.min(low, c.l);
+      volume += c.v;
+    }
+    onTick({ time: bucketStart, open: first.o, high, low, close: last.c, volume });
+  };
+
+  const ws = new WebSocket(REALITY_WS_URL);
+  ws.onopen = () => {
+    ws.send(
+      JSON.stringify({
+        op: 'subscribe',
+        args: [{ instType: 'spot', topic: 'kline', symbol: pair, interval }],
+      })
+    );
+    keepalives[listenerGuid] = setInterval(() => ws.send('ping'), 25_000);
+  };
+  ws.onmessage = (event) => {
+    if (event.data === 'pong') return;
+    try {
+      const data = JSON.parse(event.data);
+      if (
+        data.arg?.topic !== 'kline' ||
+        data.arg?.symbol !== pair ||
+        data.arg?.interval !== interval ||
+        !Array.isArray(data.data)
+      ) {
+        return;
+      }
+      for (const k of data.data) {
+        const start = +k.start;
+        const candle: BaseCandle = {
+          o: +k.open,
+          h: +k.high,
+          l: +k.low,
+          c: +k.close,
+          // Quote volume, as the history's volume is.
+          v: +k.turnover,
+        };
+        if (native) {
+          onTick({
+            time: start,
+            open: candle.o,
+            high: candle.h,
+            low: candle.l,
+            close: candle.c,
+            volume: candle.v,
+          });
+          continue;
+        }
+        const bucket = bucketOf(start);
+        if (bucket < bucketStart) continue;
+        if (bucket > bucketStart) {
+          // A new bucket. The first one seen needs its earlier base candles
+          // from history, or the bar would be rebuilt from this update alone;
+          // later buckets open while subscribed, so every base candle of
+          // theirs arrives here.
+          const isFirst = bucketStart < 0;
+          bucketStart = bucket;
+          base = new Map();
+          if (isFirst) {
+            seeding = seedBucket(pair, folded.baseType, bucket).then((s) => {
+              for (const [t, c] of s) if (!base.has(t)) base.set(t, c);
+              seeding = null;
+              emitFolded();
+            });
+          }
+        }
+        base.set(start, candle);
+        if (!seeding) emitFolded();
+      }
+    } catch (error) {
+      console.error('Error parsing Bitget Reality kline message:', error);
+    }
+  };
+  ws.onerror = (error) => {
+    console.error('Bitget Reality WebSocket error:', error);
+  };
+  subscriptions[listenerGuid] = ws;
+  return true;
+};
 
 // Subscribe to Bitget WebSocket
 const subscribe = async (
@@ -139,6 +330,12 @@ const subscribe = async (
   listenerGuid: string
 ): Promise<void> => {
   try {
+    if (
+      isRealityPair(symbolInfo) &&
+      subscribeReality(symbolInfo, resolution, onTick, listenerGuid)
+    ) {
+      return;
+    }
     const interval = config.resolutionMap[resolution] || '1min';
 
     // Detect market type from exchange
@@ -203,6 +400,9 @@ const subscribe = async (
 
 // Unsubscribe from WebSocket
 const unsubscribe = (listenerGuid: string): void => {
+  clearInterval(keepalives[listenerGuid]);
+  // eslint-disable-next-line @typescript-eslint/no-dynamic-delete
+  delete keepalives[listenerGuid];
   const ws = subscriptions[listenerGuid];
   if (ws) {
     ws.close();
