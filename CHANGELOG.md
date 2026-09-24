@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.57.3] - 2026-09-24
+
+### Changed
+
+- Portfolio Futures card: net exposure now opens with a gross Long / Short /
+  Net line, so a hedged book (large on both sides, small per coin) reads
+  correctly at a glance. Net exposure is its own titled section, and
+  "Manage in Terminal" is a button.
+
 ## [2.57.2] - 2026-09-24
 
 ### Fixed

@@ -51,6 +51,12 @@ export type FuturesSummary = {
   exposure: {
     top: ExposureRow[];
     other: { count: number; net: number; rows: ExposureRow[] } | null;
+    /** Σ long notional (USD). */
+    grossLong: number;
+    /** Σ short notional (USD), as a positive amount. */
+    grossShort: number;
+    /** grossLong − grossShort. */
+    net: number;
   };
   openPositions: number;
 };
@@ -167,6 +173,8 @@ export function summarizeFutures({
   const accountIds = new Set(accounts.map((a) => a.id));
   const netByAsset = new Map<string, number>();
   let openPositions = 0;
+  let grossLong = 0;
+  let grossShort = 0;
   for (const p of positionsKnown ? positions : []) {
     if (!accountIds.has(p.exchangeUUID)) continue;
     openPositions += 1;
@@ -174,6 +182,9 @@ export function summarizeFutures({
     if (notional === null) continue;
     const asset = (p.baseAssetName ?? p.symbolFull?.baseAsset?.name ?? '').toUpperCase();
     if (!asset) continue;
+    // Same positions as the per-coin rows, so gross and rows always agree.
+    if (notional >= 0) grossLong += notional;
+    else grossShort -= notional;
     netByAsset.set(asset, (netByAsset.get(asset) ?? 0) + notional);
   }
 
@@ -195,6 +206,9 @@ export function summarizeFutures({
             rows: rest,
           }
         : null,
+      grossLong,
+      grossShort,
+      net: grossLong - grossShort,
     },
     openPositions,
   };

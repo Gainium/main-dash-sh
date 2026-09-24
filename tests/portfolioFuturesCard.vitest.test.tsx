@@ -152,12 +152,33 @@ describe('FuturesSummaryCard', () => {
     expect(otherRow?.textContent).toContain('+$540.00');
   });
 
+  it('§2.3.6/§2.3.7 exposure is a titled section with a gross long / short / net line', () => {
+    render(
+      createElement(FuturesSummaryView, {
+        summary: summaryWith([['BTC', 5000], ['ETH', -2000]]),
+        error: null,
+      })
+    );
+    const section = container.querySelector('[data-testid="exposure-section"]');
+    expect(section?.querySelector('h4')?.textContent).toBe('Net exposure');
+    const gross = section?.querySelector('[data-testid="exposure-gross"]')?.textContent ?? '';
+    expect(gross).toContain('Long');
+    expect(gross).toContain('$5,000.00');
+    expect(gross).toContain('Short');
+    expect(gross).toContain('$2,000.00');
+    expect(gross).toContain('Net');
+    expect(gross).toContain('+$3,000.00');
+  });
+
   it('§2.4.1 the only action is the Manage in Terminal link', () => {
     render(createElement(FuturesSummaryView, { summary: summaryWith([['BTC', 5000]]), error: null }));
     const links = container.querySelectorAll('a');
     expect(links).toHaveLength(1);
     expect(links[0]?.getAttribute('href')).toBe(POSITIONS_HREF);
     expect(POSITIONS_HREF).toBe('/terminal?view=positions');
+    expect(links[0]?.textContent).toContain('Manage in Terminal');
+    // styled as a button (Button asChild renders the link with button classes)
+    expect(links[0]?.className).toContain('rounded-lg');
     // no action buttons (the Other toggle only appears with > 5 assets)
     expect(container.querySelectorAll('button')).toHaveLength(0);
   });

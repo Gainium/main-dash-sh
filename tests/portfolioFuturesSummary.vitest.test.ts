@@ -279,6 +279,28 @@ describe('summarizeFutures — net exposure (spec §2.3)', () => {
     expect(exposure.top).toEqual([{ asset: 'ETH', net: 0 }]);
   });
 
+  it('§2.3.6 gross long, gross short and net over the same positions', () => {
+    const { exposure } = summarizeFutures({
+      accounts: [a],
+      positions: [
+        // hedged ETH: 3000 long, 1000 short
+        position({ exchangeUUID: 'a', side: 'LONG', base: 'ETH', qty: 1, entry: 3000, mark: 3000 }),
+        position({ exchangeUUID: 'a', side: 'SHORT', base: 'ETH', qty: 1, entry: 1000, mark: 1000 }),
+        position({ exchangeUUID: 'a', side: 'SHORT', base: 'SOL', qty: 5, entry: 100, mark: 100 }),
+        // unpriced: counted nowhere
+        position({ exchangeUUID: 'a', side: 'LONG', base: 'XRP', qty: 1, entry: 1 }),
+      ],
+    });
+    expect(exposure.grossLong).toBeCloseTo(3000, 8);
+    expect(exposure.grossShort).toBeCloseTo(1500, 8);
+    expect(exposure.net).toBeCloseTo(1500, 8);
+  });
+
+  it('§2.3.6 no positions → zero gross and net', () => {
+    const { exposure } = summarizeFutures({ accounts: [a], positions: [] });
+    expect(exposure).toMatchObject({ grossLong: 0, grossShort: 0, net: 0 });
+  });
+
   it('§2.3.4 notional never leaks into the account totals', () => {
     const s = summarizeFutures({
       accounts: [a],

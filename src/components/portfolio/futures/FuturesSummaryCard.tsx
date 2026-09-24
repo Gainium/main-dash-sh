@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, ChevronDown, ChevronUp } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import ExchangeIcon from '@/components/widgets/shared/ExchangeIcon';
 import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
@@ -65,7 +66,7 @@ function ExposureLine({
       {!showBar ? (
         <div aria-hidden="true" />
       ) : (
-      <div className="relative h-2.5 rounded-sm bg-muted" aria-hidden="true">
+      <div className="relative h-2.5 rounded-sm bg-card" aria-hidden="true">
         <div
           data-testid="exposure-bar"
           className={cn(
@@ -84,6 +85,21 @@ function ExposureLine({
       <div className="text-right">
         <Money value={row.net} signed colored />
       </div>
+    </div>
+  );
+}
+
+function Stat({
+  label,
+  children,
+}: {
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex flex-col min-w-0">
+      <span className="text-xs text-muted-foreground">{label}</span>
+      <span className="text-sm font-medium truncate">{children}</span>
     </div>
   );
 }
@@ -109,7 +125,7 @@ export function FuturesSummaryView({
     >
       <div className="flex items-center justify-between gap-xs">
         <div className="flex items-center gap-xs">
-          <h3 className="text-base font-medium">Futures</h3>
+          <h3 className="text-base font-semibold">Futures</h3>
           {!error && !isLoading && (
             <span className="text-xs text-muted-foreground bg-muted rounded-md px-2 py-0.5">
               {openPositions === 1
@@ -118,12 +134,11 @@ export function FuturesSummaryView({
             </span>
           )}
         </div>
-        <Link
-          to={POSITIONS_HREF}
-          className="text-sm text-primary inline-flex items-center gap-1 hover:underline"
-        >
-          Manage in Terminal <ArrowRight className="w-3.5 h-3.5" />
-        </Link>
+        <Button asChild variant="outline" size="sm">
+          <Link to={POSITIONS_HREF}>
+            Manage in Terminal <ArrowRight />
+          </Link>
+        </Button>
       </div>
 
       {error && (
@@ -182,13 +197,32 @@ export function FuturesSummaryView({
       </div>
 
       {!error && (
-        <div className="flex flex-col gap-1">
-          <div className="flex items-baseline justify-between gap-xs">
-            <span className="text-sm font-medium">Net exposure</span>
+        <div
+          data-testid="exposure-section"
+          className="bg-muted rounded-lg p-sm flex flex-col gap-xs"
+        >
+          <div className="flex items-baseline justify-between gap-xs flex-wrap">
+            <h4 className="text-sm font-semibold">Net exposure</h4>
             <span className="text-xs text-muted-foreground">
               notional at mark · not added to totals
             </span>
           </div>
+          {!isLoading && exposure.top.length > 0 && (
+            <div
+              data-testid="exposure-gross"
+              className="grid grid-cols-3 gap-xs pb-1"
+            >
+              <Stat label="Long">
+                <Money value={exposure.grossLong} />
+              </Stat>
+              <Stat label="Short">
+                <Money value={exposure.grossShort} />
+              </Stat>
+              <Stat label="Net">
+                <Money value={exposure.net} signed colored />
+              </Stat>
+            </div>
+          )}
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading positions…</p>
           ) : openPositions === 0 ? (
