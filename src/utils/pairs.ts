@@ -184,7 +184,10 @@ export const resolvePairSelectionSymbol = (
   quoteAsset?: string | null
 ): string =>
   isPairSymbolReconstructable(nativeSymbol, baseAsset, quoteAsset)
-    ? `${baseAsset}-${quoteAsset}`
+    ? // Upper-cased: callers pass the base as listed (`rSPY`) or upper-cased
+      // (`RSPY`), and a selected chip only matches its picker row when both
+      // sides build the same identity.
+      `${baseAsset?.toUpperCase()}-${quoteAsset?.toUpperCase()}`
     : nativeSymbol;
 
 /**

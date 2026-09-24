@@ -75,6 +75,19 @@ test.describe('resolvePairSelectionSymbol', () => {
     );
   });
 
+  test('the identity does not depend on how the exchange cases the base', () => {
+    // Bitget Reality `rSPY`, Kraken xStock `AAPLx`: the picker builds its rows
+    // from the upper-cased base and the selected chips from the raw one. If
+    // the two identities differ by case, a selected pair's row is never
+    // checked and clicking it cannot select it.
+    expect(resolvePairSelectionSymbol('RSPYUSDT', 'rSPY', 'USDT')).toBe(
+      resolvePairSelectionSymbol('RSPYUSDT', 'RSPY', 'USDT')
+    );
+    expect(resolvePairSelectionSymbol('AAPLxUSD', 'AAPLx', 'USD')).toBe(
+      resolvePairSelectionSymbol('AAPLxUSD', 'AAPLX', 'USD')
+    );
+  });
+
   test('perpetual and every dated expiry stay distinct in the picker', () => {
     // All four are BTC/USD on binanceCoinm — under the old `${base}-${quote}`
     // identity they collapsed onto one row and the de-dupe dropped three.

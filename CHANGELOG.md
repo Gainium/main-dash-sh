@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.61.2] - 2026-09-24
+
+### Fixed
+
+- In the bot form's pair picker, a selected pair whose exchange spells its
+  base in mixed case (Bitget stock tokens such as `rSPY`) shows as selected
+  and can be toggled again. Its row and its selected chip used identities
+  that differed only by letter case, so the row never matched.
+
 ## [2.61.1] - 2026-09-24
 
 ### Fixed
