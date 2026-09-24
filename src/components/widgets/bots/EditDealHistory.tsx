@@ -41,6 +41,7 @@ import { useBotSpecificDeals } from '../../../hooks/useBotSpecificDeals';
 import { useBotTransactions } from '../../../hooks/useBotTransactions';
 import { useDcaBots } from '../../../hooks/useDcaBots';
 import {
+  toastDealCloseError,
   useAdjustFunds,
   useDealActions,
   useRestoreDeal,
@@ -412,11 +413,19 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
     deal: TransformedDeal
   ) => {
     try {
-      await closeDeal(deal.id, deal.botId, type);
+      // `dealType` is what the rows were loaded with, so a combo bot's deal ids
+      // go to the combo close mutation — the DCA one looks them up among DCA
+      // deals only and cannot find them.
+      await closeDeal(deal.id, deal.botId, type, dealType);
       // TODO: Implement refetch logic
     } catch (error) {
       console.error(`Failed to ${type} deal:`, error);
-      // TODO: Show error message to user
+      toastDealCloseError(
+        error,
+        type === CloseDCATypeEnum.cancel
+          ? 'Failed to cancel deal'
+          : 'Failed to close deal'
+      );
     }
   };
 

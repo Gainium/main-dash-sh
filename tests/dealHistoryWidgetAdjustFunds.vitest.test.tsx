@@ -35,16 +35,45 @@ import { MemoryRouter } from 'react-router-dom';
 const captured = vi.hoisted(() => ({
   adjust: [] as Array<Record<string, unknown>>,
   closed: [] as Array<Record<string, unknown>>,
+  // The 4th `closeDeal` argument — which close mutation `useDealActions` routes
+  // to. Kept apart from `closed` so the #911 assertions above stay as written.
+  closeDealTypes: [] as Array<string | undefined>,
+  closeError: null as Error | null,
+  toastErrors: [] as string[],
 }));
+
+vi.mock('../src/lib/toast', async (importOriginal) => {
+  const actual = (await importOriginal()) as { toast: Record<string, unknown> };
+  return {
+    ...actual,
+    toast: {
+      ...actual.toast,
+      error: (message: string) => {
+        captured.toastErrors.push(message);
+      },
+    },
+  };
+});
 
 vi.mock('../src/hooks/useDealActions', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
     useDealActions: () => ({
-      closeDeal: vi.fn(async (dealId: string, botId: string, type: string) => {
-        captured.closed.push({ dealId, botId, type });
-      }),
+      closeDeal: vi.fn(
+        async (
+          dealId: string,
+          botId: string,
+          type: string,
+          dealType?: string
+        ) => {
+          captured.closed.push({ dealId, botId, type });
+          captured.closeDealTypes.push(dealType);
+          if (captured.closeError) {
+            throw captured.closeError;
+          }
+        }
+      ),
       isLoading: false,
       error: null,
     }),
@@ -233,6 +262,9 @@ beforeAll(() => {
 beforeEach(() => {
   captured.adjust.length = 0;
   captured.closed.length = 0;
+  captured.closeDealTypes.length = 0;
+  captured.closeError = null;
+  captured.toastErrors.length = 0;
 });
 
 // Unmount between tests so a dialog left open by one cannot be found by the
@@ -363,5 +395,52 @@ describe('Deal History widget — per-row deal actions', () => {
         type: CloseDCATypeEnum.closeByMarket,
       },
     ]);
+  });
+
+  // Spec 052 §2.1 — the widget loads a combo bot's deals from the combo
+  // collection, so Cancel must go to the combo close mutation. Without the
+  // deal type `useDealActions.closeDeal` defaults to 'dca' and sends a combo
+  // deal id to `closeDCADeal`, which looks it up among DCA deals only.
+  it('cancels a combo deal through the combo close mutation', async () => {
+    await mount(BotTypesEnum.combo);
+
+    await click(byTitle('Cancel deal')[0]);
+    await click(enabledButton('Cancel Deal'));
+
+    expect(captured.closed).toEqual([
+      { dealId: 'deal-1', botId: 'bot-1', type: CloseDCATypeEnum.cancel },
+    ]);
+    expect(captured.closeDealTypes).toEqual(['combo']);
+  });
+
+  // Spec 052 §2.1 — the same routing for Close.
+  it('closes a combo deal through the combo close mutation', async () => {
+    await mount(BotTypesEnum.combo);
+
+    await click(byTitle('Close deal')[0]);
+    await click(enabledButton('Close deal'));
+
+    expect(captured.closeDealTypes).toEqual(['combo']);
+  });
+
+  // Spec 052 §2.2 — a DCA bot keeps routing to the DCA mutation.
+  it('closes a DCA deal through the DCA close mutation', async () => {
+    await mount(BotTypesEnum.dca);
+
+    await click(byTitle('Close deal')[0]);
+    await click(enabledButton('Close deal'));
+
+    expect(captured.closeDealTypes).toEqual(['dca']);
+  });
+
+  // Spec 052 §2.3 — a refused close must reach the user, not only the console.
+  it('tells the user when a close fails', async () => {
+    captured.closeError = new Error('Bot is not running');
+    await mount(BotTypesEnum.dca);
+
+    await click(byTitle('Close deal')[0]);
+    await click(enabledButton('Close deal'));
+
+    expect(captured.toastErrors).toEqual(['Failed to close deal']);
   });
 });
