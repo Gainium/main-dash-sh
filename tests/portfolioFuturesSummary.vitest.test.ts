@@ -276,7 +276,23 @@ describe('summarizeFutures — net exposure (spec §2.3)', () => {
         position({ exchangeUUID: 'a', side: 'SHORT', base: 'ETH', qty: 1, entry: 3000, mark: 3000 }),
       ],
     });
-    expect(exposure.top).toEqual([{ asset: 'ETH', net: 0 }]);
+    expect(exposure.top).toEqual([{ asset: 'ETH', net: 0, long: 3000, short: 3000 }]);
+  });
+
+  it('§2.3.3 each asset row carries its total long and total short beside the net', () => {
+    const { exposure } = summarizeFutures({
+      accounts: [a],
+      positions: [
+        position({ exchangeUUID: 'a', side: 'LONG', base: 'ETH', qty: 1, entry: 3000, mark: 3000 }),
+        position({ exchangeUUID: 'a', side: 'SHORT', base: 'ETH', qty: 1, entry: 1000, mark: 1000 }),
+        position({ exchangeUUID: 'a', side: 'LONG', base: 'ETH', qty: 1, entry: 500, mark: 500 }),
+      ],
+    });
+    const eth = exposure.top[0];
+    expect(eth?.asset).toBe('ETH');
+    expect(eth?.long).toBeCloseTo(3500, 8);
+    expect(eth?.short).toBeCloseTo(1000, 8);
+    expect(eth?.net).toBeCloseTo(2500, 8);
   });
 
   it('§2.3.6 gross long, gross short and net over the same positions', () => {
@@ -345,6 +361,6 @@ describe('selectFuturesAccounts — follows the My Accounts selection (spec §2.
     });
     expect(s.rows.map((r) => r.id)).toEqual(['f2']);
     expect(s.openPositions).toBe(1);
-    expect(s.exposure.top).toEqual([{ asset: 'ETH', net: -50 }]);
+    expect(s.exposure.top).toEqual([{ asset: 'ETH', net: -50, long: 0, short: 50 }]);
   });
 });

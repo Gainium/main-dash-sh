@@ -8,7 +8,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { getProviderIcon } from '@/utils/exchangeUtils';
 
-import type { ExposureRow, FuturesSummary } from './futuresSummary';
+import type { FuturesSummary } from './futuresSummary';
 import { useFuturesSummary } from './useFuturesSummary';
 
 export const POSITIONS_HREF = '/terminal?view=positions';
@@ -44,62 +44,87 @@ function Money({
   );
 }
 
+const pct = (v: number, scale: number) =>
+  scale > 0 ? `${Math.min(50, (Math.abs(v) / scale) * 50)}%` : '0%';
+
+/**
+ * One exposure row. The bar diverges from the centre: faint long (right) and
+ * faint short (left) totals behind a solid net. Without `long`/`short` (the
+ * "Other" sum) or with `showBar` false, only the value is shown.
+ */
 function ExposureLine({
   label,
+  sides,
   row,
   scale,
   showBar = true,
+  total = false,
 }: {
   label: React.ReactNode;
-  row: Pick<ExposureRow, 'net'>;
+  /** Captions under the bar: short under the left half, long under the right. */
+  sides?: { short: React.ReactNode; long: React.ReactNode };
+  row: { net: number; long?: number; short?: number };
   scale: number;
   /** False for the "Other" sum: it would dwarf every single asset (§2.3.3). */
   showBar?: boolean;
+  total?: boolean;
 }) {
-  const width = scale > 0 ? Math.min(50, (Math.abs(row.net) / scale) * 50) : 0;
   return (
     <div
       data-testid="exposure-row"
-      className="grid grid-cols-[5rem_minmax(0,1fr)_7rem] items-center gap-xs text-sm py-0.5"
+      data-total={total ? 'true' : undefined}
+      className={cn(
+        'grid grid-cols-[5rem_minmax(0,1fr)_7rem] sm:grid-cols-[9rem_minmax(0,1fr)_7rem] items-center gap-xs text-sm py-0.5',
+        total && 'font-medium'
+      )}
     >
       <div className="min-w-0 truncate">{label}</div>
       {!showBar ? (
         <div aria-hidden="true" />
       ) : (
-      <div className="relative h-2.5 rounded-sm bg-card" aria-hidden="true">
-        <div
-          data-testid="exposure-bar"
-          className={cn(
-            'absolute top-0 h-full',
-            row.net >= 0 ? 'bg-profit rounded-r-sm' : 'bg-loss rounded-l-sm'
+        <div className="relative h-2.5 rounded-sm bg-card" aria-hidden="true">
+          {row.long !== undefined && row.long > 0 && (
+            <div
+              data-testid="exposure-long"
+              className="absolute top-0 h-full bg-profit/25 rounded-r-sm"
+              style={{ left: '50%', width: pct(row.long, scale) }}
+            />
           )}
-          style={
-            row.net >= 0
-              ? { left: '50%', width: `${width}%` }
-              : { right: '50%', width: `${width}%` }
-          }
-        />
-        <div className="absolute inset-y-[-2px] left-1/2 w-px bg-border" />
-      </div>
+          {row.short !== undefined && row.short > 0 && (
+            <div
+              data-testid="exposure-short"
+              className="absolute top-0 h-full bg-loss/25 rounded-l-sm"
+              style={{ right: '50%', width: pct(row.short, scale) }}
+            />
+          )}
+          <div
+            data-testid="exposure-bar"
+            className={cn(
+              'absolute top-0 h-full',
+              row.net >= 0 ? 'bg-profit rounded-r-sm' : 'bg-loss rounded-l-sm'
+            )}
+            style={
+              row.net >= 0
+                ? { left: '50%', width: pct(row.net, scale) }
+                : { right: '50%', width: pct(row.net, scale) }
+            }
+          />
+          <div className="absolute inset-y-[-2px] left-1/2 w-px bg-border" />
+        </div>
       )}
       <div className="text-right">
         <Money value={row.net} signed colored />
       </div>
-    </div>
-  );
-}
-
-function Stat({
-  label,
-  children,
-}: {
-  label: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="flex flex-col min-w-0">
-      <span className="text-xs text-muted-foreground">{label}</span>
-      <span className="text-sm font-medium truncate">{children}</span>
+      {sides && (
+        <>
+          <div />
+          <div className="flex justify-between gap-xs text-xs font-normal text-muted-foreground">
+            <span>{sides.short}</span>
+            <span>{sides.long}</span>
+          </div>
+          <div />
+        </>
+      )}
     </div>
   );
 }
@@ -115,8 +140,10 @@ export function FuturesSummaryView({
 }) {
   const [otherOpen, setOtherOpen] = useState(false);
   const { rows, total, exposure, openPositions } = summary;
-  // Scale to the largest single asset; the "Other" sum has no bar.
-  const scale = Math.max(0, ...exposure.top.map((r) => Math.abs(r.net)));
+  // Scale to the largest long or short of any single asset; the "Other" sum
+  // has no bar and the Total row uses its own scale.
+  const scale = Math.max(0, ...exposure.top.map((r) => Math.max(r.long, r.short)));
+  const totalScale = Math.max(exposure.grossLong, exposure.grossShort);
 
   return (
     <section
@@ -207,22 +234,6 @@ export function FuturesSummaryView({
               notional at mark · not added to totals
             </span>
           </div>
-          {!isLoading && exposure.top.length > 0 && (
-            <div
-              data-testid="exposure-gross"
-              className="grid grid-cols-3 gap-xs pb-1"
-            >
-              <Stat label="Long">
-                <Money value={exposure.grossLong} />
-              </Stat>
-              <Stat label="Short">
-                <Money value={exposure.grossShort} />
-              </Stat>
-              <Stat label="Net">
-                <Money value={exposure.net} signed colored />
-              </Stat>
-            </div>
-          )}
           {isLoading ? (
             <p className="text-sm text-muted-foreground">Loading positions…</p>
           ) : openPositions === 0 ? (
@@ -274,6 +285,30 @@ export function FuturesSummaryView({
                   )}
                 </>
               )}
+              <div className="border-t border-border/60 mt-1 pt-1">
+                <ExposureLine
+                  total
+                  label="Total"
+                  sides={{
+                    short: (
+                      <>
+                        Short <Money value={exposure.grossShort} />
+                      </>
+                    ),
+                    long: (
+                      <>
+                        Long <Money value={exposure.grossLong} />
+                      </>
+                    ),
+                  }}
+                  row={{
+                    net: exposure.net,
+                    long: exposure.grossLong,
+                    short: exposure.grossShort,
+                  }}
+                  scale={totalScale}
+                />
+              </div>
             </>
           )}
         </div>

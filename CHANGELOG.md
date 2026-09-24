@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.57.4] - 2026-09-24
+
+### Changed
+
+- Portfolio Futures card: each coin's exposure bar now shows its total long
+  and total short as faint bars behind the solid net, so hedged coins are
+  visible at a glance. The gross Long / Short / Net figures moved from above
+  the list into a Total row under "Other", drawn the same way on its own
+  scale.
+
 ## [2.57.3] - 2026-09-24
 
 ### Changed

@@ -43,7 +43,15 @@ export type FuturesAccountRow = {
   equity: number | null;
 };
 
-export type ExposureRow = { asset: string; net: number };
+export type ExposureRow = {
+  asset: string;
+  /** long − short, signed (USD). */
+  net: number;
+  /** Σ long notional for the asset (USD). */
+  long: number;
+  /** Σ short notional for the asset, as a positive amount (USD). */
+  short: number;
+};
 
 export type FuturesSummary = {
   rows: FuturesAccountRow[];
@@ -171,7 +179,7 @@ export function summarizeFutures({
   };
 
   const accountIds = new Set(accounts.map((a) => a.id));
-  const netByAsset = new Map<string, number>();
+  const byAsset = new Map<string, { long: number; short: number }>();
   let openPositions = 0;
   let grossLong = 0;
   let grossShort = 0;
@@ -185,11 +193,14 @@ export function summarizeFutures({
     // Same positions as the per-coin rows, so gross and rows always agree.
     if (notional >= 0) grossLong += notional;
     else grossShort -= notional;
-    netByAsset.set(asset, (netByAsset.get(asset) ?? 0) + notional);
+    const acc = byAsset.get(asset) ?? { long: 0, short: 0 };
+    if (notional >= 0) acc.long += notional;
+    else acc.short -= notional;
+    byAsset.set(asset, acc);
   }
 
-  const sorted = [...netByAsset.entries()]
-    .map(([asset, net]) => ({ asset, net }))
+  const sorted: ExposureRow[] = [...byAsset.entries()]
+    .map(([asset, { long, short }]) => ({ asset, net: long - short, long, short }))
     .sort((x, y) => Math.abs(y.net) - Math.abs(x.net));
   const top = sorted.slice(0, EXPOSURE_TOP_N);
   const rest = sorted.slice(EXPOSURE_TOP_N);

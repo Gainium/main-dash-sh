@@ -152,7 +152,7 @@ describe('FuturesSummaryCard', () => {
     expect(otherRow?.textContent).toContain('+$540.00');
   });
 
-  it('§2.3.6/§2.3.7 exposure is a titled section with a gross long / short / net line', () => {
+  it('§2.3.6/§2.3.7 titled exposure section; Total row under Other with long / short / net on its own scale', () => {
     render(
       createElement(FuturesSummaryView, {
         summary: summaryWith([['BTC', 5000], ['ETH', -2000]]),
@@ -161,13 +161,42 @@ describe('FuturesSummaryCard', () => {
     );
     const section = container.querySelector('[data-testid="exposure-section"]');
     expect(section?.querySelector('h4')?.textContent).toBe('Net exposure');
-    const gross = section?.querySelector('[data-testid="exposure-gross"]')?.textContent ?? '';
-    expect(gross).toContain('Long');
-    expect(gross).toContain('$5,000.00');
-    expect(gross).toContain('Short');
-    expect(gross).toContain('$2,000.00');
-    expect(gross).toContain('Net');
-    expect(gross).toContain('+$3,000.00');
+    const rows = [...(section?.querySelectorAll('[data-testid="exposure-row"]') ?? [])];
+    const total = rows.at(-1);
+    expect(total?.getAttribute('data-total')).toBe('true');
+    expect(total?.textContent).toContain('Total');
+    expect(total?.textContent).toContain('$5,000.00');
+    expect(total?.textContent).toContain('$2,000.00');
+    expect(total?.textContent).toContain('+$3,000.00');
+    const w = (id: string) => total?.querySelector<HTMLElement>(`[data-testid="${id}"]`)?.style.width;
+    // own scale: the larger side (5000) fills half the track
+    expect(w('exposure-long')).toBe('50%');
+    expect(w('exposure-short')).toBe('20%');
+    expect(w('exposure-bar')).toBe('30%');
+    // coin rows keep the asset scale (largest side of any asset = 5000)
+    const btc = rows.find((r) => r.textContent?.startsWith('BTC'));
+    expect(btc?.querySelector<HTMLElement>('[data-testid="exposure-bar"]')?.style.width).toBe('50%');
+  });
+
+  it('§2.3.3 a hedged coin shows faint long and short bars behind a solid net', () => {
+    const summary = summarizeFutures({
+      accounts: [{ id: 'a', name: 'A', provider: ExchangeEnum.binanceUsdm, balance: 1 }],
+      positions: [
+        linearPos('a', 'BTC', 800),
+        linearPos('a', 'BTC', -600),
+        linearPos('a', 'ETH', 100),
+      ] as never,
+    });
+    render(createElement(FuturesSummaryView, { summary, error: null }));
+    const btc = [...container.querySelectorAll('[data-testid="exposure-row"]')].find((r) =>
+      r.textContent?.startsWith('BTC')
+    );
+    const w = (id: string) => btc?.querySelector<HTMLElement>(`[data-testid="${id}"]`)?.style.width;
+    // scale = largest long or short of any asset row = 800
+    expect(w('exposure-long')).toBe('50%');
+    expect(w('exposure-short')).toBe('37.5%');
+    expect(w('exposure-bar')).toBe('12.5%');
+    expect(btc?.textContent).toContain('+$200.00');
   });
 
   it('§2.4.1 the only action is the Manage in Terminal link', () => {
