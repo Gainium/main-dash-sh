@@ -2,9 +2,18 @@ import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 
 /**
+ * Quote assets the USD pool can stand in for: USD itself (COIN-M and Kraken
+ * flex) and USDC, which the venue counts at par — OKX Europe X-Perps are
+ * USDC-quoted and a Multi-currency margin account funds them from EUR.
+ */
+export const poolCoversQuote = (quoteAsset: string | null | undefined) =>
+  quoteAsset === 'USD' || quoteAsset === 'USDC';
+
+/**
  * USD a futures connection can still commit when its collateral is pooled
  * across coins — a Bitget Unified account in `multi_assets` mode margins an
- * inverse (COIN-M) contract from USDT (exchange-connector spec 028). `null`
+ * inverse (COIN-M) contract from USDT (exchange-connector spec 028), an OKX
+ * account in Multi-currency margin funds a USDC-quoted contract from EUR. `null`
  * when the connection does not pool, has not answered, or the request failed:
  * callers then keep the per-coin figure.
  */

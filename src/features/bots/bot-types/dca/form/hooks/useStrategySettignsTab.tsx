@@ -41,7 +41,10 @@ import {
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { type StrategySettingsProps } from '../sections';
 import { useBalanceRefreshControl } from './useBalanceRefreshControl';
-import { usePooledMarginUsd } from '@/hooks/bots/dca/usePooledMarginUsd';
+import {
+  poolCoversQuote,
+  usePooledMarginUsd,
+} from '@/hooks/bots/dca/usePooledMarginUsd';
 
 /**
  * Decimals kept when showing a base amount that was DERIVED from the quote
@@ -1016,20 +1019,33 @@ export const useStrategySettingsTab = ({
   // --- Dual Amount/Total derivations (legacy `amount`/`total`, lines 298-355) -
   const effectivePrice = latestPrice ?? 0;
 
-  // Pooled collateral (Bitget Unified `multi_assets`, exchange-connector spec
-  // 028): the account margins an inverse contract from any coin it holds, so
-  // the base-coin wallet understates what a COIN-M order can use. Count the
-  // pool, converted to the base coin at the current price, as the funding
-  // balance whenever it is larger; `null` keeps every figure as before.
+  // Pooled collateral (Bitget Unified `multi_assets`, OKX Multi-currency
+  // margin, Kraken flex): the account margins a contract from any coin it
+  // holds, so the per-coin wallet understates what an order can use. COIN-M
+  // counts the pool converted to the base coin at the current price; a USD- or
+  // USDC-quoted linear contract counts it as quote. The pool replaces the
+  // funding balance only when larger; `null` keeps every figure as before.
   const { pooledUsd: pooledMarginUsd } = usePooledMarginUsd(
     resolvedExchangeUuid,
-    !!futures && !!coinm && !isPaperTrading
+    !!futures &&
+      !isPaperTrading &&
+      (!!coinm || poolCoversQuote(resolvedQuoteAsset))
   );
   const fundingBalances = useMemo(() => {
+    if (pooledMarginUsd === null) {
+      return aggregatedBalances;
+    }
+    if (!coinm) {
+      if (pooledMarginUsd <= aggregatedBalances.quote.free) {
+        return aggregatedBalances;
+      }
+      return {
+        ...aggregatedBalances,
+        quote: { ...aggregatedBalances.quote, free: pooledMarginUsd },
+      };
+    }
     const pooledBase =
-      pooledMarginUsd !== null && effectivePrice > 0
-        ? pooledMarginUsd / effectivePrice
-        : 0;
+      effectivePrice > 0 ? pooledMarginUsd / effectivePrice : 0;
     if (pooledBase <= aggregatedBalances.base.free) {
       return aggregatedBalances;
     }
@@ -1037,7 +1053,7 @@ export const useStrategySettingsTab = ({
       ...aggregatedBalances,
       base: { ...aggregatedBalances.base, free: pooledBase },
     };
-  }, [aggregatedBalances, pooledMarginUsd, effectivePrice]);
+  }, [aggregatedBalances, pooledMarginUsd, effectivePrice, coinm]);
   const minAmount = useMemo(
     () => (coinm ? (quoteMinAmount ?? 1) : 1),
     [coinm, quoteMinAmount]

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.61.0] - 2026-09-24
+
+### Added
+
+- Futures accounts with pooled collateral (OKX Multi-currency / Portfolio
+  margin, Kraken flex, Bitget Unified multi_assets) show and use the pool for
+  USD- and USDC-quoted contracts: the DCA and Combo forms' balance, the trading
+  terminal's balance check and the grid bot start dialog no longer read 0 on an
+  account funded in EUR or other coins.
+
 ## [2.60.1] - 2026-09-24
 
 ### Fixed

@@ -14,6 +14,10 @@ import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFo
 import getLatestPrices from '@/helper/price';
 import { useBalanceStore } from '@/stores/live';
 import {
+  poolCoversQuote,
+  usePooledMarginUsd,
+} from '@/hooks/bots/dca/usePooledMarginUsd';
+import {
   BotOrderSideEnum,
   BuyTypeEnum,
   ExchangeEnum,
@@ -265,6 +269,15 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     []
   );
 
+  // Pooled collateral (OKX Multi-currency margin, Kraken flex, Bitget
+  // multi_assets): a USD/USDC-quoted linear grid is margined from every coin
+  // in the account, so an account holding EUR and no USDC can still fund it.
+  // `null` for every other connection keeps the per-coin figures.
+  const { pooledUsd } = usePooledMarginUsd(
+    formData.exchangeUUID,
+    open && !!settings.futures && !settings.coinm && poolCoversQuote(quoteName)
+  );
+
   useEffect(() => {
     if (!open) {
       return;
@@ -297,6 +310,15 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     baseBalance = `${math.round(parseFloat(baseBalance), precision.base)}`;
     let quoteBalance = `${userBalances.find((b) => b.asset === quoteName)?.free || 0}`;
     quoteBalance = `${math.round(parseFloat(quoteBalance), precision.quote)}`;
+    if (pooledUsd !== null) {
+      if (!isShort) {
+        if (pooledUsd > +quoteBalance) {
+          quoteBalance = `${math.round(pooledUsd, precision.quote)}`;
+        }
+      } else if (lp > 0 && pooledUsd / lp > +baseBalance) {
+        baseBalance = `${math.round(pooledUsd / lp, precision.base)}`;
+      }
+    }
     const newGrids =
       createGridBotOrders(
         {
@@ -624,6 +646,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     quoteName,
     symbol,
     precision,
+    pooledUsd,
   ]);
 
   const secondaryAsset = useMemo(

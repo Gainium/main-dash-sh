@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useDealOverviewData } from '@/components/widgets/trading/DealOverview';
-import { usePooledMarginUsd } from './usePooledMarginUsd';
+import { poolCoversQuote, usePooledMarginUsd } from './usePooledMarginUsd';
 import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { DcaTradingContext } from './useDcaTradingContext';
@@ -26,6 +26,8 @@ import type { DcaTradingContext } from './useDcaTradingContext';
  * USDT-funded account holds no base coin and still funds the order. When the
  * base-coin check comes up short we ask the connection for its pool (USD,
  * `null` when not pooled) and compare the order's USD notional against it.
+ * A USD- or USDC-quoted linear order does the same when its quote balance is
+ * short (OKX Multi-currency margin funds USDC X-Perps from EUR).
  */
 export const useVerifyTerminalBalance = (
   formData: BotFormData,
@@ -40,16 +42,20 @@ export const useVerifyTerminalBalance = (
     dca?.marginType !== BotMarginTypeEnum.inherit
       ? Number(dca?.leverage) || 1
       : 1;
-  // Only a COIN-M order the base-coin balance cannot cover needs the pool.
+  // Only an order the per-coin balance cannot cover needs the pool: COIN-M
+  // against the base coin, a USD/USDC-quoted linear order against the quote.
   // Isolated orders ask too (the terminal defaults to isolated): the venue,
   // not this gate, decides whether it funds an isolated position from it.
   const askPool =
     !dca?.skipBalanceCheck &&
     !!dca?.futures &&
-    !!dca?.coinm &&
     dca?.terminalDealType !== TerminalDealTypeEnum.import &&
-    (aggregated?.base?.free ?? 0) <
-      (Number(summary?.totalCapitalBase) || 0) / marginDenom;
+    (dca?.coinm
+      ? (aggregated?.base?.free ?? 0) <
+        (Number(summary?.totalCapitalBase) || 0) / marginDenom
+      : poolCoversQuote(tradingContext.quoteAsset) &&
+        (aggregated?.quote?.free ?? 0) <
+          (Number(summary?.totalCapital) || 0) / marginDenom);
   // Not answered yet: can't judge, so don't block (the engine still checks).
   const { pooledUsd, pending: poolPending } = usePooledMarginUsd(
     formData.exchangeUUID,
@@ -92,7 +98,10 @@ export const useVerifyTerminalBalance = (
       // pool has to cover.
       base /= marginDenom;
       quote /= marginDenom;
-      if (!coinm) return freeQuote >= quote;
+      if (!coinm) {
+        if (freeQuote >= quote || poolPending) return true;
+        return pooledUsd !== null && pooledUsd >= quote;
+      }
       if (freeBase >= base || poolPending) return true;
       return pooledUsd !== null && pooledUsd >= quote;
     }
