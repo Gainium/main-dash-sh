@@ -67,7 +67,11 @@ export const DECLARED_BY_COMBO_ONLY = [
  * NOT by the combo inputs. `COMBO_FORM_DEFAULTS` spreads `DCA_FORM_DEFAULTS`,
  * so a combo form carries them anyway and a combo save has to drop them.
  */
-export const DECLARED_BY_DCA_ONLY = ['allowRaiseToExchangeMin'] as const;
+export const DECLARED_BY_DCA_ONLY = [
+  'allowRaiseToExchangeMin',
+  'reduceToAvailableBalance',
+  'reduceToAvailableMinSize',
+] as const;
 
 /**
  * Grid-form bookkeeping flags that `changeBotInput` does not declare.

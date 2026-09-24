@@ -153,6 +153,13 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
   const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
   const allowRaiseToExchangeMin = useBotFormSelector('allowRaiseToExchangeMin');
+  const reduceToAvailableBalance = useBotFormSelector(
+    'reduceToAvailableBalance'
+  );
+  const reduceToAvailableMinSize = useBotFormSelector(
+    'reduceToAvailableMinSize'
+  );
+  const useRiskReward = useBotFormSelector('useRiskReward');
   // Hedge-DCA legs render this form too, but the engine never refuses on a
   // hedge leg, so the switch would do nothing there.
   const isHedgeContext = useHedgeBotFormOptional() !== undefined;
@@ -636,6 +643,7 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
           (isLimitOrder &&
             (!!notUseLimitReposition || isEnterMarketTimeoutEnabled)) ||
           !!skipBalanceCheck ||
+          (!isComboBot && !!reduceToAvailableBalance) ||
           !!isRiskReductionEnabled ||
           !!useReinvest
         }
@@ -780,6 +788,67 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
             }
           />
         )}
+
+        {/* Regular DCA with a fixed order size only: a balance-percentage size
+            already follows the balance, risk/reward sizes by risk, and the
+            engine never reduces a hedge leg. */}
+        {!isComboBot &&
+          !isHedgeContext &&
+          !isBaseOrderPercentageMode &&
+          !useRiskReward && (
+            <SettingsRow
+              name="Use available balance if short"
+              tooltip="If the free balance can't fund the full deal (Base Order plus all Safety Orders), open it with what is available instead of skipping it. The Base Order and every Safety Order are reduced by the same ratio, so the ladder keeps its shape. Has no effect while Skip Balance Check is on."
+              trailing={
+                <Switch
+                  id="reduce-to-available-balance"
+                  checked={!!reduceToAvailableBalance}
+                  onCheckedChange={(checked) =>
+                    updateFormData('reduceToAvailableBalance', checked)
+                  }
+                />
+              }
+            >
+              {reduceToAvailableBalance && (
+                <div className="space-y-sm">
+                  <Label className="text-sm font-medium">
+                    Minimum base order
+                  </Label>
+                  <NumberInput
+                    value={reduceToAvailableMinSize ?? ''}
+                    onChange={(value) =>
+                      updateFormData(
+                        'reduceToAvailableMinSize',
+                        typeof value === 'number'
+                          ? value.toString()
+                          : (value ?? '')
+                      )
+                    }
+                    min={0}
+                    placeholder="No minimum"
+                    className="w-40"
+                    showControls={false}
+                    endAdornment={unitAdornment(
+                      baseOrderContext.currencyLabel,
+                      { tone: 'muted', size: 'xs' }
+                    )}
+                  />
+                  <SettingsAlert
+                    variant="info"
+                    title="Smaller reduced deals are skipped"
+                    description="The deal is skipped when the reduced Base Order would be smaller than this. Leave empty for no minimum beyond the exchange's."
+                  />
+                  {skipBalanceCheck && (
+                    <SettingsAlert
+                      variant="warning"
+                      title="No effect while Skip Balance Check is on"
+                      description="Skip Balance Check is on, so the bot never checks for a shortfall and this setting has no effect."
+                    />
+                  )}
+                </div>
+              )}
+            </SettingsRow>
+          )}
 
         <SettingsRow
           name="Risk Reduction"

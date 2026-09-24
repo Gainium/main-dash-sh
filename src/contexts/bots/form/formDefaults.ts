@@ -71,6 +71,8 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   useSmartOrders: false,
   dcaByMarket: false,
   allowRaiseToExchangeMin: false,
+  reduceToAvailableBalance: false,
+  reduceToAvailableMinSize: '',
   minOpenDeal: '',
   maxOpenDeal: '',
   useDca: true,

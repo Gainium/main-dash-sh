@@ -144,6 +144,7 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   fixedSlPrice: '25000',
   minOpenDeal: '100',
   maxOpenDeal: '200',
+  reduceToAvailableMinSize: '20',
   startBotPriceValue: '100',
   stopBotPriceValue: '200',
   dcaVolumeRequiredChangeRef: 'avg',

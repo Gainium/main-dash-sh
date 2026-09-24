@@ -590,6 +590,8 @@ export const mapFormDataToPayload = (
   // DCA_FORM_DEFAULTS spread; the combo inputs do not declare them.
   if (isComboBot) {
     delete updatePayload.allowRaiseToExchangeMin;
+    delete updatePayload.reduceToAvailableBalance;
+    delete updatePayload.reduceToAvailableMinSize;
   }
 
   const sanitizedUpdatePayload = sanitizeSettingsForApi(
@@ -664,6 +666,8 @@ export const mapFormDataToPayload = (
     if (isComboBot) {
       delete createPayload.importFrom;
       delete createPayload.allowRaiseToExchangeMin;
+      delete createPayload.reduceToAvailableBalance;
+      delete createPayload.reduceToAvailableMinSize;
     }
     successResult.createPayload = createPayload;
   }

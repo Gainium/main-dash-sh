@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.62.0] - 2026-09-24
+
+### Added
+
+- DCA bot form: **Use available balance if short** under Strategy → More
+  Settings. When the free balance can't fund the full deal, the bot opens it
+  with what is available, reducing the Base Order and every Safety Order by
+  the same ratio, instead of skipping it. An optional **Minimum base order**
+  skips the deal when the reduced Base Order would be smaller. Shown for fixed
+  order sizes only (not % of balance, not Risk/Reward). Requires the matching
+  backend release (new GraphQL fields).
+
 ## [2.61.3] - 2026-09-24
 
 ### Fixed

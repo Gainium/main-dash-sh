@@ -123,6 +123,7 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   fixedSlPrice: '25000',
   minOpenDeal: '100',
   maxOpenDeal: '200',
+  reduceToAvailableMinSize: '20',
   startBotPriceValue: '100',
   stopBotPriceValue: '200',
   // Only 'tp' and 'avg' are valid here; the generic sibling lookup finds
@@ -520,6 +521,8 @@ const VERDICT: Record<string, string> = {
   fixedTpPrice: 'gated:useFixedTPPrices (combo list only)',
   remainderFullAmount: 'gated:combo remainder handling — guard read, not executed',
   allowRaiseToExchangeMin: 'gated:DCA only — the combo engine does not implement the exchange-minimum refusal',
+  reduceToAvailableBalance: 'gated:DCA only — the combo form does not offer a reduced deal',
+  reduceToAvailableMinSize: 'gated:DCA only — the combo form does not offer a reduced deal',
 };
 
 const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
@@ -550,7 +553,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'startBotPriceCondition', 'startBotPriceValue',
     'stopBotPriceCondition', 'stopBotPriceValue', 'stopDealLogic',
     'stopDealSlLogic', 'tpSlTargetFilled', 'useExperimental', 'useRiskReward',
-    'volumeTop',
+    'volumeTop', 'reduceToAvailableBalance', 'reduceToAvailableMinSize',
   ].sort(),
 };
 
@@ -576,7 +579,7 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'startBotPriceValue',
     'stopBotPriceValue',
   ],
-  // Plus the DCA-only setting the combo inputs do not declare
+  // Plus the DCA-only settings the combo inputs do not declare
   // (DECLARED_BY_DCA_ONLY), which the mapper strips for combo.
   combo: [
     'allowRaiseToExchangeMin',
@@ -587,6 +590,8 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'minOpenDeal',
     'multiSl',
     'multiTp',
+    'reduceToAvailableBalance',
+    'reduceToAvailableMinSize',
     'startBotPriceValue',
     'stopBotPriceValue',
   ],

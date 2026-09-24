@@ -785,8 +785,14 @@ export const HedgeBotEditLayout: React.FC = () => {
         // Both hedge create inputs type each leg as createComboBotInput, which
         // rejects the DCA-only fields (DECLARED_BY_DCA_ONLY) — even on a
         // hedge DCA bot.
-        delete (longPayload as Record<string, unknown>)['allowRaiseToExchangeMin'];
-        delete (shortPayload as Record<string, unknown>)['allowRaiseToExchangeMin'];
+        for (const payload of [longPayload, shortPayload] as Record<
+          string,
+          unknown
+        >[]) {
+          delete payload['allowRaiseToExchangeMin'];
+          delete payload['reduceToAvailableBalance'];
+          delete payload['reduceToAvailableMinSize'];
+        }
         const input = {
           long: longPayload as Parameters<
             typeof botQueries.createHedgeDCABot

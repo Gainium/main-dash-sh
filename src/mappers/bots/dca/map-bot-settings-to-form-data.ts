@@ -876,6 +876,12 @@ export const mapBotSettingsToFormData = (
     useSmartOrders: getBoolean('useSmartOrders'),
     dcaByMarket: getBoolean('dcaByMarket', false),
     allowRaiseToExchangeMin: getBoolean('allowRaiseToExchangeMin', false),
+    reduceToAvailableBalance: getBoolean('reduceToAvailableBalance', false),
+    // Stored '0' means no minimum; the form shows that as an empty field.
+    reduceToAvailableMinSize:
+      getString('reduceToAvailableMinSize', '') === '0'
+        ? ''
+        : getString('reduceToAvailableMinSize', ''),
     maxNumberOfOpenDeals: getString('maxNumberOfOpenDeals', '1'),
     type: getValue<DCATypeEnum>('type', DCATypeEnum.regular),
     startDealLogic,

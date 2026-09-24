@@ -803,6 +803,12 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
   const allowRaiseToExchangeMin = isComboBot
     ? false
     : formData.dca.allowRaiseToExchangeMin;
+  const reduceToAvailableBalance = isComboBot
+    ? false
+    : formData.dca.reduceToAvailableBalance;
+  const reduceToAvailableMinSize = isComboBot
+    ? ''
+    : formData.dca.reduceToAvailableMinSize;
   const _activeOrdersCount = isComboBot
     ? formData.combo.activeOrdersCount
     : formData.dca.activeOrdersCount;
@@ -927,6 +933,8 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         | 'useSmartOrders'
         | 'dcaByMarket'
         | 'allowRaiseToExchangeMin'
+        | 'reduceToAvailableBalance'
+        | 'reduceToAvailableMinSize'
         | 'activeOrdersCount'
         | 'gridLevel'
         | 'baseGridLevels'
@@ -1004,6 +1012,24 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     if (!isComboBot) {
       dcaFields['allowRaiseToExchangeMin'] = Boolean(allowRaiseToExchangeMin);
       fieldsMapped.push('allowRaiseToExchangeMin');
+
+      // DCA bots only — open a smaller deal on a balance shortfall.
+      dcaFields['reduceToAvailableBalance'] = Boolean(reduceToAvailableBalance);
+      fieldsMapped.push('reduceToAvailableBalance');
+      const minSize = String(reduceToAvailableMinSize ?? '').trim();
+      const parsedMinSize = Number(minSize);
+      if (!minSize) {
+        // '0' rather than '': the update path drops empty strings, which
+        // would make clearing the minimum on an edit a no-op. 0 = no minimum.
+        dcaFields['reduceToAvailableMinSize'] = '0';
+        fieldsMapped.push('reduceToAvailableMinSize');
+      } else if (Number.isFinite(parsedMinSize) && parsedMinSize >= 0) {
+        dcaFields['reduceToAvailableMinSize'] = minSize;
+        fieldsMapped.push('reduceToAvailableMinSize');
+      } else {
+        errors.push('Minimum reduced base order must be a non-negative number');
+        fieldsSkipped.push('reduceToAvailableMinSize');
+      }
     }
 
     if (useSmartOrders) {

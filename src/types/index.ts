@@ -1813,6 +1813,10 @@ export interface DCABotSettings extends BaseSettings {
   dcaByMarket?: boolean;
   /** Raise BO/SO to the exchange minimum. Off/missing: refuse the deal and notify. */
   allowRaiseToExchangeMin?: boolean;
+  /** Shortfall at deal start: open the deal scaled down to the free balance (BO and SOs by the same ratio) instead of skipping it. */
+  reduceToAvailableBalance?: boolean;
+  /** Smallest base order a reduced deal may open with, in the base order size unit. Empty/0: no floor. */
+  reduceToAvailableMinSize?: string;
   dcaCustom?: DCACustom[] | undefined;
   strategy: StrategyEnum;
   baseOrderSize: string;

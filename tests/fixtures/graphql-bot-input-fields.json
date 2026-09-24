@@ -1,5 +1,5 @@
 {
-  "$comment": "GENERATED — do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. Declared input fields of the bot change/create and deal-edit mutations in main-app. Consumed by tests/botSavePayloadSchema.unit.test.ts, tests/botFormCreateMode.unit.test.ts and tests/dealEditPayloadSchema.unit.test.ts to prove no save, create or deal-edit payload carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).",
+  "$comment": "GENERATED \u2014 do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. Declared input fields of the bot change/create and deal-edit mutations in main-app. Consumed by tests/botSavePayloadSchema.unit.test.ts, tests/botFormCreateMode.unit.test.ts and tests/dealEditPayloadSchema.unit.test.ts to prove no save, create or deal-edit payload carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).",
   "source": {
     "repo": "main-app",
     "path": "core/src/graphql/schema.ts",
@@ -9,7 +9,7 @@
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 165,
+      "fieldCount": 167,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -103,6 +103,8 @@
         "pairPrioritization",
         "profitCurrency",
         "quoteAsset",
+        "reduceToAvailableBalance",
+        "reduceToAvailableMinSize",
         "reinvestValue",
         "rejectBelowExchangeMin",
         "relativeVolumeTop",
@@ -409,7 +411,7 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 177,
+      "fieldCount": 179,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -509,6 +511,8 @@
         "pairPrioritization",
         "profitCurrency",
         "quoteAsset",
+        "reduceToAvailableBalance",
+        "reduceToAvailableMinSize",
         "reinvestValue",
         "rejectBelowExchangeMin",
         "relativeVolumeTop",
