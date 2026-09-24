@@ -139,25 +139,32 @@ const subscriptions: Record<string, WebSocket> = {};
 const keepalives: Record<string, ReturnType<typeof setInterval>> = {};
 
 /*
- * Reality stock tokens (`RAAPLUSDT`). Bitget accepts a v2 `candle*`
- * subscription for them and then sends nothing; their candles are pushed only
- * on the v3 `kline` topic, and only at 1m/5m/15m/1H/4H (its 1D bucket opens at
- * 16:00 UTC, not the UTC-midnight bar the chart shows). Wider widths are built
- * here from a finer stream, into the same UTC-aligned buckets the history is
- * aggregated into by the exchange connection. A pair is a Reality token when
- * it is a Bitget SPOT pair of class `stock` — the connection lists only the
- * rows Bitget itself flags `isReality` as spot stocks.
+ * Pairs whose candles Bitget pushes only on the v3 `kline` topic:
+ *
+ * - Reality stock tokens (`RAAPLUSDT`). Bitget accepts a v2 `candle*`
+ *   subscription for them and then sends nothing. A pair is a Reality token
+ *   when it is a Bitget SPOT pair of class `stock` — the connection lists only
+ *   the rows Bitget itself flags `isReality` as spot stocks.
+ * - COIN-M perpetuals (`BTCUSD`). They moved to the unified line, where they
+ *   are named with a `_CM` suffix (`BTCUSD_CM`); v2 refuses them. The
+ *   quarterly contracts (`BTCUSDU26`) stayed on v2 and stream there.
+ *
+ * v3 buckets are UTC-aligned only at 1m/5m/15m/1H/4H (its 6H, 12H and 1D open
+ * on UTC+8 boundaries — 1D at 16:00 UTC, not the UTC-midnight bar the chart
+ * shows — and it has no weekly). Wider widths are built here from a finer
+ * stream, into the same UTC-aligned buckets the history is aggregated into by
+ * the exchange connection.
  */
-const REALITY_WS_URL = 'wss://ws.bitget.com/v3/ws/public';
+const V3_WS_URL = 'wss://ws.bitget.com/v3/ws/public';
 const MIN = 60_000;
-const REALITY_NATIVE: Record<string, string> = {
+const V3_NATIVE: Record<string, string> = {
   '1': '1m',
   '5': '5m',
   '15': '15m',
   '60': '1H',
   '240': '4H',
 };
-const REALITY_FOLDED: Record<
+const V3_FOLDED: Record<
   string,
   { interval: string; baseType: string; stepMs: number; weekly?: boolean }
 > = {
@@ -165,7 +172,12 @@ const REALITY_FOLDED: Record<
   '360': { interval: '1H', baseType: '1h', stepMs: 360 * MIN },
   '720': { interval: '4H', baseType: '4h', stepMs: 720 * MIN },
   '1D': { interval: '4H', baseType: '4h', stepMs: 1440 * MIN },
-  '1W': { interval: '4H', baseType: '4h', stepMs: 7 * 1440 * MIN, weekly: true },
+  '1W': {
+    interval: '4H',
+    baseType: '4h',
+    stepMs: 7 * 1440 * MIN,
+    weekly: true,
+  },
 };
 /** 1970-01-01 was a Thursday; weeks start on Monday, 4 days later. */
 const WEEK_ALIGN_MS = 4 * 1440 * MIN;
@@ -182,10 +194,35 @@ const isRealityPair = (symbolInfo: LibrarySymbolInfo): boolean => {
   );
 };
 
+type V3Feed = {
+  instType: string;
+  /** The venue's name for the pair on v3. */
+  symbol: string;
+  /** The exchange the history API serves the pair's candles under. */
+  historyExchange: string;
+};
+
+const getV3Feed = (symbolInfo: LibrarySymbolInfo): V3Feed | null => {
+  const venue = (symbolInfo.exchange || '').toLowerCase().replace(/^paper/, '');
+  const pair = symbolInfo.name;
+  if (venue === 'bitgetcoinm' && !/[A-Z]\d{2}$/.test(pair)) {
+    return {
+      instType: 'coin-futures',
+      symbol: `${pair}_CM`,
+      historyExchange: 'bitgetCoinm',
+    };
+  }
+  if (isRealityPair(symbolInfo)) {
+    return { instType: 'spot', symbol: pair, historyExchange: 'bitget' };
+  }
+  return null;
+};
+
 type BaseCandle = { o: number; h: number; l: number; c: number; v: number };
 
 /** The candles of the running bucket at the base width, from the history API. */
 const seedBucket = async (
+  exchange: string,
   pair: string,
   baseType: string,
   bucketStart: number
@@ -193,7 +230,7 @@ const seedBucket = async (
   const seeded = new Map<number, BaseCandle>();
   try {
     const url = new URL(`${import.meta.env.VITE_API_ENDPOINT}/candles`);
-    url.searchParams.set('exchange', 'bitget');
+    url.searchParams.set('exchange', exchange);
     url.searchParams.set('symbol', pair);
     url.searchParams.set('type', baseType);
     url.searchParams.set('startAt', `${bucketStart}`);
@@ -211,19 +248,20 @@ const seedBucket = async (
       }
     }
   } catch (error) {
-    console.error('Bitget Reality bucket seed failed:', error);
+    console.error('Bitget v3 bucket seed failed:', error);
   }
   return seeded;
 };
 
-const subscribeReality = (
+const subscribeV3 = (
   symbolInfo: LibrarySymbolInfo,
+  feed: V3Feed,
   resolution: ResolutionString,
   onTick: SubscribeBarsCallback,
   listenerGuid: string
 ): boolean => {
-  const native = REALITY_NATIVE[resolution];
-  const folded = REALITY_FOLDED[resolution];
+  const native = V3_NATIVE[resolution];
+  const folded = V3_FOLDED[resolution];
   if (!native && !folded) return false;
   const interval = native ?? folded.interval;
   const pair = symbolInfo.name;
@@ -249,15 +287,29 @@ const subscribeReality = (
       low = Math.min(low, c.l);
       volume += c.v;
     }
-    onTick({ time: bucketStart, open: first.o, high, low, close: last.c, volume });
+    onTick({
+      time: bucketStart,
+      open: first.o,
+      high,
+      low,
+      close: last.c,
+      volume,
+    });
   };
 
-  const ws = new WebSocket(REALITY_WS_URL);
+  const ws = new WebSocket(V3_WS_URL);
   ws.onopen = () => {
     ws.send(
       JSON.stringify({
         op: 'subscribe',
-        args: [{ instType: 'spot', topic: 'kline', symbol: pair, interval }],
+        args: [
+          {
+            instType: feed.instType,
+            topic: 'kline',
+            symbol: feed.symbol,
+            interval,
+          },
+        ],
       })
     );
     keepalives[listenerGuid] = setInterval(() => ws.send('ping'), 25_000);
@@ -268,14 +320,23 @@ const subscribeReality = (
       const data = JSON.parse(event.data);
       if (
         data.arg?.topic !== 'kline' ||
-        data.arg?.symbol !== pair ||
+        data.arg?.symbol !== feed.symbol ||
         data.arg?.interval !== interval ||
         !Array.isArray(data.data)
       ) {
         return;
       }
+      // COIN-M perpetuals open with a snapshot of 500 candles, oldest first
+      // (Reality tokens send none). Only the running candle, or the running
+      // bucket's, is live; an older one taken as the first bucket seen would
+      // seed that bucket's history through to now and fold months into one bar.
+      const latest = Math.max(
+        ...data.data.map((k: { start: string }) => +k.start)
+      );
+      const floor = native ? latest : bucketOf(latest);
       for (const k of data.data) {
         const start = +k.start;
+        if ((native ? start : bucketOf(start)) < floor) continue;
         const candle: BaseCandle = {
           o: +k.open,
           h: +k.high,
@@ -306,7 +367,12 @@ const subscribeReality = (
           bucketStart = bucket;
           base = new Map();
           if (isFirst) {
-            seeding = seedBucket(pair, folded.baseType, bucket).then((s) => {
+            seeding = seedBucket(
+              feed.historyExchange,
+              pair,
+              folded.baseType,
+              bucket
+            ).then((s) => {
               for (const [t, c] of s) if (!base.has(t)) base.set(t, c);
               seeding = null;
               emitFolded();
@@ -317,11 +383,11 @@ const subscribeReality = (
         if (!seeding) emitFolded();
       }
     } catch (error) {
-      console.error('Error parsing Bitget Reality kline message:', error);
+      console.error('Error parsing Bitget v3 kline message:', error);
     }
   };
   ws.onerror = (error) => {
-    console.error('Bitget Reality WebSocket error:', error);
+    console.error('Bitget v3 WebSocket error:', error);
   };
   subscriptions[listenerGuid] = ws;
   return true;
@@ -335,9 +401,10 @@ const subscribe = async (
   listenerGuid: string
 ): Promise<void> => {
   try {
+    const v3Feed = getV3Feed(symbolInfo);
     if (
-      isRealityPair(symbolInfo) &&
-      subscribeReality(symbolInfo, resolution, onTick, listenerGuid)
+      v3Feed &&
+      subscribeV3(symbolInfo, v3Feed, resolution, onTick, listenerGuid)
     ) {
       return;
     }

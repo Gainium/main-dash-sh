@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.59.8] - 2026-09-24
+
+### Fixed
+
+- Charts: Bitget COIN-M perpetual pairs had no live candle updates. They now
+  stream live on every timeframe except 3D and 1M, with the daily and weekly
+  bars aligned to UTC like the chart history.
+
 ## [2.59.7] - 2026-09-24
 
 ### Fixed
