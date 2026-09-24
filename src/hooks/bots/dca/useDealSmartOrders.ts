@@ -196,13 +196,25 @@ export function useDealSmartOrders({
    */
   const botVars = bot?.vars ?? null;
 
-  const projectionLabel = isCombo
-    ? 'Combo grid order'
-    : isIndicatorDca
-      ? DCA_MIN_PERC_LABEL
-      : mergedSettings?.dcaByMarket
-        ? DCA_BY_MARKET_LABEL
-        : 'Smart order';
+  /**
+   * A combo deal has two independent projections, each behind its own switch
+   * (legacy `useDCAPage.getChartOrders` draws both): its DCA levels when smart
+   * orders or DCA-by-market keep them off the exchange, and its minigrid levels
+   * when smart grids do. Gating the whole combo projection on smart grids drew
+   * nothing but the one resting DCA order for a combo with smart orders on.
+   */
+  const comboProjectsDca = Boolean(
+    isCombo && (mergedSettings?.useSmartOrders || mergedSettings?.dcaByMarket)
+  );
+  const comboProjectsGrid = Boolean(
+    isCombo && mergedSettings?.comboUseSmartGrids
+  );
+
+  const dcaProjectionLabel = isIndicatorDca
+    ? DCA_MIN_PERC_LABEL
+    : mergedSettings?.dcaByMarket
+      ? DCA_BY_MARKET_LABEL
+      : 'Smart order';
 
   // Resolve the rich Symbols object (precision + min/step) for the deal's pair.
   const symbol = useMemo<Symbols | null>(() => {
@@ -229,7 +241,7 @@ export function useDealSmartOrders({
       symbol &&
       mergedSettings &&
       (isCombo
-        ? mergedSettings.comboUseSmartGrids
+        ? comboProjectsDca || comboProjectsGrid
         : mergedSettings.useSmartOrders ||
           isIndicatorDca ||
           computeRegardlessOfSmartOrders)
@@ -374,7 +386,13 @@ export function useDealSmartOrders({
     // ladder on unresolved distances.
     const { settings: ladderSettings, minPercFromLast } = computed;
     const isLong = strategy === StrategyEnum.long;
-    const projType = isCombo ? DCAOrderTypeEnum.grid : DCAOrderTypeEnum.dca;
+    const projectsType = (type: DCAOrderTypeEnum | undefined) =>
+      isCombo
+        ? (type === DCAOrderTypeEnum.dca && comboProjectsDca) ||
+          (type === DCAOrderTypeEnum.grid && comboProjectsGrid)
+        : type === DCAOrderTypeEnum.dca;
+    const projectionLabelFor = (type: DCAOrderTypeEnum | undefined) =>
+      type === DCAOrderTypeEnum.grid ? 'Combo grid order' : dcaProjectionLabel;
 
     // Lowest/highest pending real DCA order — the legacy bound.
     const pendingDcaPrices = pendingOrders
@@ -425,7 +443,7 @@ export function useDealSmartOrders({
       });
       let level = -1;
       effectiveLadder = ladder.map((o) => {
-        if (o.type !== projType) return o;
+        if (o.type !== DCAOrderTypeEnum.dca) return o;
         level += 1;
         const price = thresholds[level];
         return price == null ? { ...o, hide: true } : { ...o, price };
@@ -433,7 +451,7 @@ export function useDealSmartOrders({
     }
 
     const projected = effectiveLadder.filter((o) => {
-      if (o.type !== projType) return false;
+      if (!projectsType(o.type)) return false;
       if (o.hide || o.note) return false;
       if (!(o.price > 0) || !(o.qty > 0)) return false;
       // Only un-placed levels: beyond the lowest/highest pending real DCA.
@@ -451,18 +469,18 @@ export function useDealSmartOrders({
 
     const side = isLong ? BotOrderSideEnum.buy : BotOrderSideEnum.sell;
     const sideLower: 'buy' | 'sell' = isLong ? 'buy' : 'sell';
-    const label = projectionLabel;
 
     const smartChartOrders: DCAGrid[] = projected.map((o) => ({
       ...o,
       side,
       grey: true,
-      greyLabel: label,
+      greyLabel: projectionLabelFor(o.type),
     }));
 
     const smartOrders: SmartViewOrder[] = projected.map((o, i) => {
       const qty = o.qty;
       const price = o.price;
+      const label = projectionLabelFor(o.type);
       return {
         __smart: true,
         id: `smart-${deal._id}-${i}-${roundP(price)}`,
@@ -490,7 +508,8 @@ export function useDealSmartOrders({
         orderType: label,
         origQty: `${qty}`,
         executedQty: '0',
-        typeOrder: isCombo ? 'dealGrid' : 'dealRegular',
+        typeOrder:
+          o.type === DCAOrderTypeEnum.grid ? 'dealGrid' : 'dealRegular',
         clientOrderId: '',
         time: 0,
       } as SmartViewOrder;
@@ -512,7 +531,9 @@ export function useDealSmartOrders({
     strategy,
     isCombo,
     isIndicatorDca,
-    projectionLabel,
+    comboProjectsDca,
+    comboProjectsGrid,
+    dcaProjectionLabel,
     pendingOrders,
     completedOrders,
   ]);

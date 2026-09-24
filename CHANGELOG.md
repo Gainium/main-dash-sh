@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.57.8] - 2026-09-24
+
+### Fixed
+
+- Combo bots with smart orders on now show the DCA levels a deal has not
+  placed yet as grey lines on the deal chart, and as smart-order rows in the
+  deal's orders list. Previously these levels were only projected when smart
+  grids were also on, and then only the minigrid levels, so the chart showed
+  just the one resting DCA order. Minigrid levels still show when smart grids
+  are on.
+
 ## [2.57.7] - 2026-09-24
 
 ### Fixed
