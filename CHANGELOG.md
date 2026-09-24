@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.61.3] - 2026-09-24
+
+### Fixed
+
+- A selected stock pair's chip in the bot form shows the exchange's spelling
+  again (`rSPY/USDT`), matching its row in the pair picker.
+
 ## [2.61.2] - 2026-09-24
 
 ### Fixed

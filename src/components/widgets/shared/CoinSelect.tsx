@@ -530,7 +530,12 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       const [splitBase = '?', splitQuote = '?'] = symbol.split('-');
       const baseAsset = item?.baseAsset ?? splitBase;
       const quoteAsset = item?.quoteAsset ?? splitQuote;
-      const label = item?.name ?? `${baseAsset}/${quoteAsset}`;
+      // A stock keeps the exchange's own spelling (`rSPY/USDT`), as its
+      // picker row does; `name` is the upper-cased form used for matching.
+      const label =
+        item?.baseLabel && item.quoteAsset
+          ? `${item.baseLabel}/${item.quoteAsset}`
+          : (item?.name ?? `${baseAsset}/${quoteAsset}`);
       const pairBody = (
         <>
           <CoinPair
