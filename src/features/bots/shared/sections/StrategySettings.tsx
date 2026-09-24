@@ -797,8 +797,8 @@ export const StrategySettings: React.FC<StrategySettingsProps> = ({
           !isBaseOrderPercentageMode &&
           !useRiskReward && (
             <SettingsRow
-              name="Use available balance if short"
-              tooltip="If the free balance can't fund the full deal (Base Order plus all Safety Orders), open it with what is available instead of skipping it. The Base Order and every Safety Order are reduced by the same ratio, so the ladder keeps its shape. Has no effect while Skip Balance Check is on."
+              name="Use available"
+              tooltip="If your free balance is insufficient for the full deal (Base Order plus all Safety Orders), the bot opens it with the balance that is available instead of skipping it. The Base Order and every Safety Order are reduced by the same ratio, so the ladder keeps its shape. In a multi-pair bot the available balance is not split: the first pair that needs it uses it and the other pairs are skipped until that deal closes. Has no effect while Skip Balance Check is on."
               trailing={
                 <Switch
                   id="reduce-to-available-balance"

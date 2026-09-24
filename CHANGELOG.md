@@ -1,11 +1,19 @@
 # Changelog
 
+## [2.62.1] - 2026-09-24
+
+### Changed
+
+- The DCA setting is now labelled **Use available**, and its tooltip explains
+  that in a multi-pair bot the available balance goes to one deal: the first
+  pair to need it; the other pairs are skipped.
+
 ## [2.62.0] - 2026-09-24
 
 ### Added
 
-- DCA bot form: **Use available balance if short** under Strategy → More
-  Settings. When the free balance can't fund the full deal, the bot opens it
+- DCA bot form: **Use available** under Strategy → More Settings. When the
+  free balance is insufficient for the full deal, the bot opens it
   with what is available, reducing the Base Order and every Safety Order by
   the same ratio, instead of skipping it. An optional **Minimum base order**
   skips the deal when the reduced Base Order would be smaller. Shown for fixed
