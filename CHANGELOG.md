@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.60.0] - 2026-09-24
+
+### Added
+
+- OKX Europe X-Perp futures are generally available: any OKX Europe account
+  (origin my.okx.com) can add the futures leg and build bots on X-Perp pairs.
+  The add-exchange notice now points out that X-Perps are USDC-margined.
+
 ## [2.59.9] - 2026-09-24
 
 ### Fixed

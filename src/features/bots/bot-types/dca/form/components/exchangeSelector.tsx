@@ -13,7 +13,6 @@ import { ExchangeEnum, OKXSource } from '@/types/exchange.types';
 import type { BotFormData } from '@/types/bots';
 import { getProviderIcon, isFuturesExchange } from '@/utils/exchangeUtils';
 import { useLocalUserSettingsStore } from '@/stores/localUserSettingsStore';
-import { useIsBetaUser } from '@/hooks/useIsBetaUser';
 import { cn } from '@/lib/utils';
 import { Star } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef } from 'react';
@@ -69,21 +68,12 @@ const ExchangeSelector = ({
     })}`;
   }, []);
 
-  // OKX Europe (my.okx.com) linear futures are the X-Perps — in BETA, so
-  // okxLinear EU accounts show only for the 'Alpha' group. The EU venue has
-  // no coin-margined product, so a legacy okxInverse+EU sub-account stays
-  // hidden for everyone. Never hide the one already selected, so an existing
-  // bot pinned to it resolves. Drop the beta filter at GA.
-  const okxEuFuturesAllowed = useIsBetaUser();
+  // OKX Europe (my.okx.com) has no coin-margined product, so a legacy
+  // okxInverse+EU sub-account stays hidden. Its linear leg (the X-Perps) is
+  // generally available. Never hide the one already selected, so an existing
+  // bot pinned to it resolves.
   const visibleExchanges = useMemo(() => {
-    const hiddenEuProviders = okxEuFuturesAllowed
-      ? [ExchangeEnum.okxInverse]
-      : [
-          ExchangeEnum.okxInverse,
-          ExchangeEnum.okxLinear,
-          ExchangeEnum.paperOkxInverse,
-          ExchangeEnum.paperOkxLinear,
-        ];
+    const hiddenEuProviders = [ExchangeEnum.okxInverse];
     return exchangesData?.filter(
       (exchange) =>
         exchange.uuid === currentExchange?.uuid ||
@@ -92,7 +82,7 @@ const ExchangeSelector = ({
           hiddenEuProviders.includes(exchange.provider)
         )
     );
-  }, [exchangesData, currentExchange?.uuid, okxEuFuturesAllowed]);
+  }, [exchangesData, currentExchange?.uuid]);
 
   // The uuid we last auto-dispatched. `updateFormData` writes to the bot-form
   // store asynchronously, so between the dispatch and `formData.exchangeUUID`

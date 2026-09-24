@@ -1,6 +1,5 @@
 import { paidExchanges } from '@/constants/subscription';
 import { useWeb3Wallet, type WalletProvider } from '@/hooks/useWeb3Wallet';
-import { useIsBetaUser } from '@/hooks/useIsBetaUser';
 import { track as analyticsTrack } from '@/lib/analytics';
 import { useEntitlements } from '@/lib/entitlements';
 import { Slot } from '@/lib/extensions';
@@ -450,11 +449,6 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
   const exchangeConfig = useMemo(() => {
     return getExchangeConfig(formData.provider);
   }, [formData.provider]);
-
-  // OKX Europe X-Perp futures are in beta — only the 'Alpha' group can add
-  // EU futures; everyone else is auto-corrected to Spot (the backend
-  // enforces the same rule). Remove at GA.
-  const okxEuFuturesAllowed = useIsBetaUser();
 
   // Get paper trading assets for current exchange. Origin-aware: an OKX
   // account on the Europe origin funds from the `okxEu` lists (no USDT on
@@ -1753,46 +1747,18 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                           okxSource: value as OKXSource,
                         };
                         // OKX Europe (my.okx.com) futures are the linear,
-                        // USDC-settled X-Perps — supported on the okxLinear
-                        // rail, currently in BETA (Alpha group only). For
-                        // beta users the EU venue simply has no coin-margined
-                        // (inverse) product, so an Inverse selection corrects
-                        // to Linear; Spot/Linear/All stay as picked. For
-                        // everyone else any futures-bearing selection
-                        // auto-corrects to Spot (the pre-beta behavior; the
-                        // backend enforces the same rule).
+                        // USDC-settled X-Perps on the okxLinear rail. The EU
+                        // venue has no coin-margined (inverse) product, so an
+                        // Inverse selection corrects to Linear; Spot/Linear/All
+                        // stay as picked.
                         if (value === OKXSource.my) {
-                          if (okxEuFuturesAllowed) {
-                            if (
-                              formData.provider === ExchangeEnum.okxInverse
-                            ) {
-                              updates.provider = ExchangeEnum.okxLinear;
-                            }
-                            if (
-                              formData.provider ===
-                              ExchangeEnum.paperOkxInverse
-                            ) {
-                              updates.provider = ExchangeEnum.paperOkxLinear;
-                            }
-                          } else {
-                            if (
-                              [
-                                ExchangeEnum.okxAll,
-                                ExchangeEnum.okxLinear,
-                                ExchangeEnum.okxInverse,
-                              ].includes(formData.provider)
-                            ) {
-                              updates.provider = ExchangeEnum.okxSpot;
-                            }
-                            if (
-                              [
-                                ExchangeEnum.paperOkxAll,
-                                ExchangeEnum.paperOkxLinear,
-                                ExchangeEnum.paperOkxInverse,
-                              ].includes(formData.provider)
-                            ) {
-                              updates.provider = ExchangeEnum.paperOkxSpot;
-                            }
+                          if (formData.provider === ExchangeEnum.okxInverse) {
+                            updates.provider = ExchangeEnum.okxLinear;
+                          }
+                          if (
+                            formData.provider === ExchangeEnum.paperOkxInverse
+                          ) {
+                            updates.provider = ExchangeEnum.paperOkxLinear;
                           }
                         }
                         // Origin change swaps the funding-asset universe for a
@@ -1839,22 +1805,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                         <span>
                           OKX Europe offers a restricted product set. Through
                           Gainium you can trade <strong>USDC/EUR spot</strong>{' '}
-                          pairs
-                          {okxEuFuturesAllowed ? (
-                            <>
-                              {' '}
-                              and <strong>X-Perp futures</strong>
-                            </>
-                          ) : (
-                            <>
-                              {' '}
-                              on EU accounts; <strong>
-                                X-Perp futures
-                              </strong>{' '}
-                              support is in beta and not yet generally
-                              available
-                            </>
-                          )}{' '}
+                          pairs and <strong>X-Perp futures</strong>{' '}
+                          (USDC-margined — keep some USDC in your account to
+                          trade them){' '}
                           — USDT pairs and coin-margined (inverse) contracts
                           aren&apos;t available.
                         </span>
