@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.62.4] - 2026-09-24
+
+### Fixed
+
+- Self-hosted: the **Email me a link to set a password** button added in
+  2.62.3 is no longer shown. Self-hosted accounts are created with a password
+  and the self-hosted server has no email reset, so the button could only fail.
+
 ## [2.62.3] - 2026-09-24
 
 ### Fixed

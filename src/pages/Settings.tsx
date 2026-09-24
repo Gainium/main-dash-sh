@@ -1098,11 +1098,15 @@ const Settings: React.FC = () => {
                         )}
                       </button>
                     </div>
-                    <p className="mt-1 text-xs text-muted-foreground">
-                      Don&apos;t know it? If you signed up with an email link or
-                      Google, use &quot;Email me a link to set a password&quot;
-                      below.
-                    </p>
+                    {/* Cloud only: self-hosted accounts register with a
+                        password and have no email-reset endpoint. */}
+                    {IS_CLOUD && (
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Don&apos;t know it? If you signed up with an email link
+                        or Google, use &quot;Email me a link to set a
+                        password&quot; below.
+                      </p>
+                    )}
                   </div>
 
                   <div>
@@ -1230,19 +1234,23 @@ const Settings: React.FC = () => {
                 </div>
               </div>
 
-              <div className="flex flex-wrap items-center justify-between gap-sm pt-4">
-                <Button
-                  type="button"
-                  variant="link"
-                  className="px-0 text-muted-foreground"
-                  onClick={handleEmailPasswordLink}
-                  disabled={requestPasswordLink.isPending || !email}
-                >
-                  {requestPasswordLink.isPending && (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  )}
-                  Email me a link to set a password
-                </Button>
+              <div
+                className={`flex flex-wrap items-center gap-sm pt-4 ${IS_CLOUD ? 'justify-between' : 'justify-end'}`}
+              >
+                {IS_CLOUD && (
+                  <Button
+                    type="button"
+                    variant="link"
+                    className="px-0 text-muted-foreground"
+                    onClick={handleEmailPasswordLink}
+                    disabled={requestPasswordLink.isPending || !email}
+                  >
+                    {requestPasswordLink.isPending && (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    )}
+                    Email me a link to set a password
+                  </Button>
+                )}
                 <Button
                   className="bg-primary"
                   onClick={handlePasswordSubmit}
