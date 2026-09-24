@@ -117,16 +117,21 @@ const convertBitgetInterval = (interval: string): string => {
   return intervalMap[interval] || 'candle1m';
 };
 
-// Market type detection for Bitget
-const getBitgetMarketType = (exchange?: string): 'spot' | 'linear' => {
-  if (!exchange) return 'spot';
-  if (exchange.includes('linear')) return 'linear';
-  return 'spot';
-};
-
-// Get Bitget instType based on market type
-const getBitgetInstType = (marketType: 'spot' | 'linear'): string => {
-  return marketType === 'linear' ? 'USDT-FUTURES' : 'SPOT';
+/*
+ * The v2 `instType` of a pair, from the exchange enum the chart carries
+ * upper-cased (`BITGETUSDM`, `PAPERBITGETCOINM`, ...). The USD-M line holds
+ * both the USDT-margined perps and the USDC-margined ones (`BTCPERP`), which
+ * Bitget files under separate product types; paper venues stream the live
+ * market. A wrong instType either ticks another market's price (spot for a
+ * perp) or is rejected and leaves the live bar frozen.
+ */
+const getBitgetInstType = (exchange: string | undefined, pair: string) => {
+  const venue = (exchange ?? '').toLowerCase().replace(/^paper/, '');
+  if (venue === 'bitgetcoinm') return 'COIN-FUTURES';
+  if (venue === 'bitgetusdm') {
+    return pair.endsWith('USDT') ? 'USDT-FUTURES' : 'USDC-FUTURES';
+  }
+  return 'SPOT';
 };
 
 // WebSocket subscription management
@@ -338,11 +343,10 @@ const subscribe = async (
     }
     const interval = config.resolutionMap[resolution] || '1min';
 
-    // Detect market type from exchange
-    const marketType = getBitgetMarketType(symbolInfo.exchange);
-    const wsUrl = config.websocketUrls?.[marketType];
+    const instType = getBitgetInstType(symbolInfo.exchange, symbolInfo.name);
+    const wsUrl =
+      config.websocketUrls?.[instType === 'SPOT' ? 'spot' : 'linear'];
     const bitgetChannel = convertBitgetInterval(interval);
-    const instType = getBitgetInstType(marketType);
 
     const ws = new WebSocket(wsUrl ?? '');
 
@@ -370,7 +374,9 @@ const subscribe = async (
           data.arg?.instId === symbolInfo.name &&
           data.data
         ) {
-          const klineData = data.data[0];
+          // The subscribe snapshot is 500 candles, oldest first; an update
+          // carries one. Either way the running bar is the last.
+          const klineData = data.data[data.data.length - 1];
           if (klineData && Array.isArray(klineData)) {
             const bar: Bar = {
               time: parseInt(klineData[0]), // timestamp

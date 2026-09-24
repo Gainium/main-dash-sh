@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.59.7] - 2026-09-24
+
+### Fixed
+
+- Charts: Bitget USDT-M futures pairs updated their live candle from the spot
+  market, so the last bar showed the spot price instead of the contract's.
+  USDT-M and USDC-M perpetuals and COIN-M delivery contracts now stream from
+  their own futures market; USDC-M and COIN-M delivery charts previously had
+  no live updates at all.
+
 ## [2.59.6] - 2026-09-24
 
 ### Fixed
