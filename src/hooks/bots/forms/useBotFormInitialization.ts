@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 
 import {
   useBotFormState,
@@ -101,8 +101,19 @@ export const useBotFormInitialization = (
 ): void => {
   const { mode, bot, botSettings, mapper, debug, botType } = options;
 
-  const { setFormData, setErrors, setIsDirty, setIsLoading, setBotVars } =
-    useBotFormState();
+  const {
+    setFormData,
+    setErrors,
+    setIsDirty,
+    setIsLoading,
+    setBotVars,
+    isDirty,
+  } = useBotFormState();
+  // Read through a ref, not the dep list: Save clears `isDirty` before its
+  // refetch lands, and re-running on that flip would re-map the OLD settings.
+  const isDirtyRef = useRef(isDirty);
+  isDirtyRef.current = isDirty;
+  const lastHydratedSourceKeyRef = useRef<string>('');
 
   useEffect(() => {
     if (mode === 'create') {
@@ -119,6 +130,24 @@ export const useBotFormInitialization = (
       botSettings ?? (bot as { settings?: unknown } | undefined)?.settings;
 
     if (!settingsSource) {
+      return;
+    }
+
+    // A running bot's `bot` is replaced by a new object with the same data every
+    // few seconds (persisted-store rehydrate, list refetch, `bot sends settings`
+    // merges). Re-hydrating on each one spread the saved settings over the form
+    // and cleared `isDirty`, so an unsaved edit snapped back mid-typing. Skip
+    // when the user has unsaved edits and this is the source already hydrated.
+    // The last segment still lets the full `botSettings` payload replace an
+    // earlier hydrate from the list's `bot.settings`.
+    const sourceBot = bot as
+      { _id?: unknown; exchangeUUID?: unknown } | undefined;
+    const sourceKey = `${mode}:${botType}:${String(
+      sourceBot?._id ?? sourceBot?.exchangeUUID ?? 'unknown'
+    )}:${botSettings ? 'settings' : 'bot'}`;
+
+    if (isDirtyRef.current && lastHydratedSourceKeyRef.current === sourceKey) {
+      setIsLoading(false);
       return;
     }
 
@@ -191,6 +220,7 @@ export const useBotFormInitialization = (
       });
 
       setBotVars(normalizedVars);
+      lastHydratedSourceKeyRef.current = sourceKey;
 
       setErrors({});
       setIsDirty(false);

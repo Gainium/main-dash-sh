@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.57.9] - 2026-09-24
+
+### Fixed
+
+- Bot Edit page: changes you have not saved yet (a new name, a Custom volume
+  filter size, any setting) no longer snap back to the saved values a few
+  seconds later while the bot is running. They stay until you save or leave
+  the page. What the form shows after saving is unchanged.
+
 ## [2.57.8] - 2026-09-24
 
 ### Fixed
