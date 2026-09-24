@@ -1,5 +1,22 @@
 # Changelog
 
+## [2.59.0] - 2026-09-24
+
+### Added
+
+- Pairs carry `underlying`, the ticker of the stock a tokenized stock tracks,
+  and stock icons use it first. Bitget Reality tokens show the logo of the
+  company they track, including one-letter tickers such as `rT` (AT&T).
+  Against a backend that does not serve the field yet, the pair list loads
+  without it.
+
+### Fixed
+
+- Bitget stock perpetuals whose ticker starts with R (`RDDT`, `RKLB`) showed
+  the logo of a different ticker: a leading R was removed from every Bitget
+  stock as if it were a Reality-token prefix. Bitget tickers are no longer
+  inferred from the symbol's shape.
+
 ## [2.58.0] - 2026-09-24
 
 ### Added

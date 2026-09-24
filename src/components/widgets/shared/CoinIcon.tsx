@@ -1,4 +1,8 @@
 import type { AssetClass } from '@/hooks/useTradingPairs';
+import {
+  useTradingPairsDataStore,
+  type TradingPair,
+} from '@/stores/tradingPairsDataStore';
 // Hyperliquid HIP-3 builder-dex bases carry a `dex:` prefix (`xyz:AAPL`), which
 // is stripped so the clean underlying drives icon resolution.
 import { stripDexPrefix } from '@/utils/pairs';
@@ -20,11 +24,12 @@ export interface CoinIconProps {
   assetClass?: AssetClass;
   /**
    * The pair's `exchange` (an `ExchangeEnum` value, e.g. `bitget`, `bybit`,
-   * `bybitLinear`). Only used for stock/etf rows: it gates the *upper-case*
-   * tokenized-stock wrapper strips (Bitget reality `RAAPL`, Bybit-spot xstock
-   * `AAPLX`) so a clean ticker that legitimately starts with R / ends in X
-   * (`RBLX`, `NFLX`) on another venue isn't mangled. Optional — absent => only
-   * the unambiguous lower-case wrappers strip. See `normalizeStockTicker`.
+   * `bybitLinear`). Only used for stock/etf rows: it finds the pair's
+   * `underlying` in the pairs store (Bitget Reality `rT` → `T`) and gates the
+   * *upper-case* xstock `X`-suffix strip (Bybit spot, Kraken) so a clean
+   * ticker ending in X (`NFLX`) on another venue isn't mangled. Optional —
+   * absent => only the unambiguous lower-case wrappers strip. See
+   * `normalizeStockTicker`.
    */
   exchange?: string;
 }
@@ -32,15 +37,21 @@ export interface CoinIconProps {
 /**
  * Canonical equity-ticker normalization for the stock-icon URL — MUST stay in
  * lock-step with the backend `normalizeStockTicker` (main-app
- * `core/src/utils/assetClass.ts`). Lower-case wrappers (`rTSLA`/`AAPLx`/
- * `AAPLon`) are unambiguous and strip on any venue; upper-case wrappers
- * (`RAAPL`/`AAPLX`) collide with clean tickers (`NFLX`/`RBLX`) so they strip
- * only on the venue that mints them — Bitget reality (`R`-prefix, any bitget
- * market) and Bybit *spot* xstocks (`X`-suffix, exchange `bybit`; the clean
- * perps live on `bybitLinear`). `exchange` absent => only the safe lower-case
- * strips apply.
+ * `core/src/utils/assetClass.ts`). The pair's `underlying` wins: the backend
+ * sets it from the exchange's own wrapper flag (Bitget Reality `rT` → `T`) or
+ * a hand-checked map. Otherwise lower-case wrappers (`rTSLA`/`AAPLx`/
+ * `AAPLon`) strip on any venue; the upper-case `X` suffix collides with clean
+ * tickers (`NFLX`) so it strips only on the venues that mint it — Bybit *spot*
+ * xstocks (exchange `bybit`; the clean perps live on `bybitLinear`) and
+ * Kraken. Bitget is never handled by shape: its stock perps are clean tickers,
+ * some starting with R (`RDDT`).
  */
-const normalizeStockTicker = (symbol: string, exchange?: string): string => {
+const normalizeStockTicker = (
+  symbol: string,
+  exchange?: string,
+  underlying?: string
+): string => {
+  if (underlying) return underlying.toUpperCase();
   const s = stripDexPrefix(symbol || '');
   // Normalize the venue: lower-case and drop the `paper` prefix so paper twins
   // (paperBitget / paperBybit / paperBybitLinear …) gate like their real
@@ -60,9 +71,6 @@ const normalizeStockTicker = (symbol: string, exchange?: string): string => {
   if (/^[A-Za-z0-9.]+x$/.test(ledgerStripped))
     return ledgerStripped.slice(0, -1).toUpperCase(); // AAPLx → AAPL, BRK.Bx → BRK.B
   const upper = ledgerStripped.toUpperCase();
-  if (venue.startsWith('bitget') && /^R[A-Z][A-Z0-9]+$/.test(upper)) {
-    return upper.slice(1); // Bitget reality RAAPL → AAPL
-  }
   // Upper-case `X` xstock suffix: strip only where the venue's stock listings
   // are exclusively tokenized — Bybit SPOT (`bybit`; clean NFLX is on
   // bybitLinear) and Kraken (any market; Kraken has no clean equity perps).
@@ -73,6 +81,32 @@ const normalizeStockTicker = (symbol: string, exchange?: string): string => {
     return upper.slice(0, -1); // xstock AAPLX → AAPL
   }
   return upper;
+};
+
+// base name → `underlying`, per exchange's pair map. Built once per pairs
+// refresh (the store replaces each exchange's map object on `setPairs`), so an
+// icon list of thousands of rows does not scan the pairs once per row. Keyed
+// upper-case: callers pass the base as listed (`rT`) or upper-cased (`RT`).
+const underlyingIndex = new WeakMap<
+  Record<string, TradingPair>,
+  Map<string, string>
+>();
+const lookupUnderlying = (
+  pairs: Record<string, TradingPair> | undefined,
+  base: string
+): string | undefined => {
+  if (!pairs) return undefined;
+  let index = underlyingIndex.get(pairs);
+  if (!index) {
+    index = new Map();
+    for (const p of Object.values(pairs)) {
+      if (p.underlying) {
+        index.set(p.baseAsset.name.toUpperCase(), p.underlying);
+      }
+    }
+    underlyingIndex.set(pairs, index);
+  }
+  return index.get(base.toUpperCase());
 };
 
 // Asset classes that resolve to a locally-shipped SVG badge under
@@ -137,6 +171,13 @@ const CoinIcon: React.FC<CoinIconProps> = ({
 }) => {
   const [imageSrc, setImageSrc] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const isStock = assetClass === 'stock' || assetClass === 'etf';
+  const exchangePairs = useTradingPairsDataStore((s) =>
+    isStock && exchange ? s.pairsByProvider[exchange] : undefined
+  );
+  const underlying = isStock
+    ? lookupUnderlying(exchangePairs, symbol || '')
+    : undefined;
 
   // Size configurations
   const sizeClasses = {
@@ -287,11 +328,11 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     // "save-then-serve-ourselves" model as crypto coin icons. The frontend
     // never calls logo.dev directly. Missing/unresolvable → text fallback.
     if (assetClass === 'stock' || assetClass === 'etf') {
-      // Venue-gated canonical equity-ticker rule (mirrors the backend) — maps a
-      // tokenized-stock base (Bitget reality RAAPL, Bybit-spot xstock AAPLX,
-      // lower-case AAPLon/AAPLx/rTSLA) to its clean underlying for logo lookup,
-      // without mangling a clean ticker like NFLX/RBLX. See normalizeStockTicker.
-      const ticker = normalizeStockTicker(symbol, exchange);
+      // The pair's `underlying` (Bitget Reality rT → T) wins; otherwise the
+      // venue-gated rule (mirrors the backend) maps a tokenized-stock base
+      // (Bybit-spot xstock AAPLX, lower-case AAPLon/AAPLx/rTSLA) to its clean
+      // ticker without mangling NFLX/RDDT. See normalizeStockTicker.
+      const ticker = normalizeStockTicker(symbol, exchange, underlying);
       const apiBase = (import.meta.env['VITE_API_ENDPOINT'] as string) || '';
       const stockPath = `${apiBase}/icons/stock/${ticker}.png`;
       tryImage(stockPath)
@@ -336,7 +377,7 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [symbol, assetClass, exchange]);
+  }, [symbol, assetClass, exchange, underlying]);
 
   // Handle missing symbol
   if (!symbol) {

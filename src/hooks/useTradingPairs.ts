@@ -58,6 +58,10 @@ export interface TradingPair {
   // Absent for every other exchange => treated as canonical. Drives the
   // pair-picker "Canonical only" toggle.
   isCanonical?: boolean;
+  // Clean ticker of the stock a tokenized-stock market tracks (`AAPL` for
+  // Bitget's `rAAPL`), set by the backend from the exchange's own flag or a
+  // hand-checked map. Absent => the base name is the ticker.
+  underlying?: string;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // scopes an account's pairs by matching this to the account's okxSource.
@@ -123,6 +127,9 @@ export function useTradingPairs() {
     },
     {
       enabled: shouldFetch,
+      // An older backend has no `underlying` on pairs; without the fallback
+      // that one unknown field would fail the whole pairs load.
+      fallbackQuery: GraphQlQuery.getAllPairs(undefined, false),
     }
   );
 

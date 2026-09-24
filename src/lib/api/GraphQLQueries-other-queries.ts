@@ -581,7 +581,9 @@ export const otherQueries = {
     return { query };
   },
 
-  getAllPairs: (fields?: string) => {
+  // `withUnderlying: false` builds the same query without `underlying`, for
+  // `useGraphQL`'s `fallbackQuery` against a backend that predates the field.
+  getAllPairs: (fields?: string, withUnderlying = true) => {
     const query = `query getAllPairs{
             getAllPairs{
                 status
@@ -609,6 +611,7 @@ export const otherQueries = {
                         crossAvailable
                         assetCategory
                         isCanonical
+                        ${withUnderlying ? 'underlying' : ''}
                         source`
                         }
                     }

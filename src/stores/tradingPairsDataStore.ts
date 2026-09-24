@@ -27,6 +27,10 @@ export interface TradingPair {
   // Canonical/curated-listing flag (HL spot only; absent elsewhere => canonical).
   // Preserved through the store for the pair-picker "Canonical only" toggle.
   isCanonical?: boolean;
+  // Clean ticker of the stock a tokenized-stock market tracks (`AAPL` for
+  // Bitget's `rAAPL`), set by the backend from the exchange's own flag or a
+  // hand-checked map. Absent => the base name is the ticker.
+  underlying?: string;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // serves an account its pairs by matching this to the account's okxSource.
