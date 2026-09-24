@@ -829,6 +829,11 @@ export async function createDCAOrders(
         maxVolumeSize = Infinity;
       }
 
+      // Unrounded running level of the percentage ladder. Each level is
+      // `step × scale^(i-1)` of the start price beyond the one before; only
+      // the level itself is rounded to the tick, so the rounding does not carry
+      // into every level after it.
+      let percentageLevel = latestPrice;
       for (let i = 1; i <= ordersCount; i++) {
         if (scaleAr && !dcaArValues.length) {
           continue;
@@ -844,13 +849,11 @@ export async function createDCAOrders(
           useVolumeChange
             ? 1
             : volumeScale ** (i - 1);
-        let price = math.round(
-          (i === 1 ? latestPrice : (orders[orders.length - 1]?.price ?? 0)) -
-            (settings.strategy === StrategyEnum.long ? 1 : -1) *
-              gridStep *
-              stepVal,
-          symbol.priceAssetPrecision
-        );
+        percentageLevel -=
+          (settings.strategy === StrategyEnum.long ? 1 : -1) *
+          gridStep *
+          stepVal;
+        let price = math.round(percentageLevel, symbol.priceAssetPrecision);
         if (settings.dcaCondition === DCAConditionEnum.indicators) {
           const indicatorValue =
             +(
@@ -926,7 +929,18 @@ export async function createDCAOrders(
           }
         }
         if (i > 1) {
-          if (price === orders[orders.length - 1].price) {
+          const prevPrice = orders[orders.length - 1].price;
+          if (
+            price === prevPrice ||
+            // A percentage level rounded off the unrounded ladder can land
+            // behind the previous one when this guard pushed that one a tick
+            // further.
+            (settings.dcaCondition !== DCAConditionEnum.indicators &&
+              settings.dcaCondition !== DCAConditionEnum.custom &&
+              (settings.strategy === StrategyEnum.long
+                ? price > prevPrice
+                : price < prevPrice))
+          ) {
             price = math.round(
               orders[orders.length - 1].price +
                 (settings.strategy === StrategyEnum.long ? -1 : 1) *
@@ -1764,16 +1778,19 @@ export async function createComboOrders(
     }
     let orders: DCAGrid[] = [];
     if (settings.useDca && symbol) {
+      // Unrounded running level of the ladder. Each level is
+      // `step × scale^(i-1)` of the start price beyond the one before; only
+      // the level itself is rounded to the tick, so the rounding does not carry
+      // into every level after it.
+      let ladderLevel = latestPrice;
       for (let i = 1; i <= parseInt(settings.ordersCount); i++) {
         const stepVal = stepScale ** (i - 1);
         const volumeVal = volumeScale ** (i - 1);
-        let price = math.round(
-          (i === 1 ? latestPrice : orders[orders.length - 1].price) -
-            (settings.strategy === StrategyEnum.long ? 1 : -1) *
-              gridStep *
-              stepVal,
-          symbol.priceAssetPrecision
-        );
+        ladderLevel -=
+          (settings.strategy === StrategyEnum.long ? 1 : -1) *
+          gridStep *
+          stepVal;
+        let price = math.round(ladderLevel, symbol.priceAssetPrecision);
         if (i === 1) {
           if (price === baseOrder.price) {
             price = math.round(
@@ -1785,7 +1802,15 @@ export async function createComboOrders(
           }
         }
         if (i > 1) {
-          if (price === orders[orders.length - 1].price) {
+          const prevPrice = orders[orders.length - 1].price;
+          if (
+            price === prevPrice ||
+            // A level rounded off the unrounded ladder can land behind the
+            // previous one when this guard pushed that one a tick further.
+            (settings.strategy === StrategyEnum.long
+              ? price > prevPrice
+              : price < prevPrice)
+          ) {
             price = math.round(
               orders[orders.length - 1].price +
                 (settings.strategy === StrategyEnum.long ? -1 : 1) *

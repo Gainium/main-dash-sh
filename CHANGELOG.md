@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.59.5] - 2026-09-24
+
+### Fixed
+
+- Combo bot form: the safety-order preview on pairs with a coarse price step
+  now shows each order at the percentage you set, the same fix as the DCA
+  preview. Each level's mini-grid keeps its width. The preview matches where
+  the bot now places the orders.
+
+## [2.59.4] - 2026-09-24
+
+### Fixed
+
+- DCA bot form: the safety-order preview on pairs with a coarse price step
+  now shows each order at the percentage you set. It used to let rounding
+  build up from one order to the next, so the last order could show well
+  above or below the configured depth (for example 35.7% for 30 × 1%).
+  The preview matches where the bot now places the orders.
+
 ## [2.59.3] - 2026-09-24
 
 ### Fixed
