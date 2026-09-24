@@ -2086,7 +2086,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
     label: 'Oscillator Crossover',
     shortLabel: 'Oscillator XO',
     category: IndicatorCategories.Technical,
-    description: 'Crossovers between paired oscillators (e.g., RSI vs MA).',
+    description: 'Crossovers between two oscillators (e.g., RSI vs MFI).',
     supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
     fields: [
       makeSelectField({
