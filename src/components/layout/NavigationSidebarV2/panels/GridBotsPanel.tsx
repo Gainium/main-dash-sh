@@ -14,9 +14,10 @@ import { formatCurrency } from '@/lib/utils';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getBotTypeRoute } from '@/utils/botUtils';
-import { Star, X } from 'lucide-react';
+import { FlaskConical, Star, X } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PanelLinkItem from './PanelLinkItem';
 import RightPanel from './RightPanel';
 import { BotTypesEnum } from '@/types';
 
@@ -264,6 +265,16 @@ const GridBotsPanel: React.FC<GridBotsPanelProps> = ({
               cols={2}
             />
           </div>
+
+          <PanelLinkItem
+            label="Backtests"
+            icon={<FlaskConical className="h-4 w-4" />}
+            onClick={() => {
+              navigate('/grid/backtests');
+              onNavigate?.();
+              if (!navigationSecondaryPinned) onClose();
+            }}
+          />
 
           {starredBots.length > 0 && (
             <div>

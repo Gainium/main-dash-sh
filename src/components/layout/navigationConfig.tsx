@@ -6,6 +6,7 @@ import {
   BookOpen,
   Building2,
   Bot,
+  FlaskConical,
   Braces,
   Home,
   LayoutDashboard,
@@ -187,6 +188,14 @@ export const getNavigationSections = (
           icon: <DCAIcon className="w-4 h-4" />,
           label: 'Trading Bots',
           href: '/bot',
+          children: [
+            {
+              id: 'trading-bots-backtests',
+              icon: <FlaskConical className="w-4 h-4" />,
+              label: 'Backtests',
+              href: '/bot/backtests',
+            },
+          ],
           ...(!readOnly
             ? {
                 action: {
@@ -202,6 +211,14 @@ export const getNavigationSections = (
           icon: <GridIcon className="w-4 h-4" />,
           label: 'Grid Bots',
           href: '/grid',
+          children: [
+            {
+              id: 'grid-bots-backtests',
+              icon: <FlaskConical className="w-4 h-4" />,
+              label: 'Backtests',
+              href: '/grid/backtests',
+            },
+          ],
           ...(!readOnly
             ? {
                 action: {
@@ -217,6 +234,14 @@ export const getNavigationSections = (
           icon: <ComboIcon className="w-4 h-4" />,
           label: 'Combo Bots',
           href: '/combo',
+          children: [
+            {
+              id: 'combo-bots-backtests',
+              icon: <FlaskConical className="w-4 h-4" />,
+              label: 'Backtests',
+              href: '/combo/backtests',
+            },
+          ],
           ...(!readOnly
             ? {
                 action: {
@@ -232,6 +257,14 @@ export const getNavigationSections = (
           icon: <HedgeDCAIcon className="w-3 h-3" />,
           label: 'Hedge DCA Bots',
           href: '/hedge/bot',
+          children: [
+            {
+              id: 'hedge-dca-bots-backtests',
+              icon: <FlaskConical className="w-4 h-4" />,
+              label: 'Backtests',
+              href: '/hedge/bot/backtests',
+            },
+          ],
           ...(!readOnly
             ? {
                 action: {
@@ -247,6 +280,14 @@ export const getNavigationSections = (
           icon: <HedgeComboIcon className="w-3 h-3" />,
           label: 'Hedge Combo Bots',
           href: '/hedge/combo',
+          children: [
+            {
+              id: 'hedge-combo-bots-backtests',
+              icon: <FlaskConical className="w-4 h-4" />,
+              label: 'Backtests',
+              href: '/hedge/combo/backtests',
+            },
+          ],
           ...(!readOnly
             ? {
                 action: {

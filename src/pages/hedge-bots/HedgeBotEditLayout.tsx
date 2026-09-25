@@ -47,6 +47,7 @@ import type { WidgetMenuActionItem } from '@/components/widgets/WidgetWrapper';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HedgeBacktestListView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
+import { HEDGE_BACKTEST_LOAD_KEY } from '@/pages/hedge-bots/HedgeBotBacktests';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign/BacktestResultsFullModal';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
@@ -1357,6 +1358,24 @@ export const HedgeBotEditLayout: React.FC = () => {
     },
     [legBotType]
   );
+
+  // "Load in settings" from the standalone backtests page stages the row in
+  // sessionStorage and navigates here; apply it once on a fresh create form.
+  useEffect(() => {
+    if (mode !== 'create' || botId) return;
+    const staged = sessionStorage.getItem(HEDGE_BACKTEST_LOAD_KEY);
+    if (!staged) return;
+    sessionStorage.removeItem(HEDGE_BACKTEST_LOAD_KEY);
+    try {
+      handleLoadBacktestIntoForm(JSON.parse(staged) as HedgeBacktestHistoryItem);
+    } catch (error) {
+      logger.error('[HedgeBotEditLayout] Staged backtest parse failed', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    // Mount-only: consume the one-shot hand-off exactly once.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Footer "Backtest complete · View results →" chip (T1). Derived from the
   // combined `hedgeResult` so the headline net %/win/deals reconcile with the

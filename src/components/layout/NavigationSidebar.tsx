@@ -1246,125 +1246,6 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                               )}
                             </div>
 
-                            {/* Recent visits for top-level bot items */}
-                            {itemSupportsRecents &&
-                              itemRecentVisits.length > 0 &&
-                              isExpanded && (
-                                <div
-                                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
-                                    isActive ||
-                                    hoveredCategory === categoryForItem ||
-                                    itemIsCategoryExpanded
-                                      ? 'max-h-[2000px] opacity-100'
-                                      : 'max-h-0 opacity-0'
-                                  }`}
-                                >
-                                  <div
-                                    className={`mt-2 px-2 ml-8 transform transition-transform duration-300 ease-in-out ${
-                                      isActive ||
-                                      hoveredCategory === categoryForItem ||
-                                      itemIsCategoryExpanded
-                                        ? 'translate-y-0'
-                                        : '-translate-y-2'
-                                    }`}
-                                  >
-                                    <div className="flex flex-wrap gap-1">
-                                      {itemVisibleVisits.map((visit, idx) => {
-                                        const isActiveVisit =
-                                          activePage === visit.path;
-                                        const pathParts = visit.path.split('/');
-                                        const id =
-                                          pathParts[pathParts.length - 1];
-                                        const shortId =
-                                          id.length > 6
-                                            ? `...${id.slice(-6)}`
-                                            : id;
-                                        const statusConfig = visit.botStatus
-                                          ? getBotStatusConfig(visit.botStatus)
-                                          : null;
-                                        const pnlText =
-                                          typeof visit.botPnlPercentage ===
-                                          'number'
-                                            ? formatPnLPercentage(
-                                                visit.botPnlPercentage
-                                              )
-                                            : null;
-                                        const isProfitable =
-                                          (visit.botPnlPercentage ?? 0) >= 0;
-
-                                        return (
-                                          <Link
-                                            key={`${visit.path}-${idx}`}
-                                            to={visit.path}
-                                            onClick={() => onNavigate?.()}
-                                          >
-                                            <Badge
-                                              variant="outline"
-                                              className={`text-xs px-1.5 py-0.5 h-5 cursor-pointer transition-colors border-dashed flex items-center gap-0.5 ${
-                                                isActiveVisit
-                                                  ? 'bg-primary/10 text-primary border-primary/50'
-                                                  : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 border-muted-foreground/20'
-                                              }`}
-                                              style={{ opacity: 0.8 }}
-                                              title={visit.path}
-                                            >
-                                              {statusConfig && (
-                                                <span
-                                                  className="w-1.5 h-1.5 rounded-full"
-                                                  style={{
-                                                    backgroundColor:
-                                                      statusConfig.color ??
-                                                      'var(--muted-foreground)',
-                                                    opacity: 0.8,
-                                                  }}
-                                                  title={statusConfig.label}
-                                                />
-                                              )}
-                                              <span className="truncate max-w-[70px]">
-                                                {visit.displayName || shortId}
-                                              </span>
-                                              {pnlText && (
-                                                <span
-                                                  className={`font-semibold ${
-                                                    isProfitable
-                                                      ? 'text-profit'
-                                                      : 'text-loss'
-                                                  }`}
-                                                >
-                                                  {pnlText}
-                                                </span>
-                                              )}
-                                            </Badge>
-                                          </Link>
-                                        );
-                                      })}
-
-                                      {itemHasMore &&
-                                        !itemIsClickExpanded &&
-                                        itemIsCategoryExpanded && (
-                                          <button
-                                            onClick={(e) => {
-                                              e.preventDefault();
-                                              setClickExpandedCategories(
-                                                (prev) => {
-                                                  const newSet = new Set(prev);
-                                                  if (categoryForItem) {
-                                                    newSet.add(categoryForItem);
-                                                  }
-                                                  return newSet;
-                                                }
-                                              );
-                                            }}
-                                            className="text-xs py-0.5 px-1.5 text-muted-foreground/40 hover:text-primary/60 transition-colors cursor-pointer"
-                                          >
-                                            +{itemRecentVisits.length - 3} more
-                                          </button>
-                                        )}
-                                    </div>
-                                  </div>
-                                </div>
-                              )}
-
                             {/* Submenu Items */}
                             {hasSubmenu && (
                               <div
@@ -1387,7 +1268,11 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                     const categoryForSubItem = subItem.href
                                       ? getCategoryFromPath(subItem.href)
                                       : null;
+                                    // A parent bot row already shows its
+                                    // category's recents; its sub-pages
+                                    // (e.g. Backtests) must not repeat them.
                                     const supportsRecentItems = Boolean(
+                                      !itemSupportsRecents &&
                                       categoryForSubItem &&
                                       BOT_RECENT_CATEGORY_SET.has(
                                         categoryForSubItem
@@ -1669,6 +1554,125 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                 </div>
                               </div>
                             )}
+
+                            {/* Recent visits for top-level bot items */}
+                            {itemSupportsRecents &&
+                              itemRecentVisits.length > 0 &&
+                              isExpanded && (
+                                <div
+                                  className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                                    isActive ||
+                                    hoveredCategory === categoryForItem ||
+                                    itemIsCategoryExpanded
+                                      ? 'max-h-[2000px] opacity-100'
+                                      : 'max-h-0 opacity-0'
+                                  }`}
+                                >
+                                  <div
+                                    className={`mt-2 px-2 ml-8 transform transition-transform duration-300 ease-in-out ${
+                                      isActive ||
+                                      hoveredCategory === categoryForItem ||
+                                      itemIsCategoryExpanded
+                                        ? 'translate-y-0'
+                                        : '-translate-y-2'
+                                    }`}
+                                  >
+                                    <div className="flex flex-wrap gap-1">
+                                      {itemVisibleVisits.map((visit, idx) => {
+                                        const isActiveVisit =
+                                          activePage === visit.path;
+                                        const pathParts = visit.path.split('/');
+                                        const id =
+                                          pathParts[pathParts.length - 1];
+                                        const shortId =
+                                          id.length > 6
+                                            ? `...${id.slice(-6)}`
+                                            : id;
+                                        const statusConfig = visit.botStatus
+                                          ? getBotStatusConfig(visit.botStatus)
+                                          : null;
+                                        const pnlText =
+                                          typeof visit.botPnlPercentage ===
+                                          'number'
+                                            ? formatPnLPercentage(
+                                                visit.botPnlPercentage
+                                              )
+                                            : null;
+                                        const isProfitable =
+                                          (visit.botPnlPercentage ?? 0) >= 0;
+
+                                        return (
+                                          <Link
+                                            key={`${visit.path}-${idx}`}
+                                            to={visit.path}
+                                            onClick={() => onNavigate?.()}
+                                          >
+                                            <Badge
+                                              variant="outline"
+                                              className={`text-xs px-1.5 py-0.5 h-5 cursor-pointer transition-colors border-dashed flex items-center gap-0.5 ${
+                                                isActiveVisit
+                                                  ? 'bg-primary/10 text-primary border-primary/50'
+                                                  : 'text-muted-foreground/60 hover:text-foreground hover:bg-muted/50 border-muted-foreground/20'
+                                              }`}
+                                              style={{ opacity: 0.8 }}
+                                              title={visit.path}
+                                            >
+                                              {statusConfig && (
+                                                <span
+                                                  className="w-1.5 h-1.5 rounded-full"
+                                                  style={{
+                                                    backgroundColor:
+                                                      statusConfig.color ??
+                                                      'var(--muted-foreground)',
+                                                    opacity: 0.8,
+                                                  }}
+                                                  title={statusConfig.label}
+                                                />
+                                              )}
+                                              <span className="truncate max-w-[70px]">
+                                                {visit.displayName || shortId}
+                                              </span>
+                                              {pnlText && (
+                                                <span
+                                                  className={`font-semibold ${
+                                                    isProfitable
+                                                      ? 'text-profit'
+                                                      : 'text-loss'
+                                                  }`}
+                                                >
+                                                  {pnlText}
+                                                </span>
+                                              )}
+                                            </Badge>
+                                          </Link>
+                                        );
+                                      })}
+
+                                      {itemHasMore &&
+                                        !itemIsClickExpanded &&
+                                        itemIsCategoryExpanded && (
+                                          <button
+                                            onClick={(e) => {
+                                              e.preventDefault();
+                                              setClickExpandedCategories(
+                                                (prev) => {
+                                                  const newSet = new Set(prev);
+                                                  if (categoryForItem) {
+                                                    newSet.add(categoryForItem);
+                                                  }
+                                                  return newSet;
+                                                }
+                                              );
+                                            }}
+                                            className="text-xs py-0.5 px-1.5 text-muted-foreground/40 hover:text-primary/60 transition-colors cursor-pointer"
+                                          >
+                                            +{itemRecentVisits.length - 3} more
+                                          </button>
+                                        )}
+                                    </div>
+                                  </div>
+                                </div>
+                              )}
                           </div>
                         );
                       })}

@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.65.0] - 2026-09-25
+
+### Added
+
+- Backtests page for every bot type (Trading, Grid, Combo, Hedge DCA, Hedge
+  Combo) at `/<bot>/backtests`, listing server and on-device backtests in one
+  table with results, share, export, delete, notes and "Load in settings", plus
+  a "New backtest" button that opens a new bot of that type.
+- "Backtests" sub-page under each bot type in the sidebar, above the recent
+  bots.
+
 ## [2.64.3] - 2026-09-25
 
 ### Fixed

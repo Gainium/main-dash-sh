@@ -17,6 +17,16 @@ import HedgeDcaBotEdit from '../../../pages/hedge-bots/HedgeDcaBotEdit';
 import HedgeComboBots from '../../../pages/hedge-bots/HedgeComboBots';
 import HedgeComboBotNew from '../../../pages/hedge-bots/HedgeComboBotNew';
 import HedgeComboBotEdit from '../../../pages/hedge-bots/HedgeComboBotEdit';
+import {
+  ComboBotBacktests,
+  GridBotBacktests,
+  TradingBotBacktests,
+  BacktestsRoute,
+} from '../../../pages/bots/BotBacktests';
+import {
+  HedgeComboBotBacktests,
+  HedgeDcaBotBacktests,
+} from '../../../pages/hedge-bots/HedgeBotBacktests';
 
 /**
  * Descriptor for one bot type's route family. The common per-type route
@@ -29,12 +39,17 @@ export interface BotRouteSpec {
   basePath: string;
   /** Rendered by `{base}` and `{base}/view/:id` (the drawer route). */
   listPage: ComponentType;
-  /** Rendered by `{base}/new` and, when hasBacktests, `{base}/backtests`. */
+  /**
+   * Rendered by `{base}/new`, and by `{base}/backtests` when the URL carries
+   * `?backtestShare=` (the shared-backtest viewer).
+   */
   newPage: ComponentType;
   /** Rendered by `{base}/edit/:id`. */
   editPage: ComponentType;
-  /** dca/combo/grid → true; hedge types → false. */
-  hasBacktests: boolean;
+  /**
+   * Backtests list rendered by `{base}/backtests` (no share param).
+   */
+  backtestsPage?: ComponentType;
 }
 
 /**
@@ -49,36 +64,36 @@ export const BOT_ROUTE_SPECS: readonly BotRouteSpec[] = [
     listPage: TradingBots,
     newPage: TradingBotNew,
     editPage: TradingBotEdit,
-    hasBacktests: true,
+    backtestsPage: TradingBotBacktests,
   },
   {
     basePath: '/combo',
     listPage: ComboBots,
     newPage: ComboBotNew,
     editPage: ComboBotEdit,
-    hasBacktests: true,
+    backtestsPage: ComboBotBacktests,
   },
   {
     basePath: '/grid',
     listPage: GridBots,
     newPage: GridBotNew,
     editPage: GridBotEdit,
-    hasBacktests: true,
+    backtestsPage: GridBotBacktests,
   },
   {
     basePath: '/hedge/bot',
     listPage: HedgeDcaBots,
     newPage: HedgeDcaBotNew,
     editPage: HedgeDcaBotEdit,
-    hasBacktests: false,
-  },
+    backtestsPage: HedgeDcaBotBacktests,
+      },
   {
     basePath: '/hedge/combo',
     listPage: HedgeComboBots,
     newPage: HedgeComboBotNew,
     editPage: HedgeComboBotEdit,
-    hasBacktests: false,
-  },
+    backtestsPage: HedgeComboBotBacktests,
+      },
 ] as const;
 
 /**
@@ -87,10 +102,11 @@ export const BOT_ROUTE_SPECS: readonly BotRouteSpec[] = [
  * (optional) shared-backtest landing → legacy `:id` redirect.
  *
  * Note the asymmetry preserved here: base and view render the LIST page; new
- * and backtests render the NEW page; edit renders the EDIT page.
+ * (and a `?backtestShare=` backtests link) render the NEW page; edit renders
+ * the EDIT page.
  */
 function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
-  const { basePath, listPage: List, newPage: New, editPage: Edit, hasBacktests } = spec;
+  const { basePath, listPage: List, newPage: New, editPage: Edit, backtestsPage } = spec;
   const routes: ReactElement[] = [
     <Route
       key={basePath}
@@ -130,14 +146,14 @@ function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
     />,
   ];
 
-  if (hasBacktests) {
+  if (backtestsPage) {
     routes.push(
       <Route
         key={`${basePath}/backtests`}
         path={`${basePath}/backtests`}
         element={
           <ProtectedRoute>
-            <New />
+            <BacktestsRoute newPage={New} listPage={backtestsPage} />
           </ProtectedRoute>
         }
       />

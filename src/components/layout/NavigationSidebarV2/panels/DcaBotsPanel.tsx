@@ -16,9 +16,10 @@ import { formatCurrency } from '@/lib/utils';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getBotTypeRoute } from '@/utils/botUtils';
-import { Star, X } from 'lucide-react';
+import { FlaskConical, Star, X } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import PanelLinkItem from './PanelLinkItem';
 import RightPanel from './RightPanel';
 import { BotTypesEnum } from '@/types';
 
@@ -311,6 +312,16 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
               cols={2}
             />
           </div>
+
+          <PanelLinkItem
+            label="Backtests"
+            icon={<FlaskConical className="h-4 w-4" />}
+            onClick={() => {
+              navigate('/bot/backtests');
+              onNavigate?.();
+              if (!navigationSecondaryPinned) onClose();
+            }}
+          />
 
           {/* Starred Bots */}
           {starredBots.length > 0 && (

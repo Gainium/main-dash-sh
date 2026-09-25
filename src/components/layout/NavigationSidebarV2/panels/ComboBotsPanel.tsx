@@ -1,5 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { Star, X } from 'lucide-react';
+import { FlaskConical, Star, X } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -19,6 +19,7 @@ import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useUserSessionsStore } from '@/stores/userSessionsStore';
 import { getBotTypeRoute } from '@/utils/botUtils';
+import PanelLinkItem from './PanelLinkItem';
 import RightPanel from './RightPanel';
 import { BotTypesEnum } from '@/types';
 
@@ -290,6 +291,16 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
               cols={2}
             />
           </div>
+
+          <PanelLinkItem
+            label="Backtests"
+            icon={<FlaskConical className="h-4 w-4" />}
+            onClick={() => {
+              navigate('/combo/backtests');
+              onNavigate?.();
+              if (!navigationSecondaryPinned) onClose();
+            }}
+          />
 
           {starredBots.length > 0 && (
             <div>
