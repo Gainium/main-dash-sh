@@ -1288,6 +1288,18 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
             closeAfterXwin: isComboBot
               ? formData.combo.closeAfterXwin
               : formData.dca.closeAfterXwin,
+            useCloseAfterXconsecutiveWin: isComboBot
+              ? formData.combo.useCloseAfterXconsecutiveWin
+              : formData.dca.useCloseAfterXconsecutiveWin,
+            closeAfterXconsecutiveWin: isComboBot
+              ? formData.combo.closeAfterXconsecutiveWin
+              : formData.dca.closeAfterXconsecutiveWin,
+            useCloseAfterXconsecutiveLoss: isComboBot
+              ? formData.combo.useCloseAfterXconsecutiveLoss
+              : formData.dca.useCloseAfterXconsecutiveLoss,
+            closeAfterXconsecutiveLoss: isComboBot
+              ? formData.combo.closeAfterXconsecutiveLoss
+              : formData.dca.closeAfterXconsecutiveLoss,
             useCloseAfterXprofit: isComboBot
               ? formData.combo.useCloseAfterXprofit
               : formData.dca.useCloseAfterXprofit,

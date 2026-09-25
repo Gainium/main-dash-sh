@@ -443,6 +443,10 @@ export const hotValidateDcaFormData = ({
     | 'closeAfterXloss'
     | 'useCloseAfterXwin'
     | 'closeAfterXwin'
+    | 'useCloseAfterXconsecutiveWin'
+    | 'closeAfterXconsecutiveWin'
+    | 'useCloseAfterXconsecutiveLoss'
+    | 'closeAfterXconsecutiveLoss'
     | 'useCloseAfterXprofit'
     | 'closeAfterXprofitValue'
     | 'stopBotPriceValue'
@@ -526,6 +530,10 @@ export const hotValidateDcaFormData = ({
     closeAfterXloss,
     useCloseAfterXwin,
     closeAfterXwin,
+    useCloseAfterXconsecutiveWin,
+    closeAfterXconsecutiveWin,
+    useCloseAfterXconsecutiveLoss,
+    closeAfterXconsecutiveLoss,
     useCloseAfterXprofit,
     closeAfterXprofitValue,
     stopBotPriceValue,
@@ -1165,6 +1173,20 @@ export const hotValidateDcaFormData = ({
   }
   if (useCloseAfterXwin && !checkNumber(closeAfterXwin)) {
     errors['closeAfterXwin'] = `Close after X wins must be set`;
+  }
+  if (
+    useCloseAfterXconsecutiveWin &&
+    !checkNumber(closeAfterXconsecutiveWin)
+  ) {
+    errors['closeAfterXconsecutiveWin'] =
+      `Close after X consecutive wins must be set`;
+  }
+  if (
+    useCloseAfterXconsecutiveLoss &&
+    !checkNumber(closeAfterXconsecutiveLoss)
+  ) {
+    errors['closeAfterXconsecutiveLoss'] =
+      `Close after X consecutive losses must be set`;
   }
   if (useCloseAfterXprofit && !checkNumber(closeAfterXprofitValue)) {
     errors['closeAfterXprofitValue'] = `Close after X profit must be set`;

@@ -38,6 +38,8 @@ export const SETTINGS_NAV_IDS = {
   stopAfterClosed: 'stop-after-closed',
   stopAfterWin: 'stop-after-win',
   stopAfterLoss: 'stop-after-loss',
+  stopAfterConsecutiveWin: 'stop-after-consecutive-win',
+  stopAfterConsecutiveLoss: 'stop-after-consecutive-loss',
   stopAfterProfit: 'stop-after-profit',
   rrSlFixedValue: 'rrSlFixedValue',
   riskAmount: 'risk-amount',

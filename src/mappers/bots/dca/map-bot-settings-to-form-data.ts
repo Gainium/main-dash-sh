@@ -1026,6 +1026,16 @@ export const mapBotSettingsToFormData = (
     closeAfterXwin: getString('closeAfterXwin', '20'),
     useCloseAfterXloss: getBoolean('useCloseAfterXloss', false),
     closeAfterXloss: getString('closeAfterXloss', '20'),
+    useCloseAfterXconsecutiveWin: getBoolean(
+      'useCloseAfterXconsecutiveWin',
+      false
+    ),
+    closeAfterXconsecutiveWin: getString('closeAfterXconsecutiveWin', '3'),
+    useCloseAfterXconsecutiveLoss: getBoolean(
+      'useCloseAfterXconsecutiveLoss',
+      false
+    ),
+    closeAfterXconsecutiveLoss: getString('closeAfterXconsecutiveLoss', '3'),
     useCloseAfterXprofit: getBoolean('useCloseAfterXprofit', false),
     closeAfterXprofitCond: getValue<IndicatorStartConditionEnum>(
       'closeAfterXprofitCond',

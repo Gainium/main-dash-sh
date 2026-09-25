@@ -804,6 +804,18 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
   const closeAfterXwin = useBotFormSelector('closeAfterXwin');
   const useCloseAfterXloss = useBotFormSelector('useCloseAfterXloss');
   const closeAfterXloss = useBotFormSelector('closeAfterXloss');
+  const useCloseAfterXconsecutiveWin = useBotFormSelector(
+    'useCloseAfterXconsecutiveWin'
+  );
+  const closeAfterXconsecutiveWin = useBotFormSelector(
+    'closeAfterXconsecutiveWin'
+  );
+  const useCloseAfterXconsecutiveLoss = useBotFormSelector(
+    'useCloseAfterXconsecutiveLoss'
+  );
+  const closeAfterXconsecutiveLoss = useBotFormSelector(
+    'closeAfterXconsecutiveLoss'
+  );
   const useCloseAfterXprofit = useBotFormSelector('useCloseAfterXprofit');
   const closeAfterXprofitCond = useBotFormSelector('closeAfterXprofitCond');
   const closeAfterXprofitValue = useBotFormSelector('closeAfterXprofitValue');
@@ -1486,8 +1498,82 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
           </SettingsRow>
 
           <SettingsRow
-            name="Stop after X accumulated bot profit"
-            tooltip="Stop the bot once total bot profit hits a limit."
+            name="Stop after X consecutive winning deals"
+            tooltip="Stop the bot after a run of wins with no loss in between. The run resets on the first losing deal, so this is not the same as the total win count above."
+            colSpan="full"
+            navId="stop-after-consecutive-win"
+            alerts={alerts?.closeAfterXconsecutiveWin ?? []}
+            trailing={
+              <Switch
+                id="stop-after-consecutive-wins"
+                checked={!!useCloseAfterXconsecutiveWin}
+                onCheckedChange={(checked) =>
+                  updateFormData('useCloseAfterXconsecutiveWin', checked)
+                }
+              />
+            }
+            headerAlign="center"
+            contentClassName="space-y-sm"
+          >
+            {useCloseAfterXconsecutiveWin && (
+              <>
+                <NumberInput
+                  value={closeAfterXconsecutiveWin}
+                  onChange={(value) =>
+                    updateFormData('closeAfterXconsecutiveWin', value)
+                  }
+                  placeholder="3"
+                  min={1}
+                  showControls={false}
+                  endAdornment={unitAdornment('deals in a row', {
+                    size: 'sm',
+                    className: 'whitespace-nowrap',
+                  })}
+                />
+              </>
+            )}
+          </SettingsRow>
+
+          <SettingsRow
+            name="Stop after X consecutive losing deals"
+            tooltip="Stop the bot after a run of losses with no win in between. The run resets on the first winning deal, so this is not the same as the total loss count above. A deal that closes at exactly breakeven counts as a loss."
+            colSpan="full"
+            navId="stop-after-consecutive-loss"
+            alerts={alerts?.closeAfterXconsecutiveLoss ?? []}
+            trailing={
+              <Switch
+                id="stop-after-consecutive-losses"
+                checked={!!useCloseAfterXconsecutiveLoss}
+                onCheckedChange={(checked) =>
+                  updateFormData('useCloseAfterXconsecutiveLoss', checked)
+                }
+              />
+            }
+            headerAlign="center"
+            contentClassName="space-y-sm"
+          >
+            {useCloseAfterXconsecutiveLoss && (
+              <>
+                <NumberInput
+                  value={closeAfterXconsecutiveLoss}
+                  onChange={(value) =>
+                    updateFormData('closeAfterXconsecutiveLoss', value)
+                  }
+                  placeholder="3"
+                  min={1}
+                  showControls={false}
+                  endAdornment={unitAdornment('deals in a row', {
+                    size: 'sm',
+                    className: 'whitespace-nowrap',
+                  })}
+                />
+              </>
+            )}
+          </SettingsRow>
+
+          <SettingsRow
+            name="Stop after X accumulated bot profit or loss"
+            tooltip="Stop the bot once its total profit crosses a threshold. Use Greater than with a positive value for a profit target, or Less than with a negative value for a loss cap — e.g. Less than -100 stops the bot at $100 of accumulated loss."
             colSpan="full"
             navId="stop-after-profit"
             alerts={alerts?.closeAfterXprofitValue ?? []}

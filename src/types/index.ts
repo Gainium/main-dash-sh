@@ -1879,6 +1879,10 @@ export interface DCABotSettings extends BaseSettings {
   closeAfterXwin?: string | undefined;
   useCloseAfterXloss?: boolean | undefined;
   closeAfterXloss?: string | undefined;
+  useCloseAfterXconsecutiveWin?: boolean | undefined;
+  closeAfterXconsecutiveWin?: string | undefined;
+  useCloseAfterXconsecutiveLoss?: boolean | undefined;
+  closeAfterXconsecutiveLoss?: string | undefined;
   useCloseAfterXprofit?: boolean | undefined;
   closeAfterXprofitValue?: string | undefined;
   closeAfterXprofitCond?: IndicatorStartConditionEnum | undefined;
@@ -2107,6 +2111,10 @@ export interface MultiPairDCABotSettings extends BaseSettings {
   closeAfterXwin?: string;
   useCloseAfterXloss?: boolean;
   closeAfterXloss?: string;
+  useCloseAfterXconsecutiveWin?: boolean;
+  closeAfterXconsecutiveWin?: string;
+  useCloseAfterXconsecutiveLoss?: boolean;
+  closeAfterXconsecutiveLoss?: string;
   useCloseAfterXprofit?: boolean;
   closeAfterXprofitValue?: string;
   closeAfterXprofitCond?: IndicatorStartConditionEnum;

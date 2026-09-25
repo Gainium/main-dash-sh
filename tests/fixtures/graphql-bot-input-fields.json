@@ -3,13 +3,13 @@
   "source": {
     "repo": "main-app",
     "path": "core/src/graphql/schema.ts",
-    "commit": "ef46b2d9feeaf80194264a029086f0b25fb7ca51",
-    "commitShort": "ef46b2d"
+    "commit": "6ffe03e43b87891ec06b0f1ac182e54c77d26d55",
+    "commitShort": "6ffe03e"
   },
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 167,
+      "fieldCount": 171,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -22,6 +22,8 @@
         "botActualStart",
         "botStart",
         "closeAfterX",
+        "closeAfterXconsecutiveLoss",
+        "closeAfterXconsecutiveWin",
         "closeAfterXloss",
         "closeAfterXopen",
         "closeAfterXprofitCond",
@@ -147,6 +149,8 @@
         "trailingTpPerc",
         "useBotController",
         "useCloseAfterX",
+        "useCloseAfterXconsecutiveLoss",
+        "useCloseAfterXconsecutiveWin",
         "useCloseAfterXloss",
         "useCloseAfterXopen",
         "useCloseAfterXprofit",
@@ -182,7 +186,7 @@
     },
     "changeComboBotInput": {
       "mutation": "changeComboBot",
-      "fieldCount": 175,
+      "fieldCount": 179,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -196,6 +200,8 @@
         "botActualStart",
         "botStart",
         "closeAfterX",
+        "closeAfterXconsecutiveLoss",
+        "closeAfterXconsecutiveWin",
         "closeAfterXloss",
         "closeAfterXopen",
         "closeAfterXprofitCond",
@@ -327,6 +333,8 @@
         "useActiveMinigrids",
         "useBotController",
         "useCloseAfterX",
+        "useCloseAfterXconsecutiveLoss",
+        "useCloseAfterXconsecutiveWin",
         "useCloseAfterXloss",
         "useCloseAfterXopen",
         "useCloseAfterXprofit",
@@ -411,7 +419,7 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 179,
+      "fieldCount": 183,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -426,6 +434,8 @@
         "botActualStart",
         "botStart",
         "closeAfterX",
+        "closeAfterXconsecutiveLoss",
+        "closeAfterXconsecutiveWin",
         "closeAfterXloss",
         "closeAfterXopen",
         "closeAfterXprofitCond",
@@ -558,6 +568,8 @@
         "useActiveMinigrids",
         "useBotController",
         "useCloseAfterX",
+        "useCloseAfterXconsecutiveLoss",
+        "useCloseAfterXconsecutiveWin",
         "useCloseAfterXloss",
         "useCloseAfterXopen",
         "useCloseAfterXprofit",
@@ -596,7 +608,7 @@
     },
     "createComboBotInput": {
       "mutation": "createComboBot",
-      "fieldCount": 174,
+      "fieldCount": 178,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -610,6 +622,8 @@
         "botActualStart",
         "botStart",
         "closeAfterX",
+        "closeAfterXconsecutiveLoss",
+        "closeAfterXconsecutiveWin",
         "closeAfterXloss",
         "closeAfterXopen",
         "closeAfterXprofitCond",
@@ -739,6 +753,8 @@
         "useActiveMinigrids",
         "useBotController",
         "useCloseAfterX",
+        "useCloseAfterXconsecutiveLoss",
+        "useCloseAfterXconsecutiveWin",
         "useCloseAfterXloss",
         "useCloseAfterXopen",
         "useCloseAfterXprofit",

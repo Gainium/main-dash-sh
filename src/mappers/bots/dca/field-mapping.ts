@@ -3114,6 +3114,18 @@ export const mapBotControllerFields = (
   const _closeAfterXloss = isComboBot
     ? formData.combo.closeAfterXloss
     : formData.dca.closeAfterXloss;
+  const useCloseAfterXconsecutiveWin = isComboBot
+    ? formData.combo.useCloseAfterXconsecutiveWin
+    : formData.dca.useCloseAfterXconsecutiveWin;
+  const _closeAfterXconsecutiveWin = isComboBot
+    ? formData.combo.closeAfterXconsecutiveWin
+    : formData.dca.closeAfterXconsecutiveWin;
+  const useCloseAfterXconsecutiveLoss = isComboBot
+    ? formData.combo.useCloseAfterXconsecutiveLoss
+    : formData.dca.useCloseAfterXconsecutiveLoss;
+  const _closeAfterXconsecutiveLoss = isComboBot
+    ? formData.combo.closeAfterXconsecutiveLoss
+    : formData.dca.closeAfterXconsecutiveLoss;
   const useCloseAfterXprofit = isComboBot
     ? formData.combo.useCloseAfterXprofit
     : formData.dca.useCloseAfterXprofit;
@@ -3159,6 +3171,10 @@ export const mapBotControllerFields = (
             'closeAfterXwin',
             'useCloseAfterXloss',
             'closeAfterXloss',
+            'useCloseAfterXconsecutiveWin',
+            'closeAfterXconsecutiveWin',
+            'useCloseAfterXconsecutiveLoss',
+            'closeAfterXconsecutiveLoss',
             'useCloseAfterXprofit',
             'closeAfterXprofitCond',
             'closeAfterXprofitValue',
@@ -3184,6 +3200,10 @@ export const mapBotControllerFields = (
       'closeAfterXwin',
       'useCloseAfterXloss',
       'closeAfterXloss',
+      'useCloseAfterXconsecutiveWin',
+      'closeAfterXconsecutiveWin',
+      'useCloseAfterXconsecutiveLoss',
+      'closeAfterXconsecutiveLoss',
       'useCloseAfterXprofit',
       'closeAfterXprofitCond',
       'closeAfterXprofitValue',
@@ -3294,6 +3314,24 @@ export const mapBotControllerFields = (
       }
     }
 
+    if (useCloseAfterXconsecutiveWin) {
+      const consecutiveWin = parseInt(_closeAfterXconsecutiveWin || '0');
+      if (isNaN(consecutiveWin) || consecutiveWin <= 0) {
+        errors.push(
+          `Invalid closeAfterXconsecutiveWin: ${consecutiveWin}. Must be a positive integer`
+        );
+      }
+    }
+
+    if (useCloseAfterXconsecutiveLoss) {
+      const consecutiveLoss = parseInt(_closeAfterXconsecutiveLoss || '0');
+      if (isNaN(consecutiveLoss) || consecutiveLoss <= 0) {
+        errors.push(
+          `Invalid closeAfterXconsecutiveLoss: ${consecutiveLoss}. Must be a positive integer`
+        );
+      }
+    }
+
     if (useCloseAfterXprofit) {
       if (
         !validConditions.includes(
@@ -3366,6 +3404,10 @@ export const mapBotControllerFields = (
         | 'closeAfterXwin'
         | 'useCloseAfterXloss'
         | 'closeAfterXloss'
+        | 'useCloseAfterXconsecutiveWin'
+        | 'closeAfterXconsecutiveWin'
+        | 'useCloseAfterXconsecutiveLoss'
+        | 'closeAfterXconsecutiveLoss'
         | 'useCloseAfterXprofit'
         | 'closeAfterXprofitCond'
         | 'closeAfterXprofitValue'
@@ -3468,6 +3510,20 @@ export const mapBotControllerFields = (
     controllerFields['useCloseAfterXloss'] = useCloseAfterXloss;
     controllerFields['closeAfterXloss'] = _closeAfterXloss;
     fieldsMapped.push('useCloseAfterXloss', 'closeAfterXloss');
+
+    controllerFields['useCloseAfterXconsecutiveWin'] =
+      useCloseAfterXconsecutiveWin;
+    controllerFields['closeAfterXconsecutiveWin'] = _closeAfterXconsecutiveWin;
+    controllerFields['useCloseAfterXconsecutiveLoss'] =
+      useCloseAfterXconsecutiveLoss;
+    controllerFields['closeAfterXconsecutiveLoss'] =
+      _closeAfterXconsecutiveLoss;
+    fieldsMapped.push(
+      'useCloseAfterXconsecutiveWin',
+      'closeAfterXconsecutiveWin',
+      'useCloseAfterXconsecutiveLoss',
+      'closeAfterXconsecutiveLoss'
+    );
 
     controllerFields['useCloseAfterXprofit'] = useCloseAfterXprofit;
     controllerFields['closeAfterXprofitCond'] = closeAfterXprofitCond;

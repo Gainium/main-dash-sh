@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.63.0] - 2026-09-25
+
+### Added
+
+- Bot Controller: two new limits, **Stop after X consecutive winning deals** and
+  **Stop after X consecutive losing deals**. Unlike the total win and loss
+  counts next to them, these count a run — the bot stops only when its most
+  recently closed deals are that many in a row, and one result of the other
+  kind starts the count again. A deal that closes at exactly breakeven counts
+  as a loss, the same way the total counts treat it. Both are off by default.
+
+### Changed
+
+- Bot Controller: **Stop after X accumulated bot profit** is now labelled
+  **Stop after X accumulated bot profit or loss**, and its tooltip explains the
+  loss case. The setting already stopped a bot on accumulated loss — Less than
+  with a negative value, for example Less than -100 for $100 of loss — but
+  nothing in the row said so.
+
 ## [2.62.8] - 2026-09-25
 
 ### Fixed

@@ -430,6 +430,10 @@ comboSmartGridsCount
                 closeAfterXwin
                 useCloseAfterXloss
                 closeAfterXloss
+                useCloseAfterXconsecutiveWin
+                closeAfterXconsecutiveWin
+                useCloseAfterXconsecutiveLoss
+                closeAfterXconsecutiveLoss
                 useCloseAfterXprofit
                 closeAfterXprofitValue
                 closeAfterXprofitCond
@@ -715,6 +719,10 @@ useCloseAfterXwin
                 closeAfterXwin
                 useCloseAfterXloss
                 closeAfterXloss
+                useCloseAfterXconsecutiveWin
+                closeAfterXconsecutiveWin
+                useCloseAfterXconsecutiveLoss
+                closeAfterXconsecutiveLoss
                 useCloseAfterXprofit
                 closeAfterXprofitValue
                 closeAfterXprofitCond
