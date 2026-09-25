@@ -270,6 +270,12 @@ interface BotFormProviderProps {
    */
   isNestedLeg?: boolean;
   /**
+   * The seed is a full settings load (backtest "Load in settings"). Opens in
+   * Manual for the same reason a `?load=` clone does: Quick mode's automatic
+   * risk profile would overwrite the loaded strategy.
+   */
+  openInManual?: boolean | undefined;
+  /**
    * When true, this provider creates its OWN instances of the example-orders
    * and indicator side-effect stores and supplies them to descendants via
    * context, instead of sharing the module singletons. Set for hedge legs so
@@ -647,7 +653,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   // clobber the cloned strategy. `?load=` is the universal clone signal across
   // every bot type's new page.
   const [searchParams] = useSearchParams();
-  const isCloneSeed = Boolean(searchParams.get('load'));
+  const isCloneSeed =
+    Boolean(searchParams.get('load')) || Boolean(props.openInManual);
   const [quickSetupMode, setQuickSetupMode] = useState<'quick' | 'manual'>(
     // Hedge legs mount BotFormWidget with `isNestedLeg` — they're not
     // standalone DCA bots, so they shouldn't get the Quick/Manual mode

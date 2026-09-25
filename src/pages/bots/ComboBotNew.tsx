@@ -4,6 +4,10 @@ import { useSearchParams } from 'react-router-dom';
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { comboPageDescriptor } from '@/components/bots/workbench/descriptors';
+import {
+  botFormDraftKey,
+  clearBotFormDraft,
+} from '@/contexts/bots/form/botFormDraft';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
@@ -103,6 +107,9 @@ const ComboBotNewWidget = () => {
             exchangeUUID: backtest.exchangeUUID,
           }
         );
+        // An explicit load replaces the form, so the unsaved create-draft
+        // must not be restored over it when the form remounts.
+        clearBotFormDraft(botFormDraftKey(BotTypesEnum.combo, 'create'));
         setLoadedFormData(mappedFormData);
         setFormReloadKey((prev) => prev + 1);
         toast.success('Backtest settings loaded into combo bot form');

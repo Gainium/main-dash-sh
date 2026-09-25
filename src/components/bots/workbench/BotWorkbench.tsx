@@ -428,6 +428,8 @@ export function BotWorkbench<
                 botType={descriptor.botType}
                 terminal={false}
                 initialFormData={initialFormData}
+                // A bumped key means "Load in settings" just replaced the seed.
+                openInManual={formReloadKey > 0}
                 // On mobile, BotPanelLayout provides the top-level tabs (Settings/Chart/Backtests),
                 // but the form should still show its internal section navigation (Entry, DCA, etc.)
                 disableMobileAutoDetect

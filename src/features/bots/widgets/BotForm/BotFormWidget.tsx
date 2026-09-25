@@ -51,6 +51,9 @@ export interface BotFormWidgetProps extends BotFormProps {
    *  hedge bot so it skips standalone-DCA chrome (the Quick/Manual mode
    *  toggle) and keeps each leg's state independent. */
   isNestedLeg?: boolean;
+  /** Forwarded to BotFormProvider — the seed is a full settings load
+   *  (backtest "Load in settings"), so the form opens in Manual. */
+  openInManual?: boolean;
 }
 
 /**
@@ -81,6 +84,7 @@ const BotFormWidget: React.FC<BotFormWidgetProps> = ({
   formDataRef,
   innerSlot,
   isNestedLeg,
+  openInManual,
   ...restProps
 }) => {
   const { id: paramBotId } = useParams<{ id: string }>();
@@ -170,6 +174,7 @@ const BotFormWidget: React.FC<BotFormWidgetProps> = ({
         initialFormData={resolvedInitialFormData}
         botType={botType}
         isNestedLeg={isNestedLeg}
+        openInManual={openInManual}
       >
         {formDataRef && <FormDataRefPublisher targetRef={formDataRef} />}
         {innerSlot}

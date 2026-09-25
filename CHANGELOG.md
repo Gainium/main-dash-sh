@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.65.1] - 2026-09-25
+
+### Fixed
+
+- Backtest history "Load in settings" on a new bot form now fills the form
+  with the backtest's settings: a stored unsaved-bot draft no longer overrides
+  the load, and the form opens in Manual so the Quick risk profile does not
+  overwrite the loaded strategy.
+- Backtest history "Load details" on a new bot form opens the backtest results
+  instead of leaving the panel blank.
+
 ## [2.65.0] - 2026-09-25
 
 ### Added

@@ -107,11 +107,10 @@ export interface BotBacktestPanelProps<TResult extends BacktestRowBase> {
 
   /**
    * Drives the create/edit divergences preserved byte-for-byte:
-   *  - 'create': handleLoadBacktestDetails ends with
-   *     onActiveInsightsTabChange('bt-overview'); header actions carry the
-   *     ShareBacktestButton; enableShareViewer is meaningful.
-   *  - 'edit':   handleLoadBacktestDetails ends with setResultsModalOpen(true);
-   *     header actions are the subtitle span only.
+   *  - 'create': header actions carry the ShareBacktestButton;
+   *     enableShareViewer is meaningful.
+   *  - 'edit':   header actions are the subtitle span only.
+   * Both open the results modal from "Load details".
    */
   mode: 'create' | 'edit';
 
@@ -427,15 +426,14 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         );
       }
       setSelectedBacktest(backtest);
-      if (mode === 'create') {
-        onActiveInsightsTabChange('bt-overview');
-      } else {
-        setResultsModalOpen(true);
-      }
+      // Results live in the full-screen modal on every page. The inline
+      // `bt-overview` tab this used to switch to on create pages no longer
+      // exists, so switching to it left the panel blank.
+      setResultsModalOpen(true);
     },
     // Stable mutate handle, not the mutation object — see handleExportBacktests.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [loadBacktestDetailsMutation.mutateAsync, mode, onActiveInsightsTabChange]
+    [loadBacktestDetailsMutation.mutateAsync]
   );
 
   const handleImportAsPaper = useCallback(

@@ -3,6 +3,10 @@ import { useCallback, useEffect, useState } from 'react';
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
+import {
+  botFormDraftKey,
+  clearBotFormDraft,
+} from '@/contexts/bots/form/botFormDraft';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
@@ -110,6 +114,9 @@ const TradingBotNewWidget = () => {
             exchangeUUID: backtest.exchangeUUID,
           }
         );
+        // An explicit load replaces the form, so the unsaved create-draft
+        // must not be restored over it when the form remounts.
+        clearBotFormDraft(botFormDraftKey(BotTypesEnum.dca, 'create'));
         setLoadedFormData(mappedFormData);
         setFormReloadKey((prev) => prev + 1);
         toast.success('Backtest settings loaded into bot form');
