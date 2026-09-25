@@ -316,6 +316,37 @@ export const botQueries = {
     return { query, variables };
   },
 
+  /**
+   * Per-pair breakdown of a multi-pair DCA / Combo / hedge bot, folded by
+   * main-app from the bot's deals. `from` / `to` (ms) window the CLOSED deals
+   * by close time; open deals are always included. Older backends do not have
+   * this field — callers fall back to the bot's stored `symbolStats`.
+   */
+  getBotPairStats: (input: {
+    id: string;
+    type: string;
+    shareId?: string;
+    from?: number;
+    to?: number;
+  }) => {
+    const query = `query getBotPairStats($input: getBotPairStatsInput!) {
+                    getBotPairStats(input: $input) {
+                        status
+                        reason
+                        data {
+                            symbol baseAsset quoteAsset
+                            closedDeals wins losses
+                            realizedProfitUsd grossProfitUsd grossLossUsd profitFactor
+                            feesQuote maxDealCapitalUsd
+                            avgDealDuration maxDealDuration maxDrawdownPerc
+                            openDeals unrealizedProfitUsd openCapitalUsd
+                        }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   getComboBotDcaUsage: (input: { id: string; shareId?: string }) => {
     const query = `query getComboBotDcaUsage($input: getBotDealsStatsInput!) {
                     getComboBotDcaUsage(input: $input) {

@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.64.0] - 2026-09-25
+
+### Added
+
+- Bot details → Statistics: the per-pair table of multi-pair bots now has one
+  row per pair instead of one column per pair, so a bot trading dozens of pairs
+  reads as a list. It can be sorted by any column, searched by pair, have
+  columns hidden, and be exported to CSV. Each pair shows its closed deals and
+  win rate, realized P&L, return on capital, average P&L per deal, profit
+  factor, deepest drawdown, largest deal capital, fees, average and longest
+  deal duration, and its open deals with their current P&L. A period picker
+  limits the closed deals to a date range; open deals always show the current
+  position. Pairs the bot has never traded are listed too. Against a server
+  without per-pair statistics the table falls back to the stored per-pair
+  summary.
+
+### Fixed
+
+- Bot details → Statistics: profit factor is gross profit divided by gross
+  loss. It was shown as the number of winning deals divided by the number of
+  losing deals.
+
 ## [2.63.1] - 2026-09-25
 
 ### Fixed

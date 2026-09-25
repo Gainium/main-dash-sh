@@ -18,7 +18,7 @@
 
 import { formatDuration } from '@/utils/formatters';
 import { math } from '@/utils/math';
-import { StrategyEnum, type BotStats, type BotSymbolsStats } from '@/types';
+import { StrategyEnum, type BotStats } from '@/types';
 
 /** The subset of the drawer bot this adapter reads. Kept structural so it
  *  accepts DCA / combo / hedge drawer bots without a union import. */
@@ -155,17 +155,6 @@ export interface BotStatsBreakdownVM {
   };
 }
 
-export interface BotSymbolStatsRowVM {
-  pair: string;
-  deals: { profit: number; loss: number };
-  netProfitPerc: number;
-  dailyReturnPerc: number;
-  winRatePerc: number;
-  profitFactor: number;
-  maxDealDuration: string;
-  avgDealDuration: string | null;
-}
-
 const PERC = (v: number | undefined | null): number =>
   typeof v === 'number' && Number.isFinite(v) ? math.round(v * 100) : 0;
 
@@ -187,6 +176,26 @@ const fmtAsset = (v: number | undefined | null): string => {
 /** `-1` is the backend's "no losing deals" sentinel for profit factor. */
 const profitFactorOf = (raw: number | undefined | null): number =>
   raw === -1 ? Infinity : typeof raw === 'number' ? math.round(raw, 3) : 0;
+
+/**
+ * Bot-wide profit factor from the stored gross totals: gross profit / gross
+ * loss, as the backtester defines it. main-app used to store
+ * `winning deals / losing deals` under this name and only rewrites the value
+ * on the bot's next close, so a stopped bot would show the count ratio
+ * forever — the gross totals were always accumulated, so derive it here and
+ * fall back to the stored value only when they are missing.
+ */
+const botProfitFactorOf = (n: BotStats['numerical']): number => {
+  const gross = n.profit?.grossProfit?.usd;
+  const loss = n.loss?.grossLoss?.usd;
+  if (typeof gross !== 'number' || typeof loss !== 'number') {
+    return profitFactorOf(n.ratios?.profitFactor);
+  }
+  const g = Math.max(0, gross);
+  const l = Math.abs(loss);
+  if (l === 0) return g > 0 ? Infinity : 0;
+  return math.round(g / l, 3);
+};
 
 const assetsOf = (bot: BotStatsSourceBot): { base: string; quote: string } => ({
   base: bot.baseAsset ?? bot.symbol?.[0]?.value?.baseAsset ?? '',
@@ -312,7 +321,7 @@ export const buildBotStatsHeadline = (
       Number.isFinite(bot.annualizedReturn)
         ? math.round(bot.annualizedReturn, 2)
         : null,
-    profitFactor: profitFactorOf(n.ratios.profitFactor),
+    profitFactor: botProfitFactorOf(n),
 
     wins,
     losses,
@@ -420,7 +429,7 @@ export const buildBotStatsBreakdown = (
     },
 
     ratios: {
-      profitFactor: profitFactorOf(n.ratios.profitFactor),
+      profitFactor: botProfitFactorOf(n),
       // Sharpe / Sortino / CWR are computed for BACKTESTS, not for live bots —
       // the live stats block ships them as 0. Legacy main-dash dealt with that
       // by commenting the rows out entirely; here a falsy value means
@@ -458,23 +467,3 @@ export const buildBotStatsBreakdown = (
     },
   };
 };
-
-export const buildBotSymbolStatsRows = (
-  symbolStats: BotSymbolsStats[] | undefined
-): BotSymbolStatsRowVM[] =>
-  (symbolStats ?? []).map((s) => ({
-    pair: s.symbol,
-    deals: {
-      profit: s.numerical.deals.profit ?? 0,
-      loss: s.numerical.deals.loss ?? 0,
-    },
-    netProfitPerc: PERC(s.numerical.general.netProfitPerc),
-    dailyReturnPerc: PERC(s.numerical.general.dailyProfitPerc),
-    winRatePerc: PERC(s.numerical.general.winRate),
-    profitFactor: profitFactorOf(s.numerical.general.profitFactor),
-    maxDealDuration: formatDuration(s.duration.maxDealDuration ?? 0),
-    avgDealDuration:
-      typeof s.duration.avgDealDuration === 'number'
-        ? formatDuration(s.duration.avgDealDuration)
-        : null,
-  }));
