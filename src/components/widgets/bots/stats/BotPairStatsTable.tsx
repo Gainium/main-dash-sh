@@ -118,8 +118,8 @@ const columns: Col[] = [
       </span>
     )
   ),
-  num('maxDealCapitalUsd', 'Max deal capital', (r) =>
-    usdCell(r.maxDealCapitalUsd, false)
+  num('peakCapitalUsd', 'Peak capital', (r) =>
+    usdCell(r.peakCapitalUsd, false)
   ),
   num('feesQuote', 'Fees', (r) =>
     r.feesQuote === undefined
@@ -201,6 +201,20 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
   onRangeChange,
   fromStoredStats = false,
 }) => {
+  // Against a server without per-pair statistics most metrics were never
+  // recorded; a column of dashes says nothing, so drop the ones with no data.
+  const visibleColumns = useMemo(
+    () =>
+      fromStoredStats
+        ? columns.filter(
+            (c) =>
+              c.id === 'pair' ||
+              rows.some((r) => r[c.id as keyof BotPairStatsRowVM] !== undefined)
+          )
+        : columns,
+    [fromStoredStats, rows]
+  );
+
   const rangeChip = useMemo(
     () =>
       onRangeChange ? (
@@ -216,7 +230,7 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
       </h3>
       <DataTable
         tableId="bot-pair-stats"
-        columns={columns}
+        columns={visibleColumns}
         data={rows}
         getRowId={(r) => r.pair}
         enableUrlSync={false}
@@ -237,16 +251,17 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
         {fromStoredStats ? (
           <>
             Return on capital is net profit over the capital allocated to the
-            pair. Update the server for fees, capital, drawdown, open positions
-            and a date range.
+            pair. Update the server for fees, peak capital, drawdown, open
+            positions and a date range.
           </>
         ) : (
           <>
             {range ? 'The period filters closed deals by close time. ' : ''}
-            Return on capital is realized P&L divided by the largest capital a
-            single deal of that pair used. Max drawdown is the deepest a single
-            deal went below its entry. Open deals and open P&L show the current
-            position and ignore the period.
+            Peak capital is the most the pair had committed at once, across all
+            its deals open at the same time; return on capital is realized P&L
+            divided by it. Max drawdown is the deepest a single deal went below
+            its entry. Open deals and open P&L show the current position and
+            ignore the period.
           </>
         )}
       </p>

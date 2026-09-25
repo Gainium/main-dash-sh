@@ -45,7 +45,7 @@ const dto = (over: Partial<BotPairStatsDTO>): BotPairStatsDTO => ({
   grossLossUsd: 0,
   profitFactor: 0,
   feesQuote: 0,
-  maxDealCapitalUsd: 0,
+  peakCapitalUsd: 0,
   avgDealDuration: 0,
   maxDealDuration: 0,
   maxDrawdownPerc: 0,
@@ -63,7 +63,7 @@ describe('buildPairStatsRows', () => {
         wins: 3,
         losses: 1,
         realizedProfitUsd: 8,
-        maxDealCapitalUsd: 200,
+        peakCapitalUsd: 200,
         profitFactor: 3,
         maxDrawdownPerc: 0.0152,
       }),
@@ -192,7 +192,7 @@ vi.mock('@/lib/api', async (importOriginal) => {
               wins: 11,
               realizedProfitUsd: 36.6,
               profitFactor: -1,
-              maxDealCapitalUsd: 1000,
+              peakCapitalUsd: 1000,
             }),
             dto({
               symbol: 'SOL-USDC',
@@ -342,7 +342,7 @@ describe('BotPairStatsTable', () => {
         wins: 11,
         realizedProfitUsd: 36.6,
         profitFactor: -1,
-        maxDealCapitalUsd: 1000,
+        peakCapitalUsd: 1000,
       }),
       dto({
         symbol: 'SOL-USDC',
@@ -373,6 +373,7 @@ describe('BotPairStatsTable', () => {
       'Realized P&L',
       'Return on capital',
       'Profit factor',
+      'Peak capital',
       'Max drawdown',
       'Fees',
       'Open P&L',
@@ -391,7 +392,16 @@ describe('BotPairStatsTable', () => {
     const el = mount(
       createElement(BotPairStatsTable, {
         botId: 'bot1',
-        rows: [],
+        rows: buildPairStatsRowsFromSymbolStats([
+          {
+            symbol: 'ETH-USDC',
+            numerical: {
+              deals: { profit: 2, loss: 0 },
+              general: { netProfit: { usd: 3, asset: 3 }, netProfitPerc: 0.01 },
+            },
+            duration: { maxDealDuration: 1000, avgDealDuration: 500 },
+          } as unknown as BotSymbolsStats,
+        ]),
         range: null,
         fromStoredStats: true,
       })
@@ -400,5 +410,9 @@ describe('BotPairStatsTable', () => {
     const text = el.textContent ?? '';
     expect(text).not.toContain('All time');
     expect(text).toContain('Update the server');
+    // Metrics an old server never recorded are dropped, not shown as dashes.
+    expect(text).toContain('Realized P&L');
+    expect(text).not.toContain('Peak capital');
+    expect(text).not.toContain('Open P&L');
   });
 });

@@ -28,7 +28,8 @@ export interface BotPairStatsDTO {
   /** -1 = profits and no losses. */
   profitFactor: number;
   feesQuote: number;
-  maxDealCapitalUsd: number;
+  /** Peak of the summed capital of the pair's deals open at the same time. */
+  peakCapitalUsd: number;
   avgDealDuration: number;
   maxDealDuration: number;
   /** Fraction. */
@@ -48,13 +49,13 @@ export interface BotPairStatsRowVM {
   /** 0–100. */
   winRatePerc: number | undefined;
   realizedProfitUsd: number;
-  /** Realized P&L / the largest capital one deal of the pair used, 0–100. */
+  /** Realized P&L / the pair's peak concurrent capital, 0–100. */
   roiPerc: number | undefined;
   avgProfitUsd: number | undefined;
   /** Infinity = profits and no losses. */
   profitFactor: number | undefined;
   feesQuote: number | undefined;
-  maxDealCapitalUsd: number | undefined;
+  peakCapitalUsd: number | undefined;
   /** Worst intra-deal drawdown, 0–100 (positive = how far it fell). */
   maxDrawdownPerc: number | undefined;
   /** ms. */
@@ -92,8 +93,8 @@ export const buildPairStatsRows = (
       winRatePerc: decided ? (r.wins / decided) * 100 : undefined,
       realizedProfitUsd: r.realizedProfitUsd,
       roiPerc:
-        r.maxDealCapitalUsd > 0
-          ? (r.realizedProfitUsd / r.maxDealCapitalUsd) * 100
+        r.peakCapitalUsd > 0
+          ? (r.realizedProfitUsd / r.peakCapitalUsd) * 100
           : undefined,
       avgProfitUsd: r.closedDeals
         ? r.realizedProfitUsd / r.closedDeals
@@ -101,7 +102,7 @@ export const buildPairStatsRows = (
       // A pair that closed nothing has no factor, not a factor of 0.
       profitFactor: decided ? pfOf(r.profitFactor) : undefined,
       feesQuote: r.feesQuote,
-      maxDealCapitalUsd: r.maxDealCapitalUsd || undefined,
+      peakCapitalUsd: r.peakCapitalUsd || undefined,
       maxDrawdownPerc: r.maxDrawdownPerc * 100,
       avgDealDuration: r.closedDeals ? r.avgDealDuration : undefined,
       maxDealDuration: r.closedDeals ? r.maxDealDuration : undefined,
@@ -141,7 +142,7 @@ export const buildPairStatsRowsFromSymbolStats = (
       avgProfitUsd: decided ? realized / decided : undefined,
       profitFactor: undefined,
       feesQuote: undefined,
-      maxDealCapitalUsd: undefined,
+      peakCapitalUsd: undefined,
       maxDrawdownPerc: undefined,
       avgDealDuration:
         decided && finite(s.duration.avgDealDuration)

@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.64.1] - 2026-09-25
+
+### Changed
+
+- Bot details → Statistics, per-pair table: "Max deal capital" becomes "Peak
+  capital", the most the pair had committed at once across all its deals open
+  at the same time, and return on capital is measured against it. On bots that
+  run several deals per pair, measuring against one deal overstated the return
+  many times over.
+- Against a server without per-pair statistics, columns it never recorded are
+  hidden instead of showing a dash on every row.
+
 ## [2.64.0] - 2026-09-25
 
 ### Added

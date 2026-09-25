@@ -337,7 +337,7 @@ export const botQueries = {
                             symbol baseAsset quoteAsset
                             closedDeals wins losses
                             realizedProfitUsd grossProfitUsd grossLossUsd profitFactor
-                            feesQuote maxDealCapitalUsd
+                            feesQuote peakCapitalUsd
                             avgDealDuration maxDealDuration maxDrawdownPerc
                             openDeals unrealizedProfitUsd openCapitalUsd
                         }
