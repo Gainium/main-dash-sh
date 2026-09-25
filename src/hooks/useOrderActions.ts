@@ -141,6 +141,63 @@ export function useCancelPendingAddFundsOrder() {
   });
 }
 
+interface BuyBaseRemainderInput {
+  dealId: string;
+  botId: string;
+}
+
+// Hook for buying the unfilled rest of a part-filled LIMIT base order at
+// market: the backend cancels the resting remainder order and merges a market
+// fill for the remaining quantity into the deal.
+export function useBuyDealBaseRemainder() {
+  const queryClient = useQueryClient();
+
+  return useMutation<CancelOrderResponse, Error, BuyBaseRemainderInput>({
+    mutationFn: async ({ dealId, botId }) => {
+      logger.info('[useBuyDealBaseRemainder] Buying base remainder:', {
+        dealId,
+        botId,
+      });
+
+      const { query, variables } = botQueries.buyDealBaseRemainder({
+        dealId,
+        botId,
+      });
+
+      const response = await createAuthenticatedClient().request<{
+        buyDealBaseRemainder: CancelOrderResponse;
+      }>(query, variables);
+
+      if (response.buyDealBaseRemainder.status !== 'OK') {
+        throw new Error(
+          response.buyDealBaseRemainder.reason ||
+            'Failed to buy the rest at market'
+        );
+      }
+
+      return response.buyDealBaseRemainder;
+    },
+    onSuccess: (data, variables) => {
+      logger.info('[useBuyDealBaseRemainder] Base remainder bought:', {
+        dealId: variables.dealId,
+        botId: variables.botId,
+        response: data,
+      });
+
+      // Invalidate related queries to refresh data
+      queryClient.invalidateQueries({ queryKey: ['dcaBotList'] });
+      queryClient.invalidateQueries({ queryKey: ['getDCADeals'] });
+    },
+    onError: (error, variables) => {
+      logger.error('[useBuyDealBaseRemainder] Failed to buy base remainder:', {
+        dealId: variables.dealId,
+        botId: variables.botId,
+        error: error.message,
+      });
+    },
+  });
+}
+
 // Generic order cancellation hook that determines the appropriate mutation
 export function useCancelOrder() {
   const cancelTerminal = useCancelTerminalOrder();

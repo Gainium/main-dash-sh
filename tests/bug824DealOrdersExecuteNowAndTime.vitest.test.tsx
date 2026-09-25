@@ -33,6 +33,10 @@ vi.mock('@/hooks/useOrderActions', () => ({
     cancelPendingOrder: async () => undefined,
     isLoading: false,
   }),
+  useBuyDealBaseRemainder: () => ({
+    mutateAsync: async () => undefined,
+    isPending: false,
+  }),
 }));
 
 import { DealOrdersSection } from '@/components/trades/DealOrdersSection';

@@ -1079,6 +1079,8 @@ fixedSlPrice
                   asset
                   id
                   type
+                  baseRemainder
+                  baseTotal
                 }
                 pendingReduceFunds {
                   qty

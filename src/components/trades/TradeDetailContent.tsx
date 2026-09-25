@@ -3,6 +3,7 @@ import {
   StrategyEnum,
   type AddFundsSettings,
   type DCAGrid,
+  type PendingAddFundsEntry,
   type TransactionChart,
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
@@ -102,7 +103,7 @@ interface TradeDetailContentProps {
   chartTransactions?: TransactionChart[];
   smartOrders?: SmartViewOrder[];
   strategy?: StrategyEnum;
-  pendingAddFunds?: (AddFundsSettings & { id: string })[];
+  pendingAddFunds?: PendingAddFundsEntry[];
   pendingReduceFunds?: (AddFundsSettings & { id: string })[];
 }
 
@@ -545,6 +546,7 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
           {...(strategy && { strategy })}
           {...(pendingAddFunds && { pendingAddFunds })}
           {...(pendingReduceFunds && { pendingReduceFunds })}
+          {...(baseAsset && { baseAsset })}
           {...(canShowExecuteNextDca && {
             onExecuteNextDca: () => setExecuteNextDcaOpen(true),
           })}

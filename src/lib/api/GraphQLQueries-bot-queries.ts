@@ -1260,6 +1260,18 @@ export const botQueries = {
     return { query, variables };
   },
 
+  buyDealBaseRemainder: (input: { dealId: string; botId: string }) => {
+    const query = `mutation buyDealBaseRemainder($input: buyDealBaseRemainderInput!) {
+                    buyDealBaseRemainder(input: $input) {
+                        status
+                        reason
+                        data
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   // Deal Management Mutations
   closeDCADeal: (input: {
     dealId: string;

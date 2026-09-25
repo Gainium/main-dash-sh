@@ -3367,7 +3367,7 @@ export type DCADeals = {
     qty: number;
   }[];
   combo?: boolean;
-  pendingAddFunds?: (AddFundsSettings & { id: string })[];
+  pendingAddFunds?: PendingAddFundsEntry[];
   pendingReduceFunds?: (AddFundsSettings & { id: string })[];
   blockOrders?: BlockOrder[];
   moveSlActivated?: boolean;
@@ -3471,6 +3471,18 @@ export type AddFundsSettings = {
   limitPrice?: string;
   asset: OrderSizeTypeEnum;
   type?: AddFundsTypeEnum;
+};
+/**
+ * A deal's pending "add funds" entry as the API returns it. `baseRemainder`
+ * marks the unfilled rest of a part-filled LIMIT base order, resting as a
+ * LIMIT add-funds order: its `qty` is the resting base quantity and
+ * `baseTotal` the base order's full requested quantity. Both are nullable
+ * (older backends omit them) — treat missing as "not a remainder".
+ */
+export type PendingAddFundsEntry = AddFundsSettings & {
+  id: string;
+  baseRemainder?: boolean | null;
+  baseTotal?: string | null;
 };
 export interface ComboBotSettings extends DCABotSettings {
   gridLevel?: string;

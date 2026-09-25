@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.66.0] - 2026-09-25
+
+### Added
+
+- **Partly filled base orders are visible, and you can finish them at market.** When a DCA bot's LIMIT base order only partly fills and the bot is set never to enter at market, the rest of the base order now waits as a limit order. The deal's Orders card shows a "Partially filled" badge with how much of the base order has filled, and a "Buy rest at market" button ("Sell" on short bots) that cancels the waiting order and takes the rest at market after you confirm.
+
 ## [2.65.2] - 2026-09-25
 
 ### Fixed

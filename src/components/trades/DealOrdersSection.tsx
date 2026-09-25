@@ -33,6 +33,7 @@ import {
   StrategyEnum,
   type AddFundsSettings,
   type DCAGrid,
+  type PendingAddFundsEntry,
   type TransactionChart,
 } from '../../types';
 import { Badge } from '../ui/badge';
@@ -42,7 +43,11 @@ import { ConfirmationDialog } from '../ui/confirmation-dialog';
 import { ProgressBar } from '../ui/ProgressBar';
 import { DataTable } from '../ui/data-table/data-table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { useCancelOrder } from '@/hooks/useOrderActions';
+import {
+  useBuyDealBaseRemainder,
+  useCancelOrder,
+} from '@/hooks/useOrderActions';
+import { formatNumber } from '@/utils/numberFormatter';
 import { useOrderStore } from '@/stores/live/orderStore';
 import type { ViewOrder } from '@/types/bots';
 import type { SmartViewOrder } from '@/hooks/bots/dca/useDealSmartOrders';
@@ -70,7 +75,7 @@ interface DealOrdersSectionProps {
    * price matches one of these is canceled via `cancelPendingAddFundsDealOrder`
    * (it tears down the pending request + the placed order), mirroring legacy.
    */
-  pendingAddFunds?: PendingFundsEntry[];
+  pendingAddFunds?: PendingAddFundsEntry[];
   /** Deal's pending manual "reduce funds" requests (see `pendingAddFunds`). */
   pendingReduceFunds?: PendingFundsEntry[];
   /**
@@ -81,6 +86,8 @@ interface DealOrdersSectionProps {
    * https://community.gainium.io/t/execute-next-dca-manually/5072
    */
   onExecuteNextDca?: (() => void) | undefined;
+  /** Pair base asset, used to label base-order remainder quantities. */
+  baseAsset?: string | undefined;
 }
 
 /**
@@ -442,8 +449,11 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
   strategy = StrategyEnum.long,
   pendingAddFunds = [],
   pendingReduceFunds = [],
+  baseAsset: baseAssetProp,
 }) => {
   const [cancelTarget, setCancelTarget] = useState<OrderRowModel | null>(null);
+  const [buyRestOpen, setBuyRestOpen] = useState(false);
+  const buyBaseRemainder = useBuyDealBaseRemainder();
   const [activeTab, setActiveTab] = useState<'pending' | 'completed'>('pending');
   const {
     cancelTerminalOrder,
@@ -508,6 +518,47 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
     () => sortLadder(completedOrders),
     [completedOrders, sortLadder]
   );
+
+  // The unfilled rest of a part-filled LIMIT base order, resting as a LIMIT
+  // add-funds order. Older backends don't send `baseRemainder` — missing means
+  // there is no remainder, and nothing below renders.
+  const baseRemainder = useMemo(
+    () => pendingAddFunds.find((p) => p.baseRemainder === true) ?? null,
+    [pendingAddFunds]
+  );
+  const baseAsset =
+    baseAssetProp ||
+    _pendingOrders.find((o) => o.baseAsset)?.baseAsset ||
+    _completedOrders.find((o) => o.baseAsset)?.baseAsset ||
+    '';
+  const remainderQty = baseRemainder ? +baseRemainder.qty : NaN;
+  const remainderTotal = baseRemainder?.baseTotal
+    ? +baseRemainder.baseTotal
+    : NaN;
+  const remainderFilled =
+    Number.isFinite(remainderQty) && Number.isFinite(remainderTotal)
+      ? Math.max(remainderTotal - remainderQty, 0)
+      : NaN;
+  const withBase = (value: string) =>
+    baseAsset ? `${value} ${baseAsset}` : value;
+  // Mirrors the cancel action: Grid orders are not deal add-funds orders.
+  const canBuyRest = !!baseRemainder && botType !== 'Grid';
+  // A short deal's remainder is a sell.
+  const restVerb = strategy === StrategyEnum.short ? 'Sell' : 'Buy';
+
+  const handleConfirmBuyRest = async () => {
+    setBuyRestOpen(false);
+    try {
+      await buyBaseRemainder.mutateAsync({ dealId, botId });
+      toast.success(`${restVerb} at market requested`);
+    } catch (error) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : `Failed to ${restVerb.toLowerCase()} the rest at market`
+      );
+    }
+  };
 
   const pendingCount = pendingData.length;
   const completedCount = completedData.length;
@@ -790,16 +841,70 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
     [isOrderCancellable, isCanceling]
   );
 
+  const header = (
+    <div className="flex items-center gap-xs flex-wrap">
+      <ShoppingCart className="w-5 h-5 text-muted-foreground" />
+      <h3 className="text-lg font-semibold">Orders</h3>
+      {baseRemainder && (
+        <>
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-xs border px-2 py-0.5',
+              getStatusColor('partial')
+            )}
+            data-testid="base-remainder-badge"
+          >
+            Partially filled
+            {Number.isFinite(remainderFilled) &&
+              ` ${formatNumber(remainderFilled, true)} / ${withBase(
+                formatNumber(remainderTotal, true)
+              )}`}
+          </Badge>
+          {canBuyRest && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 ml-auto"
+              disabled={buyBaseRemainder.isPending}
+              title={`Cancel the resting base order remainder and ${restVerb.toLowerCase()} the rest at market`}
+              onClick={() => setBuyRestOpen(true)}
+            >
+              <Zap className="w-3.5 h-3.5 mr-1" />
+              {buyBaseRemainder.isPending
+                ? `${restVerb === 'Buy' ? 'Buying' : 'Selling'}…`
+                : `${restVerb} rest at market`}
+            </Button>
+          )}
+        </>
+      )}
+    </div>
+  );
+
+  const buyRestDialog = canBuyRest ? (
+    <ConfirmationDialog
+      open={buyRestOpen}
+      onOpenChange={setBuyRestOpen}
+      title={`${restVerb} rest at market`}
+      description={`This cancels the resting limit order and ${
+        restVerb === 'Buy' ? 'buys' : 'sells'
+      } the remaining ${withBase(
+        formatNumber(remainderQty, true)
+      )} at market price.`}
+      confirmText={`${restVerb} at market`}
+      cancelText="Keep limit order"
+      onConfirm={handleConfirmBuyRest}
+    />
+  ) : null;
+
   if (isLoading) {
     return (
       <Card className="p-lg">
-        <div className="flex items-center gap-xs mb-4">
-          <ShoppingCart className="w-5 h-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Orders</h3>
-        </div>
+        <div className="mb-4">{header}</div>
         <div className="text-center text-muted-foreground py-8">
           Loading orders...
         </div>
+        {buyRestDialog}
       </Card>
     );
   }
@@ -807,14 +912,12 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
   if (totalOrders === 0) {
     return (
       <Card className="p-lg">
-        <div className="flex items-center gap-xs mb-4">
-          <ShoppingCart className="w-5 h-5 text-muted-foreground" />
-          <h3 className="text-lg font-semibold">Orders</h3>
-        </div>
+        <div className="mb-4">{header}</div>
         <div className="text-center text-muted-foreground py-8">
           <ShoppingCart className="w-8 h-8 mx-auto mb-2 opacity-50" />
           <p>No orders found for this deal</p>
         </div>
+        {buyRestDialog}
       </Card>
     );
   }
@@ -837,10 +940,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
 
   return (
     <Card className="p-lg">
-      <div className="flex items-center gap-xs">
-        <ShoppingCart className="w-5 h-5 text-muted-foreground" />
-        <h3 className="text-lg font-semibold">Orders</h3>
-      </div>
+      {header}
 
       <OrderCardContext.Provider value={cardContext}>
         <Tabs
@@ -895,6 +995,7 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         variant="destructive"
         onConfirm={handleConfirmCancel}
       />
+      {buyRestDialog}
     </Card>
   );
 };
