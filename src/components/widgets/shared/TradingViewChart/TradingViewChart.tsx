@@ -451,6 +451,19 @@ const TradingViewChartComponent = forwardRef<
     reapplyOrders();
   }, [reapplyOrders]);
 
+  // TradingView drops order lines when the symbol changes, and a line asked
+  // for while the new symbol is still loading is never created at all — yet
+  // `reapplyOrders` records it as drawn, so the TP / DCA lines of a deal
+  // opened on another pair never appear. Redraw them once the switch lands.
+  const reapplyOrdersRef = useRef(reapplyOrders);
+  useEffect(() => {
+    reapplyOrdersRef.current = reapplyOrders;
+  }, [reapplyOrders]);
+  const redrawOrdersOnSymbolLoaded = useCallback(() => {
+    currentStateRef.current.orders = [];
+    reapplyOrdersRef.current();
+  }, []);
+
   // When orders / drawings / signals / avg-price lines / transactions
   // arrive BEFORE the TradingView widget finishes initializing, each
   // reapply callback bails on the `coreChartRef.current?.isReady()`
@@ -617,7 +630,10 @@ const TradingViewChartComponent = forwardRef<
 
       updateSymbol: (newSymbol: Symbols) => {
         if (coreChartRef.current?.isReady()) {
-          coreChartRef.current.updateSymbol(newSymbol.pair);
+          coreChartRef.current.updateSymbol(
+            newSymbol.pair,
+            redrawOrdersOnSymbolLoaded
+          );
           currentStateRef.current.symbol = newSymbol.pair;
           logger.info('Symbol updated via wrapper:', newSymbol.pair);
         }
@@ -653,7 +669,7 @@ const TradingViewChartComponent = forwardRef<
         }
       },
     }),
-    [isChartReady]
+    [isChartReady, redrawOrdersOnSymbolLoaded]
   );
 
   // Abort any in-flight shared-datafeed candle load the moment the requested
@@ -705,7 +721,7 @@ const TradingViewChartComponent = forwardRef<
       to: newSymbol,
       widgetId: widgetId || 'unknown',
     });
-    coreChartRef.current.updateSymbol(newSymbol);
+    coreChartRef.current.updateSymbol(newSymbol, redrawOrdersOnSymbolLoaded);
     currentStateRef.current.symbol = newSymbol;
     // Changing symbol can clear drawings; reapply overlays
     reapplyOrders();
@@ -722,6 +738,7 @@ const TradingViewChartComponent = forwardRef<
     reapplyOrderDrawings,
     reapplyPastEntries,
     reapplyAvgPriceLines,
+    redrawOrdersOnSymbolLoaded,
   ]);
 
   // Effect to handle interval changes
@@ -888,7 +905,7 @@ const TradingViewChartComponent = forwardRef<
         currentSymbol: currentStateRef.current.symbol,
         widgetId: widgetId || 'unknown',
       });
-      coreChartRef.current.updateSymbol(newSymbol);
+      coreChartRef.current.updateSymbol(newSymbol, redrawOrdersOnSymbolLoaded);
       currentStateRef.current.symbol = newSymbol;
     }
 
@@ -914,6 +931,7 @@ const TradingViewChartComponent = forwardRef<
     reapplyPastEntries,
     reapplyAvgPriceLines,
     isBarsReady,
+    redrawOrdersOnSymbolLoaded,
   ]);
 
   // Ensure we always have a valid symbol to pass to the renderer

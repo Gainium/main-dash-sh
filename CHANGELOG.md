@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.62.6] - 2026-09-25
+
+### Fixed
+
+- Bot details: opening another bot while the details panel is open now moves
+  the chart to that bot's pair and plots its latest deal. Before, the chart
+  kept the previous bot's pair. The previous bot's orders could be filed
+  under the new bot for a moment, and the deal auto-selection did not re-arm.
+- Charts: take-profit and DCA order lines of a deal on another pair appear
+  once that pair has loaded. A line requested while the new pair was still
+  loading was dropped and never redrawn.
+
 ## [2.62.5] - 2026-09-24
 
 ### Fixed

@@ -324,12 +324,15 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     // because the order list is filtered by `selectedTrade.dealId`,
     // which never matches a deal on the other leg's bot. Reset trade /
     // view state on bot id change so leg switch lands back on the
-    // overview of the new leg.
+    // overview of the new leg. The list pages share ONE drawer across bots,
+    // so the deal's pair goes too — otherwise the chart stays on the previous
+    // bot's pair.
     useEffect(() => {
       setViewMode('bot');
       setSelectedTrade(null);
       setEditingTrade(null);
       setChartTrade(null);
+      setDealSymbol(null);
     }, [bot._id]);
 
     // Get bot type for persistence
@@ -1028,6 +1031,11 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
 
     // Auto-select the most recent deal so TP/SL lines show on chart immediately
     const hasAutoSelectedDeal = useRef(false);
+    // Re-arm for the next bot before the effect below runs, so switching bots
+    // with the drawer open plots the new bot's latest deal too.
+    useEffect(() => {
+      hasAutoSelectedDeal.current = false;
+    }, [bot._id]);
     useEffect(() => {
       if (hasAutoSelectedDeal.current || isGrid || isLoadingOrders) {
         return;

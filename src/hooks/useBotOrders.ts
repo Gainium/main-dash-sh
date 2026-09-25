@@ -122,6 +122,11 @@ export function useBotOrders(
       // Disable the query until we have a valid id to prevent backend cast errors
       enabled: hasValidId,
       shareId,
+      // Opt OUT of the global `placeholderData: (prev) => prev` default in
+      // lib/queryClient: when `botId` changes it replays the PREVIOUS bot's
+      // orders under the new key with a success status, and the effects below
+      // then commit them to the store as this bot's orders.
+      placeholderData: undefined,
     }
   );
 

@@ -127,7 +127,8 @@ export interface TradingViewChartCoreRef {
   getWidget: () => TradingViewWidgetInstance | null;
   getContainerElement: () => HTMLElement | null;
   isReady: () => boolean;
-  updateSymbol: (symbolPair: string) => void;
+  /** `onLoaded` runs once the new symbol's data has loaded. */
+  updateSymbol: (symbolPair: string, onLoaded?: () => void) => void;
   updateInterval: (interval: string) => void;
   addOrderLine: (order: ChartOrderLine) => string | null;
   removeOrderLine: (lineId: string) => void;

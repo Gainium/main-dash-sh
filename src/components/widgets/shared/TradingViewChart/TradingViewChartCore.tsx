@@ -46,12 +46,9 @@ interface BasicChartAPI {
     animate?: boolean,
     rightAlign?: boolean
   ) => void;
-  setSymbol?: (
-    symbol: string,
-    interval?: string,
-    onReady?: () => void,
-    onError?: (reason?: unknown) => void
-  ) => void;
+  // TradingView's IChartWidgetApi.setSymbol: the resolution is not an
+  // argument, and "loaded" is reported through `options.dataReady`.
+  setSymbol?: (symbol: string, options?: { dataReady?: () => void }) => void;
 }
 
 interface ExtendedWidget extends TradingViewWidgetInstance {
@@ -1236,7 +1233,7 @@ export const TradingViewChartCore = forwardRef<
         getWidget: () => widgetRef.current,
         getContainerElement: () => chartContainerRef.current,
         isReady: () => isChartReady && widgetRef.current != null,
-        updateSymbol: (symbolPair: string) => {
+        updateSymbol: (symbolPair: string, onLoaded?: () => void) => {
           if (!widgetRef.current || !isChartReady) return;
           try {
             const widget = widgetRef.current as ExtendedWidget;
@@ -1248,23 +1245,15 @@ export const TradingViewChartCore = forwardRef<
             const interval = currentIntervalRef.current;
 
             if (chart?.setSymbol) {
-              chart.setSymbol(
-                symbolToSet,
-                interval,
-                () => {
+              chart.setSymbol(symbolToSet, {
+                dataReady: () => {
                   logger.debug('[Core] Chart symbol updated', {
                     symbol: symbolToSet,
                     interval,
                   });
+                  onLoaded?.();
                 },
-                (reason?: unknown) => {
-                  logger.warn('[Core] Chart symbol update reported failure', {
-                    symbol: symbolToSet,
-                    interval,
-                    reason,
-                  });
-                }
-              );
+              });
               return;
             }
 
