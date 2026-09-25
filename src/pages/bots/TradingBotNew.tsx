@@ -140,6 +140,7 @@ const TradingBotNewWidget = () => {
       initialFormData={initialFormData}
       formReloadKey={formReloadKey}
       isSeedPending={isLoadingClone}
+      openInManual={Boolean(preload?.openInManual)}
       onLoadBacktestIntoForm={handleLoadBacktest}
     />
   );

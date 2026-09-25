@@ -32,11 +32,16 @@
 import { useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
+import {
+  botFormDraftKey,
+  clearBotFormDraft,
+} from '@/contexts/bots/form/botFormDraft';
 import { logger } from '@/lib/loggerInstance';
 import {
   useCuratedPreloadHints,
   type CuratedPreloadHint,
 } from '@/lib/curatedPreload';
+import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { useExchangesStore } from '@/stores/exchangesStore';
 import { BotTypesEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
@@ -49,6 +54,11 @@ interface StagedBotConfig {
   exchange?: string;
   symbol?: string;
   settings?: Record<string, unknown>;
+  /**
+   * A complete, already-mapped form (see `stageBacktestLoad`). Seeds the form
+   * as-is instead of going through the `settings` → slice path.
+   */
+  formData?: Partial<BotFormData>;
   curated?: CuratedPreloadHint;
 }
 
@@ -68,6 +78,11 @@ export interface BotConfigPreload {
    * when the provider is not connected — so the form never hangs.
    */
   exchangePending?: boolean;
+  /**
+   * The seed is a full settings load: open the form in Manual so Quick
+   * mode's automatic risk profile does not overwrite it.
+   */
+  openInManual?: boolean;
 }
 
 /**
@@ -120,6 +135,27 @@ function readSession(): StagedBotConfig | null {
     });
     return null;
   }
+}
+
+/**
+ * "Load in settings" from a page that is not the new-bot form (the Backtests
+ * page, a bot's edit page): map the backtest exactly like the new page's
+ * in-place load does, drop the unsaved create-draft that would otherwise be
+ * restored over it, and stage the result for the next `/new` mount.
+ */
+export function stageBacktestLoad(
+  botType: BotTypesEnum.dca | BotTypesEnum.combo,
+  backtest: { settings?: unknown; exchangeUUID?: string }
+): void {
+  const { formData } = mapBotSettingsToFormData(botType, {
+    settings: backtest.settings,
+    exchangeUUID: backtest.exchangeUUID,
+  });
+  clearBotFormDraft(botFormDraftKey(botType, 'create'));
+  window.sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({ type: botType, formData } satisfies StagedBotConfig)
+  );
 }
 
 export function useBotConfigPreload(): BotConfigPreload | null {
@@ -221,7 +257,7 @@ export function useBotConfigPreload(): BotConfigPreload | null {
       }
     }
 
-    const initialFormData: Partial<BotFormData> = {};
+    const initialFormData: Partial<BotFormData> = { ...staged?.formData };
     if (exchangeUUID) initialFormData.exchangeUUID = exchangeUUID;
     // BotFormData.pair accepts string | string[]; the form internally
     // normalizes via [pair].flat(), but several call sites use
@@ -278,6 +314,7 @@ export function useBotConfigPreload(): BotConfigPreload | null {
       name: staged?.name,
       curated: staged?.curated,
       exchangePending,
+      openInManual: Boolean(staged?.formData),
     };
   }, [search, staged, exchanges, exchangesReady]);
 }

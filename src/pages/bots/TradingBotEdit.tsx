@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { dcaPageDescriptor } from '@/components/bots/workbench/descriptors';
+import { stageBacktestLoad } from '@/hooks/useBotConfigPreload';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { BotTypesEnum, type DCABacktestingResultHistory } from '@/types';
@@ -21,13 +22,7 @@ const TradingBotEditWidget = () => {
         // Stage the backtest settings for the fresh form on /bot/new
         // (same one-shot channel as "Copy to live"); the new form reads
         // it via useBotConfigPreload.
-        sessionStorage.setItem(
-          'botConfig',
-          JSON.stringify({
-            type: BotTypesEnum.dca,
-            settings: backtest.settings,
-          })
-        );
+        stageBacktestLoad(BotTypesEnum.dca, backtest);
         toast.success('Backtest settings loaded into new bot form');
         navigate('/bot/new');
       } catch (error) {

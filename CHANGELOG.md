@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.65.2] - 2026-09-25
+
+### Fixed
+
+- "Load in settings" on the Backtests page and on a bot's edit page opens the
+  new bot form with the backtest's settings, in Manual, instead of a default
+  bot: the settings are mapped the same way as the new-bot page's own load,
+  and a stored unsaved-bot draft no longer overrides them.
+
 ## [2.65.1] - 2026-09-25
 
 ### Fixed

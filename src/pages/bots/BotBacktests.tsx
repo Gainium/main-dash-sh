@@ -12,9 +12,11 @@ import {
 } from '@/components/bots/workbench/descriptors';
 import MainLayout from '@/components/layout/MainLayout';
 import { Button } from '@/components/ui/button';
+import { stageBacktestLoad } from '@/hooks/useBotConfigPreload';
 import { useShareContext } from '@/hooks/useShareContext';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
+import { BotTypesEnum } from '@/types';
 
 interface BotBacktestsPageProps<TResult extends BacktestRowBase> {
   descriptor: BotPageDescriptor<TResult>;
@@ -43,13 +45,20 @@ export function BotBacktestsPage<TResult extends BacktestRowBase>({
       try {
         // Same one-shot channel the edit pages use; the new form reads it
         // via useBotConfigPreload.
-        sessionStorage.setItem(
-          'botConfig',
-          JSON.stringify({
-            type: descriptor.botType,
-            settings: backtest.settings,
-          })
-        );
+        if (
+          descriptor.botType === BotTypesEnum.dca ||
+          descriptor.botType === BotTypesEnum.combo
+        ) {
+          stageBacktestLoad(descriptor.botType, backtest);
+        } else {
+          sessionStorage.setItem(
+            'botConfig',
+            JSON.stringify({
+              type: descriptor.botType,
+              settings: backtest.settings,
+            })
+          );
+        }
         toast.success('Backtest settings loaded into new bot form');
         navigate(newPath);
       } catch (error) {

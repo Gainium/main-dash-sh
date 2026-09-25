@@ -39,6 +39,8 @@ interface BotWorkbenchCreateProps<TResult extends BacktestRowBase> {
    * last-used config then remounts. (= loadFromBotId && loadFromBotPending)
    */
   isSeedPending: boolean;
+  /** The page-resolved seed is a full settings load staged by another page. */
+  openInManual?: boolean;
   /** In-place reload: map settings -> setLoadedFormData -> bump formReloadKey. */
   onLoadBacktestIntoForm: (backtest: TResult) => void;
 }
@@ -370,8 +372,13 @@ export function BotWorkbench<
     );
   }
 
-  const { initialFormData, formReloadKey, isSeedPending, onLoadBacktestIntoForm } =
-    props;
+  const {
+    initialFormData,
+    formReloadKey,
+    isSeedPending,
+    openInManual,
+    onLoadBacktestIntoForm,
+  } = props;
 
   return (
     <BotBacktestPanel
@@ -429,7 +436,7 @@ export function BotWorkbench<
                 terminal={false}
                 initialFormData={initialFormData}
                 // A bumped key means "Load in settings" just replaced the seed.
-                openInManual={formReloadKey > 0}
+                openInManual={formReloadKey > 0 || Boolean(openInManual)}
                 // On mobile, BotPanelLayout provides the top-level tabs (Settings/Chart/Backtests),
                 // but the form should still show its internal section navigation (Entry, DCA, etc.)
                 disableMobileAutoDetect
