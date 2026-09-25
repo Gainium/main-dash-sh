@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.62.8] - 2026-09-25
+
+### Fixed
+
+- Bot details: after opening another bot while the details panel is open, the
+  chart shows that bot's Breakeven line again. A Breakeven line requested while
+  the new pair was still loading was dropped, and the chart then treated it as
+  already drawn.
+
 ## [2.62.7] - 2026-09-25
 
 ### Fixed

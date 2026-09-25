@@ -1251,6 +1251,12 @@ export const TradingViewChartCore = forwardRef<
                     symbol: symbolToSet,
                     interval,
                   });
+                  // A breakeven line asked for while the new symbol was
+                  // loading is dropped with its `dataReady` callback, yet its
+                  // signature is already recorded, so every later render is
+                  // skipped. Forget it and draw again on the loaded symbol.
+                  avgPriceSignatureRef.current = '';
+                  setAvgPriceLines(avgPriceCacheRef.current);
                   onLoaded?.();
                 },
               });
