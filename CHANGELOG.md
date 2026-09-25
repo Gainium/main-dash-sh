@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.63.1] - 2026-09-25
+
+### Fixed
+
+- DCA deal chart and orders table: a safety order that had already filled could
+  still show as a pending "Smart order", most visibly once every safety order
+  had filled. Projected levels now skip the levels the deal has filled.
+
 ## [2.63.0] - 2026-09-25
 
 ### Added

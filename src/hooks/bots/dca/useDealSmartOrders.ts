@@ -135,9 +135,10 @@ function startDcaMinPercs(settings: DCABotSettings | null): number[] {
  *
  *  1. Build the FULL DCA/combo ladder client-side from the deal's merged
  *     settings + `initialPrice` (legacy calls `createOrders(..., all=true)`).
- *  2. Keep only the levels the bot has NOT placed yet — for a long deal,
- *     those strictly below the lowest pending real DCA order (mirror for
- *     short), bounded by the stop-loss line.
+ *  2. Keep only the levels the bot has NOT placed yet — past the deal's
+ *     filled level count (`levels.complete`), and for a long deal strictly
+ *     below the lowest pending real DCA order (mirror for short), bounded by
+ *     the stop-loss line.
  *  3. **Dedupe against real placed/filled orders by price.** Legacy does NOT
  *     do this, which is why it shows a "Smart order" and a "FILLED" row at the
  *     same price; we drop the projected level when a real order already sits
@@ -450,8 +451,22 @@ export function useDealSmartOrders({
       });
     }
 
+    // DCA levels the deal has already filled, by level number: `levels.complete`
+    // counts the base order, so the first `complete - 1` DCA entries are spent.
+    // The price rules below cannot see this on their own — once every DCA order
+    // has filled nothing rests to bound the projection, and a level the venue
+    // filled a tick off the client-side ladder's rounding slips past the dedup.
+    const filledDcaLevels = isCombo
+      ? 0
+      : Math.max(0, (deal.levels?.complete ?? 1) - 1);
+    let dcaLevel = 0;
+
     const projected = effectiveLadder.filter((o) => {
       if (!projectsType(o.type)) return false;
+      if (!isCombo && o.type === DCAOrderTypeEnum.dca) {
+        dcaLevel += 1;
+        if (dcaLevel <= filledDcaLevels) return false;
+      }
       if (o.hide || o.note) return false;
       if (!(o.price > 0) || !(o.qty > 0)) return false;
       // Only un-placed levels: beyond the lowest/highest pending real DCA.
