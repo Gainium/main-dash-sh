@@ -231,27 +231,17 @@ describe('bug #961 — the bot drawer chart follows the bot it shows', () => {
     expect(onLoaded).toHaveBeenCalledTimes(1);
   });
 
-  test("a deal opened on another pair gets its TP line once that pair's data loads", async () => {
-    const drawn: string[] = [];
-    chart.dataLoaded = true;
-    chart.onLoaded = undefined;
+  test("a deal opened on another pair hands its TP line to the chart core", async () => {
+    // Drawing it only once the new pair has loaded is the core's job — see
+    // chartOverlaysSurviveReload.vitest.test.tsx. The wrapper must pass the
+    // new bot's lines on, even though they arrive mid-switch.
+    const updateOrderLines = vi.fn();
     chart.handle = {
       isReady: () => true,
-      updateSymbol: vi.fn((_symbol: string, onLoaded?: () => void) => {
-        // TradingView drops the lines and loads the new pair.
-        drawn.length = 0;
-        chart.dataLoaded = false;
-        chart.onLoaded = onLoaded;
-      }),
-      // TradingView refuses a line while the series has no price range.
-      addOrderLine: vi.fn((o: { price: number }) => {
-        if (!chart.dataLoaded) return null;
-        drawn.push(String(o.price));
-        return `line-${o.price}`;
-      }),
-      clearAllOrderLines: vi.fn(() => {
-        drawn.length = 0;
-      }),
+      updateSymbol: vi.fn(),
+      updateOrderLines,
+      addOrderLine: vi.fn(),
+      clearAllOrderLines: vi.fn(),
       removeOrderLine: vi.fn(),
       updateOrderDrawings: vi.fn(),
       updatePastEntries: vi.fn(),
@@ -279,22 +269,12 @@ describe('bug #961 — the bot drawer chart follows the bot it shows', () => {
 
     // Drawer opened on bot A's pair, no deal selected yet.
     await renderChart('GNOT-USD@kraken', []);
-    await act(async () => {
-      chart.dataLoaded = true;
-      chart.onLoaded?.();
-    });
 
     // Bot B: its latest deal is auto-selected → new pair + its TP order.
     const tp = { price: 582.14, side: 'SELL', qty: 1.42, label: 'TP order' };
     await renderChart('XMRUSD@kraken', [tp]);
-    expect(drawn).toEqual([]); // asked for mid-switch: not created
 
-    expect(chart.onLoaded).toBeTypeOf('function');
-    await act(async () => {
-      chart.dataLoaded = true;
-      chart.onLoaded?.();
-    });
-
-    expect(drawn).toEqual(['582.14']);
+    expect(chart.handle.updateSymbol).toHaveBeenLastCalledWith('XMRUSD@kraken');
+    expect(updateOrderLines).toHaveBeenLastCalledWith([tp]);
   });
 });

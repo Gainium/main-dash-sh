@@ -8,6 +8,7 @@ import {
   type AvgPrice,
   type ChartIndicatorsConfig,
   type ChartOrderDrawing,
+  type ChartOrderLine,
   type IndicatorsEvents,
   type PositionChart,
 } from '@/types';
@@ -101,6 +102,88 @@ const adjustPriceForSignal = (price: number | string, side: string) => {
   return numericPrice * multiplier;
 };
 
+type OverlayKind =
+  | 'orderLines'
+  | 'orderDrawings'
+  | 'pastEntries'
+  | 'avgPrice'
+  | 'transactions'
+  | 'position';
+
+/** Draw order: faint history first, live lines and markers on top. */
+const ALL_OVERLAYS: readonly OverlayKind[] = [
+  'orderDrawings',
+  'pastEntries',
+  'transactions',
+  'avgPrice',
+  'orderLines',
+  'position',
+];
+
+/** Overlays that only plot what is inside the visible time range. */
+const RANGE_FILTERED_OVERLAYS: readonly OverlayKind[] = [
+  'orderDrawings',
+  'pastEntries',
+  'transactions',
+];
+
+const OVERLAY_RETRY_BASE_DELAY_MS = 100;
+const OVERLAY_RETRY_MAX_DELAY_MS = 2000;
+const OVERLAY_RETRY_MAX_ATTEMPTS = 30;
+/** Give up waiting for a load's completion signal and draw anyway. */
+const PENDING_LOAD_TIMEOUT_MS = 15000;
+
+interface TradingViewSubscription {
+  subscribe?: (context: null, callback: () => void) => void;
+  unsubscribe?: (context: null, callback: () => void) => void;
+}
+
+type OverlayChart = ChartInstance & {
+  createMultipointShape?: (
+    points: Array<{ time: number; price: number }>,
+    options: Record<string, unknown>
+  ) => unknown;
+  createOrderLine?: () => OrderLineInstance;
+  createShape?: (
+    point: { time: number; price: number },
+    options: Record<string, unknown>
+  ) => unknown;
+  removeEntity?: (entity: unknown) => void;
+  dataReady?: (callback: () => void) => boolean | undefined;
+  onDataLoaded?: () => TradingViewSubscription;
+  getVisibleRange?: () => { from: number; to: number } | null;
+  getVisiblePriceRange?: () => { from?: number; to?: number } | null;
+  setSymbol?: (symbol: string, options?: { dataReady?: () => void }) => void;
+  symbol?: () => string;
+  resolution?: () => string;
+};
+
+const normalizeSymbolId = (symbol?: string | null): string =>
+  (symbol ?? '').replace(/:/g, '_').toLowerCase();
+
+const chartDataKey = (chart: OverlayChart): string => {
+  try {
+    return `${normalizeSymbolId(chart.symbol?.())}|${chart.resolution?.() ?? ''}`;
+  } catch {
+    return '';
+  }
+};
+
+/**
+ * Whether the chart can hold overlays right now. Before the main series has a
+ * price scale, `createOrderLine` and the transaction markers refuse to draw
+ * (TradingView throws "Value is null" otherwise).
+ */
+const canDrawOverlays = (chart: OverlayChart): boolean => {
+  if (typeof chart.getVisiblePriceRange !== 'function') return true;
+  try {
+    const range = chart.getVisiblePriceRange();
+    return range?.from != null && range?.to != null;
+  } catch {
+    return false;
+  }
+};
+
 export const TradingViewChartCore = forwardRef<
   TradingViewChartCoreRef,
   TradingViewChartCoreProps
@@ -129,7 +212,13 @@ export const TradingViewChartCore = forwardRef<
     ref
   ) => {
     const chartContainerRef = useRef<HTMLDivElement | null>(null);
+    // Order lines added one by one through `addOrderLine` (manual
+    // backtesting). The declarative `updateOrderLines` set lives in
+    // `managedOrderLinesRef` and is owned by the overlay scheduler.
     const orderLinesRef = useRef<Map<string, OrderLineInstance>>(new Map());
+    const managedOrderLinesRef = useRef<Map<string, OrderLineInstance>>(
+      new Map()
+    );
     // Store transaction entity arrays (each may be single or multiple shapes)
     const transactionEntitiesRef = useRef<Map<string, unknown>>(new Map());
     const orderDrawingEntitiesRef = useRef<Map<string, unknown>>(new Map());
@@ -137,22 +226,20 @@ export const TradingViewChartCore = forwardRef<
     const avgPriceLineEntitiesRef = useRef<Map<string, OrderLineInstance>>(
       new Map()
     );
-    const avgPriceLineIdsRef = useRef<Set<string>>(new Set());
     const visibleRangeRef = useRef<{ from: number; to: number } | null>(null);
+    // What each overlay SHOULD show. The chart itself is only ever a
+    // projection of these caches — see `flushOverlays`.
+    const orderLinesCacheRef = useRef<ChartOrderLine[]>([]);
     const orderDrawingsCacheRef = useRef<ChartOrderDrawing[]>([]);
     const pastEntriesCacheRef = useRef<IndicatorsEvents[]>([]);
     const transactionsCacheRef = useRef<TransactionExtended[]>([]);
     const avgPriceCacheRef = useRef<AvgPrice[]>([]);
-    // Signature of the last avgPrice payload we rendered. Used to skip
-    // redundant redraws when the same content arrives multiple times in
-    // quick succession (each `setAvgPrices` call schedules a
-    // `dataReady` callback, and concurrent callbacks can leave orphan
-    // lines on the chart if `createOrderLine` is invoked more than once
-    // for the same value).
-    const avgPriceSignatureRef = useRef<string>('');
+    const positionCacheRef = useRef<{
+      position: PositionChart;
+      precision: number | undefined;
+      serialized: string;
+    } | null>(null);
     const positionEntityRef = useRef<unknown | null>(null);
-    const positionHashRef = useRef<string | null>(null);
-    const positionPrecisionRef = useRef<number | undefined>(undefined);
     const currentIntervalRef = useRef<string>(initialInterval);
     const toolbarDropdownHandleRef = useRef<TradingViewDropdownHandle | null>(
       null
@@ -166,6 +253,27 @@ export const TradingViewChartCore = forwardRef<
     const intervalChangeCallbackRef = useRef<(interval: string) => void>(
       () => undefined
     );
+    const layoutChangeCallbackRef = useRef<
+      (layout: { id: string; name?: string | null } | null) => void
+    >(() => undefined);
+
+    // Overlay scheduler state. Every overlay kind is "dirty" until it has been
+    // drawn on a chart that could actually take it; `flushOverlays` retries
+    // until that happens.
+    const chartReadyRef = useRef(false);
+    const dirtyOverlaysRef = useRef<Set<OverlayKind>>(new Set(ALL_OVERLAYS));
+    // Set while the chart is loading a symbol / resolution / layout. Shapes
+    // created then are dropped by TradingView, so drawing waits for the load.
+    const pendingLoadSinceRef = useRef<number | null>(null);
+    const pendingLoadTokenRef = useRef(0);
+    // symbol + resolution when the pending load began: a data-loaded event
+    // for that same key is a late page of the OLD data, not the new load.
+    const pendingLoadFromKeyRef = useRef<string | null>(null);
+    const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const retryAttemptsRef = useRef(0);
+    // symbol + resolution the overlays were last drawn for.
+    const drawnForKeyRef = useRef<string | null>(null);
+    const flushOverlaysRef = useRef<() => void>(() => undefined);
 
     const proxyVisibleRange = useCallback(
       (range?: { from: number; to: number }) =>
@@ -175,6 +283,12 @@ export const TradingViewChartCore = forwardRef<
 
     const proxyIntervalChange = useCallback(
       (interval: string) => intervalChangeCallbackRef.current(interval),
+      []
+    );
+
+    const proxyLayoutChange = useCallback(
+      (layout: { id: string; name?: string | null } | null) =>
+        layoutChangeCallbackRef.current(layout),
       []
     );
 
@@ -198,7 +312,7 @@ export const TradingViewChartCore = forwardRef<
         initialLayoutName,
         initialTimeframe,
         ...(layoutPersistenceKey ? { layoutPersistenceKey } : {}),
-        ...(onLayoutChange ? { onLayoutChange } : {}),
+        onLayoutChange: proxyLayoutChange,
       });
 
     useTradingViewAutoSave(
@@ -239,32 +353,33 @@ export const TradingViewChartCore = forwardRef<
         return null;
       }
 
-      return chartCandidate as ChartInstance & {
-        createMultipointShape?: (
-          points: Array<{ time: number; price: number }>,
-          options: Record<string, unknown>
-        ) => unknown;
-        createOrderLine?: () => OrderLineInstance;
-        createShape?: (
-          point: { time: number; price: number },
-          options: Record<string, unknown>
-        ) => unknown;
-        removeEntity?: (entity: unknown) => void;
-        dataReady?: (callback: () => void) => void;
-        getVisibleRange?: () => { from: number; to: number } | null;
-      };
+      return chartCandidate as OverlayChart;
     }, [widgetRef]);
 
-    const renderOrderDrawings = useCallback(() => {
-      if (!widgetRef.current || !isChartReady) {
-        return;
-      }
+    const renderOrderLines = useCallback(
+      (chart: OverlayChart) => {
+        managedOrderLinesRef.current.forEach((line) => {
+          try {
+            line.remove?.();
+          } catch (error) {
+            logger.warn('Failed to remove order line', error);
+          }
+        });
+        managedOrderLinesRef.current.clear();
 
-      const chart = getActiveChart();
-      if (!chart) {
-        return;
-      }
+        const widget = widgetRef.current;
+        if (!widget) return;
+        orderLinesCacheRef.current.forEach((order) => {
+          createOrderLine(widget, order, (id, instance) =>
+            managedOrderLinesRef.current.set(id, instance)
+          );
+        });
+        void chart;
+      },
+      [widgetRef]
+    );
 
+    const renderOrderDrawings = useCallback((chart: OverlayChart) => {
       orderDrawingEntitiesRef.current.forEach((entity) => {
         try {
           chart.removeEntity?.(entity);
@@ -274,203 +389,74 @@ export const TradingViewChartCore = forwardRef<
       });
       orderDrawingEntitiesRef.current.clear();
 
+      if (typeof chart.createMultipointShape !== 'function') {
+        return;
+      }
+
       const intervalMs = intervalToSeconds(currentIntervalRef.current) * 1000;
       const resolvedRange =
         visibleRangeRef.current ?? chart.getVisibleRange?.() ?? null;
 
-      const createMultipointShape = (
-        chart as {
-          createMultipointShape?: (
-            points: Array<{ time: number; price: number }>,
-            options: Record<string, unknown>
-          ) => unknown;
+      orderDrawingsCacheRef.current.forEach((order, index) => {
+        if (!order) return;
+        const startTimeMs = Number(order.startTime);
+        const endTimeMs = Number(order.endTime);
+        const priceValue = Number(order.price);
+        if (
+          !Number.isFinite(startTimeMs) ||
+          !Number.isFinite(endTimeMs) ||
+          !Number.isFinite(priceValue)
+        ) {
+          logger.warn('[OrderDrawings] Invalid order data', { order });
+          return;
         }
-      ).createMultipointShape;
+        // Shorter than one bar: nothing to see at this resolution.
+        if (Math.abs(endTimeMs - startTimeMs) < intervalMs) return;
+        // Keep any segment that OVERLAPS the visible range, not only those
+        // whose start is in view — otherwise a line vanishes as soon as its
+        // start scrolls off the left edge even though it still crosses the
+        // viewport.
+        if (
+          resolvedRange &&
+          !(
+            endTimeMs / 1000 > resolvedRange.from &&
+            startTimeMs / 1000 < resolvedRange.to
+          )
+        ) {
+          return;
+        }
 
-      if (typeof createMultipointShape !== 'function') {
-        return;
-      }
-
-      (orderDrawingsCacheRef.current ?? [])
-        .map((order) => {
-          if (!order) return null;
-          const startTimeMs = Number(order.startTime);
-          const endTimeMs = Number(order.endTime);
-          const priceValue = Number(order.price);
-          if (
-            !Number.isFinite(startTimeMs) ||
-            !Number.isFinite(endTimeMs) ||
-            !Number.isFinite(priceValue)
-          ) {
-            logger.warn('[OrderDrawings] Invalid order data', {
-              order,
-              startTimeMs,
-              endTimeMs,
-              priceValue,
-            });
-            return null;
-          }
-          return {
-            ...order,
-            startTimeMs,
-            endTimeMs,
-            priceValue,
-          };
-        })
-        .filter(
-          (
-            order
-          ): order is typeof order & {
-            startTimeMs: number;
-            endTimeMs: number;
-            priceValue: number;
-          } => Boolean(order)
-        )
-        .filter((order) => {
-          const duration = Math.abs(order.endTimeMs - order.startTimeMs);
-          const durationBars = duration / intervalMs;
-
-          logger.debug('[OrderDrawings] Evaluating order for rendering', {
-            side: order.side,
-            startTime: new Date(order.startTimeMs).toISOString(),
-            endTime: new Date(order.endTimeMs).toISOString(),
-            price: order.priceValue,
-            durationMs: duration,
-            durationSeconds: duration / 1000,
-            durationBars: durationBars.toFixed(2),
-            intervalMs,
-            intervalSeconds: intervalMs / 1000,
-            meetsMinDuration: duration >= intervalMs,
-          });
-
-          if (duration < intervalMs) {
-            logger.debug(
-              '[OrderDrawings] Filtering out order - duration too short',
-              {
-                durationMs: duration,
-                requiredIntervalMs: intervalMs,
-                durationBars: durationBars.toFixed(2),
-              }
-            );
-            return false;
-          }
-          if (!resolvedRange) {
-            return true;
-          }
-          const startSeconds = order.startTimeMs / 1000;
-          const endSeconds = order.endTimeMs / 1000;
-          // Keep any segment that OVERLAPS the visible range, not only those
-          // whose start is in view — otherwise a line vanishes as soon as its
-          // start scrolls off the left edge even though it still crosses the
-          // viewport.
-          const inRange =
-            endSeconds > resolvedRange.from &&
-            startSeconds < resolvedRange.to;
-
-          if (!inRange) {
-            logger.debug(
-              '[OrderDrawings] Filtering out order - outside visible range',
-              {
-                startSeconds,
-                rangeFrom: resolvedRange.from,
-                rangeTo: resolvedRange.to,
-                startTime: new Date(order.startTimeMs).toISOString(),
-                rangeFromTime: new Date(
-                  resolvedRange.from * 1000
-                ).toISOString(),
-                rangeToTime: new Date(resolvedRange.to * 1000).toISOString(),
-              }
-            );
-          }
-
-          return inRange;
-        })
-        .forEach((order, index) => {
-          try {
-            const startSeconds = Math.round(order.startTimeMs / 1000);
-            const endSeconds = Math.round(order.endTimeMs / 1000);
-
-            logger.info('[OrderDrawings] Creating drawing on chart', {
-              index,
-              side: order.side,
-              price: order.priceValue,
-              startTime: new Date(startSeconds * 1000).toISOString(),
-              endTime: new Date(endSeconds * 1000).toISOString(),
-              startTimestamp: startSeconds,
-              endTimestamp: endSeconds,
-              durationSeconds: endSeconds - startSeconds,
-              currentInterval: currentIntervalRef.current,
-              intervalSeconds: intervalMs / 1000,
-            });
-
-            const entity = createMultipointShape.call(
-              chart,
-              [
-                {
-                  time: startSeconds,
-                  price: order.priceValue,
-                },
-                {
-                  time: endSeconds,
-                  price: order.priceValue,
-                },
-              ],
-              {
-                shape: 'trend_line',
-                lock: true,
-                disableSave: true,
-                disableSelection: true,
-                zOrder:
-                  order.side?.toUpperCase?.() === 'GREY' ? 'bottom' : 'top',
-                overrides: {
-                  linecolor: getLineColorForSide(order.side),
-                  linewidth: 2,
-                },
-              }
-            );
-            if (entity) {
-              const key = `${order.startTimeMs}-${order.endTimeMs}-${order.priceValue}-${order.side}-${index}`;
-              orderDrawingEntitiesRef.current.set(key, entity);
-              logger.debug('[OrderDrawings] Drawing created successfully', {
-                key,
-                entityCreated: true,
-              });
-            } else {
-              logger.warn(
-                '[OrderDrawings] Drawing entity creation returned null',
-                {
-                  order,
-                  index,
-                }
-              );
+        try {
+          const entity = chart.createMultipointShape?.(
+            [
+              { time: Math.round(startTimeMs / 1000), price: priceValue },
+              { time: Math.round(endTimeMs / 1000), price: priceValue },
+            ],
+            {
+              shape: 'trend_line',
+              lock: true,
+              disableSave: true,
+              disableSelection: true,
+              zOrder: order.side?.toUpperCase?.() === 'GREY' ? 'bottom' : 'top',
+              overrides: {
+                linecolor: getLineColorForSide(order.side),
+                linewidth: 2,
+              },
             }
-          } catch (error) {
-            logger.warn('Failed to render order drawing', {
-              error,
-              order,
-              index,
-            });
+          );
+          if (entity) {
+            orderDrawingEntitiesRef.current.set(
+              `${startTimeMs}-${endTimeMs}-${priceValue}-${order.side}-${index}`,
+              entity
+            );
           }
-        });
-    }, [
-      currentIntervalRef,
-      getActiveChart,
-      isChartReady,
-      orderDrawingsCacheRef,
-      visibleRangeRef,
-      widgetRef,
-    ]);
+        } catch (error) {
+          logger.warn('Failed to render order drawing', { error, order });
+        }
+      });
+    }, []);
 
-    const renderPastEntries = useCallback(() => {
-      if (!widgetRef.current || !isChartReady) {
-        return;
-      }
-
-      const chart = getActiveChart();
-      if (!chart) {
-        return;
-      }
-
+    const renderPastEntries = useCallback((chart: OverlayChart) => {
       pastEntryEntitiesRef.current.forEach((entity) => {
         try {
           chart.removeEntity?.(entity);
@@ -480,16 +466,7 @@ export const TradingViewChartCore = forwardRef<
       });
       pastEntryEntitiesRef.current.clear();
 
-      const createMultipointShape = (
-        chart as {
-          createMultipointShape?: (
-            points: Array<{ time: number; price: number }>,
-            options: Record<string, unknown>
-          ) => unknown;
-        }
-      ).createMultipointShape;
-
-      if (typeof createMultipointShape !== 'function') {
+      if (typeof chart.createMultipointShape !== 'function') {
         return;
       }
 
@@ -508,7 +485,7 @@ export const TradingViewChartCore = forwardRef<
         }
       >();
 
-      (pastEntriesCacheRef.current ?? []).forEach((entry) => {
+      pastEntriesCacheRef.current.forEach((entry) => {
         if (!entry) return;
         const entryTime = Number(entry.time);
         const entryPrice = Number(entry.price);
@@ -532,8 +509,7 @@ export const TradingViewChartCore = forwardRef<
 
       Array.from(grouped.values()).forEach((entry, index) => {
         try {
-          const entity = createMultipointShape.call(
-            chart,
+          const entity = chart.createMultipointShape?.(
             [
               {
                 time: Math.round(entry.time / 1000),
@@ -561,181 +537,75 @@ export const TradingViewChartCore = forwardRef<
           logger.warn('Failed to render past entry', error);
         }
       });
-    }, [
-      currentIntervalRef,
-      getActiveChart,
-      isChartReady,
-      pastEntriesCacheRef,
-      visibleRangeRef,
-      widgetRef,
-    ]);
+    }, []);
 
-    const renderAvgPriceLines = useCallback(() => {
-      if (!widgetRef.current || !isChartReady) {
-        return;
-      }
+    const renderAvgPriceLines = useCallback((chart: OverlayChart) => {
+      avgPriceLineEntitiesRef.current.forEach((line) => {
+        try {
+          line.remove?.();
+        } catch (error) {
+          logger.warn('Failed to remove average price line', error);
+        }
+      });
+      avgPriceLineEntitiesRef.current.clear();
 
-      const chart = getActiveChart();
-      if (!chart) {
-        return;
-      }
+      // Theme-neutral grey for the breakeven / avg-price line.
+      const lineColor = getCSSVar('--color-muted-foreground', '#94a3b8');
+      const transparent = 'rgba(0, 0, 0, 0)';
 
-      const nextSignature = JSON.stringify(
-        (avgPriceCacheRef.current ?? []).map((a) => ({
-          price: a?.price,
-          symbol: a?.symbol,
-          label: a?.label,
-        }))
-      );
-      // Skip redundant redraws when the payload hasn't changed. Multiple
-      // `dataReady` callbacks can be queued during rapid re-renders; if
-      // each one re-creates lines we end up with duplicates because
-      // TradingView's `remove()` doesn't always tear the line down
-      // before the next `createOrderLine()` fires.
-      if (nextSignature === avgPriceSignatureRef.current) {
-        return;
-      }
-      avgPriceSignatureRef.current = nextSignature;
+      avgPriceCacheRef.current.forEach((avg, index) => {
+        if (!avg) return;
+        const price = Number(avg.price);
+        if (!Number.isFinite(price) || price === 0) {
+          return;
+        }
 
-      const applyLines = () => {
-        avgPriceLineEntitiesRef.current.forEach((line) => {
-          try {
-            line.remove?.();
-          } catch (error) {
-            logger.warn('Failed to remove average price line', error);
-          }
-        });
-        avgPriceLineEntitiesRef.current.clear();
-        avgPriceLineIdsRef.current.clear();
+        try {
+          const orderLine = chart.createOrderLine?.() as
+            | (OrderLineInstance & {
+                setLineColor?: (c: string) => unknown;
+                setLineWidth?: (w: number) => unknown;
+                setLineStyle?: (s: number) => unknown;
+              })
+            | undefined;
 
-        // Theme-neutral grey for the breakeven / avg-price line.
-        const lineColor = getCSSVar('--color-muted-foreground', '#94a3b8');
-        const transparent = 'rgba(0, 0, 0, 0)';
-
-        (avgPriceCacheRef.current ?? []).forEach((avg, index) => {
-          if (!avg) return;
-          const price = Number(avg.price);
-          if (!Number.isFinite(price) || price === 0) {
+          if (!orderLine) {
             return;
           }
 
-          try {
-            const orderLine = (
-              chart as {
-                createOrderLine?: () => OrderLineInstance;
-              }
-            ).createOrderLine?.() as
-              | (OrderLineInstance & {
-                  setLineColor?: (c: string) => unknown;
-                  setLineWidth?: (w: number) => unknown;
-                  setLineStyle?: (s: number) => unknown;
-                  setLineLength?: (n: number) => unknown;
-                })
-              | undefined;
+          const label =
+            typeof avg.label === 'string' && avg.label.trim().length > 0
+              ? avg.label
+              : 'Breakeven';
 
-            if (!orderLine) {
-              return;
-            }
+          orderLine.setText?.(label);
+          orderLine.setPrice?.(price);
+          // Methods must be called on the line instance — destructuring
+          // detaches `this` and TradingView silently ignores the call,
+          // leaving the line at its default blue.
+          orderLine.setLineColor?.(lineColor);
+          orderLine.setLineWidth?.(1);
+          orderLine.setLineStyle?.(0);
+          orderLine.setBodyTextColor?.(lineColor);
+          orderLine.setBodyBorderColor?.(lineColor);
+          orderLine.setBodyBackgroundColor?.(transparent);
+          // The quantity chip on the right always renders even with an
+          // empty value, so paint its background / text / border fully
+          // transparent to hide it.
+          orderLine.setQuantity?.('');
+          orderLine.setQuantityBackgroundColor?.(transparent);
+          orderLine.setQuantityBorderColor?.(transparent);
+          orderLine.setQuantityTextColor?.(transparent);
 
-            const label =
-              typeof avg.label === 'string' && avg.label.trim().length > 0
-                ? avg.label
-                : 'Breakeven';
-
-            orderLine.setText?.(label);
-            orderLine.setPrice?.(price);
-            // Methods must be called on the line instance — destructuring
-            // detaches `this` and TradingView silently ignores the call,
-            // leaving the line at its default blue.
-            orderLine.setLineColor?.(lineColor);
-            orderLine.setLineWidth?.(1);
-            orderLine.setLineStyle?.(0);
-            orderLine.setBodyTextColor?.(lineColor);
-            orderLine.setBodyBorderColor?.(lineColor);
-            orderLine.setBodyBackgroundColor?.(transparent);
-            // The quantity chip on the right always renders even with an
-            // empty value, so paint its background / text / border fully
-            // transparent to hide it.
-            orderLine.setQuantity?.('');
-            orderLine.setQuantityBackgroundColor?.(transparent);
-            orderLine.setQuantityBorderColor?.(transparent);
-            orderLine.setQuantityTextColor?.(transparent);
-
-            const key = `${avg.symbol ?? 'AVG'}-${price}-${index}`;
-            avgPriceLineEntitiesRef.current.set(key, orderLine);
-            avgPriceLineIdsRef.current.add(key);
-          } catch (error) {
-            logger.warn('Failed to render average price line', error);
-          }
-        });
-      };
-
-      const dataReady = (
-        chart as {
-          dataReady?: (callback: () => void) => void;
+          avgPriceLineEntitiesRef.current.set(
+            `${avg.symbol ?? 'AVG'}-${price}-${index}`,
+            orderLine
+          );
+        } catch (error) {
+          logger.warn('Failed to render average price line', error);
         }
-      ).dataReady;
-
-      if (typeof dataReady === 'function') {
-        dataReady.call(chart, applyLines);
-      } else {
-        applyLines();
-      }
-    }, [
-      avgPriceCacheRef,
-      avgPriceLineEntitiesRef,
-      avgPriceLineIdsRef,
-      getActiveChart,
-      isChartReady,
-      widgetRef,
-    ]);
-
-    const setOrderDrawings = useCallback(
-      (orders?: ChartOrderDrawing[] | null) => {
-        const previousCount = orderDrawingsCacheRef.current?.length ?? 0;
-        const newOrders = Array.isArray(orders) ? orders : [];
-
-        logger.info('🎯 [OrderDrawings] Updating cache', {
-          previousCount,
-          newCount: newOrders.length,
-          interval: currentIntervalRef.current,
-        });
-
-        logger.info('[OrderDrawings] Updating drawings cache', {
-          previousCount,
-          newCount: newOrders.length,
-          currentInterval: currentIntervalRef.current,
-          drawings: newOrders.map((o) => ({
-            side: o.side,
-            startTime: new Date(Number(o.startTime)).toISOString(),
-            endTime: new Date(Number(o.endTime)).toISOString(),
-            price: o.price,
-            durationMs: Number(o.endTime) - Number(o.startTime),
-            durationSeconds: (Number(o.endTime) - Number(o.startTime)) / 1000,
-          })),
-        });
-
-        orderDrawingsCacheRef.current = newOrders;
-        renderOrderDrawings();
-      },
-      [renderOrderDrawings]
-    );
-
-    const setPastEntries = useCallback(
-      (entries?: IndicatorsEvents[] | null) => {
-        pastEntriesCacheRef.current = Array.isArray(entries) ? entries : [];
-        renderPastEntries();
-      },
-      [renderPastEntries]
-    );
-
-    const setAvgPriceLines = useCallback(
-      (avgPrices?: AvgPrice[] | null) => {
-        avgPriceCacheRef.current = Array.isArray(avgPrices) ? avgPrices : [];
-        renderAvgPriceLines();
-      },
-      [renderAvgPriceLines]
-    );
+      });
+    }, []);
 
     // Plot the transaction overlay, but only for trades whose time span overlaps
     // the currently visible range. On a high-frequency deal the full set can be
@@ -743,125 +613,51 @@ export const TradingViewChartCore = forwardRef<
     // shapes, so plotting (and letting TradingView repaint) all of them froze the
     // chart on every pan and on every live deal update (bug #9).
     // This mirrors the visible-range filtering already used for order drawings and
-    // past entries, and is re-run from reapplyRangeFilteredOverlays on pan/zoom so
-    // the off-screen trades are never materialized as shapes.
-    const renderTransactions = useCallback(() => {
-      if (!widgetRef.current || !isChartReady) return;
-      const chart = getActiveChart();
-      if (!chart) return;
+    // past entries, and is re-run on pan/zoom so the off-screen trades are never
+    // materialized as shapes.
+    const renderTransactions = useCallback(
+      (chart: OverlayChart) => {
+        const widget = widgetRef.current as ExtendedWidget | null;
+        // Remove the shapes plotted on the previous pass before re-filtering.
+        clearTransactionsInternal(widget, true, transactionEntitiesRef.current);
+        if (!widget) return;
 
-      // Remove the shapes plotted on the previous pass before re-filtering.
-      clearTransactionsInternal(
-        widgetRef.current as ExtendedWidget,
-        isChartReady,
-        transactionEntitiesRef.current
-      );
+        const resolvedRange =
+          visibleRangeRef.current ?? chart.getVisibleRange?.() ?? null;
 
-      const resolvedRange =
-        visibleRangeRef.current ?? chart.getVisibleRange?.() ?? null;
-
-      const inRange = (tr: TransactionExtended): boolean => {
-        if (!resolvedRange) return true;
-        // Completed trades span [entryTime, exitTime] (ms) — keep any whose span
-        // overlaps the viewport. Point transactions are keyed off `time`.
-        if (
-          tr.isCompletedTrade === true &&
-          tr.entryTime != null &&
-          tr.exitTime != null
-        ) {
-          const startSec = tr.entryTime / 1000;
-          const endSec = tr.exitTime / 1000;
-          return endSec >= resolvedRange.from && startSec <= resolvedRange.to;
-        }
-        const t = normalizeTimeToSeconds(Number(tr.time));
-        return t >= resolvedRange.from && t <= resolvedRange.to;
-      };
-
-      const cache = transactionsCacheRef.current ?? [];
-      let visible = resolvedRange ? cache.filter(inRange) : cache.slice();
-
-      // Collapse to one marker per (side, price level, bar) — the legacy main-dash
-      // rule (TVChartContainer.addTransactions keyed by bar-index + side + price).
-      // A tight grid re-fills the SAME level within a single candle (partial fills,
-      // price wobbling back through it); those are visually identical and pure
-      // redundant shapes, so we keep one. But every DISTINCT level, and every
-      // distinct BAR a level trades in, keeps its own marker — so no valid order
-      // goes missing. Bar comes from the current interval; re-runs on interval /
-      // zoom change via reapplyRangeFilteredOverlays.
-      const barSeconds = Math.max(
-        1,
-        intervalToSeconds(currentIntervalRef.current)
-      );
-      const perBarLevel = new Map<string, TransactionExtended>();
-      for (const tr of visible) {
-        const side = tr.side?.toString().toLowerCase().trim();
-        const sideKey = side === 'buy' || side === 'long' ? 'buy' : 'sell';
-        const level =
-          tr.isCompletedTrade === true && tr.entryPrice != null
-            ? tr.entryPrice
-            : Number(tr.price);
-        const seconds =
-          tr.isCompletedTrade === true && tr.entryTime != null
-            ? tr.entryTime / 1000
-            : normalizeTimeToSeconds(Number(tr.time));
-        const barIndex = Math.floor(seconds / barSeconds);
-        perBarLevel.set(`${sideKey}-${barIndex}-${level}`, tr);
-      }
-      visible = [...perBarLevel.values()];
-
-      // Pixel-space trim. TradingView repaints EVERY drawing shape on each
-      // pan/zoom (and we re-plot on live updates), so the count must stay bounded
-      // — but trimming by recency chopped visible history off the chart. Instead,
-      // merge only markers that would render within ~one icon of each other ON
-      // SCREEN (icons are ~20px): bucket by (side, ~12px of time, ~12px of price)
-      // at the current viewport scale and keep one per cell. Every screen spot
-      // that had an icon still shows an icon, so the picture reads the same as
-      // plotting everything — zoom in and the cells shrink, revealing the full
-      // per-(bar, level) detail. Count is bounded by screen area, not deal size.
-      if (resolvedRange && visible.length > 0) {
-        const ICON_PX = 12;
-        const container = chartContainerRef.current;
-        const widthPx = container?.clientWidth || 1200;
-        const heightPx = container?.clientHeight || 600;
-
-        // Visible price span: ask the chart; fall back to the markers' own span.
-        let pMin = Infinity;
-        let pMax = -Infinity;
-        try {
-          const priceRange = (
-            chart as {
-              getVisiblePriceRange?: () => {
-                from?: number;
-                to?: number;
-              } | null;
-            }
-          ).getVisiblePriceRange?.();
-          if (priceRange?.from != null && priceRange?.to != null) {
-            pMin = Math.min(priceRange.from, priceRange.to);
-            pMax = Math.max(priceRange.from, priceRange.to);
+        const inRange = (tr: TransactionExtended): boolean => {
+          if (!resolvedRange) return true;
+          // Completed trades span [entryTime, exitTime] (ms) — keep any whose
+          // span overlaps the viewport. Point transactions are keyed off `time`.
+          if (
+            tr.isCompletedTrade === true &&
+            tr.entryTime != null &&
+            tr.exitTime != null
+          ) {
+            const startSec = tr.entryTime / 1000;
+            const endSec = tr.exitTime / 1000;
+            return endSec >= resolvedRange.from && startSec <= resolvedRange.to;
           }
-        } catch {
-          /* fall back below */
-        }
-        if (!(pMax > pMin)) {
-          for (const tr of visible) {
-            const v =
-              tr.isCompletedTrade === true && tr.entryPrice != null
-                ? tr.entryPrice
-                : Number(tr.price);
-            if (Number.isFinite(v)) {
-              if (v < pMin) pMin = v;
-              if (v > pMax) pMax = v;
-            }
-          }
-        }
+          const t = normalizeTimeToSeconds(Number(tr.time));
+          return t >= resolvedRange.from && t <= resolvedRange.to;
+        };
 
-        const timeSpan = Math.max(1, resolvedRange.to - resolvedRange.from);
-        const tCell = (timeSpan * ICON_PX) / Math.max(ICON_PX, widthPx);
-        const pCell =
-          pMax > pMin ? ((pMax - pMin) * ICON_PX) / Math.max(ICON_PX, heightPx) : 1;
+        const cache = transactionsCacheRef.current;
+        let visible = resolvedRange ? cache.filter(inRange) : cache.slice();
 
-        const cells = new Map<string, TransactionExtended>();
+        // Collapse to one marker per (side, price level, bar) — the legacy
+        // main-dash rule (TVChartContainer.addTransactions keyed by bar-index +
+        // side + price). A tight grid re-fills the SAME level within a single
+        // candle (partial fills, price wobbling back through it); those are
+        // visually identical and pure redundant shapes, so we keep one. But
+        // every DISTINCT level, and every distinct BAR a level trades in, keeps
+        // its own marker — so no valid order goes missing. Bar comes from the
+        // current interval; re-runs on interval / zoom change.
+        const barSeconds = Math.max(
+          1,
+          intervalToSeconds(currentIntervalRef.current)
+        );
+        const perBarLevel = new Map<string, TransactionExtended>();
         for (const tr of visible) {
           const side = tr.side?.toString().toLowerCase().trim();
           const sideKey = side === 'buy' || side === 'long' ? 'buy' : 'sell';
@@ -873,69 +669,346 @@ export const TradingViewChartCore = forwardRef<
             tr.isCompletedTrade === true && tr.entryTime != null
               ? tr.entryTime / 1000
               : normalizeTimeToSeconds(Number(tr.time));
-          const cellKey = `${sideKey}-${Math.floor(seconds / tCell)}-${Math.floor(
-            (Number.isFinite(level) ? level : 0) / pCell
-          )}`;
-          cells.set(cellKey, tr);
+          const barIndex = Math.floor(seconds / barSeconds);
+          perBarLevel.set(`${sideKey}-${barIndex}-${level}`, tr);
         }
-        visible = [...cells.values()];
+        visible = [...perBarLevel.values()];
+
+        // Pixel-space trim. TradingView repaints EVERY drawing shape on each
+        // pan/zoom (and we re-plot on live updates), so the count must stay
+        // bounded — but trimming by recency chopped visible history off the
+        // chart. Instead, merge only markers that would render within ~one icon
+        // of each other ON SCREEN (icons are ~20px): bucket by (side, ~12px of
+        // time, ~12px of price) at the current viewport scale and keep one per
+        // cell. Every screen spot that had an icon still shows an icon, so the
+        // picture reads the same as plotting everything — zoom in and the cells
+        // shrink, revealing the full per-(bar, level) detail. Count is bounded
+        // by screen area, not deal size.
+        if (resolvedRange && visible.length > 0) {
+          const ICON_PX = 12;
+          const container = chartContainerRef.current;
+          const widthPx = container?.clientWidth || 1200;
+          const heightPx = container?.clientHeight || 600;
+
+          // Visible price span: ask the chart; fall back to the markers' own
+          // span.
+          let pMin = Infinity;
+          let pMax = -Infinity;
+          try {
+            const priceRange = chart.getVisiblePriceRange?.();
+            if (priceRange?.from != null && priceRange?.to != null) {
+              pMin = Math.min(priceRange.from, priceRange.to);
+              pMax = Math.max(priceRange.from, priceRange.to);
+            }
+          } catch {
+            /* fall back below */
+          }
+          if (!(pMax > pMin)) {
+            for (const tr of visible) {
+              const v =
+                tr.isCompletedTrade === true && tr.entryPrice != null
+                  ? tr.entryPrice
+                  : Number(tr.price);
+              if (Number.isFinite(v)) {
+                if (v < pMin) pMin = v;
+                if (v > pMax) pMax = v;
+              }
+            }
+          }
+
+          const timeSpan = Math.max(1, resolvedRange.to - resolvedRange.from);
+          const tCell = (timeSpan * ICON_PX) / Math.max(ICON_PX, widthPx);
+          const pCell =
+            pMax > pMin
+              ? ((pMax - pMin) * ICON_PX) / Math.max(ICON_PX, heightPx)
+              : 1;
+
+          const cells = new Map<string, TransactionExtended>();
+          for (const tr of visible) {
+            const side = tr.side?.toString().toLowerCase().trim();
+            const sideKey = side === 'buy' || side === 'long' ? 'buy' : 'sell';
+            const level =
+              tr.isCompletedTrade === true && tr.entryPrice != null
+                ? tr.entryPrice
+                : Number(tr.price);
+            const seconds =
+              tr.isCompletedTrade === true && tr.entryTime != null
+                ? tr.entryTime / 1000
+                : normalizeTimeToSeconds(Number(tr.time));
+            const cellKey = `${sideKey}-${Math.floor(seconds / tCell)}-${Math.floor(
+              (Number.isFinite(level) ? level : 0) / pCell
+            )}`;
+            cells.set(cellKey, tr);
+          }
+          visible = [...cells.values()];
+        }
+
+        visible.forEach((t) => {
+          addTransactionInternal(widget, true, t, (id, entities) =>
+            transactionEntitiesRef.current.set(id, entities)
+          );
+        });
+      },
+      [widgetRef]
+    );
+
+    const renderPosition = useCallback((chart: OverlayChart) => {
+      if (positionEntityRef.current) {
+        try {
+          chart.removeEntity?.(positionEntityRef.current);
+        } catch (error) {
+          logger.warn('Failed to remove position overlay', error);
+        }
+        positionEntityRef.current = null;
       }
 
-      visible.forEach((t) => {
-        addTransactionInternal(
-          widgetRef.current as ExtendedWidget,
-          isChartReady,
-          t,
-          (id, entities) => transactionEntitiesRef.current.set(id, entities)
-        );
-      });
-    }, [getActiveChart, isChartReady, widgetRef]);
+      const cached = positionCacheRef.current;
+      if (!cached || typeof chart.createShape !== 'function') return;
+      const { position, precision } = cached;
+      const multiplier = Math.pow(10, precision ?? 2);
 
-    const reapplyRangeFilteredOverlays = useCallback(() => {
-      renderOrderDrawings();
-      renderPastEntries();
-      renderTransactions();
-    }, [renderOrderDrawings, renderPastEntries, renderTransactions]);
+      try {
+        const entity = chart.createShape(
+          {
+            time: Math.round(Date.now() / 1000),
+            price: position.entryPrice,
+          },
+          {
+            disableSave: true,
+            shape:
+              position.side === BotOrderSideEnum.sell
+                ? 'short_position'
+                : 'long_position',
+            zOrder: 'top',
+            lock: true,
+            disableSelection: true,
+            overrides: {
+              risk: Number.isFinite(position.risk) ? Math.abs(position.risk) : 0,
+              accountSize: Number.isFinite(position.accountSize)
+                ? Math.abs(position.accountSize)
+                : 0,
+              stopLevel: Math.round(
+                Math.abs(position.entryPrice - position.stopPrice) * multiplier
+              ),
+              profitLevel: Math.round(
+                Math.abs(position.entryPrice - position.profitPrice) *
+                  multiplier
+              ),
+              alwaysShowStats: true,
+            },
+          }
+        );
+        positionEntityRef.current = entity ?? null;
+      } catch (error) {
+        logger.warn('Failed to create position overlay', error);
+      }
+    }, []);
+
+    const renderersRef = useRef<
+      Record<OverlayKind, (chart: OverlayChart) => void>
+    >(null as never);
+    renderersRef.current = {
+      orderLines: renderOrderLines,
+      orderDrawings: renderOrderDrawings,
+      pastEntries: renderPastEntries,
+      avgPrice: renderAvgPriceLines,
+      transactions: renderTransactions,
+      position: renderPosition,
+    };
+
+    const scheduleOverlayRetry = useCallback(() => {
+      if (retryTimerRef.current) return;
+      if (retryAttemptsRef.current >= OVERLAY_RETRY_MAX_ATTEMPTS) return;
+      const delay = Math.min(
+        OVERLAY_RETRY_MAX_DELAY_MS,
+        OVERLAY_RETRY_BASE_DELAY_MS * 2 ** retryAttemptsRef.current
+      );
+      retryAttemptsRef.current += 1;
+      retryTimerRef.current = setTimeout(() => {
+        retryTimerRef.current = null;
+        flushOverlaysRef.current();
+      }, delay);
+    }, []);
+
+    /**
+     * Draw every dirty overlay kind — but only onto a chart that can hold it.
+     * A shape created while TradingView is loading a symbol, a resolution or a
+     * layout is silently dropped, and `createOrderLine` / transactions refuse
+     * to draw before the price scale exists. Previously each of those drops
+     * was recorded as "drawn" and never retried, which is why a chart opened
+     * or switched at an unlucky moment showed no lines or markers at all. Here
+     * a kind only stops being dirty once it was drawn on a loaded chart; until
+     * then the flush is retried (on the load callback, on TradingView's
+     * data-loaded event, and on a backoff timer as a last resort).
+     */
+    const flushOverlays = useCallback(() => {
+      if (retryTimerRef.current) {
+        clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      }
+      if (!chartReadyRef.current || dirtyOverlaysRef.current.size === 0) {
+        return;
+      }
+
+      if (pendingLoadSinceRef.current != null) {
+        if (Date.now() - pendingLoadSinceRef.current < PENDING_LOAD_TIMEOUT_MS) {
+          scheduleOverlayRetry();
+          return;
+        }
+        // The load's completion signal never arrived — draw anyway rather
+        // than leave the chart bare.
+        logger.warn('[Overlays] Chart load never signalled completion');
+        pendingLoadSinceRef.current = null;
+      }
+
+      const chart = getActiveChart();
+      if (!chart || !canDrawOverlays(chart)) {
+        scheduleOverlayRetry();
+        return;
+      }
+
+      const kinds = ALL_OVERLAYS.filter((k) => dirtyOverlaysRef.current.has(k));
+      dirtyOverlaysRef.current.clear();
+      for (const kind of kinds) {
+        try {
+          renderersRef.current[kind](chart);
+        } catch (error) {
+          logger.warn('[Overlays] Render failed; will retry', { kind, error });
+          dirtyOverlaysRef.current.add(kind);
+        }
+      }
+      drawnForKeyRef.current = chartDataKey(chart);
+
+      if (dirtyOverlaysRef.current.size > 0) {
+        scheduleOverlayRetry();
+      } else {
+        retryAttemptsRef.current = 0;
+      }
+    }, [getActiveChart, scheduleOverlayRetry]);
+    flushOverlaysRef.current = flushOverlays;
+
+    const requestOverlays = useCallback(
+      (kinds: readonly OverlayKind[] = ALL_OVERLAYS) => {
+        kinds.forEach((kind) => dirtyOverlaysRef.current.add(kind));
+        retryAttemptsRef.current = 0;
+        flushOverlays();
+      },
+      [flushOverlays]
+    );
+
+    /**
+     * The chart started loading new data (symbol, resolution or layout). Hold
+     * every overlay until it has loaded, then redraw all of them: TradingView
+     * drops order lines on a symbol change, and anything asked for mid-load is
+     * never created.
+     */
+    const beginChartLoad = useCallback(() => {
+      ALL_OVERLAYS.forEach((kind) => dirtyOverlaysRef.current.add(kind));
+      const chart = getActiveChart();
+      pendingLoadFromKeyRef.current = chart ? chartDataKey(chart) : null;
+      pendingLoadSinceRef.current = Date.now();
+      pendingLoadTokenRef.current += 1;
+      return pendingLoadTokenRef.current;
+    }, [getActiveChart]);
+
+    const endChartLoad = useCallback(
+      (token?: number) => {
+        // A stale completion (an earlier switch that was superseded) must not
+        // release the newer load.
+        if (token != null && token !== pendingLoadTokenRef.current) return;
+        pendingLoadSinceRef.current = null;
+        requestOverlays();
+      },
+      [requestOverlays]
+    );
+
+    /** Hold the overlays until the chart's current data has loaded. */
+    const redrawAfterDataLoads = useCallback(() => {
+      const token = beginChartLoad();
+      const chart = getActiveChart();
+      let settled = false;
+      try {
+        const ready = chart?.dataReady?.(() => endChartLoad(token));
+        settled = ready === true;
+      } catch {
+        settled = false;
+      }
+      if (settled || typeof chart?.dataReady !== 'function') {
+        endChartLoad(token);
+      } else {
+        // Also covered by `onDataLoaded` and the pending-load timeout.
+        scheduleOverlayRetry();
+      }
+    }, [beginChartLoad, endChartLoad, getActiveChart, scheduleOverlayRetry]);
+
+    const setOrderDrawings = useCallback(
+      (orders?: ChartOrderDrawing[] | null) => {
+        orderDrawingsCacheRef.current = Array.isArray(orders) ? orders : [];
+        requestOverlays(['orderDrawings']);
+      },
+      [requestOverlays]
+    );
+
+    const setPastEntries = useCallback(
+      (entries?: IndicatorsEvents[] | null) => {
+        pastEntriesCacheRef.current = Array.isArray(entries) ? entries : [];
+        requestOverlays(['pastEntries']);
+      },
+      [requestOverlays]
+    );
+
+    const setAvgPriceLines = useCallback(
+      (avgPrices?: AvgPrice[] | null) => {
+        const next = Array.isArray(avgPrices) ? avgPrices : [];
+        // The wrapper re-sends these on every render; an identical payload
+        // that is already on the chart needs no redraw.
+        const signature = (list: AvgPrice[]) =>
+          JSON.stringify(
+            list.map((a) => [a?.price, a?.symbol, a?.label ?? null])
+          );
+        if (
+          !dirtyOverlaysRef.current.has('avgPrice') &&
+          signature(next) === signature(avgPriceCacheRef.current)
+        ) {
+          return;
+        }
+        avgPriceCacheRef.current = next;
+        requestOverlays(['avgPrice']);
+      },
+      [requestOverlays]
+    );
 
     const handleVisibleRangeChange = useCallback(
       (range?: { from: number; to: number } | null) => {
         visibleRangeRef.current = range ?? null;
-
-        reapplyRangeFilteredOverlays();
+        requestOverlays(RANGE_FILTERED_OVERLAYS);
         onVisibleRange?.(range ?? undefined);
       },
-      [onVisibleRange, reapplyRangeFilteredOverlays]
+      [onVisibleRange, requestOverlays]
     );
 
     const handleIntervalChangeInternal = useCallback(
       (interval: string) => {
-        const previousInterval = currentIntervalRef.current;
-        currentIntervalRef.current = interval;
-
-        logger.info('⏱️ [Timeframe] Interval changed', {
-          from: previousInterval,
+        logger.info('[Timeframe] Interval changed', {
+          from: currentIntervalRef.current,
           to: interval,
-          fromSeconds: intervalToSeconds(previousInterval),
-          toSeconds: intervalToSeconds(interval),
         });
-
-        logger.info(
-          '[Timeframe] Interval changed - triggering drawing reposition',
-          {
-            previousInterval,
-            newInterval: interval,
-            previousIntervalSeconds: intervalToSeconds(previousInterval),
-            newIntervalSeconds: intervalToSeconds(interval),
-            drawingsCount: orderDrawingsCacheRef.current?.length ?? 0,
-            pastEntriesCount: pastEntriesCacheRef.current?.length ?? 0,
-            timestamp: new Date().toISOString(),
-          }
-        );
-
-        reapplyRangeFilteredOverlays();
+        currentIntervalRef.current = interval;
+        // The new resolution's bars are loading; redraw once they are in.
+        redrawAfterDataLoads();
         onIntervalChange?.(interval);
       },
-      [onIntervalChange, reapplyRangeFilteredOverlays]
+      [onIntervalChange, redrawAfterDataLoads]
+    );
+
+    const handleLayoutChangeInternal = useCallback(
+      (layout: { id: string; name?: string | null } | null) => {
+        // Loading a saved layout wipes every programmatic shape and line, and
+        // may bring its own symbol with it.
+        redrawAfterDataLoads();
+        onLayoutChange?.(layout);
+      },
+      [onLayoutChange, redrawAfterDataLoads]
     );
 
     useEffect(() => {
@@ -947,18 +1020,75 @@ export const TradingViewChartCore = forwardRef<
     }, [handleIntervalChangeInternal]);
 
     useEffect(() => {
-      if (!isChartReady) {
-        return;
+      layoutChangeCallbackRef.current = handleLayoutChangeInternal;
+    }, [handleLayoutChangeInternal]);
+
+    // A (re)built widget starts with nothing on it: forget the entities that
+    // belonged to the previous one and draw everything from the caches.
+    useEffect(() => {
+      chartReadyRef.current = isChartReady;
+      if (!isChartReady) return;
+
+      orderDrawingEntitiesRef.current.clear();
+      pastEntryEntitiesRef.current.clear();
+      transactionEntitiesRef.current.clear();
+      avgPriceLineEntitiesRef.current.clear();
+      managedOrderLinesRef.current.clear();
+      positionEntityRef.current = null;
+      pendingLoadSinceRef.current = null;
+      drawnForKeyRef.current = null;
+      requestOverlays();
+
+      // Whatever changed the chart's data — our own symbol switch, a symbol
+      // picked in TradingView's own search, a resolution change, a layout
+      // load — ends in a data-loaded event. If the overlays were drawn for a
+      // different symbol / resolution, or are still waiting, redraw them.
+      const chart = getActiveChart();
+      const dataLoaded = (() => {
+        try {
+          return chart?.onDataLoaded?.();
+        } catch {
+          return undefined;
+        }
+      })();
+      const handleDataLoaded = () => {
+        const current = getActiveChart();
+        if (!current) return;
+        const key = chartDataKey(current);
+        if (pendingLoadSinceRef.current != null) {
+          // Still the old symbol / resolution: wait for the new data (the
+          // load's own callback or the next data-loaded event).
+          if (key === pendingLoadFromKeyRef.current) return;
+          pendingLoadSinceRef.current = null;
+          requestOverlays();
+          return;
+        }
+        if (dirtyOverlaysRef.current.size > 0 || key !== drawnForKeyRef.current) {
+          requestOverlays();
+        }
+      };
+      try {
+        dataLoaded?.subscribe?.(null, handleDataLoaded);
+      } catch (subscribeError) {
+        logger.debug('onDataLoaded subscription unavailable', subscribeError);
       }
-      renderOrderDrawings();
-      renderPastEntries();
-      renderAvgPriceLines();
-    }, [
-      isChartReady,
-      renderAvgPriceLines,
-      renderOrderDrawings,
-      renderPastEntries,
-    ]);
+
+      return () => {
+        try {
+          dataLoaded?.unsubscribe?.(null, handleDataLoaded);
+        } catch {
+          /* chart already torn down */
+        }
+      };
+    }, [getActiveChart, isChartReady, requestOverlays]);
+
+    useEffect(
+      () => () => {
+        if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
+        retryTimerRef.current = null;
+      },
+      []
+    );
 
     const detachToolbarDropdown = useCallback(() => {
       if (toolbarDropdownHandleRef.current) {
@@ -1073,160 +1203,55 @@ export const TradingViewChartCore = forwardRef<
     ]);
 
     useEffect(() => {
-      const orderEntitiesRef = orderDrawingEntitiesRef.current;
-      const pastEntitiesRef = pastEntryEntitiesRef.current;
-      const avgLineEntitiesRef = avgPriceLineEntitiesRef.current;
-      const avgLineIdsRef = avgPriceLineIdsRef.current;
+      const orderEntities = orderDrawingEntitiesRef.current;
+      const pastEntities = pastEntryEntitiesRef.current;
+      const transactionEntities = transactionEntitiesRef.current;
+      const avgLines = avgPriceLineEntitiesRef.current;
+      const managedLines = managedOrderLinesRef.current;
       return () => {
         const chart = getActiveChart();
-        const orderEntities = Array.from(orderEntitiesRef.values());
-        const pastEntities = Array.from(pastEntitiesRef.values());
-        const avgLines = Array.from(avgLineEntitiesRef.values());
         if (chart) {
-          orderEntities.forEach((entity) => {
+          [orderEntities, pastEntities, transactionEntities].forEach(
+            (entities) =>
+              entities.forEach((entityOrEntities) => {
+                (Array.isArray(entityOrEntities)
+                  ? entityOrEntities
+                  : [entityOrEntities]
+                ).forEach((entity) => {
+                  try {
+                    chart.removeEntity?.(entity);
+                  } catch (error) {
+                    logger.warn('Failed to cleanup chart overlay entity', error);
+                  }
+                });
+              })
+          );
+          if (positionEntityRef.current) {
             try {
-              chart.removeEntity?.(entity);
+              chart.removeEntity?.(positionEntityRef.current);
             } catch (error) {
-              logger.warn('Failed to cleanup order drawing entity', error);
+              logger.warn('Failed to cleanup position overlay', error);
             }
-          });
-          pastEntities.forEach((entity) => {
-            try {
-              chart.removeEntity?.(entity);
-            } catch (error) {
-              logger.warn('Failed to cleanup past entry entity', error);
-            }
-          });
-        }
-        orderEntitiesRef.clear();
-        pastEntitiesRef.clear();
-        avgLines.forEach((line) => {
-          try {
-            line.remove?.();
-          } catch (error) {
-            logger.warn('Failed to cleanup average price line', error);
           }
-        });
-        avgLineEntitiesRef.clear();
-        avgLineIdsRef.clear();
+        }
+        [avgLines, managedLines].forEach((lines) =>
+          lines.forEach((line) => {
+            try {
+              line.remove?.();
+            } catch (error) {
+              logger.warn('Failed to cleanup chart line', error);
+            }
+          })
+        );
+        orderEntities.clear();
+        pastEntities.clear();
+        transactionEntities.clear();
+        avgLines.clear();
+        managedLines.clear();
+        positionEntityRef.current = null;
         detachToolbarDropdown();
       };
     }, [detachToolbarDropdown, getActiveChart]);
-
-    const removePositionOverlay = useCallback(
-      (
-        chartInstance?:
-          | (ChartInstance & {
-              removeEntity?: (entity: unknown) => void;
-            })
-          | null
-      ) => {
-        if (!positionEntityRef.current) {
-          positionHashRef.current = null;
-          positionPrecisionRef.current = undefined;
-          return;
-        }
-
-        try {
-          // Must resolve the chart the same way `addPositionOverlay` does, or
-          // in a multi-chart layout we'd remove the entity from a different
-          // chart than we drew it on and leak the overlay.
-          const chart = chartInstance ?? getActiveChart();
-
-          chart?.removeEntity?.(positionEntityRef.current);
-        } catch (error) {
-          logger.warn('Failed to remove position overlay', error);
-        } finally {
-          positionEntityRef.current = null;
-          positionHashRef.current = null;
-          positionPrecisionRef.current = undefined;
-        }
-      },
-      [getActiveChart]
-    );
-
-    const addPositionOverlay = useCallback(
-      (
-        position: PositionChart,
-        normalizedPrecision: number | undefined,
-        serialized: string
-      ) => {
-        if (!widgetRef.current || !isChartReady) {
-          return;
-        }
-
-        // Via the guarded accessor: a bare `widget.chart?.()` here throws the
-        // same "reading 'tradingViewApi'" TypeError when the iframe is gone, and
-        // this callback has no try/catch of its own. Also aligns the position
-        // overlay with every other overlay renderer in this component, which all
-        // draw onto `getActiveChart()`.
-        const chart = getActiveChart();
-
-        if (!chart || typeof chart.createShape !== 'function') {
-          logger.warn(
-            'TradingView chart instance unavailable for position overlay'
-          );
-          return;
-        }
-
-        removePositionOverlay(chart);
-
-        const precision =
-          typeof normalizedPrecision === 'number' &&
-          Number.isFinite(normalizedPrecision)
-            ? Math.max(0, Math.min(12, Math.floor(normalizedPrecision)))
-            : undefined;
-        const multiplier = Math.pow(10, precision ?? 2);
-
-        const riskValue = Number.isFinite(position.risk)
-          ? Math.abs(position.risk)
-          : 0;
-        const accountSizeValue = Number.isFinite(position.accountSize)
-          ? Math.abs(position.accountSize)
-          : 0;
-        const stopLevel = Math.round(
-          Math.abs(position.entryPrice - position.stopPrice) * multiplier
-        );
-        const profitLevel = Math.round(
-          Math.abs(position.entryPrice - position.profitPrice) * multiplier
-        );
-
-        try {
-          const entity = chart.createShape?.(
-            {
-              time: Math.round(Date.now() / 1000),
-              price: position.entryPrice,
-            },
-            {
-              disableSave: true,
-              shape:
-                position.side === BotOrderSideEnum.sell
-                  ? 'short_position'
-                  : 'long_position',
-              zOrder: 'top',
-              lock: true,
-              disableSelection: true,
-              overrides: {
-                risk: riskValue,
-                accountSize: accountSizeValue,
-                stopLevel,
-                profitLevel,
-                alwaysShowStats: true,
-              },
-            }
-          );
-
-          if (entity) {
-            positionEntityRef.current = entity;
-            positionHashRef.current = serialized;
-            positionPrecisionRef.current = precision;
-          }
-        } catch (error) {
-          logger.warn('Failed to create position overlay', error);
-        }
-      },
-      [getActiveChart, isChartReady, removePositionOverlay, widgetRef]
-    );
 
     useImperativeHandle(ref, (): TradingViewChartCoreRef => {
       const handle = {
@@ -1241,22 +1266,29 @@ export const TradingViewChartCore = forwardRef<
               ? symbolPair
               : `${symbolPair}@BINANCE`;
 
-            const chart = widget.activeChart?.() ?? widget.chart?.();
-            const interval = currentIntervalRef.current;
+            const chart = getActiveChart();
 
             if (chart?.setSymbol) {
+              // Already on it: TradingView would not reload (and might never
+              // call `dataReady`), so just make sure the overlays are drawn.
+              if (
+                normalizeSymbolId(chart.symbol?.()) ===
+                normalizeSymbolId(symbolToSet)
+              ) {
+                requestOverlays();
+                onLoaded?.();
+                return;
+              }
+              // Every overlay waits for the new pair: TradingView drops order
+              // lines on the switch and never creates anything asked for while
+              // it loads — including a `dataReady` callback queued mid-load.
+              const token = beginChartLoad();
               chart.setSymbol(symbolToSet, {
                 dataReady: () => {
                   logger.debug('[Core] Chart symbol updated', {
                     symbol: symbolToSet,
-                    interval,
                   });
-                  // A breakeven line asked for while the new symbol was
-                  // loading is dropped with its `dataReady` callback, yet its
-                  // signature is already recorded, so every later render is
-                  // skipped. Forget it and draw again on the loaded symbol.
-                  avgPriceSignatureRef.current = '';
-                  setAvgPriceLines(avgPriceCacheRef.current);
+                  endChartLoad(token);
                   onLoaded?.();
                 },
               });
@@ -1264,6 +1296,7 @@ export const TradingViewChartCore = forwardRef<
             }
 
             widget.setSymbol?.(symbolToSet, () => undefined);
+            redrawAfterDataLoads();
           } catch (e) {
             logger.error('Failed to update symbol', e);
           }
@@ -1289,17 +1322,15 @@ export const TradingViewChartCore = forwardRef<
 
             const widget = widgetRef.current as ExtendedWidget;
             const chart = widget.chart?.();
+            const changed = interval !== currentIntervalRef.current;
             chart?.setResolution?.(interval);
             currentIntervalRef.current = interval;
 
-            logger.debug(
-              '[Timeframe] Interval updated, triggering overlay reapply',
-              {
-                newInterval: interval,
-              }
-            );
-
-            reapplyRangeFilteredOverlays();
+            if (changed) {
+              redrawAfterDataLoads();
+            } else {
+              requestOverlays(RANGE_FILTERED_OVERLAYS);
+            }
           } catch (e) {
             logger.error('Failed to update interval', { error: e, interval });
           }
@@ -1331,6 +1362,10 @@ export const TradingViewChartCore = forwardRef<
           });
           orderLinesRef.current.clear();
         },
+        updateOrderLines: (orders?: ChartOrderLine[] | null) => {
+          orderLinesCacheRef.current = Array.isArray(orders) ? orders : [];
+          requestOverlays(['orderLines']);
+        },
         addTransaction: (t: unknown) => {
           if (!widgetRef.current || !isChartReady) return;
           return addTransactionInternal(
@@ -1351,7 +1386,7 @@ export const TradingViewChartCore = forwardRef<
           transactionsCacheRef.current = Array.isArray(transactions)
             ? (transactions as TransactionExtended[])
             : [];
-          renderTransactions();
+          requestOverlays(['transactions']);
         },
         updateIndicators: async (indicators?: ChartIndicatorsConfig | null) => {
           if (!widgetRef.current || !isChartReady) return;
@@ -1423,24 +1458,20 @@ export const TradingViewChartCore = forwardRef<
               ? Math.max(0, Math.min(12, Math.floor(options.pricePrecision)))
               : undefined;
 
-          if (!position) {
-            removePositionOverlay();
-            return;
-          }
-
-          const serialized = JSON.stringify(position);
+          const serialized = position ? JSON.stringify(position) : null;
+          const cached = positionCacheRef.current;
           if (
-            serialized === positionHashRef.current &&
-            normalizedPrecision === positionPrecisionRef.current
+            (cached?.serialized ?? null) === serialized &&
+            (cached?.precision ?? undefined) === normalizedPrecision
           ) {
             return;
           }
 
-          if (!widgetRef.current || !isChartReady) {
-            return;
-          }
-
-          addPositionOverlay(position, normalizedPrecision, serialized);
+          positionCacheRef.current =
+            position && serialized
+              ? { position, precision: normalizedPrecision, serialized }
+              : null;
+          requestOverlays(['position']);
         },
         subscribeClick: (
           callback: (params: { time?: number; price?: number }) => void
@@ -1914,12 +1945,12 @@ export const TradingViewChartCore = forwardRef<
 
       return _ensureHandleMatches;
     }, [
-      addPositionOverlay,
+      beginChartLoad,
+      endChartLoad,
       getActiveChart,
       isChartReady,
-      removePositionOverlay,
-      reapplyRangeFilteredOverlays,
-      renderTransactions,
+      redrawAfterDataLoads,
+      requestOverlays,
       setAvgPriceLines,
       setOrderDrawings,
       setPastEntries,

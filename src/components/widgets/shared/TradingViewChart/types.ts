@@ -133,6 +133,12 @@ export interface TradingViewChartCoreRef {
   addOrderLine: (order: ChartOrderLine) => string | null;
   removeOrderLine: (lineId: string) => void;
   clearAllOrderLines: () => void;
+  /**
+   * Replace the chart's order lines. The core keeps the set and redraws it
+   * whenever the chart reloads (pair, resolution, layout) — unlike
+   * `addOrderLine`, whose lines are the caller's to manage.
+   */
+  updateOrderLines: (orders: ChartOrderLine[] | null) => void;
   addTransaction: (transaction: unknown) => void;
   clearTransactions: () => void;
   updateTransactions: (transactions: unknown[] | null) => void;

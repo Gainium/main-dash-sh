@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.64.2] - 2026-09-25
+
+### Fixed
+
+- Charts: order lines, the Breakeven line, trade markers, past-order lines and
+  signals no longer go missing when a chart opens quickly (for example the
+  second bot opened in a session) or switches to another pair, resolution or
+  saved layout. Anything sent to the chart before it could draw it was dropped
+  and treated as drawn; the chart now keeps every overlay and draws it as soon
+  as the chart has loaded, retrying until it does.
+
 ## [2.64.1] - 2026-09-25
 
 ### Changed
