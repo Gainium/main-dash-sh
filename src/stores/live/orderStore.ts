@@ -377,7 +377,8 @@ export const useOrderStore = create<OrderStoreState>()(
         }),
         // Merge persisted data with initial state and migrate if necessary
         merge: (persistedState, currentState) => {
-          const state = persistedState as Partial<OrderStoreState>;
+          // Null on a fresh profile (nothing saved yet).
+          const state = (persistedState ?? {}) as Partial<OrderStoreState>;
           let migratedOrders = { new: {}, filled: {} };
 
           if (state.orders) {
@@ -392,6 +393,18 @@ export const useOrderStore = create<OrderStoreState>()(
             }
           }
 
+          // Hydration lands late (queued, and the read can take seconds), so
+          // orders fetched since page load are already in memory: keep them,
+          // and let an in-memory filled order win over its saved copy.
+          const filled: Record<string, Record<string, OrderData>> = {
+            ...migratedOrders.filled,
+          };
+          Object.entries(currentState.orders.filled).forEach(
+            ([botId, orders]) => {
+              filled[botId] = { ...filled[botId], ...orders };
+            }
+          );
+
           return {
             ...currentState,
             ...state,
@@ -399,7 +412,7 @@ export const useOrderStore = create<OrderStoreState>()(
             // data and a stale one would reappear until the next fetch prunes
             // it. Keep only persisted filled history; pending is re-fetched on
             // mount. (Defends against IndexedDB written before this policy.)
-            orders: { new: {}, filled: migratedOrders.filled },
+            orders: { new: currentState.orders.new, filled },
             // Reset loading/error states on hydration
             loading: {},
             errors: {},

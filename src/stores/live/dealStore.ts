@@ -113,6 +113,43 @@ const migrateDealData = (
   return migrated;
 };
 
+// Fold the saved (IndexedDB) deal cache into the live store at hydration.
+// Hydration is queued behind the other heavy stores and the read itself can
+// take seconds, so deals fetched or socket-updated in the meantime are already
+// in `current`: they win unless the saved copy is strictly newer (another tab
+// wrote it). Saved-only deals are restored under the same tombstone check a
+// fetch gets, so a just-closed deal is not revived from the cache.
+const mergeRestoredDeals = (
+  saved: Record<string, Record<string, DealWithType>>,
+  current: Record<string, Record<string, DealWithType>>
+): Record<string, Record<string, DealWithType>> => {
+  const merged: Record<string, Record<string, DealWithType>> = {};
+
+  Object.entries(saved).forEach(([botId, savedBotDeals]) => {
+    const bucket: Record<string, DealWithType> = {};
+    Object.values(savedBotDeals).forEach((deal) => {
+      if (!deal?._id || current[botId]?.[deal._id]) return;
+      const verdict = consultDealTombstone(botId, deal._id, {
+        updateTime: deal.updateTime,
+        status: deal.status,
+      });
+      if (verdict !== 'reject') bucket[deal._id] = deal;
+    });
+    merged[botId] = bucket;
+  });
+
+  Object.entries(current).forEach(([botId, currentBotDeals]) => {
+    const bucket = (merged[botId] ??= {});
+    Object.values(currentBotDeals).forEach((deal) => {
+      const savedDeal = saved[botId]?.[deal._id];
+      bucket[deal._id] =
+        savedDeal && isIncomingDealStale(savedDeal, deal) ? savedDeal : deal;
+    });
+  });
+
+  return merged;
+};
+
 // Tolerance for client/server clock skew when comparing a deal's server-side
 // updateTime against the client-side snapshotAt fetch stamp in reconcileDeals.
 // A deal within this window of the snapshot is never absence-deleted; it heals
@@ -551,7 +588,8 @@ export const useDealStore = create<DealStoreState>()(
         }),
         // Merge persisted data with initial state and migrate if necessary
         merge: (persistedState, currentState) => {
-          const state = persistedState as Partial<DealStoreState>;
+          // Null on a fresh profile (nothing saved yet).
+          const state = (persistedState ?? {}) as Partial<DealStoreState>;
           let migratedDeals = {};
 
           if (state.deals) {
@@ -569,7 +607,7 @@ export const useDealStore = create<DealStoreState>()(
           return {
             ...currentState,
             ...state,
-            deals: migratedDeals,
+            deals: mergeRestoredDeals(migratedDeals, currentState.deals),
             // Reset loading/error states on hydration
             loading: {},
             errors: {},

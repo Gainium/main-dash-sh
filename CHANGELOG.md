@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.62.7] - 2026-09-25
+
+### Fixed
+
+- Bot details: the Breakeven and Smart order lines of an open deal no longer
+  disappear a few seconds after the page opens. Restoring the saved deal and
+  order cache replaced the deals and orders already loaded for the page, so a
+  deal that was not in the saved cache (for example, one opened since the last
+  visit) was dropped. The saved cache now only fills in what the page has not
+  loaded, and a newer copy is kept over an older one.
+
 ## [2.62.6] - 2026-09-25
 
 ### Fixed
