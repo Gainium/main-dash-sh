@@ -58,6 +58,17 @@ export type FilterOperator = {
 // Input components
 // ---------------------------------------------------------------------------
 
+/**
+ * The unit a number column's filter is typed in (`meta.filterUnit`, e.g.
+ * `'days'`), shown in the input so `> 3` isn't ambiguous on a column whose
+ * cell reads "3d 4h".
+ */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const filterUnitOf = (column?: Column<any, unknown>): string | undefined =>
+  (column?.columnDef.meta as Record<string, unknown> | undefined)?.[
+    'filterUnit'
+  ] as string | undefined;
+
 const TextFilterInput: React.FC<{
   value: unknown;
   onChange: (value: unknown) => void;
@@ -119,8 +130,11 @@ const NumberRangeFilterInput: React.FC<{
   value: unknown;
   onChange: (value: unknown) => void;
   placeholder?: string;
-}> = ({ value, onChange }) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  column?: Column<any, unknown>;
+}> = ({ value, onChange, column }) => {
   const [minValue, maxValue] = Array.isArray(value) ? value : ['', ''];
+  const unit = filterUnitOf(column);
 
   const handleMinChange = (newMin: string) => {
     onChange([newMin ? Number(newMin) : '', maxValue]);
@@ -136,14 +150,14 @@ const NumberRangeFilterInput: React.FC<{
         type="number"
         value={String(minValue ?? '')}
         onChange={(e) => handleMinChange(e.target.value)}
-        placeholder="Min"
+        placeholder={unit ? `Min ${unit}` : 'Min'}
         className="h-8 text-xs flex-1 min-w-0 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
       <Input
         type="number"
         value={String(maxValue ?? '')}
         onChange={(e) => handleMaxChange(e.target.value)}
-        placeholder="Max"
+        placeholder={unit ? `Max ${unit}` : 'Max'}
         className="h-8 text-xs flex-1 min-w-0 border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </div>
@@ -935,7 +949,11 @@ export const ColumnFilter: React.FC<{
               <FilterComponent
                 value={currentFilter.value}
                 onChange={handleValueChange}
-                placeholder={selectedOperator?.label || 'Filter...'}
+                placeholder={
+                  filterUnitOf(column)
+                    ? `${selectedOperator?.label || 'Filter'} (${filterUnitOf(column)})`
+                    : selectedOperator?.label || 'Filter...'
+                }
                 column={column}
               />
             </FilterCellAnchorContext.Provider>

@@ -97,11 +97,13 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'index',
         header: '#',
+        meta: { filterType: 'number' },
         cell: ({ row }) => <div className="text-sm">{row.original.index}</div>,
       },
       {
         accessorKey: 'updateTime',
         header: 'Time',
+        meta: { filterType: 'date' },
         cell: ({ row }) => (
           <div className="text-sm text-muted-foreground">
             {row.original.updateTime
@@ -113,6 +115,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'side',
         header: 'Side',
+        meta: { filterType: 'array' },
         cell: ({ row }) => (
           <div className="text-sm">{String(row.original.side ?? '-')}</div>
         ),
@@ -120,6 +123,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'priceBuy',
         header: 'Buy price',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-sm tabular-nums">
             {row.original.priceBuy || '-'}
@@ -129,6 +133,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'priceSell',
         header: 'Sell price',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-sm tabular-nums">
             {row.original.priceSell || '-'}
@@ -138,6 +143,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'amountQuoteBuy',
         header: 'Quote buy',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-sm tabular-nums">
             {row.original.amountQuoteBuy || '-'}
@@ -147,6 +153,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'amountQuoteSell',
         header: 'Quote sell',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-sm tabular-nums">
             {row.original.amountQuoteSell || '-'}
@@ -156,6 +163,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'profitUsd',
         header: 'P&L (USD)',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const value = row.original.profitUsd;
           return <div className="text-sm tabular-nums">{formatUsd(value)}</div>;

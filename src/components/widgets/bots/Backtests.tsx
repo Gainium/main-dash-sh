@@ -321,6 +321,14 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'name',
       header: 'Name',
+      meta: {
+        filterType: 'string',
+        // The cell shows the pair under the name.
+        getFilterValue: (row: unknown) => {
+          const bt = row as Backtest;
+          return [bt.name, bt.pair].filter(Boolean);
+        },
+      },
       cell: ({ row }) => (
         <div className="flex flex-col">
           <span className="font-medium">{row.original.name}</span>
@@ -333,6 +341,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'strategy',
       header: 'Strategy',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <Badge variant="outline" className="text-xs">
           {row.original.strategy}
@@ -342,6 +351,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'netProfit',
       header: 'Net Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div
           className={`font-medium ${
@@ -356,6 +366,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'annualizedReturn',
       header: 'Annual Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div
           className={`font-medium ${
@@ -372,6 +383,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'maxDrawDown',
       header: 'Max Drawdown',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="font-medium text-red-600">
           {row.original.maxDrawDown.toFixed(1)}%
@@ -381,6 +393,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'deals',
       header: 'Deals',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-center">{row.original.deals}</div>
       ),
@@ -388,6 +401,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'profitFactor',
       header: 'Profit Factor',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div
           className={`font-medium ${
@@ -401,6 +415,13 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'testingPeriod',
       header: 'Period',
+      meta: {
+        filterType: 'number',
+        // Stored as "N days"; filter on N.
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          parseInt((row as Backtest).testingPeriod, 10),
+      },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.testingPeriod}</div>
       ),
@@ -408,6 +429,7 @@ const Backtests: React.FC<BacktestsProps> = ({
     {
       accessorKey: 'createdTime',
       header: 'Created',
+      meta: { filterType: 'date' },
       cell: ({ row }) => (
         <div className="text-sm text-muted-foreground">
           {row.original.createdTime.toLocaleDateString()}

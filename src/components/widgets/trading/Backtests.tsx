@@ -441,7 +441,17 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'pair',
         header: 'PAIR',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as Backtest).pair,
+          getFilterValue: (row: unknown) => {
+            const { pair } = row as Backtest;
+            const { baseAsset, quoteAsset } = extractPairAssets(pair);
+            return [pair, baseAsset, quoteAsset, pair.replace('/', '')].filter(
+              Boolean
+            );
+          },
+        },
         cell: ({ row }) => {
           const pair = row.getValue('pair') as string;
           // Extract baseAsset and quoteAsset from pair string using shared helper
@@ -508,7 +518,7 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'startCondition',
         header: 'START CONDITION',
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
         cell: ({ row }) => (
           <Badge variant="outline" className="text-xs">
             {row.getValue('startCondition')}
@@ -518,7 +528,7 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'strategy',
         header: 'STRATEGY',
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
         enableGrouping: true,
         aggregationFn: 'count',
         cell: ({ row }) => (
@@ -660,7 +670,17 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'botWorkingTime',
         header: 'BOT WORKING TIME',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'number',
+          // "5D 3H" → fractional days.
+          filterUnit: 'days',
+          getNumericFilterValue: (row: unknown) => {
+            const { botWorkingTime } = row as Backtest;
+            const [d = 0, h = 0] =
+              botWorkingTime.match(/\d+/g)?.map(Number) ?? [];
+            return d + h / 24;
+          },
+        },
         cell: ({ row }) => (
           <span className="text-xs font-mono">
             {row.getValue('botWorkingTime')}
@@ -690,7 +710,13 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'testingPeriod',
         header: 'TESTING PERIOD',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'number',
+          // "N days" → N.
+          filterUnit: 'days',
+          getNumericFilterValue: (row: unknown) =>
+            parseInt((row as Backtest).testingPeriod, 10),
+        },
         cell: ({ row }) => (
           <span className="text-xs">{row.getValue('testingPeriod')}</span>
         ),
@@ -698,7 +724,7 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'testingPeriodName',
         header: 'TESTING PERIOD NAME',
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
         cell: ({ row }) => (
           <Badge variant="outline" className="text-xs">
             {row.getValue('testingPeriodName')}
@@ -708,7 +734,17 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'maxDealDuration',
         header: 'MAX DEAL DURATION',
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'number',
+          // "5D 3H" → fractional days.
+          filterUnit: 'days',
+          getNumericFilterValue: (row: unknown) => {
+            const { maxDealDuration } = row as Backtest;
+            const [d = 0, h = 0] =
+              maxDealDuration.match(/\d+/g)?.map(Number) ?? [];
+            return d + h / 24;
+          },
+        },
         cell: ({ row }) => (
           <span className="text-xs font-mono">
             {row.getValue('maxDealDuration')}
@@ -718,7 +754,7 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'interval',
         header: 'INTERVAL',
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
         cell: ({ row }) => (
           <Badge variant="outline">{row.getValue('interval')}</Badge>
         ),
@@ -853,7 +889,11 @@ const Backtests: React.FC<BacktestsProps> = ({
       {
         accessorKey: 'cwr',
         header: 'CWR',
-        meta: { filterType: 'number' },
+        meta: {
+          filterType: 'number',
+          // Stored as a ratio, shown as a percent.
+          getNumericFilterValue: (row: unknown) => (row as Backtest).cwr * 100,
+        },
         cell: ({ row }) => {
           const value = row.getValue('cwr') as number;
           return (

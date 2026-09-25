@@ -127,6 +127,15 @@ function cellTime(cellValue: unknown): number | null {
 // Core operator matching
 // ---------------------------------------------------------------------------
 
+// `-Infinity` is how sort accessors mark a value as unavailable
+// (`toSortableMetricValue`), so it is blank here too. `+Infinity` is a real
+// value (an unbounded profit factor) and still compares.
+const isBlank = (v: unknown): boolean =>
+  v === null ||
+  v === undefined ||
+  v === Number.NEGATIVE_INFINITY ||
+  (typeof v === 'string' && v.trim() === '');
+
 /**
  * Apply a single operator to a cell value.
  *
@@ -192,14 +201,17 @@ function applyOperator(
       return !includesAny(strings, String(value));
 
     // -- Numeric operators --
+    //
+    // An empty cell is not zero: `Number(null)` and `Number('')` are 0, so a
+    // row showing "-" used to match `< 1` or `between -5 and 5`.
     case 'greaterThan':
-      return Number(cellValue) > Number(value);
+      return !isBlank(cellValue) && Number(cellValue) > Number(value);
     case 'lessThan':
-      return Number(cellValue) < Number(value);
+      return !isBlank(cellValue) && Number(cellValue) < Number(value);
     case 'greaterThanOrEqual':
-      return Number(cellValue) >= Number(value);
+      return !isBlank(cellValue) && Number(cellValue) >= Number(value);
     case 'lessThanOrEqual':
-      return Number(cellValue) <= Number(value);
+      return !isBlank(cellValue) && Number(cellValue) <= Number(value);
 
     case 'between':
       if (Array.isArray(value) && value.length === 2) {
@@ -220,6 +232,7 @@ function applyOperator(
           );
         }
         if (typeof value[0] === 'number' || typeof value[1] === 'number') {
+          if (isBlank(cellValue)) return false;
           const numValue = Number(cellValue);
           const min = value[0] !== '' ? Number(value[0]) : -Infinity;
           const max = value[1] !== '' ? Number(value[1]) : Infinity;
@@ -447,6 +460,12 @@ export function createEnhancedColumnFilter(
   const getOptionValueFn = meta?.['getOptionValue'] as
     | ((original: unknown) => string | string[])
     | undefined;
+  // A number column whose accessor value is not in the units the cell shows
+  // (a ratio rendered as a percent, say) declares the displayed number here,
+  // so `> 5` means what the user reads on screen.
+  const getNumericFilterValueFn = meta?.['getNumericFilterValue'] as
+    | ((original: unknown) => number | null | undefined)
+    | undefined;
   // The same declaration `filter-components` picks the operator set from, so
   // a date column's `equals` / `between` are matched as the date operators
   // the user was offered rather than as their string / number namesakes.
@@ -459,11 +478,12 @@ export function createEnhancedColumnFilter(
   ): boolean => {
     if (!filterValue) return true;
 
-    const { cellValue, searchableStrings } = resolveFilterValue(
-      row,
-      columnId,
-      getFilterValueFn
-    );
+    const resolved = resolveFilterValue(row, columnId, getFilterValueFn);
+    const { searchableStrings } = resolved;
+    const cellValue =
+      getNumericFilterValueFn && row.original !== undefined
+        ? getNumericFilterValueFn(row.original)
+        : resolved.cellValue;
     const optionStrings = resolveOptionValues(row, getOptionValueFn);
 
     // Array of filter conditions → AND logic

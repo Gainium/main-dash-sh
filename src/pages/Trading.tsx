@@ -1532,6 +1532,7 @@ const Trading: React.FC = () => {
       {
         accessorKey: 'name',
         header: 'Name',
+        meta: { filterType: 'string' },
         cell: ({ row }) => {
           const id = row.original.id;
           const botType = row.original.botType;
@@ -1555,6 +1556,7 @@ const Trading: React.FC = () => {
       {
         accessorKey: 'botType',
         header: 'Type',
+        meta: { filterType: 'array' },
         cell: ({ row }) => (
           <div className="flex items-center">
             <BotTypeChip
@@ -1659,6 +1661,7 @@ const Trading: React.FC = () => {
       {
         accessorKey: 'profit',
         header: 'Profit',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const profit = row.getValue('profit') as number;
           return (
@@ -1675,6 +1678,7 @@ const Trading: React.FC = () => {
       {
         accessorKey: 'value',
         header: 'Value',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="font-medium">
             {privacyMode ? '***' : formatCurrency(row.getValue('value'), 2)}

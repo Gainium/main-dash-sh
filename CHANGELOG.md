@@ -1,5 +1,18 @@
 # Changelog
 
+## [2.64.3] - 2026-09-25
+
+### Fixed
+
+- Table column filters: numeric columns (profit, drawdown, cost, value,
+  counts, prices, percentages) offer number operators — greater/less than,
+  between — instead of text ones; dates offer date operators; statuses,
+  strategies, exchanges and pairs offer a multi-select. Covers the bots, deals,
+  backtests, orders, positions and balances tables. Duration columns filter in
+  days (hours on deal tables), shown in the filter box; percent columns filter
+  on the percentage shown rather than the stored ratio.
+- Number filters no longer match rows whose value is empty ("-").
+
 ## [2.64.2] - 2026-09-25
 
 ### Fixed

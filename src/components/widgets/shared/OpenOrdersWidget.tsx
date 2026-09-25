@@ -2331,6 +2331,10 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         header: 'Type',
         meta: {
           filterType: 'array',
+          // Canonical value so picking "DCA" / "Combo" matches exactly instead
+          // of also substring-matching "Hedge DCA" / "Hedge Combo".
+          getOptionValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['type'] as string) || '',
           getFilterValue: (row: unknown) => {
             const trade = row as Record<string, unknown>;
             return (trade['type'] as string) || '';
@@ -2937,13 +2941,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         id: 'timeInLoss',
         accessorFn: (row) => dealPercentStringSortValue(row.timeInLoss),
         header: 'Time In Loss',
-        // The accessor is numeric so the column SORTS by percentage; the
-        // filter keeps matching the rendered "12.3%" text it always did.
-        meta: {
-          filterType: 'string',
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['timeInLoss'] as string) || '',
-        },
+        // The accessor is the numeric percentage the cell renders ("12.3%"),
+        // so it both sorts and number-filters (`> 50`) in displayed units.
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const value = row.original.timeInLoss;
           if (!value || value === '-')
@@ -2955,11 +2955,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         id: 'timeInProfit',
         accessorFn: (row) => dealPercentStringSortValue(row.timeInProfit),
         header: 'Time In Profit',
-        meta: {
-          filterType: 'string',
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['timeInProfit'] as string) || '',
-        },
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const value = row.original.timeInProfit;
           if (!value || value === '-')
@@ -2971,12 +2967,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         id: 'workingTime',
         accessorFn: (row) => dealWorkingTimeSortValue(row),
         header: 'Working Time',
-        // Numeric (minutes) accessor for sorting; the filter still matches the
-        // rendered "3D 4H" text.
+        // Numeric (minutes) accessor for sorting. The cell renders "3D 4H", so
+        // the number filter works in HOURS (`> 24` = ran longer than a day).
         meta: {
-          filterType: 'string',
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['workingTime'] as string) || '',
+          filterType: 'number',
+          filterUnit: 'hours',
+          getNumericFilterValue: (row: unknown) =>
+            dealWorkingTimeSortValue(row as OpenTrade) / 60,
         },
         cell: ({ row }) => {
           const value = row.original.workingTime;

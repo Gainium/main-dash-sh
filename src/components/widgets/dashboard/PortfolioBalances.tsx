@@ -562,7 +562,20 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
           ) : null;
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        // The accessor is the account UUID; offer and match the account NAME
+        // the chip resolves it to instead.
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => {
+            const data = row as BalanceRow;
+            return (
+              exchanges.find((ex) => ex.id === data.exchangeUUID)?.name ||
+              data.exchangeName ||
+              data.exchange ||
+              ''
+            );
+          },
+        },
       },
       {
         id: 'locked',
@@ -640,6 +653,15 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum' as const,
+          // The cell shows this USD value converted to the selected display
+          // currency, so filter on that figure; an unpriced holding has none.
+          getNumericFilterValue: (row: unknown): number | undefined => {
+            const { usdValue, priceUnavailable } = getRowTotals(
+              row as BalanceRow
+            );
+            if (priceUnavailable) return undefined;
+            return usdValue * getCurrencyInfo(selectedCurrency).rate;
+          },
         },
         footerValue: (value: number) => formatValueInCurrency(value),
       },
@@ -677,7 +699,14 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
         meta: { filterType: 'number' },
       },
     ],
-    [formatValueInCurrency, formatTokenAmount, getRowTotals]
+    [
+      formatValueInCurrency,
+      formatTokenAmount,
+      getRowTotals,
+      exchanges,
+      getCurrencyInfo,
+      selectedCurrency,
+    ]
   );
 
   // Calculate total portfolio value

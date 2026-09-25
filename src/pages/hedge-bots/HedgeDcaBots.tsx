@@ -66,6 +66,7 @@ import { useBotModeGuard } from '@/hooks/bots/base/useBotModeGuard';
 import { useAuthStore } from '@/stores/authStore';
 import { useIsReadOnly } from '@/lib/demoMode';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 
 const HEDGE_BOTS_WIDGET_MOTION = {
   initial: { opacity: 0, y: 20 },
@@ -410,12 +411,18 @@ const HedgeDcaBots = () => {
     [hedgeDealsForTab]
   );
 
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the `filterType: 'date'` filter matches on — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   const columns = useMemo<ColumnDef<EnrichedHedgeBot>[]>(
     () => [
       {
         id: 'pair',
         header: 'Pair',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.pair },
+        meta: {
+          filterType: 'array' as const,
+          description: BOT_METRIC_DESCRIPTIONS.hedge.pair,
+        },
         accessorFn: (row) => formatPair(row),
         cell: ({ getValue }) => (
           <span className="font-medium">{getValue() as string}</span>
@@ -445,7 +452,10 @@ const HedgeDcaBots = () => {
       {
         id: 'status',
         header: 'Status',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.status },
+        meta: {
+          filterType: 'array' as const,
+          description: BOT_METRIC_DESCRIPTIONS.hedge.status,
+        },
         accessorFn: (row) => row.status,
         cell: ({ getValue }) => (
           <StatusChip status={getValue() as string} size="sm" />
@@ -454,7 +464,10 @@ const HedgeDcaBots = () => {
       {
         id: 'longExchange',
         header: 'Long exchange',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.longExchange },
+        meta: {
+          filterType: 'array' as const,
+          description: BOT_METRIC_DESCRIPTIONS.hedge.longExchange,
+        },
         accessorFn: (row) => {
           const leg = row.bots?.find(
             (b) => b.settings?.strategy === StrategyEnum.long
@@ -479,7 +492,10 @@ const HedgeDcaBots = () => {
       {
         id: 'shortExchange',
         header: 'Short exchange',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.shortExchange },
+        meta: {
+          filterType: 'array' as const,
+          description: BOT_METRIC_DESCRIPTIONS.hedge.shortExchange,
+        },
         accessorFn: (row) => {
           const leg = row.bots?.find(
             (b) => b.settings?.strategy === StrategyEnum.short
@@ -774,13 +790,18 @@ const HedgeDcaBots = () => {
       {
         id: 'created',
         header: 'Created',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.created },
+        meta: {
+          filterType: 'date' as const,
+          description: BOT_METRIC_DESCRIPTIONS.hedge.created,
+        },
         accessorFn: (row) => row.created,
         cell: ({ getValue }) => {
           const v = getValue();
           if (!v) return '—';
           const d = new Date(v as string | number);
-          return Number.isNaN(d.getTime()) ? '—' : d.toLocaleDateString();
+          return Number.isNaN(d.getTime())
+            ? '—'
+            : d.toLocaleDateString(undefined, { timeZone: accountTimeZone });
         },
       },
       {
@@ -810,8 +831,9 @@ const HedgeDcaBots = () => {
     ],
     // Column defs read each row's already-enriched bot, not unPnlMap directly
     // (the unrealized values are baked into `enrichedBots`). The only reactive
-    // dep is privacyMode, which the profit/PnL cells honor by masking values.
-    [privacyMode]
+    // dep is privacyMode, which the profit/PnL cells honor by masking values,
+    // plus the account zone the Created cell renders its day in.
+    [privacyMode, accountTimeZone]
   );
 
   if (!isPremium) {

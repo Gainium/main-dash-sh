@@ -22,7 +22,55 @@ import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { isStoredBacktest, NOT_STORED_SHARE_HINT } from '@/lib/shareLinks';
-import { BotTypesEnum, type DCABacktestingResultHistory } from '@/types';
+import {
+  BotTypesEnum,
+  type DCABacktestingResultHistory,
+  type SplitTime,
+} from '@/types';
+
+/**
+ * Column-filter metas shared by the per-type backtest column builders.
+ *
+ * Pair: one `BASE/QUOTE` option per row (what the CoinPair cell shows); a
+ * typed term also matches the raw symbol and either asset.
+ */
+type BacktestPairRow = {
+  symbol?: string;
+  baseAsset?: string;
+  quoteAsset?: string;
+};
+
+export const backtestPairFilterMeta = {
+  filterType: 'array' as const,
+  getOptionValue: (row: unknown) => {
+    const r = row as BacktestPairRow;
+    return r.baseAsset && r.quoteAsset
+      ? `${r.baseAsset}/${r.quoteAsset}`
+      : r.symbol || '';
+  },
+  getFilterValue: (row: unknown) => {
+    const r = row as BacktestPairRow;
+    return [
+      r.baseAsset && r.quoteAsset ? `${r.baseAsset}/${r.quoteAsset}` : '',
+      r.symbol ?? '',
+      r.baseAsset ?? '',
+      r.quoteAsset ?? '',
+    ].filter(Boolean);
+  },
+};
+
+/** Yes/no column whose field may be missing or null (rendered as "no"). */
+export const backtestBooleanFilterMeta = (key: string) => ({
+  filterType: 'boolean' as const,
+  getFilterValue: (row: unknown) =>
+    String(!!(row as Record<string, unknown>)[key]),
+});
+
+/** A "Xd Yh Zm" duration cell as fractional days, for its number filter. */
+export const splitTimeToDays = (t?: SplitTime | null): number | null =>
+  t
+    ? (Number(t.d) || 0) + (Number(t.h) || 0) / 24 + (Number(t.min) || 0) / 1440
+    : null;
 
 /**
  * DCA backtest table columns — lifted verbatim from BotBacktestPanel's inline
@@ -51,6 +99,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'symbol',
       header: 'Pair',
+      meta: backtestPairFilterMeta,
       cell: ({ row }) => {
         const baseAsset = row.original.baseAsset;
         const quoteAsset = row.original.quoteAsset;
@@ -72,6 +121,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'serverSide',
       header: 'Server Side',
+      meta: backtestBooleanFilterMeta('serverSide'),
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.serverSide === null
@@ -85,6 +135,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'savePermanent',
       header: 'Save Permanently',
+      meta: backtestBooleanFilterMeta('savePermanent'),
       cell: ({ row }) => (
         <BacktestPermanentCheckbox
           id={row.original._id ?? ''}
@@ -96,6 +147,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'settings.name',
       header: 'Name',
+      meta: { filterType: 'string' },
       cell: ({ row }) => {
         const hasLocalData = (row.original.deals?.length ?? 0) > 0;
         return (
@@ -116,6 +168,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'settings.startCondition',
       header: 'Start Condition',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.settings?.startCondition || 'N/A'}
@@ -125,6 +178,11 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'settings.strategy',
       header: 'Strategy',
+      meta: {
+        filterType: 'array',
+        getFilterValue: (row: unknown) =>
+          (row as DCABacktestingResultHistory).settings?.strategy || 'LONG',
+      },
       cell: ({ row }) => {
         const strategy = row.original.settings?.strategy || 'LONG';
         return <StrategyChip strategy={strategy} size="sm" />;
@@ -133,6 +191,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'time',
       header: 'Created Time',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const date = row.original.time
           ? new Date(row.original.time).toLocaleString()
@@ -143,6 +202,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.avgNetDailyPerc',
       header: 'Avg. Net Daily',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.avgNetDailyPerc || 0;
         return <ProfitLossPercChip value={value} size="sm" />;
@@ -151,6 +211,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.annualizedReturn',
       header: 'Annualized Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.annualizedReturn;
         if (value === null || value === undefined)
@@ -161,6 +222,15 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.maxDrawDownPerc',
       header: '% Max. Draw Down',
+      meta: {
+        filterType: 'number',
+        // The cell shows drawdown as a negative percent.
+        getNumericFilterValue: (row: unknown) => {
+          const { financial } = (row as DCABacktestingResultHistory);
+          const v = financial?.maxDrawDownPerc;
+          return v === null || v === undefined ? null : -Math.abs(v);
+        },
+      },
       cell: ({ row }) => {
         const value = row.original.financial?.maxDrawDownPerc || 0;
         // Drawdown is always shown as negative
@@ -170,6 +240,15 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.maxDrawDownEquityPerc',
       header: '% Max. Equity Draw Down',
+      meta: {
+        filterType: 'number',
+        // The cell shows drawdown as a negative percent.
+        getNumericFilterValue: (row: unknown) => {
+          const { financial } = (row as DCABacktestingResultHistory);
+          const v = financial?.maxDrawDownEquityPerc;
+          return v === null || v === undefined ? null : -Math.abs(v);
+        },
+      },
       cell: ({ row }) => {
         const value = row.original.financial?.maxDrawDownEquityPerc;
         if (value === null || value === undefined)
@@ -181,6 +260,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.netProfitTotalPerc',
       header: '% Net Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.netProfitTotalPerc || 0;
         return <ProfitLossPercChip value={value} size="sm" showSign={true} />;
@@ -189,6 +269,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'financial.unrealizedPnL',
       header: 'Unrealized Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.unrealizedPnL || 0;
         const isPositive = value >= 0;
@@ -205,6 +286,14 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'duration.botWorkingTimeNumber',
       header: 'Bot Working Time',
+      meta: {
+        filterType: 'number',
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          splitTimeToDays(
+            (row as DCABacktestingResultHistory).duration?.botWorkingTime
+          ),
+      },
       cell: ({ row }) => {
         const workingTime = row.original.duration?.botWorkingTime;
         if (!workingTime) return <div className="text-sm">N/A</div>;
@@ -221,6 +310,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'duration.firstDataTime',
       header: 'Start Date',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const date = row.original.duration?.firstDataTime
           ? new Date(row.original.duration.firstDataTime).toLocaleString()
@@ -231,6 +321,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'duration.lastDataTime',
       header: 'End Date',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const date = row.original.duration?.lastDataTime
           ? new Date(row.original.duration.lastDataTime).toLocaleString()
@@ -241,6 +332,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'duration.periodName',
       header: 'Testing Period Name',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.duration?.periodName || 'N/A'}
@@ -250,6 +342,14 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'duration.maxDealDuration',
       header: 'Max Deal Duration',
+      meta: {
+        filterType: 'number',
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          splitTimeToDays(
+            (row as DCABacktestingResultHistory).duration?.maxDealDuration
+          ),
+      },
       cell: ({ row }) => {
         const maxDuration = row.original.duration?.maxDealDuration;
         if (!maxDuration) return <div className="text-sm">N/A</div>;
@@ -266,6 +366,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'interval',
       header: 'Interval',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.interval || 'N/A'}</div>
       ),
@@ -273,6 +374,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'numerical.actualPriceDeviation',
       header: 'Actual Price Deviation',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.numerical?.actualPriceDeviation;
         return (
@@ -283,6 +385,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'numerical.all',
       header: 'Deals',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm font-medium">
           {row.original.numerical?.all || 0}
@@ -292,6 +395,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'numerical.avgDCATriggered',
       header: 'Avg DCA Orders Triggered',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.numerical?.avgDCATriggered || 0}
@@ -301,6 +405,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'numerical.dealsPerDay',
       header: 'Deals Per Day',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.numerical?.dealsPerDay?.toFixed(1) || '0.0'}
@@ -310,6 +415,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'usage.avgRealUsage',
       header: 'Avg Real Usage',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.usage?.avgRealUsage?.toFixed(3) || '0.000'}
@@ -319,6 +425,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'ratios.buyAndHold.perc',
       header: 'Buy and Hold Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.buyAndHold?.perc;
         if (value === null || value === undefined)
@@ -337,6 +444,13 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'ratios.profitFactor',
       header: 'Profit Factor',
+      meta: {
+        filterType: 'number',
+        // A missing profit factor renders as ∞ (no losing deals).
+        getNumericFilterValue: (row: unknown) =>
+          (row as DCABacktestingResultHistory).ratios?.profitFactor ??
+          Infinity,
+      },
       cell: ({ row }) => {
         const value = row.original.ratios?.profitFactor;
         if (value === null || value === undefined)
@@ -347,6 +461,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'ratios.sharpe',
       header: 'Sharpe Ratio',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.sharpe;
         if (value === null || value === undefined)
@@ -357,6 +472,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'ratios.sortino',
       header: 'Sortino Ratio',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.sortino;
         if (value === null || value === undefined)
@@ -367,6 +483,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'ratios.cwr',
       header: 'CWR',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.cwr;
         if (value === null || value === undefined)
@@ -377,6 +494,7 @@ export function buildDcaBacktestColumns(
     {
       accessorKey: 'note',
       header: 'Notes',
+      meta: { filterType: 'string' },
       size: 200,
       cell: ({ row }) => {
         const backtestId = row.original._id ?? '';

@@ -1,4 +1,6 @@
 import { isReadOnly } from '@/lib/demoMode';
+import { durationTextToDays } from '@/lib/utils/durationText';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
@@ -665,6 +667,9 @@ const GridBots: React.FC = () => {
     );
   };
 
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the `filterType: 'date'` filter matches on — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   // Define columns for the data table
   const columns: ColumnDef<ReturnType<typeof transformGridBotToBot>>[] =
     useMemo(
@@ -958,6 +963,11 @@ const GridBots: React.FC = () => {
         {
           id: 'transactions',
           header: 'TRANSACTIONS',
+          // Without an accessor TanStack treats the column as unfilterable
+          // (and unsortable), so the numeric filter below never appeared.
+          accessorFn: (row) =>
+            (row.transactionsCount?.buy || 0) +
+            (row.transactionsCount?.sell || 0),
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.transactions,
@@ -974,26 +984,32 @@ const GridBots: React.FC = () => {
           accessorKey: 'created',
           header: 'CREATED',
           meta: {
-            filterType: 'string',
+            filterType: 'date',
             description: BOT_METRIC_DESCRIPTIONS.grid.created,
           },
           cell: ({ getValue }) => {
             const created = getValue() as string;
             const date = new Date(created);
-            return date.toLocaleDateString();
+            return date.toLocaleDateString(undefined, {
+              timeZone: accountTimeZone,
+            });
           },
         },
         {
           accessorKey: 'workingTime',
           header: 'TRADING TIME',
           meta: {
-            filterType: 'string',
+            filterType: 'number',
+            filterUnit: 'days',
+            getNumericFilterValue: (row: unknown) =>
+              durationTextToDays((row as { workingTime?: string }).workingTime),
             description: BOT_METRIC_DESCRIPTIONS.grid.tradingTime,
           },
         },
         {
           id: 'totalGrids',
           header: 'TOTAL GRIDS',
+          accessorFn: (row) => row.levels.all.buy + row.levels.all.sell,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.totalGrids,
@@ -1006,6 +1022,8 @@ const GridBots: React.FC = () => {
         {
           id: 'gridLevels',
           header: 'GRID LEVELS',
+          accessorFn: (row) =>
+            `${row.levels.active.buy + row.levels.active.sell} / ${row.levels.all.buy + row.levels.all.sell}`,
           meta: {
             filterType: 'string',
             description: BOT_METRIC_DESCRIPTIONS.grid.gridLevels,
@@ -1141,6 +1159,9 @@ const GridBots: React.FC = () => {
         {
           id: 'timeInLoss',
           header: 'TIME IN LOSS',
+          // The percentage the cell shows, not the raw tracked milliseconds.
+          accessorFn: (row) =>
+            ((row.stats?.timeInLoss || 0) / (row.stats?.trackTime || 1)) * 100,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.timeInLoss,
@@ -1162,6 +1183,9 @@ const GridBots: React.FC = () => {
         {
           id: 'timeInProfit',
           header: 'TIME IN PROFIT',
+          accessorFn: (row) =>
+            ((row.stats?.timeInProfit || 0) / (row.stats?.trackTime || 1)) *
+            100,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.timeInProfit,
@@ -1183,6 +1207,7 @@ const GridBots: React.FC = () => {
         {
           id: 'creditsCost',
           header: 'CREDITS COST',
+          accessorFn: (row) => row.cost || 0,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.creditsCost,
@@ -1223,7 +1248,7 @@ const GridBots: React.FC = () => {
           size: 56,
         },
       ],
-      [privacyMode, botDataMap]
+      [privacyMode, botDataMap, accountTimeZone]
     );
 
   // archived/active counts are intentionally not shown in header anymore

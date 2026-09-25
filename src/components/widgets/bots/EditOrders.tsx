@@ -9,6 +9,7 @@ import { useBotOrders, type BotOrder } from '../../../hooks/useBotOrders';
 import { BotTypesEnum } from '../../../types';
 import { DataTable } from '../../ui/data-table/data-table';
 import CoinPair from '../shared/CoinPair';
+import { SYMBOL_COLUMN_FILTER_META } from '../shared/symbolColumnFilterMeta';
 import { WidgetWrapper, type WidgetMenuActions } from '../WidgetWrapper';
 import { getBotWidgetMetadata } from './index';
 
@@ -112,7 +113,7 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: SYMBOL_COLUMN_FILTER_META,
       },
       {
         accessorKey: 'side',
@@ -122,7 +123,10 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           return <BuySellChip side={side} size="sm" showIcon={true} />;
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as BotOrder).side || '',
+        },
       },
       {
         accessorKey: 'origQty',
@@ -215,7 +219,11 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        // Exact option match: picking FILLED must not also pick PARTIALLY_FILLED.
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as BotOrder).status || '',
+        },
       },
       {
         accessorKey: 'type',
@@ -229,7 +237,10 @@ const EditOrders: React.FC<EditOrdersProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as BotOrder).type || '',
+        },
       },
       {
         accessorKey: 'time',

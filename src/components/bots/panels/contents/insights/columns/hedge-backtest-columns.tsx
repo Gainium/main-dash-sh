@@ -1,6 +1,10 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { FileUp, MoreVertical, Trash2, Upload } from 'lucide-react';
 
+import {
+  backtestBooleanFilterMeta,
+  splitTimeToDays,
+} from './dca-backtest-columns';
 import { Button } from '@/components/ui/button';
 import { ProfitLossPercChip } from '@/components/ui/chip';
 import {
@@ -96,6 +100,24 @@ export function buildHedgeBacktestColumns(
     {
       id: 'pairs',
       header: 'Pairs',
+      meta: {
+        filterType: 'array',
+        getOptionValue: (row: unknown) => {
+          const { long, short } = row as HedgeBacktestHistoryItem;
+          return [long.symbol, short.symbol].filter(Boolean);
+        },
+        getFilterValue: (row: unknown) => {
+          const { long, short } = row as HedgeBacktestHistoryItem;
+          return [
+            long.symbol,
+            short.symbol,
+            long.baseAsset,
+            long.quoteAsset,
+            short.baseAsset,
+            short.quoteAsset,
+          ].filter(Boolean);
+        },
+      },
       // Flatten both symbols for global filter + sort.
       accessorFn: (row) => `${row.long.symbol} ${row.short.symbol}`,
       cell: ({ row }) => {
@@ -131,6 +153,7 @@ export function buildHedgeBacktestColumns(
     {
       accessorKey: 'savePermanent',
       header: 'Save Permanently',
+      meta: backtestBooleanFilterMeta('savePermanent'),
       cell: ({ row }) => (
         <BacktestPermanentCheckbox
           id={row.original._id ?? ''}
@@ -145,6 +168,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'name',
       header: 'Name',
+      meta: { filterType: 'string' },
       // Both legs carry the shared hedge name (handleSave fans it out), so
       // the long leg's is representative.
       accessorFn: (row) => row.long.settings?.name ?? '',
@@ -155,6 +179,7 @@ export function buildHedgeBacktestColumns(
     {
       accessorKey: 'time',
       header: 'Created Time',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const date = row.original.time
           ? new Date(row.original.time).toLocaleString()
@@ -165,6 +190,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.avgNetDailyPerc',
       header: 'Avg. Net Daily',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.financial?.avgNetDailyPerc ?? 0,
       cell: ({ getValue }) => (
         <ProfitLossPercChip value={(getValue() as number) ?? 0} size="sm" />
@@ -173,6 +199,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.annualizedReturn',
       header: 'Annualized Return',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.financial?.annualizedReturn ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -184,6 +211,15 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.maxDrawDownPerc',
       header: '% Max. Draw Down',
+      meta: {
+        filterType: 'number',
+        // The cell shows drawdown as a negative percent.
+        getNumericFilterValue: (row: unknown) => {
+          const { financial } = (row as HedgeBacktestHistoryItem).hedgeResult;
+          const v = financial?.maxDrawDownPerc;
+          return v === null || v === undefined ? null : -Math.abs(v);
+        },
+      },
       accessorFn: (row) => row.hedgeResult.financial?.maxDrawDownPerc ?? 0,
       cell: ({ getValue }) => {
         const value = (getValue() as number) ?? 0;
@@ -194,6 +230,15 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.maxDrawDownEquityPerc',
       header: '% Max. Equity Draw Down',
+      meta: {
+        filterType: 'number',
+        // The cell shows drawdown as a negative percent.
+        getNumericFilterValue: (row: unknown) => {
+          const { financial } = (row as HedgeBacktestHistoryItem).hedgeResult;
+          const v = financial?.maxDrawDownEquityPerc;
+          return v === null || v === undefined ? null : -Math.abs(v);
+        },
+      },
       accessorFn: (row) =>
         row.hedgeResult.financial?.maxDrawDownEquityPerc ?? null,
       cell: ({ getValue }) => {
@@ -206,6 +251,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.netProfitTotalPerc',
       header: '% Net Profit',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.financial?.netProfitTotalPerc ?? 0,
       cell: ({ getValue }) => (
         <ProfitLossPercChip
@@ -218,6 +264,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'financial.unrealizedPnL',
       header: 'Unrealized Profit',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.financial?.unrealizedPnL ?? 0,
       cell: ({ getValue }) => {
         const value = (getValue() as number) ?? 0;
@@ -235,6 +282,16 @@ export function buildHedgeBacktestColumns(
     {
       id: 'duration.botWorkingTime',
       header: 'Bot Working Time',
+      meta: {
+        filterType: 'number',
+        // The accessor keeps whole days for sorting; filter on the full span.
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          splitTimeToDays(
+            (row as HedgeBacktestHistoryItem).hedgeResult.duration
+              ?.botWorkingTime
+          ),
+      },
       accessorFn: (row) => row.hedgeResult.duration?.botWorkingTime?.d ?? 0,
       cell: ({ row }) => {
         const workingTime = row.original.hedgeResult.duration?.botWorkingTime;
@@ -249,6 +306,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'duration.firstDataTime',
       header: 'Start Date',
+      meta: { filterType: 'date' },
       accessorFn: (row) => row.hedgeResult.duration?.firstDataTime ?? 0,
       cell: ({ row }) => {
         const t = row.original.hedgeResult.duration?.firstDataTime;
@@ -262,6 +320,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'duration.lastDataTime',
       header: 'End Date',
+      meta: { filterType: 'date' },
       accessorFn: (row) => row.hedgeResult.duration?.lastDataTime ?? 0,
       cell: ({ row }) => {
         const t = row.original.hedgeResult.duration?.lastDataTime;
@@ -275,6 +334,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'duration.periodName',
       header: 'Testing Period Name',
+      meta: { filterType: 'array' },
       accessorFn: (row) => row.hedgeResult.duration?.periodName ?? '',
       cell: ({ row }) => (
         <div className="text-sm">
@@ -285,6 +345,16 @@ export function buildHedgeBacktestColumns(
     {
       id: 'duration.maxDealDuration',
       header: 'Max Deal Duration',
+      meta: {
+        filterType: 'number',
+        // The accessor keeps whole days for sorting; filter on the full span.
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          splitTimeToDays(
+            (row as HedgeBacktestHistoryItem).hedgeResult.duration
+              ?.maxDealDuration
+          ),
+      },
       accessorFn: (row) => row.hedgeResult.duration?.maxDealDuration?.d ?? 0,
       cell: ({ row }) => {
         const maxDuration = row.original.hedgeResult.duration?.maxDealDuration;
@@ -299,6 +369,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'numerical.actualPriceDeviation',
       header: 'Actual Price Deviation',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.numerical?.actualPriceDeviation,
       cell: ({ getValue }) => {
         const value = getValue() as number | undefined;
@@ -310,6 +381,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'numerical.all',
       header: 'Deals',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.numerical?.all ?? 0,
       cell: ({ getValue }) => (
         <div className="text-sm font-medium">{(getValue() as number) || 0}</div>
@@ -318,6 +390,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'numerical.avgDCATriggered',
       header: 'Avg DCA Orders Triggered',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.numerical?.avgDCATriggered ?? 0,
       cell: ({ getValue }) => (
         <div className="text-sm">{(getValue() as number) || 0}</div>
@@ -326,6 +399,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'numerical.dealsPerDay',
       header: 'Deals Per Day',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.numerical?.dealsPerDay ?? 0,
       cell: ({ getValue }) => (
         <div className="text-sm">
@@ -336,6 +410,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'usage.avgRealUsage',
       header: 'Avg Real Usage',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.usage?.avgRealUsage ?? 0,
       cell: ({ getValue }) => (
         <div className="text-sm">
@@ -346,6 +421,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'ratios.buyAndHold.perc',
       header: 'Buy and Hold Return',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.ratios?.buyAndHold?.perc ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -365,6 +441,13 @@ export function buildHedgeBacktestColumns(
     {
       id: 'ratios.profitFactor',
       header: 'Profit Factor',
+      meta: {
+        filterType: 'number',
+        // A missing profit factor renders as ∞ (no losing deals).
+        getNumericFilterValue: (row: unknown) =>
+          (row as HedgeBacktestHistoryItem).hedgeResult.ratios
+            ?.profitFactor ?? Infinity,
+      },
       accessorFn: (row) => row.hedgeResult.ratios?.profitFactor ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -376,6 +459,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'ratios.sharpe',
       header: 'Sharpe Ratio',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.ratios?.sharpe ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -387,6 +471,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'ratios.sortino',
       header: 'Sortino Ratio',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.ratios?.sortino ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -398,6 +483,7 @@ export function buildHedgeBacktestColumns(
     {
       id: 'ratios.cwr',
       header: 'CWR',
+      meta: { filterType: 'number' },
       accessorFn: (row) => row.hedgeResult.ratios?.cwr ?? null,
       cell: ({ getValue }) => {
         const value = getValue() as number | null;
@@ -409,6 +495,7 @@ export function buildHedgeBacktestColumns(
     {
       accessorKey: 'note',
       header: 'Notes',
+      meta: { filterType: 'string' },
       size: 200,
       cell: ({ row }) => {
         const backtestId = row.original._id ?? '';

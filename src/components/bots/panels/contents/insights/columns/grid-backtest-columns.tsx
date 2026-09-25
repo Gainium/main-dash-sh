@@ -1,6 +1,11 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Download, MoreVertical, Trash2 } from 'lucide-react';
 
+import {
+  backtestBooleanFilterMeta,
+  backtestPairFilterMeta,
+  splitTimeToDays,
+} from './dca-backtest-columns';
 import type { BacktestColumnContext } from '@/components/bots/workbench/descriptors/types';
 import { Button } from '@/components/ui/button';
 import { ProfitLossPercChip } from '@/components/ui/chip';
@@ -34,6 +39,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'symbol',
       header: 'Pair',
+      meta: backtestPairFilterMeta,
       cell: ({ row }) => {
         const { baseAsset, quoteAsset } = row.original;
         if (!baseAsset || !quoteAsset)
@@ -51,6 +57,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'serverSide',
       header: 'Server Side',
+      meta: backtestBooleanFilterMeta('serverSide'),
       cell: ({ row }) => (
         <div className="text-sm">{row.original.serverSide ? 'yes' : 'no'}</div>
       ),
@@ -58,6 +65,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'savePermanent',
       header: 'Save Permanently',
+      meta: backtestBooleanFilterMeta('savePermanent'),
       cell: ({ row }) => (
         <BacktestPermanentCheckbox
           id={row.original._id ?? ''}
@@ -69,6 +77,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'settings.name',
       header: 'Name',
+      meta: { filterType: 'string' },
       cell: ({ row }) => (
         <div className="font-medium">{row.original.settings?.name || ''}</div>
       ),
@@ -76,6 +85,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'note',
       header: 'Notes',
+      meta: { filterType: 'string' },
       size: 200,
       cell: ({ row }) => {
         const backtestId = row.original._id ?? '';
@@ -89,6 +99,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'time',
       header: 'Created Time',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const date = row.original.time
           ? new Date(row.original.time).toLocaleString()
@@ -99,6 +110,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.profitTotalUsd',
       header: '$ Net Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const usd = row.original.financial?.profitTotalUsd ?? 0;
         const perc = row.original.financial?.profitTotalPerc ?? 0;
@@ -118,6 +130,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.profitTotal',
       header: 'P&L',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const val = row.original.financial?.profitTotal ?? 0;
         const isPositive = +val >= 0;
@@ -133,6 +146,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.profitTotalPerc',
       header: '% Net Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.profitTotalPerc || 0;
         return <ProfitLossPercChip value={value} size="sm" showSign />;
@@ -141,6 +155,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.budgetUsd',
       header: '$ Budget',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${math.round(row.original.financial?.budgetUsd ?? 0)}
@@ -150,6 +165,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgNetDailyPerc',
       header: 'Avg Net Daily',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.avgNetDailyPerc || 0;
         return <ProfitLossPercChip value={value} size="sm" />;
@@ -158,6 +174,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgNetDailyUsd',
       header: '$ Avg Net Daily',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${row.original.financial?.avgNetDailyUsd ?? 0}
@@ -167,6 +184,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.annualizedReturn',
       header: 'Annualized Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.financial?.annualizedReturn;
         if (value === null || value === undefined)
@@ -177,6 +195,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgTransactionProfitUsd',
       header: '$ Avg Transaction Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${row.original.financial?.avgTransactionProfitUsd ?? 0}
@@ -186,6 +205,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgTransactionProfit',
       header: 'Avg Transaction Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.financial?.avgTransactionProfit ?? 0}
@@ -195,6 +215,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.initialBalancesUsd',
       header: '$ Initial Balances',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${row.original.financial?.initialBalancesUsd ?? 0}
@@ -204,6 +225,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.initialBalances',
       header: 'Initial Balances',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.financial?.initialBalances ?? 0}
@@ -213,6 +235,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.currentBalancesUsd',
       header: '$ Current Balances',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${row.original.financial?.currentBalancesUsd ?? 0}
@@ -222,6 +245,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.currentBalances',
       header: 'Current Balances',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.financial?.currentBalances ?? 0}
@@ -231,6 +255,17 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.valueChange',
       header: 'Value Change',
+      meta: {
+        filterType: 'number',
+        // The cell shows the USD change as a percent of the initial balance.
+        getNumericFilterValue: (row: unknown) => {
+          const { valueChangeUsd, initialBalancesUsd } =
+            (row as GRIDBacktestingResultHistory).financial ?? {};
+          return initialBalancesUsd
+            ? math.round((+(valueChangeUsd ?? 0) / +initialBalancesUsd) * 100)
+            : 0;
+        },
+      },
       cell: ({ row }) => {
         const { valueChangeUsd, initialBalancesUsd } =
           row.original.financial ?? {};
@@ -243,6 +278,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.valueChangeUsd',
       header: '$ Value Change',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           ${row.original.financial?.valueChangeUsd ?? 0}
@@ -252,6 +288,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.startPrice',
       header: 'Initial Price',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.financial?.startPrice ?? 0}</div>
       ),
@@ -259,6 +296,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.lastPrice',
       header: 'Last Price',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.financial?.lastPrice ?? 0}</div>
       ),
@@ -266,6 +304,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.breakevenPrice',
       header: 'Breakeven Price',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.financial?.breakevenPrice ?? 0}
@@ -275,6 +314,14 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'duration.botWorkingTime',
       header: 'Bot Working Time',
+      meta: {
+        filterType: 'number',
+        filterUnit: 'days',
+        getNumericFilterValue: (row: unknown) =>
+          splitTimeToDays(
+            (row as GRIDBacktestingResultHistory).duration?.botWorkingTime
+          ),
+      },
       cell: ({ row }) => {
         const wt = row.original.duration?.botWorkingTime;
         if (!wt) return <div className="text-sm">N/A</div>;
@@ -288,6 +335,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'duration.firstDataTime',
       header: 'Start Date',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const ts = row.original.duration?.firstDataTime;
         return (
@@ -300,6 +348,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'duration.lastDataTime',
       header: 'End Date',
+      meta: { filterType: 'date' },
       cell: ({ row }) => {
         const ts = row.original.duration?.lastDataTime;
         return (
@@ -312,6 +361,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'duration.periodName',
       header: 'Testing Period Name',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.duration?.periodName || 'N/A'}
@@ -321,6 +371,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'interval',
       header: 'Interval',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.interval || 'N/A'}</div>
       ),
@@ -328,6 +379,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'numerical.all',
       header: 'Transactions',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm font-medium">
           {row.original.numerical?.all || 0}
@@ -337,6 +389,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'numerical.transactionsPerDay',
       header: 'Transactions/Day',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
           {row.original.numerical?.transactionsPerDay?.toFixed(1) || '0.0'}
@@ -346,6 +399,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'numerical.buy',
       header: 'Buy Transactions',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.numerical?.buy || 0}</div>
       ),
@@ -353,6 +407,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'numerical.sell',
       header: 'Sell Transactions',
+      meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">{row.original.numerical?.sell || 0}</div>
       ),
@@ -360,6 +415,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'ratios.buyAndHold.valueUsd',
       header: '$ Buy & Hold Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.buyAndHold?.valueUsd;
         if (value === null || value === undefined)
@@ -370,6 +426,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'ratios.buyAndHold.perc',
       header: '% Buy & Hold Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.buyAndHold?.perc;
         if (value === null || value === undefined)
@@ -380,6 +437,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'ratios.sharpe',
       header: 'Sharpe Ratio',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.sharpe;
         if (value === null || value === undefined)
@@ -390,6 +448,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'ratios.sortino',
       header: 'Sortino Ratio',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.sortino;
         if (value === null || value === undefined)

@@ -32,6 +32,12 @@ export interface RealOrderData {
   terminal: boolean;
 }
 
+/** The "BASE/QUOTE" pair an order row's Symbol cell renders. */
+const latestOrderPair = (order: RealOrderData): string =>
+  order.baseAsset && order.quoteAsset
+    ? `${order.baseAsset}/${order.quoteAsset}`
+    : order.baseAsset || order.quoteAsset || '';
+
 export interface LatestOrdersProps {
   widgetId: string;
   showPagination?: boolean;
@@ -148,7 +154,20 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        // `getLatestOrders` returns no `symbol` field, so the accessor is
+        // always undefined; filter on the base/quote pair the cell renders.
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => latestOrderPair(row as RealOrderData),
+          getFilterValue: (row: unknown) => {
+            const order = row as RealOrderData;
+            return [
+              latestOrderPair(order),
+              order.baseAsset,
+              order.quoteAsset,
+            ].filter(Boolean);
+          },
+        },
       },
       {
         accessorKey: 'side',
@@ -158,7 +177,10 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           return <BuySellChip side={side} size="sm" showIcon={true} />;
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as RealOrderData).side || '',
+        },
       },
       {
         accessorKey: 'origQty',
@@ -261,7 +283,11 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           return <BotTypeChip botType={botType} size="sm" chipStyle="soft" />;
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) =>
+            (row as RealOrderData).botType || '',
+        },
       },
     ],
     [accountTimeZone]

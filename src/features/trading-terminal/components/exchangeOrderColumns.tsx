@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 
 import CoinPair from '@/components/widgets/shared/CoinPair';
+import { SYMBOL_COLUMN_FILTER_META } from '@/components/widgets/shared/symbolColumnFilterMeta';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -332,6 +333,18 @@ export interface PositionColumnActions {
   closing?: boolean;
 }
 
+/**
+ * Exchange column filter: a multi-select over the name the cell shows, matched
+ * exactly (one account called "Binance" must not also pick "Binance 2").
+ */
+const EXCHANGE_FILTER_META = {
+  filterType: 'array' as const,
+  getOptionValue: (row: unknown) => {
+    const r = row as { exchangeName?: string; exchange?: string };
+    return (r.exchangeName ? r.exchangeName : r.exchange) || '';
+  },
+};
+
 export function buildOrderColumns(
   actions: OrderColumnActions
 ): ColumnDef<RowOrder>[] {
@@ -340,10 +353,7 @@ export function buildOrderColumns(
       id: 'symbol',
       accessorFn: (r) => r.symbol ?? '',
       header: 'Pair',
-      meta: {
-        filterType: 'array',
-        getFilterValue: (row: unknown) => [(row as RowOrder).symbol],
-      },
+      meta: SYMBOL_COLUMN_FILTER_META,
       cell: ({ row }) => {
         const b = row.original;
         return (
@@ -364,7 +374,7 @@ export function buildOrderColumns(
       id: 'exchange',
       accessorFn: (r) => (r.exchangeName ? r.exchangeName : r.exchange),
       header: 'Exchange',
-      meta: { filterType: 'string' },
+      meta: EXCHANGE_FILTER_META,
       cell: ({ row }) =>
         row.original.exchangeName
           ? row.original.exchangeName
@@ -374,7 +384,10 @@ export function buildOrderColumns(
       id: 'status',
       accessorFn: (r) => r.status,
       header: 'Status',
-      meta: { filterType: 'string' },
+      meta: {
+        filterType: 'array',
+        getOptionValue: (row: unknown) => (row as RowOrder).status,
+      },
       cell: ({ row }) => row.original.status,
     },
     {
@@ -442,7 +455,10 @@ export function buildOrderColumns(
       id: 'side',
       accessorFn: (r) => r.side,
       header: 'Side',
-      meta: { filterType: 'string' },
+      meta: {
+        filterType: 'array',
+        getOptionValue: (row: unknown) => (row as RowOrder).side,
+      },
       cell: ({ row }) => {
         const b = row.original;
         return (
@@ -461,7 +477,10 @@ export function buildOrderColumns(
       id: 'type',
       accessorFn: (r) => r.type,
       header: 'Type',
-      meta: { filterType: 'string' },
+      meta: {
+        filterType: 'array',
+        getOptionValue: (row: unknown) => (row as RowOrder).type,
+      },
       cell: ({ row }) => row.original.type,
     },
     {
@@ -543,10 +562,7 @@ export function buildPositionColumns(
       id: 'symbol',
       accessorFn: (r) => r.symbol ?? '',
       header: 'Pair',
-      meta: {
-        filterType: 'array',
-        getFilterValue: (row: unknown) => [(row as RowPosition).symbol],
-      },
+      meta: SYMBOL_COLUMN_FILTER_META,
       cell: ({ row }) => {
         const b = row.original;
         return (
@@ -567,7 +583,7 @@ export function buildPositionColumns(
       id: 'exchange',
       accessorFn: (r) => (r.exchangeName ? r.exchangeName : r.exchange),
       header: 'Exchange',
-      meta: { filterType: 'string' },
+      meta: EXCHANGE_FILTER_META,
       cell: ({ row }) =>
         row.original.exchangeName
           ? row.original.exchangeName
@@ -665,14 +681,19 @@ export function buildPositionColumns(
       id: 'side',
       accessorFn: (r) => r.side,
       header: 'Side',
-      meta: { filterType: 'string' },
+      meta: {
+        filterType: 'array',
+        getOptionValue: (row: unknown) => (row as RowPosition).side,
+      },
       cell: ({ row }) => row.original.side.toUpperCase(),
     },
     {
       id: 'leverage',
       accessorFn: (r) => r.leverage,
       header: 'Leverage',
-      meta: { filterType: 'string' },
+      // The venue sends leverage as a numeric string ("10"); the cell prints
+      // "Cross x10", so filter on the multiplier (`>= 10`).
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const b = row.original;
         return `${

@@ -131,6 +131,7 @@ import {
 import { Skeleton } from '../../../ui/skeleton';
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
+import { SYMBOL_COLUMN_FILTER_META } from '../../../widgets/shared/symbolColumnFilterMeta';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 import { DrawerSection } from './DrawerSection';
 interface TradeCardWrapperProps {
@@ -228,6 +229,12 @@ export interface DrawerDealsTableProps {
 }
 
 const LOG_PREFIX = 'DrawerDealsTable';
+
+/** A deal row's symbol as the plain string the Pair column filters on. */
+const drawerDealSymbol = (row: unknown): string => {
+  const symbol = (row as TransformedTrade).symbol;
+  return (typeof symbol === 'string' ? symbol : symbol?.symbol) || '';
+};
 
 const MOVE_TO_TERMINAL_WARNING =
   'After moving deals to terminal, the bot may immediately start new deals if slots are available (especially with ASAP start conditions). To avoid this, adjust max open deals or max deals per pair before confirming.';
@@ -2142,6 +2149,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'status',
         accessorKey: 'status',
         header: 'Status',
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) =>
+            (row as TransformedTrade).status || '',
+        },
         cell: ({ row }) => {
           const trade = row.original;
           let chip = (
@@ -2198,6 +2210,16 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           return symbolObj.symbol;
         },
         header: 'Pair',
+        // Same filter as the deals tables' Symbol column, but these rows carry
+        // the symbol as an object — hand the shared meta the plain string.
+        meta: {
+          ...SYMBOL_COLUMN_FILTER_META,
+          getOptionValue: (row: unknown) => drawerDealSymbol(row),
+          getFilterValue: (row: unknown) =>
+            SYMBOL_COLUMN_FILTER_META.getFilterValue({
+              symbol: drawerDealSymbol(row),
+            }),
+        },
         cell: ({ row }) => {
           const trade = row.original;
           const symbolObj = trade.symbol;
@@ -2241,6 +2263,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'strategy',
         accessorKey: 'strategy',
         header: 'Strategy',
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) =>
+            (row as TransformedTrade).strategy || '',
+        },
         cell: ({ row }) => {
           const strategy = row.original.strategy;
           if (!strategy)
@@ -2524,12 +2551,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'timeInLoss',
         accessorFn: (row) => dealPercentStringSortValue(row.timeInLoss),
         header: 'Time In Loss',
-        // The accessor is numeric so the column SORTS by percentage; the
-        // filter keeps matching the rendered "12.3%" text it always did.
-        meta: {
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['timeInLoss'] as string) || '',
-        },
+        // The accessor is the numeric percentage the cell renders ("12.3%"),
+        // so it both sorts and number-filters (`> 50`) in displayed units.
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.timeInLoss || '';
@@ -2545,10 +2569,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'timeInProfit',
         accessorFn: (row) => dealPercentStringSortValue(row.timeInProfit),
         header: 'Time In Profit',
-        meta: {
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['timeInProfit'] as string) || '',
-        },
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
           const value = trade.timeInProfit || '';
@@ -2564,11 +2585,13 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'workingTime',
         accessorFn: (row) => dealWorkingTimeSortValue(row),
         header: 'Working Time',
-        // Numeric (minutes) accessor for sorting; the filter still matches the
-        // rendered "3D 4H" text.
+        // Numeric (minutes) accessor for sorting. The cell renders "3D 4H", so
+        // the number filter works in HOURS (`> 24` = ran longer than a day).
         meta: {
-          getFilterValue: (row: unknown) =>
-            ((row as Record<string, unknown>)['workingTime'] as string) || '',
+          filterType: 'number',
+          filterUnit: 'hours',
+          getNumericFilterValue: (row: unknown) =>
+            dealWorkingTimeSortValue(row as TransformedTrade) / 60,
         },
         cell: ({ row }) => {
           const trade = row.original;

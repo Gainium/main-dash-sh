@@ -682,6 +682,14 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'displayName',
       header: 'Name',
+      meta: {
+        filterType: 'string',
+        // The cell shows the pair under the name.
+        getFilterValue: (row: unknown) => {
+          const bt = row as BacktestDisplayData;
+          return [bt.displayName, bt.displayPair].filter(Boolean);
+        },
+      },
       cell: ({ row }) => (
         <div className="flex flex-col py-xs">
           <span className="font-medium text-sm">
@@ -696,6 +704,7 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'displayStrategy',
       header: 'Strategy',
+      meta: { filterType: 'array' },
       cell: ({ row }) => (
         <div className="py-xs">
           <Badge variant="outline" className="text-xs">
@@ -707,6 +716,7 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'displayProfit',
       header: 'Net Profit',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const profit = row.original.displayProfit;
         return (
@@ -727,6 +737,7 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'displayReturn',
       header: 'Annual Return',
+      meta: { filterType: 'number' },
       cell: ({ row }) => {
         const returnValue = row.original.displayReturn;
         return (
@@ -748,6 +759,11 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'serverSide',
       header: 'Type',
+      meta: {
+        filterType: 'array',
+        getFilterValue: (row: unknown) =>
+          (row as BacktestDisplayData).serverSide ? 'Server' : 'Local',
+      },
       cell: ({ row }) => (
         <div className="py-xs">
           <Badge variant={row.original.serverSide ? 'default' : 'secondary'}>
@@ -759,6 +775,14 @@ const BacktestDataPage: React.FC = () => {
     {
       accessorKey: 'displayCreated',
       header: 'Created',
+      meta: {
+        filterType: 'date',
+        // displayCreated is pre-formatted text; filter on the timestamp.
+        getFilterValue: (row: unknown) => {
+          const bt = row as BacktestDisplayData;
+          return bt.time ? new Date(bt.time).toISOString() : (bt.created ?? '');
+        },
+      },
       cell: ({ row }) => (
         <div className="py-xs">
           <span className="text-sm text-muted-foreground">

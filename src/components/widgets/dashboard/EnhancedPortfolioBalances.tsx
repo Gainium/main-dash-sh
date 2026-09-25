@@ -467,6 +467,18 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
 
   // Memoize columns to prevent infinite renders
   const columns = useMemo<ColumnDef<EnhancedBalanceData>[]>(() => {
+    // The USD-valued columns render in the SELECTED display currency, so their
+    // number filter compares against that converted figure (what the user
+    // reads), not the raw USD the accessor holds. An unpriced asset has no
+    // value to compare, so it matches no numeric operator.
+    const displayCurrencyFilterValue =
+      (pick: (balance: EnhancedBalanceData) => number) =>
+      (row: unknown): number | undefined => {
+        const balance = row as EnhancedBalanceData;
+        if (balance.priceUnavailable) return undefined;
+        return (pick(balance) || 0) * getCurrencyInfo(selectedCurrency).rate;
+      };
+
     const cols: ColumnDef<EnhancedBalanceData>[] = [
       {
         accessorKey: 'token',
@@ -519,7 +531,15 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           ) : null;
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        // The accessor is the account UUID; offer and match the account NAME
+        // the chip shows instead.
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => {
+            const balance = row as EnhancedBalanceData;
+            return balance.exchangeName || balance.exchange || '';
+          },
+        },
       });
     }
 
@@ -550,6 +570,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
         enableTotalsRow: true,
         totalsDefaultAggregation: 'sum' as const,
         totalsValueFn: (row: EnhancedBalanceData) => row.freeUsd || 0,
+        getNumericFilterValue: displayCurrencyFilterValue(
+          (balance) => balance.freeUsd
+        ),
       },
       footerValue: (value: number) => formatValueInCurrency(value),
     });
@@ -581,6 +604,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
         enableTotalsRow: true,
         totalsDefaultAggregation: 'sum' as const,
         totalsValueFn: (row: EnhancedBalanceData) => row.usedUsd || 0,
+        getNumericFilterValue: displayCurrencyFilterValue(
+          (balance) => balance.usedUsd
+        ),
       },
       footerValue: (value: number) => formatValueInCurrency(value),
     });
@@ -612,6 +638,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
         enableTotalsRow: true,
         totalsDefaultAggregation: 'sum' as const,
         totalsValueFn: (row: EnhancedBalanceData) => row.totalUsd || 0,
+        getNumericFilterValue: displayCurrencyFilterValue(
+          (balance) => balance.totalUsd
+        ),
       },
       footerValue: (value: number) => formatValueInCurrency(value),
     });
@@ -701,6 +730,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum' as const,
           totalsValueFn: (row: EnhancedBalanceData) => row.requiredUsd || 0,
+          getNumericFilterValue: displayCurrencyFilterValue(
+            (balance) => balance.requiredUsd
+          ),
         },
         footerValue: (value: number) => formatValueInCurrency(value),
       });
@@ -731,6 +763,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum' as const,
           totalsValueFn: (row: EnhancedBalanceData) => row.plannedUsd || 0,
+          getNumericFilterValue: displayCurrencyFilterValue(
+            (balance) => balance.plannedUsd
+          ),
         },
         footerValue: (value: number) => formatValueInCurrency(value),
       });
@@ -766,6 +801,9 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum' as const,
           totalsValueFn: (row: EnhancedBalanceData) => row.freeAndOverUsd || 0,
+          getNumericFilterValue: displayCurrencyFilterValue(
+            (balance) => balance.freeAndOverUsd
+          ),
         },
         footerValue: (value: number) => formatValueInCurrency(value),
       });
@@ -804,7 +842,12 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
       },
       enableSorting: true,
       sortingFn: 'basic',
-      meta: { filterType: 'number' },
+      meta: {
+        filterType: 'number',
+        getNumericFilterValue: displayCurrencyFilterValue(
+          (balance) => balance.currentPrice
+        ),
+      },
     });
 
     // Categories column (MISSING FEATURE)
@@ -824,7 +867,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           );
         },
         enableSorting: false,
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
       });
     }
 
@@ -842,7 +885,7 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: { filterType: 'array' },
       });
     }
 

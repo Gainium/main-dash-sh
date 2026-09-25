@@ -770,7 +770,7 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'select' },
+        meta: { filterType: 'array' },
       },
       // Value column
       {

@@ -36,6 +36,7 @@ import EmptyState from '../../ui/empty-state';
 import { TradeCard } from '../../trades/TradeCard';
 import { WidgetWrapper } from '../../widgets/WidgetWrapper';
 import CoinPair from '../shared/CoinPair';
+import { SYMBOL_COLUMN_FILTER_META } from '../shared/symbolColumnFilterMeta';
 
 export interface TopDealsProps {
   widgetId: string;
@@ -290,6 +291,22 @@ const TopDeals: React.FC<TopDealsProps> = ({
         id: 'pair',
         accessorFn: (row) => row.pair ?? '',
         header: 'PAIR',
+        // The shared Symbol-column filter; these rows carry the symbol as an
+        // object, so hand it the plain strings.
+        meta: {
+          ...SYMBOL_COLUMN_FILTER_META,
+          getOptionValue: (row: unknown) => (row as TransformedTrade).pair ?? '',
+          getFilterValue: (row: unknown) => {
+            const trade = row as TransformedTrade;
+            return SYMBOL_COLUMN_FILTER_META.getFilterValue({
+              symbol:
+                typeof trade.symbol === 'string'
+                  ? trade.symbol
+                  : trade.symbol?.symbol,
+              pair: trade.pair,
+            });
+          },
+        },
         cell: ({ row }) => {
           const sym = row.original.symbol;
           const baseAsset = typeof sym === 'string' ? '' : sym.baseAsset;
@@ -313,6 +330,10 @@ const TopDeals: React.FC<TopDealsProps> = ({
         id: 'type',
         accessorFn: (row) => row.type,
         header: 'TYPE',
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) => (row as TransformedTrade).type ?? '',
+        },
         cell: ({ row }) => (
           <BotTypeChip
             botType={typeToBotType(row.original.type)}
@@ -325,6 +346,7 @@ const TopDeals: React.FC<TopDealsProps> = ({
         id: 'cost',
         accessorFn: (row) => row.cost ?? 0,
         header: 'COST',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-right tabular-nums">
             {privacyMode ? '***' : formatCurrency(row.original.cost ?? 0, 2)}
@@ -336,6 +358,7 @@ const TopDeals: React.FC<TopDealsProps> = ({
         id: 'value',
         accessorFn: (row) => row.value ?? 0,
         header: 'VALUE',
+        meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-right tabular-nums">
             {privacyMode ? '***' : formatCurrency(row.original.value ?? 0, 2)}
@@ -347,6 +370,7 @@ const TopDeals: React.FC<TopDealsProps> = ({
         id: 'pnl',
         accessorFn: (row) => row.unrealizedProfit ?? 0,
         header: 'PNL',
+        meta: { filterType: 'number' },
         cell: ({ row }) => {
           const cost = row.original.cost ?? 0;
           const pnl = row.original.unrealizedProfit ?? 0;

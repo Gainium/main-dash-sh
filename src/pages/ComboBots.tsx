@@ -1,4 +1,6 @@
 import { isReadOnly } from '@/lib/demoMode';
+import { durationTextToDays } from '@/lib/utils/durationText';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
@@ -858,6 +860,9 @@ const ComboBots: React.FC = () => {
     );
   };
 
+  // Date columns bucket and render their day in the ACCOUNT's zone, the same
+  // boundary the `filterType: 'date'` filter matches on — not the browser's.
+  const accountTimeZone = useAccountTimeZone();
   // Define columns for the data table
   const columns: ColumnDef<ReturnType<typeof transformDcaBotToBot>>[] = useMemo(
     () => [
@@ -1244,7 +1249,10 @@ const ComboBots: React.FC = () => {
         accessorKey: 'workingTime',
         header: 'TRADING TIME',
         meta: {
-          filterType: 'string',
+          filterType: 'number',
+          filterUnit: 'days',
+          getNumericFilterValue: (row: unknown) =>
+            durationTextToDays((row as { workingTime?: string }).workingTime),
           description: BOT_METRIC_DESCRIPTIONS.combo.tradingTime,
         },
       },
@@ -1272,7 +1280,7 @@ const ComboBots: React.FC = () => {
         accessorKey: 'created',
         header: 'CREATED',
         meta: {
-          filterType: 'string',
+          filterType: 'date',
           description: BOT_METRIC_DESCRIPTIONS.combo.created,
         },
         cell: ({ row }) => {
@@ -1283,6 +1291,7 @@ const ComboBots: React.FC = () => {
             year: 'numeric',
             month: 'short',
             day: 'numeric',
+            timeZone: accountTimeZone,
           });
         },
       },
@@ -1343,6 +1352,8 @@ const ComboBots: React.FC = () => {
       },
       {
         accessorKey: 'deals',
+        // The row has no `deals` field; filter/sort on the total the cell shows.
+        accessorFn: (row) => (row as DCABot).dealsInBot.all || 0,
         header: 'DEALS',
         meta: {
           filterType: 'number',
@@ -1400,7 +1411,7 @@ const ComboBots: React.FC = () => {
         size: 56,
       },
     ],
-    [privacyMode, botDataMap]
+    [privacyMode, botDataMap, accountTimeZone]
   );
 
   // archived/active counts are intentionally not shown in header anymore

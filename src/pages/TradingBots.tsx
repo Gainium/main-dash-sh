@@ -1,4 +1,5 @@
 import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
+import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion, type Transition } from 'framer-motion';
@@ -1498,7 +1499,10 @@ const TradingBots: React.FC = () => {
         accessorKey: 'workingTime',
         header: 'TRADING TIME',
         meta: {
-          filterType: 'string',
+          filterType: 'number',
+          filterUnit: 'days',
+          getNumericFilterValue: (row: unknown) =>
+            durationTextToDays((row as { workingTime?: string }).workingTime),
           description: BOT_METRIC_DESCRIPTIONS.dca.tradingTime,
         },
       },
