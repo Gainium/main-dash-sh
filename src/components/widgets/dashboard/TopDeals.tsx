@@ -1,17 +1,13 @@
-import { useComboDeals } from '@/hooks/useComboDeals';
-import { useDcaDeals } from '@/hooks/useDcaDeals';
-import { useUserFees } from '@/hooks/useUserFeesService';
-import getLatestPrices, { getLocalPrices } from '@/helper/price';
-import { logger } from '@/lib/loggerInstance';
+import { useDealFees } from '@/hooks/useLiveDealPnl';
+import { useLatestPrices } from '@/hooks/useLatestPrices';
+import {
+  useTopDeals,
+  type TopDealsMetric,
+} from '@/hooks/useTopDeals';
+import { PartialCount } from '@/components/ui/large-account';
 import { useUIStore } from '@/stores/uiStore';
 import { useTableCustomState } from '@/stores/tablePreferencesStore';
-import {
-  BotTypesEnum,
-  type AllFees,
-  type ComboDeals,
-  type DCADeals,
-  type Prices,
-} from '@/types';
+import { BotTypesEnum, type ComboDeals, type DCADeals } from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import {
   transformDealToTrade,
@@ -19,7 +15,7 @@ import {
 } from '@/types/dcaDeal';
 import { buildBotViewRouteFromType } from '@/utils/bots/navigation';
 import { type ColumnDef } from '@tanstack/react-table';
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CARD_VIEW_COLUMNS } from '../../../config/responsive';
 import { formatCurrency } from '@/lib/utils';
@@ -46,14 +42,12 @@ export interface TopDealsProps {
   pageSize?: number;
 }
 
-// The metric a deal is ranked by. `cost` (capital deployed) is the default.
-type TopDealsMetric =
-  | 'cost'
-  | 'value'
-  | 'unrealizedPnl'
-  | 'pnlPercent'
-  | 'profit'
-  | 'age';
+/**
+ * How many deals the server ranks per deal type. The widget pages them
+ * `pageSize` cards at a time; beyond this the Deals tab (server-paged) is the
+ * place to look.
+ */
+const TOP_N = 20;
 
 const METRIC_OPTIONS: { value: TopDealsMetric; label: string }[] = [
   { value: 'cost', label: 'Cost' },
@@ -66,13 +60,12 @@ const METRIC_OPTIONS: { value: TopDealsMetric; label: string }[] = [
 
 const ACTIVE_STATUSES = new Set(['open', 'start', 'error']);
 
-// Matches the throttle the bot Deals tab (DrawerDealsTable) and the hedge
-// unrealized-P&L map use, so the overview strip re-renders at the same cadence.
-const PRICE_UPDATE_THROTTLE_MS = 10_000;
-
 // Stable row-id accessor. Hoisted to module scope so its identity never
 // changes — an inline `(row) => row.id` would defeat DataTable's React.memo.
 const getTradeRowId = (row: TransformedTrade) => row.id;
+
+const EMPTY_DCA: DCADeals[] = [];
+const EMPTY_COMBO: ComboDeals[] = [];
 
 const metricValue = (t: TransformedTrade, metric: TopDealsMetric): number => {
   const cost = t.cost ?? 0;
@@ -131,92 +124,27 @@ const TopDeals: React.FC<TopDealsProps> = ({
     'cost'
   );
 
-  const { deals: dcaDeals, isLoading: dcaLoading } = useDcaDeals({
-    terminal: false,
+  // Ranked on the server: one small sorted page per deal type (TOP_N rows)
+  // instead of downloading EVERY open deal (up to ~14 MB on a large account)
+  // and ranking thousands in the browser on every price tick.
+  const { data: top, isLoading: topLoading } = useTopDeals(
+    metric,
     paperContext,
-  });
-  const { deals: comboDeals, isLoading: comboLoading } = useComboDeals({
-    paperContext,
-  });
+    TOP_N
+  );
+  const dcaDeals = top?.dca ?? EMPTY_DCA;
+  const comboDeals = top?.combo ?? EMPTY_COMBO;
+  const isLoading = topLoading && !top;
 
-  const isLoading = (dcaLoading || comboLoading) && !dcaDeals.length;
-
-  // Live prices + per-symbol fees. transformDealToTrade only computes the
-  // fee-net unrealized P&L when it is GIVEN both; with empty arrays it falls
-  // back to the server's `stats.unrealizedProfit`, which is gross of fees. That
-  // is why this card used to disagree with the bot's Deals tab (which feeds the
-  // same transform real prices+fees) by ~2x the exchange fee on the deal's
-  // cost. Source both the same way DrawerDealsTable does so the two views are
-  // identical by construction, for every bot type.
-  const [prices, setPrices] = useState<Prices>(() => getLocalPrices());
-  const lastPriceUpdateRef = useRef(0);
-
-  useEffect(() => {
-    const unsubscribe = getLatestPrices((result) => {
-      if (result.status !== 'OK' || !result.data) return;
-      const now = Date.now();
-      // Take the first payload immediately, then throttle re-renders.
-      if (
-        lastPriceUpdateRef.current === 0 ||
-        now - lastPriceUpdateRef.current > PRICE_UPDATE_THROTTLE_MS
-      ) {
-        setPrices(result.data);
-        lastPriceUpdateRef.current = now;
-      }
-    }, false); // false = don't load binance US
-    return unsubscribe;
-  }, []);
-
-  const [fees, setFees] = useState<AllFees>([]);
-  const { fetchMultipleFees } = useUserFees();
-
-  // Fees are needed for every symbol shown, which is the union of the deals'
-  // own symbols — a deal can outlive its pair being removed from the bot's
-  // settings. Encoded as a stable string key so the fetch effect only re-runs
-  // when the target set actually changes (same pattern as DrawerDealsTable).
-  const feeTargetsKey = useMemo(() => {
-    const targets = new Set<string>();
-    for (const deal of [...dcaDeals, ...comboDeals] as DCADeals[]) {
-      const exchange = deal.exchangeUUID || deal.exchange;
-      const symbol = deal.symbol?.symbol;
-      if (exchange && symbol) targets.add(`${exchange}\u001f${symbol}`);
-    }
-    return Array.from(targets).sort().join('\n');
-  }, [dcaDeals, comboDeals]);
-
-  useEffect(() => {
-    if (!feeTargetsKey) return;
-    const exchangeSymbolMap = new Map<string, Set<string>>();
-    for (const entry of feeTargetsKey.split('\n')) {
-      const sep = entry.indexOf('\u001f');
-      if (sep < 0) continue;
-      const exchange = entry.slice(0, sep);
-      const symbol = entry.slice(sep + 1);
-      if (!exchangeSymbolMap.has(exchange)) {
-        exchangeSymbolMap.set(exchange, new Set());
-      }
-      exchangeSymbolMap.get(exchange)?.add(symbol);
-    }
-    let cancelled = false;
-    fetchMultipleFees({ exchangeSymbolMap })
-      .then((res) => {
-        if (cancelled) return;
-        // `maker` to match the Deals tab's fee basis exactly.
-        setFees(
-          (res || []).map((r) => ({
-            exchange: r.exchangeUUID,
-            symbol: r.symbol,
-            fee: r.maker,
-          }))
-        );
-      })
-      .catch((error) => {
-        logger.error('[TopDeals] Error fetching fees:', error);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [feeTargetsKey, fetchMultipleFees]);
+  // Live prices + per-symbol fees for the ranked rows only (≤ 2 × TOP_N, or the
+  // fallback's loaded rows). One shared, throttled price feed; fees re-fetched
+  // only when the set of pairs changes.
+  const prices = useLatestPrices();
+  const rankedInputs = useMemo(
+    () => [...dcaDeals, ...comboDeals] as DCADeals[],
+    [dcaDeals, comboDeals]
+  );
+  const fees = useDealFees(rankedInputs);
 
   const rankedDeals = useMemo(() => {
     // Reuse the canonical deal→trade transformer (same one the Trading page
@@ -238,23 +166,42 @@ const TopDeals: React.FC<TopDealsProps> = ({
       return transformDealToTrade(deal, [], [], bot);
     };
 
+    // Only active deals are transformed at all.
     const rows = [
-      ...dcaDeals.map((d) => toTrade(d, BotTypesEnum.dca)),
-      ...comboDeals.map((d) =>
-        toTrade(d as unknown as ComboDeals, BotTypesEnum.combo)
-      ),
+      ...dcaDeals
+        .filter((d) => ACTIVE_STATUSES.has(String(d.status).toLowerCase()))
+        .map((d) => toTrade(d, BotTypesEnum.dca)),
+      ...comboDeals
+        .filter((d) => ACTIVE_STATUSES.has(String(d.status).toLowerCase()))
+        .map((d) => toTrade(d, BotTypesEnum.combo)),
     ];
 
-    // Only rank active deals with deployed capital so closed/empty rows don't
-    // crowd the list. Highest-ranked deals come first; the rest paginate.
+    // Merge the two server-ranked lists by the displayed metric. Only deals
+    // with deployed capital; highest-ranked first, the rest paginate.
     return rows
-      .filter(
-        (t) =>
-          ACTIVE_STATUSES.has(String(t.status).toLowerCase()) &&
-          (t.cost ?? 0) > 0
-      )
-      .sort((a, b) => metricValue(b, metric) - metricValue(a, metric));
+      .filter((t) => (t.cost ?? 0) > 0)
+      .sort((a, b) => metricValue(b, metric) - metricValue(a, metric))
+      .slice(0, TOP_N);
   }, [dcaDeals, comboDeals, metric, prices, fees]);
+
+  // The server could not rank by this metric (older backend without the
+  // fee-inclusive stored values): the ranking covers only the largest open
+  // deals it loaded — say so instead of passing it off as the whole account.
+  const partialLoaded =
+    top && !top.serverRanked && top.loaded < top.totalOpen ? top.loaded : 0;
+  const partialTotal = top?.totalOpen ?? 0;
+  const partialNote = useMemo(
+    () =>
+      partialLoaded > 0 ? (
+        <PartialCount
+          shown={partialLoaded}
+          total={partialTotal}
+          noun="open deals"
+          tooltip={`Ranked among the ${partialLoaded.toLocaleString()} largest open deals of ${partialTotal.toLocaleString()}. This server cannot rank by this metric; the Deals tab lists all of them.`}
+        />
+      ) : null,
+    [partialLoaded, partialTotal]
+  );
 
   const handleOpenBot = useCallback(
     (trade: TransformedTrade) => {
@@ -415,12 +362,22 @@ const TopDeals: React.FC<TopDealsProps> = ({
   // Memoize the toolbar elements + empty state so DataTable's React.memo
   // isn't defeated by fresh element identities every render.
   const metricSelectFull = useMemo(
-    () => renderMetricSelect('h-9 w-44'),
-    [renderMetricSelect]
+    () => (
+      <div className="flex items-center gap-2">
+        {renderMetricSelect('h-9 w-44')}
+        {partialNote}
+      </div>
+    ),
+    [renderMetricSelect, partialNote]
   );
   const metricSelectCompact = useMemo(
-    () => renderMetricSelect('h-9 w-28'),
-    [renderMetricSelect]
+    () => (
+      <div className="flex items-center gap-2">
+        {renderMetricSelect('h-9 w-28')}
+        {partialNote}
+      </div>
+    ),
+    [renderMetricSelect, partialNote]
   );
   const emptyContent = useMemo(
     () => (
