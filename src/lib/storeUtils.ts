@@ -258,6 +258,7 @@ export const waitForTradingPairsDataStoreHydration = async (
     // Return empty state as fallback
     return {
       pairsByProvider: {},
+      context: null,
       timestamp: 0,
       isLoading: false,
       error: null,
