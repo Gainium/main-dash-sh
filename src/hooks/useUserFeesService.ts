@@ -29,19 +29,22 @@ export interface FetchMultipleFeesParams {
  * Hook for fetching and managing user fees with caching and queue management
  */
 export function useUserFees() {
-  const { tokens } = useAuthStore();
+  // Narrow subscriptions only. This hook is mounted by every page and widget
+  // that shows fee-inclusive P&L; subscribing to the whole auth store and the
+  // whole fee store re-rendered all of them on every token refresh and on each
+  // `setLoading` flip of every fee fetch — and gave `fetchMultipleFees` a new
+  // identity each time, which re-ran every caller's fee effect.
+  const accessToken = useAuthStore((s) => s.tokens?.accessToken);
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+  // Store actions/getters are stable functions; read them without subscribing.
   const {
-    fees,
-    isLoading,
-    error,
     setFees,
     getFee,
     isExpired,
     clearExpiredFees,
     setLoading,
     setError,
-  } = useUserFeesStore();
+  } = useUserFeesStore.getState();
 
   /**
    * Fetch fees for a specific exchangeUUID-symbols combination
@@ -52,7 +55,7 @@ export function useUserFees() {
       symbols: string[],
       debug = false
     ): Promise<UserFeeEntry[]> => {
-      if (!tokens?.accessToken) {
+      if (!accessToken) {
         throw new Error('Not authenticated');
       }
 
@@ -70,7 +73,7 @@ export function useUserFees() {
           import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
         const client = new GraphQLClient(
           endpoint,
-          tokens.accessToken,
+          accessToken,
           !isLiveTrading
         );
 
@@ -127,7 +130,7 @@ export function useUserFees() {
         throw error;
       }
     },
-    [tokens?.accessToken, isLiveTrading]
+    [accessToken, isLiveTrading]
   );
 
   /**
@@ -140,7 +143,7 @@ export function useUserFees() {
     }: FetchMultipleFeesParams): Promise<UserFeeEntry[]> => {
       const { force = false, debug = false } = options;
 
-      if (!tokens?.accessToken) {
+      if (!accessToken) {
         const error = 'Not authenticated';
         setError(error);
         return [];
@@ -352,15 +355,7 @@ export function useUserFees() {
         setLoading(false);
       }
     },
-    [
-      tokens?.accessToken,
-      getFee,
-      isExpired,
-      setFees,
-      setLoading,
-      setError,
-      fetchFeesForExchange,
-    ]
+    [accessToken, getFee, isExpired, setFees, setLoading, setError, fetchFeesForExchange]
   );
 
   /**
@@ -389,10 +384,11 @@ export function useUserFees() {
   );
 
   return {
-    // State
-    fees,
-    isLoading,
-    error,
+    // State — a non-reactive snapshot (no caller renders from it; subscribe to
+    // useUserFeesStore directly if you need these reactively).
+    fees: useUserFeesStore.getState().fees,
+    isLoading: useUserFeesStore.getState().isLoading,
+    error: useUserFeesStore.getState().error,
 
     // Actions
     fetchMultipleFees,

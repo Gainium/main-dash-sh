@@ -415,6 +415,31 @@ const unsubscribePrices = (idCB: string) => {
   }
 };
 
+let persistedPricesPromise: Promise<Prices | null> | null = null;
+
+/**
+ * Read the IndexedDB price snapshot at most once per session. The snapshot
+ * seeds `pricesStorage` (with `lastUpdate` left at 0 so the next `getPrices`
+ * still refreshes from the network) unless a fetch already landed.
+ */
+const readPersistedPricesOnce = (): Promise<Prices | null> => {
+  if (!persistedPricesPromise) {
+    persistedPricesPromise = getCachedPrices()
+      .then((cached) => {
+        if (cached && cached.status === StatusEnum.ok && cached.data) {
+          if (pricesStorage.length === 0) pricesStorage = cached.data;
+          return cached.data;
+        }
+        return null;
+      })
+      .catch((error) => {
+        logger.warn('[Price] Failed to load cached prices:', error);
+        return null;
+      });
+  }
+  return persistedPricesPromise;
+};
+
 /**
  * Get latest prices
  *
@@ -430,31 +455,11 @@ const getLatestPrices = (
 ) => {
   const idCB = generateId(20);
 
-  // First, try to return cached prices immediately
-  const returnCachedPrices = async () => {
-    try {
-      const cached = await getCachedPrices();
-      if (cached && cached.status === StatusEnum.ok && cached.data) {
-        if (import.meta.env.DEV) {
-          logger.debug('[Price] Returning cached prices from IndexedDB', {
-            count: cached.data.length,
-          });
-        }
-        cb(cached);
-      }
-    } catch (error) {
-      logger.warn('[Price] Failed to load cached prices:', error);
-    }
-  };
+  const hasFreshMemory = () =>
+    pricesStorage.length > 0 && new Date().getTime() - lastUpdate < interval;
 
-  // Return cached prices immediately on first call
-  returnCachedPrices();
-
-  // Check if we have fresh prices in memory
-  if (
-    pricesStorage.length > 0 &&
-    new Date().getTime() - lastUpdate < interval
-  ) {
+  if (hasFreshMemory()) {
+    // Fresh in-memory prices: hand them over and skip IndexedDB entirely.
     if (import.meta.env.DEV) {
       logger.debug('[Price] Using fresh in-memory prices');
     }
@@ -462,6 +467,22 @@ const getLatestPrices = (
       status: StatusEnum.ok,
       data: pricesStorage,
       reason: null,
+    });
+  } else if (pricesStorage.length > 0) {
+    // Stale in-memory prices (a previous session's cache or an old fetch):
+    // still better than nothing while the refresh is in flight.
+    cb({ status: StatusEnum.ok, data: pricesStorage, reason: null });
+  } else {
+    // Nothing in memory yet: read the persisted snapshot ONCE per session and
+    // deliver it only if no network fetch has landed in the meantime. The old
+    // code read IndexedDB for every subscriber and delivered whatever it found
+    // whenever the read resolved — after the fresh prices when a network fetch
+    // won the race, so every subscriber was left on the older snapshot until
+    // the next 60 s tick.
+    void readPersistedPricesOnce().then((cached) => {
+      if (!cached || lastUpdate !== 0) return;
+      if (!cbs.some((c) => c.id === idCB)) return; // unsubscribed meanwhile
+      cb({ status: StatusEnum.ok, data: cached, reason: null });
     });
   }
 
