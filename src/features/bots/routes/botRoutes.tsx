@@ -2,7 +2,13 @@ import type { ComponentType, ReactElement } from 'react';
 import { Route } from 'react-router-dom';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { BotViewRedirect } from '../../../components/routing/BotViewRedirect';
-import { lazyNamed, lazyPage, PageSuspense } from '../../../lib/lazyPage';
+import {
+  lazyNamed,
+  lazyPage,
+  PageSuspense,
+  registerRoutePreload,
+  type PageComponent,
+} from '../../../lib/lazyPage';
 
 // Pages are route-level lazy chunks (see lib/lazyPage).
 const TradingBots = lazyPage(() => import('../../../pages/TradingBots'), {
@@ -121,6 +127,19 @@ export const BOT_ROUTE_SPECS: readonly BotRouteSpec[] = [
     backtestsPage: HedgeComboBotBacktests,
   },
 ] as const;
+
+// Boot-time preload of the page for the URL being opened (see preloadRoute).
+const esc = (p: string) => p.replace(/\//g, '\\/');
+for (const spec of BOT_ROUTE_SPECS) {
+  const b = esc(spec.basePath);
+  const pre = (c: unknown) => (c as Partial<PageComponent<object>>).preload;
+  const list = pre(spec.listPage);
+  const create = pre(spec.newPage);
+  const edit = pre(spec.editPage);
+  if (list) registerRoutePreload(new RegExp(`^${b}(/view/[^/]+)?/?$`), list);
+  if (create) registerRoutePreload(new RegExp(`^${b}/new/?$`), create);
+  if (edit) registerRoutePreload(new RegExp(`^${b}/edit/[^/]+/?$`), edit);
+}
 
 /**
  * Emit the common `<Route>` elements for one bot type, in the same order the

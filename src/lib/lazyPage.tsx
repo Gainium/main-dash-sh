@@ -15,8 +15,8 @@ import { Loader2 } from 'lucide-react';
 import {
   lazy,
   Suspense,
+  useState,
   type ComponentType,
-  type LazyExoticComponent,
   type ReactNode,
 } from 'react';
 
@@ -48,22 +48,73 @@ function schedulePrefetch(): void {
   }, 5000);
 }
 
+export type PageComponent<P extends object> = ComponentType<P> & {
+  /** Start (or join) loading the page module. */
+  preload: () => Promise<unknown>;
+};
+
+interface LazyPageOptions {
+  /** Warm the chunk once the browser is idle after start-up. */
+  prefetch?: boolean;
+  /** Paths this page renders on — used by `preloadRoute` at boot. */
+  routes?: RegExp[];
+}
+
+const routePreloads: Array<{ re: RegExp; preload: () => Promise<unknown> }> =
+  [];
+
+/**
+ * Start loading the page module for `pathname` right away (call at boot,
+ * before the first render). When the route then renders, the module is
+ * usually already evaluated and the page renders without suspending.
+ */
+export function registerRoutePreload(
+  re: RegExp,
+  preload: () => Promise<unknown>
+): void {
+  routePreloads.push({ re, preload });
+}
+
+export function preloadRoute(pathname: string): void {
+  routePreloads.find((r) => r.re.test(pathname))?.preload();
+}
+
 export function lazyPage<P extends object = object>(
   loader: Loader<P>,
-  options: { prefetch?: boolean } = {}
-): LazyExoticComponent<ComponentType<P>> {
+  options: LazyPageOptions = {}
+): PageComponent<P> {
+  // A page whose module has already loaded renders SYNCHRONOUSLY: React.lazy
+  // always suspends on its first render (even for a resolved promise), and
+  // React throttles the fallback -> content reveal by ~300 ms, which put that
+  // delay (and every query the page starts) on the cold-load critical path.
+  let loaded: ComponentType<P> | null = null;
+  let pending: Promise<{ default: ComponentType<P> }> | null = null;
+  const load = () =>
+    (pending ??= loader().then((m) => {
+      loaded = m.default;
+      return m;
+    }));
+  const Lazy = lazy(load) as unknown as ComponentType<P>;
+  function LazyPage(props: P) {
+    // Decided once per mount so the element type never flips under it.
+    const [Component] = useState<ComponentType<P>>(() => loaded ?? Lazy);
+    return <Component {...props} />;
+  }
+  const page = LazyPage as PageComponent<P>;
+  page.preload = load;
+  options.routes?.forEach((re) => routePreloads.push({ re, preload: load }));
   if (options.prefetch) {
-    prefetchers.push(loader);
+    prefetchers.push(load);
     schedulePrefetch();
   }
-  return lazy(loader);
+  return page;
 }
 
 /** `lazyPage` for a named export. */
 export function lazyNamed<M, K extends keyof M>(
   loader: () => Promise<M>,
   name: K,
-  options: { prefetch?: boolean } = {}
+  options: LazyPageOptions = {}
 ) {
   type P = M[K] extends ComponentType<infer Props> ? Props : never;
   return lazyPage<P & object>(
