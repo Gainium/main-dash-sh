@@ -336,22 +336,17 @@ class Logger {
     message: string,
     data?: unknown
   ): void {
-    // Prepare an entry for console fallback and possible storage
-    const entry = this.formatMessage(level, category, message, data);
+    const isWarnOrError = level === LogLevel.WARN || level === LogLevel.ERROR;
 
-    // If logger is disabled, still surface WARN & ERROR to the console so
-    // critical messages are visible for developers during debugging.
-    if (!this.isActive) {
-      if (level === LogLevel.WARN || level === LogLevel.ERROR) {
-        this.writeToConsole(entry);
-      }
-      return;
-    }
-
-    // Production: don't persist logs, but surface WARN & ERROR to console
-    if (isProduction) {
-      if (level === LogLevel.WARN || level === LogLevel.ERROR) {
-        this.writeToConsole(entry);
+    // Decide whether anything will be emitted BEFORE building the entry:
+    // formatMessage sanitizes (deep-copies) `data`, which on hot paths (e.g.
+    // a store update per websocket event) is pure waste when the entry is
+    // then dropped — the common case in production.
+    // If logger is disabled, or in production, only WARN & ERROR surface
+    // (to the console); production never persists logs.
+    if (!this.isActive || isProduction) {
+      if (isWarnOrError) {
+        this.writeToConsole(this.formatMessage(level, category, message, data));
       }
       return;
     }
@@ -364,11 +359,13 @@ class Logger {
     );
     if (!categoryConfig.enabled || level <= effectiveMinLevel) {
       // If it's a warning or error, still write it to console for visibility
-      if (level === LogLevel.WARN || level === LogLevel.ERROR) {
-        this.writeToConsole(entry);
+      if (isWarnOrError) {
+        this.writeToConsole(this.formatMessage(level, category, message, data));
       }
       return;
     }
+
+    const entry = this.formatMessage(level, category, message, data);
 
     // At this point we should persist and/or output according to environment
     // Development: ALWAYS log to console and storage
@@ -383,11 +380,17 @@ class Logger {
 
   // Convenience methods with automatic category extraction from message
   debug(message: string, data?: unknown): void {
+    // Dropped unconditionally when inactive / in production — skip even the
+    // category parse.
+    if (!this.isActive || isProduction) return;
     const { category, cleanMessage } = this.extractCategoryFromMessage(message);
     this.log(LogLevel.DEBUG, category, cleanMessage, data);
   }
 
   info(message: string, data?: unknown): void {
+    // Dropped unconditionally when inactive / in production — skip even the
+    // category parse.
+    if (!this.isActive || isProduction) return;
     const { category, cleanMessage } = this.extractCategoryFromMessage(message);
     this.log(LogLevel.INFO, category, cleanMessage, data);
   }
