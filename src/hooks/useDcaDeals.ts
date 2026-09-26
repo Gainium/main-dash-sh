@@ -210,7 +210,7 @@ export function useDcaDeals(
     };
 
     if (filter?.botId) {
-      return filterByType(Object.values(allDealsRecord[filter.botId]) || []);
+      return filterByType(Object.values(allDealsRecord[filter.botId] ?? {}));
     }
     // Otherwise, get all deals from all bots and flatten
     // Apply terminal/dca type filter to all deals
