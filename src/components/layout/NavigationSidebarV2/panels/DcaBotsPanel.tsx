@@ -1,18 +1,10 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import BotItemPanel from '@/components/bots/BotItemPanel';
 import { Badge } from '@/components/ui/badge';
-import {
-  MenuPanelStatsBoxes,
-  type MenuStatBox,
-} from '@/components/ui/MenuPanelStatsBoxes';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useUserSessionsStore } from '@/stores/userSessionsStore';
 
 import { useDcaBots } from '@/hooks/useDcaBots';
-import { useDcaDeals } from '@/hooks/useDcaDeals';
-import { useUnrealizedPnL } from '@/lib/hooks/useUnrealizedPnL';
-import { formatCurrency } from '@/lib/utils';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { getBotTypeRoute } from '@/utils/botUtils';
@@ -20,6 +12,7 @@ import { FlaskConical, Star, X } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import PanelLinkItem from './PanelLinkItem';
+import PanelPositionStats from './PanelPositionStats';
 import RightPanel from './RightPanel';
 import { BotTypesEnum } from '@/types';
 
@@ -29,6 +22,11 @@ interface DcaBotsPanelProps {
 }
 
 const BOT_CATEGORIES: Array<any> = ['trading-bots'];
+
+/** Server totals shown at the top of the panel. */
+const DCA_STATS = {
+  positions: ['dca', 'terminal'], pnl: ['dca', 'terminal'],
+} as const;
 
 const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
   const navigationSecondaryPinned = useUIStore(
@@ -48,74 +46,11 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
   const [showMoreRecent, setShowMoreRecent] = React.useState(false);
   const [showMoreStarred, setShowMoreStarred] = React.useState(false);
 
-  // Deal hooks for DCA only
-  const { deals: dcaDeals = [] } = useDcaDeals({ terminal: false });
-  const { deals: terminalDeals = [] } = useDcaDeals({ terminal: true });
-
-  // Bots (for the "recent bots" list)
+  // Bots (for the starred / recent bots lists)
   const { bots: dcaBots = [] } = useDcaBots({
     status: ['open'] as any,
     terminal: false,
   });
-
-  const allDeals = useMemo(() => {
-    return [...dcaDeals, ...terminalDeals];
-  }, [dcaDeals, terminalDeals]);
-
-  const { getTotalUnrealizedPnL, isLoading: pricesLoading } = useUnrealizedPnL(
-    allDeals as any
-  );
-
-  const totalUnrealizedPnL = getTotalUnrealizedPnL();
-
-  // Helper: extract numeric value from a potentially nested object
-  function extractNumeric(val: any): number {
-    if (typeof val === 'number') return val;
-    if (!val) return 0;
-    if (typeof val.value === 'number') return val.value;
-    if (typeof val.totalUsd === 'number') return val.totalUsd;
-    if (typeof val.total === 'number') return val.total;
-    if (val?.value && typeof val.value.totalUsd === 'number')
-      return val.value.totalUsd;
-    if (val?.value && typeof val.value === 'number') return val.value;
-    // Some shapes: { key, value } -> value can be string/number
-    if (typeof val.value === 'string' && !isNaN(Number(val.value)))
-      return Number(val.value);
-    if (typeof val.totalUsd === 'string' && !isNaN(Number(val.totalUsd)))
-      return Number(val.totalUsd);
-    if (typeof val.total === 'string' && !isNaN(Number(val.total)))
-      return Number(val.total);
-    return 0;
-  }
-
-  const totalRealized = useMemo(() => {
-    return allDeals.reduce(
-      (sum, d: any) => sum + extractNumeric(d.profit || 0),
-      0
-    );
-  }, [allDeals]);
-
-  const moneyInPositions = useMemo(() => {
-    // Try to sum usage.currentUsd if present, otherwise usage.current.quote
-    return allDeals.reduce((sum, d: any) => {
-      const v = d.usage?.currentUsd ?? d.usage?.current?.quote ?? 0;
-      return sum + extractNumeric(v);
-    }, 0);
-  }, [allDeals]);
-
-  const totalPnL = totalRealized + totalUnrealizedPnL;
-
-  const pnlToday = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    return allDeals.reduce((sum, d: any) => {
-      const ct = d?.createTime ? new Date(d.createTime) : null;
-      if (ct && ct >= startOfToday) {
-        return sum + extractNumeric(d.profit || 0);
-      }
-      return sum;
-    }, 0);
-  }, [allDeals]);
 
   // Recent bots and trades
   const allBots = useMemo(() => {
@@ -214,48 +149,6 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
     return recentBotsWithData;
   }, [visits, allBots, tradingMode]);
 
-  const stats: MenuStatBox[] = [
-    {
-      title: 'PnL today',
-      value: privacyMode ? '***' : formatCurrency(pnlToday, 2),
-      colorClass:
-        pnlToday >= 0
-          ? 'from-green-500 to-green-600'
-          : 'from-red-500 to-red-600',
-    },
-    {
-      title: 'Total PnL',
-      value:
-        pricesLoading && !privacyMode ? (
-          <Skeleton className="h-4 w-16" />
-        ) : privacyMode ? (
-          '***'
-        ) : (
-          formatCurrency(totalPnL, 2)
-        ),
-      colorClass:
-        totalPnL >= 0
-          ? 'from-green-500 to-green-600'
-          : 'from-red-500 to-red-600',
-    },
-    {
-      title: 'Money in Positions',
-      value: privacyMode ? '***' : formatCurrency(moneyInPositions, 2),
-      colorClass: 'from-indigo-500 to-indigo-600',
-    },
-    {
-      title: 'uPnL',
-      value:
-        pricesLoading && !privacyMode ? (
-          <Skeleton className="h-4 w-16" />
-        ) : privacyMode ? (
-          '***'
-        ) : (
-          formatCurrency(totalUnrealizedPnL, 2)
-        ),
-      colorClass: 'from-yellow-500 to-yellow-600',
-    },
-  ];
 
   const handleBotClick = (bot: any) => {
     const type = (bot?.botType || bot?.type || '').toString();
@@ -305,12 +198,7 @@ const DcaBotsPanel: React.FC<DcaBotsPanelProps> = ({ onClose, onNavigate }) => {
       <ScrollArea className="flex-1 px-6 py-4">
         <div className="space-y-4">
           <div>
-            <MenuPanelStatsBoxes
-              boxes={stats}
-              title="Stats"
-              className="p-1"
-              cols={2}
-            />
+            <PanelPositionStats {...DCA_STATS} />
           </div>
 
           <PanelLinkItem

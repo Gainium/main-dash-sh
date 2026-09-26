@@ -5,21 +5,14 @@ import { useNavigate } from 'react-router-dom';
 
 import BotItemPanel from '@/components/bots/BotItemPanel';
 import { Badge } from '@/components/ui/badge';
-import {
-  MenuPanelStatsBoxes,
-  type MenuStatBox,
-} from '@/components/ui/MenuPanelStatsBoxes';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Skeleton } from '@/components/ui/skeleton';
 import { useComboBots } from '@/hooks/useComboBots';
-import { useComboDeals } from '@/hooks/useComboDeals';
-import { useUnrealizedPnL } from '@/lib/hooks/useUnrealizedPnL';
-import { formatCurrency } from '@/lib/utils';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useUserSessionsStore } from '@/stores/userSessionsStore';
 import { getBotTypeRoute } from '@/utils/botUtils';
 import PanelLinkItem from './PanelLinkItem';
+import PanelPositionStats from './PanelPositionStats';
 import RightPanel from './RightPanel';
 import { BotTypesEnum } from '@/types';
 
@@ -29,6 +22,11 @@ interface ComboBotsPanelProps {
 }
 
 const BOT_CATEGORIES: Array<any> = ['combo-bots'];
+
+/** Server totals shown at the top of the panel. */
+const COMBO_STATS = {
+  positions: ['combo'], pnl: ['combo'],
+} as const;
 
 const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
   onClose,
@@ -52,65 +50,8 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
   const [showMoreStarred, setShowMoreStarred] = React.useState(false);
 
   // Deal hooks for Combo only
-  const { deals: comboDeals = [] } = useComboDeals();
-
-  // Bots (for the "recent bots" list)
+  // Bots (for the starred / recent bots lists)
   const { bots: comboBots = [] } = useComboBots({ status: ['open'] as any });
-
-  const allDeals = useMemo(() => {
-    return [...comboDeals];
-  }, [comboDeals]);
-
-  const { getTotalUnrealizedPnL, isLoading: pricesLoading } = useUnrealizedPnL(
-    allDeals as any
-  );
-  const totalUnrealizedPnL = getTotalUnrealizedPnL();
-
-  function extractNumeric(val: any): number {
-    if (typeof val === 'number') return val;
-    if (!val) return 0;
-    if (typeof val.value === 'number') return val.value;
-    if (typeof val.totalUsd === 'number') return val.totalUsd;
-    if (typeof val.total === 'number') return val.total;
-    if (val?.value && typeof val.value.totalUsd === 'number')
-      return val.value.totalUsd;
-    if (val?.value && typeof val.value === 'number') return val.value;
-    if (typeof val.value === 'string' && !isNaN(Number(val.value)))
-      return Number(val.value);
-    if (typeof val.totalUsd === 'string' && !isNaN(Number(val.totalUsd)))
-      return Number(val.totalUsd);
-    if (typeof val.total === 'string' && !isNaN(Number(val.total)))
-      return Number(val.total);
-    return 0;
-  }
-
-  const totalRealized = useMemo(() => {
-    return allDeals.reduce(
-      (sum, d: any) => sum + extractNumeric(d.profit || 0),
-      0
-    );
-  }, [allDeals]);
-
-  const moneyInPositions = useMemo(() => {
-    return allDeals.reduce((sum, d: any) => {
-      const v = d.usage?.currentUsd ?? d.usage?.current?.quote ?? 0;
-      return sum + extractNumeric(v);
-    }, 0);
-  }, [allDeals]);
-
-  const totalPnL = totalRealized + totalUnrealizedPnL;
-
-  const pnlToday = useMemo(() => {
-    const startOfToday = new Date();
-    startOfToday.setHours(0, 0, 0, 0);
-    return allDeals.reduce((sum, d: any) => {
-      const ct = d?.createTime ? new Date(d.createTime) : null;
-      if (ct && ct >= startOfToday) {
-        return sum + extractNumeric(d.profit || 0);
-      }
-      return sum;
-    }, 0);
-  }, [allDeals]);
 
   const allBots = useMemo(
     () => comboBots.map((b) => ({ ...b, botType: BotTypesEnum.combo })),
@@ -196,48 +137,6 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
     return recentBotsWithData;
   }, [visits, allBots, tradingMode]);
 
-  const stats: MenuStatBox[] = [
-    {
-      title: 'PnL today',
-      value: privacyMode ? '***' : formatCurrency(pnlToday, 2),
-      colorClass:
-        pnlToday >= 0
-          ? 'from-green-500 to-green-600'
-          : 'from-red-500 to-red-600',
-    },
-    {
-      title: 'Total PnL',
-      value:
-        pricesLoading && !privacyMode ? (
-          <Skeleton className="h-4 w-16" />
-        ) : privacyMode ? (
-          '***'
-        ) : (
-          formatCurrency(totalPnL, 2)
-        ),
-      colorClass:
-        totalPnL >= 0
-          ? 'from-green-500 to-green-600'
-          : 'from-red-500 to-red-600',
-    },
-    {
-      title: 'Money in Positions',
-      value: privacyMode ? '***' : formatCurrency(moneyInPositions, 2),
-      colorClass: 'from-indigo-500 to-indigo-600',
-    },
-    {
-      title: 'uPnL',
-      value:
-        pricesLoading && !privacyMode ? (
-          <Skeleton className="h-4 w-16" />
-        ) : privacyMode ? (
-          '***'
-        ) : (
-          formatCurrency(totalUnrealizedPnL, 2)
-        ),
-      colorClass: 'from-yellow-500 to-yellow-600',
-    },
-  ];
 
   const handleBotClick = (bot: any) => {
     const type = (bot?.botType || bot?.type || '').toString();
@@ -284,12 +183,7 @@ const ComboBotsPanel: React.FC<ComboBotsPanelProps> = ({
       <ScrollArea className="flex-1 px-6 py-4">
         <div className="space-y-4">
           <div>
-            <MenuPanelStatsBoxes
-              boxes={stats}
-              title="Stats"
-              className="p-1"
-              cols={2}
-            />
+            <PanelPositionStats {...COMBO_STATS} />
           </div>
 
           <PanelLinkItem
