@@ -6,14 +6,10 @@
 import type { PersistStorage, StorageValue } from 'zustand/middleware';
 import { liveStoreHydrationQueue } from '@/stores/hydrationQueue';
 import logger from './loggerInstance';
-
-// Keys for which we intentionally skip migrations to avoid noise and redundant work
-const SKIP_MIGRATION_KEYS = new Set<string>([
-  'journal-tags-storage',
-  'trade-journal-storage',
-  'tradingview-storage',
-  'manual-backtesting-sessions-storage',
-]);
+import {
+  cancelAllPersistWrites,
+  createPersistWriter,
+} from './persistWriteScheduler';
 
 const DB_NAME = 'ZustandStorage';
 const DB_VERSION = 1;
@@ -165,6 +161,9 @@ class IndexedDBStorage {
           try {
             const transaction = db.transaction([STORE_NAME], 'readwrite');
             request = transaction.objectStore(STORE_NAME).put(val, name);
+            // Commit now rather than when the task ends, so a write flushed
+            // from pagehide is handed to the backend before the page goes.
+            (transaction as IDBTransaction & { commit?: () => void }).commit?.();
           } catch (syncErr) {
             reject(syncErr);
             return;
@@ -204,11 +203,14 @@ class IndexedDBStorage {
         );
         localStorage.setItem(name, JSON.stringify(value));
       } catch (lsError) {
-        console.error(
-          '[IndexedDBStorage] localStorage fallback also failed:',
-          lsError
+        // Typically QuotaExceededError: the origin's ~5 MB localStorage cannot
+        // hold a blob that was meant for IndexedDB. Losing this cache write is
+        // harmless (it is refetched); throwing would surface out of the
+        // store's set() and break every later action on the store.
+        console.warn(
+          `[IndexedDBStorage] could not persist "${name}" (IndexedDB and localStorage both failed):`,
+          (lsError as Error)?.name || lsError
         );
-        throw error;
       }
     }
   }
@@ -245,60 +247,10 @@ class IndexedDBStorage {
     }
   }
 
-  /**
-   * Migrate data from localStorage to IndexedDB
-   */
-  async migrateFromLocalStorage(key: string): Promise<void> {
-    // Do not attempt migration for keys explicitly configured to be skipped
-    if (SKIP_MIGRATION_KEYS.has(key)) {
-      return;
-    }
-    try {
-      // Check if we already have data in IndexedDB
-      const existingData = await this.getItem(key);
-      if (existingData) {
-        logger.debug(
-          `[IndexedDBStorage] Data already exists for key: ${key}, skipping migration`
-        );
-        return;
-      }
-
-      // Try to get data from localStorage
-      const localStorageData = localStorage.getItem(key);
-      if (localStorageData) {
-        logger.debug(
-          `[IndexedDBStorage] Migrating data from localStorage to IndexedDB for key: ${key}`
-        );
-        logger.debug(
-          `[IndexedDBStorage] Data size: ${(localStorageData.length / 1024).toFixed(2)} KB`
-        );
-
-        const parsed = JSON.parse(localStorageData);
-        logger.debug(`[IndexedDBStorage] Parsed data successfully`);
-
-        await this.setItem(key, parsed);
-        logger.debug(`[IndexedDBStorage] Data saved to IndexedDB`);
-
-        // After successful migration, remove from localStorage to free up space
-        localStorage.removeItem(key);
-        logger.debug(
-          `[IndexedDBStorage] Migration complete, localStorage cleared for key: ${key}`
-        );
-      } else {
-        logger.debug(
-          `[IndexedDBStorage] No localStorage data found for key: ${key}, nothing to migrate`
-        );
-      }
-    } catch (error) {
-      console.error(
-        `[IndexedDBStorage] Migration failed for key: ${key}`,
-        error
-      );
-      // Don't throw - allow the app to continue even if migration fails
-      // The store will work with IndexedDB going forward
-    }
-  }
   async clearAll(): Promise<void> {
+    // A throttled write still pending would land after the wipe and
+    // resurrect the data being cleared.
+    cancelAllPersistWrites();
     try {
       const db = await this.getDB();
       const transaction = db.transaction([STORE_NAME], 'readwrite');
@@ -331,50 +283,89 @@ class IndexedDBStorage {
   }
 }
 
-// Keys for which we intentionally skip migrations to avoid noise and redundant work
-// (SKIP_MIGRATION_KEYS defined above)
-
 // Create singleton instance
 export const indexedDBStorage = new IndexedDBStorage();
 
-// Track which keys have been migrated to avoid redundant attempts
-const migrationAttempted = new Set<string>();
+export interface IndexedDBStorageOptions {
+  /** Trailing write throttle (ms). Default 2000. */
+  throttleMs?: number;
+  /** Plain-object levels compared by reference for the dirty check. Default 2. */
+  compareDepth?: number;
+  /** Applied to the persisted state right before it is written (e.g. to
+   *  bound a cache). Runs once per actual write, never per `set()`. */
+  prepare?: (state: unknown) => unknown;
+}
 
-// Create a wrapper that handles the async nature properly
+const DEFAULT_THROTTLE_MS = 2000;
 
-export const createIndexedDBStorage = (
-  storageKey: string
-): PersistStorage<unknown> => {
-  // Optionally skip migration for specific keys — avoid noisy logs and redundant work
-  if (
-    !migrationAttempted.has(storageKey) &&
-    !SKIP_MIGRATION_KEYS.has(storageKey)
-  ) {
-    migrationAttempted.add(storageKey);
-
-    // Run migration in background, don't block store initialization
-    setTimeout(() => {
-      indexedDBStorage.migrateFromLocalStorage(storageKey).catch((error) => {
-        console.error('[IndexedDBStorage] Background migration failed:', error);
-      });
-    }, 100); // Small delay to allow store to initialize first
-  } else if (
-    SKIP_MIGRATION_KEYS.has(storageKey) &&
-    !migrationAttempted.has(storageKey)
-  ) {
-    // Mark as attempted to avoid repeated checks. We intentionally avoid
-    // logging here to reduce console noise about intentionally skipped keys.
-    migrationAttempted.add(storageKey);
+function readLegacyLocalStorage(name: string): StorageValue<unknown> | null {
+  try {
+    const raw = localStorage.getItem(name);
+    return raw ? (JSON.parse(raw) as StorageValue<unknown>) : null;
+  } catch {
+    return null;
   }
+}
+
+/**
+ * zustand `PersistStorage` over IndexedDB. Writes go through a
+ * {@link createPersistWriter}: dirty-checked, throttled (trailing), gated on
+ * hydration and flushed on page hide — see persistWriteScheduler.ts.
+ */
+export const createIndexedDBStorage = (
+  storageKey: string,
+  options: IndexedDBStorageOptions = {}
+): PersistStorage<unknown> => {
+  // Set when the saved value came from a pre-IndexedDB localStorage copy; that
+  // copy is removed once the first IndexedDB write has landed.
+  let legacyLocalStorageKey: string | null = null;
+  const writer = createPersistWriter({
+    name: storageKey,
+    throttleMs: options.throttleMs ?? DEFAULT_THROTTLE_MS,
+    compareDepth: options.compareDepth ?? 2,
+    ...(options.prepare ? { prepare: options.prepare } : {}),
+    write: async (name, value) => {
+      await indexedDBStorage.setItem<unknown>(
+        name,
+        value as StorageValue<unknown>
+      );
+      if (legacyLocalStorageKey) {
+        try {
+          localStorage.removeItem(legacyLocalStorageKey);
+        } catch {
+          // ignore
+        }
+        legacyLocalStorageKey = null;
+      }
+    },
+  });
 
   return {
-    getItem: (name: string) => {
-      return indexedDBStorage.getItem<unknown>(name);
+    getItem: async (name: string) => {
+      try {
+        const saved = await indexedDBStorage.getItem<unknown>(name);
+        if (saved === null) {
+          // One-time migration of a store persisted to localStorage by an old
+          // build. A synchronous key lookup — no extra IndexedDB read.
+          const legacy = readLegacyLocalStorage(name);
+          if (legacy) {
+            legacyLocalStorageKey = name;
+            // Baseline null: the first change writes it to IndexedDB.
+            writer.markHydrated(null);
+            return legacy;
+          }
+        }
+        writer.markHydrated(saved);
+        return saved;
+      } catch (error) {
+        writer.markHydrated(null);
+        throw error;
+      }
     },
-    setItem: (name: string, value: StorageValue<unknown>) => {
-      return indexedDBStorage.setItem<unknown>(name, value);
-    },
+    setItem: (_name: string, value: StorageValue<unknown>) =>
+      writer.setItem(value),
     removeItem: (name: string) => {
+      writer.cancel();
       return indexedDBStorage.removeItem(name);
     },
   };
@@ -391,12 +382,16 @@ export const createIndexedDBStorage = (
  * Use this for any store whose persisted payload can grow into the
  * tens of MB. Lightweight stores (UI settings, theme, etc.) can keep
  * using `createIndexedDBStorage` directly — the queue overhead isn't
- * worth it for small blobs.
+ * worth it for small blobs. Heavy stores default to a longer throttle.
  */
 export const createQueuedIndexedDBStorage = (
-  storageKey: string
+  storageKey: string,
+  options: IndexedDBStorageOptions = {}
 ): PersistStorage<unknown> => {
-  const base = createIndexedDBStorage(storageKey);
+  const base = createIndexedDBStorage(storageKey, {
+    throttleMs: 4000,
+    ...options,
+  });
   return {
     ...base,
     getItem: (name: string) =>
