@@ -35,7 +35,8 @@ export interface UIExchange {
  * Uses TanStack Query caching via useExchanges, so data is shared across components.
  */
 export function useTransformedExchanges() {
-  const { isLoading, exchanges: data } = useExchangesStore();
+  const isLoading = useExchangesStore((s) => s.isLoading);
+  const data = useExchangesStore((s) => s.exchanges);
   // Transform GraphQL data to display format
   const exchanges = useMemo(() => {
     // Try different possible paths for the exchanges data
@@ -85,8 +86,5 @@ export function useTransformedExchanges() {
     return [allExchanges, ...individualExchanges];
   }, [data, isLoading]);
 
-  return {
-    exchanges,
-    isLoading: isLoading,
-  };
+  return useMemo(() => ({ exchanges, isLoading }), [exchanges, isLoading]);
 }

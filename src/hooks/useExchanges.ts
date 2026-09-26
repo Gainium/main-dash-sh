@@ -4,6 +4,7 @@ import { useGraphQL } from './useGraphQL';
 import { useExchangesStore } from '@/stores/exchangesStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useEffect, useCallback, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import logger from '@/lib/loggerInstance';
 
 // Real exchange response type based on GraphQL schema
@@ -27,7 +28,26 @@ export function useExchanges() {
     exchanges,
     initialLoaded,
     _hasHydrated,
-  } = useExchangesStore();
+  } = useExchangesStore(
+    // Field-level subscription: an unrelated store write must not re-render
+    // the (app-wide) ExchangeDataProvider.
+    useShallow((s) => ({
+      setLoading: s.setLoading,
+      isLoading: s.isLoading,
+      setExchanges: s.setExchanges,
+      error: s.error,
+      setError: s.setError,
+      addOrUpdateExchange: s.addOrUpdateExchange,
+      removeExchange: s.removeExchange,
+      getExchange: s.getExchange,
+      getExchangesByProvider: s.getExchangesByProvider,
+      markStale: s.markStale,
+      clearAll: s.clearAll,
+      exchanges: s.exchanges,
+      initialLoaded: s.initialLoaded,
+      _hasHydrated: s._hasHydrated,
+    }))
+  );
   const tradingMode = useUIStore((state) => state.tradingMode);
   const { query } = exchangeQueries.getAllExchanges();
   // Determine if we need to fetch from API. Wait for IDB rehydration before
@@ -100,7 +120,11 @@ export function useExchanges() {
     }
   }, [apiResult.error, error, setError]);
 
-  // Refresh function for manual refresh
+  // Refresh function for manual refresh. Depends on the observer's stable
+  // `refetch`, NOT on `apiResult`: react-query returns a fresh tracking proxy
+  // on every render, which gave `refresh` (and the whole ExchangeDataContext
+  // value) a new identity on every provider render.
+  const refetch = apiResult.refetch;
   const refresh = useCallback(async () => {
     logger.info('[useExchanges] Manual refresh requested');
     setLoading(true);
@@ -108,14 +132,14 @@ export function useExchanges() {
 
     try {
       // Force refetch by clearing expired data and triggering a new fetch
-      if (apiResult.refetch) {
-        await apiResult.refetch();
+      if (refetch) {
+        await refetch();
       }
     } catch (error) {
       logger.error('[useExchanges] Manual refresh failed:', error);
       setError(error instanceof Error ? error.message : 'Refresh failed');
     }
-  }, [apiResult, setError, setLoading]);
+  }, [refetch, setError, setLoading]);
 
   // Store operations
   const addOrUpdateExchange = useCallback(

@@ -8,6 +8,7 @@ import { useUIStore } from '@/stores/uiStore';
 import type { ExchangeEnum } from '@/types';
 import type { OKXSource } from '@/types/exchange.types';
 import { useCallback, useEffect, useMemo } from 'react';
+import { useShallow } from 'zustand/react/shallow';
 import { useGraphQL } from './useGraphQL';
 
 /**
@@ -91,7 +92,19 @@ export function useTradingPairs() {
     initialLoaded,
     markStale,
     _hasHydrated,
-  } = useTradingPairsDataStore();
+  } = useTradingPairsDataStore(
+    useShallow((s) => ({
+      pairsByProvider: s.pairsByProvider,
+      setPairs: s.setPairs,
+      setLoading: s.setLoading,
+      isLoading: s.isLoading,
+      setError: s.setError,
+      error: s.error,
+      initialLoaded: s.initialLoaded,
+      markStale: s.markStale,
+      _hasHydrated: s._hasHydrated,
+    }))
+  );
   const tradingMode = useUIStore((s) => s.tradingMode);
   const { query } = GraphQlQuery.getAllPairs();
 
@@ -225,7 +238,9 @@ export function useTradingPairs() {
     return convertToFlatPairsByExchange(pairsByProvider);
   }, [pairsByProvider]);
 
-  // Refresh function for manual refresh
+  // Refresh function for manual refresh (depends on the stable `refetch`, not
+  // on the per-render query result proxy — see useExchanges).
+  const refetch = apiResult.refetch;
   const refresh = useCallback(async () => {
     logger.info('[useTradingPairs] Manual refresh requested');
     // Clear data first so that shouldFetch becomes true on the next render,
@@ -235,15 +250,15 @@ export function useTradingPairs() {
     setError(null);
 
     try {
-      if (apiResult.refetch) {
-        await apiResult.refetch();
+      if (refetch) {
+        await refetch();
       }
     } catch (err) {
       logger.error('[useTradingPairs] Manual refresh failed:', err);
       setError(err instanceof Error ? err.message : 'Refresh failed');
       setLoading(false);
     }
-  }, [apiResult, setError, setLoading]);
+  }, [refetch, setError, setLoading]);
 
   // Return backward compatible structure.
   // Report pre-hydration as loading so consumers don't render an empty state
