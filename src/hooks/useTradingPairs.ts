@@ -180,17 +180,17 @@ export function useTradingPairs() {
     if (
       apiResult.data?.data?.result &&
       !apiResult.isLoading &&
-      !apiResult.error
+      !apiResult.error &&
+      // A placeholder is the previous trading context's list carried across
+      // the key change (e.g. live pairs after a switch to paper). Writing it
+      // would mark the store loaded, which disables the fetch for the new
+      // context, so the store would keep the other context's exchanges.
+      !apiResult.isPlaceholderData
     ) {
       logger.info(
         `[useTradingPairs] API returned ${apiResult.data.data.result.length} trading pairs, updating store`
       );
-      // Stamp the context only on a real response for it — a placeholder is
-      // the previous context's data carried across the key change.
-      setPairs(
-        apiResult.data.data.result,
-        apiResult.isPlaceholderData ? undefined : tradingMode
-      );
+      setPairs(apiResult.data.data.result, tradingMode);
       // Explicitly clear loading — avoids relying on a separate effect that
       // could be skipped when shouldFetch flips before the next render.
       setLoading(false);

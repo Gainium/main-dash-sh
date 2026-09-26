@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.67.3] - 2026-09-26
+
+### Fixed
+
+- Bot Edit page: a paper bot opened from inside the app while the dashboard
+  was in live mode showed no safety orders and 0.00% coverage until the page
+  was refreshed. After a live/paper switch the previous mode's pair list was
+  saved as the new mode's list, so the new mode's pairs were never loaded;
+  the list for the new mode is now fetched
+
 ## [2.67.2] - 2026-09-26
 
 ### Fixed
