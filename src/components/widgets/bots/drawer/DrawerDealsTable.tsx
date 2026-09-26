@@ -142,6 +142,12 @@ import {
   DRAWER_OPEN_DEAL_SERVER_FIELDS,
 } from '../../../../lib/botList/dealListServerFields';
 import { withServerFields } from '../../../ui/data-table/serverSide';
+
+const DRAWER_TOTALS_COLUMNS = {
+  cost: 'cost',
+  realizedProfitUsd: 'realizedPnl',
+  unrealizedProfitNet: 'unrealizedPnl',
+};
 interface TradeCardWrapperProps {
   item: TransformedTrade;
   index: number;
@@ -1050,6 +1056,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       open: DRAWER_OPEN_DEAL_SERVER_FIELDS,
       closed: DRAWER_CLOSED_DEAL_SERVER_FIELDS,
     },
+    totalsColumns: DRAWER_TOTALS_COLUMNS,
   });
   // An empty id disables the auto-loader while the server page is in use.
   const specificDealsInput = useMemo(

@@ -12,7 +12,13 @@ import logger from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 
 interface LargeAccountResponse {
   status?: string;
@@ -39,6 +45,24 @@ function notifyLocal() {
 }
 
 export const LARGE_ACCOUNT_QUERY_KEY = 'largeAccount';
+
+/** Last known mode per context, so the first paint already uses it. */
+const LAST_ACTIVE_PREFIX = 'gainium:large-account-last:';
+function readLastActive(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+function writeLastActive(key: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(key, '1');
+    else localStorage.removeItem(key);
+  } catch {
+    // storage unavailable: the mode is decided when the query answers
+  }
+}
 
 export interface UseLargeAccountResult extends LargeAccountState {
   /** Turn the mode on for this account. Users cannot turn it off. */
@@ -103,16 +127,27 @@ export function useLargeAccount(): UseLargeAccountResult {
     query.data && query.data.status === 'OK' && query.data.data
       ? query.data.data
       : null;
-  const state = useMemo(
-    () =>
-      resolveLargeAccount({
-        data,
-        failed: query.isFetched && !data,
-        loading: enabled && query.isLoading,
-        localForceOn,
-      }),
-    [data, query.isFetched, query.isLoading, enabled, localForceOn]
-  );
+  const cacheKey = `${LAST_ACTIVE_PREFIX}${paperContext ? 'paper' : 'live'}`;
+  const state = useMemo(() => {
+    const resolved = resolveLargeAccount({
+      data,
+      failed: query.isFetched && !data,
+      loading: enabled && query.isLoading,
+      localForceOn,
+    });
+    // Until the server answers, use the last answer seen on this device, so
+    // a large account renders in its mode from the first paint instead of
+    // flipping once the query lands.
+    if (resolved.source === 'loading' && readLastActive(cacheKey)) {
+      return { ...resolved, active: true };
+    }
+    return resolved;
+  }, [data, query.isFetched, query.isLoading, enabled, localForceOn, cacheKey]);
+
+  useEffect(() => {
+    if (state.source === 'loading') return;
+    writeLastActive(cacheKey, state.active);
+  }, [state.source, state.active, cacheKey]);
 
   const [isTurningOn, setTurningOn] = useState(false);
   const turnOn = useCallback(async () => {

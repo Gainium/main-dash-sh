@@ -53,6 +53,11 @@ export interface QuickFilterBarProps<TData> {
   columns: Column<TData, unknown>[];
   onResetFilters?: () => void;
   storageKey?: string; // Key for localStorage to save filters
+  /** Server-paged tables: whether each filter reaches the server. */
+  filterStatus?: (
+    columnId: string,
+    filter: unknown
+  ) => 'applied' | 'pending' | 'unavailable';
 }
 
 export function QuickFilterBar<TData>({
@@ -60,6 +65,7 @@ export function QuickFilterBar<TData>({
   columns,
   onResetFilters,
   storageKey = 'quick-filters',
+  filterStatus,
 }: QuickFilterBarProps<TData>) {
   // Read column filters state to trigger reactivity when filters change
   const columnFiltersState = table.getState().columnFilters;
@@ -589,6 +595,7 @@ export function QuickFilterBar<TData>({
               value={getFilterDisplayValue(filter)}
               onEdit={() => handleEditFilter(filter)}
               onRemove={() => handleRemoveFilter(filter)}
+              status={filterStatus?.(filter.columnId, filter.value)}
             />
           ))}
 

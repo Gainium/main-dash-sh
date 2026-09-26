@@ -1,8 +1,22 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import type {
-  ColumnServerFields,
-  DataTableServerSide,
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  toFilterSpec,
+  type ColumnServerFields,
+  type DataTableServerSide,
+  type ServerColumnTotal,
 } from '../components/ui/data-table/serverSide';
+import {
+  resolveServerFilters,
+  singleFilterStatus,
+  type ServerFilterSpec,
+} from '../lib/botList/serverFilters';
+import { useUIStore } from '../stores/uiStore';
+import { useAccountTimeZone } from './useAccountTimeZone';
+import {
+  useDealFilterBackend,
+  useDealListTotals,
+  type DealListTotals,
+} from './useDealListServerSupport';
 import {
   isDefaultQuery,
   previewPage,
@@ -24,6 +38,60 @@ import { useDcaDeals } from './useDcaDeals';
 import { useLargeAccount } from './useLargeAccount';
 import { useLiveDealPnl } from './useLiveDealPnl';
 
+
+/** Session/local flag: this deal list was capped on an earlier visit. */
+const PARTIAL_CACHE_PREFIX = 'gainium:deal-table-partial:';
+
+function readFlag(key: string): boolean {
+  try {
+    return localStorage.getItem(key) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeFlag(key: string, on: boolean): void {
+  try {
+    if (on) localStorage.setItem(key, '1');
+    else localStorage.removeItem(key);
+  } catch {
+    // storage unavailable: the mode is then decided on this load only
+  }
+}
+
+/** Footer column id per filtered-set total. */
+export interface DealTotalsColumns {
+  cost?: string;
+  realizedProfitUsd?: string;
+  unrealizedProfitNet?: string;
+}
+
+/** The Deals tab / deals widget column ids. */
+export const DEALS_TAB_TOTALS_COLUMNS: DealTotalsColumns = {
+  cost: 'cost',
+  realizedProfitUsd: 'realizedProfit',
+  unrealizedProfitNet: 'unrealizedProfit',
+};
+
+/** Server totals → the footer's per-column entries. */
+export function mapDealTotals(
+  t: DealListTotals,
+  cols: DealTotalsColumns
+): Record<string, ServerColumnTotal> {
+  const out: Record<string, ServerColumnTotal> = {};
+  if (cols.cost && typeof t.cost === 'number') out[cols.cost] = { value: t.cost };
+  if (cols.realizedProfitUsd && typeof t.realizedProfitUsd === 'number')
+    out[cols.realizedProfitUsd] = { value: t.realizedProfitUsd };
+  if (cols.unrealizedProfitNet && typeof t.unrealizedProfitNet === 'number')
+    out[cols.unrealizedProfitNet] = {
+      value: t.unrealizedProfitNet,
+      coverage:
+        typeof t.unrealizedProfitNetDeals === 'number'
+          ? { covered: t.unrealizedProfitNetDeals, count: t.count }
+          : null,
+    };
+  return out;
+}
 
 export interface DealTablePaging {
   /** Deals to render (the server page in server mode). */
@@ -66,11 +134,24 @@ export function useDealTablePaging(opts: {
     open: Record<string, ColumnServerFields>;
     closed: Record<string, ColumnServerFields>;
   };
+  /** Which footer column shows which filtered-set total (default: Deals tab ids). */
+  totalsColumns?: DealTotalsColumns;
 }): DealTablePaging {
   const { status, terminal } = opts;
   const enabled = opts.enabled !== false;
   const largeAccount = useLargeAccount();
-  const [latchedPartial, setLatchedPartial] = useState(false);
+  const isLiveTrading = useUIStore((st) => st.isLiveTrading);
+  const timeZone = useAccountTimeZone();
+  // The mode is decided BEFORE the first render: a table that was capped on
+  // a previous visit (same list, same context) starts server-paged, so it
+  // does not render client-side first and then flip (which made restored
+  // filters flash and change meaning).
+  const partialKey = `${PARTIAL_CACHE_PREFIX}${terminal ? 't' : 'd'}:${status}:${
+    opts.botId ?? ''
+  }:${isLiveTrading ? 'live' : 'paper'}`;
+  const [latchedPartial, setLatchedPartial] = useState(() =>
+    readFlag(partialKey)
+  );
   const { query, fetchQuery, onQueryChange } = useServerTableQuery(
     opts.tableId
   );
@@ -100,17 +181,57 @@ export function useDealTablePaging(opts: {
 
   // Safety net: the first client window came back capped → page on the server.
   useEffect(() => {
-    if (windowResult.isPartial) setLatchedPartial(true);
-  }, [windowResult.isPartial]);
+    if (windowResult.isPartial) {
+      setLatchedPartial(true);
+      writeFlag(partialKey, true);
+    }
+  }, [windowResult.isPartial, partialKey]);
 
   const serverPaged = !!opts.force || largeAccount.active || latchedPartial;
+
+  // Filters: resolved against the column capability table. Filters the
+  // server cannot apply stay visible and are left out; filters on fields only
+  // a newer backend knows wait for the (session-cached) backend probe.
+  const backend = useDealFilterBackend(serverPaged);
+  const filterOpts = useMemo(
+    () => ({ backend, timeZone }),
+    [backend, timeZone]
+  );
   const sq = useMemo(
-    () => tableQueryToServerBotQuery(query, fields, DEAL_SEARCH_FIELD),
-    [query, fields]
+    () =>
+      tableQueryToServerBotQuery(query, fields, DEAL_SEARCH_FIELD, filterOpts),
+    [query, fields, filterOpts]
   );
   const fetchSq = useMemo(
-    () => tableQueryToServerBotQuery(fetchQuery, fields, DEAL_SEARCH_FIELD),
-    [fetchQuery, fields]
+    () =>
+      tableQueryToServerBotQuery(
+        fetchQuery,
+        fields,
+        DEAL_SEARCH_FIELD,
+        filterOpts
+      ),
+    [fetchQuery, fields, filterOpts]
+  );
+  const specs = useMemo(() => {
+    const out: Record<string, ServerFilterSpec> = {};
+    for (const [id, f] of Object.entries(fields)) {
+      const spec = toFilterSpec(f.filter);
+      if (spec) out[id] = spec;
+    }
+    return out;
+  }, [fields]);
+  // Chip status = exactly what the query resolution decided (including a
+  // second filter on a field an older backend can hold only once).
+  const resolvedNow = useMemo(
+    () =>
+      resolveServerFilters(query.columnFilters, specs, backend, timeZone),
+    [query.columnFilters, specs, backend, timeZone]
+  );
+  const filterStatus = useCallback(
+    (columnId: string, filter: unknown) =>
+      resolvedNow.statusOf.get(filter) ??
+      singleFilterStatus(specs[columnId], filter, backend, timeZone),
+    [resolvedNow, specs, backend, timeZone]
   );
   const windowComplete =
     !opts.force && !windowResult.isLoading && !windowResult.isPartial;
@@ -133,7 +254,9 @@ export function useDealTablePaging(opts: {
   const paged = useDcaDeals(
     { ...baseFilter, ...(dataGrid ? { dataGrid } : {}) },
     {
-      enabled: enabled && serverPaged && !fromWindow,
+      // A filter waiting on the backend probe holds the filtered fetch (the
+      // window's rows stay on screen meanwhile, marked "applying…").
+      enabled: enabled && serverPaged && !fromWindow && !fetchSq.filtersPending,
       page: fetchSq.pageIndex,
       pageSize: fetchSq.pageSize,
     }
@@ -190,16 +313,35 @@ export function useDealTablePaging(opts: {
         : windowResult.total
       : paged.total || windowResult.total;
 
+  // Totals over the whole FILTERED set (newer backends). Without them the
+  // footer labels its sums as covering this page only.
+  const serverTotals = useDealListTotals({
+    enabled: serverPaged && backend === 'new' && !fetchSq.filtersPending,
+    status,
+    terminal,
+    botId: opts.botId,
+    items: fetchSq.filters ?? [],
+  });
+  const totalsColumns = opts.totalsColumns ?? DEALS_TAB_TOTALS_COLUMNS;
+  const totals = useMemo(
+    () => (serverTotals ? mapDealTotals(serverTotals, totalsColumns) : null),
+    [serverTotals, totalsColumns]
+  );
+
   const serverPaging = useMemo(
     () =>
       serverPaged
         ? {
             serverSide: {
               rowCount: total,
-              isFetching: !fromWindow && (fetchPending || paged.isFetching),
+              isFetching:
+                (!fromWindow && (fetchPending || paged.isFetching)) ||
+                !!fetchSq.filtersPending,
               unsupportedSortReason:
                 status === 'closed' ? CLOSED_DEAL_SORT_TOOLTIP : undefined,
               onQueryChange,
+              filterStatus,
+              totals,
             },
             fields,
           }
@@ -210,8 +352,11 @@ export function useDealTablePaging(opts: {
       fromWindow,
       fetchPending,
       paged.isFetching,
+      fetchSq.filtersPending,
       status,
       onQueryChange,
+      filterStatus,
+      totals,
       fields,
     ]
   );

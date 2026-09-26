@@ -65,6 +65,7 @@ import {
   Search,
   SquareCheck,
   X,
+  Zap,
 } from 'lucide-react';
 import React, {
   useCallback,
@@ -74,6 +75,7 @@ import React, {
   useState,
 } from 'react';
 import { DataTableFooter } from './data-table-footer';
+import { singleFilters } from '../../../lib/botList/serverFilters';
 import { downloadCsv } from './exportCsv';
 import { ColumnFilter } from './filter-components';
 import {
@@ -131,8 +133,8 @@ import { Tooltip } from '../tooltip';
  * inside the tooltip (see `Tooltip`'s `tooltipURL`).
  */
 import {
+  SERVER_FILTER_UNAVAILABLE_TOOLTIP,
   SERVER_SORT_UNAVAILABLE_TOOLTIP,
-  serverApplicableFilters,
   type DataTableServerSide,
 } from './serverSide';
 
@@ -2372,16 +2374,13 @@ function DataTableComponent<TData, TValue>(
     [externalOnSortingChange, sorting, setPersistedSorting]
   );
 
-  // Column filters state - use persisted state. Server mode ignores filters on
-  // columns the server cannot filter: not counted, queried or put in the URL
-  // (still saved; the next filter edit in server mode rewrites without them).
-  const isServerMode = !!serverSide;
+  // Column filters state - use persisted state. In server mode EVERY filter
+  // stays (state, URL, saved preferences, chips): one the server cannot apply
+  // is marked "not applied" and left out of the query by the caller, never
+  // dropped (see serverSide.filterStatus).
   const columnFilters = useMemo(
-    () =>
-      isServerMode
-        ? serverApplicableFilters(persistedColumnFilters, initialColumns)
-        : persistedColumnFilters,
-    [persistedColumnFilters, isServerMode, initialColumns]
+    () => persistedColumnFilters,
+    [persistedColumnFilters]
   );
 
   // Handle column filters changes with persistence
@@ -2913,7 +2912,6 @@ function DataTableComponent<TData, TValue>(
                       SERVER_SORT_UNAVAILABLE_TOOLTIP,
                   },
                 }),
-            ...(meta?.serverFilterField ? {} : { enableColumnFilter: false }),
           }
         : {};
 
@@ -4164,6 +4162,7 @@ function DataTableComponent<TData, TValue>(
           table={table}
           columns={table.getAllColumns()}
           storageKey={quickFilterBarStorageKey}
+          filterStatus={serverSide?.filterStatus}
           onResetFilters={() => {
             table.resetColumnFilters();
             onQuickFiltersClearAll?.();
@@ -4413,6 +4412,24 @@ function DataTableComponent<TData, TValue>(
                               {header.column.getCanFilter() ? (
                                 <ColumnFilter column={header.column} />
                               ) : null}
+                              {serverSide?.filterStatus &&
+                                singleFilters(header.column.getFilterValue()).some(
+                                  (f) =>
+                                    serverSide.filterStatus?.(columnId, f) !==
+                                    'applied'
+                                ) && (
+                                  <Tooltip
+                                    tooltip={SERVER_FILTER_UNAVAILABLE_TOOLTIP}
+                                    side="bottom"
+                                    delay={150}
+                                  >
+                                    <Zap
+                                      className="ml-1 h-3 w-3 shrink-0 text-muted-foreground"
+                                      aria-label="Filter not applied"
+                                      data-testid="filter-not-applied"
+                                    />
+                                  </Tooltip>
+                                )}
                             </div>
                           </th>
                         );
@@ -4705,6 +4722,9 @@ function DataTableComponent<TData, TValue>(
                   pinnedColumns={effectivePinnedColumns}
                   getColumnWidth={getColumnWidth}
                   calculateStickyPosition={calculateStickyPosition}
+                  serverMode={!!serverSide}
+                  serverTotals={serverSide?.totals ?? null}
+                  serverRowCount={serverSide?.rowCount}
                 />
               </table>
             </DndContext>

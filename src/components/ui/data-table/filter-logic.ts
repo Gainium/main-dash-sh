@@ -107,6 +107,19 @@ function dayBounds(
 }
 
 /**
+ * The epoch-ms interval a date filter value denotes (a `YYYY-MM-DD` day in
+ * the account's `timeZone`, or the instant any other value parses to). The
+ * same bounds the client-side date operators use, exported so a server-paged
+ * table can send exactly the range the user sees.
+ */
+export function dateFilterBounds(
+  value: unknown,
+  timeZone?: string | null
+): { start: number; end: number } | null {
+  return dayBounds(value, timeZone);
+}
+
+/**
  * A row's date cell as epoch ms. Date columns reach here in three shapes —
  * an ISO string (`dcaDealToOpenTrade`), epoch ms (the `Update Time`
  * accessor) and a `Date` (the terminal's order columns). A cell with no date

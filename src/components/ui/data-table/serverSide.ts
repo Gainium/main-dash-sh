@@ -1,4 +1,8 @@
 import type { ColumnFiltersState, SortingState } from '@tanstack/react-table';
+import type {
+  ServerFilterSpec,
+  SingleFilterStatus,
+} from '../../../lib/botList/serverFilters';
 
 /** What a server-side DataTable asks its caller to fetch. */
 export interface ServerTableQuery {
@@ -18,6 +22,24 @@ export interface DataTableServerSide {
   unsupportedSortReason?: string;
   /** Called with the table's query whenever paging, sort, search or filters change. */
   onQueryChange: (query: ServerTableQuery) => void;
+  /**
+   * Whether one filter reaches the server. Filters the server cannot apply
+   * are kept (chip, URL, saved state) and marked; they are never dropped.
+   * Omitted: every filter counts as applied.
+   */
+  filterStatus?: (columnId: string, filter: unknown) => SingleFilterStatus;
+  /**
+   * Aggregates over the whole FILTERED server set, by column id. A totals
+   * cell without an entry here sums only the rows on this page and is
+   * labelled "Page total".
+   */
+  totals?: Record<string, ServerColumnTotal> | null;
+}
+
+export interface ServerColumnTotal {
+  value: number;
+  /** Deals the sum covers, when fewer than the filtered count. */
+  coverage?: { covered: number; count: number } | null;
 }
 
 export const SERVER_SORT_UNAVAILABLE_TOOLTIP =
@@ -26,8 +48,24 @@ export const SERVER_SORT_UNAVAILABLE_TOOLTIP =
 /** Server field names for a column: what it sorts and filters by. */
 export interface ColumnServerFields {
   sort?: string;
-  filter?: string;
+  /** A server text field, or a full filter capability. */
+  filter?: string | ServerFilterSpec;
 }
+
+/** Column filter capability from a `filter` entry (a bare field = text). */
+export function toFilterSpec(
+  filter: string | ServerFilterSpec | undefined
+): ServerFilterSpec | undefined {
+  if (!filter) return undefined;
+  return typeof filter === 'string' ? { field: filter, kind: 'text' } : filter;
+}
+
+/** Tooltip on a filter the server does not apply. */
+export const SERVER_FILTER_UNAVAILABLE_TOOLTIP =
+  "Not applied: the server can't filter this column yet for large accounts. Your filter is kept and will apply automatically when it can.";
+
+export const SERVER_FILTER_PENDING_TOOLTIP =
+  'Checking whether the server can apply this filter…';
 
 /**
  * Attach `meta.serverSortField` / `meta.serverFilterField` to the columns a
@@ -52,27 +90,4 @@ export function withServerFields<C extends { id?: string; meta?: unknown }>(
       },
     };
   });
-}
-
-/**
- * Server mode: keep only the filters whose column the server can filter
- * (`meta.serverFilterField`). The rest — restored from a link or saved
- * preferences — would be counted on the Filters button while their column
- * shows no chip to clear them. Returns the same array when nothing is dropped.
- */
-export function serverApplicableFilters(
-  filters: ColumnFiltersState,
-  columns: Array<{ id?: string; meta?: unknown }>
-): ColumnFiltersState {
-  const filterable = new Set(
-    columns
-      .filter(
-        (col) =>
-          !!(col.meta as { serverFilterField?: string } | undefined)
-            ?.serverFilterField
-      )
-      .map((col) => col.id ?? (col as { accessorKey?: string }).accessorKey)
-  );
-  const kept = filters.filter((f) => filterable.has(f.id));
-  return kept.length === filters.length ? filters : kept;
 }

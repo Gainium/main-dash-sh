@@ -4,6 +4,9 @@ import { ChevronDown } from 'lucide-react';
 import React from 'react';
 import { useTableCustomState } from '../../../stores/tablePreferencesStore';
 import { Badge } from '../badge';
+import { Tooltip } from '../tooltip';
+import { formatCount } from '../../../lib/largeAccount/largeAccount';
+import type { ServerColumnTotal } from './serverSide';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -24,6 +27,15 @@ interface DataTableFooterProps<TData> {
     columnId: string,
     pinnedState: 'left' | 'right' | false
   ) => React.CSSProperties;
+  /**
+   * Server-paged table: the rows are one page of a larger filtered set. A
+   * column total comes from `serverTotals` (the whole filtered set) when the
+   * server provides it; otherwise it covers only this page and says so
+   * ("Page total"), never an unlabelled page-only sum.
+   */
+  serverMode?: boolean;
+  serverTotals?: Record<string, ServerColumnTotal> | null;
+  serverRowCount?: number;
 }
 
 type AggregationType = 'sum' | 'average' | 'min' | 'max' | 'count';
@@ -44,6 +56,9 @@ export function DataTableFooter<TData>({
   pinnedColumns,
   getColumnWidth,
   calculateStickyPosition,
+  serverMode = false,
+  serverTotals = null,
+  serverRowCount,
 }: DataTableFooterProps<TData>) {
   // Track aggregation type per column, persisted per-table in local storage so
   // the selection (total, average, min, max) survives remounts and sessions.
@@ -207,13 +222,59 @@ export function DataTableFooter<TData>({
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
+                    {serverMode &&
+                      !(currentAggregation === 'sum' && serverTotals?.[columnId]) && (
+                        <Tooltip
+                          tooltip={`Only the ${formatCount(
+                            table.getRowModel().rows.length
+                          )} rows on this page${
+                            serverRowCount
+                              ? ` of ${formatCount(serverRowCount)}`
+                              : ''
+                          }. The full filtered set is on our servers.`}
+                          side="top"
+                          delay={150}
+                        >
+                          <span
+                            className="text-xs font-normal text-muted-foreground whitespace-nowrap cursor-help"
+                            data-testid="footer-page-total"
+                          >
+                            Page
+                          </span>
+                        </Tooltip>
+                      )}
+                    {serverMode &&
+                      currentAggregation === 'sum' &&
+                      serverTotals?.[columnId]?.coverage &&
+                      (serverTotals[columnId].coverage?.covered ?? 0) <
+                        (serverTotals[columnId].coverage?.count ?? 0) && (
+                        <Tooltip
+                          tooltip="Some deals could not be priced in USD and are not in this total."
+                          side="top"
+                          delay={150}
+                        >
+                          <span
+                            className="text-xs font-normal text-muted-foreground whitespace-nowrap cursor-help"
+                            data-testid="footer-partial-total"
+                          >
+                            {formatCount(serverTotals[columnId].coverage?.covered ?? 0)} of{' '}
+                            {formatCount(serverTotals[columnId].coverage?.count ?? 0)} priced
+                          </span>
+                        </Tooltip>
+                      )}
                     <span>
                       {flexRender(() => {
-                        const value = calculateAggregation(
-                          columnId,
-                          currentAggregation,
-                          columnMeta
-                        );
+                        const serverTotal =
+                          serverMode && currentAggregation === 'sum'
+                            ? serverTotals?.[columnId]
+                            : undefined;
+                        const value = serverTotal
+                          ? serverTotal.value
+                          : calculateAggregation(
+                              columnId,
+                              currentAggregation,
+                              columnMeta
+                            );
                         // Use the column's cell formatting if available
                         return columnDef.footerValue
                           ? columnDef.footerValue(value)

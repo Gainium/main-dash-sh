@@ -1,8 +1,11 @@
-import { useMemo } from 'react';
-import type {
-  ColumnServerFields,
-  DataTableServerSide,
+import { useCallback, useMemo } from 'react';
+import {
+  toFilterSpec,
+  type ColumnServerFields,
+  type DataTableServerSide,
 } from '../components/ui/data-table/serverSide';
+import { singleFilterStatus } from '../lib/botList/serverFilters';
+import { useAccountTimeZone } from './useAccountTimeZone';
 import {
   BOT_NAME_FIELD,
   tableQueryToServerBotQuery,
@@ -80,12 +83,22 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
   );
 
   const searchable = opts.searchable ?? true;
+  const timeZone = useAccountTimeZone();
   const toServer = useMemo(
     () => (q: typeof query) => {
-      const sq = tableQueryToServerBotQuery(q, fields);
+      // Bot-list capabilities need no newer backend: 'old' is the safe answer.
+      const sq = tableQueryToServerBotQuery(q, fields, undefined, {
+        backend: 'old',
+        timeZone,
+      });
       return searchable ? sq : { ...sq, search: '' };
     },
-    [fields, searchable]
+    [fields, searchable, timeZone]
+  );
+  const filterStatus = useCallback(
+    (columnId: string, filter: unknown) =>
+      singleFilterStatus(toFilterSpec(fields[columnId]?.filter), filter, 'old', timeZone),
+    [fields, timeZone]
   );
   // What the table shows now (preview) vs what the server is asked for.
   const serverQuery = useMemo(() => toServer(query), [toServer, query]);
@@ -145,6 +158,7 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
             isFetching: !fromWindow && (fetchPending || paged.isFetching),
             unsupportedSortReason: opts.unsupportedSortReason,
             onQueryChange,
+            filterStatus,
           }
         : undefined,
     [
@@ -155,6 +169,7 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
       paged.isFetching,
       opts.unsupportedSortReason,
       onQueryChange,
+      filterStatus,
     ]
   );
 

@@ -8,6 +8,11 @@
  */
 import type { DataGridFilterInput } from '../../types';
 import { toServerSortModel, type SortDirection } from '../api/serverSort';
+import {
+  resolveServerFilters,
+  type FilterBackend,
+  type ServerFilterSpec,
+} from './serverFilters';
 
 export interface ServerFilterItem {
   field: string;
@@ -105,15 +110,24 @@ export function tableQueryToServerBotQuery(
     columnFilters: Array<{ id: string; value: unknown }>;
     globalFilter: string;
   },
-  fields: Record<string, { sort?: string; filter?: string }>,
-  searchField?: string
-): ServerBotQuery {
+  fields: Record<string, { sort?: string; filter?: string | ServerFilterSpec }>,
+  searchField?: string,
+  opts: { backend?: FilterBackend; timeZone?: string | null } = {}
+): ServerBotQuery & { filtersPending: boolean } {
   const first = q.sorting[0];
   const sortField = first ? fields[first.id]?.sort : undefined;
-  const filters = q.columnFilters.flatMap((f) => {
-    const field = fields[f.id]?.filter;
-    return field ? columnFilterToServerItems(field, f.value) : [];
-  });
+  const specs: Record<string, ServerFilterSpec> = {};
+  for (const [id, f] of Object.entries(fields)) {
+    if (f.filter)
+      specs[id] =
+        typeof f.filter === 'string' ? { field: f.filter, kind: 'text' } : f.filter;
+  }
+  const resolved = resolveServerFilters(
+    q.columnFilters,
+    specs,
+    opts.backend ?? 'unknown',
+    opts.timeZone
+  );
   return {
     pageIndex: q.pageIndex,
     pageSize: q.pageSize,
@@ -122,6 +136,7 @@ export function tableQueryToServerBotQuery(
       : null,
     search: q.globalFilter,
     ...(searchField ? { searchField } : {}),
-    filters,
+    filters: resolved.items,
+    filtersPending: resolved.pending,
   };
 }
