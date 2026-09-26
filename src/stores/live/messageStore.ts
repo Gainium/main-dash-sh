@@ -1,6 +1,10 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 
+/** Newest messages kept in memory. The list only feeds the live toaster; the
+ *  notifications panel reads the server feed. */
+export const MAX_MESSAGES = 200;
+
 export interface MessageData {
   id: string;
   type: 'info' | 'warning' | 'error' | 'success';
@@ -47,7 +51,7 @@ export const useMessageStore = create<MessageStoreState>()(
         };
 
         set((state) => ({
-          messages: [message, ...state.messages],
+          messages: [message, ...state.messages].slice(0, MAX_MESSAGES),
         }));
       },
 

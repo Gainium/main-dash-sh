@@ -1,5 +1,13 @@
 import logger from '@/lib/loggerInstance';
 import { createQueuedIndexedDBStorage } from '@/lib/zustand-indexeddb-storage';
+import { boundPerBot, newestEntries } from './persistBounds';
+
+/** Transactions per bot kept in the persisted cache (newest first). */
+const PERSISTED_PER_BOT = 200;
+/** A bot's in-memory map is trimmed back to WS_KEEP once websocket appends
+ *  push it past WS_TRIM_AT (a fetch replaces the bucket anyway). */
+const WS_KEEP = 1000;
+const WS_TRIM_AT = 1200;
 import type { Transaction } from '@/types';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
@@ -85,14 +93,18 @@ export const useTransactionsStore = create<TransactionsStoreState>()(
           const { botId } = transaction;
           set((state) => {
             const currentTransactions = state.transactions[botId] || {};
+            let nextBucket: Record<string, Transaction> = {
+              ...currentTransactions,
+              [transaction._id]: transaction,
+            };
+            if (Object.keys(nextBucket).length > WS_TRIM_AT) {
+              nextBucket = newestEntries(nextBucket, WS_KEEP);
+            }
 
             return {
               transactions: {
                 ...state.transactions,
-                [botId]: {
-                  ...currentTransactions,
-                  [transaction._id]: transaction,
-                },
+                [botId]: nextBucket,
               },
               loading: {
                 ...state.loading,
@@ -255,7 +267,14 @@ export const useTransactionsStore = create<TransactionsStoreState>()(
       }),
       {
         name: 'transactions-store',
-        storage: createQueuedIndexedDBStorage('transactions-store'),
+        storage: createQueuedIndexedDBStorage('transactions-store', {
+          prepare: (persisted) => {
+            const p = persisted as Pick<TransactionsStoreState, 'transactions'>;
+            return {
+              transactions: boundPerBot(p.transactions ?? {}, PERSISTED_PER_BOT),
+            };
+          },
+        }),
         // One-time cache bust: drop stale persisted transactions on upgrade.
         version: 1,
         migrate: () => ({ transactions: {} }),
@@ -265,7 +284,8 @@ export const useTransactionsStore = create<TransactionsStoreState>()(
         }),
         // Merge persisted data with initial state and migrate if necessary
         merge: (persistedState, currentState) => {
-          const state = persistedState as Partial<TransactionsStoreState>;
+          // Null on a fresh profile (nothing saved yet).
+          const state = (persistedState ?? {}) as Partial<TransactionsStoreState>;
           let migratedTransactions = {};
 
           if (state.transactions) {

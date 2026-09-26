@@ -4,6 +4,7 @@ import type { DCADeals } from '@/types';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { DealUpdate } from '../../services/websocket/BotWebSocketManager';
+import { boundPersistedDeals } from './persistBounds';
 import { consultDealTombstone, isIncomingDealStale } from './staleWriteGuard';
 import { WebSocketDebouncer } from './webSocketDebouncer';
 
@@ -27,6 +28,11 @@ interface DealStoreState {
    *  distinguish "deals not loaded yet" from "fetched and there really are no
    *  deals" so the table doesn't flash empty during the IDB read window. */
   _hasHydrated: boolean;
+
+  /** botId → when its closed-deal list was last fetched for that bot alone
+   *  (i.e. viewed). Only the most recent few keep closed deals in the
+   *  persisted cache (see persistBounds.ts). */
+  closedViewedAt: Record<string, number>;
 
   // Actions
   updateDeals: (
@@ -127,15 +133,22 @@ const mergeRestoredDeals = (
 
   Object.entries(saved).forEach(([botId, savedBotDeals]) => {
     const bucket: Record<string, DealWithType> = {};
+    let dropped = false;
     Object.values(savedBotDeals).forEach((deal) => {
-      if (!deal?._id || current[botId]?.[deal._id]) return;
+      if (!deal?._id || current[botId]?.[deal._id]) {
+        dropped = true;
+        return;
+      }
       const verdict = consultDealTombstone(botId, deal._id, {
         updateTime: deal.updateTime,
         status: deal.status,
       });
       if (verdict !== 'reject') bucket[deal._id] = deal;
+      else dropped = true;
     });
-    merged[botId] = bucket;
+    // Reuse the saved bucket object when it is restored unchanged, so the
+    // persist layer sees it as already saved and skips a rewrite.
+    merged[botId] = !dropped && !current[botId] ? savedBotDeals : bucket;
   });
 
   Object.entries(current).forEach(([botId, currentBotDeals]) => {
@@ -168,6 +181,7 @@ export const useDealStore = create<DealStoreState>()(
         loading: {},
         errors: {},
         _hasHydrated: false,
+        closedViewedAt: {},
         updateDeals: (botId, deals, dealType, replace) => {
           set((state) => {
             const existingBotDeals = state.deals[botId] || {};
@@ -358,6 +372,18 @@ export const useDealStore = create<DealStoreState>()(
 
             return { deals: next };
           });
+          // A closed-deal fetch scoped to one bot = that bot's closed list is
+          // being viewed; remember it so its closed page stays cached.
+          if (
+            scope.botId != null &&
+            (!scope.statuses ||
+              scope.statuses.some((s) => s === 'closed' || s === 'canceled'))
+          ) {
+            const botId = scope.botId;
+            set((state) => ({
+              closedViewedAt: { ...state.closedViewedAt, [botId]: Date.now() },
+            }));
+          }
         },
 
         updateDealFromWebSocket: (update: DealUpdate, dealType?: DealType) => {
@@ -574,7 +600,17 @@ export const useDealStore = create<DealStoreState>()(
       }),
       {
         name: 'deals-store',
-        storage: createQueuedIndexedDBStorage('deals-store'),
+        // Bounded on write: every non-closed deal, plus closed deals only for
+        // the bots whose closed list was viewed most recently.
+        storage: createQueuedIndexedDBStorage('deals-store', {
+          prepare: (persisted) => {
+            const p = persisted as Pick<
+              DealStoreState,
+              'deals' | 'closedViewedAt'
+            >;
+            return boundPersistedDeals(p.deals ?? {}, p.closedViewedAt ?? {});
+          },
+        }),
         // One-time cache bust: drop pre-paperContext-fix persisted deals
         // (mis-stamped contexts / stale closed deals) so clients refetch
         // cleanly. Bump this version again to force another wipe.
@@ -585,6 +621,7 @@ export const useDealStore = create<DealStoreState>()(
         // Only persist bot data, not loading/error states
         partialize: (state) => ({
           deals: state.deals,
+          closedViewedAt: state.closedViewedAt,
         }),
         // Merge persisted data with initial state and migrate if necessary
         merge: (persistedState, currentState) => {
@@ -608,6 +645,10 @@ export const useDealStore = create<DealStoreState>()(
             ...currentState,
             ...state,
             deals: mergeRestoredDeals(migratedDeals, currentState.deals),
+            closedViewedAt: {
+              ...(state.closedViewedAt ?? {}),
+              ...currentState.closedViewedAt,
+            },
             // Reset loading/error states on hydration
             loading: {},
             errors: {},
