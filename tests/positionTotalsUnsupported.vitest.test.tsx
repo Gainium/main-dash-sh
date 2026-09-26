@@ -19,6 +19,7 @@ type Q = {
 };
 
 let supported = false;
+let inFlight = false;
 const cache = new Map<string, Q>();
 const answer = (key: string, query: string): Q => {
   const id = `${supported}|${key}`;
@@ -62,11 +63,19 @@ const answer = (key: string, query: string): Q => {
   return q;
 };
 
+type Opts = { enabled?: boolean; staleTime?: number; gcTime?: number };
+/** Every enabled request per render: key + options (spec 064 follow-up). */
+const requested: Array<{ key: string; opts: Opts | undefined }> = [];
 vi.mock('@/hooks/useGraphQL', () => ({
-  useGraphQL: (key: string, gql: { query: string }, opts?: { enabled?: boolean }) =>
-    opts?.enabled === false
-      ? { data: undefined, isError: false, isLoading: false, error: null }
-      : answer(key, gql.query),
+  useGraphQL: (key: string, gql: { query: string }, opts?: Opts) => {
+    if (opts?.enabled === false) {
+      return { data: undefined, isError: false, isLoading: false, error: null };
+    }
+    requested.push({ key, opts });
+    // In-flight mode: nothing has answered yet (the real first render).
+    if (inFlight) return { data: undefined, isError: false, isLoading: true, error: null };
+    return answer(key, gql.query);
+  },
 }));
 
 import { usePositionTotals } from '@/hooks/usePositionTotals';
@@ -95,6 +104,8 @@ beforeEach(() => {
   (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT =
     true;
   cache.clear();
+  requested.length = 0;
+  inFlight = false;
 });
 afterEach(() => {
   act(() => root?.unmount());
@@ -118,5 +129,32 @@ describe('usePositionTotals — backend without the new fields (spec 067 §6)', 
     expect(get().inPositionsCount).toBe(12);
     expect(get().unrealizedIsNet).toBe(true);
     expect(get().unrealizedUsd).toBe(-24);
+  });
+
+  it('fires every scope in parallel with the probe (no sequential round-trip)', () => {
+    supported = false;
+    inFlight = true; // the dca probe has not answered yet
+    render(() => usePositionTotals(SCOPES));
+    const firstRenderKeys = new Set(requested.map((q) => q.key));
+    // All six in-position scopes and the four net scopes were requested on
+    // the FIRST render, before any probe answer could exist.
+    for (const scope of SCOPES.positions) {
+      expect(firstRenderKeys.has(`inPositions:${scope}`)).toBe(true);
+    }
+    expect([...firstRenderKeys].filter((k) => k.endsWith(':net'))).toHaveLength(
+      SCOPES.pnl.length
+    );
+  });
+
+  it('the probe stays cached for the session; unknown fields still end at NotCalculated / legacy', () => {
+    supported = false;
+    const get = render(() => usePositionTotals(SCOPES));
+    const probe = requested.find(
+      (q) => q.key === 'inPositions:dca' && q.opts?.staleTime === Infinity
+    );
+    expect(probe?.opts?.gcTime).toBe(Infinity);
+    expect(get().inPositionsUsd).toBeNull();
+    expect(get().unrealizedIsNet).toBe(false);
+    expect(get().unrealizedUsd).toBe(-20);
   });
 });

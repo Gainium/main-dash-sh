@@ -109,9 +109,10 @@ const QUERY_OPTS = { staleTime: 30_000, retry: 1 } as const;
 
 /**
  * Does this backend have the new fields? Probed ONCE per session with the DCA
- * query (cached forever): an older backend answers every new-field document
- * with a validation error, and without the probe each scope's query — on the
- * balance card and every sidebar panel — would fail (and retry) separately.
+ * query (cached forever): once an older backend has answered with a
+ * validation error, later mounts (sidebar panels, other pages) skip the
+ * new-field queries entirely. The scope queries do NOT wait for the probe on
+ * the first load — they fire in parallel with it.
  */
 function useFieldSupport() {
   const probeOpts = { staleTime: Infinity, gcTime: Infinity, retry: false };
@@ -143,7 +144,12 @@ function useScopeTotals(
     {
       ...QUERY_OPTS,
       retry: false,
-      enabled: wantPositions && (scope === 'dca' || support.inPositions === true),
+      // Optimistic (render, then enhance): every scope fires at once instead
+      // of waiting for the dca probe's answer — that wait put a second
+      // sequential round-trip on the cold-load critical path. On a backend
+      // without the field each query fails fast (retry: false) and the total
+      // resolves to "not calculated", exactly as after a failed probe.
+      enabled: wantPositions && support.inPositions !== false,
     }
   );
   const enabled = wantPnl;
@@ -160,8 +166,8 @@ function useScopeTotals(
     {
       ...QUERY_OPTS,
       retry: false,
-      enabled:
-        enabled && hasDealStats && (scope === 'dca' || support.net === true),
+      // Optimistic, as above; a failure falls back to the legacy sum.
+      enabled: enabled && hasDealStats && support.net !== false,
     }
   );
   return { inPos, legacy, net, hasDealStats, wantPositions, support };
