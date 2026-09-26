@@ -4081,6 +4081,7 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
   const useNoOverlapDeals = isComboBot
     ? formData.combo.useNoOverlapDeals
     : formData.dca.useNoOverlapDeals;
+  const splitSource = isComboBot ? formData.combo : formData.dca;
   try {
     fieldsProcessed.push(
       'useCooldown',
@@ -4127,6 +4128,12 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
         | 'dynamicPriceFilterDirection'
         | 'dynamicPriceFilterPriceType'
         | 'useNoOverlapDeals'
+        | 'useSeparateMaxDealsOverAndUnder'
+        | 'maxDealsOver'
+        | 'maxDealsUnder'
+        | 'useSeparateMaxDealsOverAndUnderPerSymbol'
+        | 'maxDealsOverPerSymbol'
+        | 'maxDealsUnderPerSymbol'
       >
     > = {};
     const validCooldownUnits = Object.values(CooldownUnits);
@@ -4373,6 +4380,37 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
         'dynamicPriceFilterPriceType',
         'dynamicPriceFilterDirection'
       );
+    }
+
+    // Separate max deals above/below the first deal's price. The engine only
+    // reads them with the dynamic price filter on "over and under", but they
+    // are sent regardless so a stored value is never dropped. The engine
+    // treats each as a plain cap (`+(v || '1') || 1`), so -1 is not
+    // "unlimited" here — only 1..200 is accepted.
+    for (const flag of [
+      'useSeparateMaxDealsOverAndUnder',
+      'useSeparateMaxDealsOverAndUnderPerSymbol',
+    ] as const) {
+      fieldsProcessed.push(flag);
+      filterFields[flag] = Boolean(splitSource[flag]);
+      fieldsMapped.push(flag);
+    }
+    for (const key of [
+      'maxDealsOver',
+      'maxDealsUnder',
+      'maxDealsOverPerSymbol',
+      'maxDealsUnderPerSymbol',
+    ] as const) {
+      fieldsProcessed.push(key);
+      const raw = `${splitSource[key] ?? ''}`.trim();
+      const parsed = Number(raw);
+      if (Number.isInteger(parsed) && parsed >= 1 && parsed <= 200) {
+        filterFields[key] = String(parsed);
+        fieldsMapped.push(key);
+      } else {
+        warnings.push(`${key} must be a whole number between 1 and 200`);
+        fieldsSkipped.push(key);
+      }
     }
 
     // No overlap deals

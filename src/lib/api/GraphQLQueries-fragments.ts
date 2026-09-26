@@ -224,6 +224,12 @@ useRiskReward
 rrSlType
 rrSlFixedValue
 dcaByMarket
+useSeparateMaxDealsOverAndUnder
+maxDealsOver
+maxDealsUnder
+useSeparateMaxDealsOverAndUnderPerSymbol
+maxDealsOverPerSymbol
+maxDealsUnderPerSymbol
 useNoOverlapDeals
   riskSlType
   riskSlAmountPerc
@@ -516,6 +522,12 @@ useRiskReward
 rrSlType
 rrSlFixedValue
 dcaByMarket
+useSeparateMaxDealsOverAndUnder
+maxDealsOver
+maxDealsUnder
+useSeparateMaxDealsOverAndUnderPerSymbol
+maxDealsOverPerSymbol
+maxDealsUnderPerSymbol
 useNoOverlapDeals
   riskSlType
   riskSlAmountPerc

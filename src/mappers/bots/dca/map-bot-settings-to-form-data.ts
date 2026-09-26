@@ -887,6 +887,18 @@ export const mapBotSettingsToFormData = (
     startDealLogic,
     useMulti,
     maxDealsPerPair: getString('maxDealsPerPair', '1'),
+    useSeparateMaxDealsOverAndUnder: getBoolean(
+      'useSeparateMaxDealsOverAndUnder',
+      false
+    ),
+    maxDealsOver: getString('maxDealsOver', '1'),
+    maxDealsUnder: getString('maxDealsUnder', '1'),
+    useSeparateMaxDealsOverAndUnderPerSymbol: getBoolean(
+      'useSeparateMaxDealsOverAndUnderPerSymbol',
+      false
+    ),
+    maxDealsOverPerSymbol: getString('maxDealsOverPerSymbol', '1'),
+    maxDealsUnderPerSymbol: getString('maxDealsUnderPerSymbol', '1'),
     pairPrioritization: (() => {
       const rawPriority = getString('pairPrioritization', 'alphabetical');
       const allowedPriorities = Object.values(PairPrioritizationEnum);

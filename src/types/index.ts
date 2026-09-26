@@ -1868,6 +1868,15 @@ export interface DCABotSettings extends BaseSettings {
   trailingTp?: boolean | undefined;
   trailingTpPerc?: string | undefined;
   maxDealsPerPair?: string | undefined;
+  /** With the dynamic price filter on "over and under": cap deals opened
+   *  above and below the first deal's price separately. Single-pair bots. */
+  useSeparateMaxDealsOverAndUnder?: boolean | undefined;
+  maxDealsOver?: string | undefined;
+  maxDealsUnder?: string | undefined;
+  /** The same split, per pair, for multi-pair bots. */
+  useSeparateMaxDealsOverAndUnderPerSymbol?: boolean | undefined;
+  maxDealsOverPerSymbol?: string | undefined;
+  maxDealsUnderPerSymbol?: string | undefined;
   useCloseAfterX?: boolean | undefined;
   closeAfterX?: string | undefined;
   pair: string[];
