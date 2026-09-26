@@ -39,7 +39,6 @@ import {
   type BotSymbolsStats,
   type OrderData,
   type DCADeals,
-  BotTypesEnum,
 } from '@/types';
 import type { OrderType } from '@/stores/live/orderStore';
 
@@ -279,6 +278,16 @@ interface LiveUpdateProviderProps {
   children: ReactNode;
 }
 
+const BOT_MESSAGE_REFETCH_DEBOUNCE_MS = 2000;
+let botMessageRefetchTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleBotMessageRefetch() {
+  if (botMessageRefetchTimer) clearTimeout(botMessageRefetchTimer);
+  botMessageRefetchTimer = setTimeout(() => {
+    botMessageRefetchTimer = null;
+    queryClient.invalidateQueries({ queryKey: ['getMessageBot'] });
+  }, BOT_MESSAGE_REFETCH_DEBOUNCE_MS);
+}
+
 export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
   children,
 }) => {
@@ -346,43 +355,9 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
         },
       });
 
-      // Order updates
-      botWebSocketManager.subscribe('data update', {
-        id: 'live-update-orders',
-        callback: (event: WebSocketEvent) => {
-          if (
-            event.data['status'] !== 'FILLED' &&
-            event.data['status'] !== 'NEW'
-          ) {
-            useOrderStore
-              .getState()
-              .removeOrder(
-                event.botId ?? '',
-                event.data['clientOrderId'] as string,
-                'new'
-              );
-            useOrderStore
-              .getState()
-              .removeOrder(
-                event.botId ?? '',
-                event.data['clientOrderId'] as string,
-                'filled'
-              );
-            return;
-          }
-          const update: OrderUpdate = {
-            botId: event.botId ?? '',
-            data: event.data as Record<string, unknown>,
-            paperContext: event.paperContext || false,
-          };
-          useOrderStore
-            .getState()
-            .updateOrderFromWebSocket(
-              update,
-              event.data['status'] === 'FILLED' ? 'filled' : 'new'
-            );
-        },
-      });
+      // Order ('data update') and deal ('bot deal update') events are handled
+      // by initializeSocketIntegration() above — a second subscriber here used
+      // to apply every event twice (and store terminal deals in two buckets).
 
       // Balance updates
       botWebSocketManager.subscribe('balance', {
@@ -393,24 +368,6 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
               .balances,
           };
           useBalanceStore.getState().updateBalanceFromWebSocket(update);
-        },
-      });
-
-      // Deal updates
-      botWebSocketManager.subscribe('bot deal update', {
-        id: 'live-update-deals',
-        callback: (event: WebSocketEvent) => {
-          const update: DealUpdate = {
-            botId: event.botId ?? '',
-            data: event.data as Record<string, unknown>,
-            paperContext: event.paperContext || false,
-          };
-          useDealStore
-            .getState()
-            .updateDealFromWebSocket(
-              update,
-              event.botType === BotTypesEnum.combo ? 'combo' : 'dca'
-            );
         },
       });
 
@@ -425,10 +382,11 @@ export const LiveUpdateProvider: React.FC<LiveUpdateProviderProps> = ({
             message: (data['message'] as string) || '',
             botId: event.botId ?? '',
           });
-          // The Notifications panel reads from the `getMessageBot` GraphQL
-          // query (not from useMessageStore). Invalidate so the panel picks
-          // up the new entry without a hard refresh.
-          queryClient.invalidateQueries({ queryKey: ['getMessageBot'] });
+          // The Notifications panel and the navbar badge read the
+          // `getMessageBot` GraphQL query (not useMessageStore). Invalidate so
+          // they pick up the new entry — debounced, so a burst of bot
+          // messages costs one refetch, not one per message.
+          scheduleBotMessageRefetch();
         },
       });
     } else if (!isAuthenticated) {

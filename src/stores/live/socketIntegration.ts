@@ -120,7 +120,8 @@ export function initializeSocketIntegration() {
     },
   });
 
-  // Subscribe to 'bot deal update' - DCA and Combo deals
+  // Subscribe to 'bot deal update' - DCA, Combo and terminal deals. The ONLY
+  // deal subscriber (terminal deals go to the 'terminal' bucket only).
   botWebSocketManager.subscribe('bot deal update', {
     id: 'deal-updates',
     callback: (event: WebSocketEvent) => {
@@ -145,55 +146,18 @@ export function initializeSocketIntegration() {
     },
   });
 
-  // Subscribe to 'data update' - Orders
+  // Subscribe to 'data update' - Orders. The ONLY order subscriber: events
+  // are batched and applied in one store write per 50 ms window
+  // (orderStore.applyOrderEvents: upsert NEW/FILLED, drop a filled order from
+  // 'new', remove any other status from both buckets).
   botWebSocketManager.subscribe('data update', {
     id: 'order-updates',
     callback: (event: WebSocketEvent) => {
-      if (!event.botId) return;
-
-      if (event.data['status'] !== 'FILLED' && event.data['status'] !== 'NEW') {
-        useOrderStore
-          .getState()
-          .removeOrder(
-            event.botId,
-            event.data['clientOrderId'] as string,
-            'new'
-          );
-        useOrderStore
-          .getState()
-          .removeOrder(
-            event.botId,
-            event.data['clientOrderId'] as string,
-            'filled'
-          );
-        return;
-      }
-
-      useOrderStore.getState().updateOrderFromWebSocket(
-        {
-          botId: event.botId,
-          data: event.data,
-          paperContext: !!event.paperContext,
-        },
-        event.data['status'] === 'FILLED' ? 'filled' : 'new'
-      );
-
-      // A filled order must not linger in the 'new' bucket. The order store
-      // keeps separate 'new'/'filled' buckets and getOrders() merges both, so
-      // a stale 'new' copy keeps satisfying the chart's status:'NEW' filter and
-      // its (mini)grid order line stays drawn after the order executed
-      // (combo minigrid "sell line still on chart"). Mirror legacy main-dash,
-      // which re-filters its order list to NEW/PARTIALLY_FILLED on every socket
-      // update, by dropping the now-filled order from the 'new' bucket.
-      if (event.data['status'] === 'FILLED') {
-        useOrderStore
-          .getState()
-          .removeOrder(
-            event.botId,
-            event.data['clientOrderId'] as string,
-            'new'
-          );
-      }
+      if (!event.botId || !event.data) return;
+      useOrderStore.getState().queueOrderEvent({
+        botId: event.botId,
+        data: event.data as Record<string, unknown>,
+      });
     },
   });
 

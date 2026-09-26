@@ -4,6 +4,24 @@ import type { OrderData } from '@/types';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import type { OrderUpdate } from '../../services/websocket/BotWebSocketManager';
+import { boundFilledOrders, newestEntries } from './persistBounds';
+import { WebSocketDebouncer } from './webSocketDebouncer';
+
+/** Filled orders kept in the persisted cache (newest first, all bots). */
+const PERSISTED_FILLED_CAP = 2000;
+/** A bot's in-memory filled bucket is trimmed back to this once websocket
+ *  fills push it past `WS_FILLED_TRIM_AT` (fetches are never trimmed). */
+const WS_FILLED_KEEP = 1000;
+const WS_FILLED_TRIM_AT = 1200;
+const NO_ORDERS: Record<string, Record<string, OrderData>> = {};
+
+/** One raw `data update` socket event. */
+export interface OrderSocketEvent {
+  botId: string;
+  data: Record<string, unknown>;
+}
+
+let orderEventBatcher: WebSocketDebouncer<OrderSocketEvent> | null = null;
 
 // Migration function to convert array-based orders to object-based
 const migrateOrderData = (
@@ -103,6 +121,13 @@ interface OrderStoreState {
   updateOrder: (botId: string, order: OrderData, type: OrderType) => void;
   updateOrderFromWebSocket: (update: OrderUpdate, type: OrderType) => void;
   removeOrder: (botId: string, orderId: string, type: OrderType) => void;
+  /** Queue a raw `data update` socket event; events are applied in batches
+   *  (one store write per 50 ms window, across all bots). */
+  queueOrderEvent: (event: OrderSocketEvent) => void;
+  /** Apply a batch of `data update` events in ONE store write: upsert
+   *  NEW/FILLED (skipping stale copies), drop a FILLED order from `new`, and
+   *  remove any other status from both buckets. */
+  applyOrderEvents: (events: OrderSocketEvent[]) => void;
   /**
    * Reconcile a single deal's cached orders against an authoritative fetch.
    * Drops any persisted order for `dealId` whose clientOrderId is absent from
@@ -222,6 +247,8 @@ export const useOrderStore = create<OrderStoreState>()(
         },
 
         removeOrder: (botId: string, orderId: string, type: OrderType) => {
+          // No-op (and no store write) when the order is not there.
+          if (!get().orders[type][botId]?.[orderId]) return;
           set((state) => {
             const currentOrders = state.orders[type][botId] || {};
             const { [orderId]: _removedOrder, ...remainingOrders } =
@@ -237,6 +264,84 @@ export const useOrderStore = create<OrderStoreState>()(
               },
             };
           });
+        },
+
+        queueOrderEvent: (event) => {
+          if (!orderEventBatcher) {
+            orderEventBatcher = new WebSocketDebouncer<OrderSocketEvent>(
+              (events) => get().applyOrderEvents(events),
+              undefined,
+              50
+            );
+          }
+          orderEventBatcher.enqueue(event);
+        },
+
+        applyOrderEvents: (events) => {
+          const state = get();
+          const next = {
+            new: state.orders.new,
+            filled: state.orders.filled,
+          };
+          // Copy-on-write per bucket so untouched bots keep their identity.
+          const touched = { new: new Set<string>(), filled: new Set<string>() };
+          const bucket = (
+            type: OrderType,
+            botId: string
+          ): Record<string, OrderData> => {
+            if (!touched[type].has(botId)) {
+              if (touched[type].size === 0) next[type] = { ...next[type] };
+              next[type][botId] = { ...(next[type][botId] || {}) };
+              touched[type].add(botId);
+            }
+            return next[type][botId] || {};
+          };
+          let changed = false;
+          const remove = (type: OrderType, botId: string, id: string) => {
+            if (!next[type][botId]?.[id]) return;
+            const { [id]: _removed, ...rest } = bucket(type, botId);
+            next[type][botId] = rest;
+            changed = true;
+          };
+
+          for (const { botId, data } of events) {
+            if (!botId) continue;
+            const id = data['clientOrderId'] as string;
+            if (!id) continue;
+            const status = data['status'];
+            if (status !== 'FILLED' && status !== 'NEW') {
+              remove('new', botId, id);
+              remove('filled', botId, id);
+              continue;
+            }
+            const type: OrderType = status === 'FILLED' ? 'filled' : 'new';
+            const order = { ...data, botId } as unknown as OrderData;
+            const existing = next[type][botId]?.[id];
+            if (
+              existing &&
+              order.updateTime &&
+              existing.updateTime &&
+              order.updateTime < existing.updateTime
+            ) {
+              continue; // stale copy
+            }
+            bucket(type, botId)[id] = order;
+            changed = true;
+            // A filled order must not linger in 'new' (its chart line would
+            // stay drawn after it executed).
+            if (type === 'filled') remove('new', botId, id);
+          }
+          if (!changed) return;
+
+          // Websocket fills of a busy grid bot would otherwise grow forever.
+          touched.filled.forEach((botId) => {
+            const b = next.filled[botId] || {};
+            if (Object.keys(b).length > WS_FILLED_TRIM_AT) {
+              next.filled[botId] = newestEntries(b, WS_FILLED_KEEP);
+            }
+          });
+
+          set({ orders: next });
         },
 
         reconcileDealOrders: (
@@ -363,7 +468,23 @@ export const useOrderStore = create<OrderStoreState>()(
       }),
       {
         name: 'orders-store',
-        storage: createQueuedIndexedDBStorage('orders-store'),
+        storage: createQueuedIndexedDBStorage('orders-store', {
+          // Compare down to orders.filled[botId] so an unchanged slice is
+          // recognised even though partialize wraps it in new objects.
+          compareDepth: 3,
+          prepare: (persisted) => {
+            const p = persisted as { orders?: OrderStoreState['orders'] };
+            return {
+              orders: {
+                new: NO_ORDERS,
+                filled: boundFilledOrders(
+                  p.orders?.filled ?? {},
+                  PERSISTED_FILLED_CAP
+                ),
+              },
+            };
+          },
+        }),
         // One-time cache bust: drop stale persisted orders on upgrade.
         version: 1,
         migrate: () => ({ orders: { new: {}, filled: {} } }),
@@ -373,7 +494,7 @@ export const useOrderStore = create<OrderStoreState>()(
         // store merges rather than replaces. They are cheap to re-fetch and
         // are always reloaded on mount, so we keep them out of IndexedDB.
         partialize: (state) => ({
-          orders: { new: {}, filled: state.orders.filled },
+          orders: { new: NO_ORDERS, filled: state.orders.filled },
         }),
         // Merge persisted data with initial state and migrate if necessary
         merge: (persistedState, currentState) => {
