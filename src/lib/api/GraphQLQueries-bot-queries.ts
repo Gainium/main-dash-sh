@@ -970,6 +970,25 @@ export const botQueries = {
     }`;
     return { query };
   },
+  /**
+   * Paged terminal-bot list (newer backends: optional `input.dataGridInput`
+   * and a `total`). Callers must pass the unpaged query above as the
+   * fallback: an older backend rejects the argument.
+   */
+  getTradingTerminalBotsListPaged: (input: {
+    dataGridInput: DataGridFilterInput;
+  }) => {
+    const unpaged = botQueries.getTradingTerminalBotsList().query;
+    const inner = unpaged.slice(
+      unpaged.indexOf('getTradingTerminalBotsList {') +
+        'getTradingTerminalBotsList {'.length
+    );
+    const query = `query getTradingTerminalBotsList($input: getTradingTerminalBotsListInput) {
+        getTradingTerminalBotsList(input: $input) {
+            total
+            ${inner.trim()}`;
+    return { query, variables: { input } };
+  },
 
   // Backtest queries
   getBacktests: (input?: DataGridFilterInput) => {

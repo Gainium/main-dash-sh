@@ -4,9 +4,17 @@ import { useGridBots } from '@/hooks/useGridBots';
 /* import { useHedgeComboBots } from '@/hooks/useHedgeComboBots';
 import { useHedgeDcaBots } from '@/hooks/useHedgeDcaBots'; */
 import { useTerminal } from '@/hooks/useTerminal';
+import { useLargeAccount } from '@/hooks/useLargeAccount';
+import { useServerPagedBots } from '@/hooks/useServerPagedBots';
+import {
+  CANONICAL_DCA_STATUSES,
+  CANONICAL_GRID_STATUSES,
+} from '@/lib/botList/botListWindow';
+import { toBotDataGridInput } from '@/lib/botList/serverBotQuery';
+import type { GridBot } from '@/types/gridBot';
 import logger from '@/lib/loggerInstance';
 import { searchContent } from '@/services/contentApi';
-import { BotTypesEnum } from '@/types';
+import { BotTypesEnum, type ComboBot, type DCABot } from '@/types';
 import type { HelpDocMetadata } from '@/types/helpCenter';
 /* import { transformHedgeBotToBot } from '@/types/hedgeBot'; */
 import { getBotTypeLabel } from '@/utils/botUtils';
@@ -91,6 +99,26 @@ function stripMarkdown(text: string): string {
     .trim();
 }
 
+/** Rows a server-side search returns per bot type. */
+const SERVER_SEARCH_LIMIT = 20;
+
+function mergeById<T extends { _id: string }>(a: T[], b: T[]): T[] {
+  if (!b.length) return a;
+  const seen = new Set(a.map((x) => x._id));
+  const out = a.slice();
+  for (const x of b) if (!seen.has(x._id)) out.push(x);
+  return out;
+}
+
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [v, setV] = useState(value);
+  useEffect(() => {
+    const t = setTimeout(() => setV(value), ms);
+    return () => clearTimeout(t);
+  }, [value, ms]);
+  return v;
+}
+
 // Inner component that only renders when dialog is open
 // This prevents unnecessary bot data fetching on every page
 const GlobalSearchContent: React.FC<{
@@ -106,12 +134,79 @@ const GlobalSearchContent: React.FC<{
   const scrollRef = useRef<HTMLDivElement>(null);
 
   // Fetch all bots - these hooks only execute when the dialog is open
-  const { bots: dcaBots = [] } = useDcaBots({ all: true });
-  const { bots: gridBots = [] } = useGridBots();
-  const { bots: comboBots = [] } = useComboBots({ all: true });
+  const dcaList = useDcaBots({ all: true });
+  const gridList = useGridBots();
+  const comboList = useComboBots({ all: true });
   /*  const { bots: hedgeDcaBots = [] } = useHedgeDcaBots({ all: true });
   const { bots: hedgeComboBots = [] } = useHedgeComboBots({ all: true }); */
-  const { bots: terminalBots = [] } = useTerminal({ all: true });
+
+  // Large accounts, or any capped list: bots are searched ON THE SERVER by
+  // name (terminal trades by pair), so bot #1,497 is findable. The unpaged
+  // terminal list (thousands of rows for heavy terminal users) is not loaded
+  // at all in large-account mode.
+  const largeAccount = useLargeAccount();
+  const serverSearch =
+    largeAccount.active ||
+    dcaList.isPartial ||
+    gridList.isPartial ||
+    comboList.isPartial;
+  const debouncedQuery = useDebouncedValue(searchQuery.trim(), 300);
+  const searchOn = serverSearch && debouncedQuery.length >= 2;
+  const serverDca = useServerPagedBots<DCABot>({
+    type: 'dca',
+    statuses: CANONICAL_DCA_STATUSES,
+    enabled: searchOn,
+    pageIndex: 0,
+    pageSize: SERVER_SEARCH_LIMIT,
+    search: debouncedQuery,
+  });
+  const serverGrid = useServerPagedBots<GridBot>({
+    type: 'grid',
+    statuses: CANONICAL_GRID_STATUSES,
+    enabled: searchOn,
+    pageIndex: 0,
+    pageSize: SERVER_SEARCH_LIMIT,
+    search: debouncedQuery,
+  });
+  const serverCombo = useServerPagedBots<ComboBot>({
+    type: 'combo',
+    statuses: CANONICAL_DCA_STATUSES,
+    enabled: searchOn,
+    pageIndex: 0,
+    pageSize: SERVER_SEARCH_LIMIT,
+    search: debouncedQuery,
+  });
+  const terminalGrid = useMemo(
+    () =>
+      largeAccount.active
+        ? toBotDataGridInput({
+            pageIndex: 0,
+            pageSize: SERVER_SEARCH_LIMIT,
+            search: debouncedQuery,
+            searchField: 'settings.pair',
+          })
+        : undefined,
+    [largeAccount.active, debouncedQuery]
+  );
+  const { bots: terminalBots = [] } = useTerminal(
+    { all: true },
+    {
+      enabled: !largeAccount.active || debouncedQuery.length >= 2,
+      dataGridInput: terminalGrid,
+    }
+  );
+  const dcaBots = useMemo(
+    () => mergeById(dcaList.bots, searchOn ? serverDca.bots : []),
+    [dcaList.bots, searchOn, serverDca.bots]
+  );
+  const gridBots = useMemo(
+    () => mergeById(gridList.bots, searchOn ? serverGrid.bots : []),
+    [gridList.bots, searchOn, serverGrid.bots]
+  );
+  const comboBots = useMemo(
+    () => mergeById(comboList.bots, searchOn ? serverCombo.bots : []),
+    [comboList.bots, searchOn, serverCombo.bots]
+  );
 
   // Load cached help articles
   const [helpArticles, setHelpArticles] = useState<HelpDocMetadata[]>([]);

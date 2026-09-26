@@ -16,9 +16,12 @@ import {
 } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { useDcaBots } from '@/hooks/useDcaBots';
+import { useLargeAccount } from '@/hooks/useLargeAccount';
+import { useServerPagedBots } from '@/hooks/useServerPagedBots';
+import { CANONICAL_DCA_STATUSES } from '@/lib/botList/botListWindow';
 import { useMoveDealToBot } from '@/hooks/useDealActions';
 import { isBotActive } from '@/utils/botStatusUtils';
-import { BotTypesEnum, DCATypeEnum } from '@/types';
+import { BotTypesEnum, DCATypeEnum, type DCABot } from '@/types';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
 
@@ -58,7 +61,47 @@ export function MoveDealToBotDialog({
 }: MoveDealToBotDialogProps) {
   const [selectedBotId, setSelectedBotId] = useState<string>('');
   const moveDealToBot = useMoveDealToBot();
-  const { bots, isLoading } = useDcaBots();
+  const canonical = useDcaBots();
+  // A capped bot list (or a large account) can't be filtered client-side:
+  // ask the server for the compatible bots directly, so a deal can move to
+  // any bot, not just one of the first loaded window.
+  const largeAccount = useLargeAccount();
+  const serverLookup = (largeAccount.active || canonical.isPartial) && !!deal;
+  const serverFilters = useMemo(
+    () =>
+      deal
+        ? [
+            ...(deal.exchangeUUID
+              ? [{ field: 'exchangeUUID', operator: 'equals', value: deal.exchangeUUID }]
+              : []),
+            {
+              field: 'settings.strategy',
+              operator: 'equals',
+              value: deal.strategy.toUpperCase(),
+            },
+            {
+              field: 'status',
+              operator: 'isAnyOf',
+              value: 'open,range,monitoring,error',
+            },
+          ]
+        : [],
+    [deal]
+  );
+  const serverBots = useServerPagedBots<DCABot>({
+    type: 'dca',
+    statuses: CANONICAL_DCA_STATUSES,
+    enabled: open && serverLookup,
+    pageIndex: 0,
+    pageSize: 100,
+    filters: serverFilters,
+  });
+  const bots = useMemo(() => {
+    if (!serverLookup) return canonical.bots;
+    const seen = new Set(canonical.bots.map((b) => b._id));
+    return [...canonical.bots, ...serverBots.bots.filter((b) => !seen.has(b._id))];
+  }, [serverLookup, canonical.bots, serverBots.bots]);
+  const isLoading = canonical.isLoading || (serverLookup && serverBots.isLoading);
 
   // Reset the selection whenever a different deal is opened.
   useEffect(() => {

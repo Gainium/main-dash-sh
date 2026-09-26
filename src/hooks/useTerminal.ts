@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
 import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
-import type { BotStatus } from '../types';
+import type { BotStatus, DataGridFilterInput } from '../types';
 import { type DcaBot, type DcaBotListResponse } from '../types/dcaBot';
 import { useGraphQL } from './useGraphQL';
 
@@ -22,15 +22,40 @@ export interface UseTerminalResult {
   refetch: () => Promise<unknown>;
 }
 
-export function useTerminal(filter?: TerminalBotsFilter): UseTerminalResult {
-  // Use the original getTradingTerminalBotsList query which handles paper/live context properly
-  const { query } = botQueries.getTradingTerminalBotsList();
+export interface UseTerminalOptions {
+  enabled?: boolean;
+  /**
+   * Server-paged read (page/sort/filter). Needs a backend that accepts
+   * `getTradingTerminalBotsList(input)`; an older one rejects the argument and
+   * the hook falls back to the unpaged list (then filtered client-side).
+   */
+  dataGridInput?: DataGridFilterInput;
+}
 
-  // Use the GraphQL hook with proper caching
+export function useTerminal(
+  filter?: TerminalBotsFilter,
+  options?: UseTerminalOptions
+): UseTerminalResult {
+  const dataGridInput = options?.dataGridInput;
+  const unpaged = botQueries.getTradingTerminalBotsList();
+  const gql = useMemo(
+    () =>
+      dataGridInput
+        ? botQueries.getTradingTerminalBotsListPaged({ dataGridInput })
+        : unpaged,
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [JSON.stringify(dataGridInput ?? null)]
+  );
+
   // Paper context is automatically handled by useGraphQL through useUIStore
-  const queryResult = useGraphQL<DcaBotListResponse>('dcaBotListTerminal', {
-    query,
-  });
+  const queryResult = useGraphQL<DcaBotListResponse>(
+    dataGridInput ? 'dcaBotListTerminalPaged' : 'dcaBotListTerminal',
+    gql,
+    {
+      enabled: options?.enabled ?? true,
+      ...(dataGridInput ? { fallbackQuery: unpaged } : {}),
+    }
+  );
 
   // Memoize the status filter to prevent infinite renders
   const statusFilter = useMemo(
@@ -103,7 +128,12 @@ export function useTerminal(filter?: TerminalBotsFilter): UseTerminalResult {
   return {
     data: queryResult.data || null,
     bots: filteredBots,
-    total: filteredBots.length,
+    // Server total when the backend reports one (paged read), else the rows.
+    total:
+      typeof (queryResult.data as { total?: number } | undefined)?.total ===
+      'number'
+        ? ((queryResult.data as { total?: number }).total as number)
+        : filteredBots.length,
     isLoading: queryResult.isLoading,
     isError: queryResult.isError,
     error: queryResult.error,
