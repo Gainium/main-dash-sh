@@ -45,6 +45,7 @@ import {
 import { Input } from '@/components/ui/input';
 import type { WidgetMenuActionItem } from '@/components/widgets/WidgetWrapper';
 import { Switch } from '@/components/ui/switch';
+import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HedgeBacktestListView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
 import { HEDGE_BACKTEST_LOAD_KEY } from '@/pages/hedge-bots/HedgeBotBacktests';
@@ -108,6 +109,7 @@ import { useShortcutStore } from '@/stores/shortcutStore';
 import { useUIStore } from '@/stores/uiStore';
 import {
   BotTypesEnum,
+  ComboTpBase,
   ExchangeIntervals,
   StrategyEnum,
   type ComboBot,
@@ -1522,6 +1524,33 @@ export const HedgeBotEditLayout: React.FC = () => {
           />
         )}
       </SettingsRow>
+
+      {/* Hedge Combo only: the controller divides the combined PnL by the
+          legs' max usage (Max DCA) or actual usage (Used DCA). Legacy also
+          showed Limit/Market close types here, but the combined close is
+          always sent at market, so those are not offered. */}
+      {botType === BotTypesEnum.hedgeCombo && sharedSettings.useTp && (
+        <SettingsRow
+          name="Base take profit on"
+          tooltip="The combined take profit % can be based on the maximum DCA amount the legs could use or the DCA amount they actually used. For example, with a $1,000 maximum and a 10% take profit based on used DCA, the hedge closes at $10 profit while $100 is in use, and at $50 while $500 is. Based on max DCA, it always needs $100."
+          navId="hedge-tp-base"
+        >
+          <TerminalButtonStack
+            value={
+              sharedSettings.comboTpBase === ComboTpBase.filled
+                ? ComboTpBase.filled
+                : ComboTpBase.full
+            }
+            onValueChange={(value) =>
+              updateSharedSetting('comboTpBase', value as ComboTpBase)
+            }
+            options={[
+              { value: ComboTpBase.filled, label: 'Used DCA' },
+              { value: ComboTpBase.full, label: 'Max DCA' },
+            ]}
+          />
+        </SettingsRow>
+      )}
 
       <SettingsRow
         name="Stop Loss (hedge)"
