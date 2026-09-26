@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.67.6] - 2026-09-26
+
+### Changed
+
+- Price polling sends plain requests, so browsers no longer make an extra
+  preflight request before each price refresh
+
 ## [2.67.5] - 2026-09-26
 
 ### Fixed
