@@ -2,13 +2,9 @@
 /* import { type DCADeals } from '@/hooks/useDcaDeals'; */
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
-import { useUsdRate } from '@/hooks/useUsdRate';
 import { GraphQlQuery } from '@/lib/api';
 import type { ReturnResult } from '@/lib/api/types';
-import {
-  calculateUnrealizedPnL,
-  type PriceData,
-} from '@/lib/utils/unrealizedPnL';
+import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
 import {
   BotTypesEnum,
   StatusEnum,
@@ -624,8 +620,6 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
     GraphQlQuery.getPortfolioByUser()
   );
 
-  // USD rate for unrealized PnL calculation
-  const { rate: usdRateData } = useUsdRate();
   // Use external data if provided, otherwise use internal data
   const finalPortfolioData = externalPortfolioData || portfolioData;
   const finalDcaDeals = useMemo(
@@ -766,39 +760,10 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
 
       return filteredDeals
         .map((deal) => {
-          // Convert screener data to PriceData format for unrealized PnL calculation
-          // Use SYMBOLUSDT pairs and mark exchange as 'all' so it matches any deal exchange
-          const latestPricesData: PriceData[] = [
-            ...screenerCoins.map((coin) => ({
-              symbol: `${(coin.symbol || '').toUpperCase()}USDT`,
-              price: coin.currentPrice || 0,
-              exchange: 'all',
-            })),
-            // Provide stable USDT/USD mapping to help USD rate resolution
-            { symbol: 'USDTUSD', price: 1, exchange: 'all' },
-            { symbol: 'USDUSDT', price: 1, exchange: 'all' },
-          ];
-
-          // Get USD rate
-          const globalUsdRate = (usdRateData as { data?: number })?.data;
-
-          // Calculate unrealized PnL using the same function as Trades page (unless provided via props)
-          // Convert DCADeals to DealData format
-          // Convert deal to DealData format for unrealized PnL calculation
-          const dealForCalculation = {
-            ...deal,
-            // Prefer flattened exchange from hook to avoid nested dependency
-            dcaBot: deal.exchange ? [{ exchange: deal.exchange }] : [],
-          } as unknown as DCADeals;
-
           const metricKey = deal._id || deal.botId;
           const unrealizedPnL =
             externalDealMetrics?.[metricKey]?.unrealizedUsd ??
-            calculateUnrealizedPnL(
-              dealForCalculation,
-              latestPricesData,
-              globalUsdRate
-            );
+            serverDealUnrealizedPnl(deal)?.unrealizedUsd;
 
           // Calculate value percentage using unrealized PnL
           // Match Trades page denominator: usage.currentUsd fallback to usage.current.quote
@@ -897,7 +862,6 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
     screenerSymbolMap,
     assets,
     finalDcaDeals,
-    usdRateData,
     externalDealMetrics,
     getDealBotName,
   ]);

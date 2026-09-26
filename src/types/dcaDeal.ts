@@ -1,4 +1,7 @@
-import { findUSDRate } from '@/lib/utils/unrealizedPnL';
+import {
+  computeDealUnrealizedPnlFromPrices,
+  serverDealUnrealizedPnl,
+} from '@/lib/utils/dealUnrealizedPnl';
 import {
   calculateDealCost,
   calculateDealSize,
@@ -14,11 +17,9 @@ import {
 } from '@/lib/utils/compoundBreakdown';
 import {
   BotTypesEnum,
-  ComboTpBase,
   DCADealStatusEnum,
   DCATypeEnum,
   ExchangeEnum,
-  StrategyEnum,
   type AllFees,
   type ComboDeals,
   type DCADeals,
@@ -324,152 +325,22 @@ export const transformDealToTrade = (
     deal.status === DCADealStatusEnum.error ||
     deal.status === DCADealStatusEnum.start;
 
-  let unrealizedPnL =
-    useLiveStats && isActiveDeal ? deal.stats.unrealizedProfit : undefined;
-
-  if (!useLiveStats) {
-    const long = deal.strategy === StrategyEnum.long;
-    const price = latestPrices.find(
-      (p) => p.symbol === deal.symbol.symbol && p.exchange === deal.exchange
-    )?.price;
-
-    // Legacy parity: the deal-table unrealized-P&L formula always converts
-    // via the QUOTE asset, for spot, USD-M, AND COIN-M alike (see main-dash
-    // terminal/utils.ts and hedge/new.tsx, which call findUSDRate(quoteAsset)
-    // unconditionally). For COIN-M the formula's own `* price` term performs
-    // the coin→USD conversion, so the rate must stay quote-based (= 1 for
-    // USD-settled pairs). Using the base asset here double-converted COIN-M
-    // legs by ~the coin price, inflating unrealized P&L by orders of magnitude.
-    const usdRate = findUSDRate(
-      deal.symbol.quoteAsset,
-      latestPrices,
-      deal.exchange
-    );
-    unrealizedPnL =
-      deal.strategy && price && usdRate && isActiveDeal
-        ? (long
-            ? deal.currentBalances.base * price +
-              deal.currentBalances.quote -
-              deal.initialBalances.quote
-            : deal.currentBalances.quote -
-              (deal.initialBalances.base - deal.currentBalances.base) * price) *
-          usdRate
-        : undefined;
-    const fee = allFees.find(
-      (f) => f.exchange === deal.exchangeUUID && f.symbol === deal.symbol.symbol
-    )?.fee;
-    const { comboTpBase } = deal.settings;
-    const comboBasedOn =
-      !comboTpBase || comboTpBase === ComboTpBase.full
-        ? ComboTpBase.full
-        : ComboTpBase.filled;
-    const usageBase =
-      comboBasedOn === ComboTpBase.full
-        ? deal.usage.max.base
-        : deal.usage.current.base;
-    const usageQuote =
-      comboBasedOn === ComboTpBase.full
-        ? deal.usage.max.quote
-        : deal.usage.current.quote;
-    const reduceFundsBase = (deal.reduceFunds ?? []).reduce(
-      (acc, r) => acc + r.qty,
-      0
-    );
-    const reduceFundsQuote = (deal.reduceFunds ?? []).reduce(
-      (acc, r) => acc + r.qty * r.price,
-      0
-    );
-    const usage =
-      usdRate && price
-        ? futures
-          ? coinm
-            ? (combo ? usageBase : deal.usage.current.base + reduceFundsBase) *
-              price *
-              usdRate
-            : (combo
-                ? usageQuote
-                : deal.usage.current.quote + reduceFundsQuote) * usdRate
-          : long
-            ? (combo
-                ? usageQuote
-                : deal.usage.current.quote + reduceFundsQuote) * usdRate
-            : (combo ? usageBase : deal.usage.current.base + reduceFundsBase) *
-              price *
-              usdRate
-        : undefined;
-    const feeAmount = fee !== undefined ? (usage ?? 0) * fee * 2 : undefined;
-
-    // A breakeven deal has an unrealized P&L of exactly 0 (e.g. right after
-    // entry, or while the market is closed and the live price is frozen at the
-    // avg entry price — common for Kraken tokenized "xStocks"). The old
-    // `unrealizedPnL &&` truthy-check treated that legitimate 0 as "no value"
-    // and returned undefined, which the table renders as "Price unavailable".
-    // Guard on `!== undefined` so a real 0 survives.
-    unrealizedPnL =
-      unrealizedPnL !== undefined && feeAmount !== undefined
-        ? unrealizedPnL - feeAmount
-        : undefined;
-    if (
-      combo &&
-      isActiveDeal &&
-      price !== undefined &&
-      fee !== undefined &&
-      usdRate !== undefined
-    ) {
-      const profitBase =
-        (futures && coinm) ||
-        (!futures && deal?.settings.profitCurrency === 'base');
-      const qty = long
-        ? deal.currentBalances.base
-        : deal.initialBalances.base - deal.currentBalances.base;
-      let quote =
-        (long
-          ? deal.initialBalances.quote - deal.currentBalances.quote
-          : deal.currentBalances.quote) +
-        (profitBase ? 0 : deal.profit.total * (long ? 1 : -1));
-      const quoteTp = qty * price;
-      let base =
-        quote / price + (profitBase ? deal.profit.total * (long ? 1 : -1) : 0);
-      let commission = profitBase ? qty * fee : qty * price * fee;
-      let total =
-        (deal.profit.total +
-          (profitBase ? qty - base : quoteTp - quote) * (long ? 1 : -1) -
-          commission) *
-        usdRate *
-        (profitBase ? price : 1);
-      if (
-        typeof deal.profit.pureBase !== 'undefined' &&
-        typeof deal.profit.pureQuote !== 'undefined' &&
-        typeof deal.feePaid !== 'undefined' &&
-        `${deal.feePaid}` !== 'null' &&
-        `${deal.profit.pureBase}` !== 'null' &&
-        `${deal.profit.pureQuote}` !== 'null' &&
-        deal.currentBalances.quote >= 0 &&
-        deal.currentBalances.base >= 0
-      ) {
-        quote = long
-          ? deal.initialBalances.quote - deal.currentBalances.quote
-          : deal.currentBalances.quote;
-        base = quote / price;
-        commission = profitBase
-          ? deal.feePaid
-            ? (deal.feePaid.base ?? 0) +
-              (deal.feePaid.quote ?? 0) / deal.avgPrice
-            : 0
-          : deal.feePaid
-            ? (deal.feePaid.base ?? 0) * deal.avgPrice +
-              (deal.feePaid.quote ?? 0)
-            : 0;
-        total =
-          (+(profitBase ? qty - base : quoteTp - quote) * (long ? 1 : -1) -
-            commission) *
-          usdRate *
-          (profitBase ? price : 1);
-      }
-
-      unrealizedPnL = total;
-    }
-  }
+  // One fee-inclusive definition for every surface (lib/utils/
+  // dealUnrealizedPnl.ts, mirrored by the server's stats worker). Without a
+  // price snapshot the server's stored value is shown; with one, the live
+  // value (undefined when the deal's price, USD rate or fee cannot be
+  // resolved — callers decide whether to fall back to the server value).
+  const serverPnl = serverDealUnrealizedPnl(deal);
+  const livePnl = useLiveStats
+    ? undefined
+    : computeDealUnrealizedPnlFromPrices(deal, latestPrices, allFees, {
+        combo,
+      });
+  const unrealizedPnL = isActiveDeal
+    ? useLiveStats
+      ? serverPnl?.unrealizedUsd
+      : livePnl?.unrealizedUsd
+    : undefined;
 
   return {
     id: deal._id,
