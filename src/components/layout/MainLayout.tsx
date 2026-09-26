@@ -1,7 +1,18 @@
 import { TabParamsCleaner } from '@/components/ui/tabs';
 import logger from '@/lib/loggerInstance';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+import { createPortal } from 'react-dom';
+import { Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { PageSuspense } from '@/lib/lazyPage';
 import { Slot } from '@/lib/extensions';
 import { useSyncInitializer } from '@/lib/sync';
 import { useKeyboardShortcutManager } from '../../hooks/useKeyboardShortcutManager';
@@ -49,6 +60,178 @@ interface MainLayoutProps {
   fullyScrollable?: boolean;
 }
 
+interface MainLayoutContentProps extends MainLayoutProps {
+  /** Shell mode: the Navbar node page actions are portalled into. */
+  pageActionsTargetRef?: (el: HTMLDivElement | null) => void;
+  /** Shell mode: receives the page scroll container. */
+  scrollContainerOutRef?: React.MutableRefObject<HTMLDivElement | null>;
+}
+
+// ---------------------------------------------------------------------------
+// Persistent app shell
+//
+// The chrome (Navbar, sidebar, Socket, chat, MaxDetachedPanel, PWAStatus…)
+// used to live INSIDE every page: each page rendered <MainLayout>, so every
+// route change unmounted and remounted the whole shell and re-ran its
+// queries, socket subscriptions and effects. `AppShell` is now a route-level
+// layout rendered once around <Outlet/>. Pages keep rendering
+// <MainLayout pageTitle=… activePage=… pageActions=…>; inside the shell that
+// component renders only its children and publishes the page's layout props
+// to the shell. Desktop page actions are portalled into the Navbar so they
+// stay in the page's own React tree (and its context providers).
+// Outside the shell (a route that is not under it, or the self-hosted App)
+// MainLayout renders the full chrome itself, as before.
+// ---------------------------------------------------------------------------
+
+interface ShellChrome {
+  pageTitle: string;
+  activePage: string;
+  mobileActions?: React.ReactNode;
+  desktopMenuItems?: React.ReactNode;
+  navigationBack?: boolean;
+  fullyScrollable?: boolean;
+}
+
+interface ShellApi {
+  /** 'shared' = share-link view: pages render bare content. */
+  mode: 'shell' | 'shared';
+  setChrome: (chrome: ShellChrome | null) => void;
+  actionsTarget: HTMLElement | null;
+  resetScroll: () => void;
+}
+
+const ShellContext = createContext<ShellApi | null>(null);
+
+const sameChrome = (a: ShellChrome | null, b: ShellChrome | null) =>
+  a === b ||
+  (!!a &&
+    !!b &&
+    a.pageTitle === b.pageTitle &&
+    a.activePage === b.activePage &&
+    a.mobileActions === b.mobileActions &&
+    a.desktopMenuItems === b.desktopMenuItems &&
+    a.navigationBack === b.navigationBack &&
+    a.fullyScrollable === b.fullyScrollable);
+
+const noop = () => undefined;
+
+/** Route-level layout: render as the element of a pathless parent route. */
+export const AppShell: React.FC = () => {
+  const { isDemo } = useShareContext();
+  const sharedApi = useMemo<ShellApi>(
+    () => ({
+      mode: 'shared',
+      setChrome: noop,
+      actionsTarget: null,
+      resetScroll: noop,
+    }),
+    []
+  );
+  if (isDemo) {
+    return (
+      <ShellContext.Provider value={sharedApi}>
+        <SharedPageLayout>
+          <PageSuspense>
+            <Outlet />
+          </PageSuspense>
+        </SharedPageLayout>
+      </ShellContext.Provider>
+    );
+  }
+  return <AppShellContent />;
+};
+
+const AppShellContent: React.FC = () => {
+  const [chrome, setChromeState] = useState<ShellChrome | null>(null);
+  const [actionsTarget, setActionsTarget] = useState<HTMLDivElement | null>(
+    null
+  );
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+
+  const setChrome = useCallback((next: ShellChrome | null) => {
+    setChromeState((prev) => (sameChrome(prev, next) ? prev : next));
+  }, []);
+  // A newly mounted page starts at the top (it used to get a brand-new
+  // scroll container). Staying on the same page instance — e.g. a list and
+  // its drawer route — keeps the scroll position, as before.
+  const resetScroll = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: 0, behavior: 'instant' });
+  }, []);
+
+  const api = useMemo<ShellApi>(
+    () => ({ mode: 'shell', setChrome, actionsTarget, resetScroll }),
+    [setChrome, actionsTarget, resetScroll]
+  );
+
+  return (
+    <ShellContext.Provider value={api}>
+      <MainLayoutContent
+        pageTitle={chrome?.pageTitle ?? ''}
+        activePage={chrome?.activePage ?? ''}
+        mobileActions={chrome?.mobileActions}
+        desktopMenuItems={chrome?.desktopMenuItems}
+        navigationBack={chrome?.navigationBack ?? false}
+        fullyScrollable={chrome?.fullyScrollable ?? false}
+        pageActionsTargetRef={setActionsTarget}
+        scrollContainerOutRef={scrollRef}
+      >
+        <PageSuspense>
+          <Outlet />
+        </PageSuspense>
+      </MainLayoutContent>
+    </ShellContext.Provider>
+  );
+};
+
+/** A page's <MainLayout> inside the shell: publish layout props, render content. */
+const ShellPage: React.FC<MainLayoutProps & { shell: ShellApi }> = ({
+  shell,
+  children,
+  pageTitle,
+  activePage,
+  pageActions,
+  mobileActions,
+  desktopMenuItems,
+  navigationBack,
+  fullyScrollable,
+}) => {
+  const { setChrome, resetScroll, actionsTarget, mode } = shell;
+
+  useLayoutEffect(() => {
+    resetScroll();
+    return () => setChrome(null);
+  }, [setChrome, resetScroll]);
+
+  useLayoutEffect(() => {
+    setChrome({
+      pageTitle,
+      activePage,
+      mobileActions,
+      desktopMenuItems,
+      navigationBack: navigationBack ?? false,
+      fullyScrollable: fullyScrollable ?? false,
+    });
+  }, [
+    setChrome,
+    pageTitle,
+    activePage,
+    mobileActions,
+    desktopMenuItems,
+    navigationBack,
+    fullyScrollable,
+  ]);
+
+  if (mode === 'shared') return <>{children}</>;
+  return (
+    <>
+      {pageActions && actionsTarget
+        ? createPortal(pageActions, actionsTarget)
+        : null}
+      {children}
+    </>
+  );
+};
+
 /**
  * Public entry point. Switches to `SharedPageLayout` when a share-link
  * query param is present so visitors never get the visitor's chrome,
@@ -58,6 +241,12 @@ interface MainLayoutProps {
  * never runs MainLayoutContent's hooks at all, and vice-versa).
  */
 const MainLayout: React.FC<MainLayoutProps> = (props) => {
+  const shell = useContext(ShellContext);
+  if (shell) return <ShellPage shell={shell} {...props} />;
+  return <StandaloneMainLayout {...props} />;
+};
+
+const StandaloneMainLayout: React.FC<MainLayoutProps> = (props) => {
   const { isDemo } = useShareContext();
   if (isDemo) {
     return <SharedPageLayout>{props.children}</SharedPageLayout>;
@@ -65,7 +254,7 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
   return <MainLayoutContent {...props} />;
 };
 
-const MainLayoutContent: React.FC<MainLayoutProps> = ({
+const MainLayoutContent: React.FC<MainLayoutContentProps> = ({
   children,
   pageTitle,
   activePage,
@@ -74,6 +263,8 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
   desktopMenuItems,
   navigationBack,
   fullyScrollable = false,
+  pageActionsTargetRef,
+  scrollContainerOutRef,
 }) => {
   const isStickyHeader = useDashboardStore((s) => s.isStickyHeader);
   const autoHideNavbar = useVisualSettingsStore((s) => s.autoHideNavbar);
@@ -292,7 +483,10 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
 
         {/* Main content area with proper sticky context */}
         <div
-          ref={scrollContainerRef}
+          ref={(el) => {
+            scrollContainerRef.current = el;
+            if (scrollContainerOutRef) scrollContainerOutRef.current = el;
+          }}
           className="flex-1 overflow-y-auto flex flex-col"
           data-main-content
           style={{ scrollBehavior: 'smooth', scrollbarGutter: 'stable' }}
@@ -320,6 +514,7 @@ const MainLayoutContent: React.FC<MainLayoutProps> = ({
                 desktopMenuItems={desktopMenuItems}
                 activePage={activePage}
                 navigateBack={navigationBack || false}
+                {...(pageActionsTargetRef ? { pageActionsTargetRef } : {})}
               />
             </div>
 

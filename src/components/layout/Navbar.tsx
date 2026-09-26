@@ -77,6 +77,12 @@ interface NavbarProps {
   desktopMenuItems?: React.ReactNode;
   activePage: string;
   navigateBack?: boolean;
+  /**
+   * Persistent-shell mode: receives the DOM node the page's desktop actions
+   * are portalled into (so they stay inside the page's own React tree and
+   * contexts) instead of being passed as `pageActions`.
+   */
+  pageActionsTargetRef?: (el: HTMLDivElement | null) => void;
 }
 
 const CHAT_TOOLTIP_DELAY_MS = 30_000;
@@ -91,6 +97,7 @@ const Navbar: React.FC<NavbarProps> = ({
   mobileActions,
   desktopMenuItems,
   navigateBack = false,
+  pageActionsTargetRef,
 }) => {
   const location = useLocation();
   const soundEnabled = useVisualSettingsStore((s) => s.soundEnabled);
@@ -576,6 +583,7 @@ const Navbar: React.FC<NavbarProps> = ({
             >
               {/* Page actions - hidden on mobile; also hidden on desktop when moved to menu */}
               <div
+                ref={pageActionsTargetRef}
                 className={`hidden md:flex gap-1 ${moveButtonsToMenu ? 'md:hidden' : ''}`}
               >
                 {pageActions}
