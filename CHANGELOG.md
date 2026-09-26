@@ -1,5 +1,27 @@
 # Changelog
 
+## [2.67.0] - 2026-09-26
+
+### Added
+
+- DCA and Combo bots: with the dynamic price filter on "Over and Under",
+  "Max open deals" (and "Max open deals per pair" on multi-pair bots) can be
+  split into separate limits for deals opened above and below the first
+  deal's price.
+- DCA bots: "Volume based on (beta)" controls — size each DCA order so the
+  deal needs only a set price change to reach its target, measured from the
+  take profit or breakeven price, with a max volume per DCA.
+- Hedge Combo bots: "Base take profit on" (Used DCA / Max DCA) for the
+  combined take profit.
+- Grid bots: saving new settings on a running bot that change the balances
+  the grid needs asks how to cover the difference (buy or sell it, or
+  proceed), as it does when the bot starts.
+
+### Fixed
+
+- The max volume per DCA seeded when switching to "Required change" no
+  longer shows floating-point noise.
+
 ## [2.66.4] - 2026-09-26
 
 ### Fixed
