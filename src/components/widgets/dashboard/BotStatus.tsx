@@ -1,5 +1,8 @@
-import { useGraphQL } from '@/hooks/useGraphQL';
-import { GraphQlQuery, type ReturnResult } from '@/lib/api';
+import {
+  LEGACY_STATS_CACHE_QUERY,
+  useLegacyDashboardStats,
+} from '@/hooks/useDashboardStatsBatch';
+import { type ReturnResult } from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { BotTypesEnum } from '@/types';
 import { getBotStatusConfig, getBotTypeConfig } from '@/utils/botUtils';
@@ -136,248 +139,28 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   const { usePersistedState } =
     useWidgetSettings<BotStatsWidgetSettings>(widgetId);
 
-  const botDashboardQueryDefs = useMemo(
-    () => ({
-      dca: GraphQlQuery.botDashboardStats({ type: BotTypesEnum.dca }),
-      grid: GraphQlQuery.botDashboardStats({ type: BotTypesEnum.grid }),
-      combo: GraphQlQuery.botDashboardStats({ type: BotTypesEnum.combo }),
-      hedge: GraphQlQuery.botDashboardStats({ type: BotTypesEnum.hedgeCombo }),
-    }),
-    []
-  );
-
-  const dealDashboardQueryDefs = useMemo(
-    () => ({
-      dca: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.dca,
-        terminal: false,
-      }),
-      // NOTE: no `grid` deal-stats query. Grid bots have no DCA-style deals,
-      // and the backend's dealDashboardStats resolver returns the *DCA*
-      // dataset for `type: grid` — so summing it double-counts every DCA deal
-      // (normal/inProfit counts + unrealizedProfit). The legacy dashboard
-      // (main-dash) never queries dealDashboardStats for grid; it only pulls
-      // grid bot-status counts + realized profit. Mirror that here. Grid bot
-      // counts still flow through botDashboardStats (processBotStats) below.
-      combo: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.combo,
-        terminal: false,
-      }),
-      hedge: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.hedgeCombo,
-        terminal: false,
-      }),
-      terminal: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.dca,
-        terminal: true,
-      }),
-    }),
-    []
-  );
-
-  const profitQueryDefs = useMemo(
-    () => ({
-      dca: GraphQlQuery.getProfitByUser(
-        {
-          timeframe: 3,
-          botType: BotTypesEnum.dca,
-          terminal: false,
-        },
-        'quote'
-      ),
-      grid: GraphQlQuery.getProfitByUser(
-        {
-          timeframe: 3,
-          botType: BotTypesEnum.grid,
-        },
-        'quote'
-      ),
-      combo: GraphQlQuery.getProfitByUser(
-        {
-          timeframe: 3,
-          botType: BotTypesEnum.combo,
-        },
-        'quote'
-      ),
-      hedge: GraphQlQuery.getProfitByUser(
-        {
-          timeframe: 3,
-          botType: BotTypesEnum.hedgeCombo,
-        },
-        'quote'
-      ),
-      terminal: GraphQlQuery.getProfitByUser(
-        {
-          timeframe: 3,
-          botType: BotTypesEnum.dca,
-          terminal: true,
-        },
-        'quote'
-      ),
-    }),
-    []
-  );
-
-  // Track all GraphQL queries for stale-while-revalidate indicator.
-  // Depends only on the (memoized) query-def objects, so it's stable.
-  const cacheQueries = useMemo(
-    () => [
-      {
-        queryKey: 'dcaBotDashboardStats',
-        variables: botDashboardQueryDefs.dca.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'gridBotDashboardStats',
-        variables: botDashboardQueryDefs.grid.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'comboBotDashboardStats',
-        variables: botDashboardQueryDefs.combo.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'hedgeBotDashboardStats',
-        variables: botDashboardQueryDefs.hedge.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'dcaDealDashboardStats',
-        variables: dealDashboardQueryDefs.dca.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'comboDealDashboardStats',
-        variables: dealDashboardQueryDefs.combo.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'hedgeDealDashboardStats',
-        variables: dealDashboardQueryDefs.hedge.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'terminalDealDashboardStats',
-        variables: dealDashboardQueryDefs.terminal.variables as Record<
-          string,
-          unknown
-        >,
-      },
-      {
-        queryKey: 'dcaProfitData',
-        variables: profitQueryDefs.dca.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'gridProfitData',
-        variables: profitQueryDefs.grid.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'comboProfitData',
-        variables: profitQueryDefs.combo.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'hedgeComboProfitData',
-        variables: profitQueryDefs.hedge.variables as Record<string, unknown>,
-      },
-      {
-        queryKey: 'terminalProfitData',
-        variables: profitQueryDefs.terminal.variables as Record<
-          string,
-          unknown
-        >,
-      },
-    ],
-    [botDashboardQueryDefs, dealDashboardQueryDefs, profitQueryDefs]
-  );
-
-  // GraphQL data queries - Using dashboard stats instead of bot lists
-  // Bot stats queries (bot dashboard stats don't support terminal parameter)
-  const { data: dcaBotStats, isLoading: dcaBotLoading } =
-    useGraphQL<BotDashboardStatsApiResponse>(
-      'dcaBotDashboardStats',
-      botDashboardQueryDefs.dca
-    );
-
-  const { data: gridBotStats, isLoading: gridBotLoading } =
-    useGraphQL<BotDashboardStatsApiResponse>(
-      'gridBotDashboardStats',
-      botDashboardQueryDefs.grid
-    );
-
-  const { data: comboBotStats, isLoading: comboBotLoading } =
-    useGraphQL<BotDashboardStatsApiResponse>(
-      'comboBotDashboardStats',
-      botDashboardQueryDefs.combo
-    );
-
-  const { data: hedgeBotStats, isLoading: hedgeBotLoading } =
-    useGraphQL<BotDashboardStatsApiResponse>(
-      'hedgeBotDashboardStats',
-      botDashboardQueryDefs.hedge
-    );
-
-  // Deal stats queries (exclude terminal deals with terminal: false)
-  const { data: dcaDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'dcaDealDashboardStats',
-    dealDashboardQueryDefs.dca
-  );
-
-  const { data: comboDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'comboDealDashboardStats',
-    dealDashboardQueryDefs.combo
-  );
-
-  const { data: hedgeDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'hedgeDealDashboardStats',
-    dealDashboardQueryDefs.hedge
-  );
-
-  // Terminal deal stats query (only terminal deals)
-  const { data: terminalDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'terminalDealDashboardStats',
-    dealDashboardQueryDefs.terminal
-  );
-
-  // Profit queries (timeframe: 3 = all time)
-  const { data: dcaProfitData } = useGraphQL<ProfitApiResponse>(
-    'dcaProfitData',
-    profitQueryDefs.dca
-  );
-
-  const { data: gridProfitData } = useGraphQL<ProfitApiResponse>(
-    'gridProfitData',
-    profitQueryDefs.grid
-  );
-
-  const { data: comboProfitData } = useGraphQL<ProfitApiResponse>(
-    'comboProfitData',
-    profitQueryDefs.combo
-  );
-
-  const { data: hedgeComboProfitData } = useGraphQL<ProfitApiResponse>(
-    'hedgeComboProfitData',
-    profitQueryDefs.hedge
-  );
-
-  const { data: terminalProfitData } = useGraphQL<ProfitApiResponse>(
-    'terminalProfitData',
-    profitQueryDefs.terminal
-  );
+  // Bot status counts, deal stats and all-time profit for every bot type in
+  // ONE request (shared with the balance card) instead of 13.
+  const legacyStats = useLegacyDashboardStats();
+  const cacheQueries = useMemo(() => [LEGACY_STATS_CACHE_QUERY], []);
+  const stats = legacyStats.data;
+  type BotRes = ReturnResult<BotDashboardStatsApiResponse> | undefined;
+  type DealRes = ReturnResult<DealDashboardStatsApiResponse> | undefined;
+  type ProfitRes = ReturnResult<ProfitApiResponse> | undefined;
+  const dcaBotStats = stats?.botDca as BotRes;
+  const gridBotStats = stats?.botGrid as BotRes;
+  const comboBotStats = stats?.botCombo as BotRes;
+  const hedgeBotStats = stats?.botHedge as BotRes;
+  const dcaDealStats = stats?.dealDca as DealRes;
+  const comboDealStats = stats?.dealCombo as DealRes;
+  const hedgeDealStats = stats?.dealHedge as DealRes;
+  const terminalDealStats = stats?.dealTerminal as DealRes;
+  const dcaProfitData = stats?.profitDca as ProfitRes;
+  const gridProfitData = stats?.profitGrid as ProfitRes;
+  const comboProfitData = stats?.profitCombo as ProfitRes;
+  const hedgeComboProfitData = stats?.profitHedge as ProfitRes;
+  const terminalProfitData = stats?.profitTerminal as ProfitRes;
+  const statsLoading = legacyStats.isLoading;
 
   // Data processing functions
   const calculateBotStats = useMemo(() => {
@@ -694,7 +477,7 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   const anyBotDataLoaded =
     !!dcaBotStats || !!gridBotStats || !!comboBotStats || !!hedgeBotStats;
   const anyBotLoading =
-    dcaBotLoading || gridBotLoading || comboBotLoading || hedgeBotLoading;
+    statsLoading;
   const showSkeleton = !anyBotDataLoaded && anyBotLoading;
 
   const SkeletonStatTile = () => (

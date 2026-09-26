@@ -6,16 +6,16 @@ import {
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useLegacyDashboardStats } from '@/hooks/useDashboardStatsBatch';
 import {
   usePositionTotals,
   type PositionTotalsScope,
 } from '@/hooks/usePositionTotals';
 import { NotCalculated } from '@/components/ui/large-account';
-import { GraphQlQuery } from '@/lib/api';
+import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import {
-  BotTypesEnum,
   StatusEnum,
   type PortfolioQuery,
   type ProfitQuery,
@@ -136,100 +136,24 @@ export const HeroBalance: React.FC = () => {
   // they were all dollars, with grid bots counted at their budget.
   const positionTotals = usePositionTotals(POSITION_TOTALS_SCOPES);
 
-  // Match BotStatus's authoritative queries exactly (same cache keys + variables)
-  // so uPnL and Total Profit numbers agree across widgets.
-  const dealStatsQueries = useMemo(
-    () => ({
-      dca: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.dca,
-        terminal: false,
-      }),
-      // NOTE: no `grid` deal-stats query. Grid bots have no DCA-style deals,
-      // and the backend's dealDashboardStats resolver returns the *DCA*
-      // dataset for `type: grid`, so summing it double-counts every DCA deal
-      // (normal/inProfit + unrealizedProfit). The legacy dashboard (main-dash)
-      // never queries dealDashboardStats for grid — it only pulls grid bot
-      // counts + realized profit. Mirror that here. See gridAllProfit below
-      // for grid's (legitimate) realized profit contribution.
-      combo: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.combo,
-        terminal: false,
-      }),
-      hedge: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.hedgeCombo,
-        terminal: false,
-      }),
-      terminal: GraphQlQuery.dealDashboardStats({
-        type: BotTypesEnum.dca,
-        terminal: true,
-      }),
-    }),
-    []
-  );
-
-  const allTimeProfitQueries = useMemo(
-    () => ({
-      dca: GraphQlQuery.getProfitByUser(
-        { timeframe: 3, botType: BotTypesEnum.dca, terminal: false },
-        'quote'
-      ),
-      grid: GraphQlQuery.getProfitByUser(
-        { timeframe: 3, botType: BotTypesEnum.grid },
-        'quote'
-      ),
-      combo: GraphQlQuery.getProfitByUser(
-        { timeframe: 3, botType: BotTypesEnum.combo },
-        'quote'
-      ),
-      hedge: GraphQlQuery.getProfitByUser(
-        { timeframe: 3, botType: BotTypesEnum.hedgeCombo },
-        'quote'
-      ),
-      terminal: GraphQlQuery.getProfitByUser(
-        { timeframe: 3, botType: BotTypesEnum.dca, terminal: true },
-        'quote'
-      ),
-    }),
-    []
-  );
-
-  const { data: dcaDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'dcaDealDashboardStats',
-    dealStatsQueries.dca
-  );
-  const { data: comboDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'comboDealDashboardStats',
-    dealStatsQueries.combo
-  );
-  const { data: hedgeDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'hedgeDealDashboardStats',
-    dealStatsQueries.hedge
-  );
-  const { data: terminalDealStats } = useGraphQL<DealDashboardStatsApiResponse>(
-    'terminalDealDashboardStats',
-    dealStatsQueries.terminal
-  );
-
-  const { data: dcaAllProfit } = useGraphQL<ProfitApiResponse>(
-    'dcaProfitData',
-    allTimeProfitQueries.dca
-  );
-  const { data: gridAllProfit } = useGraphQL<ProfitApiResponse>(
-    'gridProfitData',
-    allTimeProfitQueries.grid
-  );
-  const { data: comboAllProfit } = useGraphQL<ProfitApiResponse>(
-    'comboProfitData',
-    allTimeProfitQueries.combo
-  );
-  const { data: hedgeAllProfit } = useGraphQL<ProfitApiResponse>(
-    'hedgeComboProfitData',
-    allTimeProfitQueries.hedge
-  );
-  const { data: terminalAllProfit } = useGraphQL<ProfitApiResponse>(
-    'terminalProfitData',
-    allTimeProfitQueries.terminal
-  );
+  // Deal stats and all-time profit per bot type: the same single batched
+  // request (and cache entry) the Status widget and usePositionTotals use.
+  const legacyStats = useLegacyDashboardStats();
+  const dcaDealStats = legacyStats.data?.dealDca as
+    | ReturnResult<DealDashboardStatsApiResponse>
+    | undefined;
+  const comboDealStats = legacyStats.data?.dealCombo as typeof dcaDealStats;
+  const hedgeDealStats = legacyStats.data?.dealHedge as typeof dcaDealStats;
+  const terminalDealStats = legacyStats.data
+    ?.dealTerminal as typeof dcaDealStats;
+  const dcaAllProfit = legacyStats.data?.profitDca as
+    | ReturnResult<ProfitApiResponse>
+    | undefined;
+  const gridAllProfit = legacyStats.data?.profitGrid as typeof dcaAllProfit;
+  const comboAllProfit = legacyStats.data?.profitCombo as typeof dcaAllProfit;
+  const hedgeAllProfit = legacyStats.data?.profitHedge as typeof dcaAllProfit;
+  const terminalAllProfit = legacyStats.data
+    ?.profitTerminal as typeof dcaAllProfit;
 
   const {
     totalValue,

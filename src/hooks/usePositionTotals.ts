@@ -1,7 +1,13 @@
 import { useMemo } from 'react';
-import { GraphQlQuery } from '@/lib/api';
-import { BotTypesEnum, StatusEnum } from '@/types';
-import { useGraphQL } from './useGraphQL';
+import { StatusEnum } from '@/types';
+import {
+  IN_POSITIONS_FIELD,
+  useInPositionsBatch,
+  useLegacyDashboardStats,
+  useNetUnrealizedBatch,
+  type LegacyStatsAlias,
+  type PositionScope,
+} from './useDashboardStatsBatch';
 
 /**
  * Server-side totals for the "In positions" and "Unrealized P&L" headline
@@ -9,79 +15,29 @@ import { useGraphQL } from './useGraphQL';
  * the dashboard used to add up `usage.current.quote` over a (truncated) bot
  * list — mixing USDT, BTC and USD amounts as if they were all dollars — and
  * the sidebar re-priced every open deal in the browser.
+ *
+ * Three requests in total, each shared by every consumer (balance card,
+ * Status widget, sidebar panels): the legacy stats batch, the In-positions
+ * batch and the fee-inclusive uPnL batch (see useDashboardStatsBatch).
  */
-export type PositionTotalsScope =
-  | 'dca'
-  | 'terminal'
-  | 'combo'
-  | 'grid'
-  | 'hedgeDca'
-  | 'hedgeCombo';
+export type PositionTotalsScope = PositionScope;
 
-/** Name of the server field; one constant so a rename is a one-line change. */
-export const IN_POSITIONS_FIELD = 'inPositionsUsd';
+export { IN_POSITIONS_FIELD };
 
-const SCOPE_INPUT: Record<
-  PositionTotalsScope,
-  { type: BotTypesEnum; terminal?: boolean }
-> = {
-  dca: { type: BotTypesEnum.dca, terminal: false },
-  terminal: { type: BotTypesEnum.dca, terminal: true },
-  combo: { type: BotTypesEnum.combo, terminal: false },
-  grid: { type: BotTypesEnum.grid },
-  hedgeDca: { type: BotTypesEnum.hedgeDca, terminal: false },
-  hedgeCombo: { type: BotTypesEnum.hedgeCombo, terminal: false },
-};
-
-/** Cache keys shared with BotStatus / HeroBalance for the legacy uPnL rows. */
-const DEAL_STATS_KEY: Partial<Record<PositionTotalsScope, string>> = {
-  dca: 'dcaDealDashboardStats',
-  terminal: 'terminalDealDashboardStats',
-  combo: 'comboDealDashboardStats',
-  hedgeCombo: 'hedgeDealDashboardStats',
-  hedgeDca: 'hedgeDcaDealDashboardStats',
-};
-
-const inPositionsQuery = (scope: PositionTotalsScope) => {
-  const input = SCOPE_INPUT[scope];
-  return {
-    // Its OWN document: an older backend rejects the new fields, and a
-    // validation error fails the whole query it is in.
-    query: `query botDashboardStatsInPositions($input: botDashboardStatsInput!) {
-  botDashboardStats(input: $input) {
-    status
-    reason
-    data {
-      ${IN_POSITIONS_FIELD}
-      inPositionsCount
-      inPositionsUnpriced
-    }
-  }
-}`,
-    variables: { input },
+/** Which alias of the legacy batch carries a scope's deal stats. */
+const LEGACY_DEAL_ALIAS: Partial<Record<PositionTotalsScope, LegacyStatsAlias>> =
+  {
+    dca: 'dealDca',
+    terminal: 'dealTerminal',
+    combo: 'dealCombo',
+    hedgeCombo: 'dealHedge',
   };
-};
 
-const netUnrealizedQuery = (scope: PositionTotalsScope) => ({
-  query: `query dealDashboardStatsNet($input: dealDashboardStatsInput!) {
-  dealDashboardStats(input: $input) {
-    status
-    reason
-    data {
-      result {
-        unrealizedProfitNet
-      }
-    }
-  }
-}`,
-  variables: { input: SCOPE_INPUT[scope] },
-});
-
-type InPositionsResponse = Record<string, number | null | undefined> & {
+type InPositionsData = Record<string, number | null | undefined> & {
   inPositionsCount?: number | null;
   inPositionsUnpriced?: number | null;
 };
-type DealStatsResponse = {
+type DealStatsData = {
   result?: Array<{
     unrealizedProfit?: number | null;
     unrealizedProfitNet?: number | null;
@@ -105,209 +61,93 @@ export interface PositionTotals {
   openDeals: number;
 }
 
-const QUERY_OPTS = { staleTime: 30_000, retry: 1 } as const;
-
-/**
- * Does this backend have the new fields? Probed ONCE per session with the DCA
- * query (cached forever): once an older backend has answered with a
- * validation error, later mounts (sidebar panels, other pages) skip the
- * new-field queries entirely. The scope queries do NOT wait for the probe on
- * the first load — they fire in parallel with it.
- */
-function useFieldSupport() {
-  const probeOpts = { staleTime: Infinity, gcTime: Infinity, retry: false };
-  const inPos = useGraphQL<InPositionsResponse>(
-    'inPositions:dca',
-    inPositionsQuery('dca'),
-    probeOpts
-  );
-  const net = useGraphQL<DealStatsResponse>(
-    'dcaDealDashboardStats:net',
-    netUnrealizedQuery('dca'),
-    probeOpts
-  );
-  return {
-    inPositions: inPos.isError ? false : inPos.data ? true : undefined,
-    net: net.isError ? false : net.data ? true : undefined,
-  };
-}
-
-function useScopeTotals(
-  scope: PositionTotalsScope,
-  wantPositions: boolean,
-  wantPnl: boolean,
-  support: { inPositions?: boolean; net?: boolean }
-) {
-  const inPos = useGraphQL<InPositionsResponse>(
-    `inPositions:${scope}`,
-    inPositionsQuery(scope),
-    {
-      ...QUERY_OPTS,
-      retry: false,
-      // Optimistic (render, then enhance): every scope fires at once instead
-      // of waiting for the dca probe's answer — that wait put a second
-      // sequential round-trip on the cold-load critical path. On a backend
-      // without the field each query fails fast (retry: false) and the total
-      // resolves to "not calculated", exactly as after a failed probe.
-      enabled: wantPositions && support.inPositions !== false,
-    }
-  );
-  const enabled = wantPnl;
-  const hasDealStats = scope !== 'grid' && wantPnl;
-  const dealStatsKey = DEAL_STATS_KEY[scope] ?? `${scope}DealDashboardStats`;
-  const legacy = useGraphQL<DealStatsResponse>(
-    dealStatsKey,
-    GraphQlQuery.dealDashboardStats(SCOPE_INPUT[scope]),
-    { ...QUERY_OPTS, enabled: enabled && hasDealStats }
-  );
-  const net = useGraphQL<DealStatsResponse>(
-    `${dealStatsKey}:net`,
-    netUnrealizedQuery(scope),
-    {
-      ...QUERY_OPTS,
-      retry: false,
-      // Optimistic, as above; a failure falls back to the legacy sum.
-      enabled: enabled && hasDealStats && support.net !== false,
-    }
-  );
-  return { inPos, legacy, net, hasDealStats, wantPositions, support };
-}
+const okData = <T,>(res: unknown): T | undefined => {
+  const r = res as { status?: string; data?: T } | undefined;
+  return r?.status === StatusEnum.ok ? r.data : undefined;
+};
 
 /**
  * Sum the given scopes: `positions` for "In positions", `pnl` for the
- * unrealized P&L. Hooks are called for EVERY scope (stable order) and disabled
- * for the ones not requested, so the call order never changes.
+ * unrealized P&L.
  */
 export function usePositionTotals(scopes: {
   positions: readonly PositionTotalsScope[];
   pnl: readonly PositionTotalsScope[];
 }): PositionTotals {
-  const p = (s: PositionTotalsScope) => scopes.positions.includes(s);
-  const u = (s: PositionTotalsScope) => scopes.pnl.includes(s);
-  const support = useFieldSupport();
-  const dca = useScopeTotals('dca', p('dca'), u('dca'), support);
-  const terminal = useScopeTotals(
-    'terminal',
-    p('terminal'),
-    u('terminal'),
-    support
-  );
-  const combo = useScopeTotals('combo', p('combo'), u('combo'), support);
-  const grid = useScopeTotals('grid', p('grid'), u('grid'), support);
-  const hedgeDca = useScopeTotals(
-    'hedgeDca',
-    p('hedgeDca'),
-    u('hedgeDca'),
-    support
-  );
-  const hedgeCombo = useScopeTotals(
-    'hedgeCombo',
-    p('hedgeCombo'),
-    u('hedgeCombo'),
-    support
-  );
+  const wantPositions = scopes.positions.length > 0;
+  const wantPnl = scopes.pnl.length > 0;
+  const inPos = useInPositionsBatch(wantPositions);
+  const net = useNetUnrealizedBatch(wantPnl);
+  const legacy = useLegacyDashboardStats();
 
-  const all = { dca, terminal, combo, grid, hedgeDca, hedgeCombo };
-  const scopesKey = Array.from(
-    new Set([...scopes.positions, ...scopes.pnl])
-  ).join(',');
+  const positionsKey = scopes.positions.join(',');
+  const pnlKey = scopes.pnl.join(',');
 
   return useMemo(() => {
+    // In positions — all or nothing: a partial sum is never shown.
     let inPositionsUsd: number | null | undefined = 0;
     let inPositionsUnpriced = 0;
     let inPositionsCount = 0;
-    let unrealizedUsd: number | undefined = 0;
-    let allNet = true;
-    let openDeals = 0;
-
-    for (const scope of scopesKey.split(',') as PositionTotalsScope[]) {
-      const t = all[scope];
-      if (!t) continue;
-
-      // In positions
-      if (t.wantPositions && t.support.inPositions === false) {
-        inPositionsUsd = null;
-      } else if (t.wantPositions && inPositionsUsd !== null) {
-        const res = t.inPos.data;
-        const value =
-          res?.status === StatusEnum.ok
-            ? (res.data as InPositionsResponse | undefined)?.[
-                IN_POSITIONS_FIELD
-              ]
-            : undefined;
-        if (t.inPos.isError || (res && typeof value !== 'number')) {
-          // Unknown field (older backend) or not computed: not calculated.
+    if (!wantPositions) {
+      inPositionsUsd = 0;
+    } else if (inPos.unsupported) {
+      inPositionsUsd = null;
+    } else if (!inPos.data) {
+      inPositionsUsd = undefined;
+    } else {
+      for (const scope of positionsKey.split(',') as PositionTotalsScope[]) {
+        const d = okData<InPositionsData>(inPos.data[scope]);
+        const value = d?.[IN_POSITIONS_FIELD];
+        if (typeof value !== 'number') {
           inPositionsUsd = null;
-        } else if (!res) {
-          if (inPositionsUsd !== undefined) inPositionsUsd = undefined;
-        } else if (inPositionsUsd !== undefined) {
-          inPositionsUsd += value as number;
-          const d = res.data as InPositionsResponse;
-          inPositionsUnpriced += d.inPositionsUnpriced ?? 0;
-          inPositionsCount += d.inPositionsCount ?? 0;
+          break;
         }
+        inPositionsUsd += value;
+        inPositionsUnpriced += d?.inPositionsUnpriced ?? 0;
+        inPositionsCount += d?.inPositionsCount ?? 0;
       }
+    }
 
-      if (!t.hasDealStats) continue;
-      // Unrealized P&L: fee-inclusive server sum when available.
-      const netRow =
-        t.net.data?.status === StatusEnum.ok
-          ? t.net.data.data?.result?.[0]
-          : undefined;
-      const legacyRow =
-        t.legacy.data?.status === StatusEnum.ok
-          ? t.legacy.data.data?.result?.[0]
-          : undefined;
+    // Unrealized P&L: the fee-inclusive server sum when every scope has it,
+    // else the legacy server sum.
+    let unrealizedUsd: number | undefined = 0;
+    let netSum = 0;
+    let allNet = wantPnl && !net.unsupported && !!net.data;
+    let openDeals = 0;
+    for (const scope of (pnlKey ? pnlKey.split(',') : []) as PositionTotalsScope[]) {
+      const alias = LEGACY_DEAL_ALIAS[scope];
+      const legacyRow = alias
+        ? okData<DealStatsData>(legacy.data?.[alias])?.result?.[0]
+        : undefined;
       openDeals += legacyRow?.normal ?? 0;
-      const netValue = netRow?.unrealizedProfitNet;
-      if (typeof netValue === 'number') {
-        if (unrealizedUsd !== undefined) unrealizedUsd += netValue;
-      } else {
-        allNet = false;
-        if (legacyRow) {
-          if (unrealizedUsd !== undefined)
-            unrealizedUsd += legacyRow.unrealizedProfit ?? 0;
-        } else if (t.legacy.isLoading) {
-          unrealizedUsd = undefined;
-        }
-      }
+      if (!legacy.data) unrealizedUsd = undefined;
+      else if (unrealizedUsd !== undefined)
+        unrealizedUsd += legacyRow?.unrealizedProfit ?? 0;
+      const netValue = net.data
+        ? okData<DealStatsData>(net.data[scope])?.result?.[0]
+            ?.unrealizedProfitNet
+        : undefined;
+      if (typeof netValue === 'number') netSum += netValue;
+      else allNet = false;
     }
 
     return {
       inPositionsUsd,
       inPositionsUnpriced,
       inPositionsCount,
-      unrealizedUsd,
+      unrealizedUsd: allNet ? netSum : unrealizedUsd,
       unrealizedIsNet: allNet,
       openDeals,
     };
-    // `all` is rebuilt every render; its members' data are the real inputs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
-    scopesKey,
-    dca.inPos.data,
-    dca.inPos.isError,
-    dca.legacy.data,
-    dca.net.data,
-    terminal.inPos.data,
-    terminal.inPos.isError,
-    terminal.legacy.data,
-    terminal.net.data,
-    combo.inPos.data,
-    combo.inPos.isError,
-    combo.legacy.data,
-    combo.net.data,
-    grid.inPos.data,
-    grid.inPos.isError,
-    hedgeDca.inPos.data,
-    hedgeDca.inPos.isError,
-    hedgeDca.legacy.data,
-    hedgeDca.net.data,
-    hedgeCombo.inPos.data,
-    hedgeCombo.inPos.isError,
-    hedgeCombo.legacy.data,
-    hedgeCombo.net.data,
-    support.inPositions,
-    support.net,
+    wantPositions,
+    wantPnl,
+    positionsKey,
+    pnlKey,
+    inPos.unsupported,
+    inPos.data,
+    net.unsupported,
+    net.data,
+    legacy.data,
   ]);
 }
