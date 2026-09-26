@@ -65,7 +65,7 @@ import {
   reconcileLayout,
   type NavLayoutSection,
 } from './navigationLayout';
-import * as LucideIcons from 'lucide-react';
+import { DynamicLucideIcon } from '../ui/DynamicLucideIcon';
 
 interface NavigationSidebarProps {
   activePage: string;
@@ -748,16 +748,9 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
 
   const customItemById = new Map<string, NavigationItem>();
   for (const custom of customNavItems) {
-    const CustomIcon =
-      (
-        LucideIcons as unknown as Record<
-          string,
-          React.ComponentType<{ className?: string }>
-        >
-      )[custom.icon] || LucideIcons.Home;
     customItemById.set(custom.id, {
       id: custom.id,
-      icon: <CustomIcon className="w-4 h-4" />,
+      icon: <DynamicLucideIcon name={custom.icon} className="w-4 h-4" />,
       label: custom.name,
       href: custom.url,
       shortcut: custom.shortcut,

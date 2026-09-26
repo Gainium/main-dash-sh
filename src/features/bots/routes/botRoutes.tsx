@@ -2,31 +2,57 @@ import type { ComponentType, ReactElement } from 'react';
 import { Route } from 'react-router-dom';
 import ProtectedRoute from '../../../components/auth/ProtectedRoute';
 import { BotViewRedirect } from '../../../components/routing/BotViewRedirect';
-import TradingBots from '../../../pages/TradingBots';
-import TradingBotNew from '../../../pages/bots/TradingBotNew';
-import TradingBotEdit from '../../../pages/bots/TradingBotEdit';
-import ComboBots from '../../../pages/ComboBots';
-import ComboBotNew from '../../../pages/bots/ComboBotNew';
-import ComboBotEdit from '../../../pages/bots/ComboBotEdit';
-import GridBots from '../../../pages/GridBots';
-import GridBotNew from '../../../pages/bots/GridBotNew';
-import GridBotEdit from '../../../pages/bots/GridBotEdit';
-import HedgeDcaBots from '../../../pages/hedge-bots/HedgeDcaBots';
-import HedgeDcaBotNew from '../../../pages/hedge-bots/HedgeDcaBotNew';
-import HedgeDcaBotEdit from '../../../pages/hedge-bots/HedgeDcaBotEdit';
-import HedgeComboBots from '../../../pages/hedge-bots/HedgeComboBots';
-import HedgeComboBotNew from '../../../pages/hedge-bots/HedgeComboBotNew';
-import HedgeComboBotEdit from '../../../pages/hedge-bots/HedgeComboBotEdit';
-import {
-  ComboBotBacktests,
-  GridBotBacktests,
-  TradingBotBacktests,
-  BacktestsRoute,
-} from '../../../pages/bots/BotBacktests';
-import {
-  HedgeComboBotBacktests,
-  HedgeDcaBotBacktests,
-} from '../../../pages/hedge-bots/HedgeBotBacktests';
+import { lazyNamed, lazyPage, PageSuspense } from '../../../lib/lazyPage';
+
+// Pages are route-level lazy chunks (see lib/lazyPage).
+const TradingBots = lazyPage(() => import('../../../pages/TradingBots'), {
+  prefetch: true,
+});
+const TradingBotNew = lazyPage(
+  () => import('../../../pages/bots/TradingBotNew')
+);
+const TradingBotEdit = lazyPage(
+  () => import('../../../pages/bots/TradingBotEdit')
+);
+const ComboBots = lazyPage(() => import('../../../pages/ComboBots'));
+const ComboBotNew = lazyPage(() => import('../../../pages/bots/ComboBotNew'));
+const ComboBotEdit = lazyPage(() => import('../../../pages/bots/ComboBotEdit'));
+const GridBots = lazyPage(() => import('../../../pages/GridBots'));
+const GridBotNew = lazyPage(() => import('../../../pages/bots/GridBotNew'));
+const GridBotEdit = lazyPage(() => import('../../../pages/bots/GridBotEdit'));
+const HedgeDcaBots = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeDcaBots')
+);
+const HedgeDcaBotNew = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeDcaBotNew')
+);
+const HedgeDcaBotEdit = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeDcaBotEdit')
+);
+const HedgeComboBots = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeComboBots')
+);
+const HedgeComboBotNew = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeComboBotNew')
+);
+const HedgeComboBotEdit = lazyPage(
+  () => import('../../../pages/hedge-bots/HedgeComboBotEdit')
+);
+const loadBotBacktests = () => import('../../../pages/bots/BotBacktests');
+const TradingBotBacktests = lazyNamed(loadBotBacktests, 'TradingBotBacktests');
+const ComboBotBacktests = lazyNamed(loadBotBacktests, 'ComboBotBacktests');
+const GridBotBacktests = lazyNamed(loadBotBacktests, 'GridBotBacktests');
+const BacktestsRoute = lazyNamed(loadBotBacktests, 'BacktestsRoute');
+const loadHedgeBacktests = () =>
+  import('../../../pages/hedge-bots/HedgeBotBacktests');
+const HedgeDcaBotBacktests = lazyNamed(
+  loadHedgeBacktests,
+  'HedgeDcaBotBacktests'
+);
+const HedgeComboBotBacktests = lazyNamed(
+  loadHedgeBacktests,
+  'HedgeComboBotBacktests'
+);
 
 /**
  * Descriptor for one bot type's route family. The common per-type route
@@ -86,14 +112,14 @@ export const BOT_ROUTE_SPECS: readonly BotRouteSpec[] = [
     newPage: HedgeDcaBotNew,
     editPage: HedgeDcaBotEdit,
     backtestsPage: HedgeDcaBotBacktests,
-      },
+  },
   {
     basePath: '/hedge/combo',
     listPage: HedgeComboBots,
     newPage: HedgeComboBotNew,
     editPage: HedgeComboBotEdit,
     backtestsPage: HedgeComboBotBacktests,
-      },
+  },
 ] as const;
 
 /**
@@ -106,14 +132,22 @@ export const BOT_ROUTE_SPECS: readonly BotRouteSpec[] = [
  * the EDIT page.
  */
 function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
-  const { basePath, listPage: List, newPage: New, editPage: Edit, backtestsPage } = spec;
+  const {
+    basePath,
+    listPage: List,
+    newPage: New,
+    editPage: Edit,
+    backtestsPage,
+  } = spec;
   const routes: ReactElement[] = [
     <Route
       key={basePath}
       path={basePath}
       element={
         <ProtectedRoute>
-          <List />
+          <PageSuspense>
+            <List />
+          </PageSuspense>
         </ProtectedRoute>
       }
     />,
@@ -122,7 +156,9 @@ function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
       path={`${basePath}/new`}
       element={
         <ProtectedRoute>
-          <New />
+          <PageSuspense>
+            <New />
+          </PageSuspense>
         </ProtectedRoute>
       }
     />,
@@ -131,7 +167,9 @@ function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
       path={`${basePath}/edit/:id`}
       element={
         <ProtectedRoute>
-          <Edit />
+          <PageSuspense>
+            <Edit />
+          </PageSuspense>
         </ProtectedRoute>
       }
     />,
@@ -140,7 +178,9 @@ function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
       path={`${basePath}/view/:id`}
       element={
         <ProtectedRoute>
-          <List />
+          <PageSuspense>
+            <List />
+          </PageSuspense>
         </ProtectedRoute>
       }
     />,
@@ -153,7 +193,9 @@ function botTypeRoutes(spec: BotRouteSpec): ReactElement[] {
         path={`${basePath}/backtests`}
         element={
           <ProtectedRoute>
-            <BacktestsRoute newPage={New} listPage={backtestsPage} />
+            <PageSuspense>
+              <BacktestsRoute newPage={New} listPage={backtestsPage} />
+            </PageSuspense>
           </ProtectedRoute>
         }
       />
