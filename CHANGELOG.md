@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.67.1] - 2026-09-26
+
+### Fixed
+
+- Time-based DCA/Combo bots: "Next deal" showed a day off from when the bot
+  actually runs for users away from UTC; it is now a date in the profile
+  timezone and matches the engine
+
 ## [2.67.0] - 2026-09-26
 
 ### Added

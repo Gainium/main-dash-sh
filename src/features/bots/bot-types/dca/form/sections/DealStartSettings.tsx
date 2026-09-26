@@ -225,6 +225,19 @@ const toLocalDateTimeInputValue = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+// Daily timers: the bot engine reads only the UTC calendar date of
+// hodlNextBuy and runs at hodlAt in the user's profile timezone. So the
+// date is stored at UTC noon and shown/edited as a plain date — reading it
+// as a browser-local instant shifts it by a day east/west of UTC.
+const nextBuyToDateValue = (value: number): string =>
+  new Date(value).toISOString().slice(0, 10);
+
+const dateValueToNextBuy = (value: string): number =>
+  Date.parse(`${value}T12:00:00Z`);
+
+const todayInTimezone = (timeZone: string): string =>
+  new Date().toLocaleDateString('en-CA', { timeZone });
+
 export const DealStartSettings: React.FC = () => {
   const { currentExchange } = useBotFormQuery();
   const { updateFormData } = useBotFormActions();
@@ -949,25 +962,15 @@ export const DealStartSettings: React.FC = () => {
       ? `${intro}.`
       : `${intro} at ${hodlAt} (${timezone} timezone).`;
 
-    let resolvedNext: Date | null = null;
-    if (hodlNextBuy) {
-      const parsed = new Date(hodlNextBuy);
-      if (!Number.isNaN(parsed.getTime())) {
-        if (isHourly) {
-          resolvedNext = parsed;
-        } else {
-          const combined = new Date(`${parsed.toDateString()} ${hodlAt}`);
-          if (!Number.isNaN(combined.getTime())) {
-            resolvedNext = combined;
-          }
-        }
-      }
+    let nextRun: string | null = null;
+    if (hodlNextBuy && !Number.isNaN(new Date(hodlNextBuy).getTime())) {
+      nextRun = isHourly
+        ? `${new Date(hodlNextBuy).toLocaleString()} (${timezone} timezone)`
+        : `${nextBuyToDateValue(hodlNextBuy)} ${hodlAt} (${timezone} timezone)`;
     }
 
-    const nextRunText = resolvedNext
-      ? `Next deal will start on ${resolvedNext.toLocaleString()}${
-          isHourly ? ` (${timezone} timezone)` : ''
-        }.`
+    const nextRunText = nextRun
+      ? `Next deal will start on ${nextRun}.`
       : 'Next deal timing will be determined after saving the bot.';
 
     return {
@@ -1099,25 +1102,46 @@ export const DealStartSettings: React.FC = () => {
 
                     <div className="space-y-xs">
                       <Label>Next deal</Label>
-                      <Input
-                        type="datetime-local"
-                        value={
-                          Number.isFinite(hodlNextBuy) && hodlNextBuy > 0
-                            ? toLocalDateTimeInputValue(new Date(hodlNextBuy))
-                            : ''
-                        }
-                        min={timerMinimumDateTime}
-                        onChange={(event) => {
-                          const raw = event.target.value;
-                          const parsed = raw ? new Date(raw).getTime() : NaN;
-                          updateFormData(
-                            'hodlNextBuy',
-                            Number.isFinite(parsed) ? parsed : NaN
-                          );
-                        }}
-                      />
+                      {hodlHourly ? (
+                        <Input
+                          type="datetime-local"
+                          value={
+                            Number.isFinite(hodlNextBuy) && hodlNextBuy > 0
+                              ? toLocalDateTimeInputValue(new Date(hodlNextBuy))
+                              : ''
+                          }
+                          min={timerMinimumDateTime}
+                          onChange={(event) => {
+                            const raw = event.target.value;
+                            const parsed = raw ? new Date(raw).getTime() : NaN;
+                            updateFormData(
+                              'hodlNextBuy',
+                              Number.isFinite(parsed) ? parsed : NaN
+                            );
+                          }}
+                        />
+                      ) : (
+                        <Input
+                          type="date"
+                          value={
+                            Number.isFinite(hodlNextBuy) && hodlNextBuy > 0
+                              ? nextBuyToDateValue(hodlNextBuy)
+                              : ''
+                          }
+                          min={todayInTimezone(timezone)}
+                          onChange={(event) => {
+                            const raw = event.target.value;
+                            updateFormData(
+                              'hodlNextBuy',
+                              raw ? dateValueToNextBuy(raw) : NaN
+                            );
+                          }}
+                        />
+                      )}
                       <p className="text-xs text-muted-foreground">
-                        Set the next execution window in your local timezone.
+                        {hodlHourly
+                          ? 'Set the next execution time in your local timezone.'
+                          : `Day of the next deal; it opens at ${hodlAt || 'the set time'} in your profile timezone (${timezone}).`}{' '}
                         Leave empty to let the system compute it automatically.
                       </p>
                       <div className="rounded-md bg-blue-500/10 p-sm">
