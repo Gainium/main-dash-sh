@@ -137,7 +137,7 @@ const Login: React.FC = () => {
     try {
       setLoading(true);
       const response: LoginResponse = await RealAuthService.loginWithPassword(
-        email,
+        email.trim(),
         password
       );
       login(response.accessToken, response.user);
@@ -611,7 +611,7 @@ const Login: React.FC = () => {
                     type="email"
                     placeholder="Email"
                     value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    onChange={(e) => setEmail(e.target.value.toLowerCase())}
                     className="h-12"
                     required
                   />
