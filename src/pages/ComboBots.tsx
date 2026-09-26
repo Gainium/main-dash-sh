@@ -1561,7 +1561,11 @@ const ComboBots: React.FC = () => {
   // backend defaults to open-only and the Closed view is always empty.
   const [dealsStatus, setDealsStatus] = useState<'open' | 'closed'>('open');
 
-  const { deals: comboDealsForTab } = useComboDeals({
+  const {
+    deals: comboDealsForTab,
+    total: comboDealsTotal,
+    isPartial: comboDealsPartial,
+  } = useComboDeals({
     status:
       dealsStatus === 'closed'
         ? DCADealStatusEnum.closed
@@ -2043,6 +2047,14 @@ const ComboBots: React.FC = () => {
                   <OpenOrdersWidget
                     widgetId="combo-bot-deals"
                     data={{ trades: comboDealsAsOpenTrades }}
+                    partial={
+                      comboDealsPartial
+                        ? {
+                            shown: comboDealsForTab.length,
+                            total: comboDealsTotal,
+                          }
+                        : null
+                    }
                     enableStatusToggle={true}
                     onStatusFilterChange={setDealsStatus}
                     privacyMode={privacyMode}

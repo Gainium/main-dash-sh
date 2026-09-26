@@ -1,4 +1,8 @@
 // Types for real DCA Bot data from GraphQL API
+import {
+  computeDealUnrealizedPnl,
+  type DealPnlInput,
+} from '../lib/utils/dealUnrealizedPnl';
 import { logger } from '@/lib/loggerInstance';
 /* import { calculateBotValue } from '../utils/botValueCalculation'; */
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
@@ -547,57 +551,32 @@ export function transformDcaBotToBot(
         unPnl = 0;
         res.dealsStatsForBot.map((d) => {
           const price = findRates[d.symbol]?.price;
-          const profitBase =
-            (res.settings.futures && res.settings.coinm) ||
-            (!res.settings.futures && res.settings.profitCurrency === 'base');
-          const qty = long
-            ? (d.currentBalances?.base ?? 0)
-            : (d.initialBalances?.base ?? 0) - (d.currentBalances?.base ?? 0);
-          let quote =
-            (long
-              ? (d.initialBalances?.quote ?? 0) -
-                (d.currentBalances?.quote ?? 0)
-              : (d.currentBalances?.quote ?? 0)) +
-            (profitBase ? 0 : d.profit.total * (long ? 1 : -1));
-          const quoteTp = qty * price;
-          let base =
-            quote / price + (profitBase ? d.profit.total * (long ? 1 : -1) : 0);
-          let commission = res.settings.futures
-            ? res.settings.coinm
-              ? qty * fee
-              : qty * price * fee
-            : profitBase
-              ? qty * fee
-              : qty * price * fee;
-          let total =
-            d.profit.total +
-            (profitBase ? qty - base : quoteTp - quote) * (long ? 1 : -1) -
-            commission;
-          if (
-            typeof d.profit.pureBase !== 'undefined' &&
-            typeof d.profit.pureQuote !== 'undefined' &&
-            typeof d.feePaid !== 'undefined' &&
-            `${d.feePaid}` !== 'null' &&
-            `${d.profit.pureBase}` !== 'null' &&
-            `${d.profit.pureQuote}` !== 'null' &&
-            d.currentBalances.quote >= 0 &&
-            d.currentBalances.base >= 0
-          ) {
-            quote = long
-              ? d.initialBalances.quote - d.currentBalances.quote
-              : d.currentBalances.quote;
-            base = quote / price;
-            commission = profitBase
-              ? d.feePaid
-                ? (d.feePaid.base ?? 0) + (d.feePaid.quote ?? 0) / d.avgPrice
-                : 0
-              : d.feePaid
-                ? (d.feePaid.base ?? 0) * d.avgPrice + (d.feePaid.quote ?? 0)
-                : 0;
-            total =
-              (profitBase ? qty - base : quoteTp - quote) * (long ? 1 : -1) -
-              commission;
-          }
+          // The canonical fee-inclusive combo leg (computeDealUnrealizedPnl
+          // §4) — the same formula every deal table and the server use, so the
+          // bot row agrees with the sum of its deals.
+          const leg = computeDealUnrealizedPnl(
+            {
+              status: 'open',
+              strategy: long ? 'LONG' : 'SHORT',
+              exchange: res.exchange,
+              symbol: { symbol: d.symbol },
+              avgPrice: d.avgPrice,
+              currentBalances: d.currentBalances,
+              initialBalances: d.initialBalances,
+              usage: d.usage,
+              settings: {
+                futures: res.settings.futures,
+                coinm: res.settings.coinm,
+                comboTpBase: d.comboTpBase,
+                profitCurrency: res.settings.profitCurrency,
+              },
+              profit: d.profit,
+              feePaid:
+                d.feePaid && `${d.feePaid}` !== 'null' ? d.feePaid : undefined,
+            } as DealPnlInput,
+            { price, usdRate: usdRatesQuote[d.symbol], fee },
+            { combo: true }
+          );
           const comboBasedOn =
             !d.comboTpBase || d.comboTpBase === ComboTpBase.full
               ? ComboTpBase.full
@@ -618,9 +597,7 @@ export function transformDcaBotToBot(
               : long
                 ? usageQuote
                 : usageBase) * usdRate;
-          unPnl +=
-            total *
-            (profitBase ? usdRatesBase[d.symbol] : usdRatesQuote[d.symbol]);
+          unPnl += leg?.unrealizedUsd ?? 0;
         });
       }
       let usage = combo ? comboDealCurrentValues || maxValue : currentValues;

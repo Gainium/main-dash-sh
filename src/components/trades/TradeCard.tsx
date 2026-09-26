@@ -1835,15 +1835,17 @@ const SimpleCard = React.memo(
       () =>
         privacyMode
           ? '***'
-          : `${formatNumber(trade.profit?.totalUsd || 0, true)} ${symbolAssets.quoteAsset}`,
-      [privacyMode, trade.profit, symbolAssets.quoteAsset]
+          : // `profit.totalUsd` is in US dollars whatever the quote asset.
+            `${formatNumber(trade.profit?.totalUsd || 0, true)} USD`,
+      [privacyMode, trade.profit]
     );
     const unrealizedProfitDisplay = useMemo(
       () =>
         privacyMode
           ? '***'
-          : `${formatNumber(trade.unrealizedProfit || 0, true)} ${symbolAssets.quoteAsset}`,
-      [privacyMode, trade.unrealizedProfit, symbolAssets.quoteAsset]
+          : // The canonical fee-inclusive uPnL is in US dollars.
+            `${formatNumber(trade.unrealizedProfit || 0, true)} USD`,
+      [privacyMode, trade.unrealizedProfit]
     );
     const fundingDisplay = useMemo(
       () =>
@@ -2090,21 +2092,30 @@ export const TradeCard: React.FC<TradeCardProps> = React.memo((props) => {
   // State for current market price
   const [currentPrice, setCurrentPrice] = useState<number | null>(null);
 
-  // Subscribe to price updates to get current market price
+  // Subscribe to price updates to get current market price. Match the deal's
+  // own exchange first (another venue's ticker is a different price) and only
+  // set state when the price actually moved.
+  const tradeSymbol =
+    typeof trade.symbol === 'string' ? trade.symbol : trade.symbol.symbol;
+  const tradeExchange = String(trade.exchange ?? '').toLowerCase();
   useEffect(() => {
     const unsubscribe = getLatestPrices(
       (result) => {
         if (result.status === 'OK') {
-          // Find the price for this trade's symbol
-          const symbolPrice = result.data.find(
-            (price) =>
-              price.symbol ===
-              (typeof trade.symbol === 'string'
-                ? trade.symbol
-                : trade.symbol.symbol)
-          );
-          if (symbolPrice) {
-            setCurrentPrice(symbolPrice.price);
+          let symbolPrice: number | undefined;
+          let anyVenue: number | undefined;
+          for (const p of result.data) {
+            if (p.symbol !== tradeSymbol) continue;
+            const ex = String(p.exchange ?? '').toLowerCase();
+            if (ex === tradeExchange || ex === 'all') {
+              symbolPrice = p.price;
+              break;
+            }
+            if (anyVenue === undefined) anyVenue = p.price;
+          }
+          const next = symbolPrice ?? anyVenue;
+          if (next !== undefined) {
+            setCurrentPrice((prev) => (prev === next ? prev : next));
           }
         }
       },
@@ -2114,7 +2125,7 @@ export const TradeCard: React.FC<TradeCardProps> = React.memo((props) => {
     return () => {
       unsubscribe();
     };
-  }, [trade.symbol]);
+  }, [tradeSymbol, tradeExchange]);
   // Enhanced bot type conversion for better chip compatibility
   const getBotTypeForChip = useCallback((type: string) => {
     const typeMap: Record<string, BotTypesEnum> = {

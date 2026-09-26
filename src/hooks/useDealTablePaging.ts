@@ -38,6 +38,7 @@ export interface DealTablePaging {
   total: number;
   serverPaged: boolean;
   isLoading: boolean;
+  error: Error | null;
 }
 
 /**
@@ -145,5 +146,6 @@ export function useDealTablePaging(opts: {
     total: result.total,
     serverPaged,
     isLoading: result.isLoading,
+    error: result.error,
   };
 }

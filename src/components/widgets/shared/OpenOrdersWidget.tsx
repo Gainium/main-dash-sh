@@ -45,7 +45,13 @@ import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFund
 import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjustFundsAmount';
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
-import { useDcaDeals } from '@/hooks/useDcaDeals';
+import { useDealTablePaging } from '@/hooks/useDealTablePaging';
+import { useLiveDealPnl } from '@/hooks/useLiveDealPnl';
+import { PartialCount } from '@/components/ui/large-account';
+import {
+  serverDealUnrealizedPnl,
+  type DealPnlInput,
+} from '@/lib/utils/dealUnrealizedPnl';
 import {
   withServerFields,
   type ColumnServerFields,
@@ -64,7 +70,6 @@ import {
     dealPercentStringSortValue,
     dealWorkingMs,
     dealWorkingTimeSortValue,
-    isLongStrategy,
     isMetricUnavailable,
     toDealSortEpochMs,
     toSortableMetricValue,
@@ -79,7 +84,6 @@ import {
     type DCADeals,
     type DealStartBlock,
     type GetLatestPricesResult,
-    type Prices,
 } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
@@ -1082,6 +1086,9 @@ export interface OpenTradesWidgetProps {
     serverSide: DataTableServerSide;
     fields: Record<string, ColumnServerFields>;
   };
+  /** The supplied trades are a capped subset: render "N of M" beside the
+   *  status toggle so the list never reads as complete. */
+  partial?: { shown: number; total: number } | null;
 }
 
 // Stable module-level defaults. Using inline `= []` / `= {}` defaults in the
@@ -1089,6 +1096,7 @@ export interface OpenTradesWidgetProps {
 // which churns the `columns` memo / DataTable table-preference state every render
 // and can drive a "Maximum update depth exceeded" remount loop (React #185).
 const EMPTY_STRING_LIST: string[] = [];
+const EMPTY_DEALS: never[] = [];
 const TRADES_DEFAULT_COLUMN_VISIBILITY = {
   unrealizedProfitPercentage: false,
   realizedProfitPercentage: false,
@@ -1121,6 +1129,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   externalLoading,
   loadingIndicator,
   serverPaging,
+  partial,
 }) => {
   const navigate = useNavigate();
   const colors = useChartColors();
@@ -1239,12 +1248,15 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     [liveOrdersData]
   );
 
-  const [latestPrices, setLatestPrices] = useState<Prices>([]);
+  // Only whether a price snapshot has arrived: the per-row values come from
+  // useLiveDealPnl (or the parent), so holding every tick in state here only
+  // re-rendered the whole widget on each price refresh.
+  const [pricesLoaded, setPricesLoaded] = useState(false);
 
   useEffect(() => {
     const unsubscribe = getLatestPrices((result: GetLatestPricesResult) => {
       if (result.status === 'OK' && result.data) {
-        setLatestPrices(result.data);
+        if (result.data.length) setPricesLoaded(true);
       } else {
         logger.error(`${LOG_PREFIX}: Price fetch failed`, {
           reason: result.reason,
@@ -1255,33 +1267,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     return () => unsubscribe();
   }, []);
 
-  const getMarketPrice = useCallback(
-    (symbol: string, exchange?: string) => {
-      if (!symbol || !latestPrices.length) return undefined;
-      const normalizedExchange = exchange?.toLowerCase();
-
-      const byExchange = latestPrices.find(
-        (price) =>
-          price.symbol === symbol &&
-          (normalizedExchange
-            ? [normalizedExchange, 'all'].includes(
-                String(price.exchange).toLowerCase()
-              )
-            : true)
-      )?.price;
-
-      if (byExchange) return byExchange;
-
-      return latestPrices.find((price) => price.symbol === symbol)?.price;
-    },
-    [latestPrices]
-  );
-
   // Unrealized/net P&L are computed from the live-prices feed. Until it
   // arrives the values fall back to a stale/zero number, so gate the
   // price-dependent cells on a skeleton (legacy parity with main-dash's
   // per-row `loadedPrices`).
-  const pricesLoading = latestPrices.length === 0;
+  const pricesLoading = !pricesLoaded;
 
   // Helper function to determine gauge color based on percentage
   const getGaugeColor = useCallback(
@@ -1298,30 +1288,45 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const externalTrades = _data?.['trades'] as OpenTrade[] | undefined;
   const useExternalData = Array.isArray(externalTrades);
 
-  // Fetch DCA deals data using GraphQL only if no external data is provided.
-  // The fetch must follow the open/closed toggle even when enableStatusToggle
-  // is on: the backend defaults to open-only when no status is sent, so
-  // requesting `undefined` left the Closed view permanently empty.
-  const inputOptions = useMemo(
-    () => ({
-      terminal: true,
-      status: effectiveShowClosedTrades
-        ? DCADealStatusEnum.closed
-        : DCADealStatusEnum.open,
-    }),
-    [effectiveShowClosedTrades]
-  );
+  // The fetch follows the open/closed toggle (the backend defaults to
+  // open-only when no status is sent).
   // A parent that supplies both the trades and the raw deals needs nothing
   // from this fetch (the drawer lookup is served by `rawDeals`); skipping it
-  // saves a whole terminal-deal list read on every Deals tab.
-  const {
-    deals: dcaDealsResponse,
-    isLoading: graphqlLoading,
-    error: graphqlError,
-  } = useDcaDeals(inputOptions, {
+  // saves a whole terminal-deal list read on every Deals tab. The widget's own
+  // list (the Trading Terminal's open orders) pages on the server for large
+  // accounts, or once its first window comes back capped.
+  const internalDeals = useDealTablePaging({
+    status: effectiveShowClosedTrades ? 'closed' : 'open',
+    terminal: true,
     enabled: !(useExternalData && Array.isArray(rawDeals)),
   });
-  const activeDealsRaw = useMemo(() => {
+  const dcaDealsResponse = internalDeals.deals;
+  const graphqlLoading = internalDeals.isLoading;
+  const graphqlError = internalDeals.error;
+  // Server paging applies to the table only when it shows this widget's own
+  // list; a parent passing `data.trades` decides for its rows.
+  const effectiveServerPaging =
+    serverPaging ?? (useExternalData ? undefined : internalDeals.serverPaging);
+
+
+  // Live, fee-inclusive uPnL for the deals this widget fetched itself (the
+  // parent computes its own rows when it supplies `data.trades`).
+  const internalActiveDeals = useMemo(
+    () =>
+      useExternalData
+        ? EMPTY_DEALS
+        : (dcaDealsResponse as unknown as DealPnlInput[] & { _id?: string }[]).filter(
+            (d) => isActiveDealStatus((d as { status?: string }).status)
+          ),
+    [useExternalData, dcaDealsResponse]
+  );
+  const internalLivePnl = useLiveDealPnl(
+    internalActiveDeals as (DealPnlInput & { _id?: string })[],
+    {
+      enabled: !useExternalData,
+      combo: (d) => /combo/i.test(String((d as { strategy?: string }).strategy)),
+    }
+  );  const activeDealsRaw = useMemo(() => {
     // Merge internally-fetched deals with caller-supplied rawDeals (de-duped
     // by _id) so the deal-drawer find covers both sources. Without this the
     // Trading Bots /deals tab loses its drawer because its deals come from
@@ -1568,11 +1573,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         executionSummary?.averageEntryPrice ??
         (deal.initialPrice ? Number(deal.initialPrice) : fallbackEntryPrice);
 
-      const currentMarketPrice = getMarketPrice(symbol, exchange);
-      const hasMarketPrice = Number.isFinite(currentMarketPrice);
-
       // Strategy-aware calculations matching legacy (terminal/utils.ts)
-      const isLong = isLongStrategy(deal.strategy);
       const isFutures = Boolean(deal.settings?.futures);
       const isCoinm = Boolean(deal.settings?.coinm);
       const avgPriceNum = Number(deal.avgPrice || entryPrice || 0);
@@ -1599,22 +1600,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       const size = calculateDealSize(metricsInput);
       const value = calculateDealValue(metricsInput);
 
-      // Unrealized PnL: legacy formula
-      // LONG:  (currentBase * price + currentQuote - initialQuote)
-      // SHORT: (currentQuote - (initialBase - currentBase) * price)
-      // Closed/canceled deals have no unrealized P&L (legacy parity with
-      // main-dash `isActiveDeal`); only compute it for live deals.
+      // Unrealized P&L: the canonical fee-inclusive USD value (shared
+      // computeDealUnrealizedPnl via useLiveDealPnl) while prices and fees
+      // are known; otherwise the server's stored value. Closed/canceled deals
+      // have none. (Was a gross, quote-unit formula labelled in dollars.)
       const unrealizedPnl = !isActiveDealStatus(deal.status)
         ? 0
-        : hasMarketPrice
-          ? isLong
-            ? currentBaseAmount * Number(currentMarketPrice) +
-              currentQuoteAmount -
-              initialInvestment
-            : currentQuoteAmount -
-              (Number(deal.initialBalances.base || 0) - currentBaseAmount) *
-                Number(currentMarketPrice)
-          : undefined;
+        : (internalLivePnl.get(deal._id)?.unrealizedUsd ??
+          serverDealUnrealizedPnl(
+            deal as unknown as Parameters<typeof serverDealUnrealizedPnl>[0]
+          )?.unrealizedUsd);
       // Realized P&L comes from the backend's authoritative `deal.profit`, the
       // same source `dcaDealToOpenTrade` / `comboDealToOpenTrade` use. Do NOT
       // derive it from `executionSummary` (same trap as `avgPrice` below):
@@ -1773,27 +1768,23 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         compoundBreakdown: computeCompoundBreakdown(deal.sizes),
       };
     },
-    [botTypeOverride, getMarketPrice, liveOrders]
+    [botTypeOverride, liveOrders, internalLivePnl]
   );
 
   // FLICKER DEBUG: track what causes transformDCADealToOpenTrade to be recreated
   // (cascades into baseTrades → trades → DataTable re-render)
   const prevBotTypeOverrideRef = useRef(botTypeOverride);
-  const prevGetMarketPriceRef = useRef(getMarketPrice);
   const prevLiveOrdersRef = useRef(liveOrders);
   const prevTransformRef = useRef(transformDCADealToOpenTrade);
   if (prevTransformRef.current !== transformDCADealToOpenTrade) {
     const changed = [];
     if (prevBotTypeOverrideRef.current !== botTypeOverride)
       changed.push('botTypeOverride');
-    if (prevGetMarketPriceRef.current !== getMarketPrice)
-      changed.push('getMarketPrice');
     if (prevLiveOrdersRef.current !== liveOrders) changed.push('liveOrders');
     logger.debug(
       `[flicker] transformDCADealToOpenTrade recreated. Changed deps: [${changed.join(', ')}]`
     );
     prevBotTypeOverrideRef.current = botTypeOverride;
-    prevGetMarketPriceRef.current = getMarketPrice;
     prevLiveOrdersRef.current = liveOrders;
     prevTransformRef.current = transformDCADealToOpenTrade;
   }
@@ -1975,15 +1966,15 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     });
 
     // Server-paged: the page holds a slice; the server total is the count.
-    if (serverPaging) {
-      const n = serverPaging.serverSide.rowCount;
+    if (effectiveServerPaging) {
+      const n = effectiveServerPaging.serverSide.rowCount;
       return {
         openCount: statusFilter === 'open' ? n : open,
         closedCount: statusFilter === 'closed' ? n : closed,
       };
     }
     return { openCount: open, closedCount: closed };
-  }, [baseTrades, serverPaging, statusFilter]);
+  }, [baseTrades, effectiveServerPaging, statusFilter]);
 
   // Only the currently-selected status is actually loaded, so only its count is
   // meaningful. Show the number on the selected option and omit it on the other
@@ -3370,7 +3361,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     accountTimeZone,
   ]);
   // Server-paged: only columns with a server field sort; others are greyed.
-  const serverFields = serverPaging?.fields;
+  const serverFields = effectiveServerPaging?.fields;
   const serverColumns = useMemo(
     () => (serverFields ? withServerFields(columns, serverFields) : columns),
     [columns, serverFields]
@@ -3668,7 +3659,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         }
         columns={serverColumns}
         data={trades}
-        serverSide={serverPaging?.serverSide}
+        serverSide={effectiveServerPaging?.serverSide}
         onRowClick={(row) => {
           // Match the card-click default: read-only details drawer unless
           // the parent passed an explicit `onTradeClick` override.
@@ -3678,7 +3669,20 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             openDetailsRef.current(row);
           }
         }}
-        firstToolbarActions={statusToggleFull}
+        firstToolbarActions={
+          partial ? (
+            <div className="flex items-center gap-xs">
+              {statusToggleFull}
+              <PartialCount
+                shown={partial.shown}
+                total={partial.total}
+                noun={statusFilter === 'closed' ? 'closed deals' : 'open deals'}
+              />
+            </div>
+          ) : (
+            statusToggleFull
+          )
+        }
         firstToolbarActionsCompact={statusToggleCompact}
         enableGlobalFilter={true}
         enableColumnFilters={true}
