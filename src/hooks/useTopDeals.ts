@@ -63,6 +63,12 @@ export interface TopDealsData {
   loaded: number;
 }
 
+type NetStats = {
+  unrealizedProfitNet?: number | null;
+  unrealizedPercentNet?: number | null;
+  valueUsd?: number | null;
+};
+
 type ListResponse<T> = ReturnResult<{ result: T[] }> & { total?: number };
 
 const isUnknownFieldError = (error: unknown) =>
@@ -140,17 +146,30 @@ async function fetchTopDeals(
   const field = TOP_DEALS_SORT_FIELD[metric];
   const sortModel = toServerSortModel(field, 'desc');
   if (NEEDS_NET_FIELDS.has(metric)) {
+    let serverValuesMissing = false;
     try {
       const r = await run({ sortModel, pageSize: limit, withNet: true });
-      return {
-        ...r,
-        serverRanked: true,
-        loaded: r.dca.length + r.combo.length,
-      };
+      // The fields exist but are not written yet (deals the stats worker
+      // has not revisited since the backend gained them): null sorts last,
+      // so a top page with no values means the server could not rank.
+      const statKey = field.replace('stats.', '') as keyof NetStats;
+      const rows = [...r.dca, ...r.combo] as Array<{ stats?: NetStats }>;
+      serverValuesMissing =
+        rows.length > 0 &&
+        rows.every((row) => typeof row.stats?.[statKey] !== 'number');
+      if (!serverValuesMissing) {
+        return {
+          ...r,
+          serverRanked: true,
+          loaded: r.dca.length + r.combo.length,
+        };
+      }
     } catch (error) {
       if (!isUnknownFieldError(error)) throw error;
-      // Backend without the fee-inclusive stored fields (older self-hosted):
-      // rank the largest open deals client-side and say so.
+    }
+    {
+      // Backend without (or not yet writing) the fee-inclusive stored
+      // fields: rank the largest open deals client-side and say so.
       const r = await run({
         sortModel: toServerSortModel('stats.usage', 'desc'),
         pageSize: TOP_DEALS_FALLBACK_ROWS,

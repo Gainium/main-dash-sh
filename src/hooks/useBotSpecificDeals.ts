@@ -413,8 +413,12 @@ export function useBotSpecificDeals(
       void refetch();
     }
   }, [currentPageLoading, refetch]);
+  // Only the OPEN tab needs it: closed deals never leave the closed scope, so
+  // re-walking every closed page every 30 s (30 sequential requests for a bot
+  // with 3,000 closed deals, for as long as the drawer stays open) bought
+  // nothing. A closed tab refreshes on open, on filter change and on resync.
   useEffect(() => {
-    if (!filter.botId) return undefined;
+    if (!filter.botId || filter.status === 'closed') return undefined;
     const intervalId = setInterval(resnapshot, 30_000);
     return () => clearInterval(intervalId);
   }, [filter.botId, filter.status, filter.dealType, resnapshot]);

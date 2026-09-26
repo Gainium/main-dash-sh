@@ -35,6 +35,8 @@ export interface UseComboDealsResult {
   data: ReturnResult<ComboDealsData> | null;
   deals: ComboDeal[];
   total: number;
+  /** The server returned fewer rows than it reports matching (500 cap). */
+  isPartial: boolean;
   hasValidResponse: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -142,21 +144,23 @@ export function useComboDeals(filter?: ComboDealsFilter): UseComboDealsResult {
           },
           {} as Record<string, ComboDeals[]>
         );
-      // comboDealList returns the full active set in a single response — the
-      // live backend reports page/totalPages/totalResults as null (it doesn't
-      // paginate this list). So treat the snapshot as complete UNLESS the
-      // response explicitly signals more pages (a later page, >1 total pages,
-      // or a result count short of a reported total). Requiring a numeric
-      // totalResults here would make `complete` permanently false in
-      // production, disabling the absence-delete entirely. The prune stays
-      // safe either way: the store only absence-deletes against a fresh
-      // `snapshotAt` and never removes a deal newer than the snapshot.
+      // comboDealList returns at most 500 rows per request (the server's
+      // default and cap). Its per-page envelope (page/totalPages/
+      // totalResults) is null on the live backend, but the operation's own
+      // top-level `total` is the true count. The old check read only the
+      // null envelope, so a >500-deal result (e.g. a closed list) was treated
+      // as complete — silently truncated at 500 AND allowed to absence-delete
+      // the rest from the store. Complete only when we hold `total` rows.
+      const serverTotal = (queryResult.data as { total?: number | null })
+        .total;
       const { totalResults, totalPages, page } = queryResult.data.data;
       const paginated =
         (typeof totalPages === 'number' && totalPages > 1) ||
         (typeof page === 'number' && page > 0) ||
         (typeof totalResults === 'number' &&
-          normalizedDeals.length < totalResults);
+          normalizedDeals.length < totalResults) ||
+        (typeof serverTotal === 'number' &&
+          normalizedDeals.length < serverTotal);
       const complete = !paginated;
       // Reconcile the whole combo scope in one authoritative pass: the
       // snapshot wins, in-scope deals absent from it AND older than the
@@ -211,10 +215,20 @@ export function useComboDeals(filter?: ComboDealsFilter): UseComboDealsResult {
     });
   }, [dealsFromStore]);
 
+  const serverTotal = (queryResult.data as { total?: number | null } | undefined)
+    ?.total;
   return {
     data: queryResult.data || null,
     deals: dealsWithBotName,
-    total: dealsWithBotName.length,
+    // The server's count of ALL matching deals; `isPartial` flags a response
+    // cut at the 500-row page so callers can say "500 of N".
+    total:
+      typeof serverTotal === 'number'
+        ? Math.max(serverTotal, dealsWithBotName.length)
+        : dealsWithBotName.length,
+    isPartial:
+      typeof serverTotal === 'number' &&
+      (queryResult.data?.data?.result?.length ?? 0) < serverTotal,
     hasValidResponse,
     isLoading: isInitialLoad, // Only show loading on first load
     isError: queryResult.isError,
