@@ -1,4 +1,5 @@
 import { useOrderStore } from '@/stores/live';
+import { mergeOrderBuckets } from '@/stores/live/orderStore';
 import { useEffect, useMemo } from 'react';
 import type { ReturnResult } from '../lib/api/types';
 import { BotTypesEnum, type OrderData } from '../types';
@@ -111,8 +112,15 @@ export function useDealOrders(
   botType: BotTypesEnum = BotTypesEnum.dca
 ): UseDealOrdersResult {
   // 1. Read from Zustand store (instant, filtered by botId)
-  // Select the Record directly to avoid creating new array reference on every render
-  const ordersRecord = useOrderStore().getOrders(botId);
+  // Subscribe to THIS bot's two buckets only; merge them only when one of
+  // them changes (a bare useOrderStore() re-rendered every consumer — one per
+  // deal card — on any order event for any bot).
+  const newBucket = useOrderStore((state) => state.orders.new[botId]);
+  const filledBucket = useOrderStore((state) => state.orders.filled[botId]);
+  const ordersRecord = useMemo(
+    () => mergeOrderBuckets(newBucket, filledBucket),
+    [newBucket, filledBucket]
+  );
   const hasHydrated = useOrderStore((state) => state._hasHydrated);
 
   // Convert to array for specific botId (memoized by ordersRecord)

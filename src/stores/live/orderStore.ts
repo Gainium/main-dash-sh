@@ -87,7 +87,7 @@ export type OrderType = 'filled' | 'new';
  * written for an order whose own status is FILLED, so it is by construction
  * the terminal state and a `new` copy of the same id can only be older.
  */
-const mergeBuckets = (
+export const mergeOrderBuckets = (
   newOrders: Record<string, OrderData> | undefined,
   filledOrders: Record<string, OrderData> | undefined
 ): OrderData[] => {
@@ -429,7 +429,7 @@ export const useOrderStore = create<OrderStoreState>()(
         },
 
         getOrders: (botId: string) =>
-          mergeBuckets(get().orders.new[botId], get().orders.filled[botId]),
+          mergeOrderBuckets(get().orders.new[botId], get().orders.filled[botId]),
 
         getAllOrders: () => {
           const combinedOrders: Record<string, OrderData[]> = {};
@@ -440,7 +440,7 @@ export const useOrderStore = create<OrderStoreState>()(
             ...Object.keys(newOrders),
             ...Object.keys(filledOrders),
           ])) {
-            combinedOrders[botId] = mergeBuckets(
+            combinedOrders[botId] = mergeOrderBuckets(
               newOrders[botId],
               filledOrders[botId]
             );
