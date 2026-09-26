@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 
 import {
-  useBotFormState,
+  useTrackedBotFormState,
   type BotFormStateContextValue,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
@@ -69,7 +69,8 @@ const normalizeAsset = (asset?: string) =>
   asset?.toUpperCase?.().trim() || undefined;
 
 export const useGridForm = (): GridFormContext => {
-  const formState = useBotFormState();
+  // Tracked: grid sections re-render only for the fields they read.
+  const formState = useTrackedBotFormState();
   const gridPage = useOptionalGridPageContext();
 
   const primaryPair = useMemo(

@@ -9,7 +9,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useTrackedBotFormState,
+} from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import getLatestPrices from '@/helper/price';
 import { useBalanceStore } from '@/stores/live';
@@ -178,7 +180,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     React.useState<BuyTypeEnum>(defaultSelectedIndex);
   const [latestPrices, setLatestPrices] = useState<Prices>([]);
 
-  const { formData, errors } = useBotFormState();
+  const { formData, errors } = useTrackedBotFormState();
   const { currentExchange } = useBotFormQuery();
   const { bot } = useBotFormQuery();
 

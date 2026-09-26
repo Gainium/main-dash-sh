@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import { useOptionalBotFormBinding } from '@/contexts/bots/form/BotFormProvider';
 import { buildBotVars, pruneBotVars } from './botVarBindingUtils';
 import type {
   BotVars,
@@ -34,7 +34,9 @@ export type VarBindingPath =
 export const useBotVarBinding = (
   path: VarBindingPath
 ): UseBotVarBindingResult => {
-  const maybeContext = useOptionalBotFormState();
+  // Context-only read (mode + botVars + setter): a keystroke anywhere in the
+  // form must not re-render every bound field.
+  const maybeContext = useOptionalBotFormBinding();
 
   const botVars = maybeContext?.botVars ?? null;
   const setBotVars = maybeContext?.setBotVars;

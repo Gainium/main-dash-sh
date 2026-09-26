@@ -1,6 +1,9 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
-import { useBotFormSelector, useBotFormState } from '@/features/bots';
+import {
+  useBotFormSelector,
+  useTrackedBotFormState,
+} from '@/features/bots';
 import {
   BotFormShell,
   NEW_SHELL_DEBUG_FLAG,
@@ -24,7 +27,7 @@ export interface CreateDealProps {
 
 const CreateDeal: React.FC<CreateDealProps> = (props) => {
   const { widgetId = 'create-deal', onFormDataChange } = props;
-  const { updateFormData, formData } = useBotFormState();
+  const { updateFormData, formData } = useTrackedBotFormState();
   const terminalDealType = useBotFormSelector('terminalDealType');
   const setActiveTab = useCallback(
     (tab: TerminalDealTypeEnum) => {

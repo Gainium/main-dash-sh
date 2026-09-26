@@ -31,12 +31,12 @@ import {
 } from '@/components/widgets/trading/DealOverview';
 import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
-    useBotFormSelector,
-    useBotFormState,
-    useOptionalBotFormState,
-    type BotFormMode,
-    type BotFormUpdateValue,
-    type Fields,
+  useBotFormSelector,
+  useOptionalBotFormState,
+  useTrackedBotFormState,
+  type BotFormMode,
+  type BotFormUpdateValue,
+  type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { InputButtonsSlider } from '@/features/bots/shared/components/InputButtonsSlider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
@@ -665,7 +665,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     [mode]
   );
   const isDealMassEdit = useMemo(() => mode === 'deal-mass-edit', [mode]);
-  const { alerts } = useBotFormState();
+  const { alerts } = useTrackedBotFormState();
   const useTp = useBotFormSelector('useTp');
   const useMultiTp = useBotFormSelector('useMultiTp');
   const scaleDcaType = useBotFormSelector('scaleDcaType');
@@ -3666,7 +3666,8 @@ const CustomDCA: React.FC<DCASectionProps> = ({
   );
 };
 
-export const DCASettings: React.FC<DCASettingsProps> = ({
+// The section reads the form from the store; hosts may still pass the rest.
+export const DCASettings: React.FC<Partial<DCASettingsProps>> = ({
   onUpdateBalances,
 }) => {
   const {
@@ -3675,7 +3676,7 @@ export const DCASettings: React.FC<DCASettingsProps> = ({
     errors,
     setErrors: setFormErrors,
     mode,
-  } = useBotFormState();
+  } = useTrackedBotFormState();
   const useDca = useBotFormSelector('useDca');
   const dcaCondition = useBotFormSelector('dcaCondition');
   const dcaByMarket = useBotFormSelector('dcaByMarket');

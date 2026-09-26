@@ -17,10 +17,11 @@ import { Tooltip } from '@/components/ui/tooltip';
 /* Webhook helper moved to its own section */
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
-    useBotFormSelector,
-    useBotFormState,
-    type BotFormUpdateValue,
-    type Fields,
+  useBotFormSelector,
+  useTrackedBotFormData,
+  useTrackedBotFormState,
+  type BotFormUpdateValue,
+  type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
@@ -56,7 +57,7 @@ import React, { useCallback } from 'react';
 import { IndicatorActionsToolbar } from '../../../../shared/components/IndicatorActionsToolbar';
 
 interface BotControllerSettingsProps {
-  formData: BotFormData;
+  formData?: BotFormData;
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
 }
 
@@ -214,9 +215,10 @@ const ControllerIndicatorGroup: React.FC<ControllerIndicatorGroupProps> = ({
 };
 
 export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
-  formData,
+  formData: givenFormData,
   updateFormData,
 }) => {
+  const formData = useTrackedBotFormData(givenFormData);
   const { openSelector, selector } = useIndicatorSelector();
   const { currentExchange } = useBotFormQuery();
 
@@ -389,7 +391,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
   };
 
   // botId and bot used by webhook helper only; handled in BotWebhookSettings
-  const { errors, alerts } = useBotFormState();
+  const { errors, alerts } = useTrackedBotFormState();
 
   const controllerErrors = React.useMemo(() => {
     if (!errors) {

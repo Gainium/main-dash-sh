@@ -386,7 +386,13 @@ export const handleSettingsUpdate = (
         (i) => i.indicatorAction !== IndicatorAction.closeDeal
       );
     }
-    if (!isDcaTypeSwitch && nextDcaCondition !== DCAConditionEnum.custom) {
+    if (
+      !isDcaTypeSwitch &&
+      nextDcaCondition !== DCAConditionEnum.custom &&
+      // Already an empty list: keep that array. A fresh `[]` on every
+      // keystroke re-rendered every section that reads `dcaCustom`.
+      !(Array.isArray(settings.dcaCustom) && settings.dcaCustom.length === 0)
+    ) {
       updates.dca.dcaCustom = [];
     }
     if (

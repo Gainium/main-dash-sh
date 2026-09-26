@@ -11,8 +11,8 @@ import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import {
   useBotFormSelector,
-  useBotFormState,
   useBotFormTopLevelSelector,
+  useTrackedBotFormState,
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
@@ -82,7 +82,7 @@ interface QuickBotFormProps {
   currentExchange: ExchangeInUser | null;
   exchangesData?: ExchangeInUser[];
   exchangesLoading?: boolean;
-  errors: BotFormErrors;
+  errors?: BotFormErrors;
   /**
    * Which form slice this Quick Setup is driving. Combo bots reuse the
    * DCA presets verbatim (same calibration math, same investment math)
@@ -100,7 +100,7 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   slice = 'dca',
 }) => {
   const { formData, updateFormData, isFieldLocked, selectedPreset, mode } =
-    useBotFormState();
+    useTrackedBotFormState();
 
   const { openPanel: openAllStrategies } = useAllStrategiesPanel();
   const moreStrategiesBotType =

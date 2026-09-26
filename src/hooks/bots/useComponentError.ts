@@ -1,4 +1,4 @@
-import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import { useOptionalBotFormContext } from '@/contexts/bots/form/BotFormProvider';
 import type { BotFormAlert } from '@/types/bots/form';
 import { useEffect } from 'react';
 import type { SettingsNavId } from './useSettingsNavigation';
@@ -53,7 +53,7 @@ export const useComponentError = (
   message: string,
   options?: UseComponentErrorOptions
 ) => {
-  const context = useOptionalBotFormState();
+  const context = useOptionalBotFormContext();
   const registerComponentError = context?.registerComponentError;
 
   useEffect(() => {

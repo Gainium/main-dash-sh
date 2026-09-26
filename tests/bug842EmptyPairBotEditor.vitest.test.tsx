@@ -150,6 +150,8 @@ vi.mock('@/hooks/bots/forms/useBotFormDataQuery', () => ({
  */
 type Store = Record<string, unknown>;
 let store: Store = {};
+// The form data the save probe hands to `useFormHandlers` (read at save time).
+const probeFormData = new Map<'current', unknown>();
 let writes: Array<[string, unknown]> = [];
 const subscribers = new Set<() => void>();
 
@@ -187,6 +189,12 @@ vi.mock('@/contexts/bots/form/BotFormProvider', () => {
     useOptionalBotFormState: () => null,
     useBotFormState: () => ({ botVars: null, setAlerts: () => {} }),
     useBotFormEditing: () => ({ disableEditing: () => {} }),
+    // useFormHandlers reads these since specs/066 (form state at call time).
+    useBotFormBotVars: () => null,
+    useBotFormContext: () => ({ setAlerts: () => {} }),
+    useBotFormStoreApi: () => ({
+      getState: () => ({ formData: probeFormData.get('current'), errors: {} }),
+    }),
   };
 });
 
@@ -404,11 +412,9 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
       combo: { useMulti: false },
     } as never;
     const handlers = useFormHandlers(
-      formData,
       () => {},
       () => {},
       () => {},
-      {},
       { _id: BOT_ID, settings: storedSettings },
       {
         mutateAsync: (params: { settings: Record<string, unknown> }) => {
@@ -424,6 +430,7 @@ describe('§4.5 the update payload carries `pair` only for an emptied bot', () =
       false
     );
     useEffect(() => {
+      probeFormData.set('current', formData);
       probe.save = handlers.handleSave;
     });
     return null;

@@ -12,7 +12,7 @@ import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import {
   useBotFormSelector,
-  useBotFormState,
+  useTrackedBotFormState,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 import { GridBasicSettings } from '@/features/bots/bot-types/grid/form/sections/GridBasicSettings';
@@ -69,7 +69,7 @@ interface QuickGridBotFormProps {
   currentExchange: ExchangeInUser | null;
   exchangesData?: ExchangeInUser[];
   exchangesLoading?: boolean;
-  errors: BotFormErrors;
+  errors?: BotFormErrors;
 }
 
 export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
@@ -78,7 +78,7 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
   exchangesLoading,
 }) => {
   const { formData, updateFormData, isFieldLocked, selectedPreset, mode } =
-    useBotFormState();
+    useTrackedBotFormState();
 
   const { openPanel: openAllStrategies } = useAllStrategiesPanel();
 

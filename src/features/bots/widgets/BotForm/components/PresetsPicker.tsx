@@ -1,7 +1,9 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 import { useEffect, useMemo, useRef, useState } from 'react';
 
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useTrackedBotFormState,
+} from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormPreloadStore } from '@/stores/botFormPreloadStore';
 import { useBotTemplatesStore } from '@/stores/botTemplatesStore';
 import { useCuratedPresetRois } from '@/lib/curatedPresets';
@@ -87,7 +89,7 @@ export const PresetsPicker: React.FC<PresetsPickerProps> = ({
     setSelectedPreset,
     setIsDirty,
     mode,
-  } = useBotFormState();
+  } = useTrackedBotFormState();
 
   // Surface the curated ROI for the form's CURRENT direction so the
   // chip here matches whatever the user picked in the new-bot wizard's

@@ -25,8 +25,8 @@ import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndic
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
+  useBotFormActions,
   useBotFormSelector,
-  useBotFormState,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { useIndicatorSelector } from '@/hooks/useIndicatorSelector';
@@ -100,7 +100,7 @@ export const DynamicArIndicatorPanel: React.FC<
 }) => {
   const indicators = useBotFormSelector('indicators');
   const closeDealType = useBotFormSelector('closeDealType');
-  const { updateFormData } = useBotFormState();
+  const { updateFormData } = useBotFormActions();
 
   // Indicator-picker plumbing — pre-filter the type list to ATR/ADR.
   const { openSelector, selector } = useIndicatorSelector(

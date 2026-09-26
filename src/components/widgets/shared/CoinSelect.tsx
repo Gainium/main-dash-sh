@@ -1,5 +1,8 @@
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
-import { useBotFormState } from '@/features/bots';
+import {
+  useBotFormActions,
+  useBotFormPick,
+} from '@/features/bots';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { type AssetClass, type TradingPair } from '@/hooks/useTradingPairs';
 import {
@@ -14,6 +17,9 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import { ListModal, type ListModalSortOption } from './ListModal';
+
+const NO_TOP_KEYS = [] as const;
+const STRATEGY_KEY = ['strategy'] as const;
 
 const PAIR_SORT_OPTIONS: ListModalSortOption[] = [
   { value: 'marketcap', label: 'By market cap' },
@@ -101,7 +107,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // only (provider-injected); favorites are local (Zustand + localStorage).
   const [sortMode, setSortMode] = useState('marketcap');
   const [favoritesFirst, setFavoritesFirst] = useState(false);
-  const { formData, updateFormData } = useBotFormState();
+  const { updateFormData } = useBotFormActions();
+  // Only the fields this picker reads (type + direction) — not every keystroke.
+  const formData = useBotFormPick(NO_TOP_KEYS, STRATEGY_KEY);
 
   // Surface the curated ROI that matches the bot form's risk-profile
   // cards: DCA & Combo read the DCA leaderboard, Grid reads grid; the

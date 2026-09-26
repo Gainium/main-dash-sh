@@ -1,6 +1,10 @@
 import React, { useMemo } from 'react';
 
-import { useBotFormFeatures } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormFeatures,
+  useBotFormPick,
+} from '@/contexts/bots/form/BotFormProvider';
+import { tabPropsEqualIgnoringHot } from '@/features/bots/widgets/BotForm/tabPropsEqual';
 import { ExperimentalFeatures } from '@/features/bots/bot-types/dca/form/sections';
 import { useBotFormRegistryContext } from '@/features/bots/widgets/BotForm/context';
 import type { BotFormTabComponentProps } from '@/features/bots/widgets/BotForm/types';
@@ -10,9 +14,20 @@ import type {
   ExperimentalToggleKey,
 } from '@/utils/bots/dca/experimental-toggles';
 
+// Everything computeExperimentalSectionState reads off the form, besides the
+// toggle ids themselves.
+const EXPERIMENTAL_TOP_KEYS = ['exchangeUUID'] as const;
+const EXPERIMENTAL_SLICE_KEYS = [
+  'futures',
+  'strategy',
+  'feeOrder',
+  'autoRebalancing',
+  'remainderFullAmount',
+  'adaptiveClose',
+];
+
 export const ExperimentalFeaturesTab = React.memo<BotFormTabComponentProps>(({
   currentExchange,
-  formData,
   updateFormData,
   mode,
   isFieldLocked,
@@ -30,6 +45,15 @@ export const ExperimentalFeaturesTab = React.memo<BotFormTabComponentProps>(({
 
     return undefined;
   }, [botExperience.metadata]);
+  const sliceKeys = useMemo(
+    () => [
+      ...EXPERIMENTAL_SLICE_KEYS,
+      ...(toggleConfig ?? []).map((t) => String(t.id)),
+    ],
+    [toggleConfig]
+  );
+  // Only the fields the experimental toggles depend on — not every keystroke.
+  const formData = useBotFormPick(EXPERIMENTAL_TOP_KEYS, sliceKeys);
 
   const lockedToggles = useMemo(() => {
     const result: Partial<Record<ExperimentalToggleKey, boolean>> = {};
@@ -134,7 +158,7 @@ export const ExperimentalFeaturesTab = React.memo<BotFormTabComponentProps>(({
       />
     </div>
   );
-});
+}, tabPropsEqualIgnoringHot);
 ExperimentalFeaturesTab.displayName = 'ExperimentalFeaturesTab';
 
 export default ExperimentalFeaturesTab;

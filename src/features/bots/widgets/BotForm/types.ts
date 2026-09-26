@@ -176,11 +176,15 @@ export interface BotFormProps {
   tabDescriptorsFilter?: (tab: BotFormTabDescriptor) => boolean;
 }
 
+/**
+ * Props every form section tab receives from the form shell. Deliberately NO
+ * per-keystroke state (formData / errors / the scroll-spy's active tab): a
+ * section reads those from the form store through narrow selectors, so these
+ * props keep their identity while the user types and each tab's memo holds.
+ */
 export interface BotFormTabComponentProps {
   currentExchange: ExchangeInUser | null;
-  formData: BotFormData;
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
-  errors: BotFormErrors;
   mode: BotFormMode;
   isFieldLocked: (field: Fields) => boolean;
   getBalance?: GetBalanceFn;
@@ -190,9 +194,15 @@ export interface BotFormTabComponentProps {
     | RefreshBalancesResult;
   exchangesData?: ExchangeInUser[];
   exchangesLoading?: boolean;
-  activeTab: BotFormTabId;
   onTabChange: (tabId: BotFormTabId) => void;
   features?: BotFormFeatureFlags;
+  /**
+   * Legacy hosts only (deal edit drawer, read-only view) still hand sections
+   * their state. The bot form shell does NOT: sections fall back to the store.
+   */
+  formData?: BotFormData;
+  errors?: BotFormErrors;
+  activeTab?: BotFormTabId;
 }
 
 export interface BotFormTabNavigationTarget {

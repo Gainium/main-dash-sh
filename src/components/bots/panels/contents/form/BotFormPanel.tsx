@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 import BotFormWidget, {
   type BotFormWidgetProps,
 } from '@/features/bots/widgets/BotForm/BotFormWidget';
@@ -47,4 +49,8 @@ const BotFormPanel = ({
 
 BotFormPanel.displayName = 'BotFormPanel';
 
-export default BotFormPanel;
+// Memoized so a host re-render with unchanged props does not re-render the form.
+const MemoBotFormPanel = memo(BotFormPanel);
+MemoBotFormPanel.displayName = 'BotFormPanel';
+
+export default MemoBotFormPanel;

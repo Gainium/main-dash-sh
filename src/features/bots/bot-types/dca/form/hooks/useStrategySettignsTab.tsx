@@ -1,9 +1,9 @@
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
 import {
+  useBotFormContext,
   useBotFormFieldLock,
   useBotFormSelector,
-  useBotFormState,
   type Fields,
 } from '@/features/bots';
 import {
@@ -133,7 +133,7 @@ export const useStrategySettingsTab = ({
   onUpdateBalances,
 }: StrategySettingsProps) => {
   const { exchanges } = useBotFormQuery();
-  const { setErrors: setFormErrors, mode } = useBotFormState();
+  const { setErrors: setFormErrors, mode } = useBotFormContext();
   const isFieldLocked = useBotFormFieldLock();
   // The hedge edit page mounts each leg's strategy settings inside an
   // outer HedgeBotFormProvider; when present, the leg's direction is

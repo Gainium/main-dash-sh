@@ -45,6 +45,12 @@ export class IndicatorStore {
   }
 
   setIndicators(indicators: IndicatorConfig[]) {
+    // The bot form calls this on every write; an unchanged list (same array
+    // reference — a keystroke elsewhere in the form) must not rebuild the
+    // chart config and re-render every chart subscriber.
+    if (indicators && indicators === this._indicators) {
+      return;
+    }
     this._indicators = indicators ?? [];
     this.scheduleNotify();
   }

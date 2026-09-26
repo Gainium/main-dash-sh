@@ -210,7 +210,6 @@ export interface BotFormStateContextValue {
 interface BotFormInternalContextValue {
   store: BotFormStore;
   mode: BotFormMode;
-  activeTab: BotFormTabId;
   setActiveTab: Dispatch<SetStateAction<BotFormTabId>>;
   isLoading: boolean;
   setIsLoading: Dispatch<SetStateAction<boolean>>;
@@ -254,6 +253,13 @@ interface BotFormInternalContextValue {
 const BotFormStateContext = createContext<
   BotFormInternalContextValue | undefined
 >(undefined);
+
+/**
+ * The scroll-spy's active section lives in its OWN context so a section change
+ * while scrolling re-renders only the nav that highlights it — not every
+ * consumer of the main form context (which would re-render the whole form).
+ */
+const BotFormActiveTabContext = createContext<BotFormTabId>('basic');
 
 interface BotFormProviderProps {
   mode: BotFormMode;
@@ -361,6 +367,12 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     isolateStores,
   } = props;
   const { botExperience } = useBotFormRegistryContext();
+  // Latest props for callbacks that rebuild the default state. Reading them
+  // through a ref (instead of listing `props` as a dependency — a new object
+  // on every parent render) keeps `discardDraft` / `resetFormData`, and with
+  // them the context value, stable across parent re-renders.
+  const propsRef = useRef(props);
+  propsRef.current = props;
 
   // Instance-scoped side-effect stores. Hedge legs isolate so co-mounted leg
   // forms don't fight over the shared globals; everyone else keeps the module
@@ -542,8 +554,11 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     baselineRef.current = null;
     // Written straight to the store (rather than the `setFormData` callback
     // defined further down) to keep this hook free of declaration ordering.
-    store.setState({ formData: defaultStateFn(props, true), isDirty: false });
-  }, [draftKey, props, store]);
+    store.setState({
+      formData: defaultStateFn(propsRef.current, true),
+      isDirty: false,
+    });
+  }, [draftKey, store]);
 
   const dismissDraftNotice = useCallback(() => setDraftRestoredAt(null), []);
 
@@ -589,6 +604,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           typeof value === 'function'
             ? (value as (p: BotFormData) => BotFormData)(prev.formData)
             : value;
+        // setIndicators ignores the array it already holds, so a keystroke
+        // that keeps the same indicators reference no longer re-renders the chart.
         if (nextValue.dca.indicators) {
           indicatorStore.setIndicators(nextValue.dca.indicators);
         }
@@ -637,8 +654,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     [store]
   );
   const resetFormData = useCallback(() => {
-    setFormData(defaultStateFn(props, true));
-  }, [props, setFormData]);
+    setFormData(defaultStateFn(propsRef.current, true));
+  }, [setFormData]);
   const [botVars, setBotVars] = useState<BotVars | null>(null);
   // The bot edit page opens directly in an editable state — reaching
   // `/x/edit/:id` (from the sidebar, a bot card, the drawer's Edit action,
@@ -1775,7 +1792,6 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     () => ({
       store,
       mode,
-      activeTab,
       setActiveTab,
       isLoading,
       setIsLoading,
@@ -1811,7 +1827,6 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     [
       store,
       mode,
-      activeTab,
       setActiveTab,
       isLoading,
       setIsLoading,
@@ -1850,7 +1865,9 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     <ExampleOrdersStoreContext.Provider value={exampleOrdersStore}>
       <IndicatorStoreContext.Provider value={indicatorStore}>
         <BotFormStateContext.Provider value={value}>
-          {children}
+          <BotFormActiveTabContext.Provider value={activeTab}>
+            {children}
+          </BotFormActiveTabContext.Provider>
         </BotFormStateContext.Provider>
       </IndicatorStoreContext.Provider>
     </ExampleOrdersStoreContext.Provider>
@@ -1872,6 +1889,7 @@ const useMergedBotFormState = (
   // hook is used outside a provider via useOptionalBotFormState).
   const store = context?.store ?? EMPTY_BOT_FORM_STORE;
   const state = useStore(store);
+  const activeTab = useContext(BotFormActiveTabContext);
 
   // Merge in its OWN memo keyed on just [alerts, componentErrors] — both are
   // reference-stable across formData-only writes (a keystroke never touches
@@ -1890,12 +1908,20 @@ const useMergedBotFormState = (
     const { store: _store, ...rest } = context;
     return {
       ...rest,
+      activeTab,
       formData: state.formData,
       errors: state.errors,
       alerts: mergedAlerts,
       isDirty: state.isDirty,
     };
-  }, [context, state.formData, state.errors, mergedAlerts, state.isDirty]);
+  }, [
+    context,
+    activeTab,
+    state.formData,
+    state.errors,
+    mergedAlerts,
+    state.isDirty,
+  ]);
 };
 
 /**
@@ -1930,15 +1956,23 @@ export const useOptionalBotFormState = ():
   return useMergedBotFormState(context);
 };
 
-export const useBotFormFeatures = (): BotFormFeatureFlags => {
-  const { features } = useBotFormState();
-  return features;
+const useBotFormInternalContext = (
+  hook: string
+): BotFormInternalContextValue => {
+  const context = useContext(BotFormStateContext);
+  if (!context) {
+    throw new Error(`${hook} must be used within a BotFormProvider`);
+  }
+  return context;
 };
 
-export const useBotFormFieldLock = () => {
-  const { isFieldLocked } = useBotFormState();
-  return isFieldLocked;
-};
+// These three read the stable context only — no store subscription — so a
+// keystroke never re-renders their callers.
+export const useBotFormFeatures = (): BotFormFeatureFlags =>
+  useBotFormInternalContext('useBotFormFeatures').features;
+
+export const useBotFormFieldLock = () =>
+  useBotFormInternalContext('useBotFormFieldLock').isFieldLocked;
 
 export const useBotFormEditing = () => {
   const {
@@ -1947,15 +1981,18 @@ export const useBotFormEditing = () => {
     enableEditing,
     disableEditing,
     toggleEditing,
-  } = useBotFormState();
+  } = useBotFormInternalContext('useBotFormEditing');
 
-  return {
-    isEditLocked,
-    isReadOnly,
-    enableEditing,
-    disableEditing,
-    toggleEditing,
-  };
+  return useMemo(
+    () => ({
+      isEditLocked,
+      isReadOnly,
+      enableEditing,
+      disableEditing,
+      toggleEditing,
+    }),
+    [isEditLocked, isReadOnly, enableEditing, disableEditing, toggleEditing]
+  );
 };
 
 /**
@@ -2217,4 +2254,402 @@ export const useBotFormTopLevelSelector = <
     );
   }
   return selected;
+};
+
+/**
+ * The form's zustand store, for code that reads state at CALL time (save,
+ * backtest, drag handlers, one-off effects) instead of subscribing. The store
+ * reference is stable for the provider's life, so a caller does not re-render.
+ */
+export const useBotFormStoreApi = (): BotFormStore =>
+  useBotFormInternalContext('useBotFormStoreApi').store;
+
+/**
+ * Stable getter for the CURRENT form data. Use it in callbacks that need the
+ * whole form (save, backtest, export) so the component that owns the callback
+ * does not have to subscribe to every keystroke.
+ */
+export const useBotFormGetFormData = (): (() => BotFormData) => {
+  const store = useBotFormStoreApi();
+  return useCallback(() => store.getState().formData, [store]);
+};
+
+/**
+ * Generic narrow subscription: re-renders only when `selector`'s result changes
+ * (Object.is, or `equality` when given). The selector must return a stable
+ * value for unchanged input — a primitive, or a slice reference out of the
+ * store — or pass `shallow`-style equality.
+ */
+export function useBotFormStoreSelector<T>(
+  selector: (state: BotFormStoreState) => T,
+  equality?: (a: T, b: T) => boolean
+): T {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const lastRef = useRef<{ value: T } | null>(null);
+  const selected = useStore(store, (s) => {
+    const next = selector(s);
+    if (equality && lastRef.current && equality(lastRef.current.value, next)) {
+      return lastRef.current.value;
+    }
+    lastRef.current = { value: next };
+    return next;
+  });
+  if (!context) {
+    throw new Error(
+      'useBotFormStoreSelector must be used within a BotFormProvider'
+    );
+  }
+  return selected;
+}
+
+/** Narrow subscription to `isDirty` (flips once per edit session, not per key). */
+export const useBotFormIsDirty = (): boolean =>
+  useBotFormStoreSelector((s) => s.isDirty);
+
+/**
+ * The scroll-spy's active section. Changes while the user scrolls; only the
+ * section nav should read it.
+ */
+export const useBotFormActiveTab = (): BotFormTabId =>
+  useContext(BotFormActiveTabContext);
+
+/**
+ * Provider-optional read of what a variable-binding control needs: the form
+ * `mode`, the `botVars` bindings and their setter. Reads the stable context
+ * only (never the hot store), so a keystroke does not re-render the ~90 binding
+ * controls in the form. Returns null outside a provider.
+ */
+export const useOptionalBotFormBinding = (): {
+  mode: BotFormMode;
+  botVars: BotVars | null;
+  setBotVars: Dispatch<SetStateAction<BotVars | null>>;
+} | null => {
+  const context = useContext(BotFormStateContext);
+  const mode = context?.mode;
+  const botVars = context?.botVars ?? null;
+  const setBotVars = context?.setBotVars;
+  return useMemo(
+    () =>
+      mode && setBotVars ? { mode, botVars, setBotVars } : null,
+    [mode, botVars, setBotVars]
+  );
+};
+
+/**
+ * Provider-optional narrow read of one TOP-LEVEL form field (`terminal`,
+ * `pair`, …). `undefined` outside a provider.
+ */
+export const useOptionalBotFormTopLevelSelector = <K extends keyof BotFormData>(
+  key: K
+): BotFormData[K] | undefined => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const selected = useStore(store, (s) => s.formData[key]);
+  return context ? selected : undefined;
+};
+
+/**
+ * Provider-optional read of the STABLE form context (callbacks, mode, quick
+ * setup mode, locks, …) without subscribing to the hot store. `undefined`
+ * outside a provider. Hot fields (formData / errors / alerts / isDirty) are not
+ * part of it — use the narrow hooks for those.
+ */
+export const useOptionalBotFormContext = ():
+  | Omit<BotFormInternalContextValue, 'store'>
+  | undefined => useContext(BotFormStateContext);
+
+/**
+ * Provider-optional narrow subscription to the merged alerts (see
+ * `useBotFormAlerts`). `undefined` outside a provider.
+ */
+export const useOptionalBotFormAlerts = (): BotFormAlerts | undefined => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const alerts = useStore(store, (s) => s.alerts);
+  const componentErrors = useStore(store, (s) => s.componentErrors);
+  const merged = useMemo(
+    () => mergeBotFormAlerts(alerts, componentErrors),
+    [alerts, componentErrors]
+  );
+  return context ? merged : undefined;
+};
+
+/**
+ * The STABLE form context (callbacks, mode, quick-setup mode, locks, draft
+ * notice, …) without a store subscription. Throws outside a provider.
+ */
+export const useBotFormContext = (): Omit<
+  BotFormInternalContextValue,
+  'store'
+> => useBotFormInternalContext('useBotFormContext');
+
+/**
+ * BROAD subscription to the whole `formData` (re-renders on every keystroke).
+ * Only for components that genuinely render from most of the form; everything
+ * else should use a narrow selector.
+ */
+export const useBotFormData = (): BotFormData =>
+  useBotFormStoreSelector((s) => s.formData);
+
+const pickInto = (
+  source: Record<string, unknown> | undefined,
+  keys: readonly string[]
+): Record<string, unknown> => {
+  const out: Record<string, unknown> = {};
+  if (!source) return out;
+  for (const key of keys) {
+    if (key in source) out[key] = source[key];
+  }
+  return out;
+};
+
+const pickedEqual = (
+  a: Record<string, unknown>,
+  b: Record<string, unknown>,
+  keys: readonly string[]
+) => keys.every((key) => Object.is(a[key], b[key]));
+
+/**
+ * Narrow projection of the form: `type`, the listed top-level fields, and the
+ * listed settings keys of each slice (dca / combo / grid). The result has the
+ * `BotFormData` shape (so code written against `formData.x` keeps working) but
+ * the caller re-renders ONLY when one of the picked values changes.
+ */
+export const useBotFormPick = (
+  topKeys: readonly (keyof BotFormData)[],
+  sliceKeys: readonly string[]
+): BotFormData => {
+  const topRef = useRef(topKeys);
+  const sliceRef = useRef(sliceKeys);
+  topRef.current = topKeys;
+  sliceRef.current = sliceKeys;
+  return useBotFormStoreSelector(
+    (s) => {
+      const fd = s.formData as unknown as Record<string, unknown>;
+      return {
+        ...pickInto(fd, ['type', ...(topRef.current as string[])]),
+        dca: pickInto(fd['dca'] as Record<string, unknown>, sliceRef.current),
+        combo: pickInto(fd['combo'] as Record<string, unknown>, sliceRef.current),
+        grid: pickInto(fd['grid'] as Record<string, unknown>, sliceRef.current),
+      } as unknown as BotFormData;
+    },
+    (a, b) => {
+      const ra = a as unknown as Record<string, Record<string, unknown>>;
+      const rb = b as unknown as Record<string, Record<string, unknown>>;
+      return (
+        pickedEqual(
+          ra as unknown as Record<string, unknown>,
+          rb as unknown as Record<string, unknown>,
+          ['type', ...(topRef.current as string[])]
+        ) &&
+        pickedEqual(ra['dca'], rb['dca'], sliceRef.current) &&
+        pickedEqual(ra['combo'], rb['combo'], sliceRef.current) &&
+        pickedEqual(ra['grid'], rb['grid'], sliceRef.current)
+      );
+    }
+  );
+};
+
+/**
+ * `given` when the caller was handed form data (legacy hosts that still pass
+ * it down as a prop), else the store's current form data. With `given` set the
+ * caller does NOT re-render on store writes.
+ */
+export const useBotFormDataOr = (given?: BotFormData): BotFormData =>
+  useBotFormStoreSelector((s) => given ?? s.formData);
+
+/** Same as `useBotFormDataOr`, for the errors object. */
+export const useBotFormErrorsOr = (given?: BotFormErrors): BotFormErrors =>
+  useBotFormStoreSelector((s) => given ?? s.errors);
+
+// ---------------------------------------------------------------------------
+// Tracked form data
+//
+// Large legacy sections read `formData.something` in many places — directly,
+// in memos and effects, and by handing `formData` to helpers. Listing every
+// field by hand for a narrow selector is error-prone (a missed field freezes
+// on screen), so these sections use a TRACKED read instead: the hook returns a
+// proxy that records which fields the component (and anything it hands the
+// proxy to) reads — top-level fields and settings fields one level down, e.g.
+// `pair` or `dca.tpPerc` — and the component re-renders only when one of
+// THOSE fields changes.
+//
+// Safety rules, so a read can over-subscribe but never under-subscribe:
+//  - the recorded set only grows for the life of the component (a field read
+//    once inside a memo stays subscribed even when the memo is later cached);
+//  - enumerating a slice (spread, Object.keys, JSON.stringify) subscribes the
+//    whole slice; enumerating the root subscribes everything;
+//  - every read returns the store's CURRENT value, never an older snapshot.
+// The proxy's identity changes exactly when a subscribed field changes, so
+// memos and effects keyed on `[formData]` recompute when they must.
+
+type TrackedSet = Set<string>;
+
+const SLICE_KEYS = new Set(['dca', 'combo', 'grid']);
+
+/** Reading this key off a tracked view returns the plain object behind it. */
+const TRACKED_RAW = Symbol('botFormTrackedRaw');
+
+/**
+ * The plain form data behind a tracked view (or the value itself when it is
+ * not one). Call it before handing form data to anything that KEEPS it — a
+ * store, a template, component state — so the kept object is a plain
+ * snapshot, not a live view.
+ */
+export const unwrapTrackedFormData = <T,>(value: T): T => {
+  if (value !== null && typeof value === 'object') {
+    const raw = (value as Record<symbol, unknown>)[TRACKED_RAW];
+    if (raw) return raw as T;
+  }
+  return value;
+};
+
+const createTrackedView = (
+  snapshot: BotFormData,
+  tracked: TrackedSet,
+  getLive: () => BotFormData
+): BotFormData => {
+  const sliceViews = new Map<string, { target: object; view: object }>();
+  const sliceView = (sliceKey: string, sliceObj: object): object => {
+    const hit = sliceViews.get(sliceKey);
+    if (hit && hit.target === sliceObj) return hit.view;
+    const view = new Proxy(sliceObj, {
+      get(target, prop, receiver) {
+        if (prop === TRACKED_RAW) return target;
+        if (typeof prop === 'string') tracked.add(`${sliceKey}.${prop}`);
+        return Reflect.get(target, prop, receiver);
+      },
+      has(target, prop) {
+        if (typeof prop === 'string') tracked.add(`${sliceKey}.${prop}`);
+        return Reflect.has(target, prop);
+      },
+      ownKeys(target) {
+        tracked.add(`${sliceKey}.*`);
+        return Reflect.ownKeys(target);
+      },
+    });
+    sliceViews.set(sliceKey, { target: sliceObj, view });
+    return view;
+  };
+
+  return new Proxy(snapshot as object, {
+    get(_target, prop) {
+      const live = getLive() as unknown as Record<string | symbol, unknown>;
+      if (prop === TRACKED_RAW) return live;
+      if (typeof prop !== 'string') return live[prop];
+      tracked.add(prop);
+      const value = live[prop];
+      if (
+        SLICE_KEYS.has(prop) &&
+        value !== null &&
+        typeof value === 'object' &&
+        !Array.isArray(value)
+      ) {
+        return sliceView(prop, value as object);
+      }
+      return value;
+    },
+    has(_target, prop) {
+      if (typeof prop === 'string') tracked.add(prop);
+      return Reflect.has(getLive() as unknown as object, prop);
+    },
+    ownKeys() {
+      tracked.add('*');
+      return Reflect.ownKeys(getLive() as unknown as object);
+    },
+    getOwnPropertyDescriptor(_target, prop) {
+      if (typeof prop === 'string') tracked.add(prop);
+      const d = Reflect.getOwnPropertyDescriptor(
+        getLive() as unknown as object,
+        prop
+      );
+      // Proxy invariant: report as configurable (the target is a different
+      // object than the live one).
+      return d ? { ...d, configurable: true } : d;
+    },
+  }) as BotFormData;
+};
+
+const trackedFieldsEqual = (
+  prev: BotFormData,
+  next: BotFormData,
+  tracked: TrackedSet
+): boolean => {
+  if (prev === next) return true;
+  if (tracked.has('*')) return false;
+  const p = prev as unknown as Record<string, Record<string, unknown>>;
+  const n = next as unknown as Record<string, Record<string, unknown>>;
+  for (const path of tracked) {
+    const dot = path.indexOf('.');
+    if (dot === -1) {
+      // A bare slice key means the slice was only passed along; its fields are
+      // tracked individually through the slice view.
+      if (SLICE_KEYS.has(path)) continue;
+      if (!Object.is(p[path], n[path])) return false;
+      continue;
+    }
+    const slice = path.slice(0, dot);
+    const key = path.slice(dot + 1);
+    if (key === '*') {
+      if (p[slice] !== n[slice]) return false;
+      continue;
+    }
+    if (!Object.is(p[slice]?.[key], n[slice]?.[key])) return false;
+  }
+  return true;
+};
+
+/**
+ * Tracked read of the form data (see the block comment above). Pass `given`
+ * when a legacy host handed the component its form data as a prop: it is then
+ * returned untouched and nothing is subscribed.
+ */
+export const useTrackedBotFormData = (given?: BotFormData): BotFormData => {
+  const context = useContext(BotFormStateContext);
+  const store = context?.store ?? EMPTY_BOT_FORM_STORE;
+  const trackedRef = useRef<TrackedSet | null>(null);
+  if (trackedRef.current === null) trackedRef.current = new Set();
+  const tracked = trackedRef.current;
+  const lastRef = useRef<BotFormData | null>(null);
+
+  const snapshot = useStore(store, (s) => {
+    if (given) return given;
+    const next = s.formData;
+    const last = lastRef.current;
+    // Keep the snapshot this component last rendered with while none of the
+    // fields it reads changed, so it does not re-render.
+    if (last && trackedFieldsEqual(last, next, tracked)) return last;
+    return next;
+  });
+  lastRef.current = given ? null : snapshot;
+
+  const view = useMemo(
+    () =>
+      given
+        ? null
+        : createTrackedView(snapshot, tracked, () => store.getState().formData),
+    [given, snapshot, tracked, store]
+  );
+  return given ?? (view as BotFormData);
+};
+
+/**
+ * Drop-in replacement for `useBotFormState()` that does NOT re-render on every
+ * keystroke: same shape, but `formData` is the tracked view (re-renders only
+ * for fields the caller reads), and errors / alerts / isDirty are their own
+ * narrow subscriptions (they change on the debounced validation pass or once
+ * per edit session, never per keystroke).
+ */
+export const useTrackedBotFormState = (): BotFormStateContextValue => {
+  const context = useBotFormInternalContext('useTrackedBotFormState');
+  const activeTab = useContext(BotFormActiveTabContext);
+  const formData = useTrackedBotFormData();
+  const errors = useBotFormErrors();
+  const alerts = useBotFormAlerts();
+  const isDirty = useBotFormIsDirty();
+  return useMemo(() => {
+    const { store: _store, ...rest } = context;
+    return { ...rest, activeTab, formData, errors, alerts, isDirty };
+  }, [context, activeTab, formData, errors, alerts, isDirty]);
 };

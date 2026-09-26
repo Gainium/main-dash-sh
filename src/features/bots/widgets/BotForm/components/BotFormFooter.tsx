@@ -42,9 +42,12 @@ import {
   type ResponsiveButtonRenderProps,
 } from '@/components/ui/ResponsiveButtonRow'
 import {
+  useBotFormActions,
   useBotFormEditing,
+  useBotFormErrorsOr,
   useBotFormSelector,
-  useBotFormState,
+  unwrapTrackedFormData,
+  useTrackedBotFormData,
   type BotFormMode,
 } from '@/contexts/bots/form/BotFormProvider'
 import {
@@ -95,7 +98,8 @@ export interface ToggleStatusPayload {
 
 export interface BotFormFooterProps {
   mode: BotFormMode
-  errors: BotFormErrors
+  /** Omitted by the bot form shell: the footer reads the store itself. */
+  errors?: BotFormErrors
   submitLabel: string
   submitDisabled: boolean
   submitIsPending: boolean
@@ -108,7 +112,8 @@ export interface BotFormFooterProps {
   showErrorSummary?: boolean
   menuConfig?: PanelMenuConfig | null
   showCredits?: boolean
-  formData: BotFormData
+  /** Omitted by the bot form shell: the footer reads the store itself. */
+  formData?: BotFormData
   botType: BotTypesEnum
   currentExchange: ExchangeInUser | null
   /**
@@ -650,14 +655,24 @@ const ViewResultsButton: React.FC<{
   )
 }
 
+// The footer re-renders with the values it shows (capital, credits); its closed
+// dialogs have nothing to re-render for, so they are memoized.
+const MemoGridStartBotDialog = React.memo(GridStartBotDialog)
+const MemoGridStopBotDialog = React.memo(GridStopBotDialog)
+const MemoCloseOptionsDialog = React.memo(CloseOptionsDialog)
+const MemoBotFormSaveTemplateDialog = React.memo(BotFormSaveTemplateDialog)
+const MemoBotFormLoadTemplateDialog = React.memo(BotFormLoadTemplateDialog)
+const MemoConfirmationDialog = React.memo(ConfirmationDialog)
+const CLOSED_TEMPLATE_FORM_DATA: Partial<BotFormData> = {}
+
 export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
   ({
     onBacktest,
-    formData,
+    formData: givenFormData,
     currentExchange,
     botType,
     mode,
-    errors,
+    errors: givenErrors,
     submitLabel,
     submitDisabled,
     submitIsPending,
@@ -683,6 +698,8 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     onViewResults,
     onDismissResults,
   }) => {
+    const formData = useTrackedBotFormData(givenFormData)
+    const errors = useBotFormErrorsOr(givenErrors)
     const indicators = useBotFormSelector('indicators', [])
     const maxNumberOfOpenDeals = useBotFormSelector('maxNumberOfOpenDeals')
     const type = useBotFormSelector('type')
@@ -996,7 +1013,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           // swallow errors to avoid interfering with UI
         }
 
-        void onBacktest?.(data, cfg)
+        void onBacktest?.(unwrapTrackedFormData(data), cfg)
       },
       [botType, formData, indicators.length, onBacktest, currentExchange],
     )
@@ -1351,7 +1368,17 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     )
 
     // Add terminal-specific menu items (reset) so terminal forms have a 3-dots menu
-    const { resetFormData } = useBotFormState()
+    const { resetFormData } = useBotFormActions()
+    const handleResetConfirm = useCallback(() => {
+      resetFormData()
+      toast.success('Settings reset to defaults')
+    }, [resetFormData])
+    const onLoadTemplateRef = useRef(onLoadTemplate)
+    onLoadTemplateRef.current = onLoadTemplate
+    const handleApplyTemplate = useCallback((templateId: string) => {
+      const template = useBotTemplatesStore.getState().getTemplate(templateId)
+      if (template) onLoadTemplateRef.current?.(template)
+    }, [])
     const combinedOverflowMenuItems = useMemo((): OverflowMenuItem[] => {
       const items = [...baseOverflowMenuItems]
 
@@ -1521,7 +1548,10 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       const cfg = buildPeriodConfig()
       const { formData: data, handleBacktest: runDialog } =
         backtestLatestRef.current
-      runDialog(data, cfg ? { ...cfg, periodId: 'custom' } : undefined)
+      runDialog(
+        unwrapTrackedFormData(data),
+        cfg ? { ...cfg, periodId: 'custom' } : undefined,
+      )
     }, [buildPeriodConfig])
 
     const handleQuickRun = useCallback(() => {
@@ -1532,7 +1562,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         onRunBacktestDirect: runDirect,
       } = backtestLatestRef.current
       if (!cfg || !runDirect) {
-        runDialog(data)
+        runDialog(unwrapTrackedFormData(data))
         return
       }
       void runDirect(cfg)
@@ -1754,19 +1784,19 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           overflowMenuItems={combinedOverflowMenuItems}
           overflowMenuTriggerClassName='rounded-lg'
         />
-        <GridStartBotDialog
+        <MemoGridStartBotDialog
           open={startDialogOpen}
           onOpenChange={setStartDialogOpen}
           onConfirm={handleGridStartSubmit}
           isProcessing={Boolean(togglePending)}
         />
-        <GridStopBotDialog
+        <MemoGridStopBotDialog
           open={stopGridDialogOpen}
           onOpenChange={setStopGridDialogOpen}
           onConfirm={handleGridStopConfirm}
           isProcessing={Boolean(togglePending)}
         />
-        <CloseOptionsDialog
+        <MemoCloseOptionsDialog
           open={stopDialogOpen}
           onOpenChange={setStopDialogOpen}
           onConfirm={handleStopConfirm}
@@ -1774,36 +1804,34 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         />
         {showSaveAsTemplate && (
           <>
-            <BotFormSaveTemplateDialog
+            <MemoBotFormSaveTemplateDialog
               open={saveTemplateOpen}
               onOpenChange={setSaveTemplateOpen}
               botType={botType}
-              currentFormData={formData}
+              // A plain snapshot while open (the template keeps it); nothing
+              // while closed, so typing does not re-render the dialog.
+              currentFormData={
+                saveTemplateOpen
+                  ? unwrapTrackedFormData(formData)
+                  : CLOSED_TEMPLATE_FORM_DATA
+              }
             />
-            <BotFormLoadTemplateDialog
+            <MemoBotFormLoadTemplateDialog
               open={loadTemplateOpen}
               onOpenChange={setLoadTemplateOpen}
               botType={botType}
-              onApply={(templateId) => {
-                const template = useBotTemplatesStore
-                  .getState()
-                  .getTemplate(templateId)
-                if (template) onLoadTemplate?.(template)
-              }}
+              onApply={handleApplyTemplate}
             />
           </>
         )}
-        <ConfirmationDialog
+        <MemoConfirmationDialog
           open={showResetConfirm}
           onOpenChange={setShowResetConfirm}
           title='Reset to defaults?'
           description='This resets all settings to their defaults and cannot be undone.'
           confirmText='Reset'
           variant='destructive'
-          onConfirm={() => {
-            resetFormData()
-            toast.success('Settings reset to defaults')
-          }}
+          onConfirm={handleResetConfirm}
         />
       </div>
     )

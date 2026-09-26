@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import SettingsAlert from '@/components/ui/SettingsAlert';
-import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import { useOptionalBotFormAlerts } from '@/contexts/bots/form/BotFormProvider';
 import { navigateToSetting } from '@/hooks/bots/useSettingsNavigation';
 import { logger } from '@/lib/loggerInstance';
 import type { BotFormAlert, BotFormAlerts } from '@/types/bots/form';
@@ -29,8 +29,8 @@ export const BotFormAlertButton: React.FC<BotFormAlertButtonProps> = ({
   className,
   alerts: alertsProp,
 }) => {
-  const ctx = useOptionalBotFormState();
-  const alerts = alertsProp ?? ctx?.alerts;
+  const ctxAlerts = useOptionalBotFormAlerts();
+  const alerts = alertsProp ?? ctxAlerts;
 
   const alertsList = useMemo((): BotFormAlert[] => {
     if (!alerts) return [];

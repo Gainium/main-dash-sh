@@ -14,8 +14,12 @@ import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import {
+  useBotFormErrors,
+  useBotFormMode,
+  useBotFormBotVars,
+  useBotFormActions,
+  useTrackedBotFormData,
   useBotFormSelector,
-  useBotFormState,
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
@@ -157,11 +161,11 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
   const useFixedSLPrices = useBotFormSelector('useFixedSLPrices');
   const fixedSlPrice = useBotFormSelector('fixedSlPrice');
   const isShort = useMemo(() => strategy === StrategyEnum.short, [strategy]);
-  const {
-    setBotVars,
-    botVars = { list: [], paths: [] },
-    mode,
-  } = useBotFormState();
+  // Stable context reads only: this sub-section must not re-render on every
+  // keystroke elsewhere in the form.
+  const { setBotVars } = useBotFormActions();
+  const botVars = useBotFormBotVars();
+  const mode = useBotFormMode();
   const isDealEdit = mode === 'deal-edit' || mode === 'deal-mass-edit';
   /** Exactly one deal (not the mass-edit form), which has one reference price. */
   const isSingleDealEdit = mode === 'deal-edit';
@@ -1960,13 +1964,24 @@ const IndicatorsSL: React.FC<
   );
 };
 
-export const StopLossSettings: React.FC<StopLossSettingsProps> = ({
+/** Omitted form state is read from the store (the bot form shell omits it). */
+type StopLossSettingsRootProps = Omit<
+  StopLossSettingsProps,
+  'formData' | 'errors'
+> & { formData?: BotFormData; errors?: BotFormErrors };
+
+export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
   currentExchange,
-  formData,
+  formData: givenFormData,
   updateFormData,
   errors: _errors,
 }) => {
-  const { mode, errors: formStateErrors, setFormData } = useBotFormState();
+  // Tracked read: re-renders only when a field this section (or a child it
+  // hands `formData` to) actually reads changes.
+  const formData = useTrackedBotFormData(givenFormData);
+  const mode = useBotFormMode();
+  const formStateErrors = useBotFormErrors();
+  const { setFormData } = useBotFormActions();
 
   const mergedErrors = useMemo(
     () => ({ ...formStateErrors, ..._errors }),

@@ -35,6 +35,10 @@ import { createRoot, type Root } from 'react-dom/client';
 vi.mock('@/contexts/bots/form/BotFormProvider', () => ({
   useBotFormSelector: () => undefined,
   useOptionalBotFormState: () => undefined,
+  // Outside a form: the narrow optional reads return undefined (specs/066).
+  useOptionalBotFormContext: () => undefined,
+  useOptionalBotFormBinding: () => null,
+  useOptionalBotFormTopLevelSelector: () => undefined,
 }));
 
 import { BalanceInput } from '@/components/ui/balance-input';

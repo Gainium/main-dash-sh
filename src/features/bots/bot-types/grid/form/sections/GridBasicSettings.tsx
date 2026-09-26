@@ -10,8 +10,8 @@ import CoinPair from '@/components/widgets/shared/CoinPair';
 import { CoinFilter } from '@/components/widgets/shared/CoinSelect';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
+  useBotFormAlerts,
   useBotFormSelector,
-  useBotFormState,
   type BotFormMode,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
@@ -131,6 +131,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
     quoteAsset,
     latestPrice,
   } = useGridForm();
+  const pairAlerts = useBotFormAlerts().pair;
   const [isBalanceLoading, setIsBalanceLoading] = React.useState(
     useBalanceStore.getState().loading
   );
@@ -738,7 +739,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       <SettingsRow
         name="Trading Pairs"
         tooltip="Configure the trading pairs used by this bot"
-        alerts={useBotFormState().alerts?.pair ?? []}
+        alerts={pairAlerts ?? []}
         navId="pair"
       >
         <div className="space-y-xs">

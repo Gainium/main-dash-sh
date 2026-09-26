@@ -1,7 +1,9 @@
 import {
+  useBotFormBotVars,
+  useBotFormContext,
   useBotFormEditing,
   useBotFormSelector,
-  useBotFormState,
+  useBotFormStoreApi,
   type BotFormMode,
   type BotFormUpdateValue,
   type Fields,
@@ -110,19 +112,24 @@ export type GridRebalanceChoice = {
   buyAmount?: number;
 };
 
+/**
+ * Save / backtest handlers for the bot form. They read the form state from the
+ * store at CALL time, so the component that owns them (the form shell) does
+ * not subscribe to — and re-render on — every keystroke.
+ */
 export const useFormHandlers = (
-  formData: BotFormData,
   setFormData: React.Dispatch<React.SetStateAction<BotFormData>>,
   setIsDirty: React.Dispatch<React.SetStateAction<boolean>>,
   setErrors: React.Dispatch<React.SetStateAction<BotFormErrors>>,
-  errors: BotFormErrors,
   bot: Bot | null,
   updateMutation: UpdateMutation,
   options: UseFormHandlersOptions = {},
   terminal: boolean
 ): UseFormHandlersReturn => {
   const mode: BotFormMode = options.mode ?? 'edit';
-  const { botVars, setAlerts } = useBotFormState();
+  const botVars = useBotFormBotVars();
+  const { setAlerts } = useBotFormContext();
+  const store = useBotFormStoreApi();
   const { currentExchange, hasStoredPair } = useBotFormQuery();
   // After a successful edit-mode save, flip the form back to view mode.
   // Without this the user sees the success toast but the toolbar stays
@@ -177,11 +184,11 @@ export const useFormHandlers = (
       if (mode === 'edit') {
         setIsDirty(true);
       }
-      if (errors[field]) {
+      if (store.getState().errors[field]) {
         setErrors((prev) => ({ ...prev, [field]: '' }));
       }
     },
-    [errors, setFormData, setIsDirty, setErrors, mode]
+    [store, setFormData, setIsDirty, setErrors, mode]
   );
 
   const useMulti = useBotFormSelector('useMulti');
@@ -212,6 +219,8 @@ export const useFormHandlers = (
     gridRebalance?: GridRebalanceChoice
   ) => {
     e?.preventDefault();
+    // The form as it is at the moment of the click.
+    const formData = store.getState().formData;
 
     logger.info('[BotForm] Save requested', {
       mode,
@@ -480,6 +489,7 @@ export const useFormHandlers = (
   };
 
   const handleBacktest = useCallback(async (overrides?: BacktestOverrides) => {
+    const formData = store.getState().formData;
     try {
       if (options.validate) {
         const validation = options.validate(formData) as unknown as {
@@ -595,7 +605,7 @@ export const useFormHandlers = (
       toast.error(`Backtest failed: ${message}`);
     }
   }, [
-    formData,
+    store,
     mode,
     botVars,
     currentExchange,

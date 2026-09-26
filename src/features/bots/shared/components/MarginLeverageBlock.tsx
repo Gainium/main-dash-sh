@@ -18,9 +18,9 @@ import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import MarginTypeSelector from '@/components/widgets/bots/MarginTypeSelector';
 import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
 import {
+  useBotFormActions,
   useBotFormFieldLock,
   useBotFormSelector,
-  useBotFormState,
 } from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { useGraphQL } from '@/hooks/useGraphQL';
@@ -74,7 +74,7 @@ export const MarginLeverageBlock: React.FC<MarginLeverageBlockProps> = ({
   const formExchangeUUID = useBotFormSelector('exchangeUUID');
 
   const { exchanges } = useBotFormQuery();
-  const { updateFormData } = useBotFormState();
+  const { updateFormData } = useBotFormActions();
   const isFieldLocked = useBotFormFieldLock();
   const isLiveTrading = useUIStore((state) => state.isLiveTrading);
   const isPaperTrading = !isLiveTrading;

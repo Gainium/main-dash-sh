@@ -1,6 +1,6 @@
 import { SlidersHorizontal, Zap } from 'lucide-react';
 
-import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import { useOptionalBotFormContext } from '@/contexts/bots/form/BotFormProvider';
 import { cn } from '@/lib/utils';
 
 export type QuickModeValue = 'quick' | 'manual';
@@ -33,7 +33,7 @@ export const QuickModeToggle: React.FC<QuickModeToggleProps> = ({
   // renders. Use the optional variant so the component can be rendered
   // outside a BotFormProvider tree (e.g. hedge layout) as long as a
   // `value`/`onChange` pair is supplied.
-  const ctx = useOptionalBotFormState();
+  const ctx = useOptionalBotFormContext();
   const isControlled = value !== undefined && onChange !== undefined;
   const currentMode: QuickModeValue = isControlled
     ? (value as QuickModeValue)

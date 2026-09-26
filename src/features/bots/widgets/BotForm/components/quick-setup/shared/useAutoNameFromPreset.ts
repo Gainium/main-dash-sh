@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 import {
-  useBotFormState,
+  useTrackedBotFormState,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
 
@@ -62,7 +62,7 @@ export const useAutoNameFromPreset = ({
   botTypeLabel,
   enabled = true,
 }: UseAutoNameFromPresetArgs): void => {
-  const { formData, updateFormData } = useBotFormState();
+  const { formData, updateFormData } = useTrackedBotFormState();
   // The value we last auto-wrote, or null before our first write this mount.
   const lastAutoName = useRef<string | null>(null);
 

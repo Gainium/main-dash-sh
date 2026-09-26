@@ -45,6 +45,16 @@ const notify = (): void => {
 };
 
 const applyPatch = (patch: Partial<RiskRewardRuntimeState>): void => {
+  // The chart pushes a value on every indicator callback; most carry the same
+  // numbers. A patch that changes no runtime field (ignoring the timestamp,
+  // which no consumer reads) must not notify — that re-rendered every
+  // subscriber per bar during study computation.
+  const changes = (
+    Object.keys(patch) as Array<keyof RiskRewardRuntimeState>
+  ).some((key) => key !== 'updatedAt' && !Object.is(runtimeState[key], patch[key]));
+  if (!changes) {
+    return;
+  }
   runtimeState = {
     ...runtimeState,
     ...patch,

@@ -43,7 +43,12 @@
  */
 import { useEffect, useRef } from 'react';
 
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormContext,
+  useBotFormStoreApi,
+  useBotFormStoreSelector,
+  useBotFormTopLevelSelector,
+} from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import {
   aggregatePrecisionConstraints,
@@ -138,7 +143,22 @@ const resolveDcaMinimum = (
 export const useExchangeMinimumBump = (
   options?: UseExchangeMinimumBumpOptions
 ): void => {
-  const { formData, setFormData, mode, setErrors } = useBotFormState();
+  // Subscribe only to what decides WHETHER a bump pass runs (the sentinel
+  // inputs + precision data). The amounts are read from the store when the
+  // pass runs, so typing an amount does not re-render the form shell.
+  const { setFormData, mode, setErrors } = useBotFormContext();
+  const store = useBotFormStoreApi();
+  const formType = useBotFormTopLevelSelector('type');
+  const formPair = useBotFormTopLevelSelector('pair');
+  const formExchangeUUID = useBotFormTopLevelSelector('exchangeUUID');
+  const formPairPrecisionMap = useBotFormTopLevelSelector('pairPrecisionMap');
+  const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const dcaOrderSizeType = useBotFormStoreSelector(
+    (s) => s.formData.dca?.orderSizeType
+  );
+  const comboOrderSizeType = useBotFormStoreSelector(
+    (s) => s.formData.combo?.orderSizeType
+  );
   const { currentExchange } = useBotFormQuery();
 
   // Sentinel key: bump fires once per unique combination of
@@ -159,6 +179,7 @@ export const useExchangeMinimumBump = (
       return;
     }
 
+    const formData = store.getState().formData;
     const botType = formData.type;
     const pair = formData.pair;
     const primaryPair = Array.isArray(pair) ? pair[0] : pair;
@@ -384,23 +405,19 @@ export const useExchangeMinimumBump = (
         });
       }
     }
+    // Amounts (baseOrderSize / orderSize / useDca / budget / levels) are not
+    // dependencies on purpose: a pass acts only when the sentinel below
+    // changes, and the sentinel is made of the values listed here.
   }, [
     skip,
-    formData.type,
-    formData.pair,
-    formData.exchangeUUID,
-    formData.pairPrecisionMap,
-    formData.pairMetadata,
-    formData.dca?.orderSizeType,
-    formData.dca?.baseOrderSize,
-    formData.dca?.orderSize,
-    formData.dca?.useDca,
-    formData.combo?.orderSizeType,
-    formData.combo?.baseOrderSize,
-    formData.combo?.orderSize,
-    formData.combo?.useDca,
-    formData.grid?.budget,
-    formData.grid?.levels,
+    store,
+    formType,
+    formPair,
+    formExchangeUUID,
+    formPairPrecisionMap,
+    formPairMetadata,
+    dcaOrderSizeType,
+    comboOrderSizeType,
     setFormData,
     setErrors,
     options,

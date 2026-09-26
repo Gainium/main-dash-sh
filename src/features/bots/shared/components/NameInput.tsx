@@ -3,16 +3,24 @@ import React from 'react';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { Input } from '@/components/ui/input';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormActions,
+  useBotFormAlerts,
+  useBotFormTopLevelSelector,
+} from '@/contexts/bots/form/BotFormProvider';
 
 export const NameInput: React.FC = () => {
-  const { formData, updateFormData, isFieldLocked } = useBotFormState();
+  // Narrow reads: the name, its alerts and the stable actions — not the whole
+  // form (three whole-store subscriptions used to live here).
+  const name = useBotFormTopLevelSelector('name');
+  const { updateFormData, isFieldLocked } = useBotFormActions();
+  const nameAlerts = useBotFormAlerts().name;
 
   return (
     <SettingsRow
       name="Bot Name"
       tooltip="Name for your bot configuration"
-      alerts={useBotFormState().alerts?.name ?? []}
+      alerts={nameAlerts ?? []}
       navId="name"
     >
       <div className="space-y-xs">
@@ -44,20 +52,20 @@ export const NameInput: React.FC = () => {
               typeof variable.value === 'string'
                 ? variable.value
                 : String(variable.value);
-            if (nextValue !== formData.name) {
+            if (nextValue !== name) {
               updateFormData('name', nextValue);
             }
           }}
         >
           <Input
             id="grid-bot-name"
-            value={formData.name}
+            value={name}
             onChange={(event: React.ChangeEvent<HTMLInputElement>) =>
               updateFormData('name', event.target.value)
             }
             placeholder="Enter a descriptive bot name"
             className={
-              (useBotFormState().alerts?.name ?? []).some(
+              (nameAlerts ?? []).some(
                 (a) => a.variant === 'error'
               )
                 ? 'border-destructive'

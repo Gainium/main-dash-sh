@@ -1,8 +1,8 @@
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
+  useBotFormActions,
   useBotFormSelector,
-  useBotFormState,
 } from '@/contexts/bots/form/BotFormProvider';
 import { ComboTpBase } from '@/types';
 import React, { useMemo } from 'react';
@@ -14,7 +14,7 @@ type BaseStopLosslOnProps = {
 export const BaseStopLosslOn: React.FC<BaseStopLosslOnProps> = ({
   section = 'sl',
 }) => {
-  const { updateFormData } = useBotFormState();
+  const { updateFormData } = useBotFormActions();
   const useRiskReward = useBotFormSelector('useRiskReward');
   const comboTpBase = useBotFormSelector('comboTpBase');
   const riskRewardActive = useMemo(

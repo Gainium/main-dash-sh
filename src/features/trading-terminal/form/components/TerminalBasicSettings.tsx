@@ -16,8 +16,10 @@ import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import {
+  useBotFormErrorsOr,
   useBotFormSelector,
-  useBotFormState,
+  useTrackedBotFormData,
+  useTrackedBotFormState,
   type BotFormMode,
   type BotFormUpdateValue,
   type Fields,
@@ -247,9 +249,10 @@ const LimitPriceInput: React.FC<{
 
 interface TerminalBasicSettingsProps {
   currentExchange: ExchangeBotForm | null;
-  formData: BotFormData;
+  /** Omitted by the bot form shell: read from the form store instead. */
+  formData?: BotFormData;
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
-  errors: BotFormErrors;
+  errors?: BotFormErrors;
   exchangesData?: ExchangeBotForm[] | undefined;
   exchangesLoading?: boolean;
   onUpdateBalances?: () => void;
@@ -262,15 +265,19 @@ interface TerminalBasicSettingsProps {
 }
 
 export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
-  props
+  rawProps
 ) => {
+  const formData = useTrackedBotFormData(rawProps.formData);
+  const errors = useBotFormErrorsOr(rawProps.errors);
+  const props = useMemo(
+    () => ({ ...rawProps, formData, errors }),
+    [rawProps, formData, errors]
+  );
   const {
-    formData,
     currentExchange,
     updateFormData,
     exchangesLoading,
     exchangesData,
-    errors,
   } = props;
   // Normalize the shell's refresher onto the prop name the strategy hook (and
   // therefore `useBalanceRefreshControl`) expects, so the terminal's balance
@@ -316,7 +323,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
   const baseOrderPrice = useBotFormSelector('baseOrderPrice');
   const tradingContext = useDcaTradingContext(formData, { bot: null });
   const latestPrice = tradingContext.latestPrice;
-  const { alerts } = useBotFormState();
+  const { alerts } = useTrackedBotFormState();
   const {
     baseOrderLocked,
     showBaseOrderSection,
@@ -499,7 +506,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
         <SettingsRow
           name="Trading Pairs"
           tooltip="Configure the trading pairs used by this bot"
-          alerts={useBotFormState().alerts?.pair ?? []}
+          alerts={useTrackedBotFormState().alerts?.pair ?? []}
           navId="pair"
         >
           <div className="space-y-xs">

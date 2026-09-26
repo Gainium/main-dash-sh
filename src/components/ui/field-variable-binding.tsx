@@ -1,4 +1,7 @@
-import { useOptionalBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useOptionalBotFormBinding,
+  useOptionalBotFormTopLevelSelector,
+} from '@/contexts/bots/form/BotFormProvider';
 import useBotVarBinding, {
   type VarBindingPath,
 } from '@/hooks/bots/global-variables/useBotVarBinding';
@@ -62,21 +65,14 @@ export const FieldVariableBinding: React.FC<FieldVariableBindingProps> = ({
   onVariableResolved,
   hideBindingButton = false,
 }) => {
-  const optionalBotForm = useOptionalBotFormState();
-  const isDealEdit = useMemo(
-    () =>
-      optionalBotForm?.mode === 'deal-edit' ||
-      optionalBotForm?.mode === 'deal-mass-edit',
-    [optionalBotForm?.mode]
-  );
-  const isSettingsReadonly = useMemo(
-    () => optionalBotForm?.mode === 'settings-readonly',
-    [optionalBotForm?.mode]
-  );
-  const isTerminalForm = useMemo(
-    () => Boolean(optionalBotForm?.formData?.terminal),
-    [optionalBotForm?.formData?.terminal]
-  );
+  // Narrow reads only: mode from the stable context, `terminal` as a single
+  // top-level field. A keystroke elsewhere in the form leaves both unchanged.
+  const formMode = useOptionalBotFormBinding()?.mode;
+  const terminalFlag = useOptionalBotFormTopLevelSelector('terminal');
+  const isDealEdit =
+    formMode === 'deal-edit' || formMode === 'deal-mass-edit';
+  const isSettingsReadonly = formMode === 'settings-readonly';
+  const isTerminalForm = Boolean(terminalFlag);
   const shouldHideBindingButton = useMemo(
     () =>
       isSettingsReadonly || isDealEdit || hideBindingButton || isTerminalForm,

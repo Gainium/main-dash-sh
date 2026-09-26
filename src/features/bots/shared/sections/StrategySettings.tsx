@@ -18,8 +18,10 @@ import SettingsRow, {
   SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
 import {
+  useBotFormErrorsOr,
   useBotFormSelector,
-  useBotFormState,
+  useTrackedBotFormData,
+  useTrackedBotFormState,
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
@@ -57,15 +59,23 @@ export interface StrategySettingsProps {
   onUpdateBalances?: () => unknown;
 }
 
-export const StrategySettings: React.FC<StrategySettingsProps> = ({
-  formData,
+/** Omitted form state is read from the store (the bot form shell omits it). */
+type StrategySettingsRootProps = Omit<
+  StrategySettingsProps,
+  'formData' | 'errors'
+> & { formData?: BotFormData; errors?: BotFormErrors };
+
+export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
+  formData: givenFormData,
   updateFormData,
-  errors,
+  errors: givenErrors,
   bot,
   onUpdateBalances,
   currentExchange,
 }) => {
-  const { alerts: mergedAlerts, mode } = useBotFormState();
+  const formData = useTrackedBotFormData(givenFormData);
+  const errors = useBotFormErrorsOr(givenErrors);
+  const { alerts: mergedAlerts, mode } = useTrackedBotFormState();
   const {
     baseOrderDisplayValue,
     handleBaseOrderSizeChange,

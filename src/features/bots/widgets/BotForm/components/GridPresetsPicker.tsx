@@ -2,7 +2,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { GRID_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useTrackedBotFormState,
+} from '@/contexts/bots/form/BotFormProvider';
 import { useCuratedPresetRois } from '@/lib/curatedPresets';
 import { useBotFormPreloadStore } from '@/stores/botFormPreloadStore';
 import { useBotTemplatesStore } from '@/stores/botTemplatesStore';
@@ -79,7 +81,7 @@ export const GridPresetsPicker: React.FC<GridPresetsPickerProps> = ({
     setIsDirty,
     isDirty,
     mode,
-  } = useBotFormState();
+  } = useTrackedBotFormState();
 
   // Curated leaderboard ROI for the form's CURRENT direction so the
   // chip on each Risk Profile card matches what the wizard showed.

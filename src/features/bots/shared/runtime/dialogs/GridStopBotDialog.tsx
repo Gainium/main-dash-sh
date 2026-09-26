@@ -7,7 +7,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useTrackedBotFormState,
+} from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { cn } from '@/lib/utils';
 import { CloseGRIDTypeEnum, CloseTypeEnum, StrategyEnum } from '@/types';
@@ -35,7 +37,7 @@ export const GridStopBotDialog: React.FC<GridStopBotDialogProps> = ({
     CloseTypeEnum.cancelAll
   );
 
-  const { formData } = useBotFormState();
+  const { formData } = useTrackedBotFormState();
 
   const settings = useMemo(() => formData.grid, [formData.grid]);
   const { bot } = useBotFormQuery();
