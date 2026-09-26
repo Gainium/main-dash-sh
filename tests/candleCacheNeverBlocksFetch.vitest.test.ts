@@ -8,14 +8,14 @@ import { afterEach, beforeEach, describe, expect, test, vi } from 'vitest';
  */
 
 const db = vi.hoisted(() => ({
-  getById: vi.fn(),
-  save: vi.fn(),
+  readRange: vi.fn(),
+  writeBars: vi.fn(),
 }));
 
 vi.mock('@/utils/candles/db', () => ({
-  DBCredentials: { version: 2, store: 'Candles', dbName: 'Gainium' },
-  getById: db.getById,
-  save: db.save,
+  DBCredentials: { version: 3, store: 'CandleChunks', dbName: 'Gainium' },
+  readRange: db.readRange,
+  writeBars: db.writeBars,
 }));
 
 vi.mock('@/utils/tradingView/historyApi', () => ({
@@ -61,16 +61,16 @@ const never = () => new Promise(() => undefined);
 describe('Candles cache I/O', () => {
   beforeEach(() => {
     vi.useFakeTimers();
-    db.getById.mockReset();
-    db.save.mockReset();
+    db.readRange.mockReset();
+    db.writeBars.mockReset();
   });
   afterEach(() => {
     vi.useRealTimers();
   });
 
   test('a cache read that never settles counts as a miss', async () => {
-    db.getById.mockImplementation(never);
-    db.save.mockResolvedValue(true);
+    db.readRange.mockImplementation(never);
+    db.writeBars.mockResolvedValue(true);
 
     let bars: unknown[] | undefined;
     void load().then((b) => (bars = b));
@@ -78,18 +78,18 @@ describe('Candles cache I/O', () => {
 
     expect(bars?.length).toBe(25);
     // The unread entry is not overwritten with this window alone.
-    expect(db.save).not.toHaveBeenCalled();
+    expect(db.writeBars).not.toHaveBeenCalled();
   });
 
   test('a cache write that never settles does not hold the candles back', async () => {
-    db.getById.mockResolvedValue(null);
-    db.save.mockImplementation(never);
+    db.readRange.mockResolvedValue({ bars: [] });
+    db.writeBars.mockImplementation(never);
 
     let bars: unknown[] | undefined;
     void load().then((b) => (bars = b));
     await vi.advanceTimersByTimeAsync(10_000);
 
-    expect(db.save).toHaveBeenCalledTimes(1);
+    expect(db.writeBars).toHaveBeenCalledTimes(1);
     expect(bars?.length).toBe(25);
   });
 });

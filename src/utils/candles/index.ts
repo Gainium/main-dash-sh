@@ -3,14 +3,18 @@ import {
   ExchangeIntervals,
   intervalMap,
   timeIntervalMap,
-  type StoreCandles,
 } from '@/types';
 import { removePaperPrefix } from '@/utils/exchangeUtils';
 import { handleError } from '@/utils/indexedDb';
 import { requestCandles } from '@/utils/tradingView/historyApi';
 import { type Bar, type PeriodParams } from '@/utils/tradingView/types';
 import logger from '../../lib/loggerInstance';
-import { DBCredentials, getById, save } from './db';
+import {
+  DBCredentials,
+  readRange,
+  writeBars,
+  type CandleSeriesInfo,
+} from './db';
 
 type GetCandlesInput = {
   symbol: string;
@@ -69,126 +73,71 @@ class Candles {
     return `${symbol}@${interval}@${this.exchangeName}`;
   }
 
-  private convertCandleToCSV(data: Bar[]) {
-    return `${data
-      .map(
-        (d) => `${d.open};${d.high};${d.low};${d.close};${d.volume};${d.time}`
-      )
-      .join('\n')}`;
-  }
-
-  private convertCSVToCandles(data: string): Bar[] {
-    const lines = data.split('\n');
-    const bars: Bar[] = [];
-    const setTime: Set<number> = new Set();
-    lines.forEach((l) => {
-      const splits = l.split(';');
-      if (splits.length === 6) {
-        let isNaNValues = false;
-        splits.forEach((s) => {
-          if (isNaN(+s)) {
-            isNaNValues = true;
-          }
-        });
-        if (!isNaNValues) {
-          if (!setTime.has(+splits[5])) {
-            const bar: Bar = {
-              open: +splits[0],
-              high: +splits[1],
-              low: +splits[2],
-              close: +splits[3],
-              volume: +splits[4],
-              time: +splits[5],
-            };
-            bars.push(bar);
-            setTime.add(bar.time);
-          }
-        }
-      }
-    });
-    return bars.sort((a, b) => a.time - b.time);
-  }
-
-  private getPeriodsInCandle(
-    candles: Bar[],
-    interval: ExchangeIntervals
-  ): StoreCandles['periods'] {
-    if (!candles.length) {
-      return [];
-    }
-    let first = candles[0].time;
-    let last = first;
-    const periods: StoreCandles['periods'] = [];
-    const step = timeIntervalMap[interval];
-    for (let i = 0; i < candles.length; i++) {
-      const c = candles[i];
-      // Detect gaps by comparing consecutive bars instead of using
-      // absolute index from array start (which breaks after the first gap)
-      if (i > 0 && c.time - candles[i - 1].time > step) {
-        if (first !== last) {
-          periods.push({ from: first, to: last });
-        }
-        first = c.time;
-      }
-      last = c.time;
-    }
-    if (first !== last) {
-      periods.push({ from: first, to: last });
-    }
-    return periods;
-  }
-
-  private async saveLocal(
+  private seriesInfo(
     symbol: string,
     interval: ExchangeIntervals,
-    candles: Bar[],
     baseAsset: string,
-    quoteAsset: string,
-    firstTime?: number
+    quoteAsset: string
+  ): CandleSeriesInfo {
+    return {
+      id: this.getId(symbol, interval),
+      symbol,
+      interval,
+      exchange: this.exchangeName,
+      baseAsset,
+      quoteAsset,
+    };
+  }
+
+  /**
+   * Merges newly fetched bars into the cache. Only the chunks those bars fall
+   * in are rewritten; the rest of the cached history is not touched.
+   */
+  private async saveLocal(
+    info: CandleSeriesInfo,
+    candles: Bar[],
+    firstTime: number | undefined,
+    keep: { from: number; to: number }
   ) {
-    if (!candles.length) {
+    if (!candles.length && firstTime === undefined) {
       return;
     }
     if (this._stop) {
       return;
     }
     try {
-      const data = this.convertCandleToCSV(candles);
-      const file = new File([data], 'temp.csv', {
-        type: 'test/plain',
+      const work = writeBars(info, candles, { firstTime, keep });
+      // A rejected write that we stopped waiting for must not surface as an
+      // unhandled rejection.
+      work.catch((e) => {
+        const error = (e as Error)?.message || e;
+        if (error && `${error}` !== 'QuotaExceededError') {
+          this.handleError(`Catch error in save candles ${error}`);
+        }
       });
-      const { size } = file;
-      const entry: StoreCandles = {
-        symbol,
-        interval,
-        data,
-        size,
-        periods: this.getPeriodsInCandle(candles, interval),
-        id: this.getId(symbol, interval),
-        exchange: this.exchangeName,
-        baseAsset,
-        quoteAsset,
-        firstTime,
-      };
-      if ((await withinCacheBudget(save(entry))) === TIMED_OUT) {
+      if ((await withinCacheBudget(work)) === TIMED_OUT) {
         logger.warn(
-          `[Candles.saveLocal] Cache write for ${entry.id} still pending after ${CANDLE_CACHE_IO_TIMEOUT_MS}ms — not waiting for it`
+          `[Candles.saveLocal] Cache write for ${info.id} still pending after ${CANDLE_CACHE_IO_TIMEOUT_MS}ms — not waiting for it`
         );
       }
-    } catch (e) {
-      const error = (e as Error)?.message || e;
-      if (error && `${error}` !== 'QuotaExceededError') {
-        this.handleError(`Catch error in save candles ${error}`);
-      }
+    } catch {
+      // Reported by the catch handler above.
     }
   }
 
+  /**
+   * Reads the cached bars in `[from, to]` (ms) — only the chunks that range
+   * needs. Omit the range to read the whole series.
+   */
   private async getLocal(
     symbol: string,
-    interval: ExchangeIntervals
+    interval: ExchangeIntervals,
+    from?: number,
+    to?: number
   ): Promise<{
     bars: Bar[];
     firstTime?: number | undefined;
+    minTime?: number | undefined;
     readTimedOut?: boolean;
   }> {
     if (this._stop) {
@@ -196,20 +145,16 @@ class Candles {
     }
     try {
       const id = this.getId(symbol, interval);
-      const value = await withinCacheBudget(getById(id, true));
+      const work = readRange(id, interval, from, to);
+      work.catch(() => undefined);
+      const value = await withinCacheBudget(work);
       if (value === TIMED_OUT) {
         logger.warn(
           `[Candles.getLocal] Cache read for ${id} still pending after ${CANDLE_CACHE_IO_TIMEOUT_MS}ms — treating it as a miss`
         );
         return { bars: [], readTimedOut: true };
       }
-      if (value) {
-        return {
-          bars: this.convertCSVToCandles(value.data),
-          firstTime: value.firstTime,
-        };
-      }
-      return { bars: [] };
+      return value;
     } catch (e) {
       this.handleError(`Catch error in load candles ${(e as Error)?.message}`);
       return { bars: [] };
@@ -217,14 +162,22 @@ class Candles {
   }
 
   /**
-   * Get cached candles without making any API calls
-   * Useful for checking if data exists locally before deciding to fetch
+   * Get cached candles without making any API calls.
+   * Pass `range` (ms) to read only that window; without it the whole cached
+   * series is returned.
    */
   async getCachedCandles(
     symbol: string,
-    interval: ExchangeIntervals
+    interval: ExchangeIntervals,
+    range?: { from: number; to: number }
   ): Promise<{ bars: Bar[]; firstTime?: number | undefined }> {
-    return this.getLocal(symbol, interval);
+    const { bars, firstTime } = await this.getLocal(
+      symbol,
+      interval,
+      range?.from,
+      range?.to
+    );
+    return { bars, firstTime };
   }
 
   async getCandles({
@@ -240,11 +193,12 @@ class Candles {
     signal,
   }: GetCandlesInput): Promise<Bar[]> {
     try {
-      const local = await this.getLocal(symbol, interval);
       const step = timeIntervalMap[interval];
       const from = period.from * 1000;
       const to = period.to * 1000;
-      let required = local.bars.filter((l) => l.time >= from && l.time <= to);
+      // Only the chunks covering the requested range are read.
+      const local = await this.getLocal(symbol, interval, from, to);
+      let required = local.bars.slice();
       let missed: { from: number; to: number }[] = [];
       // Use the caller's requested range as the max gap we'll fill.
       // This respects what the caller actually needs without arbitrary limits.
@@ -470,10 +424,13 @@ class Candles {
       // request — a response starting at March 25 with countBack=300 does NOT mean
       // the exchange has no data before March 25, it just means we only asked for 300 bars.
       // firstTime should only be set by backtesting requests that fetch exhaustively.
+      // The read covered [from, to] only, so bars cached before `from` are
+      // known from the series' earliest cached time instead.
       let firstTime: number | undefined = local.firstTime;
       if (
         candles.length &&
         candles[0].time > from &&
+        (local.minTime === undefined || local.minTime >= from) &&
         !period.firstDataRequest &&
         period.countBack === Infinity
       ) {
@@ -484,16 +441,14 @@ class Candles {
           firstTime = candidateFirstTime;
         }
       }
-      // An unread entry must not be overwritten by this call's bars alone —
-      // that would drop the history the read never returned.
+      // A read that timed out tells us nothing about what is stored, so do
+      // not pile a write onto a store that is not answering.
       if (!local.readTimedOut) {
         await this.saveLocal(
-          symbol,
-          interval,
-          [...toSave, ...local.bars].sort((a, b) => a.time - b.time),
-          baseAsset,
-          quoteAsset,
-          firstTime
+          this.seriesInfo(symbol, interval, baseAsset, quoteAsset),
+          toSave.sort((a, b) => a.time - b.time),
+          firstTime !== local.firstTime ? firstTime : undefined,
+          { from, to }
         );
       }
       const map: Map<number, Bar> = new Map();
