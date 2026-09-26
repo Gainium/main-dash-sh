@@ -71,7 +71,9 @@ export function useDealTablePaging(opts: {
   const enabled = opts.enabled !== false;
   const largeAccount = useLargeAccount();
   const [latchedPartial, setLatchedPartial] = useState(false);
-  const { query, onQueryChange } = useServerTableQuery(opts.tableId);
+  const { query, fetchQuery, onQueryChange } = useServerTableQuery(
+    opts.tableId
+  );
   const fields =
     status === 'closed'
       ? (opts.fields?.closed ?? CLOSED_DEAL_SERVER_FIELDS)
@@ -90,7 +92,11 @@ export function useDealTablePaging(opts: {
   // every page it covers, so switching to server paging — large-account mode
   // resolving, or the window coming back capped — costs no second request
   // for the first page(s).
-  const windowResult = useDcaDeals(baseFilter, { enabled });
+  // (A caller that forces server paging — the bot drawer — skips it: its
+  // table is always paged on the server.)
+  const windowResult = useDcaDeals(baseFilter, {
+    enabled: enabled && !opts.force,
+  });
 
   // Safety net: the first client window came back capped → page on the server.
   useEffect(() => {
@@ -102,29 +108,37 @@ export function useDealTablePaging(opts: {
     () => tableQueryToServerBotQuery(query, fields, DEAL_SEARCH_FIELD),
     [query, fields]
   );
-  const windowComplete = !windowResult.isLoading && !windowResult.isPartial;
+  const fetchSq = useMemo(
+    () => tableQueryToServerBotQuery(fetchQuery, fields, DEAL_SEARCH_FIELD),
+    [fetchQuery, fields]
+  );
+  const windowComplete =
+    !opts.force && !windowResult.isLoading && !windowResult.isPartial;
   // While the first window is still loading, a default-order page will be
   // answered by it — wait instead of racing it with a second request.
-  const windowPending = windowResult.isLoading && isDefaultQuery(sq, null);
+  const windowPending =
+    !opts.force && windowResult.isLoading && isDefaultQuery(sq, null);
   const fromWindow =
     !serverPaged ||
     windowPending ||
-    servesFromWindow(sq, windowResult.loadedCount, windowComplete, null);
+    (!opts.force &&
+      servesFromWindow(sq, windowResult.loadedCount, windowComplete, null));
 
   const dataGrid = useMemo<DataGridFilterInput | undefined>(() => {
     if (fromWindow) return undefined;
-    const { page: _p, pageSize: _s, ...rest } = toBotDataGridInput(sq);
+    const { page: _p, pageSize: _s, ...rest } = toBotDataGridInput(fetchSq);
     return rest;
-  }, [fromWindow, sq]);
+  }, [fromWindow, fetchSq]);
 
   const paged = useDcaDeals(
     { ...baseFilter, ...(dataGrid ? { dataGrid } : {}) },
     {
       enabled: enabled && serverPaged && !fromWindow,
-      page: sq.pageIndex,
-      pageSize: sq.pageSize,
+      page: fetchSq.pageIndex,
+      pageSize: fetchSq.pageSize,
     }
   );
+  const fetchPending = JSON.stringify(sq) !== JSON.stringify(fetchSq);
 
   // The page from the window: exact when the window can answer the query,
   // otherwise a preview shown while the server's page loads (rows never
@@ -136,10 +150,11 @@ export function useDealTablePaging(opts: {
         : null,
     [serverPaged, windowResult.deals, sq]
   );
-  const pagedKey = JSON.stringify([dataGrid, sq.pageIndex, sq.pageSize]);
+  const pagedKey = JSON.stringify([dataGrid, fetchSq.pageIndex, fetchSq.pageSize]);
   const shownKey = useRef<string | null>(null);
   const pagedReady =
     !fromWindow &&
+    !fetchPending &&
     !paged.isLoading &&
     !(paged.isFetching && shownKey.current !== pagedKey);
   useEffect(() => {
@@ -181,7 +196,7 @@ export function useDealTablePaging(opts: {
         ? {
             serverSide: {
               rowCount: total,
-              isFetching: !fromWindow && paged.isFetching,
+              isFetching: !fromWindow && (fetchPending || paged.isFetching),
               unsupportedSortReason:
                 status === 'closed' ? CLOSED_DEAL_SORT_TOOLTIP : undefined,
               onQueryChange,
@@ -189,7 +204,16 @@ export function useDealTablePaging(opts: {
             fields,
           }
         : undefined,
-    [serverPaged, total, fromWindow, paged.isFetching, status, onQueryChange, fields]
+    [
+      serverPaged,
+      total,
+      fromWindow,
+      fetchPending,
+      paged.isFetching,
+      status,
+      onQueryChange,
+      fields,
+    ]
   );
 
   return {

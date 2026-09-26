@@ -75,13 +75,26 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
 }): UseBotListPagingResult<B> {
   const { type, canonical, statuses, fields } = opts;
   const serverPaged = canonical.isPartial;
-  const { query, onQueryChange } = useServerTableQuery(opts.tableId);
+  const { query, fetchQuery, onQueryChange } = useServerTableQuery(
+    opts.tableId
+  );
 
   const searchable = opts.searchable ?? true;
-  const serverQuery = useMemo(() => {
-    const sq = tableQueryToServerBotQuery(query, fields);
-    return searchable ? sq : { ...sq, search: '' };
-  }, [query, fields, searchable]);
+  const toServer = useMemo(
+    () => (q: typeof query) => {
+      const sq = tableQueryToServerBotQuery(q, fields);
+      return searchable ? sq : { ...sq, search: '' };
+    },
+    [fields, searchable]
+  );
+  // What the table shows now (preview) vs what the server is asked for.
+  const serverQuery = useMemo(() => toServer(query), [toServer, query]);
+  const fetchServerQuery = useMemo(
+    () => toServer(fetchQuery),
+    [toServer, fetchQuery]
+  );
+  const fetchPending =
+    JSON.stringify(serverQuery) !== JSON.stringify(fetchServerQuery);
 
   const fromWindow =
     !serverPaged ||
@@ -91,7 +104,7 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
     type,
     statuses,
     enabled: serverPaged && !fromWindow,
-    ...serverQuery,
+    ...fetchServerQuery,
   });
 
   // Rows derived from the loaded window: the exact page when the window can
@@ -107,7 +120,10 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
     [serverPaged, canonical.bots, serverQuery, searchable]
   );
   const serverReady =
-    !fromWindow && !paged.isLoading && !paged.isPlaceholderData;
+    !fromWindow &&
+    !fetchPending &&
+    !paged.isLoading &&
+    !paged.isPlaceholderData;
 
   const bots: B[] = !serverPaged
     ? canonical.bots
@@ -126,7 +142,7 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
       serverPaged
         ? {
             rowCount,
-            isFetching: !fromWindow && paged.isFetching,
+            isFetching: !fromWindow && (fetchPending || paged.isFetching),
             unsupportedSortReason: opts.unsupportedSortReason,
             onQueryChange,
           }
@@ -135,6 +151,7 @@ export function useBotListPaging<B extends { _id: string }>(opts: {
       serverPaged,
       rowCount,
       fromWindow,
+      fetchPending,
       paged.isFetching,
       opts.unsupportedSortReason,
       onQueryChange,
