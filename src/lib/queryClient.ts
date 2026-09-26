@@ -100,9 +100,12 @@ export const queryClient = new QueryClient({
 // ---------------------------------------------------------------------------
 // Persisted React Query cache
 //
-// Only a small allowlist of cheap, useful-on-reload queries is persisted —
-// bot/deal/order lists, messages, portfolio history and anything else large
-// or volatile live in the zustand live stores or are simply refetched.
+// Every successful query is persisted EXCEPT known-large or volatile ones
+// (bot/deal/order lists, messages, pairs, backtests… — those live in the
+// zustand live stores or are simply refetched), and anything over the
+// per-query byte cap. That keeps a reload rendering its cheap dashboard
+// queries (stats, profit, portfolio summary, notifications) from the cache
+// while they revalidate.
 // Writes are throttled (the library's persistQueryClientSubscribe calls
 // persistClient on EVERY query-cache event); the stored blob is byte-capped
 // and expires after `PERSIST_MAX_AGE`. A tiny meta record is checked before
@@ -121,37 +124,74 @@ const MAX_PERSISTED_QUERY_BYTES = 256 * 1024;
 const MAX_PERSISTED_BYTES = 2 * 1024 * 1024;
 export const PERSIST_MAX_AGE = FIVE_MINUTES;
 
-/** First queryKey element of the queries that are worth persisting. */
-export const PERSISTED_QUERY_KEYS: ReadonlySet<string> = new Set([
-  'user',
-  'user-settings',
-  'getUnreadChangeLogs',
-  'getPlatformNotifications',
-  'getChangeLogs',
-  'isTrialAvailable',
-  'getSubscriptionPlanList',
-  'global-variable',
+/** First queryKey element of queries that are never persisted. */
+export const NON_PERSISTED_QUERY_KEYS: ReadonlySet<string> = new Set([
+  'getAllPairs',
+  'dcaBotList',
+  'comboBotList',
+  'gridBotList',
+  'botList',
+  'hedgeDCABotList',
+  'hedgeComboBotList',
+  'dcaBots',
+  'dcaDealList',
+  'comboDealList',
+  'getDCADeals',
+  'getComboDeals',
+  'getBotDeals',
+  'hedgeDcaDealList:all-pages',
+  'hedgeComboDealList:all-pages',
+  'getDealOrders',
+  'getComboDealOrders',
+  'getMessageBot',
+  'getChatMessages',
+  'getTradingTerminalBotsList',
+  'getAllOpenOrders',
+  'getAllOpenPositions',
+  'backtests',
+  'gridBacktests',
+  'comboBacktests',
+  'getBacktests',
+  'getGridBacktests',
+  'dealCandles',
+  'trading-history',
+  'screener',
+  'market-screener',
+  'prices',
+  'price',
 ]);
 
 /** `dehydrateOptions.shouldDehydrateQuery` for the persister. */
 export function shouldPersistQuery(query: {
   queryKey: readonly unknown[];
   state: { status: string };
+  meta?: Record<string, unknown> | undefined;
 }): boolean {
   const head = query.queryKey[0];
   return (
     query.state.status === 'success' &&
     typeof head === 'string' &&
-    PERSISTED_QUERY_KEYS.has(head)
+    !NON_PERSISTED_QUERY_KEYS.has(head) &&
+    query.meta?.['persist'] !== false
   );
 }
 
+// Serialized size per data object: a query's data object only changes when it
+// refetches, so each is measured once, not on every throttled write.
+const sizeCache = new WeakMap<object, number>();
 const jsonSize = (v: unknown): number => {
-  try {
-    return JSON.stringify(v)?.length ?? 0;
-  } catch {
-    return Number.POSITIVE_INFINITY;
+  if (v && typeof v === 'object') {
+    const hit = sizeCache.get(v);
+    if (hit !== undefined) return hit;
   }
+  let size: number;
+  try {
+    size = JSON.stringify(v)?.length ?? 0;
+  } catch {
+    size = Number.POSITIVE_INFINITY;
+  }
+  if (v && typeof v === 'object') sizeCache.set(v, size);
+  return size;
 };
 
 /** Drop oversized queries and stop at the total byte budget. Exported for tests. */

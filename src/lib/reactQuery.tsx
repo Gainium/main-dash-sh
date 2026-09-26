@@ -17,7 +17,8 @@ export default function ReactQueryProvider({
       client={queryClient}
       persistOptions={{
         persister,
-        // Allowlisted, successful queries only (see PERSISTED_QUERY_KEYS);
+        // Successful queries except the large/volatile ones (see
+        // NON_PERSISTED_QUERY_KEYS) and anything over the byte cap;
         // mutations are never persisted.
         dehydrateOptions: {
           shouldDehydrateQuery: shouldPersistQuery,

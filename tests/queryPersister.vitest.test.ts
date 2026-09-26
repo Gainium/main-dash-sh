@@ -6,14 +6,19 @@ import { capPersistedClient, shouldPersistQuery } from '../src/lib/queryClient';
 
 const q = (key: string, status = 'success') => ({ queryKey: [key, 'vars'], state: { status } });
 
-describe('React Query persistence allowlist (§2)', () => {
-  it('persists small allowlisted successful queries only', () => {
+describe('React Query persistence policy (§2)', () => {
+  it('persists successful queries except the large/volatile ones', () => {
     expect(shouldPersistQuery(q('user-settings'))).toBe(true);
+    // The Overview's cheap dashboard queries render from the cache on reload.
+    for (const small of ['getProfitByUser', 'dcaDealDashboardStats', 'getPortfolioByUser', 'inPositions:dca']) {
+      expect(shouldPersistQuery(q(small))).toBe(true);
+    }
     expect(shouldPersistQuery(q('user-settings', 'pending'))).toBe(false);
     expect(shouldPersistQuery(q('user-settings', 'error'))).toBe(false);
-    for (const big of ['dcaBotList', 'getMessageBot', 'portfolio', 'dcaDealList', 'getDCADeals']) {
+    for (const big of ['dcaBotList', 'getMessageBot', 'getAllPairs', 'dcaDealList', 'getDCADeals']) {
       expect(shouldPersistQuery(q(big))).toBe(false);
     }
+    expect(shouldPersistQuery({ ...q('user-settings'), meta: { persist: false } })).toBe(false);
   });
 
   it('drops a query over the per-query cap, strips meta, never keeps mutations', () => {
