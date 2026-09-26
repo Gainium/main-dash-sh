@@ -118,12 +118,9 @@ const requestPrices = async (exchange: ExchangeEnum) => {
     logger.debug(`[Price] Fetching prices for ${exchange} from:`, url);
     logger.debug(`[Price] API endpoint:`, import.meta.env.VITE_API_ENDPOINT);
 
-    const response = await fetchWithTimeout(url, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-    });
+    // No custom headers: a plain GET is a CORS "simple request", so the
+    // browser skips the OPTIONS preflight it would otherwise send per poll.
+    const response = await fetchWithTimeout(url, { method: 'GET' });
 
     const responseData = await response.json();
     logger.debug(`[Price] API response for ${exchange}:`, {
