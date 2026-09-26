@@ -69,6 +69,7 @@ import {
     BotTypesEnum,
     DCAConditionEnum,
     DCAVolumeType,
+    DcaVolumeRequiredChangeRef,
     ExchangeIntervals,
     IndicatorAction,
     IndicatorEnum,
@@ -83,6 +84,7 @@ import {
     type SettingsIndicators,
 } from '@/types';
 import { CloseConditionEnum } from '@/types/bots/dealConditions';
+import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 import type { IndicatorConfig } from '@/types/indicators';
@@ -174,6 +176,172 @@ const canDisplayRequiredChange = ({
     closeCondition === CloseConditionEnum.tp &&
     !useMultiTp &&
     !['percFree', 'percTotal'].includes(orderSizeType)
+  );
+};
+
+/**
+ * "Volume based on" (legacy DcaModeSettings `DCAVolumeBasedOn`): size each DCA
+ * order either from the scale settings, or so that after it fills the deal
+ * needs only a set price change to reach its target. DCA bots only, and only
+ * with a single fixed-size take profit — the engine ignores it otherwise.
+ * Switching to "Required change" seeds TP, the required change and the cap
+ * (handle-settings), as legacy did.
+ */
+const DcaVolumeBasedOnSettings: React.FC<{
+  updateFormData: DCASettingsProps['updateFormData'];
+  tradingContext: DcaTradingContext;
+  isDealEdit: boolean;
+}> = ({ updateFormData, tradingContext, isDealEdit }) => {
+  const dealCloseCondition = useBotFormSelector('dealCloseCondition');
+  const useTp = useBotFormSelector('useTp');
+  const useMultiTp = useBotFormSelector('useMultiTp');
+  const orderSizeType = useBotFormSelector('orderSizeType');
+  const tpPerc = useBotFormSelector('tpPerc');
+  const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
+  const dcaVolumeRequiredChangeRef = useBotFormSelector(
+    'dcaVolumeRequiredChangeRef'
+  );
+  const dcaVolumeRequiredChange = useBotFormSelector('dcaVolumeRequiredChange');
+  const dcaVolumeMaxValue = useBotFormSelector('dcaVolumeMaxValue');
+  const { isBound: isRequiredChangeBound } = useBotVarBinding(
+    'dcaVolumeRequiredChange'
+  );
+  const { isBound: isMaxValueBound } = useBotVarBinding('dcaVolumeMaxValue');
+
+  if (
+    !canDisplayRequiredChange({
+      dealCloseCondition,
+      useTp,
+      useMultiTp,
+      orderSizeType,
+    })
+  ) {
+    return null;
+  }
+
+  const byChange = dcaVolumeBaseOn === DCAVolumeType.change;
+  const sizeUnit = resolveOrderSizeIconSymbol(
+    orderSizeType,
+    tradingContext.baseAsset,
+    tradingContext.quoteAsset
+  );
+  const applyVariable =
+    (field: 'dcaVolumeRequiredChange' | 'dcaVolumeMaxValue') =>
+    (variable: GlobalVariable | null) => {
+      const next = `${variable?.value ?? ''}`.trim();
+      if (next) {
+        updateFormData(field, next);
+      }
+    };
+  const requiredChangeInput = (
+    <NumberInput
+      id="dca-volume-required-change"
+      value={dcaVolumeRequiredChange ?? tpPerc ?? ''}
+      onChange={(value) =>
+        updateFormData('dcaVolumeRequiredChange', String(value ?? ''))
+      }
+      step={0.1}
+      showControls={false}
+      endAdornment={unitAdornment('%', { size: 'sm' })}
+      className="w-full"
+      disabled={isRequiredChangeBound}
+    />
+  );
+  const maxValueInput = (
+    <NumberInput
+      id="dca-volume-max-value"
+      value={dcaVolumeMaxValue ?? '-1'}
+      onChange={(value) =>
+        updateFormData('dcaVolumeMaxValue', String(value ?? ''))
+      }
+      min={-1}
+      showControls={false}
+      endAdornment={unitAdornment(sizeUnit, { size: 'sm' })}
+      className="w-full"
+      disabled={isMaxValueBound}
+    />
+  );
+
+  return (
+    <>
+      <SettingsRow
+        name="Volume based on (beta)"
+        tooltip="Scaled sizes each DCA order from the order size and volume scale. Required change sizes each DCA order so that, once it fills, the deal needs only the set price change to reach its target."
+        tooltipURL={
+          byChange ? '/help/dynamic-dca-volume-required-change' : undefined
+        }
+      >
+        <TerminalButtonStack
+          value={byChange ? DCAVolumeType.change : DCAVolumeType.scale}
+          onValueChange={(value) => updateFormData('dcaVolumeBaseOn', value)}
+          options={[
+            { value: DCAVolumeType.scale, label: 'Scaled' },
+            { value: DCAVolumeType.change, label: 'Required change' },
+          ]}
+        />
+      </SettingsRow>
+      {byChange && (
+        <>
+          <SettingsRow
+            name="Required change based on (beta)"
+            tooltip="Measure the required change from the take profit price, or from the deal's breakeven price."
+          >
+            <TerminalButtonStack
+              value={
+                dcaVolumeRequiredChangeRef === DcaVolumeRequiredChangeRef.avg
+                  ? DcaVolumeRequiredChangeRef.avg
+                  : DcaVolumeRequiredChangeRef.tp
+              }
+              onValueChange={(value) =>
+                updateFormData('dcaVolumeRequiredChangeRef', value)
+              }
+              options={[
+                { value: DcaVolumeRequiredChangeRef.tp, label: 'Take Profit' },
+                { value: DcaVolumeRequiredChangeRef.avg, label: 'Breakeven' },
+              ]}
+            />
+          </SettingsRow>
+          <SettingsRow
+            name="Required change"
+            tooltip="Specifies the percentage profit target after a DCA order is executed. The bot adjusts the volume to achieve this profit level. Set carefully, as a higher value may reduce the likelihood of quick exits, while a lower value may require more capital for frequent adjustments."
+          >
+            {isDealEdit ? (
+              requiredChangeInput
+            ) : (
+              <FieldVariableBinding
+                path="dcaVolumeRequiredChange"
+                varType="number"
+                tooltip="Bind required change"
+                variant="inline"
+                onVariableResolved={applyVariable('dcaVolumeRequiredChange')}
+                onVariableSelected={applyVariable('dcaVolumeRequiredChange')}
+              >
+                {requiredChangeInput}
+              </FieldVariableBinding>
+            )}
+          </SettingsRow>
+          <SettingsRow
+            name="Max volume per DCA"
+            tooltip="The largest size a single DCA order may reach while sizing for the required change, in the order size currency. Use -1 for no limit."
+          >
+            {isDealEdit ? (
+              maxValueInput
+            ) : (
+              <FieldVariableBinding
+                path="dcaVolumeMaxValue"
+                varType="number"
+                tooltip="Bind max volume per DCA"
+                variant="inline"
+                onVariableResolved={applyVariable('dcaVolumeMaxValue')}
+                onVariableSelected={applyVariable('dcaVolumeMaxValue')}
+              >
+                {maxValueInput}
+              </FieldVariableBinding>
+            )}
+          </SettingsRow>
+        </>
+      )}
+    </>
   );
 };
 
@@ -3667,6 +3835,14 @@ export const DCASettings: React.FC<DCASettingsProps> = ({
             />
           </SettingsRow>
         )}
+
+      {!isComboBot && (
+        <DcaVolumeBasedOnSettings
+          updateFormData={updateFormData}
+          tradingContext={tradingContext}
+          isDealEdit={isDealEdit}
+        />
+      )}
 
       <div className="col-span-full space-y-md">{renderDCATypeContent()}</div>
     </>

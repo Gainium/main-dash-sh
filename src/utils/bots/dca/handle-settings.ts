@@ -142,7 +142,8 @@ export const handleSettingsUpdate = (
     if (field === 'dcaVolumeBaseOn' && value === DCAVolumeType.change) {
       updates.dca.tpPerc = '5';
       updates.dca.dcaVolumeRequiredChange = '5';
-      updates.dca.dcaVolumeMaxValue = `${+orderSize * 20}`;
+      // Rounded: 1.19 * 20 is 23.799999999999997 in floating point.
+      updates.dca.dcaVolumeMaxValue = `${+(+orderSize * 20).toFixed(8)}`;
       if (
         isNaN(+updates.dca.dcaVolumeMaxValue) ||
         !isFinite(+updates.dca.dcaVolumeMaxValue)
