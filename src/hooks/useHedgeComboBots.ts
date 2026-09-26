@@ -9,6 +9,7 @@ import { logger } from '../lib/loggerInstance';
 import type { BotStatus, HedgeBot } from '../types';
 import type { HedgeComboBotListResponse } from '../types/hedgeComboBot';
 import { useGraphQL } from './useGraphQL';
+import { botListScope } from '../stores/live/botListMerge';
 
 export interface HedgeComboBotsFilter {
   paperContext?: boolean;
@@ -60,15 +61,10 @@ export function useHedgeComboBots(
     [filter]
   );
 
-  // The archived list must NOT share the global active-bots store. That store
-  // is REPLACE-on-write (updateBots swaps the whole record) and every other
-  // useHedgeComboBots caller + the WebSocket reconcile fetch ACTIVE bots.
-  // Whichever write lands last wins, so an active refetch would clobber the
-  // archived background list and silently flip it to active bots (showArchived
-  // stays true — the state never resets; only the store contents get replaced).
-  // React Query already keys this query by `status`, so an archived query has
-  // its OWN isolated result: read/write that directly and stay out of the
-  // shared store entirely. Mirrors the useDcaBots/useGridBots/useComboBots fix.
+  // The archived list must NOT share the global active-bots store: the store
+  // holds active bots, and a complete active response removes held bots in its
+  // scope. React Query keys this query by `status`, so an archived query reads
+  // its OWN isolated result. Mirrors useDcaBots/useGridBots/useComboBots.
   const isArchivedQuery =
     !!filter?.status?.length && filter.status.includes('archive');
 
@@ -114,9 +110,19 @@ export function useHedgeComboBots(
             ? bot.paperContext
             : currentPaperContext,
       }));
-      useHedgeComboBotsStore.getState().updateBots(normalizedBots);
+      useHedgeComboBotsStore
+        .getState()
+        .updateBots(
+          normalizedBots,
+          botListScope(
+            currentPaperContext,
+            input.status,
+            list.length,
+            queryResult.data.total
+          )
+        );
     }
-  }, [currentPaperContext, queryResult.data, isArchivedQuery]);
+  }, [currentPaperContext, queryResult.data, isArchivedQuery, input.status]);
 
   if (queryResult.error) {
     const errorMessage = queryResult.error.message;

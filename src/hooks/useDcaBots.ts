@@ -18,6 +18,12 @@ import {
   type BotListStats,
 } from './useBotListStats';
 import { useGraphQL } from './useGraphQL';
+import {
+  BOT_LIST_WINDOW,
+  CANONICAL_DCA_STATUSES,
+  isPartialList,
+} from '../lib/botList/botListWindow';
+import { botListScope } from '../stores/live/botListMerge';
 import { useShareContext } from './useShareContext';
 
 export interface DcaBotsFilter {
@@ -30,7 +36,17 @@ export interface DcaBotsFilter {
 export interface UseDcaBotsResult {
   data: DcaBotListResponse | null;
   bots: DCABot[];
+  /** Server total for this list. For a status-subset caller over a partial
+   *  canonical window this is the canonical (all statuses) total. */
   total: number;
+  /**
+   * The server holds more bots than this list could load (the canonical
+   * window is capped). Never render such a list, or a number summed over it,
+   * without a PartialCount — and page on the server where rows are shown.
+   */
+  isPartial: boolean;
+  /** Rows the response actually carried (for "N of M"). */
+  loadedCount: number;
   hasValidResponse: boolean;
   isLoading: boolean;
   isError: boolean;
@@ -127,45 +143,53 @@ export function useDcaBots(
   // Convert Record to array once (memoized by botsRecord reference)
   const botsFromStore = useMemo(() => Object.values(botsRecord), [botsRecord]);
 
-  // Prepare input for GraphQL query based on filter
-  const input: { status: BotStatus[] } = useMemo(
-    () => ({
-      status: filter?.status?.length
+  // Status subset this caller wants (archived lists are a separate query).
+  const requestedStatuses = useMemo(
+    () =>
+      filter?.status?.length && !filter.status.includes('archive')
         ? filter.status
-        : ['open', 'range', 'monitoring', 'error', 'closed'],
-      // Include all active statuses by default (archived fetched separately)
-      // Note: terminal bots are excluded client-side, paperContext filtering handled by useGraphQL
-    }),
-    [filter]
+        : null,
+    [filter?.status]
   );
 
-  // The archived list must NOT share the global active-bots store. That store
-  // is REPLACE-on-write (updateBots swaps the whole record) and every other
-  // useDcaBots caller — drawer charts, stats headers, the sidebar — fetches
-  // ACTIVE bots. Whichever fetch lands last wins, so when the drawer's widgets
-  // refetch active bots they clobber the store and the archived background list
-  // silently flips to active bots (showArchived stays true — the state never
-  // resets; only the store contents get replaced). React Query already keys
-  // this query by `status`, so an archived query has its OWN isolated result:
-  // read/write that directly and stay out of the shared store entirely.
+  // The archived list must NOT share the global active-bots store: the store
+  // holds the ACTIVE canonical list, and a complete active response removes
+  // held bots in its scope. React Query keys this query by `status`, so an
+  // archived query has its OWN isolated result: read that directly and stay
+  // out of the shared store entirely.
   const isArchivedQuery = !!filter?.status?.length && filter.status.includes('archive');
 
-  // Same failure mode, second cause: the shared store can only ever hold ONE
-  // trading context. Every ambient caller (no explicit `filter.paperContext`)
-  // fetches and writes `!isLiveTrading`, so that is the context the record
-  // holds. A caller pinned to the OTHER context is both unserviceable by the
-  // store (its bots aren't in there) and destructive to it (its response
-  // REPLACES the other context's bots — an empty paper list wipes the live
-  // one, which is why a live/paper pair mounted together, as on Subscription →
-  // Active Bots, renders 0/0). Isolate it exactly like the archived query.
-  // At most one side of such a pair is foreign, so the other still owns the
-  // store and no instance is left without a data source.
+  // A caller pinned to the NON-selected trading context also reads its own
+  // result: the store is fed by ambient callers (the selected context), so the
+  // pinned context's bots may never be in it (Subscription → Active Bots mounts
+  // a live/paper pair side by side).
   const isForeignContextQuery =
     typeof filter?.paperContext === 'boolean' &&
     filter.paperContext !== !isLiveTrading;
 
   // Reads and writes its OWN React Query result instead of the shared store.
   const isIsolatedQuery = isArchivedQuery || isForeignContextQuery;
+
+  // ONE canonical list query per trading context: every caller that shares
+  // the store asks for the same statuses with the same explicit page, so React
+  // Query dedupes them into a single request, and callers wanting a subset
+  // (sidebar: open; widgets: open/range/monitoring) filter it client-side.
+  // Before, each status set was its own ~5 MB request and whichever landed
+  // last REPLACED the store for everyone. The explicit `dataGridInput` makes
+  // the server return a real `total`, so a capped response is detectable
+  // (`isPartial`) instead of silently truncated at 500. Isolated queries
+  // (archived / foreign context) keep their own status set.
+  const input = useMemo(
+    () => ({
+      status: isArchivedQuery
+        ? (filter?.status as BotStatus[])
+        : isForeignContextQuery && requestedStatuses
+          ? requestedStatuses
+          : CANONICAL_DCA_STATUSES,
+      dataGridInput: { page: 0, pageSize: BOT_LIST_WINDOW },
+    }),
+    [isArchivedQuery, isForeignContextQuery, requestedStatuses, filter?.status]
+  );
 
   // The paper/live trading context is baked into this query's cache key AND the
   // `paper-context` request header. On cold start `isLiveTrading` defaults to
@@ -228,12 +252,22 @@ export function useDcaBots(
             ? bot.paperContext
             : currentPaperContext,
       }));
-      useDcaBotsStore.getState().updateBots(normalizedBots);
+      useDcaBotsStore
+        .getState()
+        .updateBots(
+          normalizedBots,
+          botListScope(
+            currentPaperContext,
+            input.status,
+            bots.length,
+            queryResult.data.total
+          )
+        );
     }
     // `isIsolatedQuery` MUST stay in the deps: it flips when the global trading
     // mode settles after cold start, and a pinned query that becomes native
     // would otherwise never write its bots to the store.
-  }, [currentPaperContext, queryResult.data, isIsolatedQuery]);
+  }, [currentPaperContext, queryResult.data, isIsolatedQuery, input.status]);
 
   // If there's an error, log it
   if (queryResult.error) {
@@ -249,6 +283,9 @@ export function useDcaBots(
         if (bot.paperContext !== currentPaperContext) {
           return false;
         }
+        if (requestedStatuses && !requestedStatuses.includes(bot.status)) {
+          return false;
+        }
 
         // When terminal === true, only include terminal/smart-trade bots
         if (filter?.terminal === true && bot.settings?.type !== 'terminal') {
@@ -261,7 +298,7 @@ export function useDcaBots(
 
         return true;
       }),
-    [botsFromStore, currentPaperContext, filter]
+    [botsFromStore, currentPaperContext, filter, requestedStatuses]
   );
 
   // Isolated list (archived, or pinned to the non-selected trading context):
@@ -305,6 +342,12 @@ export function useDcaBots(
   //    an empty result regardless of cached store contents — the visitor's
   //    persisted bot list from a prior logged-in session must not leak
   //    into share-URL renders.
+  const responseRows = Array.isArray(queryResult.data?.data)
+    ? queryResult.data.data.length
+    : 0;
+  const serverTotal = queryResult.data?.total;
+  const partial = isPartialList(responseRows, serverTotal);
+
   const result = useMemo(() => {
     // Isolated lists read their own result, not the shared store.
     if (isIsolatedQuery && !isDemo) {
@@ -312,7 +355,9 @@ export function useDcaBots(
       return {
         data: queryResult.data?.data || null,
         bots,
-        total: queryResult.data?.total || bots.length,
+        total: serverTotal || bots.length,
+        isPartial: partial,
+        loadedCount: responseRows,
         hasValidResponse: queryResult.data?.status === 'OK',
         isLoading: queryResult.isLoading && !bots.length,
         isError: queryResult.isError,
@@ -323,7 +368,13 @@ export function useDcaBots(
     return {
       data: isDemo ? null : queryResult.data?.data || null,
       bots: isDemo ? [] : filteredBots, // Always from store (real-time)
-      total: isDemo ? 0 : queryResult.data?.total || filteredBots.length,
+      total: isDemo
+        ? 0
+        : partial
+          ? (serverTotal as number)
+          : filteredBots.length,
+      isPartial: isDemo ? false : partial,
+      loadedCount: isDemo ? 0 : responseRows,
       hasValidResponse: isDemo
         ? true
         : queryResult.data?.status === 'OK' || botsFromStore.length > 0,
@@ -344,6 +395,9 @@ export function useDcaBots(
     queryResult.isError,
     queryResult.error,
     queryResult.refetch,
+    serverTotal,
+    partial,
+    responseRows,
   ]);
   return result;
 }

@@ -12,6 +12,12 @@ import {
   type BotListStats,
 } from './useBotListStats';
 import { useGraphQL } from './useGraphQL';
+import {
+  BOT_LIST_WINDOW,
+  CANONICAL_GRID_STATUSES,
+  isPartialList,
+} from '../lib/botList/botListWindow';
+import { botListScope } from '../stores/live/botListMerge';
 import { useShareContext } from './useShareContext';
 import { useGridBotsStore } from '@/stores/live';
 import { useUIStore } from '@/stores/uiStore';
@@ -56,36 +62,44 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   // Convert Record to array once (memoized by botsRecord reference)
   const botsFromStore = useMemo(() => Object.values(botsRecord), [botsRecord]);
 
-  // Prepare input for GraphQL query based on filter, similar to DCA bots
-  const input: { status: BotStatus[] } = useMemo(
-    () => ({
-      status: filter?.status?.length
+  // Status subset this caller wants; served client-side from the canonical
+  // list (see useDcaBots for why every store-sharing caller asks the same).
+  const requestedStatuses = useMemo(
+    () =>
+      filter?.status?.length && !filter.status.includes('archive')
         ? filter.status
-        : ['error', 'open', 'range', 'monitoring', 'closed'],
-    }),
+        : null,
     [filter?.status]
   );
 
-  // The archived list must NOT share the global active-bots store (see the same
-  // note in useDcaBots): updateBots REPLACES the store and every active-bot
-  // caller (drawer widgets, stats) would clobber the archived list, flipping it
-  // to active bots while showArchived stays true. React Query keys by `status`,
-  // so the archived query reads/writes its OWN result and stays out of the store.
+  // The archived list must NOT share the global active-bots store (see the
+  // same note in useDcaBots): it reads its OWN React Query result.
   const isArchivedQuery =
     !!filter?.status?.length && filter.status.includes('archive');
 
-  // Same failure mode, second cause (see useDcaBots): the shared store holds a
-  // single trading context — the globally selected one (`!isLiveTrading`), which
-  // is what every ambient caller writes. A caller pinned to the OTHER context
-  // cannot be served from that store and, worse, REPLACES it; an empty paper
-  // list wipes the live bots, which is why a live/paper pair mounted together
-  // (Subscription → Active Bots) renders 0/0. Isolate it like the archived query.
+  // A caller pinned to the NON-selected trading context reads its own result
+  // too (see useDcaBots).
   const isForeignContextQuery =
     typeof filter?.paperContext === 'boolean' &&
     filter.paperContext !== !isLiveTrading;
 
   // Reads and writes its OWN React Query result instead of the shared store.
   const isIsolatedQuery = isArchivedQuery || isForeignContextQuery;
+
+  // One canonical request per context (deduped by React Query), with an
+  // explicit page so the server returns a real `total` and a capped response
+  // is detectable instead of silently truncated at 500.
+  const input = useMemo(
+    () => ({
+      status: isArchivedQuery
+        ? (filter?.status as BotStatus[])
+        : isForeignContextQuery && requestedStatuses
+          ? requestedStatuses
+          : CANONICAL_GRID_STATUSES,
+      dataGridInput: { page: 0, pageSize: BOT_LIST_WINDOW },
+    }),
+    [isArchivedQuery, isForeignContextQuery, requestedStatuses, filter?.status]
+  );
 
   // Share-mode visitors must not fetch the visitor's grid bot list.
   const { isDemo } = useShareContext();
@@ -118,20 +132,34 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
             ? bot.paperContext
             : currentPaperContext,
       }));
-      useGridBotsStore.getState().updateBots(normalizedBots);
+      useGridBotsStore
+        .getState()
+        .updateBots(
+          normalizedBots,
+          botListScope(
+            currentPaperContext,
+            input.status,
+            bots.length,
+            queryResult.data.total
+          )
+        );
     }
     // `isIsolatedQuery` MUST stay in the deps: it flips when the global trading
     // mode settles after cold start, and a pinned query that becomes native
     // would otherwise never write its bots to the store.
-  }, [currentPaperContext, queryResult.data, isIsolatedQuery]);
+  }, [currentPaperContext, queryResult.data, isIsolatedQuery, input.status]);
 
   // Apply client-side filtering if needed
   const filteredBots = useMemo(
     () =>
-      botsFromStore.filter((_bot: GridBot) => {
-        return _bot.paperContext === currentPaperContext;
+      botsFromStore.filter((bot: GridBot) => {
+        if (bot.paperContext !== currentPaperContext) return false;
+        if (requestedStatuses && !requestedStatuses.includes(bot.status)) {
+          return false;
+        }
+        return true;
       }),
-    [botsFromStore, currentPaperContext]
+    [botsFromStore, currentPaperContext, requestedStatuses]
   );
 
   // Isolated list (archived, or pinned to the non-selected trading context):
@@ -160,6 +188,12 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
   // 4. Return store data (real-time via WebSocket). In share mode, force
   //    an empty result so cached bots from a prior logged-in session
   //    never leak into share-URL renders.
+  const responseRows = Array.isArray(queryResult.data?.data)
+    ? queryResult.data.data.length
+    : 0;
+  const serverTotal = queryResult.data?.total;
+  const partial = isPartialList(responseRows, serverTotal);
+
   const result = useMemo(() => {
     if (isIsolatedQuery && !isDemo) {
       const bots = isolatedBots ?? [];
@@ -167,7 +201,9 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
         ...queryResult,
         data: queryResult.data?.data || null,
         bots,
-        total: queryResult.data?.total || bots.length,
+        total: serverTotal || bots.length,
+        isPartial: partial,
+        loadedCount: responseRows,
         isLoading: queryResult.isLoading && !bots.length,
         isError: queryResult.isError,
         error: queryResult.error,
@@ -177,12 +213,18 @@ export function useGridBots(filter?: GridBotsFilter, enabled?: boolean) {
       ...queryResult,
       data: isDemo ? null : queryResult.data?.data || null,
       bots: isDemo ? [] : filteredBots,
-      total: isDemo ? 0 : queryResult.data?.total || filteredBots.length,
+      total: isDemo
+        ? 0
+        : partial
+          ? (serverTotal as number)
+          : filteredBots.length,
+      isPartial: isDemo ? false : partial,
+      loadedCount: isDemo ? 0 : responseRows,
       isLoading: isDemo ? false : isInitialLoad,
       isError: isDemo ? false : queryResult.isError,
       error: isDemo ? null : queryResult.error,
     };
-  }, [isIsolatedQuery, isolatedBots, isDemo, queryResult, filteredBots, isInitialLoad]);
+  }, [isIsolatedQuery, isolatedBots, isDemo, queryResult, filteredBots, isInitialLoad, serverTotal, partial, responseRows]);
   return result;
 }
 

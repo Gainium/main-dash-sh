@@ -4,6 +4,7 @@ import type { HedgeBot } from '@/types';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { consultBotTombstone, isIncomingBotStale } from './staleWriteGuard';
+import { mergeBotListSnapshot, type BotListScope } from './botListMerge';
 import { WebSocketDebouncer } from './webSocketDebouncer';
 
 interface HedgeDcaBotsStoreState {
@@ -28,7 +29,9 @@ interface HedgeDcaBotsStoreState {
 
   // Actions
   addBot: (bot: HedgeBot) => void;
-  updateBots: (bots: HedgeBot[]) => void;
+  /** Merge a list response (see botListMerge). `scope` says what the
+   *  response covers; without it nothing is removed. */
+  updateBots: (bots: HedgeBot[], scope?: BotListScope) => void;
   updateBot: (bot: HedgeBot) => void;
   updateBotFromWebSocket: (update: {
     botId: string;
@@ -93,35 +96,16 @@ export const useHedgeDcaBotsStore = create<HedgeDcaBotsStoreState>()(
             },
           }));
         },
-        updateBots: (bots: HedgeBot[]) => {
-          // Replace entire bot state with API response (source of truth)
-          // This ensures deleted/archived bots are removed from store.
-          // Per-bot stale + tombstone guards prevent a stale cached list
-          // response from resurrecting a just-deleted bot or reverting a
-          // newer optimistic update.
+        updateBots: (bots: HedgeBot[], scope?: BotListScope) => {
+          // MERGE, never replace: several queries write this store (different
+          // status sets, server-capped or paged responses). A bot is removed
+          // only when a COMPLETE response for a scope covering it omits it.
+          // Stale-replay and tombstone guards live in mergeBotListSnapshot.
           const existing = get().bots;
-          const botsRecord: Record<string, HedgeBot> = {};
-          bots.forEach((bot) => {
-            const prior = existing[bot._id];
-            if (isIncomingBotStale(prior, bot)) {
-              botsRecord[bot._id] = prior;
-              return;
-            }
-            const incomingMs = bot.updated
-              ? new Date(bot.updated).getTime()
-              : undefined;
-            const ms = Number.isNaN(incomingMs as number)
-              ? undefined
-              : incomingMs;
-            if (consultBotTombstone(bot._id, ms) === 'reject') {
-              // Stays deleted — omit from the rebuilt record entirely.
-              return;
-            }
-            botsRecord[bot._id] = bot;
-          });
-
+          const merged = mergeBotListSnapshot(existing, bots, scope);
+          if (merged === existing && !get().loading && !get().error) return;
           set({
-            bots: botsRecord,
+            bots: merged,
             loading: false,
             error: null,
           });

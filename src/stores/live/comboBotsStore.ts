@@ -4,6 +4,7 @@ import type { ComboBot } from '@/types';
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { consultBotTombstone, isIncomingBotStale } from './staleWriteGuard';
+import { mergeBotListSnapshot, type BotListScope } from './botListMerge';
 import { WebSocketDebouncer } from './webSocketDebouncer';
 
 interface ComboBotsStoreState {
@@ -25,7 +26,9 @@ interface ComboBotsStoreState {
 
   // Actions
   addBot: (bot: ComboBot) => void;
-  updateBots: (bots: ComboBot[]) => void;
+  /** Merge a list response (see botListMerge). `scope` says what the
+   *  response covers; without it nothing is removed. */
+  updateBots: (bots: ComboBot[], scope?: BotListScope) => void;
   updateBot: (bot: ComboBot) => void;
   updateBotFromWebSocket: (update: {
     botId: string;
@@ -90,34 +93,16 @@ export const useComboBotsStore = create<ComboBotsStoreState>()(
             },
           }));
         },
-        updateBots: (bots: ComboBot[]) => {
-          // Replace entire bot state with API response (source of truth)
-          // This ensures deleted/archived bots are removed from store
+        updateBots: (bots: ComboBot[], scope?: BotListScope) => {
+          // MERGE, never replace: several queries write this store (different
+          // status sets, server-capped or paged responses). A bot is removed
+          // only when a COMPLETE response for a scope covering it omits it.
+          // Stale-replay and tombstone guards live in mergeBotListSnapshot.
           const existing = get().bots;
-          const botsRecord: Record<string, ComboBot> = {};
-          bots.forEach((bot) => {
-            const prior = existing[bot._id];
-            // Keep the existing object when the API response is older than
-            // what we already hold (e.g. a stale persisted-cache replay).
-            if (isIncomingBotStale(prior, bot)) {
-              botsRecord[bot._id] = prior;
-              return;
-            }
-            // bot.updated is an ISO string; the guard API is numeric.
-            const incomingMs = bot.updated
-              ? new Date(bot.updated).getTime()
-              : undefined;
-            const ms = Number.isNaN(incomingMs as number)
-              ? undefined
-              : incomingMs;
-            // A just-deleted bot replayed by a stale list response is omitted
-            // entirely so it stays deleted.
-            if (consultBotTombstone(bot._id, ms) === 'reject') return;
-            botsRecord[bot._id] = bot;
-          });
-
+          const merged = mergeBotListSnapshot(existing, bots, scope);
+          if (merged === existing && !get().loading && !get().error) return;
           set({
-            bots: botsRecord,
+            bots: merged,
             loading: false,
             error: null,
           });
