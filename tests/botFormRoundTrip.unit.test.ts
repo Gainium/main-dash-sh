@@ -261,7 +261,6 @@ const KNOWN_DRIFT: Record<string, Record<string, string>> = {
   grid: {
     feeOrder:
       'reaches the grid payload but no grid UI sets it; restoring it means deciding whether grid bots carry the setting at all',
-    skipBalanceCheck: 'same as feeOrder — payload-only, no grid control',
   },
 };
 

@@ -43,6 +43,7 @@ const botSettings = `
     tpSlLimit
     slLimit
     feeOrder
+    skipBalanceCheck
     `;
 
 const orders = `

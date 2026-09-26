@@ -31,6 +31,7 @@ export const GridBudgetSettings: React.FC<GridBudgetSettingsProps> = ({
   const futures = useBotFormSelector('futures');
   const useOrderInAdvance = useBotFormSelector('useOrderInAdvance');
   const ordersInAdvance = useBotFormSelector('ordersInAdvance');
+  const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
   const handleBudgetChange = (value: number | string) => {
     updateFormData(
       'budget',
@@ -171,6 +172,20 @@ export const GridBudgetSettings: React.FC<GridBudgetSettingsProps> = ({
           )}
         </div>
       </SettingsRow>
+
+      <SettingsRow
+        name="Skip Balance Check"
+        tooltip="Start the bot without checking that your balance covers the grid's orders. Orders the exchange can't fund will be rejected."
+        trailing={
+          <Switch
+            id="grid-skip-balance-check"
+            checked={!!skipBalanceCheck}
+            onCheckedChange={(checked) =>
+              updateFormData('skipBalanceCheck', checked)
+            }
+          />
+        }
+      />
 
       <SettingsRow
         name="Smart orders"

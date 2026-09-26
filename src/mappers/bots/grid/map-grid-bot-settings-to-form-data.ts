@@ -302,6 +302,10 @@ export const mapGridBotSettingsToFormData = (
     formData.grid.useOrderInAdvance = useOrderInAdvance;
   }
 
+  if (typeof botSettings['skipBalanceCheck'] === 'boolean') {
+    formData.grid.skipBalanceCheck = botSettings['skipBalanceCheck'];
+  }
+
   const ordersInAdvance = toInteger(botSettings['ordersInAdvance']);
   if (typeof ordersInAdvance === 'number') {
     formData.grid.ordersInAdvance = ordersInAdvance;

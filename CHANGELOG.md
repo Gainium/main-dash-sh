@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.66.1] - 2026-09-26
+
+### Fixed
+
+- Grid bots have the "Skip Balance Check" setting again, in the Investment
+  section. A grid bot that already had it on keeps it when edited and saved,
+  instead of having it switched off.
+
 ## [2.66.0] - 2026-09-25
 
 ### Added
