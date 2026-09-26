@@ -64,6 +64,33 @@ import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import 'react-grid-layout/css/styles.css';
 const ResponsiveGrid = WidthProvider(ResponsiveGridLayout);
 
+/**
+ * Every widget rendered through React.memo, and a memoised Slot. Most default
+ * widgets were exported un-memoised, so any grid re-render (a layout write, a
+ * lock toggle) re-rendered every widget on the dashboard. Their props are
+ * stable (`widgetId`, `isEditable`, the stable `onCollapse` and the
+ * per-widget cached `menuActions`).
+ */
+const Memo = {
+  PortfolioValue: React.memo(PortfolioValue),
+  Profit: React.memo(Profit),
+  AccumulatedProfit: React.memo(AccumulatedProfit),
+  BotStatus: React.memo(BotStatus),
+  BotStatsAdvanced: React.memo(BotStatsAdvanced),
+  LatestOrders: React.memo(LatestOrders),
+  TreemapDeals: React.memo(TreemapDeals),
+  Watchlist: React.memo(Watchlist),
+  PortfolioAllocation: React.memo(PortfolioAllocation),
+  PortfolioBalances: React.memo(PortfolioBalances),
+  CoinChart: React.memo(CoinChart),
+  NotesWidget: React.memo(NotesWidget),
+  NewsRSS: React.memo(NewsRSS),
+  OverviewQuickActions: React.memo(OverviewQuickActions),
+  PortfolioCategoriesAnalysis: React.memo(PortfolioCategoriesAnalysis),
+  PortfolioExchangeDistribution: React.memo(PortfolioExchangeDistribution),
+};
+const MemoSlot = React.memo(Slot);
+
 interface GridLayoutProps {
   className?: string;
   children?: React.ReactNode;
@@ -90,9 +117,25 @@ const GridLayout: React.FC<GridLayoutProps> = ({
     updateWidget,
   } = useGridLayout({ registry });
 
-  // Get widget settings to check for custom sizes
+  // Widget-settings getters are stable; subscribe only to the two flags the
+  // grid geometry depends on (collapsed / custom size), as one string, so a
+  // widget's own settings write (a selected bot, a timeframe) no longer
+  // re-renders the grid and every widget in it.
   const { getWidgetHasCustomSize, getWidgetCollapsed } =
-    useWidgetSettingsStore();
+    useWidgetSettingsStore.getState();
+  const widgetIdsKey = useMemo(
+    () => widgets.map((w: WidgetConfig) => w.id).join('|'),
+    [widgets]
+  );
+  const layoutFlagsKey = useWidgetSettingsStore((st) =>
+    widgetIdsKey
+      .split('|')
+      .map(
+        (id) =>
+          `${st.settings[id]?.['collapsed'] ? 1 : 0}${st.settings[id]?.['hasCustomSize'] ? 1 : 0}`
+      )
+      .join('')
+  );
 
   // Get dynamic grid margins based on visual settings (compact/comfortable)
   const gridMargins = useGridMargins();
@@ -166,7 +209,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({
     });
 
     return layouts;
-  }, [widgets, currentLayout, getWidgetHasCustomSize, getWidgetCollapsed]);
+    // layoutFlagsKey carries the collapsed/custom-size flags read above.
+  }, [widgets, currentLayout, layoutFlagsKey]);
 
   /**
    * Handle breakpoint changes from react-grid-layout
@@ -206,7 +250,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
         switch (widget.type) {
           case 'portfolio-value':
             return (
-              <PortfolioValue
+              <Memo.PortfolioValue
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -215,7 +259,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'profit':
             return (
-              <Profit
+              <Memo.Profit
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -224,7 +268,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'accumulated-profit':
             return (
-              <AccumulatedProfit
+              <Memo.AccumulatedProfit
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -233,7 +277,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'bot-status':
             return (
-              <BotStatus
+              <Memo.BotStatus
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -242,7 +286,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'bot-stats-advanced':
             return (
-              <BotStatsAdvanced
+              <Memo.BotStatsAdvanced
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -251,7 +295,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'latest-orders':
             return (
-              <LatestOrders
+              <Memo.LatestOrders
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -261,7 +305,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'treemap-deals':
             return (
-              <TreemapDeals
+              <Memo.TreemapDeals
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -270,7 +314,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'watchlist':
             return (
-              <Watchlist
+              <Memo.Watchlist
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -279,7 +323,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'portfolio-allocation':
             return (
-              <PortfolioAllocation
+              <Memo.PortfolioAllocation
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -288,7 +332,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'portfolio-balances':
             return (
-              <PortfolioBalances
+              <Memo.PortfolioBalances
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -297,7 +341,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'coin-chart':
             return (
-              <CoinChart
+              <Memo.CoinChart
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -306,7 +350,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'notes':
             return (
-              <NotesWidget
+              <Memo.NotesWidget
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 isCollapsible={true}
@@ -317,7 +361,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'news-rss':
             return (
-              <NewsRSS
+              <Memo.NewsRSS
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 isCollapsible={true}
@@ -328,7 +372,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'overview-quick-actions':
             return (
-              <OverviewQuickActions
+              <Memo.OverviewQuickActions
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -337,7 +381,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'portfolio-categories-analysis':
             return (
-              <PortfolioCategoriesAnalysis
+              <Memo.PortfolioCategoriesAnalysis
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -346,7 +390,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
             );
           case 'portfolio-exchange-distribution':
             return (
-              <PortfolioExchangeDistribution
+              <Memo.PortfolioExchangeDistribution
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}
                 onCollapse={handleWidgetCollapse}
@@ -384,7 +428,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({
               );
             }
             return (
-              <Slot
+              <MemoSlot
                 name={slotName}
                 widgetId={widget.id}
                 isEditable={!isGridLayoutLocked}

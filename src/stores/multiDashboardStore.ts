@@ -108,6 +108,12 @@ interface MultiDashboardState {
   // Dashboard-specific actions (proxy to current dashboard)
   toggleGridLock: () => void;
   updateLayout: (newLayout: Layout[]) => void;
+  /**
+   * Write a layout AND each listed widget's `layoutData` in ONE `set()`,
+   * skipping the write entirely when nothing changed (every `set()` rewrites
+   * the persisted dashboards store).
+   */
+  applyLayout: (newLayout: Layout[]) => void;
   addWidget: (widget: WidgetConfig) => void;
   removeWidget: (widgetId: string) => void;
   updateWidget: (widgetId: string, updates: Partial<WidgetConfig>) => void;
@@ -194,6 +200,25 @@ const generateUniqueDashboardName = (
 
   return `${baseName} ${counter}`;
 };
+
+const sameLayoutItem = (
+  a: Partial<Layout> | undefined,
+  b: Partial<Layout> | undefined
+): boolean =>
+  !!a &&
+  !!b &&
+  a.i === b.i &&
+  a.x === b.x &&
+  a.y === b.y &&
+  a.w === b.w &&
+  a.h === b.h &&
+  !!a.static === !!b.static;
+
+/** Deep-equal on the fields react-grid-layout positions by. */
+const sameLayout = (a: Layout[] | undefined, b: Layout[]): boolean =>
+  !!a &&
+  a.length === b.length &&
+  a.every((item, idx) => sameLayoutItem(item, b[idx]));
 
 export const useMultiDashboardStore = create<MultiDashboardState>()(
   pouchdbSync(
@@ -541,6 +566,7 @@ export const useMultiDashboardStore = create<MultiDashboardState>()(
             const state = get();
             const currentDashboard = state.getCurrentDashboard();
             if (!currentDashboard) return;
+            if (sameLayout(currentDashboard.currentLayout, newLayout)) return;
 
             // Get current breakpoint when updating layout
             const containerWidth =
@@ -558,6 +584,45 @@ export const useMultiDashboardStore = create<MultiDashboardState>()(
                 : d
             );
 
+            set({ dashboards: newDashboards });
+          },
+
+          applyLayout: (newLayout) => {
+            const state = get();
+            const currentDashboard = state.getCurrentDashboard();
+            if (!currentDashboard) return;
+            const byId = new Map(newLayout.map((l) => [l.i, l]));
+            let widgetsChanged = false;
+            const widgets = currentDashboard.widgets.map((w) => {
+              const l = byId.get(w.id);
+              if (!l || sameLayoutItem(w.layoutData, l)) return w;
+              widgetsChanged = true;
+              return { ...w, layoutData: { ...l } };
+            });
+            const layoutChanged = !sameLayout(
+              currentDashboard.currentLayout,
+              newLayout
+            );
+            if (!layoutChanged && !widgetsChanged) return;
+
+            const containerWidth =
+              typeof window !== 'undefined' ? window.innerWidth - 64 : 1200;
+            const newDashboards = state.dashboards.map((d) =>
+              d.id === state.currentDashboardId
+                ? {
+                    ...d,
+                    ...(layoutChanged
+                      ? {
+                          currentLayout: newLayout,
+                          layoutBreakpoint:
+                            getCurrentBreakpoint(containerWidth),
+                        }
+                      : {}),
+                    ...(widgetsChanged ? { widgets } : {}),
+                    updatedAt: Date.now(),
+                  }
+                : d
+            );
             set({ dashboards: newDashboards });
           },
 

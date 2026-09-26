@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import GridLayout from '../layout/GridLayout';
-import { useGridLayout } from './useGridLayout';
 import { useMultiDashboardBridge } from './useMultiDashboardBridge';
 import { useMultiReportBridge } from './useMultiReportBridge';
 import { usePageActions } from './usePageActions';
@@ -40,8 +39,9 @@ export const useWidgetPage = ({
       ? store.adjustLayoutForCurrentScreen
       : undefined;
 
-  // Get all grid layout functionality
-  const gridLayoutHook = useGridLayout({ registry });
+  // NOTE: the grid layout hook lives in <GridLayout> only. This hook used to
+  // call useGridLayout a second time (and spread its result, which no caller
+  // read), so every layout effect ran — and wrote the persisted store — twice.
 
   // Get page actions
   const pageActionsHook = usePageActions({
@@ -103,9 +103,6 @@ export const useWidgetPage = ({
 
     // Store reference
     store,
-
-    // All grid layout functionality
-    ...gridLayoutHook,
 
     // Registry info
     registry,

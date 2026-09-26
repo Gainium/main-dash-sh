@@ -6,10 +6,7 @@ import {
 } from '../components/widgets/dashboard';
 import type { WidgetMenuActions } from '../components/widgets/WidgetWrapper';
 import type { ReportWidgetConfig } from '../reports/types/reportWidget';
-import {
-  useDashboardStore,
-  type WidgetConfig as DashboardWidgetConfig,
-} from '../stores/dashboardStore';
+import { type WidgetConfig as DashboardWidgetConfig } from '../stores/dashboardStore';
 import { useWidgetSettingsStore } from '../stores/widgetSettingsStore';
 import { useMultiDashboardBridge } from './useMultiDashboardBridge';
 import { useMultiReportBridge } from './useMultiReportBridge';
@@ -35,19 +32,13 @@ interface UseGridLayoutProps {
 export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Always call all hooks unconditionally
-  const dashboardStore = useDashboardStore();
+  // Always call both hooks unconditionally
   const multiDashboardBridge = useMultiDashboardBridge();
   const multiReportBridge = useMultiReportBridge();
   const isDashboard = registry === 'dashboard';
-  const isReport = registry === 'report';
 
   // Select the appropriate store based on registry
-  const selectedStore = isDashboard
-    ? multiDashboardBridge
-    : isReport
-      ? multiReportBridge
-      : dashboardStore;
+  const selectedStore = isDashboard ? multiDashboardBridge : multiReportBridge;
 
   // Extract store values
   const widgets = useMemo(() => selectedStore.widgets, [selectedStore.widgets]);
@@ -106,13 +97,53 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
   const savedLayouts = selectedStore.savedLayouts || [];
   const resetToLastSavedPreset = selectedStore.resetToLastSavedPreset;
 
-  // Get widget settings store for original heights
+  // Widget-settings actions/getters are stable functions: read them without
+  // subscribing (the bare hook re-rendered the grid on every widget-setting
+  // write of every widget).
   const {
     setWidgetOriginalHeight,
     getWidgetOriginalHeight,
     getWidgetCollapsed,
     setWidgetCollapsed,
-  } = useWidgetSettingsStore();
+  } = useWidgetSettingsStore.getState();
+
+  const currentLayoutRef = useRef(currentLayout);
+  currentLayoutRef.current = currentLayout;
+
+  /**
+   * Write a layout and the matching widgets' layoutData in one store write,
+   * skipped when nothing changed. Stores without `applyLayout` (reports, the
+   * legacy single dashboard) fall back to the per-widget writes.
+   */
+  const applyLayout = useCallback(
+    (layout: Layout[]) => {
+      const batched = (
+        selectedStore as { applyLayout?: (l: Layout[]) => void }
+      ).applyLayout;
+      if (batched) {
+        batched(layout);
+        return;
+      }
+      updateLayout(layout);
+      for (const item of layout) {
+        const widget = widgetsRef.current.find(
+          (w: GridWidgetConfig) => w.id === item.i
+        );
+        const d = widget?.layoutData;
+        if (
+          widget &&
+          (!d ||
+            d.x !== item.x ||
+            d.y !== item.y ||
+            d.w !== item.w ||
+            d.h !== item.h)
+        ) {
+          updateWidget(item.i, { layoutData: { ...item } });
+        }
+      }
+    },
+    [selectedStore, updateLayout, updateWidget]
+  );
 
   // Apply collapsed states and compact layout
   const applyCollapsedStatesAndCompact = useCallback(
@@ -137,23 +168,9 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
       const initialLayout = widgets.map(
         (widget: GridWidgetConfig) => widget.layoutData
       );
-      const adjustedLayout = applyCollapsedStatesAndCompact(initialLayout);
-      updateLayout(adjustedLayout);
-
-      // Update widget layout data to match the adjusted layout
-      adjustedLayout.forEach((item: Layout) => {
-        updateWidget(item.i, {
-          layoutData: { ...item },
-        });
-      });
+      applyLayout(applyCollapsedStatesAndCompact(initialLayout));
     }
-  }, [
-    widgets,
-    currentLayout,
-    updateLayout,
-    applyCollapsedStatesAndCompact,
-    updateWidget,
-  ]);
+  }, [widgets, currentLayout, applyLayout, applyCollapsedStatesAndCompact]);
 
   // Memoize widget IDs to detect when widgets are added/removed without reacting to layout changes
   const widgetIds = useMemo(
@@ -185,53 +202,19 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
         const newLayout = widgets.map(
           (widget: GridWidgetConfig) => widget.layoutData
         );
-        const adjustedLayout = applyCollapsedStatesAndCompact(newLayout);
-        updateLayout(adjustedLayout);
-
-        // Update widget layout data to match the adjusted layout
-        adjustedLayout.forEach((item: Layout) => {
-          updateWidget(item.i, {
-            layoutData: { ...item },
-          });
-        });
+        applyLayout(applyCollapsedStatesAndCompact(newLayout));
       }
     }
-  }, [
-    widgetIds,
-    updateLayout,
-    applyCollapsedStatesAndCompact,
-    updateWidget,
-    currentLayout,
-    widgets,
-  ]);
+  }, [widgetIds, applyLayout, applyCollapsedStatesAndCompact, currentLayout, widgets]);
 
   // Handle layout changes
+  // One store write per layout change (none when react-grid-layout reports
+  // the layout it already has, which it does on every mount and resize).
   const handleLayoutChange = useCallback(
     (layout: Layout[]) => {
-      updateLayout(layout);
-
-      // Update each widget's layoutData to match the new layout
-      layout.forEach((layoutItem) => {
-        const widget = widgets.find(
-          (w: GridWidgetConfig) => w.id === layoutItem.i
-        );
-        if (widget) {
-          // Check if any layout property has changed
-          const hasChanged =
-            widget.layoutData.x !== layoutItem.x ||
-            widget.layoutData.y !== layoutItem.y ||
-            widget.layoutData.w !== layoutItem.w ||
-            widget.layoutData.h !== layoutItem.h;
-
-          if (hasChanged) {
-            updateWidget(widget.id, {
-              layoutData: { ...layoutItem },
-            });
-          }
-        }
-      });
+      applyLayout(layout);
     },
-    [updateLayout, widgets, updateWidget]
+    [applyLayout]
   );
 
   // Manual compaction algorithm
@@ -294,71 +277,39 @@ export const useGridLayout = ({ registry }: UseGridLayoutProps) => {
       });
 
       if (hasCollapsedWidgets) {
-        const compactedLayout = compactLayout(adjustedLayout);
-        updateLayout(compactedLayout);
-
-        // Update widget layout data to match the compacted layout
-        compactedLayout.forEach((item: Layout) => {
-          updateWidget(item.i, {
-            layoutData: { ...item },
-          });
-        });
+        applyLayout(compactLayout(adjustedLayout));
       }
     }
-  }, [
-    widgets,
-    currentLayout,
-    getWidgetCollapsed,
-    compactLayout,
-    updateLayout,
-    updateWidget,
-  ]);
+  }, [widgets, currentLayout, getWidgetCollapsed, compactLayout, applyLayout]);
 
-  // Handle widget collapse
+  // Handle widget collapse. Stable identity (reads the latest layout through
+  // refs) so the memoised widgets that receive it as `onCollapse` do not all
+  // re-render whenever the layout changes.
   const handleWidgetCollapse = useCallback(
     (widgetId: string, collapsed: boolean) => {
-      const layout = [...currentLayout];
+      const layout = currentLayoutRef.current.map((item) => ({ ...item }));
       const layoutItem = layout.find((item) => item.i === widgetId);
+      if (!layoutItem) return;
 
-      if (layoutItem) {
-        // Store original height if not already stored
-        const existingOriginalHeight = getWidgetOriginalHeight(widgetId);
-        if (existingOriginalHeight === undefined) {
-          setWidgetOriginalHeight(widgetId, layoutItem.h);
-        }
-
-        // Update collapsed state in widget settings FIRST
-        setWidgetCollapsed(widgetId, collapsed);
-
-        // Set height to 0.75 when collapsed (60px with rowHeight 80), restore original when expanded
-        const originalHeight =
-          getWidgetOriginalHeight(widgetId) || layoutItem.h;
-        layoutItem.h = collapsed ? 0.75 : originalHeight;
-
-        // Update the layout - react-grid-layout will handle compaction automatically
-        // because compactType="vertical" is set
-        updateLayout(layout);
-
-        // Update the specific widget's layoutData
-        const widget = widgets.find((w: GridWidgetConfig) => w.id === widgetId);
-        if (widget) {
-          updateWidget(widgetId, {
-            layoutData: {
-              ...widget.layoutData,
-              h: layoutItem.h,
-            },
-          });
-        }
+      // Store original height if not already stored
+      if (getWidgetOriginalHeight(widgetId) === undefined) {
+        setWidgetOriginalHeight(widgetId, layoutItem.h);
       }
+
+      // Update collapsed state in widget settings FIRST
+      setWidgetCollapsed(widgetId, collapsed);
+
+      // Set height to 0.75 when collapsed (60px with rowHeight 80), restore
+      // original when expanded. react-grid-layout compacts vertically.
+      const originalHeight = getWidgetOriginalHeight(widgetId) || layoutItem.h;
+      layoutItem.h = collapsed ? 0.75 : originalHeight;
+      applyLayout(layout);
     },
     [
-      currentLayout,
-      updateLayout,
-      updateWidget,
+      applyLayout,
       getWidgetOriginalHeight,
       setWidgetOriginalHeight,
       setWidgetCollapsed,
-      widgets,
     ]
   );
 
