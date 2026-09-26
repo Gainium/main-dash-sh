@@ -169,15 +169,35 @@ afterEach(() => {
 const renderDealsTab = (status: DCADealStatusEnum) =>
   renderHook(() => useDcaDeals({ terminal: false, status }));
 
-describe('useDcaDeals — Deals tab paging (bug #698)', () => {
-  it('§1 reaches every closed deal the server reports, not just the first page', async () => {
+describe('useDcaDeals — Deals tab paging (bug #698, spec 067 §4)', () => {
+  // Spec 067 §4 replaced the automatic walk of every page (up to 40 × 500)
+  // with on-demand pages: the hook loads one page, reports the server's
+  // total, and `loadMore()` reaches the rest. The bug #698 guarantees still
+  // hold — the total is the server's, every deal is reachable, and a partial
+  // snapshot never prunes the store.
+  it('§1 reports the server total and reaches every closed deal on demand', async () => {
     const get = renderDealsTab(DCADealStatusEnum.closed);
     await settle();
 
-    // Before the fix: 1 page requested, 500 deals.
+    expect(requestedPages).toEqual([0]);
+    expect(get().deals.length).toBe(500);
+    expect(get().total).toBe(1457);
+    expect(get().isPartial).toBe(true);
+    expect(get().hasMore).toBe(true);
+
+    await act(async () => {
+      await get().loadMore();
+    });
+    await settle();
+    await act(async () => {
+      await get().loadMore();
+    });
+    await settle();
+
     expect(requestedPages).toEqual([0, 1, 2]);
     expect(get().deals.length).toBe(1457);
-    expect(get().total).toBe(1457);
+    expect(get().hasMore).toBe(false);
+    expect(get().isPartial).toBe(false);
   });
 
   it('§2.1 stops on a short page without an extra round trip', async () => {
@@ -187,11 +207,10 @@ describe('useDcaDeals — Deals tab paging (bug #698)', () => {
 
     expect(requestedPages).toEqual([0]);
     expect(get().deals.length).toBe(130);
+    expect(get().hasMore).toBe(false);
   });
 
-  it('§2.4 does not absence-delete when the fetch is genuinely page-capped', async () => {
-    // 40 pages x 500 is the ceiling; a bigger account leaves a partial snapshot,
-    // which must NOT be committed as complete or the store prunes the remainder.
+  it('§2.4 a partial snapshot does not absence-delete deals beyond it', async () => {
     fixture = { total: 40 * 500 + 10, status: 'closed' };
     const beyondCap = {
       ...dealAt(40 * 500 + 5),
@@ -204,10 +223,27 @@ describe('useDcaDeals — Deals tab paging (bug #698)', () => {
     } as never);
 
     const get = renderDealsTab(DCADealStatusEnum.closed);
-    await settle(400);
+    await settle();
 
-    expect(requestedPages.length).toBe(40);
+    expect(requestedPages).toEqual([0]);
     expect(useDealStore.getState().deals[BOT_ID]?.['deal-beyond-cap']).toBeTruthy();
-    expect(get().deals.length).toBe(40 * 500 + 1);
+    expect(get().deals.length).toBe(500 + 1);
+    expect(get().total).toBe(40 * 500 + 10);
+  });
+
+  it('§4.2 server-paged mode fetches exactly the requested page', async () => {
+    const get = renderHook(() =>
+      useDcaDeals(
+        { terminal: false, status: DCADealStatusEnum.closed },
+        { page: 2, pageSize: 100 }
+      )
+    );
+    await settle();
+
+    expect(requestedPages).toEqual([2]);
+    expect(get().deals.map((d) => d._id)).toEqual(
+      Array.from({ length: 100 }, (_, i) => `deal-${200 + i}`)
+    );
+    expect(get().total).toBe(1457);
   });
 });
