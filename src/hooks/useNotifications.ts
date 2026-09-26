@@ -21,6 +21,21 @@ interface UseNotificationsOptions {
   page?: number;
   pageSize?: number;
   unreadOnly?: boolean;
+  /**
+   * Badge mode: fetch one row per feed and read the server `total`s. Only a
+   * countOnly instance writes the unread counts to the notifications store.
+   */
+  countOnly?: boolean;
+  /** When false no query runs (e.g. the panel while it is closed). */
+  enabled?: boolean;
+}
+
+/** The server counts unread bot messages up to this bound. */
+export const UNREAD_COUNT_CAP = 5000;
+
+/** Badge text for an unread count: exact up to 999, then "999+". */
+export function formatUnreadCount(count: number): string {
+  return count > 999 ? '999+' : String(count);
 }
 
 interface MessageSocket {
@@ -81,9 +96,11 @@ export function useNotifications(
     page = 1,
     pageSize = ITEMS_PER_PAGE,
     unreadOnly = false,
+    countOnly = false,
+    enabled = true,
   } = options;
-  const { setUnreadCounts } = useNotificationsStore();
-  const { tokens } = useAuthStore();
+  const setUnreadCounts = useNotificationsStore((s) => s.setUnreadCounts);
+  const tokens = useAuthStore((s) => s.tokens);
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
   // Create authenticated GraphQL client
@@ -97,6 +114,16 @@ export function useNotifications(
   // Bot messages query
   const botQuery = useMemo(() => {
     if (type !== 'bot' && type !== 'all') return null;
+
+    // Badge: one row is enough — the unread total comes back as `total`.
+    // (Without input the resolver returns up to 5,000 rows.)
+    if (countOnly) {
+      return GraphQlQuery.getMessageBot({
+        unreadOnly: true,
+        page: 1,
+        pageSize: 1,
+      });
+    }
 
     // Try different parameter combinations based on what works in legacy dashboard
     // Legacy dashboard sometimes calls with no params, sometimes with full params
@@ -136,7 +163,7 @@ export function useNotifications(
     }
 
     return GraphQlQuery.getMessageBot(params);
-  }, [type, unreadOnly, page, pageSize, search]);
+  }, [type, unreadOnly, page, pageSize, search, countOnly]);
 
   const {
     data: botData,
@@ -146,7 +173,7 @@ export function useNotifications(
     'getMessageBot',
     botQuery || { query: '', variables: {} },
     {
-      enabled: !!botQuery, // Remove token dependency - let GraphQL client handle auth
+      enabled: enabled && !!botQuery, // Remove token dependency - let GraphQL client handle auth
       queryKey: ['getMessageBot', botQuery?.variables],
       retry: (failureCount, error) => {
         // Don't retry on authentication errors (401, 403) or client errors (400)
@@ -197,7 +224,7 @@ export function useNotifications(
     'getPlatformNotifications',
     announcementQuery || { query: '', variables: {} },
     {
-      enabled: !!announcementQuery,
+      enabled: enabled && !!announcementQuery,
       queryKey: ['getPlatformNotifications', announcementQuery?.variables],
       retry: (failureCount, error) => {
         if (
@@ -243,7 +270,7 @@ export function useNotifications(
     'getChangeLogs',
     changelogQuery || { query: '', variables: {} },
     {
-      enabled: !!changelogQuery,
+      enabled: enabled && !!changelogQuery,
       queryKey: ['getChangeLogs', changelogQuery?.variables],
       retry: (failureCount, error) => {
         if (
@@ -279,7 +306,7 @@ export function useNotifications(
     'getUnreadChangeLogs',
     unreadChangelogQuery || { query: '', variables: {} },
     {
-      enabled: !!unreadChangelogQuery,
+      enabled: enabled && !!unreadChangelogQuery,
       queryKey: [
         'getUnreadChangeLogs',
         (unreadChangelogQuery as any)?.variables,
@@ -460,12 +487,17 @@ export function useNotifications(
     };
   }, [botData, announcementData, changelogData, unreadChangelogData]);
 
-  // Update unread counts in store whenever notifications change
+  // Update unread counts in store (badge instance only — a panel instance
+  // filtered to one feed would otherwise overwrite the other feeds with 0).
   useEffect(() => {
-    // Calculate unread bot notifications from actual notifications data
-    const unreadBotCount = notifications.filter(
-      (n) => n.notificationType === 'bot' && !n.isRead
-    ).length;
+    if (!countOnly) return;
+    // Every row of the unread feed is unread; `total` is the server's count.
+    const unreadBotCount =
+      typeof botData?.total === 'number'
+        ? botData.total
+        : notifications.filter(
+            (n) => n.notificationType === 'bot' && !n.isRead
+          ).length;
 
     // Update unread counts in store
     setUnreadCounts({
@@ -475,7 +507,7 @@ export function useNotifications(
       total:
         unreadBotCount + totals.unreadAnnouncement + totals.unreadChangelog,
     });
-  }, [notifications, totals, setUnreadCounts]);
+  }, [countOnly, botData, notifications, totals, setUnreadCounts]);
 
   // Loading and error states
   const isLoading = useMemo(() => {

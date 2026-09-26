@@ -6,7 +6,10 @@ import { PlanBadge } from '@/components/subscription/PlanBadge';
 import NewBotWizard from '@/components/wizards/NewBotWizard';
 import { IS_CLOUD } from '@/config/mode';
 import { SHORTCUT_IDS } from '@/config/shortcuts';
-import { useNotifications } from '@/hooks/useNotifications';
+import {
+  formatUnreadCount,
+  useNotifications,
+} from '@/hooks/useNotifications';
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { getDashboardShortcutId } from '@/lib/dashboardShortcuts';
 import { showShortcutHint } from '@/lib/shortcutHints';
@@ -187,8 +190,7 @@ const Navbar: React.FC<NavbarProps> = ({
   // Fetch notifications to keep unread counts updated
   useNotifications({
     type: 'all',
-    page: 1,
-    pageSize: 1, // We only need this to update the counts
+    countOnly: true, // one row per feed; the badge reads the server totals
   });
 
   const [isMenuOpen, setIsMenuOpen] = React.useState(false);
@@ -728,7 +730,7 @@ const Navbar: React.FC<NavbarProps> = ({
                       <span
                         className={`absolute -top-1 -right-1 min-w-5 h-5 px-1 text-xs leading-5 flex items-center justify-center text-white border-0 rounded-full ${unreadCounts.bot > 0 ? 'bg-destructive' : 'bg-success'}`}
                       >
-                        {unreadCounts.total}
+                        {formatUnreadCount(unreadCounts.total)}
                       </span>
                     )}
                   </Button>
@@ -866,7 +868,7 @@ const Navbar: React.FC<NavbarProps> = ({
                             <span
                               className={`ml-auto text-xs px-1.5 py-0.5 rounded-full text-white ${unreadCounts.bot > 0 ? 'bg-destructive' : 'bg-success'}`}
                             >
-                              {unreadCounts.total}
+                              {formatUnreadCount(unreadCounts.total)}
                             </span>
                           )}
                         </div>
