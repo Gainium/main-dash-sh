@@ -189,6 +189,30 @@ async function fetchTopDeals(
     }
   }
   const r = await run({ sortModel, pageSize: limit, withNet: false });
+  if (metric === 'cost') {
+    // `stats.usage` is only written once the stats worker has sampled a
+    // deal, so deals it has not reached yet sort last and could be missed.
+    // Also take the top by the raw quote usage (present on every deal) and
+    // let the widget re-rank the union by USD cost.
+    const byQuote = await run({
+      sortModel: toServerSortModel('usage.current.quote', 'desc'),
+      pageSize: limit,
+      withNet: false,
+    });
+    const merge = <T extends { _id: string }>(a: T[], b: T[]) => {
+      const seen = new Set(a.map((d) => d._id));
+      return [...a, ...b.filter((d) => !seen.has(d._id))];
+    };
+    const dca = merge(r.dca, byQuote.dca);
+    const combo = merge(r.combo, byQuote.combo);
+    return {
+      dca,
+      combo,
+      totalOpen: r.totalOpen,
+      serverRanked: true,
+      loaded: dca.length + combo.length,
+    };
+  }
   return { ...r, serverRanked: true, loaded: r.dca.length + r.combo.length };
 }
 
