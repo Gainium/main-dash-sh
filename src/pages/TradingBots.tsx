@@ -66,7 +66,6 @@ import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
   BotTypesEnum,
   CloseDCATypeEnum,
-  DCADealStatusEnum,
   StrategyEnum,
   type BotStatus,
   type DCABot,
@@ -89,7 +88,6 @@ import {
   TabsTrigger,
 } from '../components/ui/tabs';
 import OpenOrdersWidget from '../components/widgets/shared/OpenOrdersWidget';
-import { useDcaDeals } from '../hooks/useDcaDeals';
 /* import { toDrawerBot } from '../adapters/bots/drawer'; */
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import {
@@ -125,6 +123,15 @@ import { transformDcaBotToBot } from '../types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
 import { useStableBotTransforms } from '../hooks/useStableBotTransforms';
+import { useBotListPaging } from '../hooks/useBotListPaging';
+import { useDealTablePaging } from '../hooks/useDealTablePaging';
+import { CANONICAL_DCA_STATUSES } from '../lib/botList/botListWindow';
+import {
+  BOT_LIST_PARTIAL_TOOLTIP,
+  DCA_BOT_SERVER_FIELDS,
+} from '../lib/botList/botListServerFields';
+import { withServerFields } from '../components/ui/data-table/serverSide';
+import { PartialCount } from '../components/ui/large-account';
 import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 
 // Bot table actions component for mobile accessibility
@@ -553,13 +560,31 @@ const TradingBots: React.FC = () => {
   );
 
   const {
-    bots: dcaBots,
+    bots: canonicalDcaBots,
     isLoading: botsLoading,
     isError: botsError,
     error: botsErrorObj,
     refetch: refetchBots,
     data: _rawBotData,
+    total: canonicalTotal,
+    isPartial: canonicalPartial,
+    loadedCount: canonicalLoaded,
   } = useDcaBots(useDcaBotsOptions);
+
+  // Large accounts, and any account whose list came back capped, page on the
+  // server: only the visible page is fetched, sorted and searched there.
+  const botListPaging = useBotListPaging({
+    type: 'dca',
+    canonical: {
+      bots: canonicalDcaBots,
+      total: canonicalTotal,
+      isPartial: canonicalPartial,
+      loadedCount: canonicalLoaded,
+    },
+    statuses: showArchived ? ['archive'] : CANONICAL_DCA_STATUSES,
+    fields: DCA_BOT_SERVER_FIELDS,
+  });
+  const dcaBots = botListPaging.bots;
 
   /* const { deals: allDeals } = useDcaDeals({});
 
@@ -762,8 +787,10 @@ const TradingBots: React.FC = () => {
     if (botsError) {
       return emptyDcaBotStatsSummary;
     }
-    return computeDcaBotStatsSummary(dcaBots);
-  }, [botsError, dcaBots]);
+    // Summed over the canonical list (the loaded window), not the visible
+    // page; a capped window is flagged by the PartialCount next to the title.
+    return computeDcaBotStatsSummary(canonicalDcaBots);
+  }, [botsError, canonicalDcaBots]);
 
   const {
     closedTrades,
@@ -1024,6 +1051,8 @@ const TradingBots: React.FC = () => {
   );
 
   const transformedBots = useMemo(() => {
+    // Server-paged rows arrive in the server's order; keep it.
+    if (botListPaging.serverPaged) return stableTransformedBots;
     // Sort bots by creation date (newest first) by default. Copy first so the
     // per-bot cache's element references stay intact for the card memos.
     return [...stableTransformedBots].sort((a, b) => {
@@ -1031,7 +1060,7 @@ const TradingBots: React.FC = () => {
       const bCreated = b.createdAt ?? new Date(b.created || 0).getTime();
       return bCreated - aCreated;
     });
-  }, [stableTransformedBots]);
+  }, [stableTransformedBots, botListPaging.serverPaged]);
 
   // Create a lookup map for original bot data to avoid repeated finds
   const botDataMap = useMemo(() => {
@@ -1639,6 +1668,11 @@ const TradingBots: React.FC = () => {
     ],
     [botDataMap, privacyMode, accountTimeZone]
   );
+  // Server mode only honours sorts/filters with a server field.
+  const serverColumns = useMemo(
+    () => withServerFields(columns, DCA_BOT_SERVER_FIELDS),
+    [columns]
+  );
 
   // Apply advanced filtering with archive support
   const filteredData = useMemo(() => {
@@ -1684,6 +1718,9 @@ const TradingBots: React.FC = () => {
   // Put starred bots first (subscribe to starred ids for reactivity)
   const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
   const orderedFilteredData = useMemo(() => {
+    // Server-paged: the server's order is the order (starred-first would
+    // reshuffle only the visible page and read as a wrong sort).
+    if (botListPaging.serverPaged) return filteredData;
     return [...filteredData].sort((a, b) => {
       const aStar = starredBotIds.has(a.id) ? 0 : 1;
       const bStar = starredBotIds.has(b.id) ? 0 : 1;
@@ -1693,7 +1730,7 @@ const TradingBots: React.FC = () => {
       const bCreated = b.createdAt ?? new Date(b.created || 0).getTime();
       return bCreated - aCreated;
     });
-  }, [filteredData, starredBotIds]);
+  }, [filteredData, starredBotIds, botListPaging.serverPaged]);
 
   useRenderTelemetry('TradingBotsPage', () => ({
     filteredCount: orderedFilteredData.length,
@@ -2028,13 +2065,13 @@ const TradingBots: React.FC = () => {
   // backend defaults to open-only and the Closed view is always empty.
   const [dealsStatus, setDealsStatus] = useState<'open' | 'closed'>('open');
 
-  const { deals: dcaDealsForTab } = useDcaDeals({
+  // Server-paged for large accounts, and as soon as the first window of
+  // deals comes back capped (never a silent subset).
+  const dealsTable = useDealTablePaging({
+    status: dealsStatus,
     terminal: false,
-    status:
-      dealsStatus === 'closed'
-        ? DCADealStatusEnum.closed
-        : DCADealStatusEnum.open,
   });
+  const dcaDealsForTab = dealsTable.deals;
 
   // Transform DCA deals to OpenTrade[] for the OpenOrdersWidget
   const dcaDealsAsOpenTrades = useMemo(() => {
@@ -2187,6 +2224,17 @@ const TradingBots: React.FC = () => {
                       <div className="flex items-center gap-xs">
                         <h2 className="font-semibold text-xl">Trading Bots</h2>
                         <StaleIndicator componentId="trading-bots" />
+                        {botListPaging.partial && (
+                          <PartialCount
+                            shown={botListPaging.partial.shown}
+                            total={botListPaging.partial.total}
+                            noun="bots"
+                            tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                              botListPaging.partial.shown,
+                              botListPaging.partial.total
+                            )}
+                          />
+                        )}
                       </div>
 
                       <div className="flex items-center gap-xs">
@@ -2229,6 +2277,17 @@ const TradingBots: React.FC = () => {
                       <div className="flex items-center gap-xs">
                         <h2 className="font-semibold text-xl">Trading Bots</h2>
                         <StaleIndicator componentId="trading-bots" />
+                        {botListPaging.partial && (
+                          <PartialCount
+                            shown={botListPaging.partial.shown}
+                            total={botListPaging.partial.total}
+                            noun="bots"
+                            tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                              botListPaging.partial.shown,
+                              botListPaging.partial.total
+                            )}
+                          />
+                        )}
                       </div>
 
                       <div className="min-w-0 flex justify-end px-md">
@@ -2279,7 +2338,8 @@ const TradingBots: React.FC = () => {
                       <TradingBotsCardContext.Provider value={cardContextValue}>
                         <DataTable
                           tableId="trading-bots"
-                          columns={columns}
+                          columns={serverColumns}
+                          serverSide={botListPaging.serverSide}
                           data={orderedFilteredData}
                           enableGlobalFilter={true}
                           enableColumnFilters={true}
@@ -2402,6 +2462,7 @@ const TradingBots: React.FC = () => {
                       widgetId="dca-bot-deals"
                       data={{ trades: dcaDealsAsOpenTrades }}
                       rawDeals={dcaDealsForTab}
+                      serverPaging={dealsTable.serverPaging}
                       enableStatusToggle={true}
                       onStatusFilterChange={setDealsStatus}
                       privacyMode={privacyMode}

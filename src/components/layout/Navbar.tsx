@@ -55,6 +55,7 @@ import { useFavoritesStore } from '../../stores/favoritesStore';
 import { useUIStore } from '../../stores/uiStore';
 import { GlobalSearch, ShortcutManager } from '../modals';
 import { NotificationPanel } from '../notifications';
+import { LargeAccountPill } from '../ui/large-account';
 import { Badge } from '../ui/badge';
 import { BotttsAvatar } from '../ui/BotttsAvatar';
 import { Button } from '../ui/button';
@@ -614,6 +615,10 @@ const Navbar: React.FC<NavbarProps> = ({
               >
                 <Search className="h-4 w-4" />
               </Button>
+
+              {/* Large-account mode indicator: shown while the mode is on (or
+                  when the account is close enough to offer turning it on). */}
+              <LargeAccountPill />
 
               {/* Notifications - hide desktop icon when moved to menu (mobile remains) */}
               <NotificationPanel />

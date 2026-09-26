@@ -41,6 +41,7 @@ import {
 import { clsx } from 'clsx';
 import { motion } from 'framer-motion';
 import {
+  ArrowUpDown,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
@@ -129,6 +130,11 @@ import { Tooltip } from '../tooltip';
  * `descriptionUrl` optionally links a help-center article, rendered as a pill
  * inside the tooltip (see `Tooltip`'s `tooltipURL`).
  */
+import {
+  SERVER_SORT_UNAVAILABLE_TOOLTIP,
+  type DataTableServerSide,
+} from './serverSide';
+
 export interface ColumnDescriptionMeta {
   description?: string;
   descriptionUrl?: string;
@@ -606,6 +612,29 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
             </Tooltip>
           ) : (
             children
+          )}
+          {/* Server mode: this column cannot be sorted on the server */}
+          {(header.column.columnDef.meta as { serverSortBlocked?: string })
+            ?.serverSortBlocked && (
+            <span
+              className="inline-flex ml-0.5 align-middle absolute right-9 top-1/2 -translate-y-1/2 z-10 normal-case tracking-normal font-normal"
+              onClick={(e) => e.stopPropagation()}
+              data-testid="server-sort-blocked"
+            >
+              <Tooltip
+                tooltip={
+                  (header.column.columnDef.meta as { serverSortBlocked?: string })
+                    .serverSortBlocked
+                }
+                side="bottom"
+                delay={150}
+              >
+                <ArrowUpDown
+                  className="h-3 w-3 text-muted-foreground/40 cursor-not-allowed"
+                  aria-label="Sorting unavailable"
+                />
+              </Tooltip>
+            </span>
           )}
           {/* Sort indicator */}
           {header.column.getCanSort() && (
@@ -1099,6 +1128,15 @@ interface DataTableProps<TData, TValue> {
    * as complete.
    */
   serverTotalRows?: number;
+  /**
+   * Server-side mode: `data` is ONE page from the server. Paging, sorting,
+   * search and column filters are not applied client-side; every change is
+   * reported through `onQueryChange` and the caller fetches that page.
+   * Columns sort only when their `meta.serverSortField` names a server field
+   * (filters: `meta.serverFilterField`); others show a greyed sort icon
+   * with `unsupportedSortReason` as the tooltip. Only one sort key is used.
+   */
+  serverSide?: DataTableServerSide;
   // Row interaction props
   onRowClick?: (row: TData) => void;
   getRowIsSelected?: (row: TData) => boolean;
@@ -2114,6 +2152,7 @@ function DataTableComponent<TData, TValue>(
     exportFilename,
     getExportData,
     serverTotalRows,
+    serverSide,
     // Row interaction props
     onRowClick,
     getRowIsSelected,
@@ -2183,6 +2222,7 @@ function DataTableComponent<TData, TValue>(
       exportFilename: props.exportFilename ?? 'data-export',
       getExportData: props.getExportData,
       serverTotalRows: props.serverTotalRows,
+      serverSide: props.serverSide,
       onRowClick: props.onRowClick,
       getRowIsSelected: props.getRowIsSelected,
       finalToolbarActions: props.finalToolbarActions,
@@ -2848,9 +2888,31 @@ function DataTableComponent<TData, TValue>(
       // combination unreachable from the operator UI rather than relying on
       // every call site to remember.
       const declared = column.filterFn;
+      const meta = column.meta as
+        | { serverSortField?: string; serverFilterField?: string }
+        | undefined;
+      // Server mode: a column the server cannot sort/filter by must not
+      // pretend to — its header shows a greyed icon explaining why.
+      const serverOverrides = serverSide
+        ? {
+            ...(meta?.serverSortField || column.enableSorting === false
+              ? {}
+              : {
+                  enableSorting: false,
+                  meta: {
+                    ...(column.meta as object | undefined),
+                    serverSortBlocked:
+                      serverSide.unsupportedSortReason ??
+                      SERVER_SORT_UNAVAILABLE_TOOLTIP,
+                  },
+                }),
+            ...(meta?.serverFilterField ? {} : { enableColumnFilter: false }),
+          }
+        : {};
 
       return {
         ...column,
+        ...serverOverrides,
         filterFn:
           typeof declared === 'function'
             ? declared
@@ -2868,7 +2930,7 @@ function DataTableComponent<TData, TValue>(
     }
 
     return baseColumns;
-  }, [columns, selectionColumn, accountTimeZone]);
+  }, [columns, selectionColumn, accountTimeZone, serverSide]);
 
   /**
    * CRITICAL: Clear row selection when data changes
@@ -3111,7 +3173,17 @@ function DataTableComponent<TData, TValue>(
     enableSorting,
     enableColumnFilters,
     enableGlobalFilter,
-    enableGrouping,
+    enableGrouping: enableGrouping && !serverSide,
+    // Server mode: `data` is already the requested page, sorted and filtered.
+    ...(serverSide
+      ? {
+          manualPagination: true,
+          manualSorting: true,
+          manualFiltering: true,
+          enableMultiSort: false,
+          rowCount: serverSide.rowCount,
+        }
+      : {}),
     // Prevent auto reset of pageIndex when data reference changes (we control it)
     autoResetPageIndex: false,
     autoResetExpanded: false,
@@ -3132,10 +3204,44 @@ function DataTableComponent<TData, TValue>(
     );
 
 
+  // Server mode: report the query (page, sort, search, filters) so the caller
+  // can fetch that page. A sort/search/filter change returns to page 1 — the
+  // old page index means nothing under a new ordering.
+  const serverQueryKey = serverSide
+    ? JSON.stringify([sorting, columnFilters, globalFilter ?? ''])
+    : '';
+  const lastServerQueryKeyRef = useRef(serverQueryKey);
+  const onServerQueryChange = serverSide?.onQueryChange;
+  useEffect(() => {
+    if (!onServerQueryChange) return;
+    if (lastServerQueryKeyRef.current !== serverQueryKey) {
+      lastServerQueryKeyRef.current = serverQueryKey;
+      if (pagination.pageIndex !== 0) {
+        setPagination({ ...pagination, pageIndex: 0 });
+        return; // the pagination change re-runs this effect with page 0
+      }
+    }
+    onServerQueryChange({
+      pageIndex: pagination.pageIndex,
+      pageSize: pagination.pageSize,
+      sorting,
+      columnFilters,
+      globalFilter: globalFilter ?? '',
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    onServerQueryChange,
+    serverQueryKey,
+    pagination.pageIndex,
+    pagination.pageSize,
+  ]);
+
   // Clamp pageIndex to a valid range whenever data length or pageSize changes
   useEffect(() => {
     try {
-      const totalRows = table.getFilteredRowModel().rows.length;
+      const totalRows = serverSide
+        ? serverSide.rowCount
+        : table.getFilteredRowModel().rows.length;
       const pageSize = pagination.pageSize;
       const lastPageIndex = Math.max(0, Math.ceil(totalRows / pageSize) - 1);
       if (pagination.pageIndex > lastPageIndex) {
@@ -3145,7 +3251,7 @@ function DataTableComponent<TData, TValue>(
       // no-op
     }
     // We specifically depend on data, pagination, and table row model
-  }, [data, pagination, setPagination, table]);
+  }, [data, pagination, setPagination, table, serverSide]);
 
   /**
    * CRITICAL: Selected rows calculation for bulk actions
@@ -3825,8 +3931,8 @@ function DataTableComponent<TData, TValue>(
     [tableState?.pagination]
   );
   const totalRows = useMemo(
-    () => tableFilter.rows.length,
-    [tableFilter?.rows.length]
+    () => (serverSide ? serverSide.rowCount : tableFilter.rows.length),
+    [tableFilter?.rows.length, serverSide]
   );
   const paginationStart = useMemo(
     () => pageIndex * pageSize + 1,

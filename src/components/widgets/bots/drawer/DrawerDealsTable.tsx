@@ -134,6 +134,14 @@ import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
 import { SYMBOL_COLUMN_FILTER_META } from '../../../widgets/shared/symbolColumnFilterMeta';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 import { DrawerSection } from './DrawerSection';
+import { useLargeAccount } from '../../../../hooks/useLargeAccount';
+import { useShareContext } from '../../../../hooks/useShareContext';
+import { useDealTablePaging } from '../../../../hooks/useDealTablePaging';
+import {
+  DRAWER_CLOSED_DEAL_SERVER_FIELDS,
+  DRAWER_OPEN_DEAL_SERVER_FIELDS,
+} from '../../../../lib/botList/dealListServerFields';
+import { withServerFields } from '../../../ui/data-table/serverSide';
 interface TradeCardWrapperProps {
   item: TransformedTrade;
   index: number;
@@ -1024,16 +1032,45 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     return selectedTab === 'active' ? useDealsOpenInput : useDealsClosedInput;
   }, [selectedTab, useDealsOpenInput, useDealsClosedInput]);
 
+  // Large accounts: a DCA bot's deals page on the server (only the page on
+  // screen is fetched; live uPnL only for its rows). Everyone else keeps the
+  // bot-specific auto-loader, which reports "N of total" when capped.
+  const largeAccount = useLargeAccount();
+  const { isDemo: isShareView } = useShareContext();
+  const drawerServerPaged =
+    largeAccount.active && !isComboBot && !!botId && !isShareView;
+  const pagedDeals = useDealTablePaging({
+    status: selectedTab === 'active' ? 'open' : 'closed',
+    terminal: false,
+    botId: botId || undefined,
+    enabled: drawerServerPaged,
+    force: true,
+    fields: {
+      open: DRAWER_OPEN_DEAL_SERVER_FIELDS,
+      closed: DRAWER_CLOSED_DEAL_SERVER_FIELDS,
+    },
+  });
+  // An empty id disables the auto-loader while the server page is in use.
+  const specificDealsInput = useMemo(
+    () => (drawerServerPaged ? { ...useDealsInput, botId: '' } : useDealsInput),
+    [drawerServerPaged, useDealsInput]
+  );
+
   // DCA deals: active and closed via bot-specific queries
   const {
-    deals: deals,
-    isLoading: dealsLoading,
+    deals: specificDeals,
+    isLoading: specificLoading,
     isFetching: dealsFetching,
     isError: dealsError,
     data: _dealsData,
-    total: dealsServerTotal,
+    total: specificServerTotal,
     fetchAllDeals,
-  } = useBotSpecificDeals(useDealsInput);
+  } = useBotSpecificDeals(specificDealsInput);
+  const deals = drawerServerPaged ? pagedDeals.deals : specificDeals;
+  const dealsLoading = drawerServerPaged ? pagedDeals.isLoading : specificLoading;
+  const dealsServerTotal = drawerServerPaged
+    ? pagedDeals.total
+    : specificServerTotal;
 
   // Handler for confirming deal opening with selected pair (defined after activeDealsData)
   const handleConfirmOpenDeal = useCallback(() => {
@@ -1404,10 +1441,10 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           ? comboClosed || !comboActiveStatuses.has(status)
           : dcaClosed;
       })
-      .sort((a: DCADeals | ComboDeal, b: DCADeals | ComboDeal) => {
-        // Sort by creation time, newest first
-        return getCreateTime(b) - getCreateTime(a);
-      });
+      .sort((a: DCADeals | ComboDeal, b: DCADeals | ComboDeal) =>
+        // Server-paged rows keep the server's order; otherwise newest first.
+        drawerServerPaged ? 0 : getCreateTime(b) - getCreateTime(a)
+      );
 
     logger.debug('[DrawerDealsTable:DEAL_FILTERING] Filtering closed deals', {
       totalDeals: botDeals.length,
@@ -1424,6 +1461,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     transformDealToTradeWrapper,
     comboClosedStatuses,
     comboActiveStatuses,
+    drawerServerPaged,
   ]);
 
   // Server-complete export: fetch EVERY page of the current tab's deals.
@@ -3141,6 +3179,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     handleMoveToTerminal,
     accountTimeZone,
   ]);
+  // Server-paged drawer: only columns with a server field sort.
+  const pagedFields = pagedDeals.serverPaging?.fields;
+  const drawerColumns = useMemo(
+    () => (pagedFields ? withServerFields(columns, pagedFields) : columns),
+    [columns, pagedFields]
+  );
 
   const dealsData = useMemo(
     () => (selectedTab === 'active' ? activeDeals : closedDeals),
@@ -3331,7 +3375,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           {showTable ? (
             <DataTable
               tableId={`${widgetId}-${selectedTab}-deals`}
-              columns={columns}
+              columns={drawerColumns}
+              serverSide={pagedDeals.serverPaging?.serverSide}
               data={dealsData}
               enableGlobalFilter
               enableColumnFilters

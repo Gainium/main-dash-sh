@@ -103,6 +103,14 @@ import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import { transformGridBotToBot, type GridBot } from '../types/gridBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
+import { useBotListPaging } from '../hooks/useBotListPaging';
+import { CANONICAL_GRID_STATUSES } from '../lib/botList/botListWindow';
+import {
+  BOT_LIST_PARTIAL_TOOLTIP,
+  GRID_BOT_SERVER_FIELDS,
+} from '../lib/botList/botListServerFields';
+import { withServerFields } from '../components/ui/data-table/serverSide';
+import { PartialCount } from '../components/ui/large-account';
 import { useAuthStore } from '../stores/authStore';
 
 const GRID_BOT_TYPE_ID = 'grid';
@@ -226,10 +234,28 @@ const GridBots: React.FC = () => {
     [showArchived]
   );
   const {
-    bots: gridBots,
+    bots: canonicalGridBots,
     isLoading: botsLoading,
     isError: botsError,
+    total: canonicalTotal,
+    isPartial: canonicalPartial,
+    loadedCount: canonicalLoaded,
   } = useGridBots(options);
+
+  // Large accounts, and any account whose list came back capped, page on the
+  // server: only the visible page is fetched, sorted and searched there.
+  const botListPaging = useBotListPaging({
+    type: 'grid',
+    canonical: {
+      bots: canonicalGridBots,
+      total: canonicalTotal,
+      isPartial: canonicalPartial,
+      loadedCount: canonicalLoaded,
+    },
+    statuses: showArchived ? ['archive'] : CANONICAL_GRID_STATUSES,
+    fields: GRID_BOT_SERVER_FIELDS,
+  });
+  const gridBots = botListPaging.bots;
 
   // Share-link path: see TradingBots.tsx
   const currentUser = useAuthStore((s) => s.user);
@@ -1250,6 +1276,11 @@ const GridBots: React.FC = () => {
       ],
       [privacyMode, botDataMap, accountTimeZone]
     );
+  // Server mode only honours sorts/filters with a server field.
+  const serverColumns = useMemo(
+    () => withServerFields(columns, GRID_BOT_SERVER_FIELDS),
+    [columns]
+  );
 
   // archived/active counts are intentionally not shown in header anymore
 
@@ -1284,6 +1315,8 @@ const GridBots: React.FC = () => {
   // Put starred bots first and then sort by creation date (newest first)
   const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
   const orderedFilteredData = useMemo(() => {
+    // Server-paged rows arrive in the server's order; keep it.
+    if (botListPaging.serverPaged) return filteredData;
     return [...filteredData].sort((a, b) => {
       const aStar = starredBotIds.has(a.id) ? 0 : 1;
       const bStar = starredBotIds.has(b.id) ? 0 : 1;
@@ -1299,7 +1332,7 @@ const GridBots: React.FC = () => {
       const bCreated = b.createdAt ?? findOriginalCreated(b.id) ?? 0;
       return bCreated - aCreated;
     });
-  }, [filteredData, starredBotIds, gridBots]);
+  }, [filteredData, starredBotIds, gridBots, botListPaging.serverPaged]);
 
   // Keep current values in refs so BotCardWrapper can read the latest values
   // without recreating the component type (which causes all cards to remount).
@@ -1435,6 +1468,17 @@ const GridBots: React.FC = () => {
                         Active Grid Bots
                       </h2>
                       <StaleIndicator componentId="grid-bots" />
+                      {botListPaging.partial && (
+                        <PartialCount
+                          shown={botListPaging.partial.shown}
+                          total={botListPaging.partial.total}
+                          noun="bots"
+                          tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                            botListPaging.partial.shown,
+                            botListPaging.partial.total
+                          )}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -1477,6 +1521,17 @@ const GridBots: React.FC = () => {
                         Active Grid Bots
                       </h2>
                       <StaleIndicator componentId="grid-bots" />
+                      {botListPaging.partial && (
+                        <PartialCount
+                          shown={botListPaging.partial.shown}
+                          total={botListPaging.partial.total}
+                          noun="bots"
+                          tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                            botListPaging.partial.shown,
+                            botListPaging.partial.total
+                          )}
+                        />
+                      )}
                     </div>
                   </div>
 
@@ -1518,7 +1573,8 @@ const GridBots: React.FC = () => {
               >
                 <DataTable
                   tableId="grid-bots"
-                  columns={columns}
+                  columns={serverColumns}
+                  serverSide={botListPaging.serverSide}
                   data={orderedFilteredData}
                   enableGlobalFilter={true}
                   enableColumnFilters={true}

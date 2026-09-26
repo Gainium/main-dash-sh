@@ -46,6 +46,11 @@ import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjust
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
+import {
+  withServerFields,
+  type ColumnServerFields,
+  type DataTableServerSide,
+} from '@/components/ui/data-table/serverSide';
 import { toast } from '@/lib/toast';
 import { formatTradingPair } from '@/lib/utils';
 import {
@@ -1067,6 +1072,16 @@ export interface OpenTradesWidgetProps {
    *  The bot drawer passes the shared `DealsLoadingIndicator` so hedge bots
    *  show the same "Loading deals…" treatment as the single-bot deals table. */
   loadingIndicator?: React.ReactNode;
+  /**
+   * Server-paged mode (large accounts, or a deal list the server capped):
+   * `data.trades` is ONE page; paging/sort/search go to the server through
+   * `serverSide`. Only columns in `fields` are server-sortable; the rest show
+   * a greyed sort icon.
+   */
+  serverPaging?: {
+    serverSide: DataTableServerSide;
+    fields: Record<string, ColumnServerFields>;
+  };
 }
 
 // Stable module-level defaults. Using inline `= []` / `= {}` defaults in the
@@ -1105,6 +1120,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   rawDeals,
   externalLoading,
   loadingIndicator,
+  serverPaging,
 }) => {
   const navigate = useNavigate();
   const colors = useChartColors();
@@ -1295,11 +1311,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     }),
     [effectiveShowClosedTrades]
   );
+  // A parent that supplies both the trades and the raw deals needs nothing
+  // from this fetch (the drawer lookup is served by `rawDeals`); skipping it
+  // saves a whole terminal-deal list read on every Deals tab.
   const {
     deals: dcaDealsResponse,
     isLoading: graphqlLoading,
     error: graphqlError,
-  } = useDcaDeals(inputOptions);
+  } = useDcaDeals(inputOptions, {
+    enabled: !(useExternalData && Array.isArray(rawDeals)),
+  });
   const activeDealsRaw = useMemo(() => {
     // Merge internally-fetched deals with caller-supplied rawDeals (de-duped
     // by _id) so the deal-drawer find covers both sources. Without this the
@@ -1953,8 +1974,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       }
     });
 
+    // Server-paged: the page holds a slice; the server total is the count.
+    if (serverPaging) {
+      const n = serverPaging.serverSide.rowCount;
+      return {
+        openCount: statusFilter === 'open' ? n : open,
+        closedCount: statusFilter === 'closed' ? n : closed,
+      };
+    }
     return { openCount: open, closedCount: closed };
-  }, [baseTrades]);
+  }, [baseTrades, serverPaging, statusFilter]);
 
   // Only the currently-selected status is actually loaded, so only its count is
   // meaningful. Show the number on the selected option and omit it on the other
@@ -3340,6 +3369,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     openEditDrawerFor,
     accountTimeZone,
   ]);
+  // Server-paged: only columns with a server field sort; others are greyed.
+  const serverFields = serverPaging?.fields;
+  const serverColumns = useMemo(
+    () => (serverFields ? withServerFields(columns, serverFields) : columns),
+    [columns, serverFields]
+  );
 
   // Wrapper component to adapt props for TradeCard.
   // IMPORTANT: useMemo with an empty dep array ensures the component *type* (function
@@ -3631,8 +3666,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             ? `${widgetId}-trades-${statusFilter}`
             : `${widgetId}-trades`
         }
-        columns={columns}
+        columns={serverColumns}
         data={trades}
+        serverSide={serverPaging?.serverSide}
         onRowClick={(row) => {
           // Match the card-click default: read-only details drawer unless
           // the parent passed an explicit `onTradeClick` override.

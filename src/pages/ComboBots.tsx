@@ -120,6 +120,14 @@ import { transformDcaBotToBot } from '@/types/dcaBot';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
 import { useStableBotTransforms } from '../hooks/useStableBotTransforms';
+import { useBotListPaging } from '../hooks/useBotListPaging';
+import { CANONICAL_DCA_STATUSES } from '../lib/botList/botListWindow';
+import {
+  BOT_LIST_PARTIAL_TOOLTIP,
+  COMBO_BOT_SERVER_FIELDS,
+} from '../lib/botList/botListServerFields';
+import { withServerFields } from '../components/ui/data-table/serverSide';
+import { PartialCount } from '../components/ui/large-account';
 import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 import { useComboDeals } from '../hooks/useComboDeals';
 
@@ -236,10 +244,28 @@ const ComboBots: React.FC = () => {
     [showArchived]
   );
   const {
-    bots: comboBots,
+    bots: canonicalComboBots,
     isLoading: botsLoading,
     isError: botsError,
+    total: canonicalTotal,
+    isPartial: canonicalPartial,
+    loadedCount: canonicalLoaded,
   } = useComboBots(filterOptions);
+
+  // Large accounts, and any account whose list came back capped, page on the
+  // server: only the visible page is fetched, sorted and searched there.
+  const botListPaging = useBotListPaging({
+    type: 'combo',
+    canonical: {
+      bots: canonicalComboBots,
+      total: canonicalTotal,
+      isPartial: canonicalPartial,
+      loadedCount: canonicalLoaded,
+    },
+    statuses: showArchived ? ['archive'] : CANONICAL_DCA_STATUSES,
+    fields: COMBO_BOT_SERVER_FIELDS,
+  });
+  const comboBots = botListPaging.bots;
 
   const handleSelectBot = useCallback(
     (botId: string | null) => {
@@ -1413,6 +1439,11 @@ const ComboBots: React.FC = () => {
     ],
     [privacyMode, botDataMap, accountTimeZone]
   );
+  // Server mode only honours sorts/filters with a server field.
+  const serverColumns = useMemo(
+    () => withServerFields(columns, COMBO_BOT_SERVER_FIELDS),
+    [columns]
+  );
 
   // archived/active counts are intentionally not shown in header anymore
 
@@ -1454,6 +1485,8 @@ const ComboBots: React.FC = () => {
   // Put starred bots first in the list (subscribe to starred ids for reactivity)
   const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
   const orderedFilteredData = useMemo(() => {
+    // Server-paged rows arrive in the server's order; keep it.
+    if (botListPaging.serverPaged) return filteredData;
     return [...filteredData].sort((a, b) => {
       const aStar = starredBotIds.has(a.id) ? 0 : 1;
       const bStar = starredBotIds.has(b.id) ? 0 : 1;
@@ -1468,7 +1501,7 @@ const ComboBots: React.FC = () => {
         new Date(/* b.rawData?.created ||  */ b.created || 0).getTime();
       return bCreated - aCreated;
     });
-  }, [filteredData, starredBotIds]);
+  }, [filteredData, starredBotIds, botListPaging.serverPaged]);
 
   // Keep current values in refs so BotCardWrapper can read the latest values
   // without recreating the component type (which causes all cards to remount).
@@ -1644,6 +1677,17 @@ const ComboBots: React.FC = () => {
                           Active Combo Bots
                         </h2>
                         <StaleIndicator componentId="combo-bots" />
+                        {botListPaging.partial && (
+                          <PartialCount
+                            shown={botListPaging.partial.shown}
+                            total={botListPaging.partial.total}
+                            noun="bots"
+                            tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                              botListPaging.partial.shown,
+                              botListPaging.partial.total
+                            )}
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -1689,6 +1733,17 @@ const ComboBots: React.FC = () => {
                           Active Combo Bots
                         </h2>
                         <StaleIndicator componentId="combo-bots" />
+                        {botListPaging.partial && (
+                          <PartialCount
+                            shown={botListPaging.partial.shown}
+                            total={botListPaging.partial.total}
+                            noun="bots"
+                            tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                              botListPaging.partial.shown,
+                              botListPaging.partial.total
+                            )}
+                          />
+                        )}
                       </div>
                     </div>
 
@@ -1737,7 +1792,8 @@ const ComboBots: React.FC = () => {
                   >
                     <DataTable
                       tableId="combo-bots"
-                      columns={columns}
+                      columns={serverColumns}
+                      serverSide={botListPaging.serverSide}
                       data={orderedFilteredData}
                       enableGlobalFilter={true}
                       enableColumnFilters={true}

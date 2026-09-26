@@ -49,6 +49,17 @@ import { useHedgeDcaBots } from '@/hooks/useHedgeDcaBots';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { getLocalPrices } from '@/helper/price';
 import { useHedgeUnPnlMap } from '@/utils/bots/hedge/useHedgeUnPnlMap';
+import { useBotListPaging } from '@/hooks/useBotListPaging';
+import {
+  CANONICAL_DCA_STATUSES,
+  isPartialList,
+} from '@/lib/botList/botListWindow';
+import {
+  BOT_LIST_PARTIAL_TOOLTIP,
+  HEDGE_BOT_SERVER_FIELDS,
+} from '@/lib/botList/botListServerFields';
+import { withServerFields } from '@/components/ui/data-table/serverSide';
+import { PartialCount } from '@/components/ui/large-account';
 import { computeHedgeUnPnl } from '@/utils/bots/hedge/computeHedgeUnPnl';
 import { useHedgeLegUnrealized } from '@/hooks/useHedgeLegUnrealized';
 import type { DrawerBot } from '@/types/bots/drawer';
@@ -189,9 +200,34 @@ const HedgeDcaBots = () => {
     () => ({ status: showArchived ? (['archive'] as const) : [] }),
     [showArchived]
   );
-  const { bots, isLoading } = useHedgeDcaBots(
-    hedgeBotsFilter as Parameters<typeof useHedgeDcaBots>[0]
-  );
+  const {
+    bots: canonicalBots,
+    isLoading,
+    total: canonicalTotal,
+    data: canonicalResponse,
+  } = useHedgeDcaBots(hedgeBotsFilter as Parameters<typeof useHedgeDcaBots>[0]);
+  const canonicalLoaded = Array.isArray(
+    (canonicalResponse as { data?: unknown[] } | null)?.data
+  )
+    ? ((canonicalResponse as { data: unknown[] }).data.length as number)
+    : canonicalBots.length;
+  // Safety net: a capped hedge list pages on the server instead of being
+  // silently truncated. (Hedge lists are small; large-account mode alone
+  // does not switch them — see useBotListPaging.honorLargeAccount.)
+  const botListPaging = useBotListPaging({
+    type: 'hedgeDca',
+    canonical: {
+      bots: canonicalBots,
+      total: canonicalTotal,
+      isPartial: isPartialList(canonicalLoaded, canonicalTotal),
+      loadedCount: canonicalLoaded,
+    },
+    statuses: showArchived ? ['archive'] : CANONICAL_DCA_STATUSES,
+    fields: HEDGE_BOT_SERVER_FIELDS,
+    honorLargeAccount: false,
+    searchable: false,
+  });
+  const bots = botListPaging.bots;
   const unPnlMap = useHedgeUnPnlMap(bots, false);
   const privacyMode = useUIStore((s) => s.privacyMode);
   // Demo/read-only sessions can't create bots — gate the "New" button the
@@ -835,6 +871,11 @@ const HedgeDcaBots = () => {
     // plus the account zone the Created cell renders its day in.
     [privacyMode, accountTimeZone]
   );
+  // Server mode only honours sorts/filters with a server field.
+  const serverColumns = useMemo(
+    () => withServerFields(columns, HEDGE_BOT_SERVER_FIELDS),
+    [columns]
+  );
 
   if (!isPremium) {
     return (
@@ -906,6 +947,17 @@ const HedgeDcaBots = () => {
                   {/* Small screens: title + New stacked, stats row below */}
                   <div className="flex items-center justify-between gap-xs sm:hidden">
                     <h2 className="text-xl font-semibold">Hedge DCA Bots</h2>
+                    {botListPaging.partial && (
+                      <PartialCount
+                        shown={botListPaging.partial.shown}
+                        total={botListPaging.partial.total}
+                        noun="bots"
+                        tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                          botListPaging.partial.shown,
+                          botListPaging.partial.total
+                        )}
+                      />
+                    )}
                     <div className="flex items-center gap-xs">
                       <TabsList className="w-auto!" fullWidth={false}>
                         <TabsTrigger value="bots">Bots</TabsTrigger>
@@ -941,6 +993,17 @@ const HedgeDcaBots = () => {
                   {/* Large screens: title, stats and button on a single row */}
                   <div className="hidden sm:grid sm:grid-cols-[auto_1fr_auto] sm:items-center w-full">
                     <h2 className="text-xl font-semibold">Hedge DCA Bots</h2>
+                    {botListPaging.partial && (
+                      <PartialCount
+                        shown={botListPaging.partial.shown}
+                        total={botListPaging.partial.total}
+                        noun="bots"
+                        tooltip={BOT_LIST_PARTIAL_TOOLTIP(
+                          botListPaging.partial.shown,
+                          botListPaging.partial.total
+                        )}
+                      />
+                    )}
                     <div className="min-w-0 flex justify-end px-md">
                       <BotListStatsBoxes
                         stats={botListStats}
@@ -983,7 +1046,8 @@ const HedgeDcaBots = () => {
                 >
                     <DataTable
                       tableId="hedge-dca-bots"
-                      columns={columns}
+                      columns={serverColumns}
+                      serverSide={botListPaging.serverSide}
                       data={enrichedBots}
                       getRowId={(row) => row._id}
                       enableGlobalFilter
