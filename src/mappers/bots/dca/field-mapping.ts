@@ -59,6 +59,10 @@ import {
 import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
+import {
+  MAX_DCA_ORDER_STEP_PERCENT,
+  resolveDcaRanges,
+} from '@/utils/bots/dca/ranges';
 
 export interface FieldMappingResult {
   success: boolean;
@@ -1261,10 +1265,19 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       fieldsMapped.push('reinvestValue');
     }
 
+    // Same direction-aware ceiling the form's step inputs use; the minimum
+    // deviation guard is a floor on that spacing, so it shares it.
+    const stepCeiling =
+      resolveDcaRanges(formData).step.max ?? MAX_DCA_ORDER_STEP_PERCENT;
+
     if (step) {
       const stepValue = Number(step);
-      if (!Number.isFinite(stepValue) || stepValue <= 0 || stepValue > 50) {
-        errors.push('Step must be between 0.1% and 50%');
+      if (
+        !Number.isFinite(stepValue) ||
+        stepValue <= 0 ||
+        stepValue > stepCeiling
+      ) {
+        errors.push(`Step must be between 0.1% and ${stepCeiling}%`);
         fieldsSkipped.push('step');
       } else {
         dcaFields['step'] = step;
@@ -1323,9 +1336,11 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         if (
           !Number.isFinite(parsedMinimumDeviation) ||
           parsedMinimumDeviation < 0 ||
-          parsedMinimumDeviation > 10
+          parsedMinimumDeviation > stepCeiling
         ) {
-          errors.push('Minimum deviation must be between 0 and 10');
+          errors.push(
+            `Minimum deviation must be between 0 and ${stepCeiling}`
+          );
           fieldsSkipped.push('minimumDeviation');
         } else {
           dcaFields['minimumDeviation'] = minimumDeviationValue;
