@@ -161,6 +161,180 @@ const CLASS_FALLBACK_ICON: Partial<Record<AssetClass, string>> = {
   index: '/images/index/_index.svg',
 };
 
+
+// ---------------------------------------------------------------------------
+// Session-wide icon resolution cache (see CoinIcon).
+
+const DEFAULT_IMAGE_PATH = '/images/coins/not-exist.jpeg';
+
+/** Resolved `src` per icon key; `null` = no icon (letter fallback). */
+const resolvedIconCache = new Map<string, string | null>();
+const inflightIconLookups = new Map<string, Promise<string | null>>();
+
+const iconCacheKey = (
+  symbol: string | undefined,
+  assetClass: AssetClass | undefined,
+  exchange: string | undefined,
+  underlying: string | undefined
+) => {
+  // Crypto (the default class) resolves from the symbol alone, so key it by
+  // the symbol alone: callers fill `assetClass` / `exchange` in once the pair
+  // list has loaded, and a key that changed with them re-probed the icon and
+  // flashed the "..." placeholder for every coin on screen.
+  if (!assetClass || assetClass === 'crypto') return `${symbol ?? ''}|crypto`;
+  return `${symbol ?? ''}|${assetClass}|${exchange ?? ''}|${underlying ?? ''}`;
+};
+
+const resolveIconCached = (
+  key: string,
+  resolve: () => Promise<string | null>
+): Promise<string | null> => {
+  const known = resolvedIconCache.get(key);
+  if (known !== undefined) return Promise.resolve(known);
+  const pending = inflightIconLookups.get(key);
+  if (pending) return pending;
+  const lookup = resolve()
+    .catch(() => null)
+    .then((src) => {
+      resolvedIconCache.set(key, src);
+      inflightIconLookups.delete(key);
+      return src;
+    });
+  inflightIconLookups.set(key, lookup);
+  return lookup;
+};
+
+/** Mark a resolved src as unusable (the <img> failed to render it). */
+const forgetIconSrc = (key: string) => {
+  resolvedIconCache.set(key, null);
+};
+
+// The coin host answers an unknown coin with a placeholder image; a real logo
+// is told apart by its dimensions. The placeholder is loaded ONCE per session
+// (it used to be loaded again next to every single probe).
+let placeholderDims: Promise<{ w: number; h: number } | null> | null = null;
+const getPlaceholderDims = () => {
+  if (!placeholderDims) {
+    placeholderDims = new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve({ w: img.naturalWidth, h: img.naturalHeight });
+      img.onerror = () => resolve(null);
+      img.src = DEFAULT_IMAGE_PATH;
+    });
+  }
+  return placeholderDims;
+};
+
+// Try image and compare with the placeholder.
+const tryImage = (src: string): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      void getPlaceholderDims().then((dims) => {
+        // If the placeholder itself failed to load, accept the image.
+        if (!dims) {
+          resolve(src);
+          return;
+        }
+        if (img.naturalWidth === dims.w && img.naturalHeight === dims.h) {
+          reject(new Error('placeholder')); // Same dimensions: not found
+        } else {
+          resolve(src); // Different dimensions: real image
+        }
+      });
+    };
+    img.onerror = () => reject(new Error('load'));
+    img.src = src;
+  });
+
+const probeLocal = (src: string): Promise<boolean> =>
+  src.includes('/coins/')
+    ? tryImage(src).then(
+        () => true,
+        () => false
+      )
+    : new Promise((res) => {
+        const im = new Image();
+        im.onload = () => res(true);
+        im.onerror = () => res(false);
+        im.src = src;
+      });
+
+/** Where the icon for this symbol lives, or null (letter fallback). */
+const resolveIconSrc = async (
+  symbol: string,
+  assetClass: AssetClass | undefined,
+  exchange: string | undefined,
+  underlying: string | undefined
+): Promise<string | null> => {
+  // Fiat currencies use locally-shipped SVG icons — no remote lookup needed.
+  if (FIAT_ICONS.has(symbol.toUpperCase())) {
+    return `/images/fiat/${symbol.toLowerCase()}.svg`;
+  }
+
+  // Commodity / metal / forex / index resolve to a locally-shipped SVG badge.
+  // Candidates are tried in order, first that loads wins:
+  //   1. an explicit reuse/alias (FX → fiat badge, oil variants → one glyph),
+  //   2. the per-symbol curated badge `/images/{class}/{SYMBOL}.svg`,
+  //   3. the crypto coin host — for crypto-native tokens classed non-crypto
+  //      (gold-backed PAXG / XAUT metal), which have a real coin logo,
+  //   4. a generic per-class glyph, so we never fall to a bare letter.
+  // The dex prefix (`xyz:GOLD`) is stripped so the clean code drives lookup.
+  if (assetClass && LOCAL_SVG_CLASSES.has(assetClass)) {
+    const clean = stripDexPrefix(symbol).toUpperCase();
+    const candidates = [
+      CURATED_ASSET_ICON[clean],
+      `/images/${assetClass}/${clean}.svg`,
+      `https://app.gainium.io/coins/${clean.toLowerCase()}.png`,
+      CLASS_FALLBACK_ICON[assetClass],
+    ].filter((c, i, a): c is string => !!c && a.indexOf(c) === i);
+    for (const src of candidates) {
+      if (await probeLocal(src)) return src;
+    }
+    return null;
+  }
+
+  // Stocks / ETFs: NEVER the CoinGecko coin host (that gives false-positive
+  // icons for same-named crypto). Resolve from OUR backend's self-hosted icon
+  // library (`/icons/stock/{TICKER}.png`), which lazily fetches the logo from
+  // logo.dev on a cache miss, saves it to disk, and serves it — same
+  // "save-then-serve-ourselves" model as crypto coin icons. The frontend
+  // never calls logo.dev directly. Missing/unresolvable → text fallback.
+  if (assetClass === 'stock' || assetClass === 'etf') {
+    // The pair's `underlying` (Bitget Reality rT → T) wins; otherwise the
+    // venue-gated rule (mirrors the backend) maps a tokenized-stock base
+    // (Bybit-spot xstock AAPLX, lower-case AAPLon/AAPLx/rTSLA) to its clean
+    // ticker without mangling NFLX/RDDT. See normalizeStockTicker.
+    const ticker = normalizeStockTicker(symbol, exchange, underlying);
+    const apiBase = (import.meta.env['VITE_API_ENDPOINT'] as string) || '';
+    try {
+      return await tryImage(`${apiBase}/icons/stock/${ticker}.png`);
+    } catch {
+      return null;
+    }
+  }
+
+  const primaryPath = `https://app.gainium.io/coins/${symbol.toLowerCase()}.png`;
+  const fallbackPath = symbol.toLowerCase().startsWith('u')
+    ? `https://app.gainium.io/coins/${symbol.toLowerCase().substring(1)}.png`
+    : null;
+  try {
+    // Try primary path
+    return await tryImage(primaryPath);
+  } catch {
+    // Try fallback path if primary fails
+    if (fallbackPath) {
+      try {
+        return await tryImage(fallbackPath);
+      } catch {
+        // Both failed, will show text fallback
+        return null;
+      }
+    }
+    return null;
+  }
+};
+
 const CoinIcon: React.FC<CoinIconProps> = ({
   symbol,
   size = 'md',
@@ -169,8 +343,6 @@ const CoinIcon: React.FC<CoinIconProps> = ({
   assetClass,
   exchange,
 }) => {
-  const [imageSrc, setImageSrc] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
   const isStock = assetClass === 'stock' || assetClass === 'etf';
   const exchangePairs = useTradingPairsDataStore((s) =>
     isStock && exchange ? s.pairsByProvider[exchange] : undefined
@@ -192,10 +364,30 @@ const CoinIcon: React.FC<CoinIconProps> = ({
       ? sizeClasses[size as keyof typeof sizeClasses]
       : size;
 
-  // Prefetch image with fallback logic
+  // Resolve the icon once per (symbol, class, venue) for the whole session:
+  // the pair picker mounts hundreds of rows that share base/quote coins, and
+  // every row used to probe the coin host again (plus the placeholder image)
+  // on every open.
+  const iconKey = iconCacheKey(symbol, assetClass, exchange, underlying);
+  const [resolved, setResolved] = useState<{
+    key: string;
+    src: string | null;
+  } | null>(null);
+  // A cache hit renders synchronously — on mount and whenever the key changes
+  // — so a known coin never shows the "..." placeholder, not even for a frame.
+  const cachedSrc = symbol ? resolvedIconCache.get(iconKey) : undefined;
+  const imageSrc =
+    cachedSrc !== undefined
+      ? cachedSrc
+      : resolved?.key === iconKey
+        ? resolved.src
+        : null;
+  const isLoading =
+    Boolean(symbol) && cachedSrc === undefined && resolved?.key !== iconKey;
+  const setImageSrc = (src: string | null) => setResolved({ key: iconKey, src });
+
   useEffect(() => {
-    if (!symbol) {
-      setIsLoading(false);
+    if (!symbol || resolvedIconCache.has(iconKey)) {
       return;
     }
 
@@ -206,178 +398,21 @@ const CoinIcon: React.FC<CoinIconProps> = ({
     // loads once this effect has been cleaned up.
     let cancelled = false;
 
-    setIsLoading(true);
-    setImageSrc(null);
-
-    // Fiat currencies use locally-shipped SVG icons — no remote lookup needed.
-    if (FIAT_ICONS.has(symbol.toUpperCase())) {
-      setImageSrc(`/images/fiat/${symbol.toLowerCase()}.svg`);
-      setIsLoading(false);
-      return;
-    }
-
-    const primaryPath = `https://app.gainium.io/coins/${symbol.toLowerCase()}.png`;
-    const fallbackPath = symbol.toLowerCase().startsWith('u')
-      ? `https://app.gainium.io/coins/${symbol.toLowerCase().substring(1)}.png`
-      : null;
-    const defaultImagePath = '/images/coins/not-exist.jpeg';
-
-    // Try image and compare with default
-    const tryImage = (src: string): Promise<string> => {
-      return new Promise((resolve, reject) => {
-        const img = new Image();
-        const defaultImg = new Image();
-
-        let imgLoaded = false;
-        let defaultLoaded = false;
-
-        const checkCompletion = () => {
-          if (imgLoaded && defaultLoaded) {
-            // Compare images by dimensions - if they match the default, it's likely the placeholder
-            if (
-              img.naturalWidth === defaultImg.naturalWidth &&
-              img.naturalHeight === defaultImg.naturalHeight
-            ) {
-              reject(); // Same dimensions as default, treat as not found
-            } else {
-              resolve(src); // Different dimensions, real image
-            }
-          }
-        };
-
-        img.onload = () => {
-          imgLoaded = true;
-          checkCompletion();
-        };
-
-        img.onerror = () => reject();
-
-        defaultImg.onload = () => {
-          defaultLoaded = true;
-          checkCompletion();
-        };
-
-        defaultImg.onerror = () => {
-          // If default image fails to load, just accept the original image
-          imgLoaded = true;
-          defaultLoaded = true;
-          resolve(src);
-        };
-
-        img.src = src;
-        defaultImg.src = defaultImagePath;
-      });
-    };
-
-    // Commodity / metal / forex / index resolve to a locally-shipped SVG badge.
-    // Candidates are tried in order, first that loads wins:
-    //   1. an explicit reuse/alias (FX → fiat badge, oil variants → one glyph),
-    //   2. the per-symbol curated badge `/images/{class}/{SYMBOL}.svg`,
-    //   3. the crypto coin host — for crypto-native tokens classed non-crypto
-    //      (gold-backed PAXG / XAUT metal), which have a real coin logo,
-    //   4. a generic per-class glyph, so we never fall to a bare letter.
-    // The dex prefix (`xyz:GOLD`) is stripped so the clean code drives lookup.
-    if (assetClass && LOCAL_SVG_CLASSES.has(assetClass)) {
-      const clean = stripDexPrefix(symbol).toUpperCase();
-      const candidates = [
-        CURATED_ASSET_ICON[clean],
-        `/images/${assetClass}/${clean}.svg`,
-        `https://app.gainium.io/coins/${clean.toLowerCase()}.png`,
-        CLASS_FALLBACK_ICON[assetClass],
-      ].filter((c, i, a): c is string => !!c && a.indexOf(c) === i);
-
-      // A local SVG / fiat badge loads via a plain <img>; the coin host needs
-      // the placeholder-dimension check (tryImage) so a missing coin doesn't
-      // resolve to the not-found placeholder.
-      const probeOne = (src: string): Promise<boolean> =>
-        src.includes('/coins/')
-          ? tryImage(src).then(
-              () => true,
-              () => false
-            )
-          : new Promise((res) => {
-              const im = new Image();
-              im.onload = () => res(true);
-              im.onerror = () => res(false);
-              im.src = src;
-            });
-
-      void (async () => {
-        for (const src of candidates) {
-          // eslint-disable-next-line no-await-in-loop
-          if (await probeOne(src)) {
-            if (!cancelled) {
-              setImageSrc(src);
-              setIsLoading(false);
-            }
-            return;
-          }
-        }
-        if (!cancelled) {
-          setImageSrc(null);
-          setIsLoading(false);
-        }
-      })();
-      return;
-    }
-
-    // Stocks / ETFs: NEVER the CoinGecko coin host (that gives false-positive
-    // icons for same-named crypto). Resolve from OUR backend's self-hosted icon
-    // library (`/icons/stock/{TICKER}.png`), which lazily fetches the logo from
-    // logo.dev on a cache miss, saves it to disk, and serves it — same
-    // "save-then-serve-ourselves" model as crypto coin icons. The frontend
-    // never calls logo.dev directly. Missing/unresolvable → text fallback.
-    if (assetClass === 'stock' || assetClass === 'etf') {
-      // The pair's `underlying` (Bitget Reality rT → T) wins; otherwise the
-      // venue-gated rule (mirrors the backend) maps a tokenized-stock base
-      // (Bybit-spot xstock AAPLX, lower-case AAPLon/AAPLx/rTSLA) to its clean
-      // ticker without mangling NFLX/RDDT. See normalizeStockTicker.
-      const ticker = normalizeStockTicker(symbol, exchange, underlying);
-      const apiBase = (import.meta.env['VITE_API_ENDPOINT'] as string) || '';
-      const stockPath = `${apiBase}/icons/stock/${ticker}.png`;
-      tryImage(stockPath)
-        .then((src) => {
-          if (!cancelled) setImageSrc(src);
-        })
-        .catch(() => {
-          if (!cancelled) setImageSrc(null);
-        })
-        .finally(() => {
-          if (!cancelled) setIsLoading(false);
-        });
-      return;
-    }
-
-    const loadImage = async () => {
-      try {
-        // Try primary path
-        const src = await tryImage(primaryPath);
-        if (!cancelled) setImageSrc(src);
-      } catch {
-        // Try fallback path if primary fails
-        if (fallbackPath) {
-          try {
-            const src = await tryImage(fallbackPath);
-            if (!cancelled) setImageSrc(src);
-          } catch {
-            // Both failed, will show text fallback
-            if (!cancelled) setImageSrc(null);
-          }
-        } else {
-          // No fallback available
-          if (!cancelled) setImageSrc(null);
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
+    void resolveIconCached(iconKey, () =>
+      resolveIconSrc(symbol, assetClass, exchange, underlying)
+    ).then((src) => {
+      if (!cancelled) {
+        setResolved({ key: iconKey, src });
       }
-    };
-
-    loadImage();
+    });
 
     return () => {
       cancelled = true;
     };
-  }, [symbol, assetClass, exchange, underlying]);
+    // `iconKey` is derived from the other inputs; for crypto it deliberately
+    // ignores exchange / underlying, so a change there must not re-probe.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [iconKey]);
 
   // Handle missing symbol
   if (!symbol) {
@@ -427,7 +462,10 @@ const CoinIcon: React.FC<CoinIconProps> = ({
           // Locally-resolved SVGs (fiat + non-crypto asset classes) are set
           // without a pre-load check; if the file is missing, degrade to the
           // letter fallback instead of showing a broken image.
-          onError={() => setImageSrc(null)}
+          onError={() => {
+            forgetIconSrc(iconKey);
+            setImageSrc(null);
+          }}
         />
       ) : (
         <span className="text-muted-foreground text-xs font-medium">
