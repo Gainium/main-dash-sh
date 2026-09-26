@@ -55,6 +55,7 @@ import {
   useDcaBots,
 } from '../hooks/useDcaBots';
 /* import { useDcaDeals } from '../hooks/useDcaDeals'; */
+import { sameFeeRows, toSortedFeeRows } from '@/lib/utils/feeRows';
 import { useUserFees } from '../hooks/useUserFeesService';
 import { useAuthStore } from '../stores/authStore';
 import { useUIStore } from '../stores/uiStore';
@@ -938,13 +939,11 @@ const TradingBots: React.FC = () => {
         logger.error('[TradingBots] Error fetching fees via service:', error);
       })
       .then((res) => {
-        setAllFees(
-          (res || []).map((r) => ({
-            exchange: r.exchangeUUID,
-            symbol: r.symbol,
-            fee: r.maker,
-          }))
-        );
+        // Keep the previous state when the fees did not change: storing a new
+        // array on every refetch re-rendered the page (and every card) each
+        // time the bot list's identity changed, which could loop.
+        const next = toSortedFeeRows(res || []);
+        setAllFees((prev) => (sameFeeRows(prev, next) ? prev : next));
       });
   }, [botSymbolsMap, tokens?.accessToken, fetchMultipleFees]);
 

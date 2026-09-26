@@ -113,6 +113,7 @@ import { useUIStore } from '../stores/uiStore';
 /* import { transformDcaBotToBot,  type ComboBot } from '../types/comboBot'; */
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
+import { sameFeeRows, toSortedFeeRows } from '@/lib/utils/feeRows';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import { useAuthStore } from '@/stores/authStore';
 import { useBotStatsStore } from '@/stores/live';
@@ -517,13 +518,11 @@ const ComboBots: React.FC = () => {
         logger.error('[TradingBots] Error fetching fees via service:', error);
       })
       .then((res) => {
-        setAllFees(
-          (res || []).map((r) => ({
-            exchange: r.exchangeUUID,
-            symbol: r.symbol,
-            fee: r.maker,
-          }))
-        );
+        // Keep the previous state when the fees did not change: storing a new
+        // array on every refetch re-rendered the page (and every card) each
+        // time the bot list's identity changed, which could loop.
+        const next = toSortedFeeRows(res || []);
+        setAllFees((prev) => (sameFeeRows(prev, next) ? prev : next));
       });
   }, [botSymbolsMap, tokens?.accessToken, fetchMultipleFees]);
 
