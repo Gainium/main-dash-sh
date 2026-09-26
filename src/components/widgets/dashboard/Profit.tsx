@@ -66,6 +66,13 @@ export interface ProfitProps {
   menuActions?: import('../WidgetWrapper').WidgetMenuActions;
 }
 
+const PROFIT_TIMEFRAME_BY_FILTER: Record<string, number> = {
+  Daily: 0,
+  Weekly: 1,
+  Monthly: 2,
+  Total: 3,
+};
+
 export const Profit: React.FC<ProfitProps> = ({
   widgetId = 'profit',
   isEditable = false,
@@ -99,8 +106,11 @@ export const Profit: React.FC<ProfitProps> = ({
   // Local UI state (not persisted)
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
 
-  //0 - daily, 1 - weekly, 2 - monthly, 3 - total
-  const [timeframe, setTimeframe] = useState(0);
+  //0 - daily, 1 - weekly, 2 - monthly, 3 - total. Derived from the persisted
+  // filter on the FIRST render: it used to start at 0 (daily) and be synced by
+  // an effect, so a widget saved on Weekly/Monthly/Total fetched the daily
+  // series first and then its own — two requests and a flash of wrong data.
+  const timeframe = PROFIT_TIMEFRAME_BY_FILTER[String(timeFilter)] ?? 0;
 
   const profitQuery = useMemo(
     () =>
@@ -615,20 +625,6 @@ export const Profit: React.FC<ProfitProps> = ({
     };
   }, [timeframe, realProfitData.chartData, userTimezone]);
 
-  // Update timeframe when time filter changes
-  useEffect(() => {
-    const timeframeMap: { [key: string]: number } = {
-      Daily: 0,
-      Weekly: 1,
-      Monthly: 2,
-      Total: 3,
-    };
-
-    const newTimeframe = timeframeMap[timeFilter];
-    if (newTimeframe !== undefined && newTimeframe !== timeframe) {
-      setTimeframe(newTimeframe);
-    }
-  }, [timeFilter, timeframe]);
 
   // Create stats data array for the WidgetStats component
   const createStatsData = useMemo(() => {

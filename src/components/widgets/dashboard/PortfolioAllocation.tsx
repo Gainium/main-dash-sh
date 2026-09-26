@@ -18,15 +18,6 @@ import WidgetWrapper from '../WidgetWrapper';
 import { getWidgetMetadata } from './index';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 
-// Mock logger to replace removed logger calls
-const logger = {
-  debug: (..._args: unknown[]) => {},
-  info: (..._args: unknown[]) => {},
-  warn: (..._args: unknown[]) => {},
-  error: (..._args: unknown[]) => {},
-  setActive: (..._args: unknown[]) => {},
-};
-
 // Extended types for portfolio data with exchanges (same as PortfolioValue)
 interface PortfolioExchange {
   uuid: string;
@@ -114,10 +105,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       contextSelections.length === selectedExchanges.length &&
       contextSelections.every((val, idx) => val === selectedExchanges[idx]);
     if (!areEqual) {
-      logger.debug('PortfolioAllocation: Syncing exchange selection', {
-        contextSelectedExchanges: contextSelections,
-        widgetSelectedExchanges: selectedExchanges,
-      });
       setSelectedExchanges(contextSelections);
     }
   }, [
@@ -243,53 +230,15 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     GraphQlQuery.getPortfolioByUser()
   );
 
-  // Activate logger for debugging
-  React.useEffect(() => {
-    logger.setActive(true);
-  }, []);
-
-  // Debug the raw GraphQL response
-  React.useEffect(() => {
-    if (portfolioData) {
-      logger.debug('PortfolioAllocation: Raw GraphQL response:', {
-        status: portfolioData.status,
-        reason: portfolioData.reason,
-        dataExists: !!portfolioData.data,
-        resultExists: !!portfolioData.data?.result,
-        resultLength: portfolioData.data?.result?.length || 0,
-        fullResponse: portfolioData,
-      });
-
-      if (portfolioData.data?.result) {
-        portfolioData.data.result.forEach((snapshot, index) => {
-          logger.debug(`PortfolioAllocation: Snapshot ${index}:`, {
-            updateTime: snapshot.updateTime,
-            totalUsd: snapshot.totalUsd,
-            assetsCount: snapshot.assets?.length || 0,
-            firstFewAssets:
-              snapshot.assets?.slice(0, 3).map((asset) => ({
-                name: asset.name,
-                amount: asset.amount,
-                amountUsd: asset.amountUsd,
-              })) || [],
-          });
-        });
-      }
-    }
-  }, [portfolioData]);
-
-  // Process GraphQL data into allocation format
-  const getAllocationData = () => {
+  // Process GraphQL data into allocation format. Memoised: it walks every
+  // asset of the latest snapshot and used to run on every render.
+  const allocationData = React.useMemo((): AllocationDataItem[] => {
     // Check if we have valid portfolio data
     if (
       !portfolioData?.data?.result ||
       portfolioData.status !== StatusEnum.ok ||
       portfolioData.data.result.length === 0
     ) {
-      logger.warn(
-        'PortfolioAllocation: No portfolio data available:',
-        portfolioData?.reason
-      );
       return [];
     }
 
@@ -300,19 +249,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       }
     );
 
-    logger.debug('PortfolioAllocation: Selected snapshot:', {
-      selectedUpdateTime: latestSnapshot.updateTime,
-      selectedTotalUsd: latestSnapshot.totalUsd,
-      selectedAssetsCount: latestSnapshot.assets?.length || 0,
-      allSnapshotTimes: portfolioData.data.result.map((s) => ({
-        updateTime: s.updateTime,
-        totalUsd: s.totalUsd,
-        date: new Date(s.updateTime).toISOString(),
-      })),
-    });
-
     if (!latestSnapshot?.assets || latestSnapshot.assets.length === 0) {
-      logger.warn('PortfolioAllocation: No assets in latest snapshot');
       return [];
     }
 
@@ -321,45 +258,19 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       latestSnapshot.assets as PortfolioAssetWithExchanges[];
 
     // Debug: Log all assets before processing
-    logger.debug('PortfolioAllocation: All assets from GraphQL:', {
-      snapshotIndex: 0,
-      updateTime: latestSnapshot.updateTime,
-      totalUsd: latestSnapshot.totalUsd,
-      assetsCount: extendedAssets.length,
-      allAssets: extendedAssets.map((asset, index) => ({
-        index,
-        name: asset.name,
-        amount: asset.amount,
-        amountUsd: asset.amountUsd,
-        exchanges: asset.exchanges || 'No exchange data',
-      })),
-      sumOfAllAssets: extendedAssets.reduce(
-        (sum, asset) => sum + asset.amountUsd,
-        0
-      ),
-    });
 
     // Determine if we should show all exchanges or filter by specific ones
     const showAllExchanges = selectedExchanges.includes('ALL');
-
-    logger.debug('PortfolioAllocation: Exchange filtering:', {
-      selectedExchanges,
-      showAllExchanges,
-    });
 
     let assetsToProcess: PortfolioAssetWithExchanges[] = extendedAssets;
 
     // Filter assets by selected exchanges if not showing all
     if (!showAllExchanges) {
-      logger.debug('PortfolioAllocation: Applying exchange filter');
 
       assetsToProcess = extendedAssets
         .map((asset) => {
           // If exchanges is null (older data), exclude this asset when filtering by specific exchanges
           if (!asset.exchanges) {
-            logger.debug(
-              `PortfolioAllocation: Asset ${asset.name} has no exchange data, excluding`
-            );
             return null;
           }
 
@@ -371,9 +282,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
 
           // If no exchanges match the filter, exclude this asset
           if (filteredExchanges.length === 0) {
-            logger.debug(
-              `PortfolioAllocation: Asset ${asset.name} has no matching exchanges, excluding`
-            );
             return null;
           }
 
@@ -383,14 +291,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
               sum + exchange.amountUsd,
             0
           );
-
-          logger.debug(`PortfolioAllocation: Asset ${asset.name} filtered:`, {
-            originalAmountUsd: asset.amountUsd,
-            filteredAmountUsd: totalAmountUsd,
-            selectedExchanges: filteredExchanges.map(
-              (e: PortfolioExchange) => e.uuid
-            ),
-          });
 
           return {
             ...asset,
@@ -408,12 +308,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       color: `hsl(${(index * 40) % 360}, 70%, 60%)`, // Generate colors dynamically
       percentage: 0, // Will be calculated later
     }));
-
-    logger.debug('PortfolioAllocation: Raw data after processing:', {
-      rawDataCount: rawData.length,
-      totalValue: rawData.reduce((sum, item) => sum + item.value, 0),
-      items: rawData.map((item) => ({ name: item.name, value: item.value })),
-    });
 
     // Sort by value (highest first) and limit to top 9 tokens
     const sortedData = rawData.sort((a, b) => b.value - a.value);
@@ -444,11 +338,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     }
 
     return topTokens;
-  };
-
-  const allocationData = getAllocationData();
-
-  logger.debug('PortfolioAllocation: Raw allocation data:', allocationData);
+  }, [portfolioData, selectedExchanges]);
 
   // Use the actual total from GraphQL data when showing all exchanges,
   // but calculate from filtered data when filtering by specific exchanges
@@ -467,72 +357,12 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
 
   const totalValue = latestSnapshot?.totalUsd ?? allocationTotal;
 
-  logger.debug('PortfolioAllocation: Total value calculated:', {
-    totalValue,
-    showAllExchanges,
-    latestSnapshotTotal: latestSnapshot?.totalUsd,
-    calculatedFromAllocationData: allocationTotal,
-    itemCount: allocationData.length,
-    selectedExchanges,
-    isUsingGraphQLTotal:
-      showAllExchanges && Boolean(portfolioData?.data?.result?.length),
-    allSnapshots:
-      portfolioData?.data?.result?.map((s) => ({
-        updateTime: s.updateTime,
-        totalUsd: s.totalUsd,
-        date: new Date(s.updateTime).toISOString(),
-      })) || [],
-  });
-
-  // Debug logging
-  logger.debug('PortfolioAllocation Debug:', {
-    allocationData,
-    totalValue,
-    dataLength: allocationData.length,
-    graphqlTotalUsd: portfolioData?.data?.result?.[0]?.totalUsd,
-    calculatedTotal: allocationData.reduce(
-      (sum: number, item: AllocationDataItem) => sum + item.value,
-      0
-    ),
-  });
-
-  // Calculate percentages
-  const allocationDataWithPercentages = allocationData
-    .map((item: AllocationDataItem) => ({
-      ...item,
-      percentage: totalValue > 0 ? (item.value / totalValue) * 100 : 0,
-    }))
-    .sort((a: AllocationDataItem, b: AllocationDataItem) => b.value - a.value); // Sort legend from more to less
-
-  // Add logging for tooltip debugging
-  logger.debug('PortfolioAllocation: Chart data for tooltip:', {
-    allocationData,
-    allocationDataWithPercentages,
-    totalValue,
-    hasData: allocationData.length > 0,
-    sampleDataItem: allocationData[0], // Log first item to see structure
-  });
-
-  // Log each data item to ensure structure is correct
-  allocationData.forEach((item, index) => {
-    logger.debug(`PortfolioAllocation: Data item ${index}:`, {
-      name: item.name,
-      value: item.value,
-      color: item.color,
-      percentage: item.percentage,
-      dataForChart: {
-        name: item.name,
-        value: item.value,
-      },
-    });
-  });
 
   // Custom formatters for the tooltip
   const tooltipValueFormatter = (
     value: unknown,
     name: string
   ): [React.ReactNode, string] => {
-    logger.debug('CustomTooltip valueFormatter called:', { value, name });
 
     if (privacyMode) {
       return ['***', name];
@@ -551,17 +381,10 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       }
     )} (${percentage.toFixed(1)}%)`;
 
-    logger.debug('CustomTooltip formatted value:', {
-      formattedValue,
-      numValue,
-      percentage,
-    });
-
     return [formattedValue, name];
   };
 
   const tooltipLabelFormatter = (label: unknown): React.ReactNode => {
-    logger.debug('CustomTooltip labelFormatter called:', { label });
     return label ? String(label) : '';
   };
 
@@ -571,10 +394,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     payload?: ReadonlyArray<Record<string, unknown>>;
     label?: unknown;
   }) => {
-    logger.debug('Tooltip render function called:', {
-      props,
-      active: props.active,
-    });
 
     if (!props.active || !props.payload || !props.payload.length) {
       return null;
@@ -597,10 +416,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
         dataKey: entry['dataKey'] as string,
         payload: entry['payload'] as Record<string, unknown>,
       };
-    });
-
-    logger.debug('Transformed payload for CustomTooltip:', {
-      transformedPayload,
     });
 
     return (

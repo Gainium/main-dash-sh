@@ -13,8 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useChartColors } from '../../../hooks/useChartColors';
-import { useComboBots } from '../../../hooks/useComboBots';
-import { useDcaBots } from '../../../hooks/useDcaBots';
+import { useQuery } from '@tanstack/react-query';
 import { useWidgetSettings } from '../../../hooks/useWidgetSettings';
 import {
   GraphQLClient,
@@ -229,8 +228,80 @@ export interface BotStatsAdvancedProps {
   menuActions?: WidgetMenuActions;
 }
 
+
+type PickerBot = {
+  _id: string;
+  name: string;
+  pair: string;
+  botType: BotTypesEnum;
+};
+
+const PICKER_FIELDS = `_id
+settings {
+  name
+  pair
+}`;
+const PICKER_PAGE_SIZE = 500;
+
+/**
+ * Every active DCA and combo bot as `{id, name, pair}` — paged through the
+ * server (the list default stops at 500 bots) with a selection small enough
+ * that a 1,500-bot account costs a couple of hundred KB.
+ */
+async function fetchPickerBots(): Promise<PickerBot[]> {
+  const { tokens } = useAuthStore.getState();
+  const { isLiveTrading } = useUIStore.getState();
+  const config = getGraphQLConfig(tokens, isLiveTrading);
+  const client = new GraphQLClient(
+    import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000',
+    config.token,
+    config.paperContext
+  );
+  type SlimBot = {
+    _id: string;
+    settings?: { name?: string; pair?: string | string[] };
+  };
+  const loadAll = async (combo: boolean): Promise<PickerBot[]> => {
+    const out: PickerBot[] = [];
+    for (let page = 0; page < 20; page++) {
+      const builder = combo ? botQueries.comboBotList : botQueries.dcaBotList;
+      const key = combo ? 'comboBotList' : 'dcaBotList';
+      const { query, variables } = builder(
+        {
+          status: ['open', 'range', 'monitoring'],
+          dataGridInput: { page, pageSize: PICKER_PAGE_SIZE },
+        },
+        PICKER_FIELDS
+      );
+      const res = await client.request<
+        Record<string, ReturnResult<SlimBot[]> & { total?: number }>
+      >(query, variables, { timeoutMs: LONG_READ_TIMEOUT_MS });
+      const node = res?.[key];
+      const rows = node?.status === 'OK' ? (node.data ?? []) : [];
+      for (const bot of rows) {
+        const pair = Array.isArray(bot.settings?.pair)
+          ? bot.settings.pair.join(',')
+          : bot.settings?.pair || 'Unknown';
+        out.push({
+          _id: bot._id,
+          name: bot.settings?.name?.trim() || `Bot ${bot._id.slice(-8)}`,
+          pair,
+          botType: combo ? BotTypesEnum.combo : BotTypesEnum.dca,
+        });
+      }
+      const total = typeof node?.total === 'number' ? node.total : 0;
+      if (rows.length < PICKER_PAGE_SIZE || out.length >= total) break;
+    }
+    return out;
+  };
+  const [dca, combo] = await Promise.all([loadAll(false), loadAll(true)]);
+  return [...dca, ...combo];
+}
+
 export type BotStatsAdvancedSettings = {
   selectedBots: string[];
+  /** Bot type per selected id, so the widget can load them by id on mount. */
+  selectedBotTypes: Record<string, 'dca' | 'combo'>;
   timeFilter: string;
   customName: string;
   chartTab: 'profit' | 'equity';
@@ -267,79 +338,67 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
   // Local UI state (not persisted)
   const [showBotDialog, setShowBotDialog] = useState(false);
 
-  // Get DCA bots using the hook from TradingBots page
-  const {
-    bots: dcaBots,
-    isLoading: dcaLoading,
-    isError: dcaError,
-  } = useDcaBots({
-    status: ['open', 'range', 'monitoring'], // Include all active statuses
-    all: false,
-  });
-
-  // Get Combo bots using the useComboBots hook (only open status)
-  const {
-    bots: comboBots,
-    isLoading: comboLoading,
-    isError: comboError,
-  } = useComboBots({
-    // Align statuses with DCA so Combo bots show up properly
-    status: ['open', 'range', 'monitoring'],
-    all: false,
-  });
-
-  // Combine DCA and Combo bots with loading and error states
-  const allBots = useMemo(() => {
-    const combined = [...(dcaBots || []), ...(comboBots || [])];
-    return combined;
-  }, [dcaBots, comboBots]);
-
-  const isLoading = dcaLoading || comboLoading;
-  const hasError = dcaError || comboError;
-
-  // Create ID sets for bot type detection
-  const dcaIdSet = useMemo(
-    () => new Set((dcaBots || []).map((b) => b._id)),
-    [dcaBots]
+  const [selectedBotTypes, setSelectedBotTypes] = usePersistedState(
+    'selectedBotTypes',
+    {} as Record<string, 'dca' | 'combo'>
   );
-  const comboIdSet = useMemo(
-    () => new Set((comboBots || []).map((b) => b._id)),
-    [comboBots]
-  );
+
+  // The picker's list: ids, names and pairs only, fetched when the picker is
+  // opened. The widget used to mount two FULL active-bot lists (another
+  // multi-megabyte request with its own status set, which replaced the shared
+  // bot store) just to fill this dialog and look up the selected bots' types.
+  const pickerQuery = useQuery({
+    queryKey: ['botStatsAdvancedPicker', useUIStore.getState().isLiveTrading],
+    queryFn: fetchPickerBots,
+    enabled: showBotDialog,
+    staleTime: 60_000,
+  });
+  const pickerBots = pickerQuery.data;
 
   // Process available bots for selection
   const availableBots = useMemo(() => {
     const bots: BotFilterItem[] = [];
+    (pickerBots ?? []).forEach((bot) => {
+      const typeConfig = getBotTypeConfig(bot.botType);
+      bots.push({
+        id: bot._id,
+        name: `${bot.name} (${bot.pair})`,
+        icon: bot.botType,
+        color: typeConfig.color,
+        botType: bot.botType,
+      });
+    });
+    return bots;
+  }, [pickerBots]);
 
-    // Use combined allBots which includes DCA, Terminal, and Combo bots
-    if (allBots && Array.isArray(allBots)) {
-      allBots.forEach((bot) => {
-        // Handle case where bot name might be empty
-        const botName =
-          bot.settings?.name?.trim() || `Bot ${bot._id.slice(-8)}`;
-        const pairName = Array.isArray(bot.settings?.pair)
-          ? bot.settings.pair.join(',')
-          : bot.settings?.pair || 'Unknown';
+  // Full payloads of the selected bots (loaded by id below).
+  const [fullBots, setFullBots] = useState<Map<string, DCABot | ComboBot>>(
+    new Map()
+  );
+  const allBots = useMemo(() => Array.from(fullBots.values()), [fullBots]);
 
-        // Determine bot type for icon display based on origin set first
-        const botType = comboIdSet.has(bot._id)
-          ? BotTypesEnum.combo
-          : dcaIdSet.has(bot._id)
-            ? BotTypesEnum.dca
-            : BotTypesEnum.grid;
-        const typeConfig = getBotTypeConfig(botType);
-
-        bots.push({
-          id: bot._id,
-          name: `${botName} (${pairName})`,
-          icon: botType, // Store bot type key
-          color: typeConfig.color,
-          botType: botType, // Add bot type for chip rendering
-        });
+  // Name / type of each selected bot for the selection chips: from the
+  // by-id payloads, else from the picker list when it is loaded.
+  const selectedItems = useMemo(() => {
+    const byId = new Map<string, BotFilterItem>();
+    for (const item of availableBots) byId.set(item.id, item);
+    for (const [id, bot] of fullBots) {
+      const botType =
+        selectedBotTypes[id] === 'combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
+      const name = bot.settings?.name?.trim() || `Bot ${id.slice(-8)}`;
+      const pair = Array.isArray(bot.settings?.pair)
+        ? bot.settings.pair.join(',')
+        : bot.settings?.pair || 'Unknown';
+      byId.set(id, {
+        id,
+        name: `${name} (${pair})`,
+        icon: botType,
+        color: getBotTypeConfig(botType).color,
+        botType,
       });
     }
-    return bots;
-  }, [allBots, dcaIdSet, comboIdSet]);
+    return byId;
+  }, [availableBots, fullBots, selectedBotTypes]);
 
   // Per-bot stats fetched by id (chart series + win/loss aggregates)
   const [botStatsData, setBotStatsData] = useState<
@@ -366,14 +425,6 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
       return;
     }
 
-    // Wait for the bot lists so each selection's type (DCA vs Combo) is
-    // known. `isLoading` is in the deps, so the effect re-runs when the
-    // lists land — with only the key as dependency a page load with a
-    // persisted selection never fetched at all.
-    if (isLoading) {
-      return;
-    }
-
     // Prevent fetching if already fetching the same data
     if (fetchingRef.current || lastFetchedKey.current === selectedBotsKey) {
       return;
@@ -396,38 +447,45 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
       config.paperContext
     );
 
-    const botsToFetch = selectedBots.map((botId) => {
-      const bot = allBots.find((b) => b._id === botId);
-      const settingsType = bot?.settings?.type?.toLowerCase();
-      const isCombo = comboIdSet.has(botId) || settingsType === 'combo';
-      return { id: botId, isCombo };
-    });
+    // The type recorded at selection time; selections saved before it was
+    // recorded are tried as DCA first, then combo.
+    const botsToFetch = selectedBots.map((botId) => ({
+      id: botId,
+      type: selectedBotTypes[botId] as 'dca' | 'combo' | undefined,
+    }));
 
     logger.info('[BotStatsAdvanced] Fetching bot stats', { botsToFetch });
 
     Promise.all(
-      botsToFetch.map(async ({ id, isCombo }) => {
+      botsToFetch.map(async ({ id, type }) => {
         try {
-          const builder = isCombo
-            ? botQueries.getComboBot
-            : botQueries.getDCABot;
-          const resultKey = isCombo ? 'getComboBot' : 'getDCABot';
-          const { query, variables } = builder({ id });
-          const result = await client.request<
-            Record<string, ReturnResult<DCABot | ComboBot>>
-          >(query, variables, { timeoutMs: LONG_READ_TIMEOUT_MS });
-          const resp = result?.[resultKey];
-          const fullBot =
-            resp?.status === 'OK'
+          const load = async (combo: boolean) => {
+            const builder = combo
+              ? botQueries.getComboBot
+              : botQueries.getDCABot;
+            const resultKey = combo ? 'getComboBot' : 'getDCABot';
+            const { query, variables } = builder({ id });
+            const result = await client.request<
+              Record<string, ReturnResult<DCABot | ComboBot>>
+            >(query, variables, { timeoutMs: LONG_READ_TIMEOUT_MS });
+            const resp = result?.[resultKey];
+            return resp?.status === 'OK'
               ? ((resp.data ?? null) as (DCABot | ComboBot) | null)
               : null;
-          if (!fullBot) {
-            logger.warn(`[BotStatsAdvanced] No bot payload for ${id}`, {
-              status: resp?.status,
-              reason: resp?.reason,
-            });
+          };
+          let fullBot = await load(type === 'combo');
+          let resolvedType: 'dca' | 'combo' = type ?? 'dca';
+          if (!fullBot && !type) {
+            fullBot = await load(true);
+            resolvedType = 'combo';
           }
-          return extractSelectedBotStats(id, fullBot);
+          if (!fullBot) {
+            logger.warn(`[BotStatsAdvanced] No bot payload for ${id}`);
+          }
+          const stats = extractSelectedBotStats(id, fullBot);
+          return stats && fullBot
+            ? { ...stats, fullBot, resolvedType }
+            : stats;
         } catch (error) {
           logger.error(
             `[BotStatsAdvanced] Error fetching stats for bot ${id}:`,
@@ -438,10 +496,23 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
       })
     ).then((results) => {
       const next = new Map<string, SelectedBotStats>();
+      const bots = new Map<string, DCABot | ComboBot>();
+      const learnedTypes: Record<string, 'dca' | 'combo'> = {};
       results.forEach((r) => {
-        if (r) next.set(r.botId, r);
+        if (!r) return;
+        next.set(r.botId, r);
+        if ('fullBot' in r && r.fullBot) {
+          bots.set(r.botId, r.fullBot);
+          if (!selectedBotTypes[r.botId]) {
+            learnedTypes[r.botId] = r.resolvedType;
+          }
+        }
       });
       setBotStatsData(next);
+      setFullBots(bots);
+      if (Object.keys(learnedTypes).length > 0) {
+        setSelectedBotTypes({ ...selectedBotTypes, ...learnedTypes });
+      }
       setIsChartDataLoading(false);
       fetchingRef.current = false;
 
@@ -452,9 +523,10 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         })),
       });
     });
-    // We read allBots and comboIdSet but don't list them as dependencies to avoid refetch churn
+    // selectedBotTypes is read, not a trigger: it only gains entries learned
+    // from this very fetch.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedBotsKey, isLoading]);
+  }, [selectedBotsKey]);
 
   // Merge per-bot series onto the union of their timestamps, forward-filling
   // each bot's last value so bots with different deal times still sum
@@ -778,6 +850,13 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
       setSelectedBots(newSelection);
     } else {
       const newSelection = [...selectedBots, botId];
+      const picked = availableBots.find((b) => b.id === botId);
+      if (picked?.botType) {
+        setSelectedBotTypes({
+          ...selectedBotTypes,
+          [botId]: picked.botType === BotTypesEnum.combo ? 'combo' : 'dca',
+        });
+      }
       setSelectedBots(newSelection);
     }
   };
@@ -837,30 +916,14 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
   const content = (
     <>
       <div className="flex flex-col h-full p-md bg-card @container">
-        {isLoading ? (
+        {selectedBots.length > 0 &&
+        isChartDataLoading &&
+        allBots.length === 0 ? (
           <div className="flex items-center justify-center h-64">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
             <span className="ml-3 text-muted-foreground">
               Loading bot data...
             </span>
-          </div>
-        ) : hasError ? (
-          <div className="flex items-center justify-center h-64 text-muted-foreground">
-            <div className="text-center">
-              <p className="text-destructive">Error loading bot data</p>
-              <p className="text-sm mt-1">
-                Please check your connection and try again
-              </p>
-              <button
-                onClick={() => {
-                  // The generic refresh system will handle this
-                  window.location.reload();
-                }}
-                className="mt-3 px-4 py-2 text-sm bg-muted rounded hover:bg-muted/80 transition-colors"
-              >
-                Retry
-              </button>
-            </div>
           </div>
         ) : selectedBots.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
@@ -882,9 +945,10 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         ) : allBots.length === 0 ? (
           <div className="flex items-center justify-center h-64 text-muted-foreground">
             <div className="text-center">
-              <p>No bots found</p>
+              <p>The selected bots could not be loaded</p>
               <p className="text-sm mt-1">
-                Create some bots to see statistics here
+                They may have been deleted. Pick other bots to see statistics
+                here.
               </p>
             </div>
           </div>
@@ -1062,7 +1126,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
         <div className="flex flex-wrap gap-xs">
           {/* Display selected items */}
           {selectedBots.map((itemId) => {
-            const item = availableBots.find((i) => i.id === itemId);
+            const item = selectedItems.get(itemId);
             if (!item) return null;
 
             return (
