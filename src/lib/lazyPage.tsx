@@ -75,8 +75,11 @@ export function registerRoutePreload(
   routePreloads.push({ re, preload });
 }
 
-export function preloadRoute(pathname: string): void {
-  routePreloads.find((r) => r.re.test(pathname))?.preload();
+export function preloadRoute(pathname: string): Promise<unknown> {
+  return (
+    routePreloads.find((r) => r.re.test(pathname))?.preload() ??
+    Promise.resolve()
+  );
 }
 
 export function lazyPage<P extends object = object>(
