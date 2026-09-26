@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.66.4] - 2026-09-26
+
+### Fixed
+
+- In Safari, a chart could draw its candles but never finish loading, so no
+  order, breakeven or fill lines appeared (since the previous release it
+  recovered after about 30 seconds). This happened whenever the charting
+  library was already in Safari's cache. The library announces that its chart
+  frame has loaded before the chart starts listening for that, and Safari
+  delivers the announcement too early to be heard. The chart now notices the
+  missed announcement and replays it, so it becomes ready immediately.
+
 ## [2.66.3] - 2026-09-26
 
 ### Fixed

@@ -16,6 +16,7 @@ import {
   collectChartStallDiagnostics,
   reportChartStall,
 } from './chartReadyWatchdog';
+import { replayMissedInnerWindowLoad } from './innerWindowLoadReplay';
 import { ZustandSaveLoadAdapter } from './TradingViewSaveLoadAdapter';
 import { getCustomThemeColors } from './themeColors';
 import type { TradingViewWidgetInstance } from './types';
@@ -196,6 +197,7 @@ export function useInitializeWidget({
     const containerElement = containerRef.current;
     let readyHandled = false;
     let watchdog: ReturnType<typeof setTimeout> | undefined;
+    let stopLoadReplay: () => void = () => undefined;
     // What TradingView restored through `load_last_chart` before it became
     // ready — reported by the watchdog, since a stored layout is per-browser.
     let bootLayout: {
@@ -481,6 +483,9 @@ export function useInitializeWidget({
       widgetRef.current = widget;
       isInitializedRef.current = true;
       const createdAt = Date.now();
+      // Safari can boot the chart frame before the widget listens for it,
+      // which would leave the chart without onChartReady for good.
+      stopLoadReplay = replayMissedInnerWindowLoad(widget, containerElement);
 
       const handleChartReady = async () => {
         if (readyHandled || !isMounted) return;
@@ -716,6 +721,7 @@ export function useInitializeWidget({
 
     return () => {
       isMounted = false;
+      stopLoadReplay();
       // Kept on an ordinary teardown so the watchdog can still report a chart
       // that was torn down yet left on screen; a retry replaces it instead.
       if (retryingRef.current) clearTimeout(watchdog);
