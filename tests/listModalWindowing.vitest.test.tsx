@@ -92,7 +92,6 @@ describe('pair picker windowing (specs/066 §1.9)', () => {
   it('search reaches rows far outside the window, in every spelling', async () => {
     await mount();
     for (const query of ['C1999', 'c1999/usdt', 'C1999USDT', 'c1999-usdt']) {
-      // eslint-disable-next-line no-await-in-loop
       await type(query);
       const text = document.body.querySelector(
         '[data-testid="list-modal-content"]'
