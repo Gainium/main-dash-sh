@@ -45,6 +45,8 @@ export interface TradingPairsDataState {
   // Nested structure: {[provider]: {[pair]: TradingPair}}
   pairsByProvider: Record<string, Record<string, TradingPair>>;
   timestamp: number;
+  /** Trading context (live/paper/demo) the saved pairs were fetched for. */
+  context: string | null;
   isLoading: boolean;
   error: string | null;
   /** Whether pairs have been loaded at least once this session / since last stale-mark. */
@@ -56,7 +58,7 @@ export interface TradingPairsDataState {
   _hasHydrated: boolean;
 
   // Actions
-  setPairs: (pairs: TradingPair[]) => void;
+  setPairs: (pairs: TradingPair[], context?: string) => void;
   getPairsByExchange: (exchange?: ExchangeEnum) => TradingPair[];
   getAllPairs: () => TradingPair[];
   getPairsByExchangeFlat: () => TradingPairsByExchange; // For backward compatibility
@@ -112,18 +114,20 @@ export const useTradingPairsDataStore = create<TradingPairsDataState>()(
     (set, get) => ({
       pairsByProvider: {},
       timestamp: 0,
+      context: null,
       isLoading: false,
       error: null,
       initialLoaded: false,
       _hasHydrated: false,
 
-      setPairs: (newPairs: TradingPair[]) => {
+      setPairs: (newPairs: TradingPair[], context?: string) => {
         set(() => {
           const pairsByProvider = organizePairsByProvider(newPairs);
           return {
             pairsByProvider,
             error: null,
             timestamp: Date.now(),
+            context: context ?? null,
             initialLoaded: true,
           };
         });
@@ -251,6 +255,7 @@ export const useTradingPairsDataStore = create<TradingPairsDataState>()(
       partialize: (state) => ({
         pairsByProvider: state.pairsByProvider,
         timestamp: state.timestamp,
+        context: state.context,
       }),
       merge: (persistedState, currentState) => {
         return {

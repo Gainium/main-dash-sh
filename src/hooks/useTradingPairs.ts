@@ -7,7 +7,7 @@ import {
 import { useUIStore } from '@/stores/uiStore';
 import type { ExchangeEnum } from '@/types';
 import type { OKXSource } from '@/types/exchange.types';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useGraphQL } from './useGraphQL';
 
@@ -92,6 +92,8 @@ export function useTradingPairs() {
     initialLoaded,
     markStale,
     _hasHydrated,
+    timestamp,
+    pairsContext,
   } = useTradingPairsDataStore(
     useShallow((s) => ({
       pairsByProvider: s.pairsByProvider,
@@ -103,6 +105,8 @@ export function useTradingPairs() {
       initialLoaded: s.initialLoaded,
       markStale: s.markStale,
       _hasHydrated: s._hasHydrated,
+      timestamp: s.timestamp,
+      pairsContext: s.context,
     }))
   );
   const tradingMode = useUIStore((s) => s.tradingMode);
@@ -111,12 +115,29 @@ export function useTradingPairs() {
   // When the trading context changes (live/paper/demo), mark pairs as stale so
   // that we re-fetch with the correct `paper-context` header.  This mirrors
   // what useExchanges does with its own `markStale()` call.
+  // Only on an actual CHANGE: on mount the saved pairs are checked against
+  // the current context below instead of always being thrown away.
+  const lastModeRef = useRef(tradingMode);
   useEffect(() => {
+    if (lastModeRef.current === tradingMode) return;
+    lastModeRef.current = tradingMode;
     logger.info(
       `[useTradingPairs] Trading mode changed to ${tradingMode}, marking pairs stale`
     );
     markStale();
   }, [tradingMode, markStale]);
+
+  // Pairs restored from IndexedDB for the same trading context and not past
+  // the hourly refresh boundary are used as-is: a reload no longer re-downloads
+  // the whole pair list (several MB with many exchanges).
+  const savedPairsFresh = useMemo(
+    () =>
+      _hasHydrated &&
+      timestamp > 0 &&
+      pairsContext === tradingMode &&
+      !useTradingPairsDataStore.getState().isExpired(),
+    [_hasHydrated, timestamp, pairsContext, tradingMode]
+  );
 
   // Only fetch if we haven't loaded yet (timer will clear expired data automatically).
   // Wait for IDB rehydration to finish first — otherwise we'd fire a network
@@ -129,8 +150,8 @@ export function useTradingPairs() {
   // whenever the request fails, and a render loop (React #185 in
   // ExchangeDataProvider) when it settles fast enough. Readiness only.
   const shouldFetch = useMemo(() => {
-    return _hasHydrated && !initialLoaded;
-  }, [_hasHydrated, initialLoaded]);
+    return _hasHydrated && !initialLoaded && !savedPairsFresh;
+  }, [_hasHydrated, initialLoaded, savedPairsFresh]);
 
   // Use GraphQL hook with conditional fetching
   const apiResult = useGraphQL<GetAllPairsResponse>(
@@ -164,7 +185,12 @@ export function useTradingPairs() {
       logger.info(
         `[useTradingPairs] API returned ${apiResult.data.data.result.length} trading pairs, updating store`
       );
-      setPairs(apiResult.data.data.result);
+      // Stamp the context only on a real response for it — a placeholder is
+      // the previous context's data carried across the key change.
+      setPairs(
+        apiResult.data.data.result,
+        apiResult.isPlaceholderData ? undefined : tradingMode
+      );
       // Explicitly clear loading — avoids relying on a separate effect that
       // could be skipped when shouldFetch flips before the next render.
       setLoading(false);
@@ -173,9 +199,11 @@ export function useTradingPairs() {
     apiResult.data,
     apiResult.isLoading,
     apiResult.error,
+    apiResult.isPlaceholderData,
     setPairs,
     setLoading,
     initialLoaded,
+    tradingMode,
   ]);
 
   // Mirror the query's loading state into the store — strictly one-way.
