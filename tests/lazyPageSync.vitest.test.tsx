@@ -40,4 +40,25 @@ describe('lazyPage', () => {
     expect(el.textContent).toBe('Hello page');
     act(() => root.unmount());
   });
+
+  it('a page whose load is under way renders when ready, without suspending', async () => {
+    let release: (() => void) | null = null;
+    const gate = new Promise<void>((r) => (release = r));
+    const Page = lazyPage(async () => {
+      await gate;
+      return { default: Hello };
+    });
+    void Page.preload();
+    const el = document.createElement('div');
+    const root = createRoot(el);
+    // No Suspense boundary at all: a suspending component would throw here.
+    act(() => root.render(createElement(Page)));
+    expect(el.querySelector('[aria-label="Loading page"]')).not.toBeNull();
+    await act(async () => {
+      release?.();
+      await gate;
+    });
+    expect(el.textContent).toBe('Hello page');
+    act(() => root.unmount());
+  });
 });

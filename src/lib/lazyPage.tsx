@@ -15,6 +15,7 @@ import { Loader2 } from 'lucide-react';
 import {
   lazy,
   Suspense,
+  useEffect,
   useState,
   type ComponentType,
   type ReactNode,
@@ -99,9 +100,31 @@ export function lazyPage<P extends object = object>(
     }));
   const Lazy = lazy(load) as unknown as ComponentType<P>;
   function LazyPage(props: P) {
-    // Decided once per mount so the element type never flips under it.
-    const [Component] = useState<ComponentType<P>>(() => loaded ?? Lazy);
-    return <Component {...props} />;
+    // Decided once per mount so the element type never flips under it:
+    // - module loaded: render it directly;
+    // - load already under way (boot preload): wait for it WITHOUT
+    //   suspending, so no Suspense fallback and no reveal throttle;
+    // - not started: React.lazy, which keeps the previous page on screen
+    //   during a navigation transition.
+    const [mode] = useState<'ready' | 'await' | 'lazy'>(() =>
+      loaded ? 'ready' : pending ? 'await' : 'lazy'
+    );
+    const [Resolved, setResolved] = useState<ComponentType<P> | null>(
+      () => loaded
+    );
+    useEffect(() => {
+      if (mode !== 'await' || Resolved) return;
+      let alive = true;
+      void load().then((m) => {
+        if (alive) setResolved(() => m.default);
+      });
+      return () => {
+        alive = false;
+      };
+    }, [mode, Resolved]);
+    if (mode === 'lazy') return <Lazy {...props} />;
+    if (!Resolved) return <PageFallback />;
+    return <Resolved {...props} />;
   }
   const page = LazyPage as PageComponent<P>;
   page.preload = load;
