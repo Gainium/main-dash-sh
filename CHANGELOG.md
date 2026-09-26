@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.67.2] - 2026-09-26
+
+### Fixed
+
+- Bot details: the chart could open on a pair from a different bot. Orders
+  saved in the browser without a bot id were shown on every non-hedge bot, and
+  the chart followed the newest of them. They are no longer read or saved, and
+  any already saved are dropped on load
+
 ## [2.67.1] - 2026-09-26
 
 ### Fixed

@@ -162,6 +162,10 @@ export const useOrderStore = create<OrderStoreState>()(
         errors: {},
         _hasHydrated: false,
         updateOrders: (botId: string, orders: OrderData[], type: OrderType) => {
+          // Never file orders under an empty bot id: that bucket is what an
+          // id-less reader (a non-hedge bot's absent "other leg") sees, so
+          // anything written there shows up on every bot.
+          if (!botId) return;
           // Convert array to object keyed by clientOrderId
           const currentOrders = get().orders[type][botId] || {};
           const ordersObj: Record<string, OrderData> = {};
@@ -194,6 +198,7 @@ export const useOrderStore = create<OrderStoreState>()(
         },
 
         updateOrder: (botId: string, order: OrderData, type: OrderType) => {
+          if (!botId) return;
           set((state) => {
             const currentOrders = state.orders[type][botId] || {};
 
@@ -222,6 +227,7 @@ export const useOrderStore = create<OrderStoreState>()(
 
         updateOrderFromWebSocket: (update: OrderUpdate, type: OrderType) => {
           const { botId, data } = update;
+          if (!botId) return;
 
           // WebSocket sends the full OrderData object
           const order = { ...data, botId } as OrderData;
@@ -525,6 +531,9 @@ export const useOrderStore = create<OrderStoreState>()(
               filled[botId] = { ...filled[botId], ...orders };
             }
           );
+          // Drop an empty-id bucket saved before writes were guarded — it
+          // leaked another bot's orders into every bot page.
+          delete filled[''];
 
           return {
             ...currentState,

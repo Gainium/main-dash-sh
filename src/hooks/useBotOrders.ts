@@ -84,6 +84,10 @@ export function useBotOrders(
 
   // Convert to array for specific botId (memoized by ordersRecord)
   const ordersFromStore = useMemo(() => {
+    // An empty id is a disabled lookup (e.g. a non-hedge bot's "other leg"),
+    // not a bucket: reading `orders[type]['']` handed whatever had been filed
+    // there to every bot page, whose chart then jumped to that pair.
+    if (!botId) return [];
     const orders = [...(ordersRecord || [])];
 
     // Filter by status if provided
@@ -94,7 +98,7 @@ export function useBotOrders(
     }
 
     return orders;
-  }, [ordersRecord, options.status]);
+  }, [botId, ordersRecord, options.status]);
 
   // Avoid firing the query when botId is missing/empty
   const hasValidId = useMemo(
