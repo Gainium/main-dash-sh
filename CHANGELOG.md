@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.67.5] - 2026-09-26
+
+### Fixed
+
+- Hedge bots: the Stats tab showed only the long leg's statistics, presented
+  as the whole bot's. Each leg keeps its own statistics, so the tab now has a
+  Long leg / Short leg switch and shows the selected leg's figures
+
 ## [2.67.4] - 2026-09-26
 
 ### Fixed

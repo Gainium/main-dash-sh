@@ -429,11 +429,17 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     const [hedgeDealsStatus, setHedgeDealsStatus] = useState<'open' | 'closed'>(
       'open'
     );
-    // Settings is the only hedge tab with a sub-switch — Hedge (shared TP/SL)
-    // / Long / Short — mirroring the new hedge bot page's tab layout.
+    // Settings sub-switch — Hedge (shared TP/SL) / Long / Short — mirroring
+    // the new hedge bot page's tab layout.
     const [settingsLeg, setSettingsLeg] = useState<'hedge' | 'long' | 'short'>(
       'hedge'
     );
+    // Stats sub-switch. The hedge wrapper carries no stats of its own — each
+    // leg is a separate DCA/Combo bot with its own block — so the Stats tab
+    // must show one leg at a time, fetched with the LEG's type. Mounting it
+    // with the drawer's `bot` (the primary leg) under the hedge type showed
+    // the long leg's figures labelled as the whole hedge bot.
+    const [statsLeg, setStatsLeg] = useState<'long' | 'short'>('long');
     // Fetch ALL the user's hedge deals (the wrapper-id filter isn't reliable
     // server-side) and scope to THIS bot's legs client-side via their ids.
     // Enabled whenever the drawer is a hedge bot (not just on the Deals tab):
@@ -1919,12 +1925,57 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       exit={{ opacity: 0, y: -10 }}
                       transition={{ duration: 0.2 }}
                     >
-                      <BotStatsTab
-                        botId={bot._id}
-                        botType={type}
-                        bot={bot as unknown as BotStatsTabProps['bot']}
-                        active={activeTab === 'stats'}
-                      />
+                      {isHedge && hedge ? (
+                        (() => {
+                          const legBot =
+                            statsLeg === 'short'
+                              ? hedge.shortBot
+                              : hedge.longBot;
+                          return (
+                            <div className="space-y-4">
+                              <Tabs
+                                value={statsLeg}
+                                onValueChange={(v) =>
+                                  setStatsLeg(v as 'long' | 'short')
+                                }
+                              >
+                                <TabsList>
+                                  <TabsTrigger value="long">Long leg</TabsTrigger>
+                                  <TabsTrigger value="short">
+                                    Short leg
+                                  </TabsTrigger>
+                                </TabsList>
+                              </Tabs>
+                              {legBot ? (
+                                <BotStatsTab
+                                  key={legBot._id}
+                                  botId={legBot._id}
+                                  botType={
+                                    hedge.isCombo
+                                      ? BotTypesEnum.combo
+                                      : BotTypesEnum.dca
+                                  }
+                                  bot={
+                                    legBot as unknown as BotStatsTabProps['bot']
+                                  }
+                                  active={activeTab === 'stats'}
+                                />
+                              ) : (
+                                <div className="rounded-lg bg-muted p-sm text-sm text-muted-foreground">
+                                  This leg has no statistics.
+                                </div>
+                              )}
+                            </div>
+                          );
+                        })()
+                      ) : (
+                        <BotStatsTab
+                          botId={bot._id}
+                          botType={type}
+                          bot={bot as unknown as BotStatsTabProps['bot']}
+                          active={activeTab === 'stats'}
+                        />
+                      )}
                     </motion.div>
                   </TabsContent>
                 )}
