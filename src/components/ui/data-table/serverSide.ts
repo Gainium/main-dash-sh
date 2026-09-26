@@ -53,3 +53,26 @@ export function withServerFields<C extends { id?: string; meta?: unknown }>(
     };
   });
 }
+
+/**
+ * Server mode: keep only the filters whose column the server can filter
+ * (`meta.serverFilterField`). The rest — restored from a link or saved
+ * preferences — would be counted on the Filters button while their column
+ * shows no chip to clear them. Returns the same array when nothing is dropped.
+ */
+export function serverApplicableFilters(
+  filters: ColumnFiltersState,
+  columns: Array<{ id?: string; meta?: unknown }>
+): ColumnFiltersState {
+  const filterable = new Set(
+    columns
+      .filter(
+        (col) =>
+          !!(col.meta as { serverFilterField?: string } | undefined)
+            ?.serverFilterField
+      )
+      .map((col) => col.id ?? (col as { accessorKey?: string }).accessorKey)
+  );
+  const kept = filters.filter((f) => filterable.has(f.id));
+  return kept.length === filters.length ? filters : kept;
+}

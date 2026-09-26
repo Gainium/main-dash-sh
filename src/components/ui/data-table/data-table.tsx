@@ -132,6 +132,7 @@ import { Tooltip } from '../tooltip';
  */
 import {
   SERVER_SORT_UNAVAILABLE_TOOLTIP,
+  serverApplicableFilters,
   type DataTableServerSide,
 } from './serverSide';
 
@@ -2371,10 +2372,16 @@ function DataTableComponent<TData, TValue>(
     [externalOnSortingChange, sorting, setPersistedSorting]
   );
 
-  // Column filters state - use persisted state
+  // Column filters state - use persisted state. Server mode ignores filters on
+  // columns the server cannot filter: not counted, queried or put in the URL
+  // (still saved; the next filter edit in server mode rewrites without them).
+  const isServerMode = !!serverSide;
   const columnFilters = useMemo(
-    () => persistedColumnFilters,
-    [persistedColumnFilters]
+    () =>
+      isServerMode
+        ? serverApplicableFilters(persistedColumnFilters, initialColumns)
+        : persistedColumnFilters,
+    [persistedColumnFilters, isServerMode, initialColumns]
   );
 
   // Handle column filters changes with persistence

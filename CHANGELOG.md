@@ -1,5 +1,14 @@
 # Changelog
 
+## [2.67.7] - 2026-09-26
+
+### Fixed
+
+- Large lists paged from the server: a saved or linked filter on a column that
+  cannot be filtered in that mode was still counted on the Filters button,
+  with nothing shown to clear it. Those filters are now ignored there and
+  dropped from the page link
+
 ## [2.67.6] - 2026-09-26
 
 ### Changed
