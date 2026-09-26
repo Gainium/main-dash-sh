@@ -581,13 +581,6 @@ export const useBotFormQuery = (): BotFormQueryContextValue => {
       );
 
       const fallback = {
-        dcaBots: [],
-        gridBots: [],
-        comboBots: [],
-        hedgeDcaBots: [],
-        hedgeComboBots: [],
-        bots: [],
-        botsLoading: false,
         bot: null,
         botSettings: null,
         botSettingsLoading: false,

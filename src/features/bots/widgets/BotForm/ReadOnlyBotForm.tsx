@@ -56,7 +56,6 @@ import {
   BotTypesEnum,
   type DCABot,
   type ExchangeInUser,
-  type HedgeBot,
   type ComboBot,
 } from '@/types';
 import type { GridBot } from '@/types/gridBot';
@@ -542,13 +541,6 @@ const ReadOnlyBotForm: React.FC<ReadOnlyBotFormProps> = ({
   const queryContextValue = useMemo<BotFormQueryContextValue>(() => {
     const botObj = bot as DCABot | GridBot | ComboBot;
     return {
-      dcaBots: botType === BotTypesEnum.dca ? [botObj as DCABot] : [],
-      gridBots: botType === BotTypesEnum.grid ? [botObj as GridBot] : [],
-      comboBots: botType === BotTypesEnum.combo ? [botObj as ComboBot] : [],
-      hedgeDcaBots: [] as HedgeBot[],
-      hedgeComboBots: [] as HedgeBot[],
-      bots: [botObj],
-      botsLoading: false,
       bot: botObj,
       botSettings:
         ((botObj as { settings?: unknown })
@@ -572,7 +564,7 @@ const ReadOnlyBotForm: React.FC<ReadOnlyBotFormProps> = ({
       // real editor.
       hasStoredPair: true,
     };
-  }, [bot, botType, stubExchange]);
+  }, [bot, stubExchange]);
 
   return (
     <TradingTerminalUtilsProvider>

@@ -43,7 +43,20 @@ const form = vi.hoisted(() => {
 
 vi.mock('@/contexts/bots/form/BotFormProvider', async () => {
   const { useSyncExternalStore } = await import('react');
+  // The hook reads its setters from the stable context and `isDirty` from the
+  // store at effect time (specs/066), so both are provided alongside the
+  // legacy broad hook.
+  const setters = {
+    setFormData: form.setFormData,
+    setIsDirty: form.setIsDirty,
+    setErrors: form.noop,
+    setIsLoading: form.noop,
+    setBotVars: form.noop,
+  };
+  const storeApi = { getState: form.get, subscribe: form.subscribe };
   return {
+    useBotFormContext: () => setters,
+    useBotFormStoreApi: () => storeApi,
     useBotFormState: () => {
       const snap = useSyncExternalStore(form.subscribe, form.get);
       return {

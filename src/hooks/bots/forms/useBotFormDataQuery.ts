@@ -1,23 +1,23 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 
 import type { BotFormMode } from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormRegistryContext } from '@/features/bots/widgets/BotForm';
 import { useBotSettings } from '@/hooks/useBotSettings';
-import { useComboBots } from '@/hooks/useComboBots';
-import { useDcaBots } from '@/hooks/useDcaBots';
-import { useGridBots } from '@/hooks/useGridBots';
-/* import { useHedgeComboBots } from '@/hooks/useHedgeComboBots';
-import { useHedgeDcaBots } from '@/hooks/useHedgeDcaBots'; */
-import type { DCABot, HedgeBot, ComboBot, ExchangeInUser } from '@/types';
-/* import type { ComboBot } from '@/types/comboBot';
-import type { DCABot } from '@/types/dcaBot'; */
+import { useSharedBot } from '@/hooks/useSharedBot';
+import { useComboBotsStore } from '@/stores/live/comboBotsStore';
+import { useDcaBotsStore } from '@/stores/live/dcaBotsStore';
+import { useGridBotsStore } from '@/stores/live/gridBotsStore';
+import {
+  BotTypesEnum,
+  type ComboBot,
+  type DCABot,
+  type ExchangeInUser,
+} from '@/types';
 import type { GridBot } from '@/types/gridBot';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 
-// Stable module-level empties so this hook's result keeps a constant identity
-// when a value is absent — a fresh `[]` literal per render would otherwise mint
-// a new result object every render and churn every downstream consumer.
-const EMPTY_HEDGE_BOTS: HedgeBot[] = [];
+// Stable module-level empty so the result keeps a constant identity when the
+// exchange list is absent.
 const EMPTY_EXCHANGES: ExchangeInUser[] = [];
 
 export interface UseBotFormDataQueryOptions {
@@ -27,13 +27,6 @@ export interface UseBotFormDataQueryOptions {
 }
 
 export interface UseBotFormDataQueryResult {
-  dcaBots: DCABot[];
-  gridBots: GridBot[];
-  comboBots: ComboBot[];
-  hedgeDcaBots: HedgeBot[];
-  hedgeComboBots: HedgeBot[];
-  bots: Array<DCABot | GridBot | ComboBot>;
-  botsLoading: boolean;
   bot: DCABot | GridBot | ComboBot | null;
   botSettings: ReturnType<typeof useBotSettings>['botSettings'];
   botSettingsLoading: boolean;
@@ -42,77 +35,85 @@ export interface UseBotFormDataQueryResult {
   refetchExchanges: () => Promise<void>;
 }
 
+/**
+ * What the bot form loads for itself: the edited bot (edit mode only), its
+ * saved settings, and the user's exchanges.
+ *
+ * It used to load EVERY DCA, Grid and Combo bot of the account — in create mode
+ * too — only to `find` the edited one, and every live update to any of those
+ * bots rebuilt the result and re-rendered the whole form. Now the edited bot is
+ * read by id from its live store (so it still tracks status / deals in real
+ * time), with a single by-id fetch that refreshes it or seeds it when the store
+ * does not hold it yet (the edit page opened directly).
+ */
 export const useBotFormDataQuery = (
   options: UseBotFormDataQueryOptions
 ): UseBotFormDataQueryResult => {
   const { botId, mode } = options;
   const { botExperience } = useBotFormRegistryContext();
-  const isDealEdit = useMemo(
-    () => mode === 'deal-edit' || mode === 'deal-mass-edit',
-    [mode]
-  );
-  const isSettingsReadonly = useMemo(
-    () => mode === 'settings-readonly',
-    [mode]
-  );
-  const isSkipLoadingBots = useMemo(
-    () => isDealEdit || isSettingsReadonly,
-    [isDealEdit, isSettingsReadonly]
-  );
-  const { bots: dcaBots, isLoading: dcaBotsLoading } = useDcaBots(
-    {
-      all: true,
-    },
-    !isSkipLoadingBots
-  );
-  const { bots: gridBots, isLoading: gridBotsLoading } = useGridBots(
-    undefined,
-    !isSkipLoadingBots
-  );
-  const { bots: comboBots, isLoading: comboBotsLoading } = useComboBots(
-    {
-      all: true,
-    },
-    !isSkipLoadingBots
-  );
-  /*   const { bots: hedgeDcaBots } = useHedgeDcaBots({ all: true });
-  const { bots: hedgeComboBots } = useHedgeComboBots({ all: true }); */
+  const wantsBot = mode === 'edit' && !!botId;
+  const botType =
+    botExperience.id === BotTypesEnum.grid
+      ? BotTypesEnum.grid
+      : botExperience.id === BotTypesEnum.combo
+        ? BotTypesEnum.combo
+        : BotTypesEnum.dca;
 
-  const hedgeDcaBots = EMPTY_HEDGE_BOTS;
-  const hedgeComboBots = EMPTY_HEDGE_BOTS;
+  // By-id selectors: re-render only when THIS bot changes, never on updates
+  // to the account's other bots.
+  const dcaStoreBot = useDcaBotsStore((s) =>
+    wantsBot && botType === BotTypesEnum.dca ? (s.bots[botId] ?? null) : null
+  );
+  const comboStoreBot = useComboBotsStore((s) =>
+    wantsBot && botType === BotTypesEnum.combo ? (s.bots[botId] ?? null) : null
+  );
+  const gridStoreBot = useGridBotsStore((s) =>
+    wantsBot && botType === BotTypesEnum.grid
+      ? ((s.bots[botId] as GridBot | undefined) ?? null)
+      : null
+  );
+  const storeBot: DCABot | GridBot | ComboBot | null =
+    dcaStoreBot ?? comboStoreBot ?? gridStoreBot;
 
-  const bots = useMemo(() => {
-    // Aggregate only DCA, Grid, and Combo bots for the standard BotForm context
-    const aggregated = new Map<string, DCABot | GridBot | ComboBot>();
-    const candidateLists: Array<
-      Array<DCABot | GridBot | ComboBot> | undefined
-    > = [dcaBots, gridBots, comboBots];
+  // One authenticated by-id fetch of the edited bot (same query the drawer uses
+  // for a bot outside the loaded list).
+  const fetched = useSharedBot({
+    botId: botId ?? '',
+    type: botType,
+    shareId: null,
+    enabled: wantsBot,
+  });
+  const fetchedBot = fetched.bot as DCABot | GridBot | ComboBot | null;
 
-    candidateLists.forEach((list) => {
-      list?.forEach((candidate) => {
-        const identifier = (candidate as { _id?: string })._id;
-        if (identifier) {
-          aggregated.set(identifier, candidate);
-        }
-      });
-    });
+  // Put the fetched bot into its live store so socket updates (status, deals)
+  // and status toggles reach it exactly as they did when the whole list was
+  // loaded. `updateBot` keeps the store's own staleness / tombstone rules.
+  useEffect(() => {
+    if (!fetchedBot || !botId || fetchedBot._id !== botId) return;
+    const store =
+      botType === BotTypesEnum.combo
+        ? useComboBotsStore
+        : botType === BotTypesEnum.grid
+          ? useGridBotsStore
+          : useDcaBotsStore;
+    const state = store.getState() as {
+      bots: Record<string, unknown>;
+      addBot: (b: never) => void;
+      updateBot: (b: never) => void;
+    };
+    if (state.bots[botId]) {
+      state.updateBot(fetchedBot as never);
+    } else {
+      state.addBot(fetchedBot as never);
+    }
+  }, [fetchedBot, botId, botType]);
 
-    return Array.from(aggregated.values());
-  }, [dcaBots, gridBots, comboBots]);
+  const bot = wantsBot ? (storeBot ?? fetchedBot ?? null) : null;
 
   const { botSettings, isLoading: botSettingsLoading } = useBotSettings(
     botId,
     botExperience.id
   );
-
-  const bot = useMemo(() => {
-    if (mode !== 'edit' || !botId) {
-      return null;
-    }
-    return (
-      bots?.find((candidate) => candidate && candidate._id === botId) ?? null
-    );
-  }, [bots, botId, mode]);
 
   const { data, loading, refresh } = useExchangesFromContext();
 
@@ -120,22 +121,9 @@ export const useBotFormDataQuery = (
     () => data.data.exchanges || EMPTY_EXCHANGES,
     [data.data.exchanges]
   );
-  const botsLoading = dcaBotsLoading || gridBotsLoading || comboBotsLoading;
 
-  // Memoize the result so its identity is stable across renders where nothing
-  // it carries changed. BotFormQueryProvider spreads this into its context
-  // value; without this, every keystroke (which re-renders the provider via its
-  // form-state read) minted a fresh result → fresh context value → re-rendered
-  // every section that consumes `useBotFormQuery`.
   return useMemo(
     () => ({
-      dcaBots,
-      gridBots,
-      comboBots,
-      hedgeDcaBots,
-      hedgeComboBots,
-      bots,
-      botsLoading,
       bot,
       botSettings,
       botSettingsLoading,
@@ -143,20 +131,6 @@ export const useBotFormDataQuery = (
       exchangesLoading: loading,
       refetchExchanges: refresh,
     }),
-    [
-      dcaBots,
-      gridBots,
-      comboBots,
-      hedgeDcaBots,
-      hedgeComboBots,
-      bots,
-      botsLoading,
-      bot,
-      botSettings,
-      botSettingsLoading,
-      exchanges,
-      loading,
-      refresh,
-    ]
+    [bot, botSettings, botSettingsLoading, exchanges, loading, refresh]
   );
 };

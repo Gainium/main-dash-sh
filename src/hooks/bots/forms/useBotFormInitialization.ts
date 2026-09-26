@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react';
 
 import {
-  useBotFormState,
+  useBotFormContext,
+  useBotFormStoreApi,
   type BotFormMode,
 } from '@/contexts/bots/form/BotFormProvider';
 import {
@@ -96,24 +97,55 @@ const normalizeBotVarsPaths = (vars: BotVars | null): BotVars | null => {
   };
 };
 
+/**
+ * Fingerprint of everything the mapper reads: the settings payload, the bot's
+ * variable bindings and its exchange identity. Runtime-only fields of a live
+ * bot (stats, deals, status, profit) are not part of it.
+ */
+const hydrationVersionKey = (
+  sourceKey: string,
+  bot: unknown,
+  botSettings: unknown
+): string => {
+  const b = (bot ?? {}) as {
+    settings?: unknown;
+    vars?: unknown;
+    exchange?: unknown;
+    exchangeUUID?: unknown;
+    initialPrice?: unknown;
+  };
+  try {
+    return `${sourceKey}|${JSON.stringify([
+      botSettings ?? null,
+      botSettings ? null : (b.settings ?? null),
+      b.vars ?? null,
+      b.exchange ?? null,
+      b.exchangeUUID ?? null,
+      b.initialPrice ?? null,
+    ])}`;
+  } catch {
+    // Unserialisable payload: never treat it as already hydrated.
+    return `${sourceKey}|${Math.random()}`;
+  }
+};
+
 export const useBotFormInitialization = (
   options: UseBotFormInitializationOptions
 ): void => {
   const { mode, bot, botSettings, mapper, debug, botType } = options;
 
-  const {
-    setFormData,
-    setErrors,
-    setIsDirty,
-    setIsLoading,
-    setBotVars,
-    isDirty,
-  } = useBotFormState();
-  // Read through a ref, not the dep list: Save clears `isDirty` before its
-  // refetch lands, and re-running on that flip would re-map the OLD settings.
-  const isDirtyRef = useRef(isDirty);
-  isDirtyRef.current = isDirty;
+  // Stable setters only — no store subscription, so this hook never
+  // re-renders the form shell. `isDirty` is read from the store when the
+  // effect runs (not a dependency: Save clears it before its refetch lands,
+  // and re-running on that flip would re-map the OLD settings).
+  const { setFormData, setErrors, setIsDirty, setIsLoading, setBotVars } =
+    useBotFormContext();
+  const store = useBotFormStoreApi();
   const lastHydratedSourceKeyRef = useRef<string>('');
+  // Source + saved-settings fingerprint of the last hydration. A new `bot`
+  // object whose saved settings did not change (live stats / deals / status
+  // updates of a running bot) must not re-run the mapper and rewrite the form.
+  const lastHydratedVersionRef = useRef<string>('');
 
   useEffect(() => {
     if (mode === 'create') {
@@ -146,7 +178,16 @@ export const useBotFormInitialization = (
       sourceBot?._id ?? sourceBot?.exchangeUUID ?? 'unknown'
     )}:${botSettings ? 'settings' : 'bot'}`;
 
-    if (isDirtyRef.current && lastHydratedSourceKeyRef.current === sourceKey) {
+    if (
+      store.getState().isDirty &&
+      lastHydratedSourceKeyRef.current === sourceKey
+    ) {
+      setIsLoading(false);
+      return;
+    }
+
+    const versionKey = hydrationVersionKey(sourceKey, bot, botSettings);
+    if (lastHydratedVersionRef.current === versionKey) {
       setIsLoading(false);
       return;
     }
@@ -221,6 +262,7 @@ export const useBotFormInitialization = (
 
       setBotVars(normalizedVars);
       lastHydratedSourceKeyRef.current = sourceKey;
+      lastHydratedVersionRef.current = versionKey;
 
       setErrors({});
       setIsDirty(false);
@@ -255,5 +297,6 @@ export const useBotFormInitialization = (
     setIsLoading,
     setBotVars,
     botType,
+    store,
   ]);
 };
