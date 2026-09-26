@@ -159,6 +159,11 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useState } from 'react';
+import {
+  LargeAccountPillView,
+  NotCalculated,
+  PartialCount,
+} from '@/components/ui/large-account';
 
 export default function UIShowcase() {
   const [switchValue, setSwitchValue] = useState(false);
@@ -213,6 +218,64 @@ export default function UIShowcase() {
       </div>
 
       <div className="container mx-auto px-lg py-lg ">
+        {/* Large-account primitives */}
+        <section data-testid="large-account-showcase" className="mb-xl">
+          <h2 className="text-2xl font-semibold text-foreground">
+            Large account
+          </h2>
+          <Card>
+            <CardHeader>
+              <CardTitle>Not calculated · Partial · Mode pill</CardTitle>
+              <CardDescription>
+                How a value the app deliberately does not compute, or computes
+                over a subset, is shown.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-md text-sm">
+              <div className="flex items-center justify-between gap-md">
+                <span className="text-muted-foreground">Unrealized P&amp;L</span>
+                <NotCalculated />
+              </div>
+              <div className="flex items-center justify-between gap-md">
+                <span className="text-muted-foreground">Value (P&amp;L % rank)</span>
+                <NotCalculated
+                  onCalculate={() => new Promise((r) => setTimeout(r, 1500))}
+                />
+              </div>
+              <div className="flex items-center justify-between gap-md">
+                <span className="text-muted-foreground">Top deals</span>
+                <PartialCount shown={500} total={4979} noun="open deals" />
+              </div>
+              <div className="flex items-center justify-between gap-md">
+                <span className="text-muted-foreground">Navbar pill</span>
+                <div className="flex items-center gap-sm">
+                  <LargeAccountPillView
+                    state={{
+                      active: true,
+                      source: 'server',
+                      reason: 'bots',
+                      counts: { activeBots: 1497, openDeals: 4979, terminalBots: 0 },
+                      thresholds: null,
+                      canUserEnable: false,
+                    }}
+                  />
+                  <LargeAccountPillView
+                    state={{
+                      active: false,
+                      source: 'server',
+                      reason: null,
+                      counts: { activeBots: 240, openDeals: 610, terminalBots: 0 },
+                      thresholds: null,
+                      canUserEnable: true,
+                    }}
+                    onTurnOn={() => undefined}
+                  />
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
         {/* Buttons Section */}
         <section>
           <h2 className="text-2xl font-semibold text-foreground">
