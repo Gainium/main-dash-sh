@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.67.4] - 2026-09-26
+
+### Fixed
+
+- Sign in: an email address filled in with capital letters (for example by a
+  password manager) was rejected as "Invalid email or password". The email
+  field is now lowercased, as on the legacy dashboard
+
 ## [2.67.3] - 2026-09-26
 
 ### Fixed
