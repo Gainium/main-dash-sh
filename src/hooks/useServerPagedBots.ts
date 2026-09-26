@@ -13,7 +13,7 @@ import {
 } from '@/stores/live';
 import { useUIStore } from '@/stores/uiStore';
 import { keepPreviousData } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { botQueries } from '../lib/api/GraphQLQueries-bot-queries';
 import { LONG_READ_TIMEOUT_MS } from '../lib/api';
@@ -96,19 +96,12 @@ export interface UseServerPagedBotsResult<B> {
   total: number;
   isLoading: boolean;
   isFetching: boolean;
+  /** The rows are the previous query's, shown while this one loads. */
+  isPlaceholderData: boolean;
   isError: boolean;
   /** Epoch ms of the page's last server read (for "updated N s ago"). */
   fetchedAt: number | null;
   refetch: () => Promise<unknown>;
-}
-
-function useDebounced<T>(value: T, ms: number): T {
-  const [v, setV] = useState(value);
-  useEffect(() => {
-    const t = setTimeout(() => setV(value), ms);
-    return () => clearTimeout(t);
-  }, [value, ms]);
-  return v;
 }
 
 /**
@@ -128,7 +121,8 @@ export function useServerPagedBots<B extends AnyBot>(
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
   const paperContext = !isLiveTrading;
   const { isDemo } = useShareContext();
-  const search = useDebounced(opts.search ?? '', 300);
+  // Callers coalesce keystrokes (useServerTableQuery / their own debounce).
+  const search = opts.search ?? '';
 
   const dataGridInput = useMemo(
     () =>
@@ -201,6 +195,7 @@ export function useServerPagedBots<B extends AnyBot>(
     total: typeof response?.total === 'number' ? response.total : bots.length,
     isLoading: query.isLoading,
     isFetching: query.isFetching,
+    isPlaceholderData: query.isPlaceholderData,
     isError: query.isError,
     fetchedAt,
     refetch: query.refetch,

@@ -46,12 +46,8 @@ import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjust
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDealTablePaging } from '@/hooks/useDealTablePaging';
-import { useLiveDealPnl } from '@/hooks/useLiveDealPnl';
 import { PartialCount } from '@/components/ui/large-account';
-import {
-  serverDealUnrealizedPnl,
-  type DealPnlInput,
-} from '@/lib/utils/dealUnrealizedPnl';
+import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
 import {
   withServerFields,
   type ColumnServerFields,
@@ -1096,7 +1092,6 @@ export interface OpenTradesWidgetProps {
 // which churns the `columns` memo / DataTable table-preference state every render
 // and can drive a "Maximum update depth exceeded" remount loop (React #185).
 const EMPTY_STRING_LIST: string[] = [];
-const EMPTY_DEALS: never[] = [];
 const TRADES_DEFAULT_COLUMN_VISIBILITY = {
   unrealizedProfitPercentage: false,
   realizedProfitPercentage: false,
@@ -1249,7 +1244,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   );
 
   // Only whether a price snapshot has arrived: the per-row values come from
-  // useLiveDealPnl (or the parent), so holding every tick in state here only
+  // the deal list hook (or the parent), so holding every tick in state here only
   // re-rendered the whole widget on each price refresh.
   const [pricesLoaded, setPricesLoaded] = useState(false);
 
@@ -1298,6 +1293,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const internalDeals = useDealTablePaging({
     status: effectiveShowClosedTrades ? 'closed' : 'open',
     terminal: true,
+    tableId: enableStatusToggle
+      ? `${widgetId}-trades-${statusFilter}`
+      : `${widgetId}-trades`,
     enabled: !(useExternalData && Array.isArray(rawDeals)),
   });
   const dcaDealsResponse = internalDeals.deals;
@@ -1308,25 +1306,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   const effectiveServerPaging =
     serverPaging ?? (useExternalData ? undefined : internalDeals.serverPaging);
 
-
-  // Live, fee-inclusive uPnL for the deals this widget fetched itself (the
-  // parent computes its own rows when it supplies `data.trades`).
-  const internalActiveDeals = useMemo(
-    () =>
-      useExternalData
-        ? EMPTY_DEALS
-        : (dcaDealsResponse as unknown as DealPnlInput[] & { _id?: string }[]).filter(
-            (d) => isActiveDealStatus((d as { status?: string }).status)
-          ),
-    [useExternalData, dcaDealsResponse]
-  );
-  const internalLivePnl = useLiveDealPnl(
-    internalActiveDeals as (DealPnlInput & { _id?: string })[],
-    {
-      enabled: !useExternalData,
-      combo: (d) => /combo/i.test(String((d as { strategy?: string }).strategy)),
-    }
-  );  const activeDealsRaw = useMemo(() => {
+  const activeDealsRaw = useMemo(() => {
     // Merge internally-fetched deals with caller-supplied rawDeals (de-duped
     // by _id) so the deal-drawer find covers both sources. Without this the
     // Trading Bots /deals tab loses its drawer because its deals come from
@@ -1600,13 +1580,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       const size = calculateDealSize(metricsInput);
       const value = calculateDealValue(metricsInput);
 
-      // Unrealized P&L: the canonical fee-inclusive USD value (shared
-      // computeDealUnrealizedPnl via useLiveDealPnl) while prices and fees
-      // are known; otherwise the server's stored value. Closed/canceled deals
-      // have none. (Was a gross, quote-unit formula labelled in dollars.)
+      // Unrealized P&L in USD: the canonical fee-inclusive value computed
+      // live for the rows of a server page (useDealTablePaging overlays it as
+      // `unrealizedUsd`), otherwise the server's stored value. Closed/canceled
+      // deals have none. (Was a gross, quote-unit formula labelled in dollars.)
       const unrealizedPnl = !isActiveDealStatus(deal.status)
         ? 0
-        : (internalLivePnl.get(deal._id)?.unrealizedUsd ??
+        : ((deal as { unrealizedUsd?: number }).unrealizedUsd ??
           serverDealUnrealizedPnl(
             deal as unknown as Parameters<typeof serverDealUnrealizedPnl>[0]
           )?.unrealizedUsd);
@@ -1768,7 +1748,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         compoundBreakdown: computeCompoundBreakdown(deal.sizes),
       };
     },
-    [botTypeOverride, liveOrders, internalLivePnl]
+    [botTypeOverride, liveOrders]
   );
 
   // FLICKER DEBUG: track what causes transformDCADealToOpenTrade to be recreated

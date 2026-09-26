@@ -242,10 +242,11 @@ const GridBots: React.FC = () => {
     loadedCount: canonicalLoaded,
   } = useGridBots(options);
 
-  // Large accounts, and any account whose list came back capped, page on the
-  // server: only the visible page is fetched, sorted and searched there.
+  // A list the server capped pages on the server (sorted and searched there);
+  // one that fits in what is loaded stays client-side, with no requests.
   const botListPaging = useBotListPaging({
     type: 'grid',
+    tableId: 'grid-bots',
     canonical: {
       bots: canonicalGridBots,
       total: canonicalTotal,

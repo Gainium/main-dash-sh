@@ -1,12 +1,15 @@
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type {
   ColumnServerFields,
   DataTableServerSide,
-  ServerTableQuery,
 } from '../components/ui/data-table/serverSide';
-import { tableQueryToServerBotQuery } from '../lib/botList/serverBotQuery';
+import {
+  BOT_NAME_FIELD,
+  tableQueryToServerBotQuery,
+} from '../lib/botList/serverBotQuery';
+import { previewPage, servesFromWindow } from '../lib/botList/windowPage';
 import type { BotStatus } from '../types';
-import { useLargeAccount } from './useLargeAccount';
+import { useServerTableQuery } from './useServerTableQuery';
 import {
   useServerPagedBots,
   type ServerPagedBotType,
@@ -26,7 +29,7 @@ export interface UseBotListPagingResult<B> {
   /** True when the list pages on the server (large account, or partial). */
   serverPaged: boolean;
   /** Why it pages on the server. */
-  reason: 'largeAccount' | 'partial' | null;
+  reason: 'partial' | null;
   /** Rows to render: the server page, or the canonical list. */
   bots: B[];
   /** DataTable `serverSide` prop (undefined in client mode). */
@@ -41,103 +44,109 @@ export interface UseBotListPagingResult<B> {
   refetch: (() => Promise<unknown>) | null;
 }
 
-const EMPTY_QUERY: ServerTableQuery = {
-  pageIndex: 0,
-  pageSize: 25,
-  sorting: [],
-  columnFilters: [],
-  globalFilter: '',
-};
+
+/** Bot lists come back from the server newest first. */
+const BOT_DEFAULT_SORT = { field: 'created', direction: 'desc' as const };
 
 /**
  * Decides whether a bot list page renders its client-side canonical list or
  * pages on the server, and wires the server side up.
  *
- * Server paging is on when the account is in large-account mode OR the
- * canonical list came back partial (`total > rows`) — the safety net for
- * every user: a capped list is never shown as if it were complete.
+ * Server paging is on only when the canonical list came back partial
+ * (`total > rows`) — the safety net for every user: a capped list is never
+ * shown as if it were complete. A list that fits in what is loaded sorts
+ * and filters client-side with no request, large account or not.
+ *
+ * Even in server mode, a page is answered from the loaded window whenever it
+ * can be (default order, inside the window), and a sort/search click shows a
+ * preview from the window at once while the server's answer loads.
  */
 export function useBotListPaging<B extends { _id: string }>(opts: {
   type: ServerPagedBotType;
   canonical: CanonicalListState<B>;
   statuses: BotStatus[];
   fields: Record<string, ColumnServerFields>;
+  /** The DataTable's tableId (its saved page size/sort seed the first query). */
+  tableId?: string;
   /** Tooltip for greyed sort icons. */
   unsupportedSortReason?: string;
-  /**
-   * Page on the server in large-account mode even when the list is complete.
-   * Off for hedge lists: they are small, have no name field to search on,
-   * and only get the partial-list safety net.
-   */
-  honorLargeAccount?: boolean;
   /** The list has a server-searchable name (hedge wrappers do not). */
   searchable?: boolean;
 }): UseBotListPagingResult<B> {
   const { type, canonical, statuses, fields } = opts;
-  const largeAccount = useLargeAccount();
-  const largeActive = (opts.honorLargeAccount ?? true) && largeAccount.active;
-  const serverPaged = largeActive || canonical.isPartial;
-  const [query, setQuery] = useState<ServerTableQuery | null>(null);
+  const serverPaged = canonical.isPartial;
+  const { query, onQueryChange } = useServerTableQuery(opts.tableId);
 
-  const q = query ?? EMPTY_QUERY;
   const searchable = opts.searchable ?? true;
   const serverQuery = useMemo(() => {
-    const sq = tableQueryToServerBotQuery(q, fields);
+    const sq = tableQueryToServerBotQuery(query, fields);
     return searchable ? sq : { ...sq, search: '' };
-  }, [q, fields, searchable]);
+  }, [query, fields, searchable]);
+
+  const fromWindow =
+    !serverPaged ||
+    servesFromWindow(serverQuery, canonical.loadedCount, false, BOT_DEFAULT_SORT);
 
   const paged = useServerPagedBots<B & { paperContext?: boolean }>({
     type,
     statuses,
-    enabled: serverPaged && query !== null,
+    enabled: serverPaged && !fromWindow,
     ...serverQuery,
   });
 
-  const onQueryChange = useCallback((next: ServerTableQuery) => {
-    setQuery((prev) =>
-      prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next
-    );
-  }, []);
+  // Rows derived from the loaded window: the exact page when the window can
+  // answer it, otherwise a preview while the server's page loads.
+  const windowPage = useMemo(
+    () =>
+      serverPaged
+        ? previewPage(canonical.bots, serverQuery, {
+            searchField: searchable ? BOT_NAME_FIELD : null,
+            defaultSort: BOT_DEFAULT_SORT,
+          })
+        : null,
+    [serverPaged, canonical.bots, serverQuery, searchable]
+  );
+  const serverReady =
+    !fromWindow && !paged.isLoading && !paged.isPlaceholderData;
+
+  const bots: B[] = !serverPaged
+    ? canonical.bots
+    : serverReady
+      ? (paged.bots as B[])
+      : (windowPage?.rows ?? []);
+
+  const rowCount = fromWindow
+    ? canonical.total
+    : serverReady || paged.total
+      ? paged.total
+      : canonical.total;
 
   const serverSide = useMemo<DataTableServerSide | undefined>(
     () =>
       serverPaged
         ? {
-            rowCount: query === null ? canonical.total : paged.total,
-            isFetching: paged.isFetching,
+            rowCount,
+            isFetching: !fromWindow && paged.isFetching,
             unsupportedSortReason: opts.unsupportedSortReason,
             onQueryChange,
           }
         : undefined,
     [
       serverPaged,
-      query,
-      canonical.total,
-      paged.total,
+      rowCount,
+      fromWindow,
       paged.isFetching,
       opts.unsupportedSortReason,
       onQueryChange,
     ]
   );
 
-  // Until the table reports its first query, show the canonical window's
-  // first page rather than an empty table.
-  const bots = serverPaged
-    ? query === null
-      ? canonical.bots.slice(0, q.pageSize)
-      : (paged.bots as B[])
-    : canonical.bots;
-
   return {
     serverPaged,
-    reason: largeActive
-      ? 'largeAccount'
-      : canonical.isPartial
-        ? 'partial'
-        : null,
+    reason: canonical.isPartial ? 'partial' : null,
     bots,
     serverSide,
-    total: serverPaged ? (serverSide?.rowCount ?? canonical.total) : canonical.total,
+    total: serverPaged ? rowCount : canonical.total,
     partial: canonical.isPartial
       ? { shown: canonical.loadedCount, total: canonical.total }
       : null,

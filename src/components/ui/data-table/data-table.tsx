@@ -4167,6 +4167,20 @@ function DataTableComponent<TData, TValue>(
       {/* Content between toolbar and data */}
       {betweenToolbarAndContent}
 
+      {/* Server mode: a thin inline bar while the next page/sort is fetched.
+          The current rows stay on screen (never blanked). */}
+      {serverSide && (
+        <div
+          className="relative h-0.5 w-full overflow-hidden"
+          aria-hidden={!serverSide.isFetching}
+          data-testid="server-fetch-bar"
+        >
+          {serverSide.isFetching && (
+            <div className="absolute inset-y-0 left-0 w-1/3 animate-pulse rounded-full bg-primary/60" />
+          )}
+        </div>
+      )}
+
       {/* Table or Card View */}
       {isTableView ? (
         <div

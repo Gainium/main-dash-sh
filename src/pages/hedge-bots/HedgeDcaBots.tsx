@@ -212,8 +212,7 @@ const HedgeDcaBots = () => {
     ? ((canonicalResponse as { data: unknown[] }).data.length as number)
     : canonicalBots.length;
   // Safety net: a capped hedge list pages on the server instead of being
-  // silently truncated. (Hedge lists are small; large-account mode alone
-  // does not switch them — see useBotListPaging.honorLargeAccount.)
+  // silently truncated.
   const botListPaging = useBotListPaging({
     type: 'hedgeDca',
     canonical: {
@@ -224,7 +223,7 @@ const HedgeDcaBots = () => {
     },
     statuses: showArchived ? ['archive'] : CANONICAL_DCA_STATUSES,
     fields: HEDGE_BOT_SERVER_FIELDS,
-    honorLargeAccount: false,
+    tableId: 'hedge-dca-bots',
     searchable: false,
   });
   const bots = botListPaging.bots;

@@ -571,10 +571,11 @@ const TradingBots: React.FC = () => {
     loadedCount: canonicalLoaded,
   } = useDcaBots(useDcaBotsOptions);
 
-  // Large accounts, and any account whose list came back capped, page on the
-  // server: only the visible page is fetched, sorted and searched there.
+  // A list the server capped pages on the server (sorted and searched there);
+  // one that fits in what is loaded stays client-side, with no requests.
   const botListPaging = useBotListPaging({
     type: 'dca',
+    tableId: 'trading-bots',
     canonical: {
       bots: canonicalDcaBots,
       total: canonicalTotal,
@@ -2070,6 +2071,7 @@ const TradingBots: React.FC = () => {
   const dealsTable = useDealTablePaging({
     status: dealsStatus,
     terminal: false,
+    tableId: `dca-bot-deals-trades-${dealsStatus}`,
   });
   const dcaDealsForTab = dealsTable.deals;
 

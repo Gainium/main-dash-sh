@@ -1043,6 +1043,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     status: selectedTab === 'active' ? 'open' : 'closed',
     terminal: false,
     botId: botId || undefined,
+    tableId: `${widgetId}-${selectedTab}-deals`,
     enabled: drawerServerPaged,
     force: true,
     fields: {

@@ -1,9 +1,14 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type {
   ColumnServerFields,
   DataTableServerSide,
-  ServerTableQuery,
 } from '../components/ui/data-table/serverSide';
+import {
+  isDefaultQuery,
+  previewPage,
+  servesFromWindow,
+} from '../lib/botList/windowPage';
+import { useServerTableQuery } from './useServerTableQuery';
 import {
   CLOSED_DEAL_SERVER_FIELDS,
   CLOSED_DEAL_SORT_TOOLTIP,
@@ -19,13 +24,6 @@ import { useDcaDeals } from './useDcaDeals';
 import { useLargeAccount } from './useLargeAccount';
 import { useLiveDealPnl } from './useLiveDealPnl';
 
-const DEFAULT_DEAL_QUERY: ServerTableQuery = {
-  pageIndex: 0,
-  pageSize: 25,
-  sorting: [],
-  columnFilters: [],
-  globalFilter: '',
-};
 
 export interface DealTablePaging {
   /** Deals to render (the server page in server mode). */
@@ -45,7 +43,9 @@ export interface DealTablePaging {
  * A deals table (open or closed) that pages on the server when the account is
  * in large-account mode, or as soon as the first client window comes back
  * partial (`total > loaded`) — then it stays server-paged for the session so
- * the list never silently shows a subset.
+ * the list never silently shows a subset. Pages the first window covers are
+ * answered from it, so going server-paged never costs a second request for
+ * the page already on screen.
  *
  * In server mode live uPnL is computed only for the rows on the page, with
  * the shared fee-inclusive function (`useLiveDealPnl`); every other row
@@ -59,6 +59,8 @@ export function useDealTablePaging(opts: {
   botId?: string;
   /** Page on the server regardless of mode (the caller already decided). */
   force?: boolean;
+  /** The DataTable's tableId (its saved page size/sort seed the first query). */
+  tableId?: string;
   /** Column → server field maps for this table (default: the Deals tab's). */
   fields?: {
     open: Record<string, ColumnServerFields>;
@@ -66,70 +68,120 @@ export function useDealTablePaging(opts: {
   };
 }): DealTablePaging {
   const { status, terminal } = opts;
+  const enabled = opts.enabled !== false;
   const largeAccount = useLargeAccount();
   const [latchedPartial, setLatchedPartial] = useState(false);
-  const [query, setQuery] = useState<ServerTableQuery | null>(null);
-  const serverPaged = !!opts.force || largeAccount.active || latchedPartial;
+  const { query, onQueryChange } = useServerTableQuery(opts.tableId);
   const fields =
     status === 'closed'
       ? (opts.fields?.closed ?? CLOSED_DEAL_SERVER_FIELDS)
       : (opts.fields?.open ?? OPEN_DEAL_SERVER_FIELDS);
-
-  // Until the table reports its first query, fetch its first page with the
-  // default order (a table with no rows may never mount to report one).
-  const q = query ?? DEFAULT_DEAL_QUERY;
-  const dataGrid = useMemo<DataGridFilterInput | undefined>(() => {
-    if (!serverPaged || !query) return undefined;
-    const sq = tableQueryToServerBotQuery(query, fields, DEAL_SEARCH_FIELD);
-    const { page: _p, pageSize: _s, ...rest } = toBotDataGridInput(sq);
-    return rest;
-  }, [serverPaged, query, fields]);
-
-  const result = useDcaDeals(
-    {
+  const baseFilter = useMemo(
+    () => ({
       terminal,
-      status: status === 'closed' ? DCADealStatusEnum.closed : DCADealStatusEnum.open,
+      status:
+        status === 'closed' ? DCADealStatusEnum.closed : DCADealStatusEnum.open,
       ...(opts.botId ? { botId: opts.botId } : {}),
-      ...(dataGrid ? { dataGrid } : {}),
-    },
-    serverPaged
-      ? {
-          enabled: opts.enabled !== false,
-          page: q.pageIndex,
-          pageSize: q.pageSize,
-        }
-      : { enabled: opts.enabled !== false }
+    }),
+    [terminal, status, opts.botId]
   );
+
+  // The first window (one request, the server's default order). It answers
+  // every page it covers, so switching to server paging — large-account mode
+  // resolving, or the window coming back capped — costs no second request
+  // for the first page(s).
+  const windowResult = useDcaDeals(baseFilter, { enabled });
 
   // Safety net: the first client window came back capped → page on the server.
   useEffect(() => {
-    if (!serverPaged && result.isPartial) setLatchedPartial(true);
-  }, [serverPaged, result.isPartial]);
+    if (windowResult.isPartial) setLatchedPartial(true);
+  }, [windowResult.isPartial]);
 
-  const live = useLiveDealPnl(serverPaged ? result.deals : [], {
+  const serverPaged = !!opts.force || largeAccount.active || latchedPartial;
+  const sq = useMemo(
+    () => tableQueryToServerBotQuery(query, fields, DEAL_SEARCH_FIELD),
+    [query, fields]
+  );
+  const windowComplete = !windowResult.isLoading && !windowResult.isPartial;
+  // While the first window is still loading, a default-order page will be
+  // answered by it — wait instead of racing it with a second request.
+  const windowPending = windowResult.isLoading && isDefaultQuery(sq, null);
+  const fromWindow =
+    !serverPaged ||
+    windowPending ||
+    servesFromWindow(sq, windowResult.loadedCount, windowComplete, null);
+
+  const dataGrid = useMemo<DataGridFilterInput | undefined>(() => {
+    if (fromWindow) return undefined;
+    const { page: _p, pageSize: _s, ...rest } = toBotDataGridInput(sq);
+    return rest;
+  }, [fromWindow, sq]);
+
+  const paged = useDcaDeals(
+    { ...baseFilter, ...(dataGrid ? { dataGrid } : {}) },
+    {
+      enabled: enabled && serverPaged && !fromWindow,
+      page: sq.pageIndex,
+      pageSize: sq.pageSize,
+    }
+  );
+
+  // The page from the window: exact when the window can answer the query,
+  // otherwise a preview shown while the server's page loads (rows never
+  // blank on a sort/search click).
+  const windowPage = useMemo(
+    () =>
+      serverPaged
+        ? previewPage(windowResult.deals, sq, { searchField: DEAL_SEARCH_FIELD })
+        : null,
+    [serverPaged, windowResult.deals, sq]
+  );
+  const pagedKey = JSON.stringify([dataGrid, sq.pageIndex, sq.pageSize]);
+  const shownKey = useRef<string | null>(null);
+  const pagedReady =
+    !fromWindow &&
+    !paged.isLoading &&
+    !(paged.isFetching && shownKey.current !== pagedKey);
+  useEffect(() => {
+    if (pagedReady) shownKey.current = pagedKey;
+  }, [pagedReady, pagedKey]);
+
+  const rawDeals: DCADeals[] = useMemo(
+    () =>
+      !serverPaged
+        ? windowResult.deals
+        : pagedReady
+          ? paged.deals
+          : (windowPage?.rows ?? []),
+    [serverPaged, windowResult.deals, pagedReady, paged.deals, windowPage]
+  );
+
+  const live = useLiveDealPnl(serverPaged ? rawDeals : [], {
     enabled: serverPaged && status === 'open',
   });
   const deals = useMemo(() => {
-    if (!serverPaged || live.size === 0) return result.deals;
-    return result.deals.map((d) => {
+    if (!serverPaged || live.size === 0) return rawDeals;
+    return rawDeals.map((d) => {
       const r = live.get(d._id);
       return r ? ({ ...d, unrealizedUsd: r.unrealizedUsd } as DCADeals) : d;
     });
-  }, [serverPaged, live, result.deals]);
+  }, [serverPaged, live, rawDeals]);
 
-  const onQueryChange = useCallback((next: ServerTableQuery) => {
-    setQuery((prev) =>
-      prev && JSON.stringify(prev) === JSON.stringify(next) ? prev : next
-    );
-  }, []);
+  const total = !serverPaged
+    ? windowResult.total
+    : fromWindow
+      ? windowComplete
+        ? (windowPage?.matched ?? windowResult.total)
+        : windowResult.total
+      : paged.total || windowResult.total;
 
   const serverPaging = useMemo(
     () =>
       serverPaged
         ? {
             serverSide: {
-              rowCount: result.total,
-              isFetching: result.isFetching,
+              rowCount: total,
+              isFetching: !fromWindow && paged.isFetching,
               unsupportedSortReason:
                 status === 'closed' ? CLOSED_DEAL_SORT_TOOLTIP : undefined,
               onQueryChange,
@@ -137,15 +189,17 @@ export function useDealTablePaging(opts: {
             fields,
           }
         : undefined,
-    [serverPaged, result.total, result.isFetching, status, onQueryChange, fields]
+    [serverPaged, total, fromWindow, paged.isFetching, status, onQueryChange, fields]
   );
 
   return {
     deals,
     serverPaging,
-    total: result.total,
+    total,
     serverPaged,
-    isLoading: result.isLoading,
-    error: result.error,
+    isLoading: fromWindow
+      ? windowResult.isLoading
+      : paged.isLoading && rawDeals.length === 0,
+    error: windowResult.error ?? paged.error,
   };
 }
