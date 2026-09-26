@@ -80,30 +80,51 @@ export const getAll = async (): Promise<StoreBacktest[]> => {
   }
 };
 
-// Returns all local backtests with full `data` payload. By default `db.getAll()`
-// masks the `data` property to an empty string to avoid expensive copies.
-// This helper fetches each entry by id with `full=true` to return the full
-// serialized backtest payloads so that pages that need to parse the result can
-// do so.
+// Returns all local backtests with full `data` payload, read in one
+// transaction (`getAll()` alone masks `data` to keep list reads cheap).
 export const getAllFull = async (): Promise<StoreBacktest[]> => {
   try {
     const db = await initDb();
-    const all = await db.getAll();
-    const fullEntries: StoreBacktest[] = [];
-    for (const entry of all) {
-      // Ensure we try to fetch the full entry by id; fall back to the entry we
-      // already have if the request fails for any reason.
-      try {
-        const full = await db.getById(entry.id, true);
-        fullEntries.push((full as StoreBacktest) ?? entry);
-      } catch {
-        fullEntries.push(entry);
-      }
-    }
-    return fullEntries;
+    return await db.getAllFull();
   } catch (e) {
     handleError(
       `Catch error in get all full ${(e as Error).message}`,
+      DBCredentials.store
+    );
+    return [];
+  }
+};
+
+// How many local backtests a list page loads — the same page the server
+// lists return (`pageSize: 50` in useDca/Combo/GridBacktests).
+export const LOCAL_BACKTEST_LIST_LIMIT = 50;
+
+const OBJECT_ID_RE = /^[0-9a-f]{24}$/i;
+
+// Creation time of a local entry, read from its id so the payload never has
+// to be loaded to order entries. Saved backtests are keyed by their server
+// ObjectId (seconds in the first 4 bytes); unsaved ones by
+// `${symbol}-${time}`. Unknown shapes sort last.
+export const localBacktestTimeFromId = (id: string): number => {
+  if (OBJECT_ID_RE.test(id)) return parseInt(id.slice(0, 8), 16) * 1000;
+  const match = id.match(/(\d+)$/);
+  return match ? Number(match[1]) : 0;
+};
+
+// The `limit` newest local backtests that satisfy `matches`, with full `data`.
+// Pages that list backtests must use this rather than `getAllFull`: the store
+// is never pruned and each entry carries the complete engine result (a point
+// per candle), so a heavy backtester's store can run to gigabytes once parsed.
+export const getRecentFull = async (
+  matches: (entry: StoreBacktest) => boolean,
+  limit: number
+): Promise<StoreBacktest[]> => {
+  try {
+    const db = await initDb();
+    return await db.getNewestFull(matches, limit, localBacktestTimeFromId);
+  } catch (e) {
+    handleError(
+      `Catch error in get recent full ${(e as Error).message}`,
       DBCredentials.store
     );
     return [];
@@ -127,17 +148,7 @@ export const getHedgeAll = async (): Promise<StoreHedgeBacktest[]> => {
 export const getHedgeAllFull = async (): Promise<StoreHedgeBacktest[]> => {
   try {
     const db = await initHedgeDb();
-    const all = await db.getAll();
-    const fullEntries: StoreHedgeBacktest[] = [];
-    for (const entry of all) {
-      try {
-        const full = await db.getById(entry.id, true);
-        fullEntries.push((full as StoreHedgeBacktest) ?? entry);
-      } catch {
-        fullEntries.push(entry);
-      }
-    }
-    return fullEntries;
+    return await db.getAllFull();
   } catch (e) {
     handleError(
       `Catch error in hedge get all full ${(e as Error).message}`,

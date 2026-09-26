@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BACKTEST_DB_UPDATED_EVENT } from '@/constants/backtest';
 import { logger } from '@/lib/loggerInstance';
 import type { GRIDBacktestingResultHistory, StoreBacktest } from '@/types';
-import { getAllFull as getLocalBacktests } from '@/utils/backtest/db';
+import { getRecentFull, LOCAL_BACKTEST_LIST_LIMIT } from '@/utils/backtest/db';
 
 const parseTimeFromId = (id: string): number | undefined => {
   const match = id.match(/(\d+)$/);
@@ -66,9 +66,11 @@ export function useLocalGridBacktests() {
     setIsLoading(true);
     setError(null);
     try {
-      const all = await getLocalBacktests();
-      const filtered = all
-        .filter((entry) => (entry.type || '').toLowerCase() === 'grid')
+      const recent = await getRecentFull(
+        (entry) => (entry.type || '').toLowerCase() === 'grid',
+        LOCAL_BACKTEST_LIST_LIMIT
+      );
+      const filtered = recent
         .map(mapStoreEntryToHistory)
         .filter((v): v is GRIDBacktestingResultHistory => !!v)
         .sort((a, b) => (b.time || 0) - (a.time || 0));

@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.66.3] - 2026-09-26
+
+### Fixed
+
+- The bot create and edit pages no longer load every backtest ever stored in
+  the browser. They now read only the 50 most recent of that bot type, the
+  same number the server list shows. Each stored backtest keeps its full
+  result, including a data point per candle, so a long backtest history could
+  freeze the page or crash the tab with "Out of memory".
+
 ## [2.66.2] - 2026-09-26
 
 ### Fixed

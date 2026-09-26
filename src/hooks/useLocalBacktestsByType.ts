@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BACKTEST_DB_UPDATED_EVENT } from '@/constants/backtest';
 import { logger } from '@/lib/loggerInstance';
 import type { DCABacktestingResultHistory, StoreBacktest } from '@/types';
-import { getAllFull as getLocalBacktests } from '@/utils/backtest/db';
+import { getRecentFull, LOCAL_BACKTEST_LIST_LIMIT } from '@/utils/backtest/db';
 
 export type LocalBacktestEntryType = 'DCA' | 'Combo' | 'Grid';
 
@@ -94,9 +94,11 @@ export function useLocalBacktestsByType(type: LocalBacktestEntryType) {
     setIsLoading(true);
     setError(null);
     try {
-      const all = await getLocalBacktests();
-      const filtered = all
-        .filter((entry) => normalizeEntryType(entry.type) === type)
+      const recent = await getRecentFull(
+        (entry) => normalizeEntryType(entry.type) === type,
+        LOCAL_BACKTEST_LIST_LIMIT
+      );
+      const filtered = recent
         .map(mapStoreEntryToHistory)
         .filter((v): v is DCABacktestingResultHistory => !!v)
         .sort((a, b) => (b.time || 0) - (a.time || 0));

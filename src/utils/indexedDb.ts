@@ -125,6 +125,73 @@ class DB<T extends Record<string, unknown>> {
     }
   }
 
+  // Every entry WITH its `data` payload, read in one transaction.
+  public async getAllFull(): Promise<T[]> {
+    try {
+      const db = await this.initDb();
+      if (!db || !this.DBCredentials) {
+        throw new Error(`DB not found`);
+      }
+      const tx = db.transaction(this.DBCredentials.store, 'readonly');
+      tx.onerror = (event) => {
+        this.handleError(
+          // @ts-ignore
+          `TX get all full error ${event.target?.error}.`
+        );
+      };
+      const objectStore = tx.objectStore(this.DBCredentials.store);
+      const result = (await objectStore.getAll()) as T[] | null;
+      await tx.done;
+      db.close();
+      return result ?? [];
+    } catch (e) {
+      this.handleError(`Catch error in get all full ${(e as Error).message}`);
+      return [];
+    }
+  }
+
+  // The `limit` newest entries (by `keyTime`) that satisfy `matches`, WITH
+  // their `data` payload. Only the keys are read up front; values are read
+  // one at a time, newest first, so memory holds at most `limit` payloads
+  // however many entries the store has accumulated.
+  public async getNewestFull(
+    matches: (entry: T) => boolean,
+    limit: number,
+    keyTime: (key: string) => number
+  ): Promise<T[]> {
+    try {
+      const db = await this.initDb();
+      if (!db || !this.DBCredentials) {
+        throw new Error(`DB not found`);
+      }
+      const tx = db.transaction(this.DBCredentials.store, 'readonly');
+      tx.onerror = (event) => {
+        this.handleError(
+          // @ts-ignore
+          `TX get newest error ${event.target?.error}.`
+        );
+      };
+      const objectStore = tx.objectStore(this.DBCredentials.store);
+      const keys = (await objectStore.getAllKeys()) as StoreKey<
+        T,
+        StoreNames<T>
+      >[];
+      keys.sort((a, b) => keyTime(`${b}`) - keyTime(`${a}`));
+      const result: T[] = [];
+      for (const key of keys) {
+        if (result.length >= limit) break;
+        const entry = (await objectStore.get(key)) as T | undefined;
+        if (entry && matches(entry)) result.push(entry);
+      }
+      await tx.done;
+      db.close();
+      return result;
+    } catch (e) {
+      this.handleError(`Catch error in get newest ${(e as Error).message}`);
+      return [];
+    }
+  }
+
   public async getById(
     id: StoreKey<T, StoreNames<T>>,
     full = false
