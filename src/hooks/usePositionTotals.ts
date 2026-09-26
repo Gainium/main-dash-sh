@@ -107,15 +107,44 @@ export interface PositionTotals {
 
 const QUERY_OPTS = { staleTime: 30_000, retry: 1 } as const;
 
+/**
+ * Does this backend have the new fields? Probed ONCE per session with the DCA
+ * query (cached forever): an older backend answers every new-field document
+ * with a validation error, and without the probe each scope's query — on the
+ * balance card and every sidebar panel — would fail (and retry) separately.
+ */
+function useFieldSupport() {
+  const probeOpts = { staleTime: Infinity, gcTime: Infinity, retry: false };
+  const inPos = useGraphQL<InPositionsResponse>(
+    'inPositions:dca',
+    inPositionsQuery('dca'),
+    probeOpts
+  );
+  const net = useGraphQL<DealStatsResponse>(
+    'dcaDealDashboardStats:net',
+    netUnrealizedQuery('dca'),
+    probeOpts
+  );
+  return {
+    inPositions: inPos.isError ? false : inPos.data ? true : undefined,
+    net: net.isError ? false : net.data ? true : undefined,
+  };
+}
+
 function useScopeTotals(
   scope: PositionTotalsScope,
   wantPositions: boolean,
-  wantPnl: boolean
+  wantPnl: boolean,
+  support: { inPositions?: boolean; net?: boolean }
 ) {
   const inPos = useGraphQL<InPositionsResponse>(
     `inPositions:${scope}`,
     inPositionsQuery(scope),
-    { ...QUERY_OPTS, enabled: wantPositions }
+    {
+      ...QUERY_OPTS,
+      retry: false,
+      enabled: wantPositions && (scope === 'dca' || support.inPositions === true),
+    }
   );
   const enabled = wantPnl;
   const hasDealStats = scope !== 'grid' && wantPnl;
@@ -128,9 +157,14 @@ function useScopeTotals(
   const net = useGraphQL<DealStatsResponse>(
     `${dealStatsKey}:net`,
     netUnrealizedQuery(scope),
-    { ...QUERY_OPTS, enabled: enabled && hasDealStats }
+    {
+      ...QUERY_OPTS,
+      retry: false,
+      enabled:
+        enabled && hasDealStats && (scope === 'dca' || support.net === true),
+    }
   );
-  return { inPos, legacy, net, hasDealStats, wantPositions };
+  return { inPos, legacy, net, hasDealStats, wantPositions, support };
 }
 
 /**
@@ -144,15 +178,27 @@ export function usePositionTotals(scopes: {
 }): PositionTotals {
   const p = (s: PositionTotalsScope) => scopes.positions.includes(s);
   const u = (s: PositionTotalsScope) => scopes.pnl.includes(s);
-  const dca = useScopeTotals('dca', p('dca'), u('dca'));
-  const terminal = useScopeTotals('terminal', p('terminal'), u('terminal'));
-  const combo = useScopeTotals('combo', p('combo'), u('combo'));
-  const grid = useScopeTotals('grid', p('grid'), u('grid'));
-  const hedgeDca = useScopeTotals('hedgeDca', p('hedgeDca'), u('hedgeDca'));
+  const support = useFieldSupport();
+  const dca = useScopeTotals('dca', p('dca'), u('dca'), support);
+  const terminal = useScopeTotals(
+    'terminal',
+    p('terminal'),
+    u('terminal'),
+    support
+  );
+  const combo = useScopeTotals('combo', p('combo'), u('combo'), support);
+  const grid = useScopeTotals('grid', p('grid'), u('grid'), support);
+  const hedgeDca = useScopeTotals(
+    'hedgeDca',
+    p('hedgeDca'),
+    u('hedgeDca'),
+    support
+  );
   const hedgeCombo = useScopeTotals(
     'hedgeCombo',
     p('hedgeCombo'),
-    u('hedgeCombo')
+    u('hedgeCombo'),
+    support
   );
 
   const all = { dca, terminal, combo, grid, hedgeDca, hedgeCombo };
@@ -173,7 +219,9 @@ export function usePositionTotals(scopes: {
       if (!t) continue;
 
       // In positions
-      if (t.wantPositions && inPositionsUsd !== null) {
+      if (t.wantPositions && t.support.inPositions === false) {
+        inPositionsUsd = null;
+      } else if (t.wantPositions && inPositionsUsd !== null) {
         const res = t.inPos.data;
         const value =
           res?.status === StatusEnum.ok
@@ -253,5 +301,7 @@ export function usePositionTotals(scopes: {
     hedgeCombo.inPos.isError,
     hedgeCombo.legacy.data,
     hedgeCombo.net.data,
+    support.inPositions,
+    support.net,
   ]);
 }

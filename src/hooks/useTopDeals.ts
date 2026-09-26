@@ -76,6 +76,9 @@ const isUnknownFieldError = (error: unknown) =>
     error instanceof Error ? error.message : String(error)
   );
 
+/** Set once the backend rejected the net fields: skip the probe from then on. */
+let netFieldsUnsupported = false;
+
 async function fetchTopDeals(
   metric: TopDealsMetric,
   paperContext: boolean,
@@ -146,26 +149,29 @@ async function fetchTopDeals(
   const field = TOP_DEALS_SORT_FIELD[metric];
   const sortModel = toServerSortModel(field, 'desc');
   if (NEEDS_NET_FIELDS.has(metric)) {
-    let serverValuesMissing = false;
-    try {
-      const r = await run({ sortModel, pageSize: limit, withNet: true });
-      // The fields exist but are not written yet (deals the stats worker
-      // has not revisited since the backend gained them): null sorts last,
-      // so a top page with no values means the server could not rank.
-      const statKey = field.replace('stats.', '') as keyof NetStats;
-      const rows = [...r.dca, ...r.combo] as Array<{ stats?: NetStats }>;
-      serverValuesMissing =
-        rows.length > 0 &&
-        rows.every((row) => typeof row.stats?.[statKey] !== 'number');
-      if (!serverValuesMissing) {
-        return {
-          ...r,
-          serverRanked: true,
-          loaded: r.dca.length + r.combo.length,
-        };
+    if (!netFieldsUnsupported) {
+      try {
+        const r = await run({ sortModel, pageSize: limit, withNet: true });
+        // The fields exist but are not written yet (deals the stats worker
+        // has not revisited since the backend gained them): null sorts
+        // last, so a top page with no values means the server could not
+        // rank.
+        const statKey = field.replace('stats.', '') as keyof NetStats;
+        const rows = [...r.dca, ...r.combo] as Array<{ stats?: NetStats }>;
+        const valuesMissing =
+          rows.length > 0 &&
+          rows.every((row) => typeof row.stats?.[statKey] !== 'number');
+        if (!valuesMissing) {
+          return {
+            ...r,
+            serverRanked: true,
+            loaded: r.dca.length + r.combo.length,
+          };
+        }
+      } catch (error) {
+        if (!isUnknownFieldError(error)) throw error;
+        netFieldsUnsupported = true;
       }
-    } catch (error) {
-      if (!isUnknownFieldError(error)) throw error;
     }
     {
       // Backend without (or not yet writing) the fee-inclusive stored
