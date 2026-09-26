@@ -221,6 +221,9 @@ adaptiveClose
     dynamicPriceFilterPriceType
 dynamicPriceFilterDirection
 useRiskReward
+rrSlType
+rrSlFixedValue
+dcaByMarket
 useNoOverlapDeals
   riskSlType
   riskSlAmountPerc
@@ -510,6 +513,9 @@ adaptiveClose
     dynamicPriceFilterPriceType
 dynamicPriceFilterDirection
 useRiskReward
+rrSlType
+rrSlFixedValue
+dcaByMarket
 useNoOverlapDeals
   riskSlType
   riskSlAmountPerc
@@ -971,6 +977,7 @@ baseSlOn
                     useSl
                     useDca
                     useSmartOrders
+                    dcaByMarket
                     activeOrdersCount
                     trailingSl
                     moveSL
@@ -1212,6 +1219,7 @@ baseSlOn
                     useSl
                     useDca
                     useSmartOrders
+                    dcaByMarket
                     activeOrdersCount
                     trailingSl
                     moveSL

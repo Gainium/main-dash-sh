@@ -64,6 +64,14 @@ const formatNumber = (
   return undefined;
 };
 
+/**
+ * The grid form's "Initial purchase price" as the form shows it. Shared with
+ * the save path, which compares against it to tell a user edit from the
+ * rounding done here.
+ */
+export const formatGridInitialPrice = (value: unknown): string | undefined =>
+  formatNumber(value, { precision: 6, allowZero: false });
+
 const formatPercentFromDecimal = (
   value: unknown,
   precision = 2
@@ -302,6 +310,10 @@ export const mapGridBotSettingsToFormData = (
     formData.grid.useOrderInAdvance = useOrderInAdvance;
   }
 
+  if (typeof botSettings['feeOrder'] === 'boolean') {
+    formData.grid.feeOrder = botSettings['feeOrder'];
+  }
+
   if (typeof botSettings['skipBalanceCheck'] === 'boolean') {
     formData.grid.skipBalanceCheck = botSettings['skipBalanceCheck'];
   }
@@ -436,10 +448,9 @@ export const mapGridBotSettingsToFormData = (
     formData.grid.marginType = botSettings['marginType'] as BotMarginTypeEnum;
   }
 
-  const initialPrice = formatNumber(
+  const initialPrice = formatGridInitialPrice(
     botSettings['initialPrice'] ??
-      (options.bot as { initialPrice?: number })?.initialPrice,
-    { precision: 6, allowZero: false }
+      (options.bot as { initialPrice?: number })?.initialPrice
   );
   if (initialPrice !== undefined) {
     formData.initialPrice = initialPrice;

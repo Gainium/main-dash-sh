@@ -25,13 +25,19 @@ interface GridBudgetSettingsProps {
 export const GridBudgetSettings: React.FC<GridBudgetSettingsProps> = ({
   onUpdateBalances,
 }) => {
-  const { formState, quoteAsset } = useGridForm();
+  const { formState, quoteAsset, bot } = useGridForm();
   const { updateFormData, errors, formData, mode } = formState;
   const budget = useBotFormSelector('budget');
   const futures = useBotFormSelector('futures');
   const useOrderInAdvance = useBotFormSelector('useOrderInAdvance');
   const ordersInAdvance = useBotFormSelector('ordersInAdvance');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
+  const feeOrder = useBotFormSelector('feeOrder');
+  // The fee order is placed when the bot starts, so it can't change while
+  // the bot is running.
+  const feeOrderLocked = ['open', 'error', 'range'].includes(
+    `${bot?.status ?? ''}`
+  );
   const handleBudgetChange = (value: number | string) => {
     updateFormData(
       'budget',
@@ -186,6 +192,22 @@ export const GridBudgetSettings: React.FC<GridBudgetSettingsProps> = ({
           />
         }
       />
+
+      {!futures && (
+        <SettingsRow
+          name="Fee Order"
+          tooltip="Reduces dust. The bot will place an additional order when it starts. Those assets will be used to cover grid order fees. This helps reduce dust, especially on a high number of grid transactions."
+          tooltipURL="/help/fee-order-reduce-dust"
+          trailing={
+            <Switch
+              id="grid-fee-order"
+              checked={!!feeOrder}
+              disabled={feeOrderLocked}
+              onCheckedChange={(checked) => updateFormData('feeOrder', checked)}
+            />
+          }
+        />
+      )}
 
       <SettingsRow
         name="Smart orders"

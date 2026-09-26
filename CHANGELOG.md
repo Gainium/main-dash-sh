@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.66.2] - 2026-09-26
+
+### Fixed
+
+- DCA and Combo bots keep their "DCA order type" (Limit/Market) and their
+  Risk:Reward stop-loss type and value when edited. These were not read
+  back, so a bot set to Market DCA orders or to a fixed Risk:Reward stop
+  loss was shown with the defaults and saved with them.
+- Editing a deal keeps its DCA order type, and changes to a deal's DCA order
+  type or close order type are now saved.
+- Grid bots have the "Fee Order" setting again (spot only, and only
+  while the bot is not running). Editing a grid bot no longer switches
+  it back on.
+- A changed initial purchase price on an existing grid bot is now saved.
+
 ## [2.66.1] - 2026-09-26
 
 ### Fixed

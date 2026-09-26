@@ -258,10 +258,6 @@ const KNOWN_NOT_PERSISTED: Record<string, string> = {
  * so they stay visible instead of turning into a silent skip.
  */
 const KNOWN_DRIFT: Record<string, Record<string, string>> = {
-  grid: {
-    feeOrder:
-      'reaches the grid payload but no grid UI sets it; restoring it means deciding whether grid bots carry the setting at all',
-  },
 };
 
 const numericString = (v: string): boolean => v.trim() !== '' && !isNaN(Number(v));

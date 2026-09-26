@@ -26,6 +26,7 @@ import {
   type UpdateDCABotPayload,
 } from '@/mappers/bots/dca/map-form-data-to-payload';
 import { stripUndeclaredUpdateFields } from '@/mappers/bots/dca/update-payload-denylist';
+import { formatGridInitialPrice } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import {
   BotTypesEnum,
   ExchangeIntervals,
@@ -420,6 +421,22 @@ export const useFormHandlers = (
           // DCA and combo branches grid leaves it in place.
           { botType: 'grid', stripPair: false }
         ) as UpdateDCABotPayload;
+        // "Initial purchase price" lives on formData, outside the grid slice
+        // the payload is built from, so it has to be added here. Only when the
+        // user moved it: the form shows it rounded to 6 dp, and sending that
+        // back unchanged would overwrite a more precise stored price.
+        const editedInitialPrice = formatGridInitialPrice(
+          formData.initialPrice
+        );
+        if (
+          editedInitialPrice !== undefined &&
+          editedInitialPrice !== formatGridInitialPrice(
+            (bot as { initialPrice?: number }).initialPrice
+          )
+        ) {
+          (upb as Record<string, unknown>)['initialPrice'] =
+            Number(editedInitialPrice);
+        }
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
           id: bot._id,
