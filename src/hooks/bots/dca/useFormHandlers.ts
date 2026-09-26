@@ -29,6 +29,7 @@ import { stripUndeclaredUpdateFields } from '@/mappers/bots/dca/update-payload-d
 import { formatGridInitialPrice } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import {
   BotTypesEnum,
+  BuyTypeEnum,
   ExchangeIntervals,
   TerminalDealTypeEnum,
   type BotVars,
@@ -95,10 +96,19 @@ export interface BacktestOverrides {
 
 export interface UseFormHandlersReturn {
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
-  handleSave: (e?: React.FormEvent) => Promise<void>;
+  handleSave: (
+    e?: React.FormEvent,
+    gridRebalance?: GridRebalanceChoice
+  ) => Promise<void>;
   handleBacktest: (overrides?: BacktestOverrides) => Promise<void>;
   backtestPending: boolean;
 }
+
+/** How a grid edit covers the balance change its new settings need. */
+export type GridRebalanceChoice = {
+  buyType: BuyTypeEnum;
+  buyAmount?: number;
+};
 
 export const useFormHandlers = (
   formData: BotFormData,
@@ -197,7 +207,10 @@ export const useFormHandlers = (
     return { value: error };
   }, []);
 
-  const handleSave = async (e?: React.FormEvent) => {
+  const handleSave = async (
+    e?: React.FormEvent,
+    gridRebalance?: GridRebalanceChoice
+  ) => {
     e?.preventDefault();
 
     logger.info('[BotForm] Save requested', {
@@ -436,6 +449,11 @@ export const useFormHandlers = (
         ) {
           (upb as Record<string, unknown>)['initialPrice'] =
             Number(editedInitialPrice);
+        }
+        // The user's answer to the rebalance dialog (start dialog in update
+        // mode): how changeBot covers the balance the new settings need.
+        if (gridRebalance) {
+          Object.assign(upb as Record<string, unknown>, gridRebalance);
         }
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({

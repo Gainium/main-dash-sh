@@ -1,4 +1,6 @@
 import { motion } from 'framer-motion';
+import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog';
+import { gridEditNeedsRebalance } from '@/utils/bots/grid/rebalance-on-edit';
 import {
   Archive,
   ArchiveRestore,
@@ -122,6 +124,8 @@ import {
   TerminalDealTypeEnum,
   type BacktestingSettings,
   type BacktestProgress,
+  type Bot,
+  BuyTypeEnum,
   type BotChartData,
   type BotVars,
   type DCABacktestingInput,
@@ -2019,6 +2023,8 @@ const BotForm: React.FC<BotFormProps> = ({
 
 
   const [showRestartDialog, setShowRestartDialog] = useState(false);
+  const [showGridRebalanceDialog, setShowGridRebalanceDialog] =
+    useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   /* const [showSmartOrderMergeDialog, setShowSmartOrderMergeDialog] =
     useState(false);
@@ -2808,17 +2814,46 @@ const BotForm: React.FC<BotFormProps> = ({
   }, [shouldWarnRestart, botStatus]);
 
   const handleSubmit = useCallback(() => {
+    // Legacy parity: when the edited grid needs different balances than the
+    // bot holds, ask how to cover the difference first (start dialog in
+    // update mode). Its answer rides on the changeBot call, so the restart
+    // confirmation is not asked on top of it.
+    if (
+      shouldWarnRestart &&
+      bot &&
+      gridEditNeedsRebalance(formData, bot as unknown as Bot)
+    ) {
+      setShowGridRebalanceDialog(true);
+      return;
+    }
     if (requiresActiveRestartConfirmation) {
       setShowRestartDialog(true);
       return;
     }
 
     void handleSave();
-  }, [requiresActiveRestartConfirmation, handleSave]);
+  }, [
+    requiresActiveRestartConfirmation,
+    handleSave,
+    shouldWarnRestart,
+    bot,
+    formData,
+  ]);
 
   const resumeSaveAfterConfirmation = useCallback(() => {
     void handleSave();
   }, [handleSave]);
+
+  const handleGridRebalanceConfirm = useCallback(
+    (buyType: BuyTypeEnum, _buyCount?: string, buyAmount?: number) => {
+      setShowGridRebalanceDialog(false);
+      void handleSave(undefined, {
+        buyType,
+        ...(typeof buyAmount === 'number' ? { buyAmount } : {}),
+      });
+    },
+    [handleSave]
+  );
 
   useEffect(() => {
     if (!shouldWarnRestart && showRestartDialog) {
@@ -3922,6 +3957,15 @@ const BotForm: React.FC<BotFormProps> = ({
         cancelText="Cancel"
         onConfirm={resumeSaveAfterConfirmation}
       />
+      {isGridBot && mode === 'edit' && (
+        <GridStartBotDialog
+          update
+          open={showGridRebalanceDialog}
+          onOpenChange={setShowGridRebalanceDialog}
+          onConfirm={handleGridRebalanceConfirm}
+          isProcessing={submitIsPending}
+        />
+      )}
       <ConfirmationDialog
         open={showResetConfirm}
         onOpenChange={setShowResetConfirm}
@@ -4343,6 +4387,15 @@ const BotForm: React.FC<BotFormProps> = ({
         cancelText="Cancel"
         onConfirm={resumeSaveAfterConfirmation}
       />
+      {isGridBot && mode === 'edit' && (
+        <GridStartBotDialog
+          update
+          open={showGridRebalanceDialog}
+          onOpenChange={setShowGridRebalanceDialog}
+          onConfirm={handleGridRebalanceConfirm}
+          isProcessing={submitIsPending}
+        />
+      )}
       <ConfirmationDialog
         open={showResetConfirm}
         onOpenChange={setShowResetConfirm}
