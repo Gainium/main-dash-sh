@@ -150,44 +150,23 @@ class DB<T extends Record<string, unknown>> {
     }
   }
 
-  // The `limit` newest entries (by `keyTime`) that satisfy `matches`, WITH
-  // their `data` payload. Only the keys are read up front; values are read
-  // one at a time, newest first, so memory holds at most `limit` payloads
-  // however many entries the store has accumulated.
-  public async getNewestFull(
-    matches: (entry: T) => boolean,
-    limit: number,
-    keyTime: (key: string) => number
-  ): Promise<T[]> {
+  // Every primary key, without reading any value. Values here can be
+  // megabytes each; reading keys lets a caller decide which few to load.
+  public async getAllKeys(): Promise<StoreKey<T, StoreNames<T>>[]> {
     try {
       const db = await this.initDb();
       if (!db || !this.DBCredentials) {
         throw new Error(`DB not found`);
       }
       const tx = db.transaction(this.DBCredentials.store, 'readonly');
-      tx.onerror = (event) => {
-        this.handleError(
-          // @ts-ignore
-          `TX get newest error ${event.target?.error}.`
-        );
-      };
-      const objectStore = tx.objectStore(this.DBCredentials.store);
-      const keys = (await objectStore.getAllKeys()) as StoreKey<
-        T,
-        StoreNames<T>
-      >[];
-      keys.sort((a, b) => keyTime(`${b}`) - keyTime(`${a}`));
-      const result: T[] = [];
-      for (const key of keys) {
-        if (result.length >= limit) break;
-        const entry = (await objectStore.get(key)) as T | undefined;
-        if (entry && matches(entry)) result.push(entry);
-      }
+      const keys = (await tx
+        .objectStore(this.DBCredentials.store)
+        .getAllKeys()) as StoreKey<T, StoreNames<T>>[];
       await tx.done;
       db.close();
-      return result;
+      return keys;
     } catch (e) {
-      this.handleError(`Catch error in get newest ${(e as Error).message}`);
+      this.handleError(`Catch error in get all keys ${(e as Error).message}`);
       return [];
     }
   }
@@ -217,6 +196,45 @@ class DB<T extends Record<string, unknown>> {
     } catch (e) {
       this.handleError(`Catch error in get by id ${(e as Error).message}`);
       return null;
+    }
+  }
+
+  // Delete one entry without re-reading the rest of the store (removeId
+  // returns every remaining entry, which reads all of their values).
+  public async deleteKey(id: StoreKey<T, StoreNames<T>>): Promise<boolean> {
+    try {
+      const db = await this.initDb();
+      if (!db || !this.DBCredentials) {
+        throw new Error(`DB not found`);
+      }
+      const tx = db.transaction(this.DBCredentials.store, 'readwrite');
+      await tx.objectStore(this.DBCredentials.store).delete(id);
+      await tx.done;
+      db.close();
+      return true;
+    } catch (e) {
+      this.handleError(
+        `Catch error in delete key ${(e as Error).message}. ID: ${id}`
+      );
+      return false;
+    }
+  }
+
+  // Empty the store without reading it.
+  public async clear(): Promise<boolean> {
+    try {
+      const db = await this.initDb();
+      if (!db || !this.DBCredentials) {
+        throw new Error(`DB not found`);
+      }
+      const tx = db.transaction(this.DBCredentials.store, 'readwrite');
+      await tx.objectStore(this.DBCredentials.store).clear();
+      await tx.done;
+      db.close();
+      return true;
+    } catch (e) {
+      this.handleError(`Catch error in clear ${(e as Error).message}`);
+      return false;
     }
   }
 

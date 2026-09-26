@@ -915,6 +915,9 @@ export type DCABacktestingResultHistory = DCABacktestingResultShort & {
   sent?: boolean;
   config?: BacktestingSettings;
   note?: string;
+  /** Local rows only: this browser holds the full result (deals, charts),
+   *  loaded on open. List rows never carry it. */
+  hasLocalDetails?: boolean;
 };
 
 //TODO: install github:Gainium/backtester
@@ -1033,6 +1036,8 @@ export type GRIDBacktestingResultHistory = GRIDBacktestingResultShort & {
   sent?: boolean;
   config?: BacktestingSettings;
   note?: string;
+  /** See DCABacktestingResultHistory.hasLocalDetails. */
+  hasLocalDetails?: boolean;
 };
 
 export type UserNotifications = {

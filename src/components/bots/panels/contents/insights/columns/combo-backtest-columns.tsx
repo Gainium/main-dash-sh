@@ -111,7 +111,7 @@ export function buildComboBacktestColumns(
     header: 'Name',
     meta: { filterType: 'string' },
     cell: ({ row }) => {
-      const hasLocalData = (row.original.deals?.length ?? 0) > 0;
+      const hasLocalData = !!row.original.hasLocalDetails;
       return (
         <div className="font-medium inline-flex items-center gap-1">
           <span>{row.original.settings?.name || ''}</span>
@@ -501,7 +501,7 @@ export function buildComboBacktestColumns(
       const backtest = row.original;
       // Only locally-stored backtests (full payload hydrated in IndexedDB,
       // same signal as the Database icon on the Name column) can be exported.
-      const canExport = (backtest.deals?.length ?? 0) > 0;
+      const canExport = !!backtest.hasLocalDetails;
       // A row kept only in this browser has no server copy to share.
       const stored = isStoredBacktest(backtest);
       return (

@@ -2,73 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { BACKTEST_DB_UPDATED_EVENT } from '@/constants/backtest';
 import { logger } from '@/lib/loggerInstance';
-import type { DCABacktestingResultHistory, StoreBacktest } from '@/types';
-import { getRecentFull, LOCAL_BACKTEST_LIST_LIMIT } from '@/utils/backtest/db';
+import type { DCABacktestingResultHistory } from '@/types';
+import {
+  listLocalBacktestSummaries,
+  LOCAL_BACKTEST_LIST_LIMIT,
+} from '@/utils/backtest/db';
+import { localSummaryToHistory } from '@/utils/backtest/localRows';
 
 export type LocalBacktestEntryType = 'DCA' | 'Combo' | 'Grid';
-
-const parseTimeFromId = (id: string): number | undefined => {
-  // Legacy ids are typically `${symbol}-${timestamp}` where symbol may contain '-'.
-  // Extract trailing digits safely.
-  const match = id.match(/(\d+)$/);
-  if (!match) return undefined;
-  const parsed = Number(match[1]);
-  return Number.isFinite(parsed) ? parsed : undefined;
-};
-
-const safeParseJson = (value: string): unknown => {
-  try {
-    return JSON.parse(value);
-  } catch {
-    return null;
-  }
-};
-
-const mapStoreEntryToHistory = (
-  entry: StoreBacktest
-): DCABacktestingResultHistory | null => {
-  const parsed =
-    typeof entry.data === 'string' ? safeParseJson(entry.data) : null;
-  const base = (
-    parsed && typeof parsed === 'object'
-      ? (parsed as Record<string, unknown>)
-      : {}
-  ) as Record<string, unknown>;
-
-  const time =
-    (base['time'] as number | undefined) ??
-    parseTimeFromId(entry.id) ??
-    Date.now();
-
-  // Build a best-effort history object.
-  // NOTE: Older local entries may not include full history metadata (settings, exchangeUUID, etc).
-  // We backfill from StoreBacktest meta where possible, and then cast.
-  const history: Record<string, unknown> = {
-    ...base,
-    _id: (base['_id'] as string | undefined) ?? entry.id,
-    time,
-    exchange: (base['exchange'] as unknown) ?? entry.exchange,
-    exchangeUUID: (base['exchangeUUID'] as string | undefined) ?? '',
-    symbol: (base['symbol'] as string | undefined) ?? entry.symbol,
-    baseAsset: (base['baseAsset'] as string | undefined) ?? entry.baseAsset,
-    quoteAsset: (base['quoteAsset'] as string | undefined) ?? entry.quoteAsset,
-    userId: (base['userId'] as string | undefined) ?? 'local',
-    savePermanent: (base['savePermanent'] as boolean | undefined) ?? false,
-    serverSide: (base['serverSide'] as boolean | undefined) ?? false,
-  };
-
-  // Ensure we keep config when stored as { ...result, config }
-  if (!('config' in history) && base['config']) {
-    history['config'] = base['config'];
-  }
-
-  // If there is no financial block, this is probably not a valid backtest payload.
-  if (!history['financial']) {
-    return null;
-  }
-
-  return history as unknown as DCABacktestingResultHistory;
-};
 
 const normalizeEntryType = (
   raw: string | undefined
@@ -94,12 +35,16 @@ export function useLocalBacktestsByType(type: LocalBacktestEntryType) {
     setIsLoading(true);
     setError(null);
     try {
-      const recent = await getRecentFull(
-        (entry) => normalizeEntryType(entry.type) === type,
-        LOCAL_BACKTEST_LIST_LIMIT
-      );
+      // Summaries only: rows carry the list fields, not the engine result.
+      // Opening a row loads its payload (loadLocalBacktestHistory).
+      const recent = await listLocalBacktestSummaries('backtest', {
+        matches: (summary) => normalizeEntryType(summary.type) === type,
+        limit: LOCAL_BACKTEST_LIST_LIMIT,
+      });
       const filtered = recent
-        .map(mapStoreEntryToHistory)
+        .map((summary) =>
+          localSummaryToHistory<DCABacktestingResultHistory>(summary)
+        )
         .filter((v): v is DCABacktestingResultHistory => !!v)
         .sort((a, b) => (b.time || 0) - (a.time || 0));
 

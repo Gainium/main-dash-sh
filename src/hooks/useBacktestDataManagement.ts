@@ -9,8 +9,8 @@ import { dispatchBacktestDbEvent } from '@/constants/backtest';
 import type { BacktestData } from './useBacktests';
 import { useGraphQL } from './useGraphQL';
 import {
-  getAllFull as getAllLocalBacktestsFromDB,
   getById as getLocalBacktestById,
+  listLocalBacktestSummaries,
   removeId as removeBacktestIdFromDB,
   save as saveBacktestInDB,
 } from '@/utils/backtest/db';
@@ -107,35 +107,17 @@ export function useDeleteBacktests() {
       return resolvedIds;
     }
 
-    const localEntries = await getAllLocalBacktestsFromDB();
+    // Local entries are keyed by the server id, so the targets match them
+    // directly; older entries may carry the server id only inside the
+    // payload, which the list summaries hold (no payload is read here).
+    const summaries = await listLocalBacktestSummaries('backtest', {
+      backfill: false,
+    });
 
-    for (const entry of localEntries) {
-      if (normalizedTargets.has(entry.id)) {
-        resolvedIds.add(entry.id);
-        continue;
-      }
-
-      if (!entry.data) {
-        continue;
-      }
-
-      try {
-        const parsed = JSON.parse(entry.data) as {
-          _id?: unknown;
-          id?: unknown;
-        };
-        const remoteId =
-          parsed._id !== undefined
-            ? `${parsed._id}`
-            : parsed.id !== undefined
-              ? `${parsed.id}`
-              : null;
-
-        if (remoteId && normalizedTargets.has(remoteId)) {
-          resolvedIds.add(entry.id);
-        }
-      } catch {
-        // Ignore malformed local payloads; continue with known ids.
+    for (const summary of summaries) {
+      const remoteId = summary.row?.['_id'];
+      if (remoteId !== undefined && normalizedTargets.has(`${remoteId}`)) {
+        resolvedIds.add(summary.id);
       }
     }
 

@@ -49,6 +49,7 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
 import type { DCABacktestingResultHistory, DCABotSettings } from '@/types';
+import { loadLocalBacktestHistory } from '@/utils/backtest/localRows';
 import { removePaperPrefix } from '@/utils/exchangeUtils';
 import type { ColumnDef } from '@tanstack/react-table';
 import { Download, Trash2 } from 'lucide-react';
@@ -229,19 +230,43 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     error: rowsError,
   } = descriptor.useList();
 
+  // List rows carry only the list fields. When a backtest is opened, merge in
+  // its full local result (deals, equity curves, …) if this browser has one.
+  // Only applies while that backtest is still the selected one.
+  const hydrateFromLocal = useCallback(async (backtest: TResult) => {
+    let full: Partial<TResult> | null = null;
+    try {
+      full = await loadLocalBacktestHistory<Partial<TResult>>(backtest._id);
+    } catch (error) {
+      logger.debug('[BotBacktestPanel] Could not read local backtest', {
+        id: backtest._id,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+    if (!full) return false;
+    const details = full;
+    setSelectedBacktest((current) =>
+      current && current._id === backtest._id
+        ? ({ ...current, ...details } as TResult)
+        : current
+    );
+    return true;
+  }, []);
+
   // Auto-select a newly completed backtest when it appears in the list
   useEffect(() => {
     if (!pendingBacktestId) return;
     const found = rows.find((b) => b._id === pendingBacktestId);
     if (found) {
       setSelectedBacktest(found);
+      void hydrateFromLocal(found);
       setResultsModalOpen(true);
       setPendingBacktestId(null);
       logger.info('[BotBacktestPanel] Auto-selected completed backtest', {
         id: pendingBacktestId,
       });
     }
-  }, [rows, pendingBacktestId]);
+  }, [rows, pendingBacktestId, hydrateFromLocal]);
 
   // Public share viewer: when the URL carries `?backtestShare=<id>` we
   // fetch the shared backtest by share id and hydrate it as the active
@@ -258,6 +283,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     const local = rows.find((b) => b.shareId === backtestShareId);
     if (local) {
       setSelectedBacktest(local);
+      void hydrateFromLocal(local);
       onActiveInsightsTabChange('bt-overview');
       return;
     }
@@ -309,6 +335,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     shareLookupAttempted,
     onActiveInsightsTabChange,
     descriptor,
+    hydrateFromLocal,
   ]);
 
   // Callback fired by BotForm when a local backtest finishes and is persisted
@@ -426,6 +453,8 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
         );
       }
       setSelectedBacktest(backtest);
+      // The details just landed in the local store; show them.
+      void hydrateFromLocal(backtest);
       // Results live in the full-screen modal on every page. The inline
       // `bt-overview` tab this used to switch to on create pages no longer
       // exists, so switching to it left the panel blank.
@@ -433,7 +462,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     },
     // Stable mutate handle, not the mutation object — see handleExportBacktests.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [loadBacktestDetailsMutation.mutateAsync]
+    [loadBacktestDetailsMutation.mutateAsync, hydrateFromLocal]
   );
 
   const handleImportAsPaper = useCallback(
@@ -565,40 +594,29 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   const handleBacktestSelect = useCallback(
     (backtest: TResult) => {
       setSelectedBacktest(backtest);
-      // Open the full-screen results modal (deals hydrate below, the modal's
-      // view model rebuilds reactively once they arrive).
+      // Open the full-screen results modal right away; the details merge in
+      // below and the modal's view model rebuilds once they arrive.
       setResultsModalOpen(true);
 
-      if ((backtest.deals?.length ?? 0) === 0) {
-        void loadBacktestDetailsMutation
-          .mutateAsync({ id: backtest._id })
-          .catch((error) => {
-            logger.debug('[BotBacktestPanel] Could not hydrate backtest deals', {
-              id: backtest._id,
-              error: error instanceof Error ? error.message : String(error),
-            });
+      void (async () => {
+        if (await hydrateFromLocal(backtest)) return;
+        if ((backtest.deals?.length ?? 0) > 0) return;
+        // No local copy: fetch the details (stored locally), then show them.
+        try {
+          await loadBacktestDetailsMutation.mutateAsync({ id: backtest._id });
+          await hydrateFromLocal(backtest);
+        } catch (error) {
+          logger.debug('[BotBacktestPanel] Could not hydrate backtest deals', {
+            id: backtest._id,
+            error: error instanceof Error ? error.message : String(error),
           });
-      }
+        }
+      })();
     },
     // Stable mutate handle, not the mutation object — see handleExportBacktests.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [loadBacktestDetailsMutation.mutateAsync]
+    [loadBacktestDetailsMutation.mutateAsync, hydrateFromLocal]
   );
-
-  useEffect(() => {
-    if (!selectedBacktest) return;
-    if ((selectedBacktest.deals?.length ?? 0) > 0) return;
-
-    const hydratedBacktest = rows.find(
-      (backtest) =>
-        backtest._id === selectedBacktest._id &&
-        (backtest.deals?.length ?? 0) > 0
-    );
-
-    if (hydratedBacktest) {
-      setSelectedBacktest(hydratedBacktest);
-    }
-  }, [rows, selectedBacktest]);
 
   const insightsTabs = useMemo<BotPanelInsightsTab[]>(() => {
     // Define bulk actions for the backtest table
