@@ -13,6 +13,7 @@ interface ExchangeData {
   balance?: number | undefined;
   status?: boolean | undefined;
   rotationRequired?: boolean | undefined;
+  linkedTo?: string | null | undefined;
 }
 
 // Transformed exchange for UI consumption
@@ -28,6 +29,11 @@ export interface UIExchange {
   color?: string;
   /** Still on a credential the operator has asked the user to replace. */
   rotationRequired: boolean;
+  /**
+   * The connection whose wallet this one reads (a unified account's other
+   * market legs). Its `balance` IS that wallet, so it is never summed again.
+   */
+  linkedTo?: string;
 }
 
 /**
@@ -59,8 +65,10 @@ export function useTransformedExchanges() {
       provider: 'all',
       icon: getProviderIcon('all'),
       type: 'aggregate' as const,
+      // A linked leg's `balance` is its source's wallet: count it once.
       balance: exchangesData.reduce(
-        (sum: number, ex: ExchangeData) => sum + (ex.balance || 0),
+        (sum: number, ex: ExchangeData) =>
+          ex.linkedTo ? sum : sum + (ex.balance || 0),
         0
       ),
       status: true,
@@ -80,6 +88,7 @@ export function useTransformedExchanges() {
         balance: exchange.balance ?? undefined,
         status: exchange.status ?? false,
         rotationRequired: exchange.rotationRequired ?? false,
+        linkedTo: exchange.linkedTo || undefined,
       })
     );
 

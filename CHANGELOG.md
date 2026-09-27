@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.8] - 2026-09-27
+
+### Fixed
+
+- Portfolio: the market connections of one unified account (Hyperliquid unified, Bitget UTA, Bybit / OKX unified) show as a single box in My Accounts with the shared wallet balance once; "All Exchanges" and the Futures card total no longer add that wallet again for every leg
+
 ## [2.67.7] - 2026-09-26
 
 ### Fixed

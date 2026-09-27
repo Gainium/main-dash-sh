@@ -8,9 +8,21 @@ import { Button } from '../ui/button';
 import Widget from '../ui/widget';
 import ExchangeIcon from '../widgets/shared/ExchangeIcon';
 import { RotationChip } from '../ui/chip/RotationChip';
+import { formatExchangeProvider } from '@/utils/exchangeUtils';
 
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import type { ExchangeInUser } from '../../types/exchange.types';
+import type { UIExchange } from '@/hooks/useTransformedExchanges';
+
+/** "Bitget Main (Linear)" → "Bitget Main": the account behind its legs. */
+const groupName = (name: string) =>
+  name.replace(/\s*\([^)]*\)\s*$/, '') || name;
+
+/** "Bitget Main (Linear)" → "Linear": the market, inside its account box. */
+const legName = (exchange: UIExchange) =>
+  exchange.name.match(/\(([^)]+)\)\s*$/)?.[1] ??
+  formatExchangeProvider(exchange.provider).split('\n')[1] ??
+  exchange.name;
 
 interface AccountsPanelProps {
   settingsDialog: {
@@ -82,23 +94,25 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
   // Track per-exchange loading state for refresh buttons
   const [loadingUuids, setLoadingUuids] = React.useState<string[]>([]);
 
-  const handleExchangeSelect = (exchangeId: string) => {
-    if (exchangeId === 'ALL') {
+  const handleExchangeSelect = (exchangeIds: string[]) => {
+    if (exchangeIds.includes('ALL')) {
       setSelectedExchanges(['ALL']);
       return;
     }
 
-    // Toggle selection
-    if (selectedExchanges.includes(exchangeId)) {
-      const next = selectedExchanges.filter((e) => e !== exchangeId);
+    // Toggle selection — a unified account's legs toggle together
+    if (exchangeIds.every((id) => selectedExchanges.includes(id))) {
+      const next = selectedExchanges.filter((e) => !exchangeIds.includes(e));
       if (next.length === 0) {
         setSelectedExchanges(['ALL']);
       } else {
         setSelectedExchanges(next);
       }
     } else {
-      const next = selectedExchanges.filter((e) => e !== 'ALL');
-      setSelectedExchanges([...next, exchangeId]);
+      const next = selectedExchanges.filter(
+        (e) => e !== 'ALL' && !exchangeIds.includes(e)
+      );
+      setSelectedExchanges([...next, ...exchangeIds]);
     }
   };
 
@@ -174,6 +188,232 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
     } finally {
       setLoadingUuids((prev) => prev.filter((u) => u !== 'ALL'));
     }
+  };
+
+  // A unified account's market legs (`linkedTo` their spot leg) are one
+  // wallet: the backend reports that wallet as every leg's balance, so they
+  // are shown as one box with the balance once, the legs listed inside.
+  const groups = React.useMemo(() => {
+    const ids = new Set(exchanges.map((e) => e.id));
+    const legsOf = new Map<string, UIExchange[]>();
+    for (const e of exchanges) {
+      if (e.linkedTo && ids.has(e.linkedTo)) {
+        legsOf.set(e.linkedTo, [...(legsOf.get(e.linkedTo) ?? []), e]);
+      }
+    }
+    return exchanges
+      .filter((e) => !(e.linkedTo && ids.has(e.linkedTo)))
+      .map((head) => ({ head, legs: legsOf.get(head.id) ?? [] }));
+  }, [exchanges]);
+
+  const renderRow = (
+    exchange: UIExchange,
+    {
+      selectIds,
+      refreshTarget,
+      showBalance,
+      showActions,
+      leg = false,
+      unified = false,
+      label,
+      keySuffix = '',
+    }: {
+      selectIds: string[];
+      refreshTarget: UIExchange;
+      showBalance: boolean;
+      showActions: boolean;
+      leg?: boolean;
+      unified?: boolean;
+      label?: string;
+      keySuffix?: string;
+    }
+  ) => {
+    const isSelected = selectIds.every((id) => selectedExchanges.includes(id));
+    const isMuted = isFiltering && !isSelected;
+    return (
+      <div
+        key={exchange.id + keySuffix}
+        data-testid={leg ? 'account-leg-row' : 'account-row'}
+        data-muted={isMuted ? 'true' : 'false'}
+        aria-pressed={isFiltering && !leg ? isSelected : undefined}
+        className={`group ${leg ? 'px-xs py-1' : 'p-xs'} rounded-lg cursor-pointer transition-colors ${
+          isFiltering && isSelected
+            ? 'bg-primary/10'
+            : isSelected
+              ? 'bg-inner-container'
+              : 'hover:bg-card/50'
+        } ${isMuted ? 'opacity-50 hover:opacity-100' : ''}`}
+        onClick={() => handleExchangeSelect(selectIds)}
+      >
+        <div className="flex items-center justify-between relative">
+          <div className="flex items-center gap-xs min-w-0 flex-1">
+            <div
+              className={`${leg ? 'text-xs text-muted-foreground pl-5' : 'text-xs sm:text-sm font-medium'} flex items-center gap-xs min-w-0`}
+            >
+              {!leg && (
+                <span className="shrink-0">
+                  {isFiltering && isSelected ? (
+                    <Check
+                      data-selected-check
+                      aria-label="Selected"
+                      className="w-3 h-3 sm:w-4 sm:h-4 text-primary"
+                    />
+                  ) : (
+                    <ExchangeIcon
+                      icon={exchange.icon}
+                      size="w-3 h-3 sm:w-4 sm:h-4"
+                    />
+                  )}
+                </span>
+              )}
+              <span className="truncate">{label ?? exchange.name}</span>
+              {unified && (
+                <span
+                  className="shrink-0 rounded px-1 py-px text-xs font-medium bg-primary/10 text-primary"
+                  title="One unified wallet behind these market connections — its balance is counted once"
+                >
+                  Unified
+                </span>
+              )}
+              <RotationChip
+                rotationRequired={exchange.rotationRequired}
+                provider={exchange.provider}
+                compact
+                onClick={(e) => handleEditExchange(exchange, e)}
+              />
+            </div>
+          </div>
+
+          {/* Balance and Actions Container */}
+          <div className="flex items-center gap-xs">
+            {/* Balance */}
+            {showBalance &&
+              exchange.balance != null &&
+              (exchange.balance > 0 || privacyMode) && (
+                <div className="text-right transition-transform duration-200 group-hover:sm:-translate-x-20">
+                  <div className="text-xs sm:text-sm font-medium">
+                    {privacyMode
+                      ? '***'
+                      : `$${exchange.balance.toLocaleString()}`}
+                  </div>
+                </div>
+              )}
+          </div>
+
+          {/* Desktop Hover Menu - Only visible on desktop with hover */}
+          {exchange.type === 'exchange' && showActions && (
+            <div className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-background/90 backdrop-blur-sm rounded-md p-1 border border-border/50 shadow-sm">
+              <button
+                onClick={(e) => handleRefreshBalance(refreshTarget, e)}
+                className="p-1.5 rounded hover:bg-muted/70 transition-colors"
+                title="Refresh Balance"
+                disabled={
+                  loadingUuids.includes('ALL') ||
+                  loadingUuids.includes(refreshTarget.id)
+                }
+              >
+                <RotateCcw
+                  className={`w-3 h-3 text-muted-foreground hover:text-foreground ${loadingUuids.includes('ALL') || loadingUuids.includes(refreshTarget.id) ? 'animate-spin' : ''}`}
+                />
+              </button>
+              <button
+                onClick={(e) => handleEditExchange(exchange, e)}
+                className="p-1.5 rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  readOnly
+                    ? 'Editing is not available in demo mode'
+                    : 'Edit Exchange'
+                }
+                disabled={readOnly}
+              >
+                <Edit className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+              </button>
+              <button
+                onClick={(e) => handleEditExchange(exchange, e)}
+                className="p-1.5 rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  readOnly
+                    ? 'Settings not available in demo mode'
+                    : 'Exchange Settings'
+                }
+                disabled={readOnly}
+              >
+                <Settings className="w-3 h-3 text-muted-foreground hover:text-foreground" />
+              </button>
+              <button
+                onClick={(e) => handleDeleteExchangeClick(exchange, e)}
+                className="p-1.5 rounded hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={
+                  readOnly
+                    ? 'Deletion not available in demo mode'
+                    : 'Delete Exchange'
+                }
+                disabled={readOnly}
+              >
+                <Trash2 className="w-3 h-3 text-destructive hover:text-destructive/80" />
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Mobile Always-Visible Action Buttons - Only visible on mobile */}
+        {exchange.type === 'exchange' && showActions && (
+          <div className="sm:hidden flex items-center justify-end gap-1 mt-2 pt-2 border-t border-border/30">
+            <button
+              onClick={(e) => handleRefreshBalance(refreshTarget, e)}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors"
+              title="Refresh Balance"
+              disabled={
+                loadingUuids.includes('ALL') ||
+                loadingUuids.includes(refreshTarget.id)
+              }
+            >
+              <RotateCcw
+                className={`w-3 h-3 text-muted-foreground ${loadingUuids.includes('ALL') || loadingUuids.includes(refreshTarget.id) ? 'animate-spin' : ''}`}
+              />
+              <span className="text-xs">Refresh</span>
+            </button>
+            <button
+              onClick={(e) => handleEditExchange(exchange, e)}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                readOnly
+                  ? 'Editing not available in demo mode'
+                  : 'Edit Exchange'
+              }
+              disabled={readOnly}
+            >
+              <Edit className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs">Edit</span>
+            </button>
+            <button
+              onClick={(e) => handleEditExchange(exchange, e)}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                readOnly ? 'Settings not available in demo mode' : 'Settings'
+              }
+              disabled={readOnly}
+            >
+              <Settings className="w-3 h-3 text-muted-foreground" />
+              <span className="text-xs">Settings</span>
+            </button>
+            <button
+              onClick={(e) => handleDeleteExchangeClick(exchange, e)}
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              title={
+                readOnly
+                  ? 'Deletion not available in demo mode'
+                  : 'Delete Exchange'
+              }
+              disabled={readOnly}
+            >
+              <Trash2 className="w-3 h-3 text-destructive" />
+              <span className="text-xs text-destructive">Delete</span>
+            </button>
+          </div>
+        )}
+      </div>
+    );
   };
 
   if (isLoading) {
@@ -264,181 +504,42 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
       )}
 
       <div className="space-y-1.5 flex-1 min-h-0 overflow-y-auto">
-        {exchanges.map((exchange) => {
-          const isSelected = selectedExchanges.includes(exchange.id);
-          const isMuted = isFiltering && !isSelected;
+        {groups.map(({ head, legs }) => {
+          if (!legs.length) {
+            return renderRow(head, {
+              selectIds: [head.id],
+              refreshTarget: head,
+              showBalance: true,
+              showActions: true,
+            });
+          }
+          const ids = [head.id, ...legs.map((l) => l.id)];
           return (
-          <div
-            key={exchange.id}
-            data-testid="account-row"
-            data-muted={isMuted ? 'true' : 'false'}
-            aria-pressed={isFiltering ? isSelected : undefined}
-            className={`group p-xs rounded-lg cursor-pointer transition-colors ${
-              isFiltering && isSelected
-                ? 'bg-primary/10'
-                : isSelected
-                  ? 'bg-inner-container'
-                  : 'hover:bg-card/50'
-            } ${isMuted ? 'opacity-50 hover:opacity-100' : ''}`}
-            onClick={() => handleExchangeSelect(exchange.id)}
-          >
-            <div className="flex items-center justify-between relative">
-              <div className="flex items-center gap-xs min-w-0 flex-1">
-                <div className="text-xs sm:text-sm font-medium flex items-center gap-xs min-w-0">
-                  <span className="shrink-0">
-                    {isFiltering && isSelected ? (
-                      <Check
-                        data-selected-check
-                        aria-label="Selected"
-                        className="w-3 h-3 sm:w-4 sm:h-4 text-primary"
-                      />
-                    ) : (
-                      <ExchangeIcon
-                        icon={exchange.icon}
-                        size="w-3 h-3 sm:w-4 sm:h-4"
-                      />
-                    )}
-                  </span>
-                  <span className="truncate">{exchange.name}</span>
-                  <RotationChip
-                    rotationRequired={exchange.rotationRequired}
-                    provider={exchange.provider}
-                    compact
-                    onClick={(e) => handleEditExchange(exchange, e)}
-                  />
-                </div>
-              </div>
-
-              {/* Balance and Actions Container */}
-              <div className="flex items-center gap-xs">
-                {/* Balance */}
-                {exchange.balance != null &&
-                  (exchange.balance > 0 || privacyMode) && (
-                    <div className="text-right transition-transform duration-200 group-hover:sm:-translate-x-20">
-                      <div className="text-xs sm:text-sm font-medium">
-                        {privacyMode
-                          ? '***'
-                          : `$${exchange.balance.toLocaleString()}`}
-                      </div>
-                    </div>
-                  )}
-              </div>
-
-              {/* Desktop Hover Menu - Only visible on desktop with hover */}
-              {exchange.type === 'exchange' && (
-                <div className="hidden sm:flex absolute right-2 top-1/2 -translate-y-1/2 items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-all duration-200 bg-background/90 backdrop-blur-sm rounded-md p-1 border border-border/50 shadow-sm">
-                  <button
-                    onClick={(e) => handleRefreshBalance(exchange, e)}
-                    className="p-1.5 rounded hover:bg-muted/70 transition-colors"
-                    title="Refresh Balance"
-                    disabled={
-                      loadingUuids.includes('ALL') ||
-                      loadingUuids.includes(exchange.id)
-                    }
-                  >
-                    <RotateCcw
-                      className={`w-3 h-3 text-muted-foreground hover:text-foreground ${loadingUuids.includes('ALL') || loadingUuids.includes(exchange.id) ? 'animate-spin' : ''}`}
-                    />
-                  </button>
-                  <button
-                    onClick={(e) => handleEditExchange(exchange, e)}
-                    className="p-1.5 rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      readOnly
-                        ? 'Editing is not available in demo mode'
-                        : 'Edit Exchange'
-                    }
-                    disabled={readOnly}
-                  >
-                    <Edit className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                  <button
-                    onClick={(e) => handleEditExchange(exchange, e)}
-                    className="p-1.5 rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      readOnly
-                        ? 'Settings not available in demo mode'
-                        : 'Exchange Settings'
-                    }
-                    disabled={readOnly}
-                  >
-                    <Settings className="w-3 h-3 text-muted-foreground hover:text-foreground" />
-                  </button>
-                  <button
-                    onClick={(e) => handleDeleteExchangeClick(exchange, e)}
-                    className="p-1.5 rounded hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                    title={
-                      readOnly
-                        ? 'Deletion not available in demo mode'
-                        : 'Delete Exchange'
-                    }
-                    disabled={readOnly}
-                  >
-                    <Trash2 className="w-3 h-3 text-destructive hover:text-destructive/80" />
-                  </button>
-                </div>
+            <div
+              key={head.id}
+              data-testid="account-group"
+              className="rounded-lg border border-border/40"
+            >
+              {renderRow(head, {
+                selectIds: ids,
+                refreshTarget: head,
+                showBalance: true,
+                showActions: false,
+                label: groupName(head.name),
+                unified: true,
+              })}
+              {[head, ...legs].map((l) =>
+                renderRow(l, {
+                  selectIds: ids,
+                  refreshTarget: head,
+                  showBalance: false,
+                  showActions: true,
+                  leg: true,
+                  label: legName(l),
+                  keySuffix: '-leg',
+                })
               )}
             </div>
-
-            {/* Mobile Always-Visible Action Buttons - Only visible on mobile */}
-            {exchange.type === 'exchange' && (
-              <div className="sm:hidden flex items-center justify-end gap-1 mt-2 pt-2 border-t border-border/30">
-                <button
-                  onClick={(e) => handleRefreshBalance(exchange, e)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors"
-                  title="Refresh Balance"
-                  disabled={
-                    loadingUuids.includes('ALL') ||
-                    loadingUuids.includes(exchange.id)
-                  }
-                >
-                  <RotateCcw
-                    className={`w-3 h-3 text-muted-foreground ${loadingUuids.includes('ALL') || loadingUuids.includes(exchange.id) ? 'animate-spin' : ''}`}
-                  />
-                  <span className="text-xs">Refresh</span>
-                </button>
-                <button
-                  onClick={(e) => handleEditExchange(exchange, e)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    readOnly
-                      ? 'Editing not available in demo mode'
-                      : 'Edit Exchange'
-                  }
-                  disabled={readOnly}
-                >
-                  <Edit className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs">Edit</span>
-                </button>
-                <button
-                  onClick={(e) => handleEditExchange(exchange, e)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-muted/70 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    readOnly
-                      ? 'Settings not available in demo mode'
-                      : 'Settings'
-                  }
-                  disabled={readOnly}
-                >
-                  <Settings className="w-3 h-3 text-muted-foreground" />
-                  <span className="text-xs">Settings</span>
-                </button>
-                <button
-                  onClick={(e) => handleDeleteExchangeClick(exchange, e)}
-                  className="flex items-center gap-1.5 px-2 py-1.5 text-xs rounded hover:bg-destructive/20 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  title={
-                    readOnly
-                      ? 'Deletion not available in demo mode'
-                      : 'Delete Exchange'
-                  }
-                  disabled={readOnly}
-                >
-                  <Trash2 className="w-3 h-3 text-destructive" />
-                  <span className="text-xs text-destructive">Delete</span>
-                </button>
-              </div>
-            )}
-          </div>
           );
         })}
       </div>

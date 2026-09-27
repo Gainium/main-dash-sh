@@ -364,3 +364,16 @@ describe('selectFuturesAccounts — follows the My Accounts selection (spec §2.
     expect(s.exposure.top).toEqual([{ asset: 'ETH', net: -50, long: 0, short: 50 }]);
   });
 });
+
+describe('summarizeFutures — unified accounts', () => {
+  it('totals a wallet shared by linked legs once; PnL still sums per leg', () => {
+    const lin = account('lin', ExchangeEnum.bitgetUsdm, 800);
+    const inv = { ...account('inv', ExchangeEnum.bitgetUsdm, 800), linkedTo: 'lin' };
+    const other = account('o', ExchangeEnum.binanceUsdm, 200);
+    const p = position({ exchangeUUID: 'inv', exchange: ExchangeEnum.bitgetUsdm, side: 'LONG', base: 'BTC', qty: 0.1, entry: 50000, mark: 51000 });
+    const { total } = summarizeFutures({ accounts: [lin, inv, other], positions: [p] });
+    expect(total.wallet).toBe(1000);
+    expect(total.upnl).toBeCloseTo(100, 8);
+    expect(total.equity).toBeCloseTo(1100, 8);
+  });
+});

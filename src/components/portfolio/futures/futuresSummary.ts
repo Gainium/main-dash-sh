@@ -18,6 +18,11 @@ export type FuturesAccountInput = {
   provider: ExchangeEnum | string;
   /** Stored balance in USD, as the Accounts panel shows it. */
   balance?: number | null | undefined;
+  /**
+   * The account whose wallet this one reads (a unified account's other
+   * market legs): its balance is that same wallet, so it is totalled once.
+   */
+  linkedTo?: string | undefined;
 };
 
 /** The subset of a terminal `RowPosition` the summary reads. */
@@ -78,6 +83,7 @@ type ExchangeEntry = {
   name: string;
   provider: ExchangeEnum | string;
   balance?: number | null | undefined;
+  linkedTo?: string | undefined;
 };
 
 /**
@@ -102,6 +108,7 @@ export function selectFuturesAccounts(
       name: ex.name,
       provider: ex.provider,
       balance: ex.balance,
+      linkedTo: ex.linkedTo,
     }));
 }
 
@@ -172,10 +179,27 @@ export function summarizeFutures({
     return { id: a.id, name: a.name, provider: a.provider, wallet, upnl, equity };
   });
 
+  // Legs of one unified account report the same wallet: total it once. The
+  // positions stay per leg, so PnL sums over every row.
+  const walletOf = new Map(accounts.map((a) => [a.id, a.linkedTo ?? a.id]));
+  const seen = new Set<string>();
+  const walletRows = rows.filter((r) => {
+    const key = walletOf.get(r.id) ?? r.id;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  const shared = walletRows.length < rows.length;
+  const totalWallet = sumOrNull(walletRows.map((r) => r.wallet));
+  const totalUpnl = sumOrNull(rows.map((r) => r.upnl));
   const total = {
-    wallet: sumOrNull(rows.map((r) => r.wallet)),
-    upnl: sumOrNull(rows.map((r) => r.upnl)),
-    equity: sumOrNull(rows.map((r) => r.equity)),
+    wallet: totalWallet,
+    upnl: totalUpnl,
+    equity: shared
+      ? totalWallet === null || totalUpnl === null
+        ? null
+        : totalWallet + totalUpnl
+      : sumOrNull(rows.map((r) => r.equity)),
   };
 
   const accountIds = new Set(accounts.map((a) => a.id));
@@ -188,7 +212,11 @@ export function summarizeFutures({
     openPositions += 1;
     const notional = positionNotional(p);
     if (notional === null) continue;
-    const asset = (p.baseAssetName ?? p.symbolFull?.baseAsset?.name ?? '').toUpperCase();
+    const asset = (
+      p.baseAssetName ??
+      p.symbolFull?.baseAsset?.name ??
+      ''
+    ).toUpperCase();
     if (!asset) continue;
     // Same positions as the per-coin rows, so gross and rows always agree.
     if (notional >= 0) grossLong += notional;
@@ -200,7 +228,12 @@ export function summarizeFutures({
   }
 
   const sorted: ExposureRow[] = [...byAsset.entries()]
-    .map(([asset, { long, short }]) => ({ asset, net: long - short, long, short }))
+    .map(([asset, { long, short }]) => ({
+      asset,
+      net: long - short,
+      long,
+      short,
+    }))
     .sort((x, y) => Math.abs(y.net) - Math.abs(x.net));
   const top = sorted.slice(0, EXPOSURE_TOP_N);
   const rest = sorted.slice(EXPOSURE_TOP_N);
