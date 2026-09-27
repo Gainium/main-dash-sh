@@ -3180,6 +3180,9 @@ function DataTableComponent<TData, TValue>(
     enableGlobalFilter,
     enableGrouping: enableGrouping && !serverSide,
     // Server mode: `data` is already the requested page, sorted and filtered.
+    // Client mode sets the same keys explicitly: useReactTable merges each
+    // render's options into the previous ones, so a table that LEAVES server
+    // mode would otherwise keep manual sorting/paging and stop sorting.
     ...(serverSide
       ? {
           manualPagination: true,
@@ -3188,7 +3191,13 @@ function DataTableComponent<TData, TValue>(
           enableMultiSort: false,
           rowCount: serverSide.rowCount,
         }
-      : {}),
+      : {
+          manualPagination: false,
+          manualSorting: false,
+          manualFiltering: false,
+          enableMultiSort: undefined,
+          rowCount: undefined,
+        }),
     // Prevent auto reset of pageIndex when data reference changes (we control it)
     autoResetPageIndex: false,
     autoResetExpanded: false,

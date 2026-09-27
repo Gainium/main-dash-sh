@@ -21,6 +21,7 @@ import {
   isDefaultQuery,
   previewPage,
   servesFromWindow,
+  windowCanSort,
 } from '../lib/botList/windowPage';
 import { useServerTableQuery } from './useServerTableQuery';
 import {
@@ -180,12 +181,22 @@ export function useDealTablePaging(opts: {
   });
 
   // Safety net: the first client window came back capped → page on the server.
+  // A window that came back WHOLE releases a latch from an earlier visit: the
+  // list is no longer capped, so it can never be a silent subset, and server
+  // paging would only cost it client-side sorting.
+  const windowFetchedWhole =
+    !opts.force &&
+    windowResult.data?.status === 'OK' &&
+    !windowResult.isPartial;
   useEffect(() => {
     if (windowResult.isPartial) {
       setLatchedPartial(true);
       writeFlag(partialKey, true);
+    } else if (windowFetchedWhole) {
+      setLatchedPartial(false);
+      writeFlag(partialKey, false);
     }
-  }, [windowResult.isPartial, partialKey]);
+  }, [windowResult.isPartial, windowFetchedWhole, partialKey]);
 
   const serverPaged = !!opts.force || largeAccount.active || latchedPartial;
 
@@ -239,11 +250,22 @@ export function useDealTablePaging(opts: {
   // answered by it — wait instead of racing it with a second request.
   const windowPending =
     !opts.force && windowResult.isLoading && isDefaultQuery(sq, null);
+  const windowSortable = useMemo(
+    () => windowCanSort(windowResult.deals, sq),
+    [windowResult.deals, sq]
+  );
   const fromWindow =
     !serverPaged ||
     windowPending ||
     (!opts.force &&
-      servesFromWindow(sq, windowResult.loadedCount, windowComplete, null));
+      servesFromWindow(
+        sq,
+        windowResult.loadedCount,
+        // A sort on a server-only field (not in the list fragment) cannot
+        // be answered from the window, however complete.
+        windowComplete && windowSortable,
+        null
+      ));
 
   const dataGrid = useMemo<DataGridFilterInput | undefined>(() => {
     if (fromWindow) return undefined;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.12] - 2026-09-27
+
+### Fixed
+
+- Trading Bots → Deals: clicking or tapping a column header (Unrealized P&L, Net P&L %, Cost, …) sorts the open deals again. The table no longer switches to server paging for good when a deal closes while the page is open. A table that had switched to it on an earlier visit goes back to sorting on the device once its whole list is loaded. When the list is paged on the server, sorting by Unrealized P&L, Value or Cost asks the server instead of leaving the rows in place.
+
 ## [2.67.11] - 2026-09-27
 
 ### Fixed

@@ -111,7 +111,7 @@ export interface UseDcaDealsResult {
   total: number;
   /** How many of them are held client-side. */
   loadedCount: number;
-  /** True when `loadedCount < total` — render "N of M", never a silent subset. */
+  /** The fetched rows stop short of the server's total — render "N of M", never a silent subset. */
   isPartial: boolean;
   /** More pages exist beyond what is loaded (non-paged mode). */
   hasMore: boolean;
@@ -523,8 +523,11 @@ export function useDcaDeals(
     deals: pageDeals,
     total: serverTotal ?? dealsWithMetrics.length,
     loadedCount: dealsWithMetrics.length,
+    // Partial = the fetch stopped before the server's last row. Judged on
+    // what was FETCHED, not on the live store: a deal that closes on screen
+    // leaves the store before the next fetch, and that is not a capped list.
     isPartial:
-      serverTotal !== null && !isServerPaged && dealsWithMetrics.length < serverTotal,
+      !isServerPaged && queryResult.loadedPages > 0 && !queryResult.reachedEnd,
     hasMore,
     loadMore,
     hasValidResponse,

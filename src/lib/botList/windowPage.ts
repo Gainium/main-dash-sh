@@ -70,6 +70,18 @@ export function servesFromWindow(
 }
 
 /**
+ * The held rows can order the query's sort: at least one row carries the
+ * sort field. Server sort paths the list fragment does not select (e.g. the
+ * fee-inclusive `stats.unrealizedProfitNet`) are absent on every row, and a
+ * local "sort" on them would leave the order unchanged.
+ */
+export function windowCanSort<T>(rows: readonly T[], q: ServerBotQuery): boolean {
+  if (!q.sort || rows.length === 0) return true;
+  const field = q.sort.field;
+  return rows.some((r) => comparable(get(r, field)) !== undefined);
+}
+
+/**
  * Apply the query (search, filters, sort, page) to held rows. Rows keep their
  * given order unless a sort is requested (or `defaultSort` is given).
  * Returns the page and the number of matching rows.
