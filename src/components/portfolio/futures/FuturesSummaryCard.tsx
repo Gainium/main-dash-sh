@@ -206,6 +206,19 @@ export function FuturesSummaryView({
             <span className="flex items-center gap-1.5 min-w-0">
               <ExchangeIcon icon={getProviderIcon(r.provider)} size="w-4 h-4" />
               <span className="truncate">{r.name}</span>
+              {r.legs && (
+                <span
+                  className="shrink-0 rounded px-1 py-px text-xs font-medium bg-primary/10 text-primary"
+                  title={`One unified wallet behind ${r.legs.join(', ')} — shown once`}
+                >
+                  Unified
+                </span>
+              )}
+              {r.legs && (
+                <span className="hidden sm:inline truncate text-xs text-muted-foreground">
+                  {r.legs.join(' · ')}
+                </span>
+              )}
             </span>
             <span className="hidden sm:block text-right">
               <Money value={r.wallet} />

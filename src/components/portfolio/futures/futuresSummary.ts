@@ -1,6 +1,11 @@
 import type { ExchangeEnum } from '@/types/exchange.types';
 import type { RowPosition } from '@/features/trading-terminal/components/exchangeOrderColumns';
-import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
+import {
+  isCoinmExchange,
+  isFuturesExchange,
+  unifiedAccountName,
+  unifiedLegName,
+} from '@/utils/exchangeUtils';
 
 import { balanceBasisFor } from './balanceBasis';
 
@@ -43,6 +48,11 @@ export type FuturesAccountRow = {
   id: string;
   name: string;
   provider: ExchangeEnum | string;
+  /**
+   * Market legs folded into this row: set when several legs of one unified
+   * account share its wallet (e.g. ["Inverse", "Linear"]).
+   */
+  legs?: string[];
   wallet: number | null;
   upnl: number | null;
   equity: number | null;
@@ -158,7 +168,7 @@ export function summarizeFutures({
    */
   positionsKnown?: boolean;
 }): FuturesSummary {
-  const rows: FuturesAccountRow[] = accounts.map((a) => {
+  const legRows: FuturesAccountRow[] = accounts.map((a) => {
     const own = positions.filter((p) => p.exchangeUUID === a.id);
     const upnl = positionsKnown ? sumOrNull(own.map(positionUpnl)) : null;
     const reported =
@@ -179,27 +189,33 @@ export function summarizeFutures({
     return { id: a.id, name: a.name, provider: a.provider, wallet, upnl, equity };
   });
 
-  // Legs of one unified account report the same wallet: total it once. The
-  // positions stay per leg, so PnL sums over every row.
+  // Legs of one unified account report the same wallet: fold them into one
+  // row that shows the wallet once. Positions stay per leg, so PnL sums.
   const walletOf = new Map(accounts.map((a) => [a.id, a.linkedTo ?? a.id]));
-  const seen = new Set<string>();
-  const walletRows = rows.filter((r) => {
+  const byWallet = new Map<string, FuturesAccountRow[]>();
+  for (const r of legRows) {
     const key = walletOf.get(r.id) ?? r.id;
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
+    byWallet.set(key, [...(byWallet.get(key) ?? []), r]);
+  }
+  const rows: FuturesAccountRow[] = [...byWallet.entries()].map(([key, legs]) => {
+    if (legs.length === 1) return legs[0];
+    const wallet = legs.find((l) => l.wallet !== null)?.wallet ?? null;
+    const upnl = sumOrNull(legs.map((l) => l.upnl));
+    return {
+      id: key,
+      name: unifiedAccountName(legs[0].name),
+      provider: legs[0].provider,
+      legs: legs.map((l) => unifiedLegName(l)),
+      wallet,
+      upnl,
+      equity: wallet === null || upnl === null ? null : wallet + upnl,
+    };
   });
-  const shared = walletRows.length < rows.length;
-  const totalWallet = sumOrNull(walletRows.map((r) => r.wallet));
-  const totalUpnl = sumOrNull(rows.map((r) => r.upnl));
+
   const total = {
-    wallet: totalWallet,
-    upnl: totalUpnl,
-    equity: shared
-      ? totalWallet === null || totalUpnl === null
-        ? null
-        : totalWallet + totalUpnl
-      : sumOrNull(rows.map((r) => r.equity)),
+    wallet: sumOrNull(rows.map((r) => r.wallet)),
+    upnl: sumOrNull(rows.map((r) => r.upnl)),
+    equity: sumOrNull(rows.map((r) => r.equity)),
   };
 
   const accountIds = new Set(accounts.map((a) => a.id));

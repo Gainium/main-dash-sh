@@ -8,21 +8,14 @@ import { Button } from '../ui/button';
 import Widget from '../ui/widget';
 import ExchangeIcon from '../widgets/shared/ExchangeIcon';
 import { RotationChip } from '../ui/chip/RotationChip';
-import { formatExchangeProvider } from '@/utils/exchangeUtils';
+import {
+  unifiedAccountName as groupName,
+  unifiedLegName as legName,
+} from '@/utils/exchangeUtils';
 
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import type { ExchangeInUser } from '../../types/exchange.types';
 import type { UIExchange } from '@/hooks/useTransformedExchanges';
-
-/** "Bitget Main (Linear)" → "Bitget Main": the account behind its legs. */
-const groupName = (name: string) =>
-  name.replace(/\s*\([^)]*\)\s*$/, '') || name;
-
-/** "Bitget Main (Linear)" → "Linear": the market, inside its account box. */
-const legName = (exchange: UIExchange) =>
-  exchange.name.match(/\(([^)]+)\)\s*$/)?.[1] ??
-  formatExchangeProvider(exchange.provider).split('\n')[1] ??
-  exchange.name;
 
 interface AccountsPanelProps {
   settingsDialog: {

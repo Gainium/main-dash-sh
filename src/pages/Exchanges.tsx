@@ -140,11 +140,15 @@ const ExchangeCardsGrid: React.FC<{
 }> = ({ onEdit, onDelete, onRefresh, isRefreshing, onAddExchange }) => {
   const { exchanges, isLoading } = useTransformedExchangesFromContext();
 
-  // Filter out the ALL exchanges entry
-  const filteredExchanges = React.useMemo(
-    () => exchanges.filter((ex) => ex.id !== 'ALL'),
-    [exchanges]
-  );
+  // Filter out the ALL exchanges entry, and a unified account's market legs:
+  // they are `linkedTo` a connection whose card stands for the whole account
+  // (one wallet — see ExchangeCard).
+  const filteredExchanges = React.useMemo(() => {
+    const ids = new Set(exchanges.map((ex) => ex.id));
+    return exchanges.filter(
+      (ex) => ex.id !== 'ALL' && !(ex.linkedTo && ids.has(ex.linkedTo))
+    );
+  }, [exchanges]);
 
   const columns = React.useMemo<ColumnDef<UIExchange>[]>(
     () => [
@@ -294,21 +298,21 @@ const ExchangeCardsGrid: React.FC<{
 
   return (
     <DataTable
-        tableId="exchanges-list"
-        columns={columns}
-        data={filteredExchanges}
-        enableCardView={true}
-        defaultView="cards"
-        cardComponent={ExchangeCardWrapper}
-        enableGlobalFilter={false}
-        enableColumnFilters={false}
-        enableSorting={false}
-        showPagination={false}
-        initialPageSize={9999}
-        cardViewBreakpoints={{ default: 1, 1024: 2 }}
-        firstToolbarActions={addExchangeButton}
-        firstToolbarActionsCompact={addExchangeButtonCompact}
-        defaultPinnedColumns={{ left: [], right: ['actions'] }}
-      />
+      tableId="exchanges-list"
+      columns={columns}
+      data={filteredExchanges}
+      enableCardView={true}
+      defaultView="cards"
+      cardComponent={ExchangeCardWrapper}
+      enableGlobalFilter={false}
+      enableColumnFilters={false}
+      enableSorting={false}
+      showPagination={false}
+      initialPageSize={9999}
+      cardViewBreakpoints={{ default: 1, 1024: 2 }}
+      firstToolbarActions={addExchangeButton}
+      firstToolbarActionsCompact={addExchangeButtonCompact}
+      defaultPinnedColumns={{ left: [], right: ['actions'] }}
+    />
   );
 };

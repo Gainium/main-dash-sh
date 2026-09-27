@@ -689,3 +689,16 @@ export const getExchangeTradeType = (exchange: ExchangeEnum): string => {
   }
   return TradeTypeEnum.spot;
 };
+
+/**
+ * A unified account's market legs are named "<Account> (<Market>)". The
+ * account part names the box / row that stands for all of them.
+ */
+export const unifiedAccountName = (name: string) =>
+  name.replace(/\s*\([^)]*\)\s*$/, '') || name;
+
+/** The market part of a leg's name, else its provider's market type. */
+export const unifiedLegName = (leg: { name: string; provider: string }) =>
+  leg.name.match(/\(([^)]+)\)\s*$/)?.[1] ??
+  formatExchangeProvider(leg.provider).split('\n')[1] ??
+  leg.name;

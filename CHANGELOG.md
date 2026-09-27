@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.67.9] - 2026-09-27
+
+### Changed
+
+- Exchanges page: a unified account shows as one card (account name, its markets, Edit / Delete per market) instead of one card per market
+- Portfolio Futures card: the futures markets of one unified account are one row with the shared wallet shown once
+
 ## [2.67.8] - 2026-09-27
 
 ### Fixed

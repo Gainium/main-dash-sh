@@ -6,7 +6,12 @@ import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
 import { ExchangeEnum, type ExchangeInUser } from '@/types/exchange.types';
 import { StatusChip } from '@/components/ui/chip/StatusChip';
 import { RotationChip } from '@/components/ui/chip/RotationChip';
-import { formatExchangeProvider, getProviderIcon } from '@/utils/exchangeUtils';
+import {
+  formatExchangeProvider,
+  getProviderIcon,
+  unifiedAccountName,
+  unifiedLegName,
+} from '@/utils/exchangeUtils';
 import { MoreVertical, Pencil, RefreshCw, Trash2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 import {
@@ -250,6 +255,15 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
   // over impersonating another row.
   const exchange = exchanges.find((e) => e.id === exchangeId) ?? null;
 
+  // A unified account: this connection plus the market legs `linkedTo` it,
+  // one wallet. The Exchanges page shows one card for all of them.
+  const unifiedMembers = useMemo(() => {
+    if (!exchange || exchange.id === 'ALL') return [];
+    const legs = exchanges.filter((e) => e.linkedTo === exchange.id);
+    return legs.length ? [exchange, ...legs] : [];
+  }, [exchanges, exchange]);
+  const isUnified = unifiedMembers.length > 0;
+
   // Pull the full record so we can show the connection status indicator
   // (the transformed UIExchange carries `status` but not `lastUpdated`).
   const fullExchange = useExchangesStore((s) =>
@@ -321,8 +335,18 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-xs min-w-0">
                     <span className="text-3xl font-bold text-foreground truncate">
-                      {exchange.name}
+                      {isUnified
+                        ? unifiedAccountName(exchange.name)
+                        : exchange.name}
                     </span>
+                    {isUnified && (
+                      <span
+                        className="shrink-0 rounded px-1 py-px text-xs font-medium bg-primary/10 text-primary"
+                        title="One unified wallet behind these market connections — its balance is counted once"
+                      >
+                        Unified
+                      </span>
+                    )}
                     {statusKey && (
                       <span title={statusTooltip} className="shrink-0">
                         <StatusChip
@@ -345,10 +369,16 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                       }
                     />
                   </div>
-                  {exchange.provider && (
+                  {isUnified ? (
                     <span className="text-base text-muted-foreground truncate">
-                      {formatExchangeProvider(exchange.provider)}
+                      {unifiedMembers.map((m) => unifiedLegName(m)).join(' · ')}
                     </span>
+                  ) : (
+                    exchange.provider && (
+                      <span className="text-base text-muted-foreground truncate">
+                        {formatExchangeProvider(exchange.provider)}
+                      </span>
+                    )
                   )}
                 </div>
               </div>
@@ -404,27 +434,49 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                   />
                   Refresh
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (onEdit && exchange) {
-                      onEdit(resolveExchangeData(exchange));
-                    }
-                  }}
-                >
-                  <Pencil className="mr-2 h-4 w-4" />
-                  Edit
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => {
-                    if (onDelete && exchange) {
-                      onDelete(resolveExchangeData(exchange));
-                    }
-                  }}
-                  className="text-destructive"
-                >
-                  <Trash2 className="mr-2 h-4 w-4" />
-                  Delete
-                </DropdownMenuItem>
+                {isUnified ? (
+                  unifiedMembers.map((m) => (
+                    <React.Fragment key={m.id}>
+                      <DropdownMenuItem
+                        onClick={() => onEdit?.(resolveExchangeData(m))}
+                      >
+                        <Pencil className="mr-2 h-4 w-4" />
+                        Edit {unifiedLegName(m)}
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={() => onDelete?.(resolveExchangeData(m))}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete {unifiedLegName(m)}
+                      </DropdownMenuItem>
+                    </React.Fragment>
+                  ))
+                ) : (
+                  <>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (onEdit && exchange) {
+                          onEdit(resolveExchangeData(exchange));
+                        }
+                      }}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onClick={() => {
+                        if (onDelete && exchange) {
+                          onDelete(resolveExchangeData(exchange));
+                        }
+                      }}
+                      className="text-destructive"
+                    >
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                  </>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
