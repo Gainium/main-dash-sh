@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.10] - 2026-09-27
+
+### Changed
+
+- Moving Average indicator: the settings now read in the same order as the stored rule and the API/JSON: the moving average first, then the condition, then what it is compared to (e.g. "EMA 100 · Lower than · Current price"). The condition list uses the same labels as every other indicator, so "Greater than" is `gt` and "Crossing up" is `cu`. Previously the form put the reference first and swapped the condition labels to compensate. Existing bots are unchanged and behave exactly as before; only the wording of their MA conditions reads from the other side.
+
 ## [2.67.9] - 2026-09-27
 
 ### Changed

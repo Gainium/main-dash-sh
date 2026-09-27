@@ -73,16 +73,6 @@ const INDICATOR_CONDITION_OPTIONS = [
   { value: IndicatorStartConditionEnum.lt, label: 'Lower than' },
 ];
 
-// MA indicator swaps condition labels (the stored value is the inverse of the
-// displayed label). This matches the legacy dashboard behaviour where the
-// condition is expressed from the MA's perspective relative to price.
-const MA_INDICATOR_CONDITION_OPTIONS = [
-  { value: IndicatorStartConditionEnum.cd, label: 'Crossing up' },
-  { value: IndicatorStartConditionEnum.cu, label: 'Crossing down' },
-  { value: IndicatorStartConditionEnum.gt, label: 'Lower than' },
-  { value: IndicatorStartConditionEnum.lt, label: 'Greater than' },
-];
-
 const SR_CONDITION_OPTIONS = [
   { value: IndicatorStartConditionEnum.cd, label: 'Price crossing down' },
   { value: IndicatorStartConditionEnum.cu, label: 'Price crossing up' },
@@ -547,9 +537,39 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       'Indicates the average price of an asset over a period, smoothing price data to reveal trends.',
     supportedActions: ALL_INDICATOR_SUPPORTED_ACTIONS,
     fields: [
+      // Fields read in stored order, `<maType> <indicatorCondition>
+      // <maCrossingValue>` (EMA 100 lower than Current price = `lt`), so the
+      // form maps one-to-one onto the API/JSON and the plain condition labels
+      // apply. The engine compares the MA against the reference.
+      makeSelectField({
+        key: 'maType',
+        label: 'Moving average',
+        defaultValue: MAEnum.ema,
+        options: MA_TYPE_OPTIONS,
+      }),
+      makeNumberField({
+        key: 'indicatorLength',
+        label: 'Length',
+        defaultValue: 20,
+        min: 1,
+        max: 1000,
+        step: 1,
+        allowVariables: true,
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cd,
+        options: INDICATOR_CONDITION_OPTIONS,
+      }),
       makeSelectField({
         key: 'maCrossingValue',
-        label: 'Reference',
+        label: 'Compared to',
         defaultValue: MAEnum.price,
         options: MA_REFERENCE_OPTIONS,
       }),
@@ -573,32 +593,6 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: ExchangeIntervals.oneH,
         options: INTERVAL_OPTIONS,
         hiddenWhen: [{ field: 'maCrossingValue', equals: MAEnum.price }],
-      }),
-      makeSelectField({
-        key: 'maType',
-        label: 'Relative to',
-        defaultValue: MAEnum.ema,
-        options: MA_TYPE_OPTIONS,
-      }),
-      makeNumberField({
-        key: 'indicatorLength',
-        label: 'Length',
-        defaultValue: 20,
-        min: 1,
-        max: 1000,
-        step: 1,
-        allowVariables: true,
-      }),
-      makeIntervalField({
-        key: 'indicatorInterval',
-        label: 'Interval',
-        defaultValue: ExchangeIntervals.oneH,
-      }),
-      makeSelectField({
-        key: 'indicatorCondition',
-        label: 'Condition',
-        defaultValue: IndicatorStartConditionEnum.cd,
-        options: MA_INDICATOR_CONDITION_OPTIONS,
       }),
       keepConditionBarsField,
     ],
