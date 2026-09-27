@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.11] - 2026-09-27
+
+### Fixed
+
+- A dashboard tab left open across an update no longer turns into the "Something went wrong" screen when an optional panel (such as the Max chat panel) or widget cannot be loaded: the page reloads once onto the new version, and if that is not possible the panel is simply left out while the rest of the page keeps working. A page that fails to load the same way reloads instead of spinning forever.
+
 ## [2.67.10] - 2026-09-27
 
 ### Changed

@@ -23,6 +23,39 @@ import {
 
 type Loader<P> = () => Promise<{ default: ComponentType<P> }>;
 
+/**
+ * A chunk that fails to load usually means this tab runs a build that has
+ * since been replaced (its hashed chunks are gone), or the network dropped.
+ * Reload once onto the current build; a sessionStorage timestamp stops a
+ * reload loop when the reloaded page fails again.
+ */
+const CHUNK_RELOAD_KEY = 'gainium:chunk-reload-at';
+const CHUNK_RELOAD_WINDOW_MS = 60_000;
+let chunkReloading = false;
+
+/** Returns true when the page is reloading (the caller should not surface the error). */
+export function reloadOnceForStaleChunk(): boolean {
+  if (chunkReloading) return true;
+  try {
+    const last = Number(sessionStorage.getItem(CHUNK_RELOAD_KEY));
+    if (last && Date.now() - last < CHUNK_RELOAD_WINDOW_MS) return false;
+    sessionStorage.setItem(CHUNK_RELOAD_KEY, String(Date.now()));
+  } catch {
+    return false; // no sessionStorage: cannot guard against a loop
+  }
+  chunkReloading = true;
+  window.location.reload();
+  return true;
+}
+
+/** Test-only: simulate a fresh page (module state) in the same tab session. */
+export function __resetChunkReloadForTests(): void {
+  chunkReloading = false;
+}
+
+/** Never settles: keeps a Suspense/page fallback up while the page reloads. */
+const never = <T,>() => new Promise<T>(() => undefined);
+
 const prefetchers: Array<() => Promise<unknown>> = [];
 let prefetchScheduled = false;
 
@@ -94,10 +127,18 @@ export function lazyPage<P extends object = object>(
   let loaded: ComponentType<P> | null = null;
   let pending: Promise<{ default: ComponentType<P> }> | null = null;
   const load = () =>
-    (pending ??= loader().then((m) => {
-      loaded = m.default;
-      return m;
-    }));
+    (pending ??= loader().then(
+      (m) => {
+        loaded = m.default;
+        return m;
+      },
+      (err: unknown) => {
+        // Reloading onto the current build: stay on the fallback meanwhile.
+        if (reloadOnceForStaleChunk()) return never<{ default: ComponentType<P> }>();
+        pending = null; // let a retry fetch again
+        throw err;
+      }
+    ));
   const Lazy = lazy(load) as unknown as ComponentType<P>;
   function LazyPage(props: P) {
     // Decided once per mount so the element type never flips under it:
@@ -112,16 +153,24 @@ export function lazyPage<P extends object = object>(
     const [Resolved, setResolved] = useState<ComponentType<P> | null>(
       () => loaded
     );
+    const [failed, setFailed] = useState<{ error: unknown } | null>(null);
     useEffect(() => {
       if (mode !== 'await' || Resolved) return;
       let alive = true;
-      void load().then((m) => {
-        if (alive) setResolved(() => m.default);
-      });
+      load().then(
+        (m) => {
+          if (alive) setResolved(() => m.default);
+        },
+        (error: unknown) => {
+          if (alive) setFailed({ error });
+        }
+      );
       return () => {
         alive = false;
       };
     }, [mode, Resolved]);
+    // Hand a failed load to the nearest error boundary instead of spinning.
+    if (failed) throw failed.error;
     if (mode === 'lazy') return <Lazy {...props} />;
     if (!Resolved) return <PageFallback />;
     return <Resolved {...props} />;
@@ -155,12 +204,19 @@ export function lazyNamed<M, K extends keyof M>(
 /**
  * A slot filler / widget component loaded on first render, with its own
  * invisible Suspense boundary (so it is safe wherever the slot is mounted).
+ * A slot whose chunk fails to load renders nothing (and the page reloads once
+ * onto the current build) — an optional panel must not take the layout down.
  */
 export function lazySlot<C extends ComponentType<never>>(
   loader: () => Promise<{ default: C }>
 ): C {
-  const Lazy = lazy(
-    loader as unknown as () => Promise<{ default: ComponentType<object> }>
+  const Lazy = lazy(() =>
+    (
+      loader as unknown as () => Promise<{ default: ComponentType<object> }>
+    )().catch(() => {
+      reloadOnceForStaleChunk();
+      return { default: () => null };
+    })
   );
   function LazySlot(props: object) {
     return (
