@@ -38,14 +38,16 @@ export function useCancelTerminalOrder() {
   const queryClient = useQueryClient();
 
   return useMutation<CancelOrderResponse, Error, CancelOrderInput>({
-    mutationFn: async ({ dealId, orderId }) => {
+    mutationFn: async ({ dealId, botId, orderId }) => {
       logger.info('[useCancelTerminalOrder] Canceling terminal order:', {
         dealId,
+        botId,
         orderId,
       });
 
       const { query, variables } = botQueries.cancelTerminalDealOrder({
         dealId,
+        botId,
         orderId,
       });
 

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.15] - 2026-09-28
+
+### Fixed
+
+- Deal orders (Trade Details → Orders → Pending): cancelling a placed safety or add-funds order with the red X works again. The request left out the bot the deal belongs to, so the server rejected it with a "botId was not provided" error and the order stayed open.
+
 ## [2.67.14] - 2026-09-28
 
 ### Fixed

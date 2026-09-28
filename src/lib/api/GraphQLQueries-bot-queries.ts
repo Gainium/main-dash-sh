@@ -1251,7 +1251,11 @@ export const botQueries = {
   // Order Management Queries
 
   // Order Management Mutations
-  cancelTerminalDealOrder: (input: { dealId: string; orderId: string }) => {
+  cancelTerminalDealOrder: (input: {
+    dealId: string;
+    botId: string;
+    orderId: string;
+  }) => {
     const query = `mutation cancelTerminalDealOrder($input: cancelTerminalDealOrderInput!) { 
                     cancelTerminalDealOrder(input: $input) {
                         status
