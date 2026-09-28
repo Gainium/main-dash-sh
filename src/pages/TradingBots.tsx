@@ -2464,6 +2464,7 @@ const TradingBots: React.FC = () => {
                       data={{ trades: dcaDealsAsOpenTrades }}
                       rawDeals={dcaDealsForTab}
                       serverPaging={dealsTable.serverPaging}
+                      exportDealToTrade={dcaDealToOpenTrade}
                       enableStatusToggle={true}
                       onStatusFilterChange={setDealsStatus}
                       privacyMode={privacyMode}

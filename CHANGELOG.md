@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.13] - 2026-09-28
+
+### Fixed
+
+- Deals lists (Trading Bots → Deals and the Trading Terminal's deals): "Export as CSV" and "Export as JSON" include every deal that matches the current open/closed view, filters, search and sort, not only the rows on the visible page, when the list is paged on the server. If the full fetch fails, the export falls back to the loaded rows and says so.
+
 ## [2.67.12] - 2026-09-27
 
 ### Fixed

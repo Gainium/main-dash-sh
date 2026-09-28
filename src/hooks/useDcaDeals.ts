@@ -240,30 +240,16 @@ export function useDcaDeals(
   // NOTE: dcaDealList ignores a top-level `status` arg — the status must be
   // expressed as a dataGridInput.filterModel item (it overrides the backend's
   // active-only default). So we translate `filter.status` into that item.
-  const input = useMemo(() => {
-    const i: DcaDealListInput = {};
-    // Always pass terminal flag explicitly so the backend
-    // excludes terminal deals from non-terminal queries and vice-versa
-    i.terminal = isTerminal;
-    if (filter?.botId) {
-      i.botId = filter.botId;
-    }
-    const statusItem = statusFilterItem(filter?.status);
-    if (statusItem || filter?.dataGrid) {
-      const baseGrid = filter?.dataGrid;
-      const baseItems = (baseGrid?.filterModel?.items ?? []).filter(
-        (it) => (it as { field?: string })?.field !== 'status'
-      );
-      i.dataGridInput = {
-        ...(baseGrid ?? {}),
-        filterModel: {
-          ...(baseGrid?.filterModel ?? { items: [] }),
-          items: statusItem ? [...baseItems, statusItem] : baseItems,
-        },
-      };
-    }
-    return i;
-  }, [isTerminal, filter?.status, filter?.botId, filter?.dataGrid]);
+  const input = useMemo(
+    () =>
+      buildDcaDealListInput({
+        terminal: isTerminal,
+        status: filter?.status,
+        botId: filter?.botId,
+        dataGrid: filter?.dataGrid,
+      }),
+    [isTerminal, filter?.status, filter?.botId, filter?.dataGrid]
+  );
 
   const { isDemo: isShareMode } = useShareContext();
 
@@ -546,6 +532,32 @@ type DcaDealListInput = {
   dataGridInput?: DataGridFilterInput;
 };
 
+/** The `dcaDealList` input for a deal-list filter. */
+export function buildDcaDealListInput(filter?: DcaDealsFilter): DcaDealListInput {
+  const i: DcaDealListInput = {};
+  // Always pass terminal flag explicitly so the backend
+  // excludes terminal deals from non-terminal queries and vice-versa
+  i.terminal = filter?.terminal === true;
+  if (filter?.botId) {
+    i.botId = filter.botId;
+  }
+  const statusItem = statusFilterItem(filter?.status);
+  if (statusItem || filter?.dataGrid) {
+    const baseGrid = filter?.dataGrid;
+    const baseItems = (baseGrid?.filterModel?.items ?? []).filter(
+      (it) => (it as { field?: string })?.field !== 'status'
+    );
+    i.dataGridInput = {
+      ...(baseGrid ?? {}),
+      filterModel: {
+        ...(baseGrid?.filterModel ?? { items: [] }),
+        items: statusItem ? [...baseItems, statusItem] : baseItems,
+      },
+    };
+  }
+  return i;
+}
+
 /** The server clamps every deal page to 500 rows. */
 export const DEAL_PAGE_SIZE_MAX = 500;
 const inFlight = new Map<
@@ -609,6 +621,43 @@ export async function fetchDcaDealPage(
   };
   promise.then(clear, clear);
   return promise;
+}
+
+/**
+ * Every deal matching `filter` (its status, filters and sort), fetched in
+ * server-sized pages until the server's total is reached — for exports of a
+ * server-paged list, whose table only holds the page on screen.
+ */
+export async function fetchAllDcaDeals(
+  filter: DcaDealsFilter
+): Promise<DCADeals[]> {
+  const isTerminal = filter.terminal === true;
+  const ui = useUIStore.getState();
+  const paperContext =
+    typeof filter.paperContext === 'boolean'
+      ? filter.paperContext
+      : ui.tradingMode === 'demo'
+        ? true
+        : !ui.isLiveTrading;
+  const input = buildDcaDealListInput(filter);
+  const out: DCADeals[] = [];
+  let fetched = 0;
+  for (let page = 0; ; page++) {
+    const { rows, total } = await fetchDcaDealPage(
+      { input, page, pageSize: DEAL_PAGE_SIZE_MAX, paperContext },
+      { fresh: true }
+    );
+    fetched += rows.length;
+    for (const deal of rows) {
+      if (isTerminal || !isTerminalDeal(deal)) out.push(deal);
+    }
+    if (
+      rows.length < DEAL_PAGE_SIZE_MAX ||
+      (typeof total === 'number' && fetched >= total)
+    ) {
+      return out;
+    }
+  }
 }
 
 export function useDcaDealsStats(filter?: DcaDealsFilter) {

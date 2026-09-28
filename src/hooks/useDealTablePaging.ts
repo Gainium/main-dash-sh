@@ -35,7 +35,7 @@ import {
   toBotDataGridInput,
 } from '../lib/botList/serverBotQuery';
 import { DCADealStatusEnum, type DCADeals, type DataGridFilterInput } from '../types';
-import { useDcaDeals } from './useDcaDeals';
+import { fetchAllDcaDeals, useDcaDeals } from './useDcaDeals';
 import { useLargeAccount } from './useLargeAccount';
 import { useLiveDealPnl } from './useLiveDealPnl';
 
@@ -99,7 +99,12 @@ export interface DealTablePaging {
   deals: DCADeals[];
   /** Pass to OpenOrdersWidget `serverPaging` (undefined in client mode). */
   serverPaging:
-    | { serverSide: DataTableServerSide; fields: Record<string, ColumnServerFields> }
+    | {
+        serverSide: DataTableServerSide;
+        fields: Record<string, ColumnServerFields>;
+        /** Every deal matching the table's current query (for exports). */
+        fetchAllDeals: () => Promise<DCADeals[]>;
+      }
     | undefined;
   /** Server total for the current status/filters. */
   total: number;
@@ -350,6 +355,17 @@ export function useDealTablePaging(opts: {
     [serverTotals, totalsColumns]
   );
 
+  // Exports cover every match of the table's current status, filters, search
+  // and sort — not the page on screen, which is all the table holds here.
+  // The query is read through a ref so `serverPaging` keeps its identity
+  // across query changes (the table's own paging must not re-render for it).
+  const sqRef = useRef(sq);
+  sqRef.current = sq;
+  const fetchAllDeals = useCallback(() => {
+    const { page: _p, pageSize: _s, ...grid } = toBotDataGridInput(sqRef.current);
+    return fetchAllDcaDeals({ ...baseFilter, dataGrid: grid });
+  }, [baseFilter]);
+
   const serverPaging = useMemo(
     () =>
       serverPaged
@@ -366,6 +382,7 @@ export function useDealTablePaging(opts: {
               totals,
             },
             fields,
+            fetchAllDeals,
           }
         : undefined,
     [
@@ -380,6 +397,7 @@ export function useDealTablePaging(opts: {
       filterStatus,
       totals,
       fields,
+      fetchAllDeals,
     ]
   );
 

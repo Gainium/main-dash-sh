@@ -1081,7 +1081,12 @@ export interface OpenTradesWidgetProps {
   serverPaging?: {
     serverSide: DataTableServerSide;
     fields: Record<string, ColumnServerFields>;
+    /** Every deal matching the current query — makes exports complete. */
+    fetchAllDeals?: () => Promise<DCADeals[]>;
   };
+  /** Maps a fetched deal to the row a caller-supplied `data.trades` holds
+   *  (for complete exports in server mode). Defaults to the widget's own. */
+  exportDealToTrade?: (deal: DCADeals) => OpenTrade;
   /** The supplied trades are a capped subset: render "N of M" beside the
    *  status toggle so the list never reads as complete. */
   partial?: { shown: number; total: number } | null;
@@ -1124,6 +1129,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   externalLoading,
   loadingIndicator,
   serverPaging,
+  exportDealToTrade,
   partial,
 }) => {
   const navigate = useNavigate();
@@ -1902,6 +1908,36 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
     return filtered;
   }, [baseTrades, enableStatusToggle, effectiveShowClosedTrades]);
+
+  // Server mode: the table holds only the page on screen, so exports fetch
+  // every deal matching the current status, filters, search and sort.
+  const fetchAllServerDeals = effectiveServerPaging?.fetchAllDeals;
+  const getExportData = useMemo(() => {
+    if (!fetchAllServerDeals) return undefined;
+    const toTrade = exportDealToTrade ?? transformDCADealToOpenTrade;
+    return async (): Promise<OpenTrade[] | null> => {
+      try {
+        toast.info('Preparing export — fetching all deals…');
+        const rows = (await fetchAllServerDeals()).map(toTrade);
+        return hideBotName && !exportDealToTrade
+          ? rows.map((t) => ({ ...t, botName: undefined }))
+          : rows;
+      } catch (error) {
+        logger.error(`${LOG_PREFIX}: Failed to fetch all deals for export`, {
+          error,
+        });
+        toast.error(
+          'Could not fetch all deals — the export will only include the loaded ones'
+        );
+        return null; // DataTable falls back to the loaded rows
+      }
+    };
+  }, [
+    fetchAllServerDeals,
+    exportDealToTrade,
+    transformDCADealToOpenTrade,
+    hideBotName,
+  ]);
 
   // FLICKER DEBUG: track what causes baseTrades / trades to change
   const prevBaseTradesRef = useRef(baseTrades);
@@ -3640,6 +3676,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         columns={serverColumns}
         data={trades}
         serverSide={effectiveServerPaging?.serverSide}
+        getExportData={getExportData}
         onRowClick={(row) => {
           // Match the card-click default: read-only details drawer unless
           // the parent passed an explicit `onTradeClick` override.
