@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.14] - 2026-09-28
+
+### Fixed
+
+- Pair picker (Select Pairs / Change pair): scrolling the list shows every pair again. When the picker opened with its pairs already loaded, only the first screen of rows was drawn and the rest of the list scrolled as empty space, for any sort order and on any device.
+
 ## [2.67.13] - 2026-09-28
 
 ### Fixed

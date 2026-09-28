@@ -387,9 +387,16 @@ const OVERSCAN_ROWS = 8;
  */
 const WindowedRows: React.FC<{
   items: ListItem[];
-  scrollRef: React.RefObject<HTMLDivElement | null>;
+  /**
+   * The element that scrolls. Passed as the element, not a ref: when the
+   * picker opens with its items already loaded, the scroll box and these rows
+   * mount in the same commit, and this component's layout effect runs before
+   * React attaches the parent's ref — a ref would still read null here, and
+   * nothing would ever re-run the effect to bind the scroll listener.
+   */
+  scrollElement: HTMLDivElement | null;
   renderRow: (item: ListItem) => React.ReactNode;
-}> = ({ items, scrollRef, renderRow }) => {
+}> = ({ items, scrollElement, renderRow }) => {
   const heightsRef = useRef(new Map<string, number>());
   const [viewport, setViewport] = useState({ top: 0, height: 800 });
   const [, setMeasureTick] = useState(0);
@@ -397,7 +404,7 @@ const WindowedRows: React.FC<{
 
   // Track scroll position and viewport size, at most once per frame.
   useLayoutEffect(() => {
-    const el = scrollRef.current;
+    const el = scrollElement;
     if (!el) return;
     let frame: number | null = null;
     const read = () => {
@@ -429,7 +436,7 @@ const WindowedRows: React.FC<{
       ro?.disconnect();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [scrollRef]);
+  }, [scrollElement]);
 
   const onRowHeight = useCallback((key: string, height: number) => {
     if (heightsRef.current.get(key) !== height) {
@@ -974,7 +981,9 @@ export const ListModal: React.FC<ListModalProps> = ({
     return [...header, ...ordered];
   }, [filteredItems, showSort, sortMode, favoritesFirst]);
 
-  const listScrollRef = useRef<HTMLDivElement | null>(null);
+  const [listScrollEl, setListScrollEl] = useState<HTMLDivElement | null>(
+    null
+  );
   const selectedSet = useMemo(() => new Set(selectedItems), [selectedItems]);
 
   // A paste message describes one paste in one dialog session — don't let it
@@ -1203,7 +1212,7 @@ export const ListModal: React.FC<ListModalProps> = ({
 
         {/* Items List */}
         <div
-          ref={listScrollRef}
+          ref={setListScrollEl}
           className="flex-1 overflow-y-auto px-md pb-2"
         >
           {isLoading ? (
@@ -1220,7 +1229,7 @@ export const ListModal: React.FC<ListModalProps> = ({
           ) : (
             <WindowedRows
               items={sortedItems}
-              scrollRef={listScrollRef}
+              scrollElement={listScrollEl}
               renderRow={(item) => (
                 <ListModalRow
                   item={item}
