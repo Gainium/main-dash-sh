@@ -15,6 +15,9 @@ import {
   canRecoverWithoutReady,
   collectChartStallDiagnostics,
   reportChartStall,
+  startVisibleTimer,
+  traceChartBoot,
+  traceLibraryScript,
 } from './chartReadyWatchdog';
 import { replayMissedInnerWindowLoad } from './innerWindowLoadReplay';
 import { ZustandSaveLoadAdapter } from './TradingViewSaveLoadAdapter';
@@ -196,7 +199,7 @@ export function useInitializeWidget({
     let isMounted = true;
     const containerElement = containerRef.current;
     let readyHandled = false;
-    let watchdog: ReturnType<typeof setTimeout> | undefined;
+    let stopWatchdog: () => void = () => undefined;
     let stopLoadReplay: () => void = () => undefined;
     // What TradingView restored through `load_last_chart` before it became
     // ready — reported by the watchdog, since a stored layout is per-browser.
@@ -293,6 +296,7 @@ export function useInitializeWidget({
         };
         script.onerror = () =>
           reject(new Error('Failed to load TradingView charting library'));
+        traceLibraryScript(script);
         document.head.appendChild(script);
       });
     const findOffset = (timeZone?: string) => {
@@ -483,6 +487,7 @@ export function useInitializeWidget({
       widgetRef.current = widget;
       isInitializedRef.current = true;
       const createdAt = Date.now();
+      const boot = traceChartBoot(widget, containerElement, createdAt);
       // Safari can boot the chart frame before the widget listens for it,
       // which would leave the chart without onChartReady for good.
       stopLoadReplay = replayMissedInnerWindowLoad(widget, containerElement);
@@ -490,7 +495,7 @@ export function useInitializeWidget({
       const handleChartReady = async () => {
         if (readyHandled || !isMounted) return;
         readyHandled = true;
-        clearTimeout(watchdog);
+        stopWatchdog();
         setIsChartReady(true);
         setIsLoading(false);
         setStalled(false);
@@ -687,7 +692,7 @@ export function useInitializeWidget({
       // onChartReady waits for the main series' history, so a datafeed call
       // that never answers — or a ready signal lost on the way — leaves the
       // chart loading forever with nothing thrown. Say what it was waiting on.
-      watchdog = setTimeout(() => {
+      stopWatchdog = startVisibleTimer(CHART_READY_WATCHDOG_MS, (hiddenMs) => {
         if (readyHandled) return;
         const diagnostics = collectChartStallDiagnostics({
           widget,
@@ -700,6 +705,8 @@ export function useInitializeWidget({
           loadLastChart: enableLoadLastChart,
           customDatafeed: Boolean(datafeedProp),
           bootLayout,
+          boot,
+          hiddenMs,
         });
         // An ordinary unmount leaves nothing on screen to explain.
         if (!diagnostics.mounted && !diagnostics.containerConnected) return;
@@ -710,7 +717,7 @@ export function useInitializeWidget({
         } else if (isMounted) {
           setStalled(true);
         }
-      }, CHART_READY_WATCHDOG_MS);
+      });
     };
 
     init().catch((err) => {
@@ -724,7 +731,7 @@ export function useInitializeWidget({
       stopLoadReplay();
       // Kept on an ordinary teardown so the watchdog can still report a chart
       // that was torn down yet left on screen; a retry replaces it instead.
-      if (retryingRef.current) clearTimeout(watchdog);
+      if (retryingRef.current) stopWatchdog();
       try {
         widgetRef.current?.remove?.();
       } catch {

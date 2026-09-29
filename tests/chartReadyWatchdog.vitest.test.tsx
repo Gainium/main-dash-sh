@@ -21,7 +21,11 @@ vi.mock(
   })
 );
 
-import { CHART_READY_WATCHDOG_MS } from '@/components/widgets/shared/TradingViewChart/chartReadyWatchdog';
+import {
+  CHART_READY_WATCHDOG_MS,
+  resetChartStallReports,
+} from '@/components/widgets/shared/TradingViewChart/chartReadyWatchdog';
+import { logger } from '@/lib/loggerInstance';
 import { useInitializeWidget } from '@/components/widgets/shared/TradingViewChart/useInitializeWidget';
 
 class FakeWidget {
@@ -30,10 +34,20 @@ class FakeWidget {
   seriesHasData = false;
   removed = false;
   private readyCallbacks: Array<() => void> = [];
-  private iframe: HTMLIFrameElement;
+  iframe: HTMLIFrameElement;
+  _innerWindowLoaded: Promise<void>;
+  innerWindowLoad!: () => void;
   constructor(config: { container: HTMLElement }) {
     FakeWidget.instances.push(this);
+    this._innerWindowLoaded = new Promise<void>((resolve) => {
+      this.innerWindowLoad = resolve;
+    });
+    // Like the library: the frame is created and appended by the constructor.
     this.iframe = document.createElement('iframe');
+    this.iframe.setAttribute(
+      'src',
+      '/static/charting_library/sameorigin.html?symbol=SOLEUR#frame'
+    );
     config.container.appendChild(this.iframe);
     (
       this.iframe.contentWindow as unknown as { tradingViewApi: object }
@@ -83,12 +97,28 @@ const advance = (ms: number) =>
     await vi.advanceTimersByTimeAsync(ms);
   });
 
+let visibility: DocumentVisibilityState = 'visible';
+const setVisibility = (state: DocumentVisibilityState) =>
+  act(async () => {
+    visibility = state;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+Object.defineProperty(document, 'visibilityState', {
+  configurable: true,
+  get: () => visibility,
+});
+Object.defineProperty(document, 'hidden', {
+  configurable: true,
+  get: () => visibility === 'hidden',
+});
+
 describe('chart-ready watchdog', () => {
   beforeEach(async () => {
     (
       globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
     ).IS_REACT_ACT_ENVIRONMENT = true;
     vi.useFakeTimers();
+    visibility = 'visible';
     report.mockReset();
     FakeWidget.instances = [];
     (window as unknown as { TradingView: unknown }).TradingView = {
@@ -180,5 +210,151 @@ describe('chart-ready watchdog', () => {
     // The torn-down widget's watchdog does not report afterwards.
     await advance(CHART_READY_WATCHDOG_MS);
     expect(report).toHaveBeenCalledTimes(1);
+  });
+
+  // §1.1
+  test('reports how far the library boot got, timed from construction', async () => {
+    const widget = FakeWidget.instances[0];
+    await advance(1_000);
+    widget.iframe.contentWindow?.dispatchEvent(new Event('sameOriginLoad'));
+    await advance(200);
+    widget.iframe.dispatchEvent(new Event('load'));
+    await advance(800);
+    await act(async () => widget.innerWindowLoad());
+
+    await advance(CHART_READY_WATCHDOG_MS);
+
+    const [diagnostics] = report.mock.calls[0];
+    expect(diagnostics).toMatchObject({
+      // Loaded before this page's first chart in the harness: no script tag.
+      libraryScript: { status: 'not-requested', loadMs: null },
+      tradingViewGlobal: true,
+      iframeSrc: '/static/charting_library/sameorigin.html',
+      sameOriginLoadMs: 1_000,
+      iframeLoadMs: 1_200,
+      iframeAccessible: true,
+      innerWindowLoadMs: 2_000,
+    });
+  });
+
+  // §1.1
+  test('a frame that never loads reports null frame timings', async () => {
+    await advance(CHART_READY_WATCHDOG_MS);
+
+    expect(report.mock.calls[0][0]).toMatchObject({
+      iframeLoadMs: null,
+      iframeAccessible: null,
+      sameOriginLoadMs: null,
+      innerWindowLoadMs: null,
+    });
+  });
+
+  // §1.2
+  test('counts only visible time and records the time spent hidden', async () => {
+    await advance(10_000);
+    await setVisibility('hidden');
+    await advance(10 * 60_000);
+    expect(report).not.toHaveBeenCalled();
+
+    await setVisibility('visible');
+    await advance(CHART_READY_WATCHDOG_MS - 10_000 - 1);
+    expect(report).not.toHaveBeenCalled();
+    await advance(1);
+
+    expect(report).toHaveBeenCalledTimes(1);
+    const [diagnostics] = report.mock.calls[0];
+    expect(diagnostics.elapsedMs).toBe(CHART_READY_WATCHDOG_MS);
+    expect(diagnostics.hiddenMs).toBe(10 * 60_000);
+    expect(diagnostics.visibility).toBe('visible');
+    // The stalled path behaves as before once it does fire.
+    expect(hook.stalled).toBe(true);
+  });
+
+  // §1.2
+  test('never fires while the page stays hidden', async () => {
+    await setVisibility('hidden');
+    await advance(60 * 60_000);
+
+    expect(report).not.toHaveBeenCalled();
+    expect(hook.stalled).toBe(false);
+  });
+});
+
+describe('charting library script trace', () => {
+  beforeEach(() => {
+    (
+      globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }
+    ).IS_REACT_ACT_ENVIRONMENT = true;
+    vi.useFakeTimers();
+    visibility = 'visible';
+    report.mockReset();
+    resetChartStallReports();
+    FakeWidget.instances = [];
+    delete (window as unknown as { TradingView?: unknown }).TradingView;
+    document
+      .querySelectorAll('script[src*="charting_library"]')
+      .forEach((el) => el.remove());
+    host = document.createElement('div');
+    document.body.appendChild(host);
+    root = createRoot(host);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    host.remove();
+    vi.useRealTimers();
+  });
+
+  // §1.1
+  test('records the script outcome and its load time', async () => {
+    await act(async () => {
+      root.render(createElement(Harness));
+    });
+    const script = document.querySelector<HTMLScriptElement>(
+      'script[src*="charting_library"]'
+    );
+    if (!script) throw new Error('charting_library script was not added');
+
+    await advance(700);
+    (window as unknown as { TradingView: unknown }).TradingView = {
+      widget: FakeWidget,
+    };
+    await act(async () => {
+      script.dispatchEvent(new Event('load'));
+    });
+    await advance(0);
+    expect(FakeWidget.instances).toHaveLength(1);
+
+    await advance(CHART_READY_WATCHDOG_MS);
+
+    expect(report.mock.calls[0][0]).toMatchObject({
+      libraryScript: { status: 'loaded', loadMs: 700 },
+      tradingViewGlobal: true,
+    });
+  });
+});
+
+// §1.3
+describe('reportChartStall page cap', () => {
+  beforeEach(() => resetChartStallReports());
+
+  test('sends at most one report per page load across all charts', async () => {
+    const { reportChartStall } = await vi.importActual<
+      typeof import('@/components/widgets/shared/TradingViewChart/chartReadyWatchdog')
+    >('@/components/widgets/shared/TradingViewChart/chartReadyWatchdog');
+    const logged = vi.spyOn(logger, 'error').mockImplementation(() => undefined);
+    const base = { interval: '60', elapsedMs: 30_000 } as Parameters<
+      typeof reportChartStall
+    >[0];
+
+    reportChartStall({ ...base, symbol: 'A' }, false);
+    reportChartStall({ ...base, symbol: 'B' }, false);
+    reportChartStall({ ...base, symbol: 'C' }, true);
+
+    const reports = logged.mock.calls.filter((c) =>
+      String(c[0]).startsWith('[ChartReadyWatchdog] chart not ready')
+    );
+    expect(reports).toHaveLength(1);
+    logged.mockRestore();
   });
 });

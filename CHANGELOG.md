@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.18] - 2026-09-29
+
+### Changed
+
+- Charts: the "chart never became ready" diagnostic now records how far the charting library got (script, chart frame, library start-up), counts only the time the page is visible so background tabs no longer produce inflated waits, and sends at most one report per page load. The 30-second threshold and the retry behaviour are unchanged.
+
 ## [2.67.17] - 2026-09-29
 
 ### Fixed
