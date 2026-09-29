@@ -156,9 +156,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
     currency: originalBotData?.symbol?.[0]?.value?.quoteAsset || 'USD',
     lastActivity: originalBotData?.created || 'Unknown',
     botData: originalBotData ?? bot,
-    onCopyToLive: () => {
-      toast.info('Copy to live not yet implemented for combo bots');
-    },
   });
 
   return (

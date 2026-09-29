@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.17] - 2026-09-29
+
+### Fixed
+
+- Bots: "Duplicate to paper" / "Duplicate to live" now switches to the other trading mode and opens that bot type's new-bot form in Manual with the source bot's settings, on a matching account of that mode, named "(Paper)" or "(Live)". It used to open a default Quick-setup bot in the same mode, and did nothing for combo and grid bots in the table view.
+
 ## [2.67.16] - 2026-09-29
 
 ### Fixed

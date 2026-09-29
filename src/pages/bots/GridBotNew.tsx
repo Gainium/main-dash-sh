@@ -88,6 +88,7 @@ const GridBotNewWidget = () => {
       initialFormData={initialFormData}
       formReloadKey={0}
       isSeedPending={isLoadingClone}
+      openInManual={Boolean(preload?.openInManual)}
       // Grid's backtest table is Delete-only — no "Load in settings" action.
       onLoadBacktestIntoForm={() => {}}
     />

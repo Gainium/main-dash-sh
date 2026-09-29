@@ -1,6 +1,5 @@
 import { cardHoverVariants } from '@/lib/animations/variants';
 import { AXIS_INDEX_KEY, withAxisIndex } from '@/lib/charts/axisIndex';
-import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import {
   BotTypesEnum,
@@ -16,7 +15,6 @@ import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { motion } from 'framer-motion';
 import { ExternalLink, MoreVertical } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import {
   Area,
   AreaChart,
@@ -145,7 +143,6 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
   privacyMode = false,
 }) => {
   const colors = useChartColors();
-  const navigate = useNavigate();
   const resolvePairAsset = useResolvePairAsset();
   // DCA ladder position for the Usage ring's label. Grid/hedge cards have no
   // ladder, so the hook is fed an undefined id there and returns undefined.
@@ -269,23 +266,6 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
           statusTogglePending: !!isTogglingStatus,
         }
       : {}),
-    // "Duplicate to live/paper" stages the config and opens a fresh create form.
-    onCopyToLive: () => {
-      const base = {
-        name: `${bot.settings?.name || bot.name} (Live)`,
-        type: bot.type,
-        exchange: bot.exchange,
-        symbol: bot.pair,
-        settings: bot.settings || {},
-      };
-      try {
-        sessionStorage.setItem('botConfig', JSON.stringify(base));
-        navigate('/bot/new');
-      } catch (err) {
-        logger.error('Failed to stage config for live trading:', err);
-        toast.error('Failed to stage configuration');
-      }
-    },
   });
 
   // Helper function to determine gauge color based on percentage

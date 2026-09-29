@@ -3,9 +3,13 @@ import { useNavigate } from 'react-router-dom';
 
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
+import { stageDuplicateToOtherMode } from '@/hooks/useBotConfigPreload';
+import { usePaperContext } from '@/hooks/usePaperContext';
+import { useUIStore } from '@/stores/uiStore';
 import {
   buildBotCloneRoute,
   buildBotEditRoute,
+  buildBotListRoute,
 } from '@/utils/bots/navigation';
 import {
   getActionPastTense,
@@ -100,7 +104,7 @@ export interface UseBotActionsParams {
   onEdit?: () => void;
   /** Replace the default clone navigation. */
   onClone?: () => void;
-  /** "Duplicate to live/paper" — genuinely surface-specific, always injected. */
+  /** Replace the default "Duplicate to live/paper" (hedge bots). */
   onCopyToLive?: () => void;
   /** Replace the default clipboard "Share Configuration". */
   onShareConfig?: () => void;
@@ -208,6 +212,7 @@ export function useBotActions(
 
   const navigate = useNavigate();
   const isGrid = botType === BotTypesEnum.grid;
+  const { setLiveTrading } = usePaperContext();
 
   const statusToggleMutation = useBotStatusToggle(botType);
   const restartMutation = useBotRestart();
@@ -356,15 +361,37 @@ export function useBotActions(
     }
   }, [onShareConfig, botData]);
 
-  // --- Duplicate to live/paper (surface-specific; no default) ---
+  // --- Duplicate to live/paper ---
+  // Stage the source bot's settings, switch to the other trading mode, and
+  // open that mode's create page for this bot type.
   const copyToLive = useCallback(() => {
     if (onCopyToLive) {
       onCopyToLive();
       return;
     }
-    // No sensible generic default — a surface that shows this action injects it.
-    toast.info('Duplicate to live/paper is not available here.');
-  }, [onCopyToLive]);
+    if (
+      botType !== BotTypesEnum.dca &&
+      botType !== BotTypesEnum.combo &&
+      botType !== BotTypesEnum.grid
+    ) {
+      toast.info('Duplicate to live/paper is not available here.');
+      return;
+    }
+    const toLive = !useUIStore.getState().isLiveTrading;
+    try {
+      stageDuplicateToOtherMode(
+        botType,
+        (botData ?? {}) as { settings?: unknown; exchange?: string },
+        toLive
+      );
+    } catch (error) {
+      logger.error('[useBotActions] Failed to stage duplicate', error);
+      toast.error('Failed to stage configuration');
+      return;
+    }
+    setLiveTrading(toLive);
+    navigate(`${buildBotListRoute(botType)}/new`);
+  }, [onCopyToLive, botType, botData, setLiveTrading, navigate]);
 
   const statusPending = onToggleStatus
     ? !!statusTogglePending

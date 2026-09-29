@@ -42,9 +42,12 @@ import {
   type CuratedPreloadHint,
 } from '@/lib/curatedPreload';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
+import { mapGridBotSettingsToFormData } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import { useExchangesStore } from '@/stores/exchangesStore';
-import { BotTypesEnum } from '@/types';
+import { useUIStore } from '@/stores/uiStore';
+import { BotTypesEnum, type ExchangeEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+import { removePaperPrefix } from '@/utils/exchangeUtils';
 
 const SESSION_KEY = 'botConfig';
 
@@ -158,6 +161,46 @@ export function stageBacktestLoad(
   );
 }
 
+/**
+ * "Duplicate to paper/live": map a source bot exactly like the `?load=` clone
+ * path does and stage it for the create page of the OTHER trading mode, on the
+ * matching provider there (`bybitLinear` ⇄ `paperBybitLinear`). The caller
+ * switches the trading mode and navigates. The source bot's own account UUID
+ * belongs to the mode being left, so it is dropped and the provider is
+ * resolved against the target mode's accounts instead.
+ */
+export function stageDuplicateToOtherMode(
+  botType: BotTypesEnum.dca | BotTypesEnum.combo | BotTypesEnum.grid,
+  bot: { settings?: unknown; exchange?: string },
+  toLive: boolean
+): void {
+  const { formData } =
+    botType === BotTypesEnum.grid
+      ? mapGridBotSettingsToFormData(bot.settings)
+      : mapBotSettingsToFormData(botType, bot.settings);
+  const source = removePaperPrefix((bot.exchange ?? '') as ExchangeEnum);
+  const exchange = !source
+    ? undefined
+    : toLive
+      ? source
+      : `paper${source.charAt(0).toUpperCase()}${source.slice(1)}`;
+  const base = formData.name?.trim();
+  const suffix = toLive ? '(Live)' : '(Paper)';
+  clearBotFormDraft(botFormDraftKey(botType, 'create'));
+  window.sessionStorage.setItem(
+    SESSION_KEY,
+    JSON.stringify({
+      type: botType,
+      exchange,
+      formData: {
+        ...formData,
+        exchangeUUID: '',
+        name: base ? `${base} ${suffix}` : suffix,
+      },
+    } satisfies StagedBotConfig)
+  );
+}
+
 export function useBotConfigPreload(): BotConfigPreload | null {
   const [search] = useSearchParams();
   // Subscribe to the exchanges DATA (not the stable `getExchangesByProvider`
@@ -170,6 +213,7 @@ export function useBotConfigPreload(): BotConfigPreload | null {
   const hasHydrated = useExchangesStore((s) => s._hasHydrated);
   const initialLoaded = useExchangesStore((s) => s.initialLoaded);
   const exchangesError = useExchangesStore((s) => s.error);
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
   // Read sessionStorage at most ONCE per page mount. useMemo on a
   // stable empty-deps array is sufficient — the effect of removing the
@@ -231,10 +275,19 @@ export function useBotConfigPreload(): BotConfigPreload | null {
     // (`kucoin` → `paperKucoin*`) so the form lands on the account we
     // just bootstrapped instead of silently defaulting to whichever
     // exchange happens to be first in the list.
+    //
+    // Only accounts of the CURRENT trading mode are candidates: right after a
+    // paper↔live switch ("Duplicate to paper/live") the store still holds the
+    // mode being left until the refetch lands, and a live account must never
+    // seed a paper form (or vice versa).
+    const allExchanges = Object.values(exchanges).filter(
+      (ex) => String(ex.provider ?? '').startsWith('paper') === !isLiveTrading
+    );
+    const storeHoldsOtherModeOnly =
+      Object.keys(exchanges).length > 0 && allExchanges.length === 0;
     let exchangeUUID: string | undefined;
     if (exchangeProvider) {
       try {
-        const allExchanges = Object.values(exchanges);
         const matches = allExchanges.filter(
           (ex) => ex.provider === exchangeProvider
         );
@@ -306,8 +359,12 @@ export function useBotConfigPreload(): BotConfigPreload | null {
     // opens. A provider the user simply hasn't connected resolves to
     // `undefined` but is NOT pending (exchangesReady is already true), so the
     // form falls back to its normal auto-pick instead of hanging.
+    // The same holds while the store still carries only the other mode's
+    // accounts (a paper↔live switch that has not refetched yet).
     const exchangePending =
-      Boolean(exchangeProvider) && !exchangeUUID && !exchangesReady;
+      Boolean(exchangeProvider) &&
+      !exchangeUUID &&
+      (!exchangesReady || (storeHoldsOtherModeOnly && !exchangesError));
 
     return {
       initialFormData,
@@ -316,5 +373,5 @@ export function useBotConfigPreload(): BotConfigPreload | null {
       exchangePending,
       openInManual: Boolean(staged?.formData),
     };
-  }, [search, staged, exchanges, exchangesReady]);
+  }, [search, staged, exchanges, exchangesReady, exchangesError, isLiveTrading]);
 }

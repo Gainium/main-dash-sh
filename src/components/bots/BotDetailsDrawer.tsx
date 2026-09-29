@@ -66,7 +66,7 @@ import React, {
   useRef,
   useState,
 } from 'react';
-import { useLocation, useNavigate, useSearchParams } from 'react-router-dom';
+import { useLocation, useSearchParams } from 'react-router-dom';
 import { TradeDetailContent } from '../../components/trades/TradeDetailContent';
 import { ShareBotDialog } from '../../features/bots/shared/runtime/dialogs/ShareBotDialog';
 import { useBotViewTracking } from '../../hooks/useBotAnalytics';
@@ -683,7 +683,6 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
 
     // Removed advanced mode preference saving
 
-    const navigate = useNavigate();
 
     const isControlled = typeof open === 'boolean';
     const [internalOpen, setInternalOpen] = useState(false);
@@ -834,8 +833,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     // page — this is what fixes the old combo/grid "immediate copy" that
     // locked the pair), start/stop + delete (confirmation modals rendered by
     // <BotActionsModals> below), restart. Overrides preserve the drawer's
-    // caller-supplied onEdit/onClone hooks (used by hedge/list pages) and its
-    // bespoke "Duplicate to live/paper" staging. Archive is intentionally not
+    // caller-supplied onEdit/onClone hooks (used by hedge/list pages). Archive is intentionally not
     // passed — BotActionsMenuItems owns it.
     const botActions = useBotActions({
       botId: actionBotId,
@@ -859,23 +857,6 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
         : {}),
       ...(onEdit ? { onEdit: () => onEdit(actionBotId) } : {}),
       ...(onClone ? { onClone: () => onClone(actionBotId) } : {}),
-      // "Duplicate to live/paper" stages the config and opens a fresh create form.
-      onCopyToLive: () => {
-        const botConfig = {
-          name: `${bot.settings.name} (Live)`,
-          type,
-          exchange: bot.exchange,
-          symbol: bot.symbol,
-          settings: bot.settings,
-        };
-        try {
-          sessionStorage.setItem('botConfig', JSON.stringify(botConfig));
-          navigate('/bot/new');
-        } catch (error) {
-          console.error('Failed to stage config for live trading:', error);
-          toast.error('Failed to stage configuration');
-        }
-      },
     });
 
     // Thin aliases so the footer button-config array and the actions menu keep

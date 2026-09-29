@@ -143,9 +143,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
     gridFutures: isFuturesExchange(bot.exchange),
     gridHasOpenPosition: (originalBotData?.position?.price ?? 0) !== 0,
     gridIsShort: originalBotData?.position?.side === PositionSide.SHORT,
-    onCopyToLive: () => {
-      toast.info('Copy to live not yet implemented for grid bots');
-    },
   });
 
   return (

@@ -196,12 +196,9 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
   bot,
   originalBotData,
 }) => {
-  const navigate = useNavigate();
-
   // Shared bot-action orchestration (clone opens the pre-filled create page;
-  // status/delete via the confirmation modals rendered by <BotActionsModals>).
-  // "Duplicate to live/paper" stays a per-row override since it stages a fresh
-  // create form from this row's data.
+  // status/delete via the confirmation modals rendered by <BotActionsModals>;
+  // "Duplicate to live/paper" stages this row's bot for the other mode).
   const botActions = useBotActions({
     botId: bot.id,
     botType: BotTypesEnum.dca,
@@ -212,30 +209,6 @@ const BotTableActions: React.FC<BotTableActionsProps> = ({
     currency: originalBotData?.symbol?.[0]?.value?.quoteAsset || 'USD',
     lastActivity: originalBotData?.created || 'Unknown',
     botData: originalBotData ?? bot,
-    onCopyToLive: () => {
-      const base = originalBotData
-        ? {
-            name: `${originalBotData.settings?.name || bot.name} (Live)`,
-            type: bot.type,
-            exchange: originalBotData.exchange,
-            symbol: originalBotData.symbol?.[0]?.value?.symbol ?? bot.symbol,
-            settings: originalBotData.settings,
-          }
-        : {
-            name: `${bot.name} (Live)`,
-            type: bot.type,
-            exchange: bot.exchange,
-            symbol: bot.symbol,
-            settings: undefined,
-          };
-      try {
-        sessionStorage.setItem('botConfig', JSON.stringify(base));
-        navigate('/bot/new');
-      } catch (err) {
-        console.error('Failed to stage config for live trading:', err);
-        toast.error('Failed to stage configuration');
-      }
-    },
   });
 
   const botActionsMenuItems = useMemo(
