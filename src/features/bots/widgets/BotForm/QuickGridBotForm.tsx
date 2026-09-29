@@ -46,6 +46,10 @@ import {
   useQuickBalance,
 } from './components/quick-setup/shared';
 import { useMarketStats } from './hooks/useMarketStats';
+import {
+  pickDefaultPair,
+  useBotFormQuery,
+} from './providers/BotFormQueryProvider';
 import { normalizePairKey, resolveNativePairSymbol } from '@/utils/pairs';
 
 const PRESET_LABELS = QUICK_GRID_PRESETS.map((p) => p.label);
@@ -137,11 +141,20 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
   // Resolve quote asset via pairMetadata when available — pairs are
   // stored without a separator (e.g. "ADAUSDT"), so a naïve split('/')
   // returns the full pair as base and leaves quote empty.
+  // With no pair selected, label the investment in the quote of the
+  // exchange's default pair (the chart shows that pair too) rather than a
+  // hardcoded USDT the account may not be able to trade.
+  const { pairMetadata: queryPairMetadata } = useBotFormQuery();
   const quoteAsset = useMemo(() => {
-    if (!firstPair) return '';
+    if (!firstPair) {
+      const defaultKey = pickDefaultPair(queryPairMetadata.byPair);
+      return defaultKey
+        ? (queryPairMetadata.byPair[defaultKey]?.quoteAsset?.name ?? '')
+        : '';
+    }
     const meta = formData.pairMetadata?.[firstPair];
     return meta?.quoteAsset?.name || splitPair(firstPair)[1];
-  }, [firstPair, formData.pairMetadata]);
+  }, [firstPair, formData.pairMetadata, queryPairMetadata.byPair]);
 
   const baseAsset = useMemo(() => {
     if (!firstPair) return '';

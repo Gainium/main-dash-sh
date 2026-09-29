@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.20] - 2026-09-29
+
+### Fixed
+
+- Bot form: with no trading pair selected, the chart and the Investment currency now follow the selected account's own default pair instead of always showing BTC/USDT. Accounts that cannot trade USDT pairs (for example OKX Europe, which lists USDC and EUR pairs) no longer see a USDT pair and a "0 USDT" balance that they cannot use.
+
 ## [2.67.19] - 2026-09-29
 
 ### Fixed

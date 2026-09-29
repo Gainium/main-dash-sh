@@ -51,6 +51,10 @@ import {
 import { useMarketStats } from './hooks/useMarketStats';
 import { normalizePairKey, resolveNativePairSymbol } from '@/utils/pairs';
 import { useMultiPairMarketStats } from './hooks/useMultiPairMarketStats';
+import {
+  pickDefaultPair,
+  useBotFormQuery,
+} from './providers/BotFormQueryProvider';
 
 const PRESET_LABELS = QUICK_SETUP_PRESETS.map((p) => p.label);
 
@@ -135,11 +139,20 @@ export const QuickBotForm: React.FC<QuickBotFormProps> = ({
   // calibrates on the first pair only. DCA keeps its multi-pair opt-in.
   const isMultiPair = slice === 'dca' && pairList.length > 1;
 
+  // With no pair selected, label the investment in the quote of the
+  // exchange's default pair (the chart shows that pair too) rather than a
+  // hardcoded USDT the account may not be able to trade.
+  const { pairMetadata: queryPairMetadata } = useBotFormQuery();
   const quoteAsset = useMemo(() => {
-    if (!firstPair) return '';
+    if (!firstPair) {
+      const defaultKey = pickDefaultPair(queryPairMetadata.byPair);
+      return defaultKey
+        ? (queryPairMetadata.byPair[defaultKey]?.quoteAsset?.name ?? '')
+        : '';
+    }
     const meta = formData.pairMetadata?.[firstPair];
     return meta?.quoteAsset?.name || splitPair(firstPair)[1];
-  }, [firstPair, formData.pairMetadata]);
+  }, [firstPair, formData.pairMetadata, queryPairMetadata.byPair]);
 
   const baseAsset = useMemo(() => {
     if (!firstPair) return '';

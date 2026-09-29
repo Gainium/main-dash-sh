@@ -186,7 +186,10 @@ import type { BotSettingsMapperContext } from './hooks/useBotFormInitialization'
 /* import { useBotSmartOrders } from './hooks/useBotSmartOrders';
 import { useMergeSmartOrders } from './hooks/useMergeSmartOrders'; */
 import { buildBotFormPayloadMapper } from './payloadMapper';
-import { useBotFormQuery } from './providers/BotFormQueryProvider';
+import {
+  pickDefaultPair,
+  useBotFormQuery,
+} from './providers/BotFormQueryProvider';
 import type {
   BotFormProps,
   BotFormTabComponentProps,
@@ -2308,14 +2311,24 @@ const BotForm: React.FC<BotFormProps> = ({
     // back to scanning values for a match by `.pair`. This matters for
     // hedge create-mode where the chart reports the dashed pair via
     // setOnChangeSymbol and a strict-key lookup would miss it.
-    const realPair = primaryPair
+    const selectedPair = primaryPair
       ? (formPairMetadata[primaryPair] ??
         Object.values(formPairMetadata).find((p) => p.pair === primaryPair))
       : undefined;
+    // With no pair selected, show the exchange's default pair rather than
+    // letting the chart fall back to a hardcoded BTCUSDT. `byPair` is already
+    // scoped to what the account can trade, so an OKX Europe account gets a
+    // USDC/EUR pair instead of a USDT one it cannot trade.
+    const defaultPairKey = primaryPair
+      ? null
+      : pickDefaultPair(pairMetadata.byPair);
+    const chartPair =
+      selectedPair ??
+      (defaultPairKey ? pairMetadata.byPair[defaultPairKey] : undefined);
 
-    if (realPair) {
+    if (selectedPair) {
       exampleOrdersStore.setContext({
-        symbol: { ...realPair, maxOrders: 200 },
+        symbol: { ...selectedPair, maxOrders: 200 },
       });
     }
 
@@ -2326,10 +2339,10 @@ const BotForm: React.FC<BotFormProps> = ({
     const payload: BotChartData = {};
 
     if (
-      realPair?.exchange === currentExchange?.provider &&
-      typeof realPair?.pair === 'string'
+      chartPair?.exchange === currentExchange?.provider &&
+      typeof chartPair?.pair === 'string'
     ) {
-      payload.symbol = realPair.pair;
+      payload.symbol = chartPair.pair;
     }
 
     if (currentExchange) {
@@ -2349,6 +2362,7 @@ const BotForm: React.FC<BotFormProps> = ({
     mode,
     onFormDataChange,
     formPairMetadata,
+    pairMetadata.byPair,
     currentExchange,
     exampleOrdersStore,
   ]);

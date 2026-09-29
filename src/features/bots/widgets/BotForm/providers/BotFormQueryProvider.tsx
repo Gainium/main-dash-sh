@@ -83,7 +83,7 @@ export const BotFormQueryContext = createContext<
  */
 const STABLE_QUOTES = ['USDT', 'USDC', 'USD', 'BUSD', 'USDP'];
 
-const pickDefaultPair = (
+export const pickDefaultPair = (
   byPair: Record<string, TradingPair>
 ): string | null => {
   const keys = Object.keys(byPair);
