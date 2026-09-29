@@ -10,7 +10,7 @@
  * matching account of the target mode.
  */
 import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
-import { act, createElement, type ReactNode } from 'react';
+import { act, createElement, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter, useLocation } from 'react-router-dom';
 
@@ -156,25 +156,29 @@ afterEach(() => {
 describe('bug 1008: Duplicate to paper/live', () => {
   it('the menu action stages the bot, switches mode and opens its type create page', async () => {
     act(() => useUIStore.setState({ isLiveTrading: true }));
-    let onCopy: () => void = () => {};
+    const hook = { onCopy: () => {} };
     const Host = () => {
-      captured.path = useLocation().pathname;
-      onCopy = useBotActions({
+      const path = useLocation().pathname;
+      const { onCopyToLive } = useBotActions({
         botId: 'b1',
         botType: BotTypesEnum.combo,
         botName: 'x',
         status: 'open',
         botData: liveBot,
-      }).menuProps.onCopyToLive;
+      }).menuProps;
+      useEffect(() => {
+        captured.path = path;
+        hook.onCopy = onCopyToLive;
+      });
       return null;
     };
     await render(createElement(Host), '/combo');
 
-    act(() => onCopy());
+    act(() => hook.onCopy());
 
     expect(captured.setLiveTrading).toHaveBeenCalledWith(false);
     expect(captured.path).toBe('/combo/new');
-    const staged = JSON.parse(window.sessionStorage.getItem('botConfig')!);
+    const staged = JSON.parse(window.sessionStorage.getItem('botConfig') ?? 'null');
     expect(staged.type).toBe(BotTypesEnum.combo);
     expect(staged.exchange).toBe('paperBybitLinear');
     expect(staged.formData.name).toBe('long (40% OS) (V1) (Paper)');

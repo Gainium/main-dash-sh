@@ -29,7 +29,7 @@ function render(el: ReturnType<typeof createElement>) {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
-  act(() => root!.render(el));
+  act(() => root?.render(el));
   return host;
 }
 afterEach(() => {
@@ -57,24 +57,24 @@ describe('NotCalculated (§5.1)', () => {
       return new Promise<void>((r) => (resolve = r));
     };
     const el = render(createElement(NotCalculated, { onCalculate }));
-    const btn = el.querySelector('button')!;
+    const btn = (el.querySelector('button') as HTMLButtonElement);
     expect(btn.textContent).toBe('Calculate now');
     await act(async () => btn.click());
-    expect(el.querySelector('button')!.textContent).toContain('Calculating');
+    expect((el.querySelector('button') as HTMLButtonElement).textContent).toContain('Calculating');
     expect((el.querySelector('button') as HTMLButtonElement).disabled).toBe(true);
     // A second click while running does not start a second computation.
     await act(async () => (el.querySelector('button') as HTMLButtonElement).click());
     expect(calls).toBe(1);
     await act(async () => resolve());
-    expect(el.querySelector('button')!.textContent).toBe('Calculate now');
+    expect((el.querySelector('button') as HTMLButtonElement).textContent).toBe('Calculate now');
   });
 
   it('reports a failed calculation and lets the user retry', async () => {
     const el = render(
       createElement(NotCalculated, { onCalculate: () => Promise.reject(new Error('x')) })
     );
-    await act(async () => el.querySelector('button')!.click());
-    expect(el.querySelector('button')!.textContent).toContain("Couldn't calculate");
+    await act(async () => (el.querySelector('button') as HTMLButtonElement).click());
+    expect((el.querySelector('button') as HTMLButtonElement).textContent).toContain("Couldn't calculate");
   });
 });
 

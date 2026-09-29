@@ -78,7 +78,7 @@ const safetyOrders = async (s: Record<string, unknown>, start: number) =>
     )
   )
     .filter((o) => o.type === DCAOrderTypeEnum.dca)
-    .sort((a, b) => a.levelNumber! - b.levelNumber!);
+    .sort((a, b) => (a.levelNumber ?? 0) - (b.levelNumber ?? 0));
 
 const target = (start: number, step: number, scale: number, i: number) => {
   let cumulative = 0;

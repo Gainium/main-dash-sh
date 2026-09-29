@@ -147,9 +147,9 @@ describe('bot list store — merge, not replace (§1.2(2), §3.1, §3.2)', () =>
   it('every store-sharing caller issues the SAME canonical request (one per context)', async () => {
     SERVER_BOTS = [mkBot(1, 'open'), mkBot(2, 'closed')];
     renderHooks({
-      a: () => useDcaBots(),
-      b: () => useDcaBots({ status: ['open'] }),
-      c: () => useDcaBots({ status: ['open', 'range', 'monitoring'] }),
+      useA: () => useDcaBots(),
+      useB: () => useDcaBots({ status: ['open'] }),
+      useC: () => useDcaBots({ status: ['open', 'range', 'monitoring'] }),
     });
     await settle();
     const distinct = new Set(requests.map((r) => JSON.stringify(r)));
