@@ -72,6 +72,48 @@ const RESOLUTION_SECONDS: Record<string, number> = {
 };
 
 /**
+ * TradingView's first request for a chart opened on a `timeframe` loads every
+ * bar from the frame's start up to NOW, so framing an old deal costs the
+ * distance to today, not the deal's length. At the run's own resolution the
+ * range is normally already cached by the backtest, so a large load is still
+ * fast up to this many bars.
+ */
+const RUN_RESOLUTION_MAX_BARS = 50_000;
+
+/**
+ * Beyond that, the deal is framed at a coarser resolution, which is usually
+ * not cached — so it must stay a few exchange pages, fetched in seconds.
+ */
+const COARSE_RESOLUTION_MAX_BARS = 5_000;
+
+/** Coarser resolutions, finest first, available on every supported venue. */
+const COARSE_RESOLUTIONS = ['5', '15', '30', '60', '240', '1D', '1W'];
+
+/**
+ * The resolution to frame a chart starting at `fromSec` with: the run's own,
+ * unless loading from there to now would be too large, in which case the
+ * finest coarser one that fits. Never finer than the run's.
+ */
+function framingResolution(
+  runResolution: string,
+  fromSec: number,
+  nowSec: number,
+): string {
+  const barsToNow = (res: string) =>
+    (nowSec - fromSec) / (RESOLUTION_SECONDS[res] ?? 3600);
+  if (barsToNow(runResolution) <= RUN_RESOLUTION_MAX_BARS) return runResolution;
+  const runSeconds = RESOLUTION_SECONDS[runResolution] ?? 3600;
+  const coarser = COARSE_RESOLUTIONS.filter(
+    (res) => RESOLUTION_SECONDS[res] > runSeconds,
+  );
+  return (
+    coarser.find((res) => barsToNow(res) <= COARSE_RESOLUTION_MAX_BARS) ??
+    coarser[coarser.length - 1] ??
+    runResolution
+  );
+}
+
+/**
  * Map an `ExchangeIntervals` enum value (or raw string) to a TradingView
  * resolution string. Unknown / missing → `'60'`.
  */
@@ -461,23 +503,32 @@ export interface DealTradingViewProps {
  * backtest's last data time for a still-open deal) — used as the end of any
  * order segment that never filled. `candles` (the chart's bars for this
  * symbol/interval) let order lines be clipped at the real price cross; omit
- * them and the lines fall back to the filled-order heuristic.
+ * them and the lines fall back to the filled-order heuristic. The returned
+ * `interval` is the run's resolution unless the deal is too far back to load
+ * at it (see {@link framingResolution}).
  */
 export function dealToTradingView(
   rawDeal: PreparedDeal,
   intervalResolution: string,
   fallbackEndMs: number,
   candles?: ClipCandle[],
+  nowMs: number = Date.now(),
 ): DealTradingViewProps {
   const sym = rawDeal.symbol;
   const symbol = symbolString(sym);
   const availableSymbols = sym ? [sym] : [];
 
-  const barSeconds = RESOLUTION_SECONDS[intervalResolution] ?? 3600;
-  const pad = PAD_BARS * barSeconds;
   const endMs = rawDeal.closedTime ?? fallbackEndMs;
   const startSec = Math.floor((rawDeal.startTime || fallbackEndMs) / 1000);
   const endSec = Math.floor((endMs || fallbackEndMs) / 1000);
+  const runPad =
+    PAD_BARS * (RESOLUTION_SECONDS[intervalResolution] ?? 3600);
+  const interval = framingResolution(
+    intervalResolution,
+    startSec - runPad,
+    Math.floor(nowMs / 1000),
+  );
+  const pad = PAD_BARS * (RESOLUTION_SECONDS[interval] ?? 3600);
   const initialTimeframe = {
     from: startSec - pad,
     to: endSec + pad,
@@ -486,7 +537,7 @@ export function dealToTradingView(
   return {
     symbol,
     availableSymbols,
-    interval: intervalResolution,
+    interval,
     initialTimeframe,
     transactions: transactionsFromDeal(rawDeal),
     ordersForDrawing: orderDrawingsFromDeal(

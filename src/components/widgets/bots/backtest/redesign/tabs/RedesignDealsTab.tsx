@@ -561,10 +561,14 @@ export function RedesignDealsTab({ vm }: RedesignDealsTabProps) {
         </div>
 
         {/* price chart — one persistent TradingView widget; deal switches
-            only update its lines / markers / timeframe (symbol + interval are
-            constant for the whole run). */}
+            only update its lines / markers / timeframe. The symbol is
+            constant for the whole run; the interval only changes when a deal
+            is too far back to load at the run's resolution, and then the
+            widget is recreated framed on that deal — switching resolution in
+            place would first load the previous frame at the new one. */}
         <div className="h-[320px] shrink-0 overflow-hidden rounded-xl lg:h-auto lg:min-h-0 lg:flex-1">
           <TradingViewChart
+            key={chartProps.interval}
             ref={chartRef}
             widgetId="backtest-deal-chart"
             symbol={chartProps.symbol}

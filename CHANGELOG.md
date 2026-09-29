@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.19] - 2026-09-29
+
+### Fixed
+
+- Backtest results: opening a deal from a fine-interval run (for example 1m) far in the past no longer leaves the chart loading while it fetches every candle between that deal and today. Deals too far back to load at the run's interval are shown at the finest coarser interval that loads in seconds; recent deals keep the run's interval.
+
 ## [2.67.18] - 2026-09-29
 
 ### Changed
