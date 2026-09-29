@@ -7,6 +7,7 @@ import { logger } from '@/lib/loggerInstance';
 /* import { calculateBotValue } from '../utils/botValueCalculation'; */
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { math } from '@/utils/math';
+import { extractPairAssets } from '@/utils/pairs';
 import type { DrawerBot } from './bots/drawer';
 import {
   BotTypesEnum,
@@ -314,6 +315,17 @@ export function transformDcaBotToBot(
   }
 
   let res = { ...b } as (DCABot | ComboBot) & AdditionalBotData;
+  // `symbol` is the backend's pair-metadata map and can come back empty while
+  // `settings.pair` still lists the bot's pairs (a save that ran while the
+  // pairs collection was missing them). Every `symbol[0].value` read below
+  // would then throw and take down the whole bot list, so rebuild a display
+  // copy from the pairs themselves.
+  if (!res.symbol?.length && res.settings.pair?.length) {
+    res.symbol = res.settings.pair.map((pair) => ({
+      key: pair,
+      value: { symbol: pair, ...extractPairAssets(pair) },
+    }));
+  }
   if (stats) {
     res.stats = stats;
   }

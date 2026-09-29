@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.16] - 2026-09-29
+
+### Fixed
+
+- Trading Bots: a bot whose stored pair details were empty made the whole page fail to load. The list now reads that bot's pairs from its settings and shows it normally.
+
 ## [2.67.15] - 2026-09-28
 
 ### Fixed
