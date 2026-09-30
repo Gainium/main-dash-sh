@@ -52,6 +52,11 @@ import {
   type BotTypeId,
 } from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
+import {
+  BotListFilterButtons,
+  BotNameBadges,
+  useBotListFilters,
+} from '@/lib/extensions/botListExtensions';
 import { BotUsageCell } from '../components/bots/BotUsageCell';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
@@ -218,6 +223,9 @@ const ComboBots: React.FC = () => {
   const restartMutation = useBotRestart();
 
   const [showArchived, setShowArchived] = useState(false);
+  // Host-registered list filters (see botListExtensions).
+  const { apply: applyExtensionFilters, toggles: extensionFilterToggles } =
+    useBotListFilters(BotTypesEnum.combo);
   const [activeFilters] = useState<ComboActiveFilters>({
     status: [],
     exchange: [],
@@ -857,6 +865,7 @@ const ComboBots: React.FC = () => {
     return (
       <div className="flex items-center gap-xs">
         <div className="truncate">{value}</div>
+        <BotNameBadges botId={id} botType={BotTypesEnum.combo} />
         <button
           onClick={(e) => {
             e.stopPropagation();
@@ -1477,8 +1486,8 @@ const ComboBots: React.FC = () => {
       data = data.filter((bot) => (bot.totalProfitUsd ?? 0) < 0);
     }
 
-    return data;
-  }, [transformedBots, activeFilters]);
+    return applyExtensionFilters(data, (bot) => bot.id);
+  }, [transformedBots, activeFilters, applyExtensionFilters]);
   // Put starred bots first in the list (subscribe to starred ids for reactivity)
   const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
   const orderedFilteredData = useMemo(() => {
@@ -1944,40 +1953,51 @@ const ComboBots: React.FC = () => {
                             ]
                       }
                       customToolbarActions={
-                        <Button
-                          variant={showArchived ? 'default' : 'ghost'}
-                          size="sm"
-                          onClick={() => setShowArchived((prev) => !prev)}
-                          className="h-9 gap-2 px-3"
-                          title={
-                            showArchived
-                              ? 'Show Active Bots'
-                              : 'Show Archived Bots'
-                          }
-                        >
-                          <Archive className="h-4 w-4" />
-                          <span>Archived</span>
-                        </Button>
+                        <>
+                          <BotListFilterButtons
+                            toggles={extensionFilterToggles}
+                          />
+                          <Button
+                            variant={showArchived ? 'default' : 'ghost'}
+                            size="sm"
+                            onClick={() => setShowArchived((prev) => !prev)}
+                            className="h-9 gap-2 px-3"
+                            title={
+                              showArchived
+                                ? 'Show Active Bots'
+                                : 'Show Archived Bots'
+                            }
+                          >
+                            <Archive className="h-4 w-4" />
+                            <span>Archived</span>
+                          </Button>
+                        </>
                       }
                       customToolbarActionsCompact={
-                        <Button
-                          variant={showArchived ? 'default' : 'ghost'}
-                          size="icon"
-                          onClick={() => setShowArchived((prev) => !prev)}
-                          className="h-9 w-9"
-                          title={
-                            showArchived
-                              ? 'Show Active Bots'
-                              : 'Show Archived Bots'
-                          }
-                          aria-label={
-                            showArchived
-                              ? 'Show active bots'
-                              : 'Show archived bots'
-                          }
-                        >
-                          <Archive className="h-4 w-4" />
-                        </Button>
+                        <>
+                          <BotListFilterButtons
+                            toggles={extensionFilterToggles}
+                            compact
+                          />
+                          <Button
+                            variant={showArchived ? 'default' : 'ghost'}
+                            size="icon"
+                            onClick={() => setShowArchived((prev) => !prev)}
+                            className="h-9 w-9"
+                            title={
+                              showArchived
+                                ? 'Show Active Bots'
+                                : 'Show Archived Bots'
+                            }
+                            aria-label={
+                              showArchived
+                                ? 'Show active bots'
+                                : 'Show archived bots'
+                            }
+                          >
+                            <Archive className="h-4 w-4" />
+                          </Button>
+                        </>
                       }
                       // New button moved to widget header
                     />

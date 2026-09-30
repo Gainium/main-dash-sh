@@ -63,6 +63,10 @@ import type { BotFormData } from '@/types/bots/form';
 import type { BotFormTabComponentProps, BotFormTabDescriptor } from './types';
 
 import { cn } from '@/lib/utils';
+import {
+  BotFieldExtensionControl,
+  BotFieldExtensionSlot,
+} from '@/lib/extensions/botFieldExtensions';
 
 /** Props accepted by ReadOnlyBotForm */
 export interface ReadOnlyBotFormProps {
@@ -442,6 +446,10 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                           <h2 className="text-lg font-semibold leading-tight">
                             {descriptor.label}
                           </h2>
+                          <BotFieldExtensionSlot
+                            path={`section:${descriptor.id}`}
+                            kind="section"
+                          />
                           {(descriptor.tooltipText || descriptor.description) && (
                             <Tooltip
                               tooltip={descriptor.tooltipText ?? descriptor.description ?? ''}
@@ -482,11 +490,13 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                       </Button>
                     )}
                     {hasToggle && (
-                      <Switch
-                        checked={toggleEnabled}
-                        disabled
-                        id={`ro-toggle-${descriptor.id}`}
-                      />
+                      <BotFieldExtensionControl path={toggleField}>
+                        <Switch
+                          checked={toggleEnabled}
+                          disabled
+                          id={`ro-toggle-${descriptor.id}`}
+                        />
+                      </BotFieldExtensionControl>
                     )}
                   </div>
                 </div>

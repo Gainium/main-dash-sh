@@ -1,4 +1,5 @@
 import { cardHoverVariants } from '@/lib/animations/variants';
+import { BotNameBadges } from '@/lib/extensions/botListExtensions';
 import { AXIS_INDEX_KEY, withAxisIndex } from '@/lib/charts/axisIndex';
 import { cn } from '@/lib/utils';
 import {
@@ -533,6 +534,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                 >
                   {bot.name}
                 </h3>
+                <BotNameBadges botId={bot.id} botType={type} />
               </div>
 
               {/* Chip row — flex-wrap so type/direction/pair flow inline when

@@ -2,6 +2,10 @@ import { Button } from '@/components/ui/button';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Switch } from '@/components/ui/switch';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import {
+  BotFieldExtensionControl,
+  BotFieldExtensionSlot,
+} from '@/lib/extensions/botFieldExtensions';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
 import type React from 'react';
@@ -27,6 +31,12 @@ export interface SectionHeaderProps {
   onToggleChange?: (checked: boolean) => void;
   toggleDisabled?: boolean;
   toggleId?: string;
+  /** Form section id — host extensions registered for `section:<id>` render
+   *  beside the label (see botFieldExtensions). */
+  sectionId?: string;
+  /** Setting path the enable toggle writes — host extensions registered for
+   *  it render beside the toggle and may lock it. */
+  toggleField?: string;
   /** Extra classes appended to the header container. */
   className?: string;
 }
@@ -53,8 +63,18 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   onToggleChange,
   toggleDisabled = false,
   toggleId,
+  sectionId,
+  toggleField,
   className,
 }) => {
+  const toggle = (
+    <Switch
+      checked={toggleChecked}
+      onCheckedChange={(checked: boolean) => onToggleChange?.(checked)}
+      disabled={toggleDisabled}
+      {...(toggleId ? { id: toggleId } : {})}
+    />
+  );
   return (
     <div
       className={cn(
@@ -76,6 +96,12 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
                   >
                     <InfoIcon />
                   </Tooltip>
+                )}
+                {sectionId && (
+                  <BotFieldExtensionSlot
+                    path={`section:${sectionId}`}
+                    kind="section"
+                  />
                 )}
               </div>
               {showRiskRewardAlert && (
@@ -107,12 +133,13 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           )}
           {hasToggle && (
             <div className="flex items-center gap-xs">
-              <Switch
-                checked={toggleChecked}
-                onCheckedChange={(checked: boolean) => onToggleChange?.(checked)}
-                disabled={toggleDisabled}
-                {...(toggleId ? { id: toggleId } : {})}
-              />
+              {toggleField ? (
+                <BotFieldExtensionControl path={toggleField}>
+                  {toggle}
+                </BotFieldExtensionControl>
+              ) : (
+                toggle
+              )}
             </div>
           )}
         </div>

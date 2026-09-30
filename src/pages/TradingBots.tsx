@@ -43,6 +43,11 @@ import BotsSkeleton from '../components/ui/BotsPageSkeleton';
 import { Button } from '../components/ui/button';
 import { DataTable } from '../components/ui/data-table/data-table';
 import {
+  BotListFilterButtons,
+  BotNameBadges,
+  useBotListFilters,
+} from '@/lib/extensions/botListExtensions';
+import {
   DropdownMenu,
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
@@ -367,6 +372,7 @@ const NameCell: React.FC<{ value: string; id: string }> = ({ value, id }) => {
   return (
     <div className="flex items-center gap-xs">
       <div className="truncate">{value}</div>
+      <BotNameBadges botId={id} botType={BotTypesEnum.dca} />
       <button
         onClick={handleOpenInNewTab}
         className="p-1 rounded hover:bg-muted/30"
@@ -446,6 +452,9 @@ const TradingBots: React.FC = () => {
   });
 
   const [showArchived, setShowArchived] = useState(false);
+  // Host-registered list filters (see botListExtensions).
+  const { apply: applyExtensionFilters, toggles: extensionFilterToggles } =
+    useBotListFilters(BotTypesEnum.dca);
   const [currentViewMode, setCurrentViewMode] = useState<'table' | 'cards'>(
     'cards'
   );
@@ -1685,8 +1694,8 @@ const TradingBots: React.FC = () => {
       filtered = filtered.filter((bot) => bot.totalProfitUsd < 0);
     }
 
-    return filtered;
-  }, [transformedBots, activeFilters]);
+    return applyExtensionFilters(filtered, (bot) => bot.id);
+  }, [transformedBots, activeFilters, applyExtensionFilters]);
 
   // Put starred bots first (subscribe to starred ids for reactivity)
   const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
@@ -1983,33 +1992,39 @@ const TradingBots: React.FC = () => {
 
   const customToolbarActions = useMemo(
     () => (
-      <Button
-        variant={showArchived ? 'default' : 'ghost'}
-        size="sm"
-        onClick={toggleArchived}
-        className="h-9 gap-2 px-3"
-        title={showArchived ? 'Show Active Bots' : 'Show Archived Bots'}
-      >
-        <Archive className="h-4 w-4" />
-        <span>Archived</span>
-      </Button>
+      <>
+        <BotListFilterButtons toggles={extensionFilterToggles} />
+        <Button
+          variant={showArchived ? 'default' : 'ghost'}
+          size="sm"
+          onClick={toggleArchived}
+          className="h-9 gap-2 px-3"
+          title={showArchived ? 'Show Active Bots' : 'Show Archived Bots'}
+        >
+          <Archive className="h-4 w-4" />
+          <span>Archived</span>
+        </Button>
+      </>
     ),
-    [showArchived, toggleArchived]
+    [showArchived, toggleArchived, extensionFilterToggles]
   );
   const customToolbarActionsCompact = useMemo(
     () => (
-      <Button
-        variant={showArchived ? 'default' : 'ghost'}
-        size="icon"
-        onClick={toggleArchived}
-        className="h-9 w-9"
-        title={showArchived ? 'Show Active Bots' : 'Show Archived Bots'}
-        aria-label={showArchived ? 'Show active bots' : 'Show archived bots'}
-      >
-        <Archive className="h-4 w-4" />
-      </Button>
+      <>
+        <BotListFilterButtons toggles={extensionFilterToggles} compact />
+        <Button
+          variant={showArchived ? 'default' : 'ghost'}
+          size="icon"
+          onClick={toggleArchived}
+          className="h-9 w-9"
+          title={showArchived ? 'Show Active Bots' : 'Show Archived Bots'}
+          aria-label={showArchived ? 'Show active bots' : 'Show archived bots'}
+        >
+          <Archive className="h-4 w-4" />
+        </Button>
+      </>
     ),
-    [showArchived, toggleArchived]
+    [showArchived, toggleArchived, extensionFilterToggles]
   );
 
   // ----- Deals tab -----

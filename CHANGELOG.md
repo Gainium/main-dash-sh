@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.0] - 2026-09-30
+
+### Added
+
+- Extension points for host builds: a component can be attached to an individual bot setting (next to the global-variable control) or to a bot form section, and may take the setting over (hiding the variable binding and locking the field); extra tabs in the bot details drawer, reachable with `?tab=`; badges after a bot's name and extra filters in the DCA and Combo bot lists. With nothing registered the dashboard is unchanged.
+
 ## [2.67.22] - 2026-09-30
 
 ### Changed

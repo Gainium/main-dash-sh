@@ -17,6 +17,11 @@ import {
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
 import { Slider } from '@/components/ui/slider';
+import {
+  BotFieldExtensionControl,
+  BotFieldExtensionSlot,
+  BotFieldManagedFieldset,
+} from '@/lib/extensions/botFieldExtensions';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
@@ -2510,15 +2515,17 @@ export const TakeProfitSettings: React.FC = () => {
               className={interactionDisabledClass}
               contentClassName="space-y-md"
             >
-              <Slider
-                value={parseFloat(tpPerc) || minTpToUse}
-                onChange={handleSliderChange}
-                min={minTpToUse}
-                max={TP_SLIDER_MAX_PERCENT}
-                step={0.1}
-                className="w-full"
-                disabled={isTpPercBound}
-              />
+              <BotFieldManagedFieldset path="tpPerc">
+                <Slider
+                  value={parseFloat(tpPerc) || minTpToUse}
+                  onChange={handleSliderChange}
+                  min={minTpToUse}
+                  max={TP_SLIDER_MAX_PERCENT}
+                  step={0.1}
+                  className="w-full"
+                  disabled={isTpPercBound}
+                />
+              </BotFieldManagedFieldset>
 
               <FieldVariableBinding
                 path="tpPerc"
@@ -2552,31 +2559,33 @@ export const TakeProfitSettings: React.FC = () => {
                 />
               </FieldVariableBinding>
 
-              <div className="flex flex-wrap gap-xs">
-                {[1, 2, 5, 10].map((percentage) => {
-                  const label = `${percentage}%`;
+              <BotFieldManagedFieldset path="tpPerc">
+                <div className="flex flex-wrap gap-xs">
+                  {[1, 2, 5, 10].map((percentage) => {
+                    const label = `${percentage}%`;
 
-                  const numericTpPerc = Number.parseFloat(tpPerc || '0');
+                    const numericTpPerc = Number.parseFloat(tpPerc || '0');
 
-                  const isActive = numericTpPerc === percentage;
+                    const isActive = numericTpPerc === percentage;
 
-                  const shouldDisable =
-                    percentage < minTpToUse || isTpPercBound;
+                    const shouldDisable =
+                      percentage < minTpToUse || isTpPercBound;
 
-                  return (
-                    <Button
-                      key={percentage}
-                      variant={isActive ? 'default' : 'outline'}
-                      size="sm"
-                      onClick={() => handlePresetClick(percentage)}
-                      className="h-7 px-3 text-xs"
-                      disabled={shouldDisable}
-                    >
-                      {label}
-                    </Button>
-                  );
-                })}
-              </div>
+                    return (
+                      <Button
+                        key={percentage}
+                        variant={isActive ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handlePresetClick(percentage)}
+                        className="h-7 px-3 text-xs"
+                        disabled={shouldDisable}
+                      >
+                        {label}
+                      </Button>
+                    );
+                  })}
+                </div>
+              </BotFieldManagedFieldset>
 
               <div className="space-y-md border-t border-muted pt-3">
                 <div className="space-y-1">
@@ -2708,220 +2717,227 @@ export const TakeProfitSettings: React.FC = () => {
                   tooltipURL="/help/multiple-take-profit-targets"
                   colSpan="full"
                   className={interactionDisabledClass}
+                  trailing={
+                    multiTargets.length <= 1 ? (
+                      <BotFieldExtensionSlot path="tpPerc" />
+                    ) : undefined
+                  }
                 >
-                  {hasAllocationOverflow ? (
-                    <Alert variant="destructive" className="py-2 text-xs">
-                      <AlertTitle className="text-sm font-semibold">
-                        Allocation exceeds 100%
-                      </AlertTitle>
-                      <AlertDescription>
-                        Adjust target percentages so the total does not exceed
-                        100%.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  {hasAmountOverflow ? (
-                    <Alert variant="destructive" className="py-2 text-xs">
-                      <AlertTitle className="text-sm font-semibold">
-                        Position allocation exceeds 100%
-                      </AlertTitle>
-                      <AlertDescription>
-                        Reduce the position percentages so the sum of the
-                        distributed position equals 100% or less.
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
-                  <MasonryLayout
-                    gap={16}
-                    containerBreakpoints={{
-                      default: 1,
-                      640: 2,
-                      1024: 3,
-                    }}
-                  >
-                    {multiTargets.length > 0 ? (
-                      multiTargets.map((target, index) => {
-                        const percentagePath = getMultiTargetBindingPath(
-                          target.uuid,
-                          'target'
-                        );
-                        const amountPath = getMultiTargetBindingPath(
-                          target.uuid,
-                          'amount'
-                        );
-                        const fixedPath = getMultiTargetBindingPath(
-                          target.uuid,
-                          'fixed'
-                        );
-
-                        const isTargetPercentageBound =
-                          boundPercentagePaths.has(percentagePath);
-                        const isTargetAmountBound =
-                          boundAmountPaths.has(amountPath);
-                        const isTargetFixedBound =
-                          boundFixedPaths.has(fixedPath);
-                        // TP targets are uncapped price levels — no per-target
-                        // maximum derived from a shared total.
-                        const maxForCurrent = TP_TARGET_VALUE_MAX;
-                        const previousTarget =
-                          index > 0 ? multiTargets[index - 1] : undefined;
-                        const previousTargetValue = previousTarget
-                          ? parseFloat(previousTarget.target)
-                          : undefined;
-                        const validation = validateTpTarget(
-                          target.target,
-                          minTpToUse,
-                          maxForCurrent,
-                          isTargetPercentageBound,
-                          previousTargetValue
-                        );
-                        const percentageValue = sanitizePercentageInput(
-                          target.target,
-                          minTpToUse,
-                          maxForCurrent
-                        );
-                        const amountValue = sanitizeAmountInput(
-                          target.amount,
-                          1,
-                          MAX_TOTAL_PERCENTAGE
-                        );
-                        const formattedAllocation = Number.isInteger(
-                          amountValue
-                        )
-                          ? amountValue.toString()
-                          : amountValue.toFixed(2);
-
-                        // Calculate max for this slider: 100% - 1%*(other targets count)
-                        // Filter out bound targets as they can't be reduced
-                        const unboundTargetsExcludingCurrent =
-                          multiTargets.filter((t, i) => {
-                            if (i === index) return false;
-                            const path = getMultiTargetBindingPath(
-                              t.uuid,
-                              'amount'
-                            );
-                            return !boundAmountPaths.has(path);
-                          });
-                        const maxAmountForThisTarget =
-                          MAX_TOTAL_PERCENTAGE -
-                          unboundTargetsExcludingCurrent.length * 1;
-
-                        return (
-                          <MultiTarget
-                            key={target.uuid}
-                            target={target}
-                            validation={validation}
-                            index={index}
-                            handleRemoveTarget={handleRemoveTarget}
-                            disableRemove={multiTargets.length <= 1}
-                            isFilled={filledTargetIds.has(target.uuid)}
-                            isTargetPercentageBound={isTargetPercentageBound}
-                            sanitizedPercentageMagnitude={percentageValue}
-                            handleTargetPercentageChange={
-                              handleTargetPercentageChange
-                            }
-                            handleTargetAmountChange={handleTargetAmountChange}
-                            isTargetAmountBound={isTargetAmountBound}
-                            sanitizedAmount={amountValue}
-                            maxAmountForTarget={maxAmountForThisTarget}
-                            formattedAllocation={formattedAllocation}
-                            percentagePath={percentagePath}
-                            amountPath={amountPath}
-                            applyVariableToMultiTarget={
-                              applyVariableToMultiTarget
-                            }
-                            minSlToUse={minTpToUse}
-                            totalTargets={multiTargets.length}
-                            previousTargetValue={previousTargetValue}
-                            showPriceTargets={supportsPriceTargets}
-                            currentPrice={currentPrice}
-                            handleTargetFixedChange={handleTargetFixedChange}
-                            isTargetFixedBound={isTargetFixedBound}
-                            fixedPath={fixedPath}
-                            // Display price unit (quote for longs, base for shorts)
-                            priceUnit={(() => {
-                              const pairKey = Array.isArray(formPair)
-                                ? formPair[0]
-                                : formPair;
-                              const pairMeta = pairKey
-                                ? formPairMetadata?.[pairKey]
-                                : undefined;
-                              const base =
-                                pairMeta?.baseAsset?.name ??
-                                (typeof pairKey === 'string'
-                                  ? pairKey.split('/')[0]
-                                  : undefined);
-                              const quote =
-                                pairMeta?.quoteAsset?.name ??
-                                (typeof pairKey === 'string'
-                                  ? pairKey.split('/')[1]
-                                  : undefined);
-                              return isShort
-                                ? (base ?? 'Price')
-                                : (quote ?? 'Price');
-                            })()}
-                            isShort={isShort}
-                          />
-                        );
-                      })
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        No TP targets configured
-                      </p>
-                    )}
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleAddTarget}
-                      className="w-full"
-                      disabled={maximumTargetsReached}
+                  <BotFieldManagedFieldset path="tpPerc">
+                    {hasAllocationOverflow ? (
+                      <Alert variant="destructive" className="py-2 text-xs">
+                        <AlertTitle className="text-sm font-semibold">
+                          Allocation exceeds 100%
+                        </AlertTitle>
+                        <AlertDescription>
+                          Adjust target percentages so the total does not exceed
+                          100%.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                    {hasAmountOverflow ? (
+                      <Alert variant="destructive" className="py-2 text-xs">
+                        <AlertTitle className="text-sm font-semibold">
+                          Position allocation exceeds 100%
+                        </AlertTitle>
+                        <AlertDescription>
+                          Reduce the position percentages so the sum of the
+                          distributed position equals 100% or less.
+                        </AlertDescription>
+                      </Alert>
+                    ) : null}
+                    <MasonryLayout
+                      gap={16}
+                      containerBreakpoints={{
+                        default: 1,
+                        640: 2,
+                        1024: 3,
+                      }}
                     >
-                      {multiTargets.length === 0
-                        ? 'Add Target'
-                        : 'Add Another Target'}
-                    </Button>
-                    {maximumTargetsReached && (
-                      <SettingsAlert
-                        variant="warning"
-                        title={`Maximum of ${MAX_MULTI_TP_TARGETS} targets reached. Remove an existing target before adding another.`}
-                      />
-                    )}
-                    {multiTargetWarnings.length > 0 && (
-                      <div className="space-y-xs">
-                        {multiTargetWarnings.map((warning) => (
-                          <SettingsAlert
-                            key={warning}
-                            variant="warning"
-                            title={warning}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    <div className="space-y-xs rounded-lg border border-border/50 bg-background/20 p-sm">
-                      <div className="flex flex-wrap items-center justify-between gap-xs text-sm">
-                        <div className="flex items-center gap-1">
-                          Expected average profit
-                          <Tooltip tooltip="Weighted by each target's allocation to estimate the blended profit if all targets trigger.">
-                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                          </Tooltip>
+                      {multiTargets.length > 0 ? (
+                        multiTargets.map((target, index) => {
+                          const percentagePath = getMultiTargetBindingPath(
+                            target.uuid,
+                            'target'
+                          );
+                          const amountPath = getMultiTargetBindingPath(
+                            target.uuid,
+                            'amount'
+                          );
+                          const fixedPath = getMultiTargetBindingPath(
+                            target.uuid,
+                            'fixed'
+                          );
+
+                          const isTargetPercentageBound =
+                            boundPercentagePaths.has(percentagePath);
+                          const isTargetAmountBound =
+                            boundAmountPaths.has(amountPath);
+                          const isTargetFixedBound =
+                            boundFixedPaths.has(fixedPath);
+                          // TP targets are uncapped price levels — no per-target
+                          // maximum derived from a shared total.
+                          const maxForCurrent = TP_TARGET_VALUE_MAX;
+                          const previousTarget =
+                            index > 0 ? multiTargets[index - 1] : undefined;
+                          const previousTargetValue = previousTarget
+                            ? parseFloat(previousTarget.target)
+                            : undefined;
+                          const validation = validateTpTarget(
+                            target.target,
+                            minTpToUse,
+                            maxForCurrent,
+                            isTargetPercentageBound,
+                            previousTargetValue
+                          );
+                          const percentageValue = sanitizePercentageInput(
+                            target.target,
+                            minTpToUse,
+                            maxForCurrent
+                          );
+                          const amountValue = sanitizeAmountInput(
+                            target.amount,
+                            1,
+                            MAX_TOTAL_PERCENTAGE
+                          );
+                          const formattedAllocation = Number.isInteger(
+                            amountValue
+                          )
+                            ? amountValue.toString()
+                            : amountValue.toFixed(2);
+
+                          // Calculate max for this slider: 100% - 1%*(other targets count)
+                          // Filter out bound targets as they can't be reduced
+                          const unboundTargetsExcludingCurrent =
+                            multiTargets.filter((t, i) => {
+                              if (i === index) return false;
+                              const path = getMultiTargetBindingPath(
+                                t.uuid,
+                                'amount'
+                              );
+                              return !boundAmountPaths.has(path);
+                            });
+                          const maxAmountForThisTarget =
+                            MAX_TOTAL_PERCENTAGE -
+                            unboundTargetsExcludingCurrent.length * 1;
+
+                          return (
+                            <MultiTarget
+                              key={target.uuid}
+                              target={target}
+                              validation={validation}
+                              index={index}
+                              handleRemoveTarget={handleRemoveTarget}
+                              disableRemove={multiTargets.length <= 1}
+                              isFilled={filledTargetIds.has(target.uuid)}
+                              isTargetPercentageBound={isTargetPercentageBound}
+                              sanitizedPercentageMagnitude={percentageValue}
+                              handleTargetPercentageChange={
+                                handleTargetPercentageChange
+                              }
+                              handleTargetAmountChange={handleTargetAmountChange}
+                              isTargetAmountBound={isTargetAmountBound}
+                              sanitizedAmount={amountValue}
+                              maxAmountForTarget={maxAmountForThisTarget}
+                              formattedAllocation={formattedAllocation}
+                              percentagePath={percentagePath}
+                              amountPath={amountPath}
+                              applyVariableToMultiTarget={
+                                applyVariableToMultiTarget
+                              }
+                              minSlToUse={minTpToUse}
+                              totalTargets={multiTargets.length}
+                              previousTargetValue={previousTargetValue}
+                              showPriceTargets={supportsPriceTargets}
+                              currentPrice={currentPrice}
+                              handleTargetFixedChange={handleTargetFixedChange}
+                              isTargetFixedBound={isTargetFixedBound}
+                              fixedPath={fixedPath}
+                              // Display price unit (quote for longs, base for shorts)
+                              priceUnit={(() => {
+                                const pairKey = Array.isArray(formPair)
+                                  ? formPair[0]
+                                  : formPair;
+                                const pairMeta = pairKey
+                                  ? formPairMetadata?.[pairKey]
+                                  : undefined;
+                                const base =
+                                  pairMeta?.baseAsset?.name ??
+                                  (typeof pairKey === 'string'
+                                    ? pairKey.split('/')[0]
+                                    : undefined);
+                                const quote =
+                                  pairMeta?.quoteAsset?.name ??
+                                  (typeof pairKey === 'string'
+                                    ? pairKey.split('/')[1]
+                                    : undefined);
+                                return isShort
+                                  ? (base ?? 'Price')
+                                  : (quote ?? 'Price');
+                              })()}
+                              isShort={isShort}
+                            />
+                          );
+                        })
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          No TP targets configured
+                        </p>
+                      )}
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleAddTarget}
+                        className="w-full"
+                        disabled={maximumTargetsReached}
+                      >
+                        {multiTargets.length === 0
+                          ? 'Add Target'
+                          : 'Add Another Target'}
+                      </Button>
+                      {maximumTargetsReached && (
+                        <SettingsAlert
+                          variant="warning"
+                          title={`Maximum of ${MAX_MULTI_TP_TARGETS} targets reached. Remove an existing target before adding another.`}
+                        />
+                      )}
+                      {multiTargetWarnings.length > 0 && (
+                        <div className="space-y-xs">
+                          {multiTargetWarnings.map((warning) => (
+                            <SettingsAlert
+                              key={warning}
+                              variant="warning"
+                              title={warning}
+                            />
+                          ))}
                         </div>
-                        <div className="text-sm font-medium">
-                          {expectedAverageProfit}%
-                          {typeof tradingContext.latestPrice === 'number' &&
-                            tradingContext.latestPrice > 0 && (
-                              <span className="ml-2 text-xs text-muted-foreground">
-                                ≈ $
-                                {(
-                                  (tradingContext.latestPrice *
-                                    expectedAverageProfitValue) /
-                                  100
-                                ).toFixed(2)}
-                              </span>
-                            )}
+                      )}
+                      <div className="space-y-xs rounded-lg border border-border/50 bg-background/20 p-sm">
+                        <div className="flex flex-wrap items-center justify-between gap-xs text-sm">
+                          <div className="flex items-center gap-1">
+                            Expected average profit
+                            <Tooltip tooltip="Weighted by each target's allocation to estimate the blended profit if all targets trigger.">
+                              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                            </Tooltip>
+                          </div>
+                          <div className="text-sm font-medium">
+                            {expectedAverageProfit}%
+                            {typeof tradingContext.latestPrice === 'number' &&
+                              tradingContext.latestPrice > 0 && (
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  ≈ $
+                                  {(
+                                    (tradingContext.latestPrice *
+                                      expectedAverageProfitValue) /
+                                    100
+                                  ).toFixed(2)}
+                                </span>
+                              )}
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  </MasonryLayout>
+                    </MasonryLayout>
+                  </BotFieldManagedFieldset>
                 </SettingsRow>
               ) : null}
               {isTechIndicatorClose && !isDealEdit ? (
@@ -3272,23 +3288,25 @@ export const TakeProfitSettings: React.FC = () => {
                       className={interactionDisabledClass}
                       contentClassName="space-y-md"
                       trailing={
-                        <Switch
-                          id="trailing-tp"
-                          checked={!!trailingTp || false}
-                          onCheckedChange={(checked) => {
-                            if (multiTargets.length > 1) {
-                              return;
-                            }
-                            updateFormData('trailingTp', checked);
-                            if (checked && !trailingTpPerc) {
-                              updateFormData(
-                                'trailingTpPerc',
-                                TRAILING_TP_MIN.toString()
-                              );
-                            }
-                          }}
-                          disabled={multiTargets.length > 1}
-                        />
+                        <BotFieldExtensionControl path="trailingTp">
+                          <Switch
+                            id="trailing-tp"
+                            checked={!!trailingTp || false}
+                            onCheckedChange={(checked) => {
+                              if (multiTargets.length > 1) {
+                                return;
+                              }
+                              updateFormData('trailingTp', checked);
+                              if (checked && !trailingTpPerc) {
+                                updateFormData(
+                                  'trailingTpPerc',
+                                  TRAILING_TP_MIN.toString()
+                                );
+                              }
+                            }}
+                            disabled={multiTargets.length > 1}
+                          />
+                        </BotFieldExtensionControl>
                       }
                     >
                       {multiTargets.length > 1 ? (
@@ -3298,30 +3316,32 @@ export const TakeProfitSettings: React.FC = () => {
                         />
                       ) : trailingTp ? (
                         <div className="space-y-xs">
-                          <Slider
-                            value={sanitizePercentageInput(
-                              trailingTpPerc || TRAILING_TP_MIN,
-                              TRAILING_TP_MIN,
-                              TRAILING_TP_MAX
-                            )}
-                            onChange={(value) => {
-                              const next = sanitizePercentageInput(
-                                value,
+                          <BotFieldManagedFieldset path="trailingTpPerc">
+                            <Slider
+                              value={sanitizePercentageInput(
+                                trailingTpPerc || TRAILING_TP_MIN,
                                 TRAILING_TP_MIN,
                                 TRAILING_TP_MAX
-                              );
-                              const clamped = Math.min(TRAILING_TP_MAX, next);
-                              updateFormData(
-                                'trailingTpPerc',
-                                clamped.toString()
-                              );
-                            }}
-                            min={TRAILING_TP_MIN}
-                            max={TRAILING_TP_MAX}
-                            step={0.1}
-                            className="w-full"
-                            disabled={isTrailingBound}
-                          />
+                              )}
+                              onChange={(value) => {
+                                const next = sanitizePercentageInput(
+                                  value,
+                                  TRAILING_TP_MIN,
+                                  TRAILING_TP_MAX
+                                );
+                                const clamped = Math.min(TRAILING_TP_MAX, next);
+                                updateFormData(
+                                  'trailingTpPerc',
+                                  clamped.toString()
+                                );
+                              }}
+                              min={TRAILING_TP_MIN}
+                              max={TRAILING_TP_MAX}
+                              step={0.1}
+                              className="w-full"
+                              disabled={isTrailingBound}
+                            />
+                          </BotFieldManagedFieldset>
                           <FieldVariableBinding
                             path="trailingTpPerc"
                             varType="float"
