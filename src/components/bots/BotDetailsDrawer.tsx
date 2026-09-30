@@ -2268,9 +2268,13 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       <TabsTrigger value="chart">Chart</TabsTrigger>
                     </TabsList>
                   </div>
+                  {/* Kept mounted while hidden: unmounting the deal's orders
+                      section on a switch to Chart clears the chart store's
+                      order lines, leaving only the breakeven line. */}
                   <TabsContent
                     value="details"
-                    className="flex-1 min-h-0 overflow-auto px-4 py-5 custom-scrollbar mt-0"
+                    forceMount
+                    className="flex-1 min-h-0 overflow-auto px-4 py-5 custom-scrollbar mt-0 data-[state=inactive]:hidden"
                   >
                     <motion.div
                       key="trade-view"
