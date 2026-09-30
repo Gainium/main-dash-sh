@@ -14,7 +14,6 @@ const API_ENDPOINT =
 
 interface ConsentParams {
   clientId: string;
-  clientName: string;
   redirectUri: string;
   scope: string;
   codeChallenge: string;
@@ -27,7 +26,6 @@ function readParams(): ConsentParams {
   const q = new URLSearchParams(window.location.search);
   return {
     clientId: q.get('client_id') ?? '',
-    clientName: q.get('client_name') ?? 'An application',
     redirectUri: q.get('redirect_uri') ?? '',
     scope: q.get('scope') ?? 'read',
     codeChallenge: q.get('code_challenge') ?? '',
@@ -37,12 +35,34 @@ function readParams(): ConsentParams {
   };
 }
 
+/** The registered client, as the backend knows it. */
+interface RegisteredClient {
+  name: string;
+  redirectUri: string;
+}
+
+/** Where the browser goes after the decision, in words a user can check. */
+function describeRedirect(uri: string): string {
+  try {
+    const u = new URL(uri);
+    if (u.protocol === 'https:') return u.host;
+    if (u.protocol === 'http:') return `an app on this computer (${u.host})`;
+    return `an app on this computer (${u.protocol}//)`;
+  } catch {
+    return uri;
+  }
+}
+
 /**
  * OAuth consent screen. The backend's GET /authorize validated the request and
  * redirected the browser here. We authenticate the user via the existing
  * session (authStore), let them choose scope + restrictions, and POST the
  * decision back to /oauth/authorize/decision with the session token. The
  * backend mints the code and returns the redirect URL back to the client.
+ *
+ * The app name is looked up from the backend, never read from this page's
+ * URL: anyone can craft a consent link, so a name taken from it could claim to
+ * be any app.
  */
 const OAuthConsent: React.FC = () => {
   const navigate = useNavigate();
@@ -56,6 +76,8 @@ const OAuthConsent: React.FC = () => {
   const [botId, setBotId] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [client, setClient] = useState<RegisteredClient | null>(null);
+  const [lookupError, setLookupError] = useState<string | null>(null);
 
   // Not signed in → bounce to login, preserving this full URL so we come back.
   useEffect(() => {
@@ -69,6 +91,34 @@ const OAuthConsent: React.FC = () => {
 
   const invalid =
     !params.clientId || !params.redirectUri || !params.codeChallenge;
+
+  // Resolve the registered client; the backend also refuses a redirect_uri the
+  // client did not register, so a tampered request never reaches the buttons.
+  useEffect(() => {
+    if (invalid || !isAuthenticated) return;
+    let cancelled = false;
+    const q = new URLSearchParams({
+      client_id: params.clientId,
+      redirect_uri: params.redirectUri,
+    });
+    fetch(`${API_ENDPOINT}/oauth/authorize/client?${q}`)
+      .then(async (res) => {
+        const data = await res.json();
+        if (cancelled) return;
+        if (!res.ok || data.error || typeof data.client_name !== 'string') {
+          setLookupError('This authorization request is not valid.');
+          return;
+        }
+        setClient({ name: data.client_name, redirectUri: params.redirectUri });
+      })
+      .catch(() => {
+        if (!cancelled)
+          setLookupError('Could not load this authorization request.');
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [invalid, isAuthenticated, params.clientId, params.redirectUri]);
 
   async function submit(approved: boolean) {
     setSubmitting(true);
@@ -132,13 +182,28 @@ const OAuthConsent: React.FC = () => {
             <p className="text-sm text-destructive">
               This authorization request is missing required parameters.
             </p>
+          ) : lookupError ? (
+            <p className="text-sm text-destructive">
+              {lookupError} Start the connection again from the app.
+            </p>
+          ) : !client ? (
+            <div className="flex justify-center">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+            </div>
           ) : (
             <>
               <p className="text-sm text-muted-foreground">
                 <span className="font-semibold text-foreground">
-                  {params.clientName}
+                  {client.name}
                 </span>{' '}
                 wants to access your Gainium account through the API.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                After you decide, you will be sent to{' '}
+                <span className="font-medium text-foreground break-all">
+                  {describeRedirect(client.redirectUri)}
+                </span>
+                . Only continue if you started this connection there.
               </p>
 
               <div className="space-y-md">

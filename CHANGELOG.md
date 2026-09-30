@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.22] - 2026-09-30
+
+### Changed
+
+- Connect an app (OAuth consent): the app name shown is now the one the app registered with, looked up from the server, and the screen shows where you will be sent after you decide. A request whose return address the app did not register is shown as not valid, with no Authorize or Deny buttons.
+
 ## [2.67.21] - 2026-09-30
 
 ### Fixed
