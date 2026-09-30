@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.67.24] - 2026-09-30
+
+### Fixed
+
+- Trading Bots: the DCA bot list no longer stays empty ("No DCA bots yet") for an account that has never saved a live/paper preference. The list waited for the trading mode to be synced from the profile, and a profile with no saved mode is never synced, so the list was never requested.
+
 ## [2.67.22] - 2026-09-30
 
 ### Changed

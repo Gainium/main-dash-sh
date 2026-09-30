@@ -203,10 +203,15 @@ export function useDcaBots(
   // callers passing an explicit `paperContext` have a fixed key unaffected by
   // the flip, and demo/returning users (persisted mode already matches) settle
   // immediately, so this is a no-op for them.
+  //
+  // `null` counts as "no saved mode" just like `undefined`: an account that
+  // never saved a mode is served `paperContext: null`, and `usePaperContext`
+  // never syncs the UI from a null profile — waiting for that sync would hold
+  // the list forever.
   const tradingModeSettled =
     typeof filter?.paperContext === 'boolean' ||
     tradingMode === 'demo' ||
-    userPaperContext === undefined ||
+    userPaperContext == null ||
     !userPaperContext === isLiveTrading;
 
   // Share-mode visitors must never trigger the visitor's bot list query —
