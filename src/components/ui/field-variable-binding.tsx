@@ -27,6 +27,11 @@ import {
 import { VariableChip } from '@/components/global-variables/VariableChip';
 import { VariableSearch } from '@/components/global-variables/GlobalVariableSearch';
 import { GlobalVariableButton } from './global-variable-button';
+import {
+  BotFieldExtensionSlot,
+  useBotFieldExtensionState,
+  type BotFieldKind,
+} from '@/lib/extensions/botFieldExtensions';
 
 type FieldVariableBindingVariant = 'inline' | 'adjacent';
 
@@ -73,10 +78,30 @@ export const FieldVariableBinding: React.FC<FieldVariableBindingProps> = ({
     formMode === 'deal-edit' || formMode === 'deal-mass-edit';
   const isSettingsReadonly = formMode === 'settings-readonly';
   const isTerminalForm = Boolean(terminalFlag);
+  // A host extension that owns this setting (see botFieldExtensions) hides the
+  // variable binding: the two must never both drive the same field.
+  const extensionKind: BotFieldKind =
+    varType === 'float' || varType === 'int' || varType === 'number'
+      ? 'number'
+      : 'enum';
+  const extensionState = useBotFieldExtensionState(path, extensionKind);
   const shouldHideBindingButton = useMemo(
     () =>
-      isSettingsReadonly || isDealEdit || hideBindingButton || isTerminalForm,
-    [isSettingsReadonly, isDealEdit, hideBindingButton, isTerminalForm]
+      isSettingsReadonly ||
+      isDealEdit ||
+      hideBindingButton ||
+      isTerminalForm ||
+      extensionState.active,
+    [
+      isSettingsReadonly,
+      isDealEdit,
+      hideBindingButton,
+      isTerminalForm,
+      extensionState.active,
+    ]
+  );
+  const extensionSlot = (
+    <BotFieldExtensionSlot path={path} kind={extensionKind} />
   );
 
   const { isBound, variableId, bindVariable, unbindVariable } =
@@ -212,6 +237,24 @@ export const FieldVariableBinding: React.FC<FieldVariableBindingProps> = ({
     );
   }
 
+  // An extension owns the field read-only: its inputs are disabled and the
+  // extension's control sits beside them, outside the disabled fieldset so it
+  // stays operable.
+  if (extensionState.readOnly) {
+    return (
+      <div className={cn('flex w-full items-center gap-2', className)}>
+        <fieldset
+          disabled
+          className="m-0 min-w-0 flex-1 border-0 p-0 opacity-70"
+          data-field-managed={path}
+        >
+          <div className={cn('w-full', contentClassName)}>{children}</div>
+        </fieldset>
+        {extensionSlot}
+      </div>
+    );
+  }
+
   if (
     isInlineVariant &&
     isValidElement(children) &&
@@ -254,8 +297,9 @@ export const FieldVariableBinding: React.FC<FieldVariableBindingProps> = ({
     );
 
     return (
-      <div className={cn('w-full', className)}>
+      <div className={cn('flex w-full items-center gap-2', className)}>
         <div className={cn('w-full', contentClassName)}>{injectedChild}</div>
+        {extensionSlot}
       </div>
     );
   }
@@ -282,6 +326,7 @@ export const FieldVariableBinding: React.FC<FieldVariableBindingProps> = ({
   return (
     <div className={containerClasses}>
       <div className={contentWrapperClasses}>{children}</div>
+      {!isInlineVariant && extensionSlot}
       <div className={buttonWrapperClasses}>
         {isInlineVariant ? (
           <>

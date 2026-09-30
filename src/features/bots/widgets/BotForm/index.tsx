@@ -32,6 +32,10 @@ import {
   type ScrollableTabItem,
 } from '@/components/ui/ScrollableFormTabNavigation';
 import { SectionHeader } from '@/features/bots/shared/components/SectionHeader';
+import {
+  BotFieldExtensionControl,
+  BotFieldExtensionSlot,
+} from '@/lib/extensions/botFieldExtensions';
 import { Switch } from '@/components/ui/switch';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import WidgetWrapper, {
@@ -3780,6 +3784,8 @@ const BotForm: React.FC<BotFormProps> = ({
                             isContentReadOnly || !!isFieldLocked(toggleField)
                           }
                           toggleId={`toggle-${descriptor.id}`}
+                          sectionId={descriptor.id}
+                          {...(hasToggle ? { toggleField } : {})}
                           className={cn(
                             isTerminalSimpleSelected &&
                               descriptor.id === 'basic'
@@ -4144,6 +4150,10 @@ const BotForm: React.FC<BotFormProps> = ({
                               <h2 className="text-base font-semibold leading-tight">
                                 {descriptor.label}
                               </h2>
+                              <BotFieldExtensionSlot
+                                path={`section:${descriptor.id}`}
+                                kind="section"
+                              />
                               {(descriptor.tooltipText ||
                                 descriptor.description) && (
                                 <Tooltip
@@ -4205,14 +4215,16 @@ const BotForm: React.FC<BotFormProps> = ({
                         )}
                         {hasToggle && (
                           <div className="flex items-center gap-xs">
-                            <Switch
-                              checked={toggleEnabled}
-                              onCheckedChange={(checked: boolean) =>
-                                updateFormData(toggleField, checked)
-                              }
-                              disabled={isContentReadOnly}
-                              id={`toggle-${descriptor.id}`}
-                            />
+                            <BotFieldExtensionControl path={toggleField}>
+                              <Switch
+                                checked={toggleEnabled}
+                                onCheckedChange={(checked: boolean) =>
+                                  updateFormData(toggleField, checked)
+                                }
+                                disabled={isContentReadOnly}
+                                id={`toggle-${descriptor.id}`}
+                              />
+                            </BotFieldExtensionControl>
                           </div>
                         )}
                       </div>

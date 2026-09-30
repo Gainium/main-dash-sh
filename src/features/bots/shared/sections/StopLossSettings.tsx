@@ -4,6 +4,11 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
+import {
+  BotFieldExtensionControl,
+  BotFieldExtensionSlot,
+  BotFieldManagedFieldset,
+} from '@/lib/extensions/botFieldExtensions';
 import { NumberInput } from '@/components/ui/number-input';
 import { ResponsiveFormLayout } from '@/components/ui/ResponsiveFormLayout';
 import SettingsAlert from '@/components/ui/SettingsAlert';
@@ -1208,153 +1213,232 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
           colSpan="full"
           contentClassName="space-y-sm"
           navId="stop-loss-advanced"
+          trailing={
+            !hasMultipleSlTargets ? (
+              <BotFieldExtensionSlot path="slPerc" />
+            ) : undefined
+          }
         >
-          {hasAllocationOverflow ? (
-            <Alert variant="destructive" className="py-2 text-xs">
-              <AlertTitle className="text-sm font-semibold">
-                Allocation exceeds 100%
-              </AlertTitle>
-              <AlertDescription>
-                Adjust target allocations so the combined value is 100% or less.
-              </AlertDescription>
-            </Alert>
-          ) : null}
-          <MasonryLayout
-            gap={16}
-            containerBreakpoints={{
-              default: 1,
-              640: 2,
-              1024: 3,
-            }}
-          >
-            {multiTargets.length > 0 ? (
-              multiTargets.map((target, index) => {
-                const percentagePath = getMultiSlBindingPath(
-                  target.uuid,
-                  'target'
-                );
-                const amountPath = getMultiSlBindingPath(target.uuid, 'amount');
-                const fixedPath = getMultiSlBindingPath(target.uuid, 'fixed');
-
-                const isTargetPercentageBound =
-                  boundPercentagePaths.has(percentagePath);
-                const isTargetAmountBound = boundAmountPaths.has(amountPath);
-                const isTargetFixedBound = boundFixedPaths.has(fixedPath);
-                const validation = validateSlTarget(
-                  target.target,
-                  isTargetPercentageBound
-                );
-
-                const numericPercentage = Number(target.target);
-                const percentageMagnitude = Number.isFinite(numericPercentage)
-                  ? Math.abs(numericPercentage)
-                  : minSlToUse;
-                const sanitizedPercentageMagnitude = Number.isFinite(
-                  percentageMagnitude
-                )
-                  ? Math.max(minSlToUse, Math.min(percentageMagnitude, 100))
-                  : minSlToUse;
-
-                const sanitizedAmount = sanitizeSlAmountInput(target.amount);
-                const formattedAllocation = Number.isInteger(sanitizedAmount)
-                  ? sanitizedAmount.toString()
-                  : sanitizedAmount.toFixed(2);
-                const otherAllocation = Math.max(
-                  0,
-                  totalAllocation - sanitizedAmount
-                );
-                const availableForTarget = Math.max(
-                  0,
-                  MAX_SL_ALLOCATION - otherAllocation
-                );
-                const maxAmountForTarget = Math.max(
-                  sanitizedAmount,
-                  availableForTarget
-                );
-
-                return (
-                  <MultiTarget
-                    key={target.uuid}
-                    target={target}
-                    validation={validation}
-                    index={index}
-                    handleRemoveTarget={handleRemoveTarget}
-                    disableRemove={multiTargets.length <= 1}
-                    isTargetPercentageBound={isTargetPercentageBound}
-                    sanitizedPercentageMagnitude={sanitizedPercentageMagnitude}
-                    handleTargetPercentageChange={handleTargetPercentageChange}
-                    handleTargetAmountChange={handleTargetAmountChange}
-                    isTargetAmountBound={isTargetAmountBound}
-                    sanitizedAmount={sanitizedAmount}
-                    maxAmountForTarget={maxAmountForTarget}
-                    formattedAllocation={formattedAllocation}
-                    percentagePath={percentagePath}
-                    amountPath={amountPath}
-                    applyVariableToMultiTarget={applyVariableToMultiTarget}
-                    minSlToUse={minSlToUse}
-                    totalTargets={multiTargets.length}
-                    showPriceTargets={supportsPriceTargets}
-                    currentPrice={currentPrice}
-                    handleTargetFixedChange={handleTargetFixedChange}
-                    isTargetFixedBound={isTargetFixedBound}
-                    fixedPath={fixedPath}
-                    // Display price unit (quote for longs, base for shorts)
-                    priceUnit={(() => {
-                      const pairKey = Array.isArray(formData.pair)
-                        ? formData.pair[0]
-                        : formData.pair;
-                      const pairMeta = pairKey
-                        ? formData.pairMetadata?.[pairKey]
-                        : undefined;
-                      const base =
-                        pairMeta?.baseAsset?.name ??
-                        (typeof pairKey === 'string'
-                          ? pairKey.split('/')[0]
-                          : undefined);
-                      const quote =
-                        pairMeta?.quoteAsset?.name ??
-                        (typeof pairKey === 'string'
-                          ? pairKey.split('/')[1]
-                          : undefined);
-                      return isShort ? (base ?? 'Price') : (quote ?? 'Price');
-                    })()}
-                    isShort={isShort}
-                  />
-                );
-              })
-            ) : (
-              <p className="text-sm text-muted-foreground">
-                No SL targets configured
-              </p>
-            )}
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleAddTarget}
-              className="w-full"
-              disabled={maximumTargetsReached}
+          <BotFieldManagedFieldset path="slPerc">
+            {hasAllocationOverflow ? (
+              <Alert variant="destructive" className="py-2 text-xs">
+                <AlertTitle className="text-sm font-semibold">
+                  Allocation exceeds 100%
+                </AlertTitle>
+                <AlertDescription>
+                  Adjust target allocations so the combined value is 100% or less.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            <MasonryLayout
+              gap={16}
+              containerBreakpoints={{
+                default: 1,
+                640: 2,
+                1024: 3,
+              }}
             >
-              {multiTargets.length === 0 ? 'Add Target' : 'Add Another Target'}
-            </Button>
-            {firstInvalidMultiTargetMessage ? (
-              <div className="pt-2">
-                <SettingsAlert
-                  variant="error"
-                  title={firstInvalidMultiTargetMessage}
+              {multiTargets.length > 0 ? (
+                multiTargets.map((target, index) => {
+                  const percentagePath = getMultiSlBindingPath(
+                    target.uuid,
+                    'target'
+                  );
+                  const amountPath = getMultiSlBindingPath(target.uuid, 'amount');
+                  const fixedPath = getMultiSlBindingPath(target.uuid, 'fixed');
+
+                  const isTargetPercentageBound =
+                    boundPercentagePaths.has(percentagePath);
+                  const isTargetAmountBound = boundAmountPaths.has(amountPath);
+                  const isTargetFixedBound = boundFixedPaths.has(fixedPath);
+                  const validation = validateSlTarget(
+                    target.target,
+                    isTargetPercentageBound
+                  );
+
+                  const numericPercentage = Number(target.target);
+                  const percentageMagnitude = Number.isFinite(numericPercentage)
+                    ? Math.abs(numericPercentage)
+                    : minSlToUse;
+                  const sanitizedPercentageMagnitude = Number.isFinite(
+                    percentageMagnitude
+                  )
+                    ? Math.max(minSlToUse, Math.min(percentageMagnitude, 100))
+                    : minSlToUse;
+
+                  const sanitizedAmount = sanitizeSlAmountInput(target.amount);
+                  const formattedAllocation = Number.isInteger(sanitizedAmount)
+                    ? sanitizedAmount.toString()
+                    : sanitizedAmount.toFixed(2);
+                  const otherAllocation = Math.max(
+                    0,
+                    totalAllocation - sanitizedAmount
+                  );
+                  const availableForTarget = Math.max(
+                    0,
+                    MAX_SL_ALLOCATION - otherAllocation
+                  );
+                  const maxAmountForTarget = Math.max(
+                    sanitizedAmount,
+                    availableForTarget
+                  );
+
+                  return (
+                    <MultiTarget
+                      key={target.uuid}
+                      target={target}
+                      validation={validation}
+                      index={index}
+                      handleRemoveTarget={handleRemoveTarget}
+                      disableRemove={multiTargets.length <= 1}
+                      isTargetPercentageBound={isTargetPercentageBound}
+                      sanitizedPercentageMagnitude={sanitizedPercentageMagnitude}
+                      handleTargetPercentageChange={handleTargetPercentageChange}
+                      handleTargetAmountChange={handleTargetAmountChange}
+                      isTargetAmountBound={isTargetAmountBound}
+                      sanitizedAmount={sanitizedAmount}
+                      maxAmountForTarget={maxAmountForTarget}
+                      formattedAllocation={formattedAllocation}
+                      percentagePath={percentagePath}
+                      amountPath={amountPath}
+                      applyVariableToMultiTarget={applyVariableToMultiTarget}
+                      minSlToUse={minSlToUse}
+                      totalTargets={multiTargets.length}
+                      showPriceTargets={supportsPriceTargets}
+                      currentPrice={currentPrice}
+                      handleTargetFixedChange={handleTargetFixedChange}
+                      isTargetFixedBound={isTargetFixedBound}
+                      fixedPath={fixedPath}
+                      // Display price unit (quote for longs, base for shorts)
+                      priceUnit={(() => {
+                        const pairKey = Array.isArray(formData.pair)
+                          ? formData.pair[0]
+                          : formData.pair;
+                        const pairMeta = pairKey
+                          ? formData.pairMetadata?.[pairKey]
+                          : undefined;
+                        const base =
+                          pairMeta?.baseAsset?.name ??
+                          (typeof pairKey === 'string'
+                            ? pairKey.split('/')[0]
+                            : undefined);
+                        const quote =
+                          pairMeta?.quoteAsset?.name ??
+                          (typeof pairKey === 'string'
+                            ? pairKey.split('/')[1]
+                            : undefined);
+                        return isShort ? (base ?? 'Price') : (quote ?? 'Price');
+                      })()}
+                      isShort={isShort}
+                    />
+                  );
+                })
+              ) : (
+                <p className="text-sm text-muted-foreground">
+                  No SL targets configured
+                </p>
+              )}
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleAddTarget}
+                className="w-full"
+                disabled={maximumTargetsReached}
+              >
+                {multiTargets.length === 0 ? 'Add Target' : 'Add Another Target'}
+              </Button>
+              {firstInvalidMultiTargetMessage ? (
+                <div className="pt-2">
+                  <SettingsAlert
+                    variant="error"
+                    title={firstInvalidMultiTargetMessage}
+                  />
+                </div>
+              ) : null}
+              {!useMultiSl && slErrorMessage ? (
+                <div className="pt-2">
+                  <SettingsAlert variant="error" title={slErrorMessage} />
+                </div>
+              ) : null}
+              {maximumTargetsReached ? (
+                <p className="text-xs text-warning text-center">
+                  Maximum of {MAX_MULTI_SL_TARGETS} targets reached. Remove an
+                  existing target before adding another.
+                </p>
+              ) : null}
+              <div className="space-y-xs rounded-lg border border-border/50 bg-background/20 p-sm">
+                <div className="flex flex-wrap items-center justify-between gap-xs text-sm">
+                  <div className="flex items-center gap-1">
+                    Average stop loss
+                    <Tooltip tooltip="Weighted by each target's allocation to estimate the blended exit level if all targets trigger.">
+                      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </Tooltip>
+                  </div>
+                  <div className="text-sm font-medium">
+                    {averageStopLossValue !== undefined
+                      ? `${averageStopLossValue.toFixed(2)}%`
+                      : '—'}
+                    {weightedStopLossPriceDisplay ? (
+                      <span className="ml-2 text-xs text-muted-foreground">
+                        ≈ ${weightedStopLossPriceDisplay}
+                      </span>
+                    ) : null}
+                  </div>
+                </div>
+              </div>
+            </MasonryLayout>
+          </BotFieldManagedFieldset>
+        </SettingsRow>
+      )}
+
+      {isComboBot && (
+        <SettingsRow
+          name="Stop Loss"
+          tooltip="Set the percentage or price level at which your position will be closed to limit losses."
+          colSpan="full"
+          navId="stop-loss"
+          contentClassName="space-y-sm"
+          trailing={<BotFieldExtensionSlot path="slPerc" />}
+        >
+          <BotFieldManagedFieldset path="slPerc" className="space-y-sm">
+            <Slider
+              value={Math.abs(parseFloat(slPerc) || 0)}
+              onChange={(value) => handleSliderChange(value)}
+              min={minSlToUse}
+              max={maxSlToUse}
+              step={0.1}
+              className="w-full"
+            />
+
+            <div className="flex flex-col gap-xs sm:flex-row sm:items-center">
+              <div className="flex items-center gap-sm">
+                <NumberInput
+                  value={slPerc}
+                  onChange={(value) => updateFormData('slPerc', value)}
+                  min={-maxSlToUse}
+                  max={-minSlToUse}
+                  step={0.1}
+                  precision={3}
+                  className={cn(
+                    'w-24',
+                    !slValidation.isValid && 'border-destructive'
+                  )}
+                  endAdornment={unitAdornment('%')}
                 />
               </div>
-            ) : null}
-            {!useMultiSl && slErrorMessage ? (
-              <div className="pt-2">
-                <SettingsAlert variant="error" title={slErrorMessage} />
-              </div>
-            ) : null}
-            {maximumTargetsReached ? (
-              <p className="text-xs text-warning text-center">
-                Maximum of {MAX_MULTI_SL_TARGETS} targets reached. Remove an
-                existing target before adding another.
-              </p>
-            ) : null}
+
+              <TerminalButtonStack
+                value={String(Math.abs(parseFloat(slPerc) || 0))}
+                onValueChange={(value) => handlePresetClick(-Number(value))}
+                options={[1, 2, 5, 10].map((percentage) => ({
+                  value: String(percentage),
+                  label: `-${percentage}%`,
+                  disabled: percentage < minSlToUse,
+                  buttonClassName: 'flex-none min-w-[88px]',
+                }))}
+                className="sm:ml-auto"
+              />
+            </div>
             <div className="space-y-xs rounded-lg border border-border/50 bg-background/20 p-sm">
               <div className="flex flex-wrap items-center justify-between gap-xs text-sm">
                 <div className="flex items-center gap-1">
@@ -1375,105 +1459,36 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
                 </div>
               </div>
             </div>
-          </MasonryLayout>
-        </SettingsRow>
-      )}
-
-      {isComboBot && (
-        <SettingsRow
-          name="Stop Loss"
-          tooltip="Set the percentage or price level at which your position will be closed to limit losses."
-          colSpan="full"
-          navId="stop-loss"
-          contentClassName="space-y-sm"
-        >
-          <Slider
-            value={Math.abs(parseFloat(slPerc) || 0)}
-            onChange={(value) => handleSliderChange(value)}
-            min={minSlToUse}
-            max={maxSlToUse}
-            step={0.1}
-            className="w-full"
-          />
-
-          <div className="flex flex-col gap-xs sm:flex-row sm:items-center">
-            <div className="flex items-center gap-sm">
-              <NumberInput
-                value={slPerc}
-                onChange={(value) => updateFormData('slPerc', value)}
-                min={-maxSlToUse}
-                max={-minSlToUse}
-                step={0.1}
-                precision={3}
-                className={cn(
-                  'w-24',
-                  !slValidation.isValid && 'border-destructive'
-                )}
-                endAdornment={unitAdornment('%')}
-              />
-            </div>
-
-            <TerminalButtonStack
-              value={String(Math.abs(parseFloat(slPerc) || 0))}
-              onValueChange={(value) => handlePresetClick(-Number(value))}
-              options={[1, 2, 5, 10].map((percentage) => ({
-                value: String(percentage),
-                label: `-${percentage}%`,
-                disabled: percentage < minSlToUse,
-                buttonClassName: 'flex-none min-w-[88px]',
-              }))}
-              className="sm:ml-auto"
-            />
-          </div>
-          <div className="space-y-xs rounded-lg border border-border/50 bg-background/20 p-sm">
-            <div className="flex flex-wrap items-center justify-between gap-xs text-sm">
-              <div className="flex items-center gap-1">
-                Average stop loss
-                <Tooltip tooltip="Weighted by each target's allocation to estimate the blended exit level if all targets trigger.">
-                  <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
-                </Tooltip>
-              </div>
-              <div className="text-sm font-medium">
-                {averageStopLossValue !== undefined
-                  ? `${averageStopLossValue.toFixed(2)}%`
-                  : '—'}
-                {weightedStopLossPriceDisplay ? (
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ≈ ${weightedStopLossPriceDisplay}
-                  </span>
-                ) : null}
+            <div className="space-y-sm border-t border-muted pt-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-xs">
+                  <Label className="text-sm">Deal close type</Label>
+                  <Tooltip tooltip="Limit order rests the stop loss on the ladder; Market order executes it immediately at market when the target triggers.">
+                    <InfoIcon />
+                  </Tooltip>
+                </div>
+                <TerminalButtonStack
+                  value={comboSlLimit ? 'limit' : 'market'}
+                  onValueChange={(value) =>
+                    updateFormData('comboSlLimit', value === 'limit')
+                  }
+                  options={[
+                    { value: 'limit', label: 'Limit order' },
+                    { value: 'market', label: 'Market order' },
+                  ]}
+                  className="w-full sm:w-auto"
+                />
               </div>
             </div>
-          </div>
-          <div className="space-y-sm border-t border-muted pt-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-xs">
-                <Label className="text-sm">Deal close type</Label>
-                <Tooltip tooltip="Limit order rests the stop loss on the ladder; Market order executes it immediately at market when the target triggers.">
-                  <InfoIcon />
-                </Tooltip>
+            {slErrorMessage ? (
+              <div className="pt-2">
+                <SettingsAlert variant="error" title={slErrorMessage} />
               </div>
-              <TerminalButtonStack
-                value={comboSlLimit ? 'limit' : 'market'}
-                onValueChange={(value) =>
-                  updateFormData('comboSlLimit', value === 'limit')
-                }
-                options={[
-                  { value: 'limit', label: 'Limit order' },
-                  { value: 'market', label: 'Market order' },
-                ]}
-                className="w-full sm:w-auto"
-              />
-            </div>
-          </div>
-          {slErrorMessage ? (
-            <div className="pt-2">
-              <SettingsAlert variant="error" title={slErrorMessage} />
-            </div>
-          ) : null}
-          <p className="text-xs text-muted-foreground">
-            Min value is -{minSlToUse}%
-          </p>
+            ) : null}
+            <p className="text-xs text-muted-foreground">
+              Min value is -{minSlToUse}%
+            </p>
+          </BotFieldManagedFieldset>
         </SettingsRow>
       )}
       {!isComboBot ? (
@@ -1491,17 +1506,19 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
             tooltipURL="/help/trailing-stop-loss"
             colSpan="full"
             trailing={
-              <Switch
-                id="trailing-sl"
-                checked={trailingSl || false}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    updateFormData('moveSL', false);
-                  }
-                  updateFormData('trailingSl', checked);
-                }}
-                disabled={isTrailingLocked}
-              />
+              <BotFieldExtensionControl path="trailingSl">
+                <Switch
+                  id="trailing-sl"
+                  checked={trailingSl || false}
+                  onCheckedChange={(checked) => {
+                    if (checked) {
+                      updateFormData('moveSL', false);
+                    }
+                    updateFormData('trailingSl', checked);
+                  }}
+                  disabled={isTrailingLocked}
+                />
+              </BotFieldExtensionControl>
             }
           >
             {isTrailingLocked ? (
