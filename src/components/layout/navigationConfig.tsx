@@ -81,6 +81,40 @@ const filterCloudOnlyItems = (
     .filter((section) => section.items.length > 0);
 };
 
+type NavigationItemExtension = {
+  /** Built with the same `readOnly` flag as the core items. */
+  build: (readOnly: boolean) => NavigationItem;
+  /** Insert before the item with this id; appended to the first section if absent. */
+  before: string;
+};
+
+const navigationItemExtensions: NavigationItemExtension[] = [];
+
+/**
+ * Let an edition overlay add its own nav items (e.g. cloud-only pages) at
+ * boot, so core does not have to know about them.
+ */
+export const registerNavigationItem = (extension: NavigationItemExtension) => {
+  navigationItemExtensions.push(extension);
+};
+
+const applyNavigationItemExtensions = (
+  sections: NavigationSection[],
+  readOnly: boolean
+) => {
+  navigationItemExtensions.forEach(({ build, before }) => {
+    const item = build(readOnly);
+    for (const section of sections) {
+      const index = section.items.findIndex((i) => i.id === before);
+      if (index >= 0) {
+        section.items.splice(index, 0, item);
+        return;
+      }
+    }
+    sections[0]?.items.push(item);
+  });
+};
+
 export const getNavigationSections = (
   dashboards?: { id: string; name: string }[],
   currentDashboardId?: string,
@@ -357,6 +391,7 @@ export const getNavigationSections = (
   ];
   // Help & Resources items have moved to a fixed compact strip
   // rendered at the bottom of the sidebar (see NavigationSidebar.tsx).
+  applyNavigationItemExtensions(sections, readOnly);
 
   return IS_CLOUD ? sections : filterCloudOnlyItems(sections);
 };

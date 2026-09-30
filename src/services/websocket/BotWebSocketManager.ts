@@ -27,7 +27,18 @@ export type WebSocketEventType =
   | 'permission success'
   | 'credit-update'
   | 'connect'
-  | 'disconnect';
+  | 'disconnect'
+  | ExtensionWebSocketEventType;
+
+/**
+ * Socket events owned by an edition overlay rather than core (e.g. cloud-only
+ * features). The overlay declares their names by augmenting this interface
+ * and calls `registerPassthroughEvents` so the manager relays them to
+ * subscribers unchanged.
+ */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type
+export interface ExtensionWebSocketEvents {}
+export type ExtensionWebSocketEventType = keyof ExtensionWebSocketEvents;
 
 export interface WebSocketSubscriber {
   id: string;
@@ -161,6 +172,7 @@ export class BotWebSocketManager {
   private userToken?: string;
   private paperContext: boolean = false;
   private pendingAuthentication = false;
+  private passthroughEvents = new Set<ExtensionWebSocketEventType>();
 
   constructor() {
     logger.info('🔧 [BotWebSocketManager] Initializing...');
@@ -254,6 +266,7 @@ export class BotWebSocketManager {
     this.socket.off('chat error');
     this.socket.off('chat message update');
     this.socket.off('credit-update');
+    this.passthroughEvents.forEach((name) => this.socket?.off(name));
     this.socket.offAny();
 
     this.socket.on('bot sends settings', (data: BotSettingsUpdate) => {
@@ -410,6 +423,26 @@ export class BotWebSocketManager {
         });
       }
     );
+
+    this.passthroughEvents.forEach((name) => this.attachPassthrough(name));
+  }
+
+  private attachPassthrough(name: ExtensionWebSocketEventType) {
+    this.socket?.on(name, (data: Record<string, unknown>) => {
+      this.emitToSubscribers({ type: name, data, timestamp: Date.now() });
+    });
+  }
+
+  /**
+   * Relay extension events (see `ExtensionWebSocketEvents`) to subscribers
+   * as-is. Safe to call before or after the socket connects.
+   */
+  registerPassthroughEvents(names: ExtensionWebSocketEventType[]) {
+    names.forEach((name) => {
+      if (this.passthroughEvents.has(name)) return;
+      this.passthroughEvents.add(name);
+      if (this.isConnected) this.attachPassthrough(name);
+    });
   }
 
   private emitToSubscribers(event: WebSocketEvent) {

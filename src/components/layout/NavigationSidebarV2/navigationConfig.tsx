@@ -169,6 +169,25 @@ export const NAVIGATION_GROUPS: NavigationGroup[] = IS_CLOUD
   ? ALL_NAVIGATION_GROUPS
   : ALL_NAVIGATION_GROUPS.filter((item) => !CLOUD_ONLY_NAV_IDS.has(item.id));
 
+/**
+ * Let an edition overlay add its own groups (e.g. cloud-only pages) at boot.
+ * Inserted before the group with id `before`, or ahead of the More/Logout
+ * entries when it is absent. Consumers read `NAVIGATION_GROUPS` at render
+ * time, so registering from `main.tsx` is early enough.
+ */
+export const registerNavigationGroup = (
+  group: NavigationGroup,
+  options: { before: string }
+) => {
+  const index = NAVIGATION_GROUPS.findIndex((g) => g.id === options.before);
+  const fallback = NAVIGATION_GROUPS.findIndex((g) => g.id === 'more');
+  NAVIGATION_GROUPS.splice(
+    index >= 0 ? index : fallback >= 0 ? fallback : NAVIGATION_GROUPS.length,
+    0,
+    group
+  );
+};
+
 // By default, these items are visible in the left panel (all others go to More)
 export const DEFAULT_VISIBLE_NAV_IDS = [
   'home',

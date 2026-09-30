@@ -30,6 +30,24 @@ import { startDealResyncTriggers, stopDealResyncTriggers } from './dealResync';
 import logger from '@/lib/loggerInstance';
 import type { Transaction } from '@/types';
 
+type SocketIntegrationExtension = {
+  initialize: () => void;
+  cleanup?: () => void;
+};
+
+const extensions: SocketIntegrationExtension[] = [];
+
+/**
+ * Let an edition overlay wire its own store subscriptions into the socket
+ * lifecycle. `initialize` runs with every `initializeSocketIntegration` call
+ * (subscribers are cleared on disconnect), `cleanup` with every cleanup.
+ */
+export function registerSocketIntegration(
+  extension: SocketIntegrationExtension
+) {
+  extensions.push(extension);
+}
+
 /**
  * Initialize all WebSocket subscriptions for stores
  * Call this once when the app mounts (e.g., in _app.tsx or a root layout)
@@ -187,6 +205,8 @@ export function initializeSocketIntegration() {
     },
   });
 
+  extensions.forEach((extension) => extension.initialize());
+
   logger.info('[SocketIntegration] ✅ All store subscriptions initialized');
 }
 
@@ -204,6 +224,7 @@ export function cleanupSocketIntegration() {
   );
   botWebSocketManager.unsubscribe('bot minigrid update', 'minigrid-updates');
   stopDealResyncTriggers();
+  extensions.forEach((extension) => extension.cleanup?.());
 
   logger.info('[SocketIntegration] 🧹 All store subscriptions cleaned up');
 }
