@@ -53,13 +53,23 @@ export interface BotFieldExtensionState {
   active: boolean;
   /** The field's own inputs are disabled while the extension owns it. */
   readOnly: boolean;
+  /**
+   * Extra classes for the mount point's container while the extension
+   * reports it (section headers apply them to the whole header).
+   */
+  className?: string | undefined;
 }
 
 export interface BotFieldExtension {
   key: string;
   match: string | readonly string[] | RegExp | ((path: string) => boolean);
-  /** Rendered at the field's mount point. */
+  /** Rendered at the field's mount point (beside the field). */
   Component: React.ComponentType<BotFieldExtensionContext>;
+  /**
+   * Optional block rendered directly under the field (or at the top of a
+   * section's body for `section:<id>` paths and section toggles).
+   */
+  Panel?: React.ComponentType<BotFieldExtensionContext>;
   /**
    * Hook reporting whether the extension owns the field. Called on every
    * render of every mount point that matches, so it must obey the rules of
@@ -96,6 +106,13 @@ const noopState = (): BotFieldExtensionState => INACTIVE;
  * Builds the context for `path`, or `null` where extensions never apply
  * (outside a bot form, deal editors, terminal deals).
  */
+export function useBotFieldExtensionContext(
+  path: string,
+  kind: BotFieldKind = 'section'
+): BotFieldExtensionContext | null {
+  return useExtensionContext(path, kind);
+}
+
 function useExtensionContext(
   path: string,
   kind: BotFieldKind
@@ -162,14 +179,25 @@ function useResolvedExtensions(
     : [];
   let active = false;
   let readOnly = false;
+  const classNames: string[] = [];
   if (context) {
     extensions.forEach((extension, i) => {
       if (!matches(extension, path)) return;
       active = active || states[i].active;
       readOnly = readOnly || states[i].readOnly;
+      const extra = states[i].className;
+      if (extra) classNames.push(extra);
     });
   }
-  return { context, matched, state: { active, readOnly } };
+  return {
+    context,
+    matched,
+    state: {
+      active,
+      readOnly,
+      className: classNames.length ? classNames.join(' ') : undefined,
+    },
+  };
 }
 
 /** Merged state of every extension that matches `path`. */
@@ -253,3 +281,90 @@ export const BotFieldExtensionControl: React.FC<
     </BotFieldManagedFieldset>
   </span>
 );
+
+interface BotFieldExtensionPanelProps {
+  path: string;
+  kind?: BotFieldKind;
+  className?: string;
+}
+
+/** Renders every matching extension's `Panel` for `path` (under the field). */
+export const BotFieldExtensionPanel: React.FC<BotFieldExtensionPanelProps> = ({
+  path,
+  kind = 'number',
+  className,
+}) => {
+  const { context, matched } = useResolvedExtensions(path, kind);
+  if (!context) return null;
+  const panels = matched.filter((e) => e.Panel);
+  if (panels.length === 0) return null;
+  return (
+    <div className={cn('min-w-0', className)} data-field-extension-panel={path}>
+      {panels.map(({ key, Panel }) =>
+        Panel ? <Panel key={key} {...context} /> : null
+      )}
+    </div>
+  );
+};
+
+interface BotFormSectionPanelsProps {
+  sectionId: string;
+  /** The section's on/off field, when it has one (`useSl`, …). */
+  toggleField?: string | undefined;
+  className?: string;
+}
+
+/**
+ * Panels for a form section: the section's own (`section:<id>`) and its
+ * toggle field's. Rendered at the top of the section body.
+ */
+export const BotFormSectionPanels: React.FC<BotFormSectionPanelsProps> = ({
+  sectionId,
+  toggleField,
+  className,
+}) => {
+  if (!hasBotFieldExtensions()) return null;
+  return (
+    <>
+      <BotFieldExtensionPanel
+        path={`section:${sectionId}`}
+        kind="section"
+        {...(className ? { className } : {})}
+      />
+      {toggleField ? (
+        <BotFieldExtensionPanel
+          path={toggleField}
+          kind="boolean"
+          {...(className ? { className } : {})}
+        />
+      ) : null}
+    </>
+  );
+};
+
+interface BotFormSectionHeaderFrameProps {
+  sectionId: string;
+  className?: string;
+  children: React.ReactNode;
+}
+
+/**
+ * A section header's container. Applies the classes an extension reports for
+ * `section:<id>` (e.g. to mark a section it manages).
+ */
+export const BotFormSectionHeaderFrame: React.FC<
+  BotFormSectionHeaderFrameProps
+> = ({ sectionId, className, children }) => {
+  const { className: extra } = useBotFieldExtensionState(
+    `section:${sectionId}`,
+    'section'
+  );
+  return (
+    <div
+      className={cn(className, extra)}
+      {...(extra ? { 'data-section-decorated': 'true' } : {})}
+    >
+      {children}
+    </div>
+  );
+};

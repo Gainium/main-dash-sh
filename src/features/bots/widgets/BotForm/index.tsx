@@ -33,8 +33,14 @@ import {
 } from '@/components/ui/ScrollableFormTabNavigation';
 import { SectionHeader } from '@/features/bots/shared/components/SectionHeader';
 import {
+  useBotHeaderDecoration,
+  withBotFormExtensionSections,
+} from '@/lib/extensions/botFormExtensions';
+import {
   BotFieldExtensionControl,
   BotFieldExtensionSlot,
+  BotFormSectionHeaderFrame,
+  BotFormSectionPanels,
 } from '@/lib/extensions/botFieldExtensions';
 import { Switch } from '@/components/ui/switch';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
@@ -1794,12 +1800,24 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const tabDescriptors = useMemo<BotFormTabDescriptor[]>(
     () =>
-      (moduleTabDescriptors?.length
-        ? moduleTabDescriptors
-        : (metadataTabDescriptors ?? fallbackTabDescriptors)
-      )
-        .filter((d) => (isGridBot ? true : isTerminal ? d.isTerminal : d.isDca))
-        .filter((d) => (tabDescriptorsFilter ? tabDescriptorsFilter(d) : true)),
+      withBotFormExtensionSections(
+        (moduleTabDescriptors?.length
+          ? moduleTabDescriptors
+          : (metadataTabDescriptors ?? fallbackTabDescriptors)
+        ).filter((d) =>
+          isGridBot ? true : isTerminal ? d.isTerminal : d.isDca
+        ),
+        {
+          botType: isGridBot
+            ? BotTypesEnum.grid
+            : isComboBot
+              ? BotTypesEnum.combo
+              : BotTypesEnum.dca,
+          mode,
+          isTerminal,
+          isNestedLeg,
+        }
+      ).filter((d) => (tabDescriptorsFilter ? tabDescriptorsFilter(d) : true)),
     [
       moduleTabDescriptors,
       metadataTabDescriptors,
@@ -1807,6 +1825,9 @@ const BotForm: React.FC<BotFormProps> = ({
       isTerminal,
       tabDescriptorsFilter,
       isGridBot,
+      isComboBot,
+      mode,
+      isNestedLeg,
     ]
   );
 
@@ -3590,6 +3611,12 @@ const BotForm: React.FC<BotFormProps> = ({
       botExperience.id === BotTypesEnum.grid) &&
     !isNestedLeg;
   const showStickyHeader = hasManualNavigation || showQuickHeader;
+  // Host decorations for the form's header (e.g. a bot an extension manages).
+  const headerDecoration = useBotHeaderDecoration({
+    botId: mode === 'create' ? undefined : bot?._id,
+    botType: botExperience.id,
+    surface: 'form',
+  });
   const showModeToggle =
     mode === 'create' &&
     (botExperience.id === BotTypesEnum.dca ||
@@ -3624,12 +3651,16 @@ const BotForm: React.FC<BotFormProps> = ({
         <div className="flex h-full flex-col">
           {(showStickyHeader || allStrategiesOpen) && (
             <motion.div
-              className="sticky top-2 z-30 mb-3 mx-1 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80"
+              className={cn(
+                'sticky top-2 z-30 mb-3 mx-1 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80',
+                headerDecoration.className
+              )}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
               <div ref={headerRef} className="flex items-center gap-2">
+                {headerDecoration.adornment}
                 {allStrategiesOpen ? (
                   <Slot
                     name="bots.all-strategies.header"
@@ -3794,7 +3825,14 @@ const BotForm: React.FC<BotFormProps> = ({
                           )}
                         />
                         {!isSectionCollapsed(descriptor.id) && (
-                          <SectionComponent {...componentProps} />
+                          <>
+                            <BotFormSectionPanels
+                              sectionId={descriptor.id}
+                              toggleField={hasToggle ? toggleField : undefined}
+                              className="mb-md"
+                            />
+                            <SectionComponent {...componentProps} />
+                          </>
                         )}
                       </div>
                     );
@@ -4044,12 +4082,16 @@ const BotForm: React.FC<BotFormProps> = ({
       {/* Sticky header with navigation - hidden when parent provides tabs */}
       {showStickyHeader && (
         <motion.div
-          className="sticky top-2 z-10 mx-2 mt-2 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur safe-area-inset-top supports-[backdrop-filter]:bg-background/80"
+          className={cn(
+            'sticky top-2 z-10 mx-2 mt-2 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur safe-area-inset-top supports-[backdrop-filter]:bg-background/80',
+            headerDecoration.className
+          )}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <div className="flex items-center gap-2">
+            {headerDecoration.adornment}
             <div className="flex flex-1 min-w-0 items-center gap-1">
               {showQuickHeader ? (
                 <div className="flex items-center gap-xs px-1">
@@ -4140,7 +4182,10 @@ const BotForm: React.FC<BotFormProps> = ({
                   data-form-readonly={isContentReadOnly ? 'true' : 'false'}
                   data-section-id={descriptor.id}
                 >
-                  <div className="mb-3 border-t-2 border-primary/60 pt-3 pb-2 bg-primary/10 rounded-lg px-3 -mx-2">
+                  <BotFormSectionHeaderFrame
+                    sectionId={descriptor.id}
+                    className="mb-3 border-t-2 border-primary/60 pt-3 pb-2 bg-primary/10 rounded-lg px-3 -mx-2"
+                  >
                     <div className="flex items-start justify-between gap-sm">
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start gap-xs">
@@ -4229,9 +4274,16 @@ const BotForm: React.FC<BotFormProps> = ({
                         )}
                       </div>
                     </div>
-                  </div>
+                  </BotFormSectionHeaderFrame>
                   {!isSectionCollapsed(descriptor.id) && (
-                    <SectionComponent {...componentProps} />
+                    <>
+                      <BotFormSectionPanels
+                        sectionId={descriptor.id}
+                        toggleField={hasToggle ? toggleField : undefined}
+                        className="mb-md"
+                      />
+                      <SectionComponent {...componentProps} />
+                    </>
                   )}
                 </div>
               );

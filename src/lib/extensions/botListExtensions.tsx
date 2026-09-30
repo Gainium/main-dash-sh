@@ -49,7 +49,10 @@ export const BotNameBadges: React.FC<BotNameBadgeProps> = (props) => {
 
 export interface BotListFilter {
   key: string;
+  /** Accessible name and tooltip. */
   label: string;
+  /** Visible text on the toggle; defaults to `label`. */
+  shortLabel?: string;
   icon?: React.ComponentType<{ className?: string }>;
   /** Bot types whose list shows this filter. */
   botTypes: readonly BotTypesEnum[];
@@ -84,6 +87,7 @@ export function registerBotListFilter(filter: BotListFilter): void {
 export interface BotListFilterToggle {
   key: string;
   label: string;
+  shortLabel?: string | undefined;
   icon?: React.ComponentType<{ className?: string }> | undefined;
   active: boolean;
   toggle: () => void;
@@ -124,6 +128,7 @@ export function useBotListFilters(botType: BotTypesEnum): BotListFiltersResult {
   const toggles: BotListFilterToggle[] = available.map(({ filter }) => ({
     key: filter.key,
     label: filter.label,
+    shortLabel: filter.shortLabel,
     icon: filter.icon,
     active: activeKeys.has(filter.key),
     toggle: () => toggleKey(filter.key),
@@ -163,7 +168,7 @@ export const BotListFilterButtons: React.FC<BotListFilterButtonsProps> = ({
   compact = false,
 }) => (
   <>
-    {toggles.map(({ key, label, icon: Icon, active, toggle }) => (
+    {toggles.map(({ key, label, shortLabel, icon: Icon, active, toggle }) => (
       <Button
         key={key}
         variant={active ? 'default' : 'ghost'}
@@ -175,7 +180,7 @@ export const BotListFilterButtons: React.FC<BotListFilterButtonsProps> = ({
         aria-label={label}
       >
         {Icon && <Icon className="h-4 w-4" />}
-        {!(compact && Icon) && <span>{label}</span>}
+        {!(compact && Icon) && <span>{shortLabel ?? label}</span>}
       </Button>
     ))}
   </>

@@ -111,7 +111,9 @@ export type BotFormTabId =
   | 'automation'
   | 'grid-settings'
   | 'grid-budget'
-  | 'grid-range';
+  | 'grid-range'
+  /** Sections registered by a host build (`registerBotFormSection`). */
+  | `ext-${string}`;
 
 export type BotFormUpdateValue =
   | string
@@ -704,6 +706,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   const disableEditing = useCallback(() => setIsEditLocked(true), []);
   const toggleEditing = useCallback(() => {
     setIsEditLocked((prev) => !prev);
+    // Extension drafts are re-seeded from their saved state by their owners.
+    store.setState({ extensionState: {} });
     if (store.getState().formData.originalBot) {
       setFormData((prev) => {
         const b = prev.originalBot;
@@ -2263,6 +2267,10 @@ export const useBotFormTopLevelSelector = <
  */
 export const useBotFormStoreApi = (): BotFormStore =>
   useBotFormInternalContext('useBotFormStoreApi').store;
+
+/** The form store, or `null` outside a `BotFormProvider`. */
+export const useOptionalBotFormStoreApi = (): BotFormStore | null =>
+  useContext(BotFormStateContext)?.store ?? null;
 
 /**
  * Stable getter for the CURRENT form data. Use it in callbacks that need the

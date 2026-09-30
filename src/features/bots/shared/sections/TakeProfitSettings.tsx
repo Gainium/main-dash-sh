@@ -19,8 +19,10 @@ import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
 import { Slider } from '@/components/ui/slider';
 import {
   BotFieldExtensionControl,
+  BotFieldExtensionPanel,
   BotFieldExtensionSlot,
   BotFieldManagedFieldset,
+  useBotFieldExtensionState,
 } from '@/lib/extensions/botFieldExtensions';
 import { Switch } from '@/components/ui/switch';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -2468,7 +2470,10 @@ export const TakeProfitSettings: React.FC = () => {
   // enabled (not merely present). Previously the check included
   // `!isComboBot && !isHedgeBot` which made this always true in the
   // non-combo branch. Compute a dedicated flag for clarity.
+  // A host extension managing trailing TP must stay visible.
+  const trailingTpExtension = useBotFieldExtensionState('trailingTp', 'boolean');
   const shouldAutoExpand = Boolean(
+    trailingTpExtension.active ||
     (showTimerControls && closeByTimer) ||
     (closeConditionIsTp &&
       showMultiTargetControls &&
@@ -2586,6 +2591,8 @@ export const TakeProfitSettings: React.FC = () => {
                   })}
                 </div>
               </BotFieldManagedFieldset>
+
+              <BotFieldExtensionPanel path="tpPerc" />
 
               <div className="space-y-md border-t border-muted pt-3">
                 <div className="space-y-1">
@@ -2938,6 +2945,9 @@ export const TakeProfitSettings: React.FC = () => {
                       </div>
                     </MasonryLayout>
                   </BotFieldManagedFieldset>
+                  {multiTargets.length <= 1 ? (
+                    <BotFieldExtensionPanel path="tpPerc" className="mt-sm" />
+                  ) : null}
                 </SettingsRow>
               ) : null}
               {isTechIndicatorClose && !isDealEdit ? (
@@ -3379,6 +3389,7 @@ export const TakeProfitSettings: React.FC = () => {
                               endAdornment={unitAdornment('%')}
                             />
                           </FieldVariableBinding>
+                          <BotFieldExtensionPanel path="trailingTpPerc" />
                           <p className="text-xs text-muted-foreground">
                             Once the take profit is hit, trailing keeps
                             following the price by the deviation set here. Valid
@@ -3386,6 +3397,10 @@ export const TakeProfitSettings: React.FC = () => {
                           </p>
                         </div>
                       ) : null}
+                      <BotFieldExtensionPanel
+                        path="trailingTp"
+                        kind="boolean"
+                      />
                     </SettingsRow>
                   )}
 

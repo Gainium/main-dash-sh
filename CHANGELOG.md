@@ -5,6 +5,8 @@
 ### Added
 
 - Extension points for host builds: a component can be attached to an individual bot setting (next to the global-variable control) or to a bot form section, and may take the setting over (hiding the variable binding and locking the field); extra tabs in the bot details drawer, reachable with `?tab=`; badges after a bot's name and extra filters in the DCA and Combo bot lists. With nothing registered the dashboard is unchanged.
+- More extension points for the bot form: a block under an individual setting or at the top of a section, a section-header highlight, whole extra form sections, extension settings kept in the form and saved by its Save button after the bot itself, and decorations for a bot's header in the details drawer and the bot form. The Take profit and Stop loss "More Settings" groups open by themselves while an extension manages trailing take profit or trailing stop loss.
+- AI color tokens (`ai-surface`, `ai-surface-strong`, `ai-border`, `ai-foreground`) for light and dark themes.
 
 ## [2.67.24] - 2026-09-30
 

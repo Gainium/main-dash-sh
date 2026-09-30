@@ -101,6 +101,7 @@ import {
 import { DropdownMenu, DropdownMenuTrigger } from '../ui/dropdown-menu';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { getBotDrawerTabs } from '@/lib/extensions/botDrawerTabs';
+import { useBotHeaderDecoration } from '@/lib/extensions/botFormExtensions';
 import DrawerWidgetRenderer from '../widgets/bots/drawer/DrawerWidgetRenderer';
 import { DealsLoadingIndicator } from '../widgets/bots/drawer/DealsLoadingIndicator';
 import OpenOrdersWidget from '../widgets/shared/OpenOrdersWidget';
@@ -363,6 +364,12 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       () => getBotDrawerTabs({ bot, botType: type, viewOnly, isHedge }),
       [bot, type, viewOnly, isHedge]
     );
+    // Host decorations for the title bar (e.g. a bot an extension manages).
+    const headerDecoration = useBotHeaderDecoration({
+      botId: isHedge ? undefined : bot._id,
+      botType: type,
+      surface: 'drawer',
+    });
     const validTabs: BotTab[] = useMemo(
       () => [
         ...(
@@ -1647,7 +1654,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               paramSync={true}
               className="flex flex-col h-full"
             >
-              <DetailDrawerHeader className="relative">
+              <DetailDrawerHeader
+                className={cn('relative', headerDecoration.className)}
+              >
                 <div className="flex w-full flex-col gap-md">
                   {/* Top row: Title and actions */}
                   <div className="flex w-full items-center justify-between gap-md">
@@ -1662,6 +1671,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       <DetailDrawerTitle className="text-balance text-2xl leading-tight sm:text-3xl min-w-0 truncate">
                         {bot.settings.name}
                       </DetailDrawerTitle>
+                      {headerDecoration.adornment}
                       <StaleIndicator
                         componentId={`bot-details-${bot._id}`}
                         className="ml-2 shrink-0"

@@ -63,9 +63,12 @@ import type { BotFormData } from '@/types/bots/form';
 import type { BotFormTabComponentProps, BotFormTabDescriptor } from './types';
 
 import { cn } from '@/lib/utils';
+import { withBotFormExtensionSections } from '@/lib/extensions/botFormExtensions';
 import {
   BotFieldExtensionControl,
   BotFieldExtensionSlot,
+  BotFormSectionHeaderFrame,
+  BotFormSectionPanels,
 } from '@/lib/extensions/botFieldExtensions';
 
 /** Props accepted by ReadOnlyBotForm */
@@ -177,13 +180,26 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
   // Tab descriptors  (webhook hidden – requires bot id + network)
   // ---------------------------------------------------------------------------
   const HIDDEN_SECTIONS = useMemo(() => new Set(['webhook']), []);
+  const isTerminalBot = Boolean(formData.terminal);
 
   const tabDescriptors = useMemo<BotFormTabDescriptor[]>(() => {
     const descriptors = isGridBot ? gridTabDescriptors : dcaTabDescriptors;
-    return descriptors.filter(
-      (d) => (isGridBot ? true : d.isDca) && !HIDDEN_SECTIONS.has(d.id)
+    return withBotFormExtensionSections(
+      descriptors.filter(
+        (d) => (isGridBot ? true : d.isDca) && !HIDDEN_SECTIONS.has(d.id)
+      ),
+      {
+        botType: isGridBot
+          ? BotTypesEnum.grid
+          : isComboBot
+            ? BotTypesEnum.combo
+            : BotTypesEnum.dca,
+        mode: 'settings-readonly',
+        isTerminal: isTerminalBot,
+        isNestedLeg: false,
+      }
     );
-  }, [isGridBot, HIDDEN_SECTIONS]);
+  }, [isGridBot, isComboBot, isTerminalBot, HIDDEN_SECTIONS]);
 
   const sectionToggleMap: Record<string, string> = useMemo(
     () => ({
@@ -436,7 +452,10 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
               data-section-id={descriptor.id}
             >
               {/* Section header */}
-              <div className="mb-4 border-t-2 border-primary/60 pt-4 pb-3 bg-primary/10 rounded-lg px-4 -mx-2">
+              <BotFormSectionHeaderFrame
+                sectionId={descriptor.id}
+                className="mb-4 border-t-2 border-primary/60 pt-4 pb-3 bg-primary/10 rounded-lg px-4 -mx-2"
+              >
                 <div className="flex items-start justify-between gap-md">
                   <div className="flex-1">
                     <div className="flex items-start gap-sm">
@@ -500,7 +519,7 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                     )}
                   </div>
                 </div>
-              </div>
+              </BotFormSectionHeaderFrame>
 
               {/* Section content – locked */}
               {!isSectionCollapsed(descriptor.id) && (
@@ -510,6 +529,11 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                       the body also holds display-only controls (the pairs
                       "+ Load all" expander) that stay operable, so asserting
                       the whole group is disabled would be a lie. */}
+                  <BotFormSectionPanels
+                    sectionId={descriptor.id}
+                    toggleField={hasToggle ? toggleField : undefined}
+                    className="mb-md"
+                  />
                   <SectionComponent {...baseComponentProps} />
                 </fieldset>
               )}
