@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.67.21] - 2026-09-30
+
+### Fixed
+
+- Trading Bots and Combo Bots: a bot whose details cannot be displayed no longer makes the whole page fail to load. The rest of the list renders, and a bot that was already showing keeps its last good values.
+- Grid Bots: a bot missing its stored pair details now reads its base and quote assets from its pair instead of failing to render.
+
 ## [2.67.20] - 2026-09-29
 
 ### Fixed

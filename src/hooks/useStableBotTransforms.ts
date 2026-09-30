@@ -1,10 +1,15 @@
 import { useRef } from 'react';
 
+import { logger } from '@/lib/loggerInstance';
+
+const SKIP = Symbol('skip');
+
 interface CacheEntry<TRaw, TSlice, TOut> {
   raw: TRaw;
   slice: TSlice;
   deps: unknown;
-  out: TOut;
+  /** SKIP when the transform threw and there was no earlier good output. */
+  out: TOut | typeof SKIP;
 }
 
 /**
@@ -22,6 +27,10 @@ interface CacheEntry<TRaw, TSlice, TOut> {
  * for bot A yields a fresh object only for A; every other card keeps its stable
  * reference and its memo short-circuits. Behavior is unchanged — the same
  * transform runs whenever any of a bot's inputs actually change.
+ *
+ * A transform that throws is isolated to its own bot: the error is logged and
+ * that bot keeps its last good output (or is left out if it never had one), so
+ * one malformed record can never take down the whole list page.
  */
 export function useStableBotTransforms<TRaw, TSlice, TOut>(
   raws: TRaw[],
@@ -49,11 +58,24 @@ export function useStableBotTransforms<TRaw, TSlice, TOut>(
       next.set(id, cached);
       return cached.out;
     }
-    const result = transform(raw, slice);
+    let result: TOut;
+    try {
+      result = transform(raw, slice);
+    } catch (error) {
+      logger.error('[useStableBotTransforms] bot transform failed', {
+        botId: id,
+        error,
+      });
+      // Remember the failure against these exact inputs so it is neither
+      // re-run nor re-logged until the bot's record or stats change.
+      const fallback = cached ? cached.out : SKIP;
+      next.set(id, { raw, slice, deps, out: fallback });
+      return fallback;
+    }
     next.set(id, { raw, slice, deps, out: result });
     return result;
   });
 
   cacheRef.current = next;
-  return out;
+  return out.filter((o): o is TOut => o !== SKIP);
 }

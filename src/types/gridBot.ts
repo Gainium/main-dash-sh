@@ -1,6 +1,7 @@
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { math } from '@/utils/math';
+import { extractPairAssets } from '@/utils/pairs';
 import {
   BotMarginTypeEnum,
   BotTypesEnum,
@@ -278,6 +279,16 @@ export function transformGridBotToBot(
 ): TransformedGridBot {
   let currentStats = gridBot.stats;
   let res = { ...gridBot } as Bot & AdditionalBotData;
+  // `symbol` is the backend's pair-metadata record; when it is missing the
+  // unguarded `symbol.baseAsset` reads below would throw and take down the
+  // whole grid list, so rebuild a display copy from the bot's own pair
+  // (same fallback as `transformDcaBotToBot`).
+  if (!res.symbol?.baseAsset && res.settings.pair) {
+    res.symbol = {
+      symbol: res.settings.pair,
+      ...extractPairAssets(res.settings.pair),
+    };
+  }
   const symbolProfit =
     res.settings.profitCurrency === 'base'
       ? res.symbol?.baseAsset
