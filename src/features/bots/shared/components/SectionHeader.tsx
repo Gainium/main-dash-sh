@@ -5,6 +5,7 @@ import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import {
   BotFieldExtensionControl,
   BotFieldExtensionSlot,
+  BotFormSectionHeaderFrame,
 } from '@/lib/extensions/botFieldExtensions';
 import { cn } from '@/lib/utils';
 import { ChevronDown } from 'lucide-react';
@@ -75,13 +76,11 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       {...(toggleId ? { id: toggleId } : {})}
     />
   );
-  return (
-    <div
-      className={cn(
-        'mb-2 border-t-2 border-primary/60 pt-2 pb-2 bg-primary/10 rounded-lg px-2',
-        className
-      )}
-    >
+  const frameClassName = cn(
+    'mb-2 border-t-2 border-primary/60 pt-2 pb-2 bg-primary/10 rounded-lg px-2',
+    className
+  );
+  const body = (
       <div className="flex items-start justify-between gap-md">
         <div className="flex-1">
           <div className="flex items-start gap-sm">
@@ -144,7 +143,13 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           )}
         </div>
       </div>
-    </div>
+  );
+  return sectionId ? (
+    <BotFormSectionHeaderFrame sectionId={sectionId} className={frameClassName}>
+      {body}
+    </BotFormSectionHeaderFrame>
+  ) : (
+    <div className={frameClassName}>{body}</div>
   );
 };
 

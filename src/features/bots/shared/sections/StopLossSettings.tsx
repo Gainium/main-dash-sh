@@ -6,8 +6,10 @@ import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import {
   BotFieldExtensionControl,
+  BotFieldExtensionPanel,
   BotFieldExtensionSlot,
   BotFieldManagedFieldset,
+  useBotFieldExtensionState,
 } from '@/lib/extensions/botFieldExtensions';
 import { NumberInput } from '@/components/ui/number-input';
 import { ResponsiveFormLayout } from '@/components/ui/ResponsiveFormLayout';
@@ -1203,6 +1205,9 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
     }
   };
 
+  // A host extension managing trailing SL must stay visible.
+  const trailingSlExtension = useBotFieldExtensionState('trailingSl', 'boolean');
+
   return (
     <div className="space-y-md">
       {!isComboBot && closeConditionSl !== CloseConditionEnum.webhook && (
@@ -1388,6 +1393,9 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
               </div>
             </MasonryLayout>
           </BotFieldManagedFieldset>
+          {!hasMultipleSlTargets ? (
+            <BotFieldExtensionPanel path="slPerc" />
+          ) : null}
         </SettingsRow>
       )}
 
@@ -1489,6 +1497,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
               Min value is -{minSlToUse}%
             </p>
           </BotFieldManagedFieldset>
+          <BotFieldExtensionPanel path="slPerc" />
         </SettingsRow>
       )}
       {!isComboBot ? (
@@ -1496,8 +1505,9 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
           id="stop-loss-advanced"
           title="More Settings"
           autoExpand={
-            !isComboBot &&
-            (!!trailingSl || !!moveSL || baseSlOn === BaseSlOnEnum.start)
+            trailingSlExtension.active ||
+            (!isComboBot &&
+              (!!trailingSl || !!moveSL || baseSlOn === BaseSlOnEnum.start))
           }
         >
           <SettingsRow
@@ -1531,6 +1541,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
                 }
               />
             ) : null}
+            <BotFieldExtensionPanel path="trailingSl" kind="boolean" />
           </SettingsRow>
 
           <SettingsRow

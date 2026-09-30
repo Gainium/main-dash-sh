@@ -30,6 +30,12 @@ export interface BotFormStoreState {
   /** Alerts registered imperatively by descendant components. */
   componentErrors: BotFormAlerts;
   isDirty: boolean;
+  /**
+   * Draft state owned by host extensions (see `lib/extensions/
+   * botFormExtensions`), keyed by extension. Saved by the extension's own
+   * save hook after the bot itself is saved; reset when editing is cancelled.
+   */
+  extensionState: Record<string, unknown>;
 }
 
 export type BotFormStore = StoreApi<BotFormStoreState>;
@@ -43,6 +49,7 @@ export const createBotFormStore = (
     alerts: {},
     componentErrors: {},
     isDirty: false,
+    extensionState: {},
   }));
 
 /**
@@ -62,6 +69,7 @@ export const EMPTY_BOT_FORM_STORE: BotFormStore =
     alerts: {},
     componentErrors: {},
     isDirty: false,
+    extensionState: {},
   }));
 
 /**

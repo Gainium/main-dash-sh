@@ -15,6 +15,10 @@ import {
   type SSBinput,
 } from '@/hooks/useBacktestMutations';
 import { GraphQLHttpError } from '@/lib/api/GraphQLClient';
+import {
+  runBotFormAfterSave,
+  validateBotFormExtensions,
+} from '@/lib/extensions/botFormExtensions';
 import { logger } from '@/lib/loggerInstance';
 import { track as analyticsTrack } from '@/lib/analytics';
 import { toast } from '@/lib/toast';
@@ -259,6 +263,19 @@ export const useFormHandlers = (
         setErrors({});
       }
 
+      // Host extensions whose drafts ride this save (botFormExtensions).
+      const extensionRun = {
+        mode,
+        botType: String(formData.type),
+        botId: bot?._id,
+      };
+      const extensionError = validateBotFormExtensions(store, extensionRun);
+      if (extensionError) {
+        toast.error(extensionError);
+        logger.warn('[BotForm] Extension validation failed');
+        return;
+      }
+
       const mapper = options.payloadMapper ?? mapFormDataToPayload;
       const payloadResult = mapper(
         formData,
@@ -370,6 +387,17 @@ export const useFormHandlers = (
           strategy: botStrategy,
         });
 
+        const createdBotId = (createdBot as { _id?: string })?._id;
+        if (createdBotId) {
+          const failures = await runBotFormAfterSave(store, {
+            ...extensionRun,
+            botId: createdBotId,
+          });
+          for (const failure of failures) {
+            toast.error(`Bot created, but ${failure}`);
+          }
+        }
+
         toast.success(
           terminal
             ? formData.dca.terminalDealType === TerminalDealTypeEnum.import
@@ -470,6 +498,19 @@ export const useFormHandlers = (
           settings: upb,
           vars: normalizedBotVars,
         });
+      }
+
+      const failures = await runBotFormAfterSave(store, {
+        ...extensionRun,
+        botId: bot._id,
+      });
+      if (failures.length > 0) {
+        // The bot itself is saved; keep the form open and dirty so the
+        // extension's part can be corrected and saved again.
+        for (const failure of failures) {
+          toast.error(`Bot updated, but ${failure}`);
+        }
+        return;
       }
 
       setErrors({});
