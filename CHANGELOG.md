@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.0] - 2026-10-01
+
+### Added
+
+- Settings → Login & Security: "Disable all webhook actions" switch (cloud) that refuses every incoming webhook signal for all bots on the account.
+
 ## [2.67.24] - 2026-09-30
 
 ### Fixed
