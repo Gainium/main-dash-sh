@@ -19,7 +19,7 @@ import {
   Zap,
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mapWidgetMenuItemsToPanelMenu } from '@/components/bots/panels/menuUtils';
 import { Celebration } from '@/components/onboarding/Celebration';
@@ -49,6 +49,7 @@ import WidgetWrapper, {
 } from '@/components/widgets/WidgetWrapper';
 import {
   useBotFormActiveTab,
+  useBotFormBotVars,
   useBotFormContext,
   useBotFormEditing,
   useBotFormGetFormData,
@@ -121,6 +122,7 @@ import {
 import {
   BotStartTypeEnum,
   BotTypesEnum,
+  type BotVars,
   CloseConditionEnum,
   DCAOrderTypeEnum,
   ExchangeEnum,
@@ -163,6 +165,7 @@ import {
 } from '@/utils/bots/navigation';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { COMBO_BOT_TYPE_ID } from '../../registry';
+import { useBacktestLimitationsGate } from '@/features/bots/backtest-limitations/useBacktestLimitationsGate';
 import BacktestSettingsDialog, {
   type BacktestConfig,
 } from './components/BacktestSettingsDialog';
@@ -2969,8 +2972,37 @@ const BotForm: React.FC<BotFormProps> = ({
   // failed, silently backtesting without fees.
   const lastDialogFeeRef = useRef<{ key: string; fee: number } | null>(null);
 
+  // Settings this bot has on that the backtester cannot simulate: listed in
+  // an informational dialog before a DCA / Combo run (never blocks it).
+  const [searchParams] = useSearchParams();
+  const backtestBotVars = useBotFormBotVars();
+  const backtestBotVarsRef = useRef<BotVars | null>(null);
+  backtestBotVarsRef.current = backtestBotVars;
+  const backtestLimitations = useBacktestLimitationsGate({
+    botType: isTerminal ? undefined : botTypeEnum,
+    botId: botId ?? undefined,
+    sourceBotId: mode === 'edit' ? undefined : (searchParams.get('load') ?? undefined),
+    getSettings: () => {
+      const data = getFormData();
+      const slice =
+        botTypeEnum === BotTypesEnum.combo
+          ? data.combo
+          : botTypeEnum === BotTypesEnum.dca
+            ? data.dca
+            : undefined;
+      if (!slice) return undefined;
+      // Variable bindings live beside the settings, not in them.
+      return {
+        ...(slice as unknown as Record<string, unknown>),
+        vars: backtestBotVarsRef.current,
+      };
+    },
+  });
+  const confirmBacktestLimitations = backtestLimitations.confirm;
+
   const onRunBacktest = useCallback(
     async (cfg: BacktestConfig) => {
+      if (!(await confirmBacktestLimitations())) return;
       // The form as it is now, read once at run time (the shell does not
       // subscribe to it).
       const formData = getFormData();
@@ -3534,6 +3566,7 @@ const BotForm: React.FC<BotFormProps> = ({
       }
     },
     [
+      confirmBacktestLimitations,
       currentExchange,
       getFormData,
       getPeriod,
@@ -4012,6 +4045,7 @@ const BotForm: React.FC<BotFormProps> = ({
         onCancelLocal={cancelLocalBacktest}
         onRun={onRunBacktest}
       />
+      {backtestLimitations.dialog}
       {backtestResult && (
         <BacktestResultsFullModal
           open={resultsModalOpen}
@@ -4479,6 +4513,7 @@ const BotForm: React.FC<BotFormProps> = ({
         onCancelLocal={cancelLocalBacktest}
         onRun={onRunBacktest}
       />
+      {backtestLimitations.dialog}
       {backtestResult && (
         <BacktestResultsFullModal
           open={resultsModalOpen}
