@@ -1218,11 +1218,21 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
           contentClassName="space-y-sm"
           navId="stop-loss-advanced"
           trailing={
-            !hasMultipleSlTargets ? (
-              <BotFieldExtensionSlot path="slPerc" />
-            ) : undefined
+            <BotFieldExtensionSlot
+              path="slPerc"
+              {...(hasMultipleSlTargets
+                ? { limitation: 'multiple-targets' as const }
+                : {})}
+            />
           }
         >
+          {/* Above the targets, so a host's box for the setting is seen. */}
+          <BotFieldExtensionPanel
+            path="slPerc"
+            {...(hasMultipleSlTargets
+              ? { limitation: 'multiple-targets' as const }
+              : {})}
+          />
           <BotFieldManagedFieldset path="slPerc">
             {hasAllocationOverflow ? (
               <Alert variant="destructive" className="py-2 text-xs">
@@ -1392,9 +1402,6 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
               </div>
             </MasonryLayout>
           </BotFieldManagedFieldset>
-          {!hasMultipleSlTargets ? (
-            <BotFieldExtensionPanel path="slPerc" />
-          ) : null}
         </SettingsRow>
       )}
 

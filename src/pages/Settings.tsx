@@ -2356,6 +2356,7 @@ const Settings: React.FC = () => {
                         </tr>
                       );
                     })}
+                    <Slot name="settings.notificationChannels.rows" columns={3} />
                   </tbody>
                 </table>
               </div>

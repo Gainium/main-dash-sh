@@ -45,7 +45,15 @@ export interface BotFieldExtensionContext {
   readOnlyForm: boolean;
   /** The form is one leg of a hedge bot. */
   isNestedLeg: boolean;
+  /**
+   * Set by the mount point when the field is shown in a form it cannot be
+   * handed over in as a single value — `multiple-targets`: the setting is
+   * split into several take-profit / stop-loss targets.
+   */
+  limitation?: BotFieldLimitation | undefined;
 }
+
+export type BotFieldLimitation = 'multiple-targets';
 
 export interface BotFieldExtensionState {
   /** The extension owns the field: the global-variable binding control is
@@ -115,7 +123,8 @@ export function useBotFieldExtensionContext(
 
 function useExtensionContext(
   path: string,
-  kind: BotFieldKind
+  kind: BotFieldKind,
+  limitation?: BotFieldLimitation
 ): BotFieldExtensionContext | null {
   const binding = useOptionalBotFormBinding();
   const isNestedLeg = useOptionalBotFormContext()?.isNestedLeg ?? false;
@@ -139,8 +148,19 @@ function useExtensionContext(
       isVariableBound: isBound,
       readOnlyForm: mode === 'settings-readonly',
       isNestedLeg,
+      ...(limitation ? { limitation } : {}),
     };
-  }, [mode, terminal, path, kind, botId, botType, isBound, isNestedLeg]);
+  }, [
+    mode,
+    terminal,
+    path,
+    kind,
+    botId,
+    botType,
+    isBound,
+    isNestedLeg,
+    limitation,
+  ]);
 }
 
 interface ResolvedExtensions {
@@ -155,9 +175,10 @@ interface ResolvedExtensions {
  */
 function useResolvedExtensions(
   path: string,
-  kind: BotFieldKind
+  kind: BotFieldKind,
+  limitation?: BotFieldLimitation
 ): ResolvedExtensions {
-  const context = useExtensionContext(path, kind);
+  const context = useExtensionContext(path, kind, limitation);
   const states = extensions.map((extension) => {
     const useState = extension.useFieldState ?? noopState;
     // Registered once at boot — stable order, so this is a fixed hook list.
@@ -212,6 +233,8 @@ interface BotFieldExtensionSlotProps {
   path: string;
   kind?: BotFieldKind;
   className?: string;
+  /** See `BotFieldExtensionContext.limitation`. */
+  limitation?: BotFieldLimitation | undefined;
 }
 
 /** Renders every matching extension's component for `path`. */
@@ -219,8 +242,9 @@ export const BotFieldExtensionSlot: React.FC<BotFieldExtensionSlotProps> = ({
   path,
   kind = 'number',
   className,
+  limitation,
 }) => {
-  const { context, matched } = useResolvedExtensions(path, kind);
+  const { context, matched } = useResolvedExtensions(path, kind, limitation);
   if (!context || matched.length === 0) return null;
   return (
     <span
@@ -286,6 +310,8 @@ interface BotFieldExtensionPanelProps {
   path: string;
   kind?: BotFieldKind;
   className?: string;
+  /** See `BotFieldExtensionContext.limitation`. */
+  limitation?: BotFieldLimitation | undefined;
 }
 
 /** Renders every matching extension's `Panel` for `path` (under the field). */
@@ -293,8 +319,9 @@ export const BotFieldExtensionPanel: React.FC<BotFieldExtensionPanelProps> = ({
   path,
   kind = 'number',
   className,
+  limitation,
 }) => {
-  const { context, matched } = useResolvedExtensions(path, kind);
+  const { context, matched } = useResolvedExtensions(path, kind, limitation);
   if (!context) return null;
   const panels = matched.filter((e) => e.Panel);
   if (panels.length === 0) return null;

@@ -11,6 +11,7 @@ import {
   type BotFormStore,
 } from '@/contexts/bots/form/botFormStore';
 import type {
+  BotFormSectionHeaderControlsProps,
   BotFormTabComponentProps,
   BotFormTabDescriptor,
 } from '@/features/bots/widgets/BotForm/types';
@@ -89,6 +90,8 @@ export interface BotFormSaveHookContext {
   value: unknown;
   /** Write the hook's draft (e.g. field errors) without marking dirty. */
   setValue: (value: unknown) => void;
+  /** A bot setting's current form value (the active bot type's slice). */
+  getField: (field: string) => unknown;
 }
 
 export interface BotFormSaveHook {
@@ -136,6 +139,17 @@ function hookContext(
       store.setState((prev) => ({
         extensionState: { ...prev.extensionState, [hook.key]: value },
       })),
+    getField: (field) => {
+      const { formData } = store.getState();
+      const type = String(formData.type);
+      const slice =
+        type === 'combo'
+          ? formData.combo
+          : type === 'grid'
+            ? formData.grid
+            : formData.dca;
+      return (slice as Record<string, unknown> | undefined)?.[field];
+    },
   };
 }
 
@@ -193,6 +207,12 @@ export interface BotFormSectionExtension {
   /** Plain function (not a hook). Default: visible. */
   isVisible?: (ctx: BotFormSectionContext) => boolean;
   Component: React.ComponentType<BotFormTabComponentProps>;
+  /**
+   * The section's own header switch (rendered where built-in sections show
+   * their enable switch, with the collapse chevron passed in). The section's
+   * `Component` decides what its body shows while off.
+   */
+  HeaderControls?: React.ComponentType<BotFormSectionHeaderControlsProps>;
 }
 
 const sections: BotFormSectionExtension[] = [];
@@ -222,6 +242,9 @@ export function withBotFormExtensionSections(
       isTerminal: false,
       ...(section.description ? { description: section.description } : {}),
       ...(section.tooltipText ? { tooltipText: section.tooltipText } : {}),
+      ...(section.HeaderControls
+        ? { HeaderControls: section.HeaderControls }
+        : {}),
     };
     const at = section.before
       ? out.findIndex((d) => d.id === section.before)

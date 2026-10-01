@@ -3816,6 +3816,9 @@ const BotForm: React.FC<BotFormProps> = ({
                           }
                           toggleId={`toggle-${descriptor.id}`}
                           sectionId={descriptor.id}
+                          {...(descriptor.HeaderControls
+                            ? { HeaderControls: descriptor.HeaderControls }
+                            : {})}
                           {...(hasToggle ? { toggleField } : {})}
                           className={cn(
                             isTerminalSimpleSelected &&
@@ -4227,7 +4230,44 @@ const BotForm: React.FC<BotFormProps> = ({
                         </div>
                       </div>
                       <div className="flex items-center gap-xs self-start pt-0.5 shrink-0">
-                        {(hasToggle ? toggleEnabled : true) && (
+                        {descriptor.HeaderControls ? (
+                          <descriptor.HeaderControls
+                            readOnly={isContentReadOnly}
+                            collapseControl={
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                type="button"
+                                aria-expanded={!isSectionCollapsed(descriptor.id)}
+                                aria-controls={`section-${descriptor.id}`}
+                                onClick={() =>
+                                  toggleSectionCollapsed(descriptor.id)
+                                }
+                                disabled={isContentReadOnly}
+                                className={cn(
+                                  'p-0',
+                                  isContentReadOnly ? 'opacity-50' : 'opacity-100'
+                                )}
+                                title={
+                                  isSectionCollapsed(descriptor.id)
+                                    ? 'Expand section'
+                                    : 'Collapse section'
+                                }
+                              >
+                                <ChevronDown
+                                  className={cn(
+                                    'h-4 w-4 transition-transform',
+                                    isSectionCollapsed(descriptor.id)
+                                      ? 'rotate-0'
+                                      : 'rotate-180'
+                                  )}
+                                />
+                              </Button>
+                            }
+                          />
+                        ) : null}
+                        {!descriptor.HeaderControls &&
+                          (hasToggle ? toggleEnabled : true) && (
                           <Button
                             variant="ghost"
                             size="icon"
