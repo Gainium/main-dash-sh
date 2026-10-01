@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.5] - 2026-10-02
+
+### Fixed
+
+- Adding deals to the trade journal (from a bot's deals table or the trading terminal, one at a time or in bulk) no longer creates a second entry for a deal that is already in the journal. Deals already present are skipped, and the notice says how many.
+
 ## [2.68.4] - 2026-10-01
 
 ### Changed

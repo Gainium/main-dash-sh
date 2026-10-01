@@ -72,6 +72,7 @@ import {
 } from '@/lib/utils/tradingMetrics';
 import { useTableCustomState } from '@/stores/tablePreferencesStore';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
+import { isDealInJournal } from '@/utils/journalDealDedupe';
 import {
     BotTypesEnum,
     CloseDCATypeEnum,
@@ -542,6 +543,18 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
     try {
       const entryTime = trade.createdTime?.getTime() || Date.now();
 
+      if (
+        isDealInJournal(useTradeJournalStore.getState().trades, {
+          dealId: trade.dealId || trade.id,
+          symbol: trade.symbol,
+          exchange: trade.exchange,
+          entryTime,
+        })
+      ) {
+        toast.info(`Trade ${trade.symbol} is already in your journal`);
+        return;
+      }
+
       // Determine if trade is open (no valid exit data)
       const isOpenTrade =
         !trade.exitTime ||
@@ -585,6 +598,7 @@ const TradeTableActions: React.FC<TradeTableActionsProps> = ({
 
       // Only include exitTime/exitPrice/exitReason if the trade is closed and not cancelled
       const journalEntry: any = {
+        sourceDealId: trade.dealId || trade.id,
         symbol: trade.symbol,
         exchange: trade.exchange,
         direction: (trade.side === 'BUY' ? 'long' : 'short') as
@@ -2146,10 +2160,22 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           try {
             const now = Date.now();
             let successCount = 0;
+            let skippedCount = 0;
 
             selectedTrades.forEach((trade) => {
               try {
                 const entryTime = trade.createdTime?.getTime() || now;
+                if (
+                  isDealInJournal(useTradeJournalStore.getState().trades, {
+                    dealId: trade.dealId || trade.id,
+                    symbol: trade.symbol,
+                    exchange: trade.exchange,
+                    entryTime,
+                  })
+                ) {
+                  skippedCount++;
+                  return;
+                }
                 const isOpenTrade =
                   !trade.exitTime ||
                   !trade.exitPrice ||
@@ -2164,6 +2190,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                     : 0;
 
                 const journalEntry: any = {
+                  sourceDealId: trade.dealId || trade.id,
                   symbol: trade.symbol,
                   exchange: trade.exchange,
                   direction: (trade.side === 'BUY' ? 'long' : 'short') as
@@ -2212,9 +2239,14 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             if (successCount > 0) {
               toast.success(`Added ${successCount} trade(s) to journal`);
             }
-            if (successCount < selectedTrades.length) {
+            if (skippedCount > 0) {
+              toast.info(
+                `${skippedCount} trade(s) already in your journal, skipped`
+              );
+            }
+            if (successCount + skippedCount < selectedTrades.length) {
               toast.error(
-                `Failed to add ${selectedTrades.length - successCount} trade(s)`
+                `Failed to add ${selectedTrades.length - successCount - skippedCount} trade(s)`
               );
             }
           } catch (error) {

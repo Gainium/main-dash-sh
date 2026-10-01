@@ -30,6 +30,7 @@ export interface JournalTrade extends TradeResult {
   marketType?: JournalMarket;
   executions?: JournalExecution[];
   exchange?: string;
+  sourceDealId?: string;
 }
 
 interface TradeJournalState {
