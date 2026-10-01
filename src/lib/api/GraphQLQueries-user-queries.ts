@@ -589,6 +589,40 @@ export const userQueries = {
     return { query, variables };
   },
 
+  // Cloud-only: the account-wide webhook switch on its own, so bot forms can
+  // warn about it without fetching the whole settings payload.
+  webhooksDisabled: () => {
+    const query = `query webhooksDisabled {
+                        user {
+                            status
+                            reason
+                            data {
+                                webhooksDisabled
+                            }
+                        }
+                    }`;
+    return { query };
+  },
+
+  // Cloud-only: active bots whose settings act only on webhook signals.
+  webhookDependentBots: () => {
+    const query = `query webhookDependentBots {
+                        webhookDependentBots {
+                            status
+                            reason
+                            data {
+                                _id
+                                name
+                                type
+                                paperContext
+                                parentBotId
+                                uses
+                            }
+                        }
+                    }`;
+    return { query };
+  },
+
   // Cloud-only: account-wide switch for inbound webhook actions.
   setWebhooksDisabled: (input: { disabled: boolean }) => {
     const query = `mutation setWebhooksDisabled($input: setWebhooksDisabledInput!) {

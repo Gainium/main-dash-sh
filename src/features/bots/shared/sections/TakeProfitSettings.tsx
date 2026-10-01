@@ -1,4 +1,5 @@
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
+import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { TerminalButtonStack } from '@/components/ui';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -2699,6 +2700,10 @@ export const TakeProfitSettings: React.FC = () => {
                     exits.
                   </AlertDescription>
                 </Alert>
+              ) : null}
+
+              {option.value === CloseConditionEnum.webhook ? (
+                <WebhooksDisabledWarning />
               ) : null}
 
               {closeConditionIsTp && showMultiTargetControls ? (

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.68.2] - 2026-10-01
+
+### Added
+
+- Turning on "Disable all webhook actions" now lists the active bots that start or close deals by webhook and asks for confirmation first.
+- Bot forms warn under Deal start, Take profit and Stop loss when Webhook is selected while webhook actions are disabled for the account.
+
 ## [2.68.1] - 2026-10-01
 
 ### Fixed

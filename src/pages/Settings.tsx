@@ -84,7 +84,9 @@ import {
   useUserSettingsOperations,
   useSetAllowedLoginMethods,
   useSetWebhooksDisabled,
+  useLoadWebhookDependentBots,
   type AllowedLoginMethods,
+  type WebhookDependentBot,
 } from '../hooks/useUserSettings';
 import logger from '../lib/loggerInstance';
 import { toast } from '../lib/toast';
@@ -346,6 +348,53 @@ const Settings: React.FC = () => {
   const licenseKeyOps = useLicenseKeyOperations();
   const setAllowedLoginMethods = useSetAllowedLoginMethods();
   const setWebhooksDisabled = useSetWebhooksDisabled();
+  const loadWebhookDependentBots = useLoadWebhookDependentBots();
+  const [checkingWebhookBots, setCheckingWebhookBots] = useState(false);
+  // Active bots that would lose their webhook triggers; non-null = the
+  // "disable anyway?" confirmation is open.
+  const [webhookDependentBots, setWebhookDependentBots] = useState<
+    WebhookDependentBot[] | null
+  >(null);
+
+  const applyWebhooksDisabled = (next: boolean) =>
+    setWebhooksDisabled.mutate(next, {
+      onSuccess: () => {
+        setWebhookDependentBots(null);
+        toast.success(
+          next ? 'Webhook actions disabled' : 'Webhook actions enabled'
+        );
+      },
+      onError: (err) =>
+        toast.error(
+          err instanceof Error ? err.message : 'Failed to update webhook actions'
+        ),
+    });
+
+  // Turning webhooks off silently breaks every bot that starts or closes
+  // deals by signal, so name those bots and ask first.
+  const handleToggleWebhooksDisabled = async (next: boolean) => {
+    if (!next) {
+      applyWebhooksDisabled(false);
+      return;
+    }
+    setCheckingWebhookBots(true);
+    try {
+      const bots = await loadWebhookDependentBots();
+      if (bots.length) {
+        setWebhookDependentBots(bots);
+      } else {
+        applyWebhooksDisabled(true);
+      }
+    } catch (err) {
+      toast.error(
+        err instanceof Error
+          ? err.message
+          : 'Could not check which bots use webhooks'
+      );
+    } finally {
+      setCheckingWebhookBots(false);
+    }
+  };
 
   // Regenerate-recovery-codes dialog state.
   // Pending API-key action driving the React rename/restrict/delete dialogs
@@ -1068,7 +1117,7 @@ const Settings: React.FC = () => {
                 <CardTitle className="flex items-center gap-xs text-primary">
                   <Webhook className="w-4 h-4" />
                   Webhook Actions
-                  {setWebhooksDisabled.isPending && (
+                  {(setWebhooksDisabled.isPending || checkingWebhookBots) && (
                     <Loader2 className="w-4 h-4 animate-spin" />
                   )}
                 </CardTitle>
@@ -1087,22 +1136,13 @@ const Settings: React.FC = () => {
                   </div>
                   <Switch
                     checked={user?.webhooksDisabled === true}
-                    disabled={isReadOnly || setWebhooksDisabled.isPending}
+                    disabled={
+                      isReadOnly ||
+                      setWebhooksDisabled.isPending ||
+                      checkingWebhookBots
+                    }
                     onCheckedChange={(next) =>
-                      setWebhooksDisabled.mutate(next, {
-                        onSuccess: () =>
-                          toast.success(
-                            next
-                              ? 'Webhook actions disabled'
-                              : 'Webhook actions enabled'
-                          ),
-                        onError: (err) =>
-                          toast.error(
-                            err instanceof Error
-                              ? err.message
-                              : 'Failed to update webhook actions'
-                          ),
-                      })
+                      void handleToggleWebhooksDisabled(next)
                     }
                   />
                 </div>
@@ -1115,6 +1155,78 @@ const Settings: React.FC = () => {
               </CardContent>
             </Card>
           )}
+
+          <Dialog
+            open={webhookDependentBots !== null}
+            onOpenChange={(open) => {
+              if (!open) setWebhookDependentBots(null);
+            }}
+          >
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Disable webhook actions?</DialogTitle>
+              </DialogHeader>
+              <DialogBody>
+                <div className="space-y-md">
+                  <p className="text-sm text-muted-foreground">
+                    {webhookDependentBots?.length === 1
+                      ? 'This active bot relies on webhook signals. It'
+                      : `These ${webhookDependentBots?.length ?? 0} active bots rely on webhook signals. They`}{' '}
+                    will keep running, but every signal sent to{' '}
+                    {webhookDependentBots?.length === 1 ? 'it' : 'them'} will
+                    be refused until you re-enable webhook actions.
+                  </p>
+                  <ul className="max-h-64 space-y-xs overflow-y-auto rounded-lg bg-muted p-sm">
+                    {webhookDependentBots?.map((bot) => (
+                      <li
+                        key={bot._id}
+                        className="flex items-start justify-between gap-md text-sm"
+                      >
+                        <span className="font-medium">
+                          {bot.name || 'Unnamed bot'}
+                          <span className="ml-xs text-xs text-muted-foreground">
+                            {bot.type === 'combo' ? 'Combo' : 'DCA'}
+                            {bot.parentBotId ? ' (hedge)' : ''}
+                            {bot.paperContext ? ' · Paper' : ' · Live'}
+                          </span>
+                        </span>
+                        <span className="text-right text-xs text-muted-foreground">
+                          {bot.uses
+                            .map(
+                              (use) =>
+                                ({
+                                  openDeal: 'Opens deals',
+                                  closeDeal: 'Take profit',
+                                  closeDealSl: 'Stop loss',
+                                })[use] ?? use
+                            )
+                            .join(' · ')}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </DialogBody>
+              <DialogFooter>
+                <Button
+                  variant="outline"
+                  onClick={() => setWebhookDependentBots(null)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  variant="destructive"
+                  disabled={setWebhooksDisabled.isPending}
+                  onClick={() => applyWebhooksDisabled(true)}
+                >
+                  {setWebhooksDisabled.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                  Disable anyway
+                </Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
 
           {/* Change Password Card */}
           <Card>

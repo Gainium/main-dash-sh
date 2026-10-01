@@ -5,6 +5,7 @@ import {
   type ReturnResult,
 } from '@/lib/api';
 import GraphQlQuery from '@/lib/api/GraphQLQueries';
+import { IS_CLOUD } from '@/config/mode';
 import { useAuthStore } from '@/stores/authStore';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
@@ -283,6 +284,65 @@ export function useSetAllowedLoginMethods() {
       });
     },
   });
+}
+
+/** An active bot whose settings act only on webhook signals. */
+export interface WebhookDependentBot {
+  _id: string;
+  name?: string | null;
+  type: string;
+  paperContext?: boolean | null;
+  parentBotId?: string | null;
+  uses: Array<'openDeal' | 'closeDeal' | 'closeDealSl'>;
+}
+
+/**
+ * Whether the account-wide webhook switch is off (cloud-only; always false on
+ * self-hosted, which has no such switch). Shares the `user` key prefix, so
+ * `useSetWebhooksDisabled` refreshes it.
+ */
+export function useWebhooksDisabled(): boolean {
+  const { tokens } = useAuthStore();
+  const { data } = useQuery({
+    queryKey: ['user', 'webhooksDisabled'],
+    queryFn: async () => {
+      const endpoint =
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+      const client = new GraphQLClient(endpoint, tokens?.accessToken);
+      const { query } = GraphQlQuery.webhooksDisabled();
+      const response = await client.request<{
+        user: ReturnResult<{ webhooksDisabled?: boolean | null }>;
+      }>(query, undefined, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
+      return response.user?.data?.webhooksDisabled === true;
+    },
+    enabled: IS_CLOUD && !!tokens?.accessToken,
+    staleTime: 60_000,
+  });
+  return data === true;
+}
+
+/** Loads the active bots that would lose their webhook triggers (cloud-only). */
+export function useLoadWebhookDependentBots() {
+  const { tokens } = useAuthStore();
+  return async (): Promise<WebhookDependentBot[]> => {
+    if (!tokens?.accessToken) {
+      throw new Error('No authentication token available');
+    }
+    const endpoint =
+      import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+    const client = new GraphQLClient(endpoint, tokens.accessToken);
+    const { query } = GraphQlQuery.webhookDependentBots();
+    const result = await client.request<{
+      webhookDependentBots: ReturnResult<WebhookDependentBot[]>;
+    }>(query, undefined, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
+    if (result.webhookDependentBots.status !== 'OK') {
+      throw new Error(
+        result.webhookDependentBots.reason ||
+          'Failed to load bots that use webhooks'
+      );
+    }
+    return result.webhookDependentBots.data ?? [];
+  };
 }
 
 /**
