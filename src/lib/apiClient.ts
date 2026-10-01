@@ -1,5 +1,6 @@
 import { useAuthStore } from '@/stores/authStore';
 import { isDemoMode } from './demoMode';
+import { reportAuthErrors } from '@/lib/api/GraphQLClient';
 // import { logger } from './loggerInstance';
 
 // Mock logger to replace removed logger calls
@@ -177,11 +178,12 @@ export class ApiClient {
 
     try {
       // Create the fetch request with timeout
+      const requestHeaders = await this.createHeaders(
+        options.headers as Record<string, string>
+      );
       const fetchPromise = fetch(fullUrl, {
         ...options,
-        headers: await this.createHeaders(
-          options.headers as Record<string, string>
-        ),
+        headers: requestHeaders,
         credentials: 'include', // Include cookies for refresh token
       });
 
@@ -206,11 +208,20 @@ export class ApiClient {
         // error to the caller and let real-validation paths
         // (`initializeAuth` → `validateToken`) decide whether the
         // session is truly dead.
+        //
+        // That is what the central session handling does: a 401 on a request
+        // that carried the session token asks the auth store to re-validate
+        // it, and only the backend's definitive rejection ends the session
+        // (with a visible notice) — never a silent wipe, never a revoke.
         if (response.status === 401) {
           logger.warn(
             'Received 401, surfacing as ApiError (NOT calling logout)',
             { url: fullUrl }
           );
+          const bearer = requestHeaders['Authorization'];
+          if (bearer?.startsWith('Bearer ')) {
+            reportAuthErrors(bearer.slice('Bearer '.length), [], 401);
+          }
         }
 
         throw new ApiError(

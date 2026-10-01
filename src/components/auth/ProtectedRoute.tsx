@@ -1,5 +1,6 @@
 import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
+import { loginRedirectUrl } from '@/lib/sessionExpiredNotice';
 import { useAuthStore } from '@/stores/authStore';
 import { Loader2 } from 'lucide-react';
 
@@ -60,9 +61,17 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
     return <>{children}</>;
   }
 
-  // Redirect to login if not authenticated
+  // Redirect to login if not authenticated, keeping where the user was (and,
+  // after an expired session, the notice the login page shows).
   if (!isAuthenticated) {
-    return <Navigate to="/login" replace />;
+    return (
+      <Navigate
+        to={loginRedirectUrl(
+          `${location.pathname}${location.search}${location.hash}`
+        )}
+        replace
+      />
+    );
   }
 
   // Render children if authenticated
