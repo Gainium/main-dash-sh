@@ -69,6 +69,9 @@ const ComboBotNewWidget = () => {
         { bot: bot as unknown as DCABot }
       );
       const base = formData.name?.trim();
+      // A clone replaces the form, so the unsaved create-draft must not be
+      // restored over it when the form mounts.
+      clearBotFormDraft(botFormDraftKey(BotTypesEnum.combo, 'create'));
       setLoadedFormData({
         ...formData,
         name: base ? `${base} (Clone)` : 'Combo bot (Clone)',

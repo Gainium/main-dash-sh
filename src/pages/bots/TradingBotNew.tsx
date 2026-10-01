@@ -74,6 +74,9 @@ const TradingBotNewWidget = () => {
         { bot }
       );
       const base = formData.name?.trim();
+      // A clone replaces the form, so the unsaved create-draft must not be
+      // restored over it when the form mounts.
+      clearBotFormDraft(botFormDraftKey(BotTypesEnum.dca, 'create'));
       setLoadedFormData({
         ...formData,
         name: base ? `${base} (Clone)` : 'Bot (Clone)',

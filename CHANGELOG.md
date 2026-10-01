@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.6] - 2026-10-01
+
+### Fixed
+
+- Cloning a DCA, combo or grid bot now opens the form with the source bot's settings. An older unsaved new-bot draft is no longer restored over the clone.
+
 ## [2.68.5] - 2026-10-02
 
 ### Fixed
