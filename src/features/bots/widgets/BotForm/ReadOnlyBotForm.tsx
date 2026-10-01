@@ -63,7 +63,10 @@ import type { BotFormData } from '@/types/bots/form';
 import type { BotFormTabComponentProps, BotFormTabDescriptor } from './types';
 
 import { cn } from '@/lib/utils';
-import { withBotFormExtensionSections } from '@/lib/extensions/botFormExtensions';
+import {
+  useBotFormSectionsVersion,
+  withBotFormExtensionSections,
+} from '@/lib/extensions/botFormExtensions';
 import {
   BotFieldExtensionControl,
   BotFieldExtensionSlot,
@@ -182,7 +185,10 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
   const HIDDEN_SECTIONS = useMemo(() => new Set(['webhook']), []);
   const isTerminalBot = Boolean(formData.terminal);
 
+  const extensionSectionsVersion = useBotFormSectionsVersion();
   const tabDescriptors = useMemo<BotFormTabDescriptor[]>(() => {
+    // A host invalidation (version bump) re-runs the sections' isVisible.
+    void extensionSectionsVersion;
     const descriptors = isGridBot ? gridTabDescriptors : dcaTabDescriptors;
     return withBotFormExtensionSections(
       descriptors.filter(
@@ -199,7 +205,13 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
         isNestedLeg: false,
       }
     );
-  }, [isGridBot, isComboBot, isTerminalBot, HIDDEN_SECTIONS]);
+  }, [
+    isGridBot,
+    isComboBot,
+    isTerminalBot,
+    HIDDEN_SECTIONS,
+    extensionSectionsVersion,
+  ]);
 
   const sectionToggleMap: Record<string, string> = useMemo(
     () => ({

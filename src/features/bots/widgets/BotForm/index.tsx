@@ -33,6 +33,7 @@ import {
 } from '@/components/ui/ScrollableFormTabNavigation';
 import { SectionHeader } from '@/features/bots/shared/components/SectionHeader';
 import {
+  useBotFormSectionsVersion,
   useBotHeaderDecoration,
   withBotFormExtensionSections,
 } from '@/lib/extensions/botFormExtensions';
@@ -1798,38 +1799,41 @@ const BotForm: React.FC<BotFormProps> = ({
     return isGridBot ? gridTabDescriptors : dcaTabDescriptors;
   }, [isGridBot]);
 
-  const tabDescriptors = useMemo<BotFormTabDescriptor[]>(
-    () =>
-      withBotFormExtensionSections(
-        (moduleTabDescriptors?.length
-          ? moduleTabDescriptors
-          : (metadataTabDescriptors ?? fallbackTabDescriptors)
-        ).filter((d) =>
-          isGridBot ? true : isTerminal ? d.isTerminal : d.isDca
-        ),
-        {
-          botType: isGridBot
-            ? BotTypesEnum.grid
-            : isComboBot
-              ? BotTypesEnum.combo
-              : BotTypesEnum.dca,
-          mode,
-          isTerminal,
-          isNestedLeg,
-        }
-      ).filter((d) => (tabDescriptorsFilter ? tabDescriptorsFilter(d) : true)),
-    [
-      moduleTabDescriptors,
-      metadataTabDescriptors,
-      fallbackTabDescriptors,
-      isTerminal,
-      tabDescriptorsFilter,
-      isGridBot,
-      isComboBot,
-      mode,
-      isNestedLeg,
-    ]
-  );
+  // Host sections re-check `isVisible` when the host invalidates them.
+  const extensionSectionsVersion = useBotFormSectionsVersion();
+  const tabDescriptors = useMemo<BotFormTabDescriptor[]>(() => {
+    // A host invalidation (version bump) re-runs the sections' isVisible.
+    void extensionSectionsVersion;
+    return withBotFormExtensionSections(
+      (moduleTabDescriptors?.length
+        ? moduleTabDescriptors
+        : (metadataTabDescriptors ?? fallbackTabDescriptors)
+      ).filter((d) =>
+        isGridBot ? true : isTerminal ? d.isTerminal : d.isDca
+      ),
+      {
+        botType: isGridBot
+          ? BotTypesEnum.grid
+          : isComboBot
+            ? BotTypesEnum.combo
+            : BotTypesEnum.dca,
+        mode,
+        isTerminal,
+        isNestedLeg,
+      }
+    ).filter((d) => (tabDescriptorsFilter ? tabDescriptorsFilter(d) : true));
+  }, [
+    moduleTabDescriptors,
+    metadataTabDescriptors,
+    fallbackTabDescriptors,
+    isTerminal,
+    tabDescriptorsFilter,
+    isGridBot,
+    isComboBot,
+    mode,
+    isNestedLeg,
+    extensionSectionsVersion,
+  ]);
 
   const visibleDescriptors = useMemo(() => {
     const filtered = tabDescriptors.filter((descriptor) => {

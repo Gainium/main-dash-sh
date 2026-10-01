@@ -7,6 +7,7 @@
 - Extension points for host builds: a component beside an individual bot setting or a bot form section (which may take the setting over, hiding the variable binding and locking the field), a block under a setting or at the top of a section, a section-header highlight, whole extra bot form sections with their own header switch, extension settings kept in the bot form and saved by its Save button after the bot itself, decorations for a bot's header, extra tabs in the bot details drawer (`?tab=`), and badges and filters in the DCA and Combo bot lists. The Take profit and Stop loss "More Settings" groups open by themselves while an extension manages trailing take profit or trailing stop loss. With nothing registered the dashboard is unchanged.
 - AI color tokens (`ai-surface`, `ai-surface-strong`, `ai-border`, `ai-foreground`) for light and dark themes.
 - Settings → Notification Preferences: a slot at the end of the card (`settings.notificationChannels.footer`) and one for extra rows in the table (`settings.notificationChannels.rows`) for host-provided content. Empty in the self-hosted build.
+- Host builds can ask open bot forms to re-check which extension sections are visible (`invalidateBotFormSections`), e.g. when an access flag arrives after the form mounted.
 
 ## [2.68.2] - 2026-10-01
 

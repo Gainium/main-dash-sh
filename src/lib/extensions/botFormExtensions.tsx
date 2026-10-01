@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import React, { Fragment, useCallback } from 'react';
+import React, { Fragment, useCallback, useSyncExternalStore } from 'react';
 import { useStore } from 'zustand';
 import {
   useOptionalBotFormStoreApi,
@@ -222,6 +222,29 @@ export function registerBotFormSection(section: BotFormSectionExtension): void {
   const index = sections.findIndex((s) => s.id === section.id);
   if (index >= 0) sections[index] = section;
   else sections.push(section);
+}
+
+let sectionsVersion = 0;
+const sectionListeners = new Set<() => void>();
+
+/**
+ * Re-run every mounted form's `isVisible` checks — call when something a
+ * section's visibility depends on changes after the form mounted (e.g. an
+ * access flag that arrived from the server).
+ */
+export function invalidateBotFormSections(): void {
+  sectionsVersion += 1;
+  for (const listener of sectionListeners) listener();
+}
+
+function subscribeSections(listener: () => void): () => void {
+  sectionListeners.add(listener);
+  return () => sectionListeners.delete(listener);
+}
+
+/** Changes whenever `invalidateBotFormSections` is called (a memo key). */
+export function useBotFormSectionsVersion(): number {
+  return useSyncExternalStore(subscribeSections, () => sectionsVersion);
 }
 
 /** `descriptors` plus the registered sections visible in `ctx`. */
