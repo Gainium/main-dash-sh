@@ -116,6 +116,14 @@ export interface SlotPropsMap {
    */
   'settings.notificationChannels.actions': Record<string, unknown>;
 
+  /**
+   * Notification preferences — extra `<tr>` rows appended to the table body
+   * (a host's own notification types, e.g. a group with its own heading).
+   * `columns` is core's column count (Type, In-App, Sound); the host adds
+   * the columns its header slot renders. Sh renders nothing.
+   */
+  'settings.notificationChannels.rows': { columns: number };
+
   /** Cloud-sync icon button shown in the Navbar desktop row.
    *  Cloud's filler handles its own open-state + free-plan gating. */
   'navbar.syncButtonDesktop': {

@@ -8,6 +8,7 @@ import {
   BotFormSectionHeaderFrame,
 } from '@/lib/extensions/botFieldExtensions';
 import { cn } from '@/lib/utils';
+import type { BotFormSectionHeaderControlsProps } from '@/features/bots/widgets/BotForm/types';
 import { ChevronDown } from 'lucide-react';
 import type React from 'react';
 
@@ -40,6 +41,11 @@ export interface SectionHeaderProps {
   toggleField?: string;
   /** Extra classes appended to the header container. */
   className?: string;
+  /**
+   * Custom header controls (a host section's own switch). Replaces the
+   * collapse chevron + enable switch; receives the chevron to place.
+   */
+  HeaderControls?: React.ComponentType<BotFormSectionHeaderControlsProps>;
 }
 
 /**
@@ -67,6 +73,7 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
   sectionId,
   toggleField,
   className,
+  HeaderControls,
 }) => {
   const toggle = (
     <Switch
@@ -75,6 +82,26 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
       disabled={toggleDisabled}
       {...(toggleId ? { id: toggleId } : {})}
     />
+  );
+  const collapseControl = (
+    <Button
+      variant="ghost"
+      size="icon"
+      type="button"
+      aria-expanded={!collapsed}
+      {...(ariaControlsId ? { 'aria-controls': ariaControlsId } : {})}
+      onClick={onToggleCollapse}
+      disabled={collapseDisabled}
+      className={cn('p-0', collapseDisabled ? 'opacity-50' : 'opacity-100')}
+      title={collapsed ? 'Expand section' : 'Collapse section'}
+    >
+      <ChevronDown
+        className={cn(
+          'h-4 w-4 transition-transform',
+          collapsed ? 'rotate-0' : 'rotate-180'
+        )}
+      />
+    </Button>
   );
   const frameClassName = cn(
     'mb-2 border-t-2 border-primary/60 pt-2 pb-2 bg-primary/10 rounded-lg px-2',
@@ -110,27 +137,14 @@ export const SectionHeader: React.FC<SectionHeaderProps> = ({
           </div>
         </div>
         <div className="flex items-center gap-xs self-start pt-0.5">
-          {showCollapse && (
-            <Button
-              variant="ghost"
-              size="icon"
-              type="button"
-              aria-expanded={!collapsed}
-              {...(ariaControlsId ? { 'aria-controls': ariaControlsId } : {})}
-              onClick={onToggleCollapse}
-              disabled={collapseDisabled}
-              className={cn('p-0', collapseDisabled ? 'opacity-50' : 'opacity-100')}
-              title={collapsed ? 'Expand section' : 'Collapse section'}
-            >
-              <ChevronDown
-                className={cn(
-                  'h-4 w-4 transition-transform',
-                  collapsed ? 'rotate-0' : 'rotate-180'
-                )}
-              />
-            </Button>
-          )}
-          {hasToggle && (
+          {HeaderControls ? (
+            <HeaderControls
+              readOnly={toggleDisabled}
+              collapseControl={collapseControl}
+            />
+          ) : null}
+          {!HeaderControls && showCollapse && collapseControl}
+          {!HeaderControls && hasToggle && (
             <div className="flex items-center gap-xs">
               {toggleField ? (
                 <BotFieldExtensionControl path={toggleField}>

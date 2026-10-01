@@ -484,7 +484,37 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
                     </div>
                   </div>
                   <div className="flex items-center gap-xs self-start pt-0.5">
-                    {(hasToggle ? toggleEnabled : true) && (
+                    {descriptor.HeaderControls ? (
+                      <descriptor.HeaderControls
+                        readOnly
+                        collapseControl={
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            type="button"
+                            aria-expanded={!isSectionCollapsed(descriptor.id)}
+                            onClick={() => toggleSectionCollapsed(descriptor.id)}
+                            className="p-0 opacity-50"
+                            title={
+                              isSectionCollapsed(descriptor.id)
+                                ? 'Expand section'
+                                : 'Collapse section'
+                            }
+                          >
+                            <ChevronDown
+                              className={cn(
+                                'h-4 w-4 transition-transform',
+                                isSectionCollapsed(descriptor.id)
+                                  ? 'rotate-0'
+                                  : 'rotate-180'
+                              )}
+                            />
+                          </Button>
+                        }
+                      />
+                    ) : null}
+                    {!descriptor.HeaderControls &&
+                      (hasToggle ? toggleEnabled : true) && (
                       <Button
                         variant="ghost"
                         size="icon"

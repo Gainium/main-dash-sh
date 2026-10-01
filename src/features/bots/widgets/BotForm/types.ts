@@ -1,5 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ComponentType } from 'react';
+import type { ComponentType, ReactNode } from 'react';
 
 import type { PanelMenuConfig } from '@/components/bots/panels/PanelContainer';
 import type { WidgetMenuActions } from '@/components/widgets/WidgetWrapper';
@@ -232,6 +232,17 @@ export type BotFormTabBadgeResolver = (
   errors: Record<string, string>
 ) => BotFormTabBadge | undefined;
 
+/**
+ * Props of a section's custom header controls (a host-registered section
+ * with its own on/off switch). `collapseControl` is the standard collapse
+ * chevron; render it where the built-in sections do (only while on).
+ */
+export interface BotFormSectionHeaderControlsProps {
+  /** The form is read-only (the switch must render disabled). */
+  readOnly: boolean;
+  collapseControl: ReactNode;
+}
+
 export interface BotFormTabDescriptor {
   id: BotFormTabId;
   label: string;
@@ -245,4 +256,9 @@ export interface BotFormTabDescriptor {
   badge?: BotFormTabBadgeResolver;
   isTerminal?: boolean;
   isDca?: boolean;
+  /**
+   * Replaces the header's collapse chevron + enable switch (host-registered
+   * sections whose on/off state is not a form field).
+   */
+  HeaderControls?: ComponentType<BotFormSectionHeaderControlsProps>;
 }

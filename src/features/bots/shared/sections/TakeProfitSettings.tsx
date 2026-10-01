@@ -2730,11 +2730,23 @@ export const TakeProfitSettings: React.FC = () => {
                   colSpan="full"
                   className={interactionDisabledClass}
                   trailing={
-                    multiTargets.length <= 1 ? (
-                      <BotFieldExtensionSlot path="tpPerc" />
-                    ) : undefined
+                    <BotFieldExtensionSlot
+                      path="tpPerc"
+                      {...(multiTargets.length > 1
+                        ? { limitation: 'multiple-targets' as const }
+                        : {})}
+                    />
                   }
                 >
+                  {/* Directly under the row label, above the targets, so a
+                      host's box for the setting is seen with it. */}
+                  <BotFieldExtensionPanel
+                    path="tpPerc"
+                    className="mb-sm"
+                    {...(multiTargets.length > 1
+                      ? { limitation: 'multiple-targets' as const }
+                      : {})}
+                  />
                   <BotFieldManagedFieldset path="tpPerc">
                     {hasAllocationOverflow ? (
                       <Alert variant="destructive" className="py-2 text-xs">
@@ -2950,9 +2962,6 @@ export const TakeProfitSettings: React.FC = () => {
                       </div>
                     </MasonryLayout>
                   </BotFieldManagedFieldset>
-                  {multiTargets.length <= 1 ? (
-                    <BotFieldExtensionPanel path="tpPerc" className="mt-sm" />
-                  ) : null}
                 </SettingsRow>
               ) : null}
               {isTechIndicatorClose && !isDealEdit ? (
