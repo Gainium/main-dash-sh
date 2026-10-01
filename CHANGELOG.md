@@ -5,6 +5,7 @@
 ### Added
 
 - Settings → Notification Preferences: a slot at the end of the card (`settings.notificationChannels.footer`) for host-provided content. Empty in the self-hosted build.
+- Host builds can ask open bot forms to re-check which extension sections are visible (`invalidateBotFormSections`), e.g. when an access flag arrives after the form mounted.
 
 ## [2.69.0] - 2026-10-01
 
