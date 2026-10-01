@@ -172,8 +172,13 @@ export const useBasicSettingsTab = (
   );
   const isComboBot = useMemo(() => formData.type === 'combo', [formData.type]);
   const planRestrictsMulti = useMemo(
-    () => shouldRestrictMulti(subscriptionPlanName, !!useMulti),
-    [useMulti, subscriptionPlanName]
+    () =>
+      shouldRestrictMulti(
+        subscriptionPlanName,
+        !!useMulti,
+        !!currentExchange?.affiliate
+      ),
+    [useMulti, subscriptionPlanName, currentExchange?.affiliate]
   );
   const multiToggleState = useMemo(
     () =>

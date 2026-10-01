@@ -28,6 +28,7 @@ import {
   User,
   Volume2,
   VolumeX,
+  Webhook,
   X,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -82,6 +83,7 @@ import { passwordMeetsAllRules } from '../components/auth/passwordRules';
 import {
   useUserSettingsOperations,
   useSetAllowedLoginMethods,
+  useSetWebhooksDisabled,
   type AllowedLoginMethods,
 } from '../hooks/useUserSettings';
 import logger from '../lib/loggerInstance';
@@ -343,6 +345,7 @@ const Settings: React.FC = () => {
   const apiKeysOps = useAPIKeysOperations();
   const licenseKeyOps = useLicenseKeyOperations();
   const setAllowedLoginMethods = useSetAllowedLoginMethods();
+  const setWebhooksDisabled = useSetWebhooksDisabled();
 
   // Regenerate-recovery-codes dialog state.
   // Pending API-key action driving the React rename/restrict/delete dialogs
@@ -1053,6 +1056,62 @@ const Settings: React.FC = () => {
                     </div>
                   );
                 })}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Webhook Actions Card — cloud-only (enforced at the cloud
+              backend's webhook entry point). */}
+          {IS_CLOUD && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-xs text-primary">
+                  <Webhook className="w-4 h-4" />
+                  Webhook Actions
+                  {setWebhooksDisabled.isPending && (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  )}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-md">
+                <div className="flex items-center justify-between gap-md">
+                  <div className="space-y-xs">
+                    <Label className="text-muted-foreground uppercase text-xs tracking-wider">
+                      Disable all webhook actions
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Refuse every incoming webhook signal (TradingView alerts,
+                      scripts, automations) for all your bots. Bots keep
+                      running and actions you take in the app still work.
+                    </p>
+                  </div>
+                  <Switch
+                    checked={user?.webhooksDisabled === true}
+                    disabled={isReadOnly || setWebhooksDisabled.isPending}
+                    onCheckedChange={(next) =>
+                      setWebhooksDisabled.mutate(next, {
+                        onSuccess: () =>
+                          toast.success(
+                            next
+                              ? 'Webhook actions disabled'
+                              : 'Webhook actions enabled'
+                          ),
+                        onError: (err) =>
+                          toast.error(
+                            err instanceof Error
+                              ? err.message
+                              : 'Failed to update webhook actions'
+                          ),
+                      })
+                    }
+                  />
+                </div>
+                {user?.webhooksDisabled === true && (
+                  <p className="text-sm text-warning">
+                    Webhook signals are currently refused for every bot on
+                    this account.
+                  </p>
+                )}
               </CardContent>
             </Card>
           )}

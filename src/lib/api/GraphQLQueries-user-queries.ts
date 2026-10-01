@@ -81,6 +81,11 @@ const ALLOWED_LOGIN_METHODS_SELECTION = IS_CLOUD
                                 }`
   : '';
 
+// Account-wide kill switch for inbound webhook actions. Enforced by the cloud
+// `main-app` webhook entry point; app-sh has no such field, so gate behind
+// IS_CLOUD to avoid a 400 on self-hosted.
+const WEBHOOKS_DISABLED_SELECTION = IS_CLOUD ? 'webhooksDisabled' : '';
+
 // Cloud-only user fields. App-sh doesn't expose subscription, credits,
 // balance, affiliate, notifications, rewards, tg, alerts, etc. — those
 // belong to the paid SaaS layer. Requesting them on sh would 400, so
@@ -399,6 +404,7 @@ export const userQueries = {
                                 ${DELETED_ACCOUNT_SELECTION}
                                 ${CLOUD_CREDITS_SELECTION}
                                 ${ALLOWED_LOGIN_METHODS_SELECTION}
+                                ${WEBHOOKS_DISABLED_SELECTION}
                                 shouldOnBoard
                                 shouldOnBoardExchange
                                 apiKeys {
@@ -577,6 +583,19 @@ export const userQueries = {
                                 emailLink
                                 passkey
                             }
+                        }
+                    }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  // Cloud-only: account-wide switch for inbound webhook actions.
+  setWebhooksDisabled: (input: { disabled: boolean }) => {
+    const query = `mutation setWebhooksDisabled($input: setWebhooksDisabledInput!) {
+                        setWebhooksDisabled(input: $input) {
+                            status
+                            reason
+                            data
                         }
                     }`;
     const variables = { input };

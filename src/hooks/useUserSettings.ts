@@ -39,6 +39,8 @@ export interface UserSettingsData {
     otp_enabled: boolean;
   };
   allowedLoginMethods?: AllowedLoginMethods;
+  // Cloud-only. Absent (self-hosted / never set) means webhooks are enabled.
+  webhooksDisabled?: boolean;
   apiKeys?: Array<{
     _id: string;
     created: string;
@@ -277,6 +279,56 @@ export function useSetAllowedLoginMethods() {
     },
     onError: (error) => {
       logger.error('Failed to update allowed login methods', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+    },
+  });
+}
+
+/**
+ * Hook for the account-wide webhook actions switch (cloud-only). When
+ * disabled, every inbound `/trade_signal` action is refused for all bots.
+ */
+export function useSetWebhooksDisabled() {
+  const { tokens } = useAuthStore();
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (disabled: boolean) => {
+      if (!tokens?.accessToken) {
+        throw new Error('No authentication token available');
+      }
+
+      const endpoint =
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+      const client = new GraphQLClient(endpoint, tokens.accessToken);
+
+      const { query, variables } = GraphQlQuery.setWebhooksDisabled({
+        disabled,
+      });
+
+      const result = await client.request<{
+        setWebhooksDisabled: ReturnResult<boolean>;
+      }>(query, variables);
+
+      if (result.setWebhooksDisabled.status !== 'OK') {
+        throw new Error(
+          result.setWebhooksDisabled.reason ||
+            'Failed to update webhook actions'
+        );
+      }
+
+      return result.setWebhooksDisabled.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({
+        predicate: (query) =>
+          query.queryKey[0] === 'user' ||
+          query.queryKey[0] === 'user-settings',
+      });
+    },
+    onError: (error) => {
+      logger.error('Failed to update webhook actions', {
         error: error instanceof Error ? error.message : 'Unknown error',
       });
     },
