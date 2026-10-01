@@ -2046,7 +2046,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
         <div className="rounded-lg bg-muted/40 p-md space-y-sm">
           <div>
-            <h3 className="text-sm font-semibold">Risk profile</h3>
+            <h3 className="text-sm font-semibold">Preset</h3>
             <p className="text-xs text-muted-foreground">
               Pick a starting point. Configures both legs identically. Switch to
               Manual to fine-tune each leg.
@@ -2054,7 +2054,7 @@ export const HedgeBotEditLayout: React.FC = () => {
           </div>
           <div
             role="radiogroup"
-            aria-label="Hedge risk profile"
+            aria-label="Hedge preset"
             // Auto-fit so the three cards sit side-by-side when the form panel
             // is wide but wrap to two / one column when it's narrow (the panel
             // width is independent of the viewport, so viewport breakpoints

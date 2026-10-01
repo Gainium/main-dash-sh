@@ -94,7 +94,7 @@ const NAV_ID_LABELS: Record<string, string[]> = {
   levels: ['Grid levels'],
   gridStep: ['Grid step (%)'],
   gridType: ['Grid type'],
-  'risk-reward': ['Risk profile', 'Risk reward', 'Risk Reward'],
+  'risk-reward': ['Preset', 'Risk profile', 'Risk reward', 'Risk Reward'],
   tpSl: ['Take Profit', 'Take profit'],
   sl: ['Stop Loss', 'Stop loss'],
   'start-price': ['Start price', 'Activation price'],

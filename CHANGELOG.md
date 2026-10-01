@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.68.4] - 2026-10-01
+
+### Changed
+
+- Quick-mode bot forms: the "Risk profile" section is now called "Preset", since the values are calculated from the pair's price history, not from the user.
+- Preset descriptions no longer call deeper safety-order ladders "protection"; they state how deep each preset covers and how much capital it commits.
+- The calibration line under the presets now notes that it is based on past data and that future moves can be larger.
+
 ## [2.68.3] - 2026-10-01
 
 ### Fixed

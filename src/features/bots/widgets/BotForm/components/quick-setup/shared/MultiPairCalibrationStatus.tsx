@@ -88,10 +88,10 @@ export const MultiPairCalibrationStatus: React.FC<
                 ? `Loading 1-year price history for ${submittedSymbols.length} pairs…`
                 : `Loading 1-year price history for ${firstPair}…`
               : multiPairActive && multiPairResult?.stats
-                ? `Calibrated across ${multiPairResult.included.length} of ${multiPairResult.total} pairs (worst-of) — worst dip ${multiPairResult.stats.drawdowns.fullPeriodMax.toFixed(0)}%, typical month ${multiPairResult.stats.drawdowns.month.p50.toFixed(0)}%.${multiPairResult.skipped.length > 0 ? ` ${multiPairResult.skipped.length} skipped — not enough history.` : ''}`
+                ? `Calibrated across ${multiPairResult.included.length} of ${multiPairResult.total} pairs (worst-of) — worst dip ${multiPairResult.stats.drawdowns.fullPeriodMax.toFixed(0)}%, typical month ${multiPairResult.stats.drawdowns.month.p50.toFixed(0)}%.${multiPairResult.skipped.length > 0 ? ` ${multiPairResult.skipped.length} skipped — not enough history.` : ''} Based on past data — future moves can be larger.`
                 : marketStats?.hasFullYear &&
                     marketStats.drawdowns.month.sampleCount > 0
-                  ? `Calibrated to ${firstPair} — ${marketStats.drawdowns.month.sampleCount} monthly windows analyzed, worst dip ${marketStats.drawdowns.fullPeriodMax.toFixed(0)}%, typical month ${marketStats.drawdowns.month.p50.toFixed(0)}%.`
+                  ? `Calibrated to ${firstPair} — ${marketStats.drawdowns.month.sampleCount} monthly windows analyzed, worst dip ${marketStats.drawdowns.fullPeriodMax.toFixed(0)}%, typical month ${marketStats.drawdowns.month.p50.toFixed(0)}%. Based on past data — future moves can be larger.`
                   : `Using default values — less than 1 year of ${firstPair} history available.`}
           </p>
           {multiPairActive && multiPairResult && (

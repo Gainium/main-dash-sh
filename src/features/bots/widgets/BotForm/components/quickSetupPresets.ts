@@ -125,7 +125,7 @@ export const QUICK_SETUP_PRESETS: QuickSetupPreset[] = [
     label: 'Short-term',
     tagline: 'Small TP, light averaging. Fast cycles.',
     explanation:
-      'Sized for the typical dip seen in the past year. Cycles often, light protection.',
+      'Sized for the typical dip seen in the past year. Cycles often, shallow coverage, least capital committed.',
     calibration: { drawdownTarget: 'month_p50', tpAtrMultiplier: 0.6 },
     values: {
       tpPerc: '1.5',
@@ -143,7 +143,7 @@ export const QUICK_SETUP_PRESETS: QuickSetupPreset[] = [
     label: 'Mid-term',
     tagline: 'Balanced TP with moderate averaging.',
     explanation:
-      'Sized for a bad correction (top 20% of historical dips). Balanced cycling and protection.',
+      'Sized for a bad correction (top 20% of historical dips). Balanced cycling and coverage.',
     calibration: { drawdownTarget: 'month_p80', tpAtrMultiplier: 1.2 },
     values: {
       tpPerc: '3',
@@ -161,7 +161,7 @@ export const QUICK_SETUP_PRESETS: QuickSetupPreset[] = [
     label: 'Long-term',
     tagline: 'Wider TP, deep averaging across many orders.',
     explanation:
-      'Sized for the worst drawdown observed in the past year. Slow cycling, heaviest protection.',
+      'Sized for the worst drawdown observed in the past year. Slow cycling, deepest coverage, most capital committed.',
     calibration: { drawdownTarget: 'fullPeriodMax', tpAtrMultiplier: 2.4 },
     values: {
       tpPerc: '6',

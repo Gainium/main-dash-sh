@@ -521,7 +521,7 @@ export const QuickGridBotForm: React.FC<QuickGridBotFormProps> = ({
       </SettingsRow>
 
       <SettingsRow
-        name="Risk profile"
+        name="Preset"
         description="Pick a starting point. Customize later in Manual mode."
         tooltip="Range and grid spacing are auto-calculated from recent price data for the selected pair. They have not been validated and do not constitute trading advice — always review before launching."
         navId="risk-reward"
