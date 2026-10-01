@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -1011,6 +1012,9 @@ export const DealStartSettings: React.FC = () => {
                 ))}
               </TabsList>
             </SettingsRow>
+            {startCondition === StartConditionEnum.tradingviewSignals && (
+              <WebhooksDisabledWarning className="mt-md" />
+            )}
             {/* Tab contents for each start condition. Put a Masonry inside each content so layout is scoped to the tab */}
             <TabsContent value={StartConditionEnum.timer}>
               <MasonryLayout

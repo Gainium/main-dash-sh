@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.70.0] - 2026-10-01
+
+### Added
+
+- Settings → Notification Preferences: a slot at the end of the card (`settings.notificationChannels.footer`) for host-provided content. Empty in the self-hosted build.
+
 ## [2.69.0] - 2026-10-01
 
 ### Added
@@ -8,6 +14,13 @@
 - More extension points for the bot form: a block under an individual setting or at the top of a section, a section-header highlight, whole extra form sections, extension settings kept in the form and saved by its Save button after the bot itself, and decorations for a bot's header in the details drawer and the bot form. The Take profit and Stop loss "More Settings" groups open by themselves while an extension manages trailing take profit or trailing stop loss.
 - AI color tokens (`ai-surface`, `ai-surface-strong`, `ai-border`, `ai-foreground`) for light and dark themes.
 - Backtest limitations: before a DCA or Combo backtest, a dialog lists the settings that are on for the bot but can't be simulated in a backtest (webhook signals, volume filters, global variables, Combo trailing / multiple targets and others), with what the backtest does instead. It never blocks the run, and "Don't remind me again" is remembered per setting, so a newly applicable one still shows. Host builds can add their own items.
+
+## [2.68.2] - 2026-10-01
+
+### Added
+
+- Turning on "Disable all webhook actions" now lists the active bots that start or close deals by webhook and asks for confirmation first.
+- Bot forms warn under Deal start, Take profit and Stop loss when Webhook is selected while webhook actions are disabled for the account.
 
 ## [2.68.1] - 2026-10-01
 

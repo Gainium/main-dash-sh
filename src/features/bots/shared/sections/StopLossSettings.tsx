@@ -1,4 +1,5 @@
 import { Slider } from '@/components/ui';
+import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -2264,6 +2265,7 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
                 your payload in the webhook section to control exits.
               </AlertDescription>
             </Alert>
+            <WebhooksDisabledWarning />
             <PercentageSL
               currentExchange={currentExchange}
               formData={formData}
