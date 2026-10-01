@@ -11,7 +11,12 @@ import { RealAuthService } from '@/lib/realAuthService';
 import {
   isSessionDeadMessage,
   setSessionDeadHandler,
+  setSessionSuspectHandler,
 } from '@/lib/api/GraphQLClient';
+import {
+  clearSessionExpired,
+  noteSessionExpired,
+} from '@/lib/sessionExpiredNotice';
 import { useUIStore } from '@/stores/uiStore';
 import { indexedDBStorage } from '@/lib/zustand-indexeddb-storage';
 
@@ -107,6 +112,7 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
             sessionUnverified = false;
+            clearSessionExpired();
 
             bindAccountScopedStores(user.id);
 
@@ -204,6 +210,7 @@ export const useAuthStore = create<AuthStore>()(
                   isAuthenticated: false,
                   isLoading: false,
                 });
+                noteSessionExpired();
                 return;
               }
 
@@ -267,6 +274,7 @@ export const useAuthStore = create<AuthStore>()(
                   isAuthenticated: false,
                   isLoading: false,
                 });
+                noteSessionExpired();
                 return;
               }
 
@@ -354,37 +362,35 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         refreshToken: async (): Promise<boolean> => {
-          // For real auth with long-lived tokens, we just validate the current token
+          // The backend has no refresh grant: a session token is only ever
+          // re-validated, and an expired one can't be renewed. So "refresh"
+          // means: still valid → keep it; expired or definitively rejected →
+          // end the session WITH the expired notice; no answer (network,
+          // timeout, 5xx) → keep it and let the watchdog ask again. It used
+          // to clear the session silently on any failure, including a
+          // transient one.
           const { tokens } = get();
           if (!tokens?.accessToken) {
             return false;
           }
-
-          try {
-            const userData = await RealAuthService.validateToken(
-              tokens.accessToken
-            );
-            if (typeof userData === 'object' && userData !== null) {
-              set({ isLoading: false, user: userData });
-              return true;
-            } else {
-              set({
-                tokens: null,
-                isAuthenticated: false,
-                isLoading: false,
-                user: null,
-              });
-              return false;
-            }
-          } catch (error) {
-            logger.error('Token validation failed:', error);
-            set({
-              tokens: null,
-              isAuthenticated: false,
-              isLoading: false,
-            });
+          if (get().isTokenExpired()) {
+            await endExpiredSession('access token expired');
             return false;
           }
+          const validation = await RealAuthService.validateTokenDetailed(
+            tokens.accessToken,
+            { timeoutMs: 15_000 }
+          );
+          if (validation.ok) {
+            set({ isLoading: false, user: validation.user });
+            return true;
+          }
+          if (validation.definitive) {
+            await endExpiredSession(validation.reason);
+            return false;
+          }
+          sessionUnverified = true;
+          return false;
         },
 
         refreshUser: async (): Promise<boolean> => {
@@ -489,7 +495,58 @@ setSessionDeadHandler((rejectedToken) => {
     });
     return;
   }
-  void useAuthStore.getState().logout();
+  // The backend already refused this token, so there is nothing to revoke:
+  // end the session locally and tell the user (logout() would fire
+  // deleteToken and end it silently).
+  void endExpiredSession('token rejected by the backend');
+});
+
+/**
+ * An auth-shaped refusal (401, FORBIDDEN, "Access denied"…) on a request made
+ * with the current token. Those also mean "not allowed" for features outside
+ * a plan or allowlist, so they never end the session by themselves: the token
+ * is re-validated, and only a definitive rejection ends it. One check at a
+ * time, at most every SUSPECT_CHECK_MIN_INTERVAL_MS — a page full of refused
+ * widgets must not turn into a burst of validation calls.
+ */
+const SUSPECT_CHECK_MIN_INTERVAL_MS = 15_000;
+let suspectCheckInFlight = false;
+let lastSuspectCheckAt = 0;
+
+setSessionSuspectHandler((token) => {
+  const { tokens } = useAuthStore.getState();
+  if (!token || token !== tokens?.accessToken) return;
+  const now = Date.now();
+  if (
+    suspectCheckInFlight ||
+    now - lastSuspectCheckAt < SUSPECT_CHECK_MIN_INTERVAL_MS
+  )
+    return;
+  lastSuspectCheckAt = now;
+  suspectCheckInFlight = true;
+  void (async () => {
+    try {
+      if (useAuthStore.getState().isTokenExpired()) {
+        await endExpiredSession('access token expired');
+        return;
+      }
+      const validation = await RealAuthService.validateTokenDetailed(token, {
+        timeoutMs: 15_000,
+      });
+      // A re-login while the check ran: its verdict is about the old token.
+      if (useAuthStore.getState().tokens?.accessToken !== token) return;
+      if (validation.ok) return;
+      if (validation.definitive) {
+        await endExpiredSession(validation.reason);
+        return;
+      }
+      sessionUnverified = true;
+    } catch (error) {
+      logger.warn('Session re-validation failed', { error });
+    } finally {
+      suspectCheckInFlight = false;
+    }
+  })();
 });
 
 /**
@@ -517,6 +574,20 @@ const clearDeadSession = async (reason: string): Promise<void> => {
   await clearSessionScopedData();
 };
 
+/**
+ * End a session that expired or was rejected, and tell the user. Every path
+ * that ends a session on its own goes through here (backend rejection,
+ * re-validation, the watchdog, apiClient's refresh) so none of them can sign
+ * the user out silently. `ProtectedRoute` then sends them to the login page
+ * with the notice and a return URL.
+ */
+async function endExpiredSession(reason: string): Promise<void> {
+  const { tokens, isAuthenticated } = useAuthStore.getState();
+  if (!tokens?.accessToken && !isAuthenticated) return;
+  noteSessionExpired();
+  await clearDeadSession(reason);
+}
+
 /** How long the watchdog waits between network revalidation attempts. */
 const REVALIDATE_MIN_INTERVAL_MS = 20_000;
 
@@ -533,7 +604,7 @@ export const revalidateSession = async (): Promise<void> => {
   // same rule `initializeAuth` applies at boot — the watchdog just keeps
   // applying it for as long as the tab stays open.
   if (state.isTokenExpired()) {
-    await clearDeadSession('access token expired');
+    await endExpiredSession('access token expired');
     return;
   }
 
@@ -558,7 +629,7 @@ export const revalidateSession = async (): Promise<void> => {
   }
 
   if (validation.definitive) {
-    await clearDeadSession(validation.reason);
+    await endExpiredSession(validation.reason);
     return;
   }
 
