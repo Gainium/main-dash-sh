@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.68.3] - 2026-10-01
+
+### Fixed
+
+- A session that expires or is rejected by the server no longer ends silently: a "Your session expired — please log in again" notice is shown, the login page repeats it, and signing in returns you to the page you were on.
+- A request refused for authentication is reported as a failed load instead of an empty result (for example an empty list), and prompts a check of the session.
+- An expired session is no longer cleared without notice when a request finds it expired, and a temporary network failure while re-checking it no longer signs you out.
+
 ## [2.68.2] - 2026-10-01
 
 ### Added

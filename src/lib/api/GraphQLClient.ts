@@ -116,6 +116,7 @@ if (typeof window !== 'undefined') {
 
 export interface GraphQLError {
   message: string;
+  extensions?: { code?: unknown; [key: string]: unknown };
   locations?: Array<{
     line: number;
     column: number;
@@ -159,7 +160,77 @@ const isPublicShareView = (): boolean => {
   return href.includes('share=') || href.includes('backtestShare=');
 };
 
+/**
+ * Errors that MAY mean the session is gone, but that a backend also uses for
+ * ordinary "you can't do that" refusals (a feature outside the user's plan or
+ * a rollout allowlist answers FORBIDDEN too, and auxiliary REST endpoints
+ * answer 401 for reasons of their own). These never end a session by
+ * themselves: they ask the auth store to re-validate the token against the
+ * backend, which ends the session only on a definitive rejection.
+ */
+const SESSION_SUSPECT_CODES = ['UNAUTHENTICATED', 'FORBIDDEN'] as const;
+const SESSION_SUSPECT_MESSAGES = [
+  'Access denied',
+  'Unauthorized',
+  'Unauthenticated',
+  'Authentication required',
+  'Not authenticated',
+  'jwt expired',
+  'invalid token',
+  'jwt malformed',
+] as const;
+
+/**
+ * `dead` — the backend rejected the token (end the session now);
+ * `suspect` — an auth-shaped refusal (re-validate before ending anything).
+ */
+export type AuthErrorKind = 'dead' | 'suspect';
+
+export interface AuthErrorLike {
+  message?: unknown;
+  extensions?: { code?: unknown } | null;
+}
+
+export const classifyAuthErrors = (
+  errors: readonly AuthErrorLike[] | null | undefined,
+  httpStatus?: number
+): AuthErrorKind | null => {
+  const list = Array.isArray(errors) ? errors : [];
+  const messages = list
+    .map((e) => (typeof e?.message === 'string' ? e.message : ''))
+    .filter(Boolean);
+  if (messages.some(isSessionDeadMessage)) return 'dead';
+  if (httpStatus === 401 || httpStatus === 403) return 'suspect';
+  const suspect = list.some((e) => {
+    const code = e?.extensions?.code;
+    if (
+      typeof code === 'string' &&
+      (SESSION_SUSPECT_CODES as readonly string[]).includes(code)
+    )
+      return true;
+    const message = typeof e?.message === 'string' ? e.message.toLowerCase() : '';
+    return SESSION_SUSPECT_MESSAGES.some((m) => message.includes(m.toLowerCase()));
+  });
+  return suspect ? 'suspect' : null;
+};
+
+/**
+ * Thrown instead of returning data when a response carries an auth error and
+ * nothing usable (every root field null). Callers see a failed query, never
+ * an empty result; the session itself is handled centrally (see
+ * `reportAuthErrors`).
+ */
+export class GraphQLAuthError extends Error {
+  readonly kind: AuthErrorKind;
+  constructor(message: string, kind: AuthErrorKind) {
+    super(message);
+    this.name = 'GraphQLAuthError';
+    this.kind = kind;
+  }
+}
+
 let onSessionDead: ((rejectedToken: string | null) => void) | null = null;
+let onSessionSuspect: ((token: string | null) => void) | null = null;
 
 /**
  * Registered once by the auth store. Kept as a callback rather than a direct
@@ -179,6 +250,51 @@ export const setSessionDeadHandler = (
 ): void => {
   onSessionDead = handler;
 };
+
+/**
+ * Registered once by the auth store: re-validate `token` with the backend and
+ * end the session only if the backend definitively rejects it. Same
+ * straggler rule as `setSessionDeadHandler` — a token that is no longer the
+ * current one must be ignored.
+ */
+export const setSessionSuspectHandler = (
+  handler: (token: string | null) => void
+): void => {
+  onSessionSuspect = handler;
+};
+
+/**
+ * The single entry point for auth failures seen by ANY request path — this
+ * client, and host code that posts GraphQL / REST with its own `fetch` (pass
+ * the response's `errors` and HTTP status). Requests made without a session
+ * (no token, the `demo` share token, public share pages) are ignored.
+ * Returns the classification so the caller can fail the request instead of
+ * treating it as empty data.
+ */
+export const reportAuthErrors = (
+  token: string | null | undefined,
+  errors: readonly AuthErrorLike[] | null | undefined,
+  httpStatus?: number
+): AuthErrorKind | null => {
+  const kind = classifyAuthErrors(errors, httpStatus);
+  if (!kind || !token || token === 'demo' || isPublicShareView()) return kind;
+  if (kind === 'dead') {
+    logger.warn('Backend rejected the session token', {
+      rejectedTokenTail: token.slice(-8),
+    });
+    onSessionDead?.(token);
+  } else {
+    onSessionSuspect?.(token);
+  }
+  return kind;
+};
+
+const hasUsableData = (data: unknown): boolean =>
+  !!data &&
+  typeof data === 'object' &&
+  Object.values(data as Record<string, unknown>).some(
+    (value) => value !== null && value !== undefined
+  );
 
 const parseResponseBodyAsJson = (rawBody: string): unknown | null => {
   if (!rawBody.trim()) {
@@ -453,6 +569,11 @@ export class GraphQLClient {
         };
 
         logger.error('[GraphQLClient] HTTP error', errorDetails);
+        reportAuthErrors(
+          this.token,
+          graphQLErrors.map((message) => ({ message })),
+          response.status
+        );
 
         // Log to logger in development for easier debugging
         if (import.meta.env.DEV) {
@@ -479,27 +600,38 @@ export class GraphQLClient {
         throw new Error(`Failed to parse GraphQL response: ${parseError}`);
       }
 
-      if (
-        result.errors &&
-        Array.isArray(result.errors) &&
-        result.errors.length > 0 &&
-        !result.data
-      ) {
+      const errors =
+        result.errors && Array.isArray(result.errors) ? result.errors : [];
+
+      if (errors.length > 0 && !result.data) {
         logger.error('GraphQL query errors', {
-          errors: result.errors,
+          errors,
           query: query.substring(0, 200) + '...',
         });
-        const messages = result.errors.map((e) => e.message).join(', ');
-        // The backend explicitly rejected the token (expired, revoked, or
-        // signed with a retired secret). Tear the session down now rather
-        // than leaving the user on a shell that 401s every widget.
-        if (isSessionDeadMessage(messages) && !isPublicShareView()) {
-          logger.warn('Backend rejected the session token', {
-            rejectedTokenTail: this.token ? this.token.slice(-8) : null,
-          });
-          onSessionDead?.(this.token ?? null);
+        const messages = errors.map((e) => e.message).join(', ');
+        // An auth failure (the backend rejected the token, or an auth-shaped
+        // refusal) is handed to the auth store, which ends the session with a
+        // visible notice — never left for the page to render as "nothing".
+        const authKind = reportAuthErrors(this.token, errors);
+        if (authKind) {
+          throw new GraphQLAuthError(`GraphQL errors: ${messages}`, authKind);
         }
         throw new Error(`GraphQL errors: ${messages}`);
+      }
+
+      if (errors.length > 0 && result.data) {
+        // Partial data. A field refused for auth comes back as `null` beside
+        // the error; with nothing else usable in the response, returning it
+        // would read as an empty result. Fail the request instead.
+        const authKind = reportAuthErrors(this.token, errors);
+        if (authKind && !hasUsableData(result.data)) {
+          const messages = errors.map((e) => e.message).join(', ');
+          logger.error('GraphQL auth error with no usable data', {
+            errors,
+            query: query.substring(0, 200) + '...',
+          });
+          throw new GraphQLAuthError(`GraphQL errors: ${messages}`, authKind);
+        }
       }
 
       if (!result.data) {

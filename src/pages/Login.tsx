@@ -15,6 +15,10 @@ import { usePostLoginTarget } from '@/hooks/usePostLoginTarget';
 import { useRequestPasswordReset } from '@/hooks/usePasswordReset';
 import { useAuthCapabilities } from '@/lib/auth';
 import { RealAuthService } from '@/lib/realAuthService';
+import {
+  SESSION_EXPIRED_MESSAGE,
+  SESSION_EXPIRED_PARAM,
+} from '@/lib/sessionExpiredNotice';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types/auth';
 import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
@@ -47,6 +51,13 @@ const Login: React.FC = () => {
     registrationEnabled ? undefined : 'login'
   );
   const [modeError, setModeError] = useState<string | null>(null);
+  // Set by ProtectedRoute when the session ended on its own (expired or
+  // rejected); read once so it doesn't follow later navigation.
+  const [sessionExpired] = useState(
+    () =>
+      new URLSearchParams(window.location.search).get(SESSION_EXPIRED_PARAM) ===
+      '1'
+  );
 
   const [showPassword, setShowPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -297,6 +308,15 @@ const Login: React.FC = () => {
               </p>
             )}
           </div>
+
+          {sessionExpired && !error && (
+            <div
+              role="status"
+              className="mb-8 p-md bg-amber-500/10 border border-amber-500/30 rounded-lg"
+            >
+              <p className="text-sm text-center">{SESSION_EXPIRED_MESSAGE}</p>
+            </div>
+          )}
 
           {error && (
             <div className="mb-8 p-md bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-xs">
