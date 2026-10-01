@@ -25,7 +25,8 @@ export function usePostLoginTarget(): () => string {
   );
   const postLoginTarget = (): string => {
     const rt = redirectToRef.current;
-    return rt && rt.startsWith('/') ? rt : '/overview';
+    // Same-origin paths only: `//host` is protocol-relative.
+    return rt && rt.startsWith('/') && !rt.startsWith('//') ? rt : '/overview';
   };
 
   useEffect(() => {

@@ -77,6 +77,11 @@ export const queryClient = new QueryClient({
             error.name === 'TimeoutError')
         )
           return false;
+        // An auth refusal is answered by the session handling in
+        // GraphQLClient (re-validate, or end the session with a notice);
+        // repeating the request only repeats the refusal.
+        if (error instanceof Error && error.name === 'GraphQLAuthError')
+          return false;
         if (failureCount >= 3) return false;
         if (error && 'status' in error && error.status === 401) return false;
         return true;
