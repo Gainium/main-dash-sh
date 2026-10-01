@@ -124,6 +124,13 @@ export interface SlotPropsMap {
    */
   'settings.notificationChannels.rows': { columns: number };
 
+  /**
+   * Notification preferences — content rendered at the end of the card,
+   * below the action row (e.g. extra delivery destinations or help for a
+   * channel). Sh renders nothing.
+   */
+  'settings.notificationChannels.footer': Record<string, unknown>;
+
   /** Cloud-sync icon button shown in the Navbar desktop row.
    *  Cloud's filler handles its own open-state + free-plan gating. */
   'navbar.syncButtonDesktop': {

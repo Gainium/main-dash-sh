@@ -2474,6 +2474,7 @@ const Settings: React.FC = () => {
               </div>
             </div>
             <Slot name="settings.notificationChannels.actions" />
+            <Slot name="settings.notificationChannels.footer" />
           </CardContent>
         </Card>
       </div>
