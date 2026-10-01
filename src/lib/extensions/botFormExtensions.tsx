@@ -90,7 +90,8 @@ export interface BotFormSaveHookContext {
   value: unknown;
   /** Write the hook's draft (e.g. field errors) without marking dirty. */
   setValue: (value: unknown) => void;
-  /** A bot setting's current form value (the active bot type's slice). */
+  /** A bot setting's current form value (the active bot type's slice, then
+   *  the form's own fields such as `name`). */
   getField: (field: string) => unknown;
 }
 
@@ -148,7 +149,11 @@ function hookContext(
           : type === 'grid'
             ? formData.grid
             : formData.dca;
-      return (slice as Record<string, unknown> | undefined)?.[field];
+      const value = (slice as Record<string, unknown> | undefined)?.[field];
+      // Form-level fields (e.g. `name`) live outside the type's slice.
+      return value !== undefined
+        ? value
+        : (formData as unknown as Record<string, unknown>)[field];
     },
   };
 }
