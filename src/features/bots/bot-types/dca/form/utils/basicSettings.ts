@@ -15,13 +15,16 @@ export const isFreeOrTrialPlan = (planName?: string | null): boolean =>
 /**
  * Whether the user's plan disallows enabling multi-pair mode. Returns
  * `false` when `useMulti` is already on (we don't take away what was
- * already enabled) and `false` in sh by default (no plan restrictions).
+ * already enabled), `false` on an affiliate connection (Hyperliquid with
+ * our builder fee approved — the backend lets free users run multi-pair
+ * there) and `false` in sh by default (no plan restrictions).
  */
 export const shouldRestrictMulti = (
   planName: string | null | undefined,
-  useMulti: boolean
+  useMulti: boolean,
+  affiliate = false
 ): boolean => {
-  if (useMulti) {
+  if (useMulti || affiliate) {
     return false;
   }
   return getPlanLimits(planName).multiPairRestricted;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.1] - 2026-10-01
+
+### Fixed
+
+- Bot form: the multi-pair switch is no longer locked for free-plan users on a Hyperliquid connection with the builder fee approved. The server already accepted multi-pair bots on those connections; only the form refused them.
+
 ## [2.68.0] - 2026-10-01
 
 ### Added
