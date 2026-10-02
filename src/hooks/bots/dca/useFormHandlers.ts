@@ -108,6 +108,13 @@ export interface UseFormHandlersReturn {
   ) => Promise<void>;
   handleBacktest: (overrides?: BacktestOverrides) => Promise<void>;
   backtestPending: boolean;
+  /**
+   * The bot settings exactly as Save would send them (create shape: pair,
+   * exchange, every setting), validated like Save — the form's own checks,
+   * the mapper and the host extensions' validators — with the same errors on
+   * the form. Null when the form cannot be saved as it is.
+   */
+  buildSettingsPayload: () => Record<string, unknown> | null;
 }
 
 /** How a grid edit covers the balance change its new settings need. */
@@ -657,6 +664,66 @@ export const useFormHandlers = (
     setAlerts,
   ]);
 
+  const buildSettingsPayload = useCallback((): Record<
+    string,
+    unknown
+  > | null => {
+    const formData = store.getState().formData;
+    if (options.validate) {
+      const validation = options.validate(formData) as unknown as {
+        errors: Record<string, string>;
+        alerts?: import('@/types/bots/form').BotFormAlerts;
+      };
+      const validationErrors = validation?.errors ?? {};
+      setAlerts(validation.alerts ?? {});
+      if (Object.keys(validationErrors).length > 0) {
+        setErrors(validationErrors);
+        toast.error(
+          Object.values(validationErrors)[0] ||
+            'Please resolve the highlighted fields.'
+        );
+        return null;
+      }
+      setErrors({});
+    }
+    const extensionError = validateBotFormExtensions(store, {
+      mode,
+      botType: String(formData.type),
+      botId: bot?._id,
+    });
+    if (extensionError) {
+      toast.error(extensionError);
+      return null;
+    }
+    // Always the create shape: the complete settings, whatever the mode.
+    const mapper = options.payloadMapper ?? mapFormDataToPayload;
+    const payloadResult = mapper(
+      formData,
+      { mode: 'create' },
+      botVars,
+      currentExchange
+    );
+    if (!payloadResult.success || payloadResult.errors?.length) {
+      const errorMessages = payloadResult.errors?.length
+        ? payloadResult.errors
+        : ['Unknown validation error'];
+      const mappedErrors: Record<string, string> = {};
+      const mappedAlerts: import('@/types/bots/form').BotFormAlerts = {};
+      for (const message of errorMessages) {
+        mapDcaErrorMessageToField(mappedErrors, message, mappedAlerts);
+      }
+      setErrors(mappedErrors);
+      setAlerts(mappedAlerts);
+      toast.error(
+        `Validation failed: ${Object.values(mappedErrors)[0] ?? errorMessages[0]}`
+      );
+      return null;
+    }
+    const payload =
+      payloadResult.createPayload ?? payloadResult.updatePayload ?? null;
+    return payload ? ({ ...payload } as Record<string, unknown>) : null;
+  }, [store, options, setAlerts, setErrors, mode, bot, botVars, currentExchange]);
+
   const backtestPending = backtestMutation?.isPending ?? false;
 
   return {
@@ -664,5 +731,6 @@ export const useFormHandlers = (
     handleSave,
     handleBacktest,
     backtestPending,
+    buildSettingsPayload,
   };
 };

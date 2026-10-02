@@ -82,6 +82,10 @@ import { useBotDealCapital } from '@/hooks/bots/dca/useBotDealCapital'
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext'
 import { useVerifyTerminalBalance } from '@/hooks/bots/dca/useVerifyTerminalBalance'
 import { BotFormSaveTemplateDialog } from './BotFormSaveTemplateDialog'
+import type {
+  BotFormBacktestActionView,
+  BotFormBacktestSnapshot,
+} from '@/lib/extensions/botFormBacktestActions'
 import { BotFormLoadTemplateDialog } from './BotFormLoadTemplateDialog'
 import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog'
 import GridStopBotDialog from '@/features/bots/shared/runtime/dialogs/GridStopBotDialog'
@@ -174,6 +178,13 @@ export interface BotFormFooterProps {
    * passes the summed count.
    */
   activeDealsOverride?: number
+  /**
+   * Other ways to backtest this form (host builds, botFormBacktestActions),
+   * shown next to the Backtest button with the same period.
+   */
+  extraBacktestActions?: BotFormBacktestActionView[] | undefined
+  /** The form as Save would send it, for `extraBacktestActions`. */
+  getBacktestSnapshot?: (() => BotFormBacktestSnapshot | null) | undefined
 }
 
 const ACTIVE_STATUSES = new Set(['error', 'open', 'range', 'monitoring'])
@@ -697,6 +708,8 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     backtestSummary,
     onViewResults,
     onDismissResults,
+    extraBacktestActions,
+    getBacktestSnapshot,
   }) => {
     const formData = useTrackedBotFormData(givenFormData)
     const errors = useBotFormErrorsOr(givenErrors)
@@ -1682,6 +1695,57 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
             </Button>
           ),
         },
+        ...(extraBacktestActions ?? []).map(
+          (action): ResponsiveButtonConfig => {
+            const Icon = action.icon
+            const select = () => {
+              if (!getBacktestSnapshot) return
+              action.onSelect(getBacktestSnapshot, {
+                period: period
+                  ? { from: period.from.getTime(), to: period.to.getTime() }
+                  : undefined,
+              })
+            }
+            return {
+              id: `action-${action.key}`,
+              priority: 3,
+              neverOverflow: true,
+              fullContent: (
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='sm'
+                  onClick={select}
+                  disabled={runDisabled}
+                  aria-label={action.label}
+                  title={action.label}
+                  data-backtest-action={action.key}
+                  className='h-8 gap-1 text-xs font-semibold uppercase'
+                >
+                  <Icon className='h-3.5 w-3.5' />
+                  <span className='truncate'>
+                    {action.shortLabel ?? action.label}
+                  </span>
+                </Button>
+              ),
+              compactContent: (
+                <Button
+                  type='button'
+                  variant='ghost'
+                  size='icon'
+                  onClick={select}
+                  disabled={runDisabled}
+                  aria-label={action.label}
+                  title={action.label}
+                  data-backtest-action={action.key}
+                  className='h-8 w-8'
+                >
+                  <Icon className='h-3.5 w-3.5' />
+                </Button>
+              ),
+            }
+          },
+        ),
         {
           id: 'menu',
           priority: 3,
@@ -1714,6 +1778,8 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       isRunning,
       handleQuickRun,
       handleOpenBacktestSettings,
+      extraBacktestActions,
+      getBacktestSnapshot,
     ])
 
     return (

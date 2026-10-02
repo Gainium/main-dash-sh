@@ -166,6 +166,10 @@ import {
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { COMBO_BOT_TYPE_ID } from '../../registry';
 import { useBacktestLimitationsGate } from '@/features/bots/backtest-limitations/useBacktestLimitationsGate';
+import {
+  useBotFormBacktestActions,
+  type BotFormBacktestSnapshot,
+} from '@/lib/extensions/botFormBacktestActions';
 import BacktestSettingsDialog, {
   type BacktestConfig,
 } from './components/BacktestSettingsDialog';
@@ -1342,6 +1346,7 @@ const BotForm: React.FC<BotFormProps> = ({
     /* updateFormData, */ handleSave,
     handleBacktest: handleFormBacktest,
     backtestPending,
+    buildSettingsPayload,
   } = useFormHandlers(
     setFormData,
     setIsDirty,
@@ -2981,7 +2986,31 @@ const BotForm: React.FC<BotFormProps> = ({
   const backtestBotVars = useBotFormBotVars();
   const backtestBotVarsRef = useRef<BotVars | null>(null);
   backtestBotVarsRef.current = backtestBotVars;
+  // Other ways to backtest the form, offered by host builds next to the
+  // footer's Backtest button (botFormBacktestActions). They run on the form
+  // as Save would send it.
+  const getBacktestSnapshot = useCallback(():
+    | BotFormBacktestSnapshot
+    | null => {
+    const settings = buildSettingsPayload();
+    if (!settings) return null;
+    return {
+      mode: mode === 'edit' ? 'edit' : 'create',
+      botType: String(botTypeEnum),
+      botId: botId ?? undefined,
+      settings,
+    };
+  }, [buildSettingsPayload, mode, botTypeEnum, botId]);
+  const extraBacktestActions = useBotFormBacktestActions({
+    mode: mode === 'edit' ? 'edit' : 'create',
+    formMode: mode,
+    botType: String(botTypeEnum),
+    botId: botId ?? undefined,
+    isTerminal,
+  });
+
   const backtestLimitations = useBacktestLimitationsGate({
+    getSnapshot: getBacktestSnapshot,
     botType: isTerminal ? undefined : botTypeEnum,
     botId: botId ?? undefined,
     sourceBotId: mode === 'edit' ? undefined : (searchParams.get('load') ?? undefined),
@@ -3921,6 +3950,10 @@ const BotForm: React.FC<BotFormProps> = ({
                 onRunBacktestDirect={
                   footerOverride?.onRunBacktestDirect ?? onRunBacktest
                 }
+                extraBacktestActions={
+                  footerOverride ? undefined : extraBacktestActions
+                }
+                getBacktestSnapshot={getBacktestSnapshot}
                 backtestProgress={
                   footerOverride?.backtestProgress ?? backtestProgress
                 }
@@ -4397,6 +4430,10 @@ const BotForm: React.FC<BotFormProps> = ({
             onRunBacktestDirect={
               footerOverride?.onRunBacktestDirect ?? onRunBacktest
             }
+            extraBacktestActions={
+              footerOverride ? undefined : extraBacktestActions
+            }
+            getBacktestSnapshot={getBacktestSnapshot}
             backtestProgress={
               footerOverride?.backtestProgress ?? backtestProgress
             }
