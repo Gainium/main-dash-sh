@@ -1790,7 +1790,13 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                 </div>
               </DetailDrawerHeader>
 
-              <DetailDrawerBody className="px-4 py-5 sm:px-6 sm:py-6">
+              <DetailDrawerBody
+                className="px-4 py-5 sm:px-6 sm:py-6"
+                fill={
+                  !!extensionTabs.find((tab) => tab.key === activeTab)
+                    ?.fillHeight
+                }
+              >
                 {errorWarning && (
                   <BotErrorWarningAlert
                     severity={errorWarning.severity}
@@ -2172,7 +2178,15 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                 </TabsContent>
 
                 {extensionTabs.map((tab) => (
-                  <TabsContent key={tab.key} value={tab.key} className="mt-0">
+                  <TabsContent
+                    key={tab.key}
+                    value={tab.key}
+                    className={cn(
+                      'mt-0',
+                      tab.fillHeight &&
+                        'flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden'
+                    )}
+                  >
                     {tab.render({
                       bot,
                       botType: type,

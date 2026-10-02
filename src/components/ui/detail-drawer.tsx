@@ -1003,25 +1003,36 @@ const DetailDrawerDescription: React.FC<DetailDrawerDescriptionProps> = ({
 interface DetailDrawerBodyProps {
   children: React.ReactNode;
   className?: string;
+  /**
+   * The content fills the body's height and scrolls itself: the body becomes
+   * a non-scrolling flex column without the mobile bottom spacer.
+   */
+  fill?: boolean;
 }
 
 const DetailDrawerBody: React.FC<DetailDrawerBodyProps> = ({
   children,
   className,
+  fill = false,
 }) => {
   return (
     <div
       className={cn(
-        'flex-1 overflow-auto p-3 md:p-4 custom-scrollbar',
+        'flex-1 p-3 md:p-4',
+        fill
+          ? 'flex min-h-0 flex-col overflow-hidden'
+          : 'overflow-auto custom-scrollbar',
         className
       )}
     >
       {children}
       {/* Spacer so the last item is reachable above the floating bottom nav on mobile. */}
-      <div
-        aria-hidden="true"
-        className="md:hidden h-[calc(4.5rem+env(safe-area-inset-bottom,0px))] shrink-0"
-      />
+      {!fill && (
+        <div
+          aria-hidden="true"
+          className="md:hidden h-[calc(4.5rem+env(safe-area-inset-bottom,0px))] shrink-0"
+        />
+      )}
     </div>
   );
 };

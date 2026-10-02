@@ -24,6 +24,12 @@ export interface BotDrawerTab {
   order?: number;
   /** Plain function (not a hook). Default: visible. */
   isVisible?: (ctx: Omit<BotDrawerTabContext, 'active'>) => boolean;
+  /**
+   * The tab fills the drawer body's height and scrolls its own content:
+   * while it is shown, the body does not scroll and drops its mobile
+   * bottom spacer. Default: the body scrolls the tab like a built-in one.
+   */
+  fillHeight?: boolean;
   render: (ctx: BotDrawerTabContext) => React.ReactNode;
 }
 
