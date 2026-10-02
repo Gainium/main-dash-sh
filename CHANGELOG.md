@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.10] - 2026-10-02
+
+### Fixed
+
+- Grid bot form: a number typed with a decimal comma (`1,5`) in a grid field such as Sell displacement, Grid step, Investment or Take profit % is now saved as `1.5` instead of `0`, and a value that is not a number shows an error on the field instead of being saved as `0`.
+
 ## [2.68.9] - 2026-10-02
 
 ### Fixed

@@ -1,5 +1,8 @@
 import type { BotFormData } from '@/types/bots/form';
-import { validateGridFormData } from '@/utils/bots/grid/validation';
+import {
+  parseGridNumber,
+  validateGridFormData,
+} from '@/utils/bots/grid/validation';
 import type {
   MapFormDataToPayloadOptions,
   CreateGridBotPayload,
@@ -290,10 +293,11 @@ const buildGridUpdatePayload = (formData: BotFormData): GridUpdatePayload => {
   // `Float cannot represent non numeric value: "0.5"`. Coerce every
   // numeric grid field at the boundary instead of trying to keep the
   // form state honest — the inputs are wired in too many places.
+  // `parseGridNumber` is the validator's reader too, so a decimal comma is
+  // saved as typed instead of falling through to the `?? 0` defaults below.
   const num = (v: unknown): number | undefined => {
-    if (v === '' || v === null || v === undefined) return undefined;
-    const n = typeof v === 'number' ? v : Number(v);
-    return Number.isFinite(n) ? n : undefined;
+    const n = parseGridNumber(v);
+    return n !== undefined && Number.isFinite(n) ? n : undefined;
   };
   // Backend stores these as decimals (0.5% → 0.005). The load mapper
   // multiplies them back by 100 in `map-grid-bot-settings-to-form-data`
