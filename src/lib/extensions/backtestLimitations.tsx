@@ -24,6 +24,18 @@ export interface BacktestLimitationItem {
   /** What the backtest does instead, in one or two sentences. */
   explanation: string;
   status: BacktestLimitationStatus;
+  /**
+   * Optional button under the item, e.g. a different way to test what the
+   * item says this backtest cannot. Choosing it closes the dialog without
+   * running this backtest, then calls `onSelect`.
+   */
+  action?: BacktestLimitationAction;
+}
+
+export interface BacktestLimitationAction {
+  label: string;
+  icon?: LucideIcon;
+  onSelect: () => void;
 }
 
 /** What a run is about to test. */

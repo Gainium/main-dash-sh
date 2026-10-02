@@ -145,6 +145,10 @@ export function useBacktestLimitationsGate({
       groups={groups ?? []}
       onRun={(dontRemind) => finish(true, dontRemind)}
       onCancel={() => finish(false)}
+      onAction={(action) => {
+        finish(false);
+        action.onSelect();
+      }}
     />
   );
 
