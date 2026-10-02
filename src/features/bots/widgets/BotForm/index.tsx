@@ -34,7 +34,6 @@ import {
 import { SectionHeader } from '@/features/bots/shared/components/SectionHeader';
 import {
   useBotFormSectionsVersion,
-  useBotHeaderDecoration,
   withBotFormExtensionSections,
 } from '@/lib/extensions/botFormExtensions';
 import {
@@ -3648,12 +3647,6 @@ const BotForm: React.FC<BotFormProps> = ({
       botExperience.id === BotTypesEnum.grid) &&
     !isNestedLeg;
   const showStickyHeader = hasManualNavigation || showQuickHeader;
-  // Host decorations for the form's header (e.g. a bot an extension manages).
-  const headerDecoration = useBotHeaderDecoration({
-    botId: mode === 'create' ? undefined : bot?._id,
-    botType: botExperience.id,
-    surface: 'form',
-  });
   const showModeToggle =
     mode === 'create' &&
     (botExperience.id === BotTypesEnum.dca ||
@@ -3689,15 +3682,13 @@ const BotForm: React.FC<BotFormProps> = ({
           {(showStickyHeader || allStrategiesOpen) && (
             <motion.div
               className={cn(
-                'sticky top-2 z-30 mb-3 mx-1 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80',
-                headerDecoration.className
+                'sticky top-2 z-30 mb-3 mx-1 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur supports-[backdrop-filter]:bg-background/80'
               )}
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
             >
               <div ref={headerRef} className="flex items-center gap-2">
-                {headerDecoration.adornment}
                 {allStrategiesOpen ? (
                   <Slot
                     name="bots.all-strategies.header"
@@ -4124,15 +4115,13 @@ const BotForm: React.FC<BotFormProps> = ({
       {showStickyHeader && (
         <motion.div
           className={cn(
-            'sticky top-2 z-10 mx-2 mt-2 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur safe-area-inset-top supports-[backdrop-filter]:bg-background/80',
-            headerDecoration.className
+            'sticky top-2 z-10 mx-2 mt-2 rounded-lg bg-background/95 px-2 py-1.5 shadow-sm backdrop-blur safe-area-inset-top supports-[backdrop-filter]:bg-background/80'
           )}
           initial={{ opacity: 0, y: -10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3 }}
         >
           <div className="flex items-center gap-2">
-            {headerDecoration.adornment}
             <div className="flex flex-1 min-w-0 items-center gap-1">
               {showQuickHeader ? (
                 <div className="flex items-center gap-xs px-1">
