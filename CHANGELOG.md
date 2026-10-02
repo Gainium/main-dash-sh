@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.7] - 2026-10-02
+
+### Fixed
+
+- DCA and combo bot lists: Net PnL % on a bot with nothing open now divides by max cost, as the column tooltip describes, instead of always reading 0%. The bot drawer's Net PnL % does the same.
+
 ## [2.68.6] - 2026-10-01
 
 ### Fixed
