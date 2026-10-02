@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import type {
+  BacktestLimitationAction,
   BacktestLimitationGroupStyle,
   BacktestLimitationItem,
 } from '@/lib/extensions/backtestLimitations';
@@ -28,6 +29,8 @@ interface BacktestLimitationsDialogProps {
   /** `dontRemind`: the user ticked "Don't remind me again". */
   onRun: (dontRemind: boolean) => void;
   onCancel: () => void;
+  /** An item's action was chosen: close without running, then act. */
+  onAction?: (action: BacktestLimitationAction) => void;
 }
 
 const STATUS_LABEL: Record<BacktestLimitationItem['status'], string> = {
@@ -55,7 +58,13 @@ function GroupIcon({ group }: { group: BacktestLimitationGroupStyle }) {
   );
 }
 
-function LimitationGroup({ group }: { group: BacktestLimitationGroup }) {
+function LimitationGroup({
+  group,
+  onAction,
+}: {
+  group: BacktestLimitationGroup;
+  onAction?: ((action: BacktestLimitationAction) => void) | undefined;
+}) {
   const accent = group.style.tone === 'accent';
   return (
     <section
@@ -116,11 +125,36 @@ function LimitationGroup({ group }: { group: BacktestLimitationGroup }) {
                 )}
               </div>
               <p className="text-muted-foreground">{item.explanation}</p>
+              {item.action && onAction && (
+                <ItemAction action={item.action} onAction={onAction} />
+              )}
             </div>
           </li>
         ))}
       </ul>
     </section>
+  );
+}
+
+function ItemAction({
+  action,
+  onAction,
+}: {
+  action: BacktestLimitationAction;
+  onAction: (action: BacktestLimitationAction) => void;
+}) {
+  const Icon = action.icon;
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      className="mt-2 h-8 gap-1.5"
+      data-backtest-limitation-action
+      onClick={() => onAction(action)}
+    >
+      {Icon && <Icon className="h-3.5 w-3.5" />}
+      {action.label}
+    </Button>
   );
 }
 
@@ -130,7 +164,7 @@ function LimitationGroup({ group }: { group: BacktestLimitationGroup }) {
  */
 export const BacktestLimitationsDialog: React.FC<
   BacktestLimitationsDialogProps
-> = ({ open, groups, onRun, onCancel }) => {
+> = ({ open, groups, onRun, onCancel, onAction }) => {
   const [dontRemind, setDontRemind] = useState(false);
   useEffect(() => {
     if (open) setDontRemind(false);
@@ -157,7 +191,11 @@ export const BacktestLimitationsDialog: React.FC<
           </DialogHeader>
           <div className="space-y-3">
             {groups.map((group) => (
-              <LimitationGroup key={group.key} group={group} />
+              <LimitationGroup
+                key={group.key}
+                group={group}
+                onAction={onAction}
+              />
             ))}
           </div>
           <DialogFooter className="mt-4 flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
