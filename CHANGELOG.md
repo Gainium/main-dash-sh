@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.9] - 2026-10-02
+
+### Fixed
+
+- Deal lists paged on the server (Trading Bots → Deals, the bot drawer): the Symbol column's "is any of" filter now offers every pair of the loaded deals and of the bots' configured pairs, not only the pairs on the page on screen, so a pair on another page can be found and several pairs picked at once.
+
 ## [2.68.8] - 2026-10-02
 
 ### Fixed

@@ -1059,6 +1059,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const { isDemo: isShareView } = useShareContext();
   const drawerServerPaged =
     largeAccount.active && !isComboBot && !!botId && !isShareView;
+  // The bot's pairs: the Symbol filter of the server page offers them all.
+  const botPairs = useMemo(
+    () => (bot?.settings?.pair ? [bot.settings.pair].flat() : undefined),
+    [bot?.settings?.pair]
+  );
   const pagedDeals = useDealTablePaging({
     status: selectedTab === 'active' ? 'open' : 'closed',
     terminal: false,
@@ -1071,6 +1076,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       closed: DRAWER_CLOSED_DEAL_SERVER_FIELDS,
     },
     totalsColumns: DRAWER_TOTALS_COLUMNS,
+    pairs: botPairs,
   });
   // An empty id disables the auto-loader while the server page is in use.
   const specificDealsInput = useMemo(

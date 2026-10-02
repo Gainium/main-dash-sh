@@ -2040,10 +2040,20 @@ const TradingBots: React.FC = () => {
 
   // Server-paged for large accounts, and as soon as the first window of
   // deals comes back capped (never a silent subset).
+  // The bots' pairs, so the Symbol filter of a server-paged list also offers
+  // pairs whose deals are older than the loaded window.
+  const dealsTablePairs = useMemo(
+    () =>
+      canonicalDcaBots.flatMap((b) =>
+        b.settings?.pair ? [b.settings.pair].flat() : []
+      ),
+    [canonicalDcaBots]
+  );
   const dealsTable = useDealTablePaging({
     status: dealsStatus,
     terminal: false,
     tableId: `dca-bot-deals-trades-${dealsStatus}`,
+    pairs: dealsTablePairs,
   });
   const dcaDealsForTab = dealsTable.deals;
 

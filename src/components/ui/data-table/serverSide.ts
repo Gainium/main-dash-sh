@@ -50,6 +50,11 @@ export interface ColumnServerFields {
   sort?: string;
   /** A server text field, or a full filter capability. */
   filter?: string | ServerFilterSpec;
+  /**
+   * The choices a multi-select filter offers. In server mode the table holds
+   * one page, so options built from its rows would cover that page only.
+   */
+  filterOptions?: readonly string[];
 }
 
 /** Column filter capability from a `filter` entry (a bare field = text). */
@@ -68,9 +73,10 @@ export const SERVER_FILTER_PENDING_TOOLTIP =
   'Checking whether the server can apply this filter…';
 
 /**
- * Attach `meta.serverSortField` / `meta.serverFilterField` to the columns a
- * server can sort or filter, keyed by column id (or accessorKey). Columns not
- * in the map are left alone and, in server mode, show a greyed sort icon.
+ * Attach `meta.serverSortField` / `meta.serverFilterField` (and
+ * `meta.filterOptions`) to the columns a server can sort or filter, keyed by
+ * column id (or accessorKey). Columns not in the map are left alone and, in
+ * server mode, show a greyed sort icon.
  */
 export function withServerFields<C extends { id?: string; meta?: unknown }>(
   columns: C[],
@@ -87,6 +93,7 @@ export function withServerFields<C extends { id?: string; meta?: unknown }>(
         ...(col.meta as object | undefined),
         ...(f.sort ? { serverSortField: f.sort } : {}),
         ...(f.filter ? { serverFilterField: f.filter } : {}),
+        ...(f.filterOptions ? { filterOptions: f.filterOptions } : {}),
       },
     };
   });

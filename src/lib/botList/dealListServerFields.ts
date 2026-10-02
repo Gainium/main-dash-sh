@@ -9,10 +9,13 @@
  * Closed deals: only time columns. Sorting a user's whole closed history by
  * anything else is an unindexed in-memory sort on the server.
  */
-import { SERVER_SORT_UNAVAILABLE_TOOLTIP } from '../../components/ui/data-table/serverSide';
+import {
+  SERVER_SORT_UNAVAILABLE_TOOLTIP,
+  type ColumnServerFields,
+} from '../../components/ui/data-table/serverSide';
 import type { ServerFilterSpec } from './serverFilters';
 
-type Fields = Record<string, { sort?: string; filter?: string | ServerFilterSpec }>;
+type Fields = Record<string, ColumnServerFields>;
 
 /*
  * Filter capabilities (column id → server filter spec). Day filters go out as
@@ -30,6 +33,34 @@ const COST: ServerFilterSpec = { field: 'cost', kind: 'number', requiresNewBacke
 const PAIR: ServerFilterSpec = { field: 'pair', kind: 'text', requiresNewBackend: true };
 
 export const DEAL_SEARCH_FIELD = 'symbol.symbol';
+
+/**
+ * The pairs a server-paged deal table's Symbol filter offers: every symbol in
+ * the given deal lists (the loaded window, the page on screen) plus the
+ * caller's own pairs (e.g. its bots' configured pairs, which reach deals older
+ * than the window). Values are `symbol.symbol`, what the server's `pair`
+ * filter matches.
+ */
+export function dealPairOptions(
+  dealLists: ReadonlyArray<ReadonlyArray<{ symbol?: { symbol?: string } | null }>>,
+  pairs: readonly string[] = []
+): string[] {
+  const out = new Set<string>(pairs.filter(Boolean));
+  for (const list of dealLists)
+    for (const d of list) if (d.symbol?.symbol) out.add(d.symbol.symbol);
+  return [...out].sort((a, b) => a.localeCompare(b));
+}
+
+/** `fields` with `options` on the column(s) the server filters by pair. */
+export function withPairFilterOptions(
+  fields: Fields,
+  options: readonly string[]
+): Fields {
+  const out: Fields = {};
+  for (const [id, f] of Object.entries(fields))
+    out[id] = f.filter === PAIR ? { ...f, filterOptions: options } : f;
+  return out;
+}
 
 export const OPEN_DEAL_SERVER_FIELDS: Fields = {
   createdTime: { sort: 'createTime', filter: DAY_OPENED },
