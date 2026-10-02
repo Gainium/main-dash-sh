@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { BotFormBacktestSnapshot } from './botFormBacktestActions';
 
 // Backtest limitations — settings a bot has turned on that the backtester
 // does not simulate (or only partly). Before a DCA / Combo backtest starts,
@@ -47,6 +48,9 @@ export interface BacktestLimitationContext {
   botId?: string | undefined;
   /** The bot the form was loaded from (`?load=`), if any. */
   sourceBotId?: string | undefined;
+  /** The form as Save would send it (validated like Save); null = not
+   *  runnable. Set when a run starts. */
+  getSnapshot?: (() => BotFormBacktestSnapshot | null) | undefined;
 }
 
 /** A declarative rule: applies when `when(settings)` is true. */

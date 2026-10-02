@@ -9,6 +9,7 @@ import type {
   BotBacktestDescriptor,
 } from '@/components/bots/workbench/descriptors/types';
 import { Badge } from '@/components/ui/badge';
+import { useBotBacktestPanelSections } from '@/lib/extensions/botFormBacktestActions';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   DataTable,
@@ -126,6 +127,9 @@ export interface BotBacktestPanelProps<TResult extends BacktestRowBase> {
   /** Passed to useBacktests({ enabled }). New: omit/true. Edit: hasBotId. */
   backtestsEnabled?: boolean;
 
+  /** The saved bot (edit page), for host panel sections. */
+  botId?: string | undefined;
+
   /** Passed to useBacktestsSummary({ messages }). Edit: { loadingSubtitle: 'Loading linked backtests' }. */
   summaryMessages?: { loadingSubtitle?: string };
 
@@ -156,6 +160,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   activeInsightsTab,
   onActiveInsightsTabChange,
   backtestsEnabled,
+  botId,
   summaryMessages,
   onLoadBacktestIntoForm,
   enableShareViewer,
@@ -350,6 +355,25 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     [onActiveInsightsTabChange, descriptor.tabKey]
   );
 
+  // Host builds' own runs (botFormBacktestActions), above the table.
+  const hostSections = useBotBacktestPanelSections({
+    mode,
+    botType: descriptor.kind,
+    botId: botId || undefined,
+  });
+  const hostCount = hostSections.reduce((n, s) => n + s.count, 0);
+  const hostContent = useMemo(
+    () =>
+      hostSections.length > 0 ? (
+        <div className="shrink-0 space-y-2 p-2" data-backtest-host-sections>
+          {hostSections.map((s) => (
+            <div key={s.key}>{s.content}</div>
+          ))}
+        </div>
+      ) : null,
+    [hostSections]
+  );
+
   // Badge for backtests tab
   const backtestsBadge = useMemo<ReactNode>(() => {
     if (rowsLoading) {
@@ -358,13 +382,13 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     if (rowsError) {
       return <Badge variant="destructive">Error</Badge>;
     }
-    const count = rows.length;
+    const count = rows.length + hostCount;
     return count > 0 ? (
       <Badge variant="default">{count}</Badge>
     ) : (
       <Badge variant="outline">0</Badge>
     );
-  }, [rows.length, rowsLoading, rowsError]);
+  }, [rows.length, rowsLoading, rowsError, hostCount]);
 
   // Handle export single or multiple backtests (JSON)
   const handleExportBacktests = useCallback(
@@ -656,6 +680,29 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
           <div className="flex items-center justify-center h-full text-destructive">
             Error loading backtests
           </div>
+        ) : hostContent ? (
+          <div className="flex h-full min-h-0 flex-col overflow-y-auto">
+            {hostContent}
+            <div className="min-h-[16rem] flex-1">
+              <DataTable
+                tableId={tableId}
+                columns={backtestColumns}
+                data={rows}
+                enableGlobalFilter={true}
+                enableSorting={true}
+                enableColumnVisibility={true}
+                getRowId={(row) => row._id}
+                showPagination={true}
+                initialPageSize={10}
+                emptyMessage="No backtests available"
+                className="h-full"
+                onRowClick={handleBacktestSelect}
+                bulkActions={bulkActions}
+                defaultPinnedColumns={{ left: [], right: ['actions'] }}
+                defaultColumnVisibility={descriptor.defaultColumnVisibility}
+              />
+            </div>
+          </div>
         ) : (
           <DataTable
             tableId={tableId}
@@ -694,6 +741,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     descriptor.tabKey,
     descriptor.tabTitle,
     descriptor.defaultColumnVisibility,
+    hostContent,
   ]);
 
   const canShareSelected =

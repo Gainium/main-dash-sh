@@ -11,6 +11,7 @@ import {
   BacktestLimitationsDialog,
   type BacktestLimitationGroup,
 } from './BacktestLimitationsDialog';
+import type { BotFormBacktestSnapshot } from '@/lib/extensions/botFormBacktestActions';
 import { BUILTIN_BACKTEST_LIMITATION_RULES } from './builtinRules';
 import { dismissLimitations, readDismissedLimitations } from './dismissals';
 
@@ -21,6 +22,8 @@ interface GateOptions {
   sourceBotId?: string | undefined;
   /** The active bot type's settings at the moment a run starts. */
   getSettings: () => Record<string, unknown> | undefined;
+  /** The form as Save would send it, for an item's action. */
+  getSnapshot?: () => BotFormBacktestSnapshot | null;
 }
 
 const BUILTIN_GROUP = {
@@ -45,6 +48,7 @@ export function useBacktestLimitationsGate({
   botId,
   sourceBotId,
   getSettings,
+  getSnapshot,
 }: GateOptions): {
   confirm: () => Promise<boolean>;
   dialog: React.ReactNode;
@@ -59,8 +63,22 @@ export function useBacktestLimitationsGate({
     source,
     evaluate: source.useEvaluator(baseCtx),
   }));
-  const latest = useRef({ evaluators, type, botId, sourceBotId, getSettings });
-  latest.current = { evaluators, type, botId, sourceBotId, getSettings };
+  const latest = useRef({
+    evaluators,
+    type,
+    botId,
+    sourceBotId,
+    getSettings,
+    getSnapshot,
+  });
+  latest.current = {
+    evaluators,
+    type,
+    botId,
+    sourceBotId,
+    getSettings,
+    getSnapshot,
+  };
 
   const [groups, setGroups] = useState<BacktestLimitationGroup[] | null>(
     null
@@ -86,6 +104,7 @@ export function useBacktestLimitationsGate({
       settings,
       botId: cur.botId,
       sourceBotId: cur.sourceBotId,
+      getSnapshot: cur.getSnapshot,
     };
     const dismissed = readDismissedLimitations();
     const keep = (items: BacktestLimitationItem[]) =>

@@ -295,6 +295,7 @@ export function BotWorkbench<
         descriptor={descriptor.backtests}
         mode="edit"
         backtestsEnabled={hasBotId}
+        botId={botId}
         summaryMessages={descriptor.backtests.summaryMessages?.edit}
         activeInsightsTab={activeInsightsTab}
         onActiveInsightsTabChange={setActiveInsightsTab}
