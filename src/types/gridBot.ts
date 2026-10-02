@@ -187,6 +187,24 @@ export type TransformedGridBot = Bot & AdditionalBotData; /* {
 
 const statsMap: Map<string, Bot['stats']> = new Map();
 
+/**
+ * The entry a futures grid's open position is valued against: the close entry
+ * the bot's value-changed TP/SL uses while it was computed for this very
+ * position, `position.price` otherwise. Mirrors main-app's
+ * `gridPositionEntry`.
+ */
+export const gridPositionEntry = (
+  position: { side: string; qty: number; price: number },
+  closeEntry?: Bot['closeEntry']
+): number =>
+  closeEntry &&
+  closeEntry.side === position.side &&
+  closeEntry.qty === position.qty &&
+  closeEntry.price === position.price &&
+  closeEntry.entry > 0
+    ? closeEntry.entry
+    : position.price;
+
 export const calculateCurrentStats = (
   bot: Bot,
   price?: number
@@ -211,14 +229,15 @@ export const calculateCurrentStats = (
   let valueChange = 0;
   let newPercent = 0;
   if (futures) {
+    const entry = current ? gridPositionEntry(current, bot.closeEntry) : 0;
     const diff = current
       ? current.side === PositionSide.LONG
-        ? price - current.price
-        : current.price - price
+        ? price - entry
+        : entry - price
       : 0;
-
-    const perc = current && current.price !== 0 ? diff / current.price : 0;
-    const val = current ? current.qty * perc * price : 0;
+    // `qty * (price - entry)`: the value the bot's TP/SL measures and its
+    // close books.
+    const val = current ? current.qty * diff : 0;
     const leverage =
       bot.settings.marginType !== BotMarginTypeEnum.inherit
         ? (bot.settings.leverage ?? 1)
@@ -332,13 +351,13 @@ export function transformGridBotToBot(
       if (!current) {
         notUseValueChange = true;
       } else {
+        const entry = gridPositionEntry(current, res.closeEntry);
         const diff =
           current.side === PositionSide.LONG
-            ? +findPrice.price - current.price
-            : current.price - +findPrice.price;
-
-        const perc = current.price !== 0 ? diff / current.price : 0;
-        const val = current.qty * perc * +findPrice.price;
+            ? +findPrice.price - entry
+            : entry - +findPrice.price;
+        // Same measure as `calculateCurrentStats` above.
+        const val = current.qty * diff;
         valueCurrent = res.profit.totalUsd + initialBalance / leverage + val;
         valueChange = res.profit.totalUsd + val;
       }

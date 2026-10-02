@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.8] - 2026-10-02
+
+### Fixed
+
+- Grid bot list and drawer: on a neutral futures grid, Net PnL, Unrealized PnL, Run up and Drawdown now value the open position against the same entry the bot's percentage take-profit and stop-loss use, so a run-up no longer shows above the take-profit while the take-profit has correctly not fired. Futures grids also value the position as quantity × price change, the same measure the bot itself uses. Needs the matching backend release.
+
 ## [2.68.7] - 2026-10-02
 
 ### Fixed

@@ -2581,6 +2581,17 @@ export interface Bot extends MainBot<BotSettings> {
     qty: number;
     price: number;
   };
+  /**
+   * The entry the bot's value-changed TP/SL values `position` against (a
+   * neutral futures grid's unpaired fills), keyed to the position it was
+   * computed for. Only valid while side, qty and price match `position`.
+   */
+  closeEntry?: {
+    side: PositionSide;
+    qty: number;
+    price: number;
+    entry: number;
+  } | null;
   stats: ProfitLossStats;
   liveStats?: GridLiveStats;
 }
