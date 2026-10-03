@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.68.11] - 2026-10-03
+
+### Fixed
+
+- Cloning a DCA, combo or grid bot now keeps its global-variable bindings: a field bound to a variable stays bound in the clone instead of being saved with the variable's current value.
+- Bot form: a base order sized in % of balance no longer shows a "Minimum order: 0 %" note. The note now appears only when there is a real minimum.
+
 ## [2.68.10] - 2026-10-02
 
 ### Fixed

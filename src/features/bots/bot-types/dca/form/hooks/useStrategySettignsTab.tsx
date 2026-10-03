@@ -1563,8 +1563,10 @@ export const useStrategySettingsTab = ({
       return result;
     }
 
-    // Show informational minimum order message only (not an error)
-    if (guardMin !== null) {
+    // Show informational minimum order message only (not an error). A zero
+    // floor (the percentage guard, or a pair with no exchange minimum) says
+    // nothing, so it is not shown as "Minimum order: 0 %".
+    if (guardMin !== null && guardMin > 0) {
       const displayMinimum = convertNotionalToDisplay(guardMin);
       const formattedMinimum = formatDisplay(displayMinimum);
       const unitSuffix = guardUnit ? ` ${guardUnit}` : '';

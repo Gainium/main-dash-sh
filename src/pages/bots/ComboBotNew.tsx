@@ -16,6 +16,7 @@ import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import {
   BotTypesEnum,
+  type BotVars,
   type ComboBot,
   type DCABacktestingResultHistory,
   type DCABot,
@@ -39,6 +40,9 @@ const ComboBotNewWidget = () => {
   const [loadedFormData, setLoadedFormData] = useState<
     Partial<BotFormData> | undefined
   >(undefined);
+  // The source bot's global-variable bindings, so the clone stays bound to
+  // the same variables rather than freezing their current values.
+  const [loadedBotVars, setLoadedBotVars] = useState<BotVars | null>(null);
   const [loadHandled, setLoadHandled] = useState(false);
   const [formReloadKey, setFormReloadKey] = useState(0);
 
@@ -72,6 +76,7 @@ const ComboBotNewWidget = () => {
       // A clone replaces the form, so the unsaved create-draft must not be
       // restored over it when the form mounts.
       clearBotFormDraft(botFormDraftKey(BotTypesEnum.combo, 'create'));
+      setLoadedBotVars(bot.vars ?? null);
       setLoadedFormData({
         ...formData,
         name: base ? `${base} (Clone)` : 'Combo bot (Clone)',
@@ -114,6 +119,7 @@ const ComboBotNewWidget = () => {
         // must not be restored over it when the form remounts.
         clearBotFormDraft(botFormDraftKey(BotTypesEnum.combo, 'create'));
         setLoadedFormData(mappedFormData);
+        setLoadedBotVars(null);
         setFormReloadKey((prev) => prev + 1);
         toast.success('Backtest settings loaded into combo bot form');
       } catch (error) {
@@ -134,6 +140,7 @@ const ComboBotNewWidget = () => {
       descriptor={comboPageDescriptor}
       mode="create"
       initialFormData={initialFormData}
+      initialBotVars={loadedBotVars}
       formReloadKey={formReloadKey}
       isSeedPending={isLoadingClone}
       openInManual={Boolean(preload?.openInManual)}

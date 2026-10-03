@@ -24,13 +24,19 @@ import { useBotPageLoading } from '@/hooks/bots/base/useBotPageLoading';
 import { useBotPageRedirect } from '@/hooks/bots/base/useBotPageRedirect';
 import { useBotPageDealChart } from '@/hooks/bots/dca/useBotPageDealChart';
 import { Slot } from '@/lib/extensions';
-import { type BotChartData, type DCABacktestingResultHistory } from '@/types';
+import {
+  type BotChartData,
+  type BotVars,
+  type DCABacktestingResultHistory,
+} from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 interface BotWorkbenchCreateProps<TResult extends BacktestRowBase> {
   mode: 'create';
   /** loadedFormData ?? preload?.initialFormData — the page-resolved seed. */
   initialFormData?: Partial<BotFormData>;
+  /** A clone's source-bot global-variable bindings (`?load=<id>`). */
+  initialBotVars?: BotVars | null;
   /** Bumped by "Load in settings" to force BotFormPanel remount (key). */
   formReloadKey: number;
   /**
@@ -374,6 +380,7 @@ export function BotWorkbench<
 
   const {
     initialFormData,
+    initialBotVars,
     formReloadKey,
     isSeedPending,
     openInManual,
@@ -435,6 +442,7 @@ export function BotWorkbench<
                 botType={descriptor.botType}
                 terminal={false}
                 initialFormData={initialFormData}
+                initialBotVars={initialBotVars ?? null}
                 // A bumped key means "Load in settings" just replaced the seed.
                 openInManual={formReloadKey > 0 || Boolean(openInManual)}
                 // On mobile, BotPanelLayout provides the top-level tabs (Settings/Chart/Backtests),

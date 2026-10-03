@@ -92,12 +92,18 @@ const GridBotNewWidget = () => {
     Boolean(preload?.exchangePending);
 
   const initialFormData = clonedInitialFormData ?? preload?.initialFormData;
+  // The source bot's global-variable bindings travel with the clone.
+  const clonedBotVars =
+    loadFromBotId && clonedInitialFormData && loadQuery.data?.status === 'OK'
+      ? (loadQuery.data.data?.vars ?? null)
+      : null;
 
   return (
     <BotWorkbench
       descriptor={gridPageDescriptor}
       mode="create"
       initialFormData={initialFormData}
+      initialBotVars={clonedBotVars}
       formReloadKey={0}
       isSeedPending={isLoadingClone}
       openInManual={Boolean(preload?.openInManual)}
