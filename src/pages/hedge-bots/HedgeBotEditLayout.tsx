@@ -51,7 +51,10 @@ import { HedgeBacktestListView } from '@/components/widgets/bots/backtest/HedgeB
 import { HEDGE_BACKTEST_LOAD_KEY } from '@/pages/hedge-bots/HedgeBotBacktests';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign/BacktestResultsFullModal';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
-import { useBotFormState } from '@/contexts/bots/form/BotFormProvider';
+import {
+  useBotFormBotVars,
+  useBotFormState,
+} from '@/contexts/bots/form/BotFormProvider';
 import {
   SHARED_SETTINGS_DEFAULTS,
   useHedgeBotForm,
@@ -112,6 +115,7 @@ import {
   ComboTpBase,
   ExchangeIntervals,
   StrategyEnum,
+  type BotVars,
   type ComboBot,
   type DCABot,
   type DCAGrid,
@@ -226,6 +230,35 @@ const findLegBot = (
   bots?.find((b) => b.settings?.strategy === strategy);
 
 /**
+ * Mirrors a leg's global-variable bindings into a ref the layout owns. The
+ * bindings live in the leg's own BotFormProvider, which unmounts on a tab
+ * switch, so save and the next mount of that leg read them from here.
+ */
+const HedgeLegVarsPublisher: React.FC<{
+  targetRef: React.MutableRefObject<BotVars | null | undefined>;
+}> = ({ targetRef }) => {
+  const botVars = useBotFormBotVars();
+  useEffect(() => {
+    targetRef.current = botVars;
+  }, [botVars, targetRef]);
+  return null;
+};
+
+/** The bindings a leg saves with: what the leg form last held, else the
+ *  loaded leg bot's (edit, or a clone's source bot). */
+const resolveLegVars = (
+  published: BotVars | null | undefined,
+  legBot: DCABot | ComboBot | null | undefined
+): BotVars | null =>
+  published !== undefined ? published : (legBot?.vars ?? null);
+
+/** The create/change input shape for `vars` — never null. */
+const toVarsInput = (vars: BotVars | null): BotVars => ({
+  list: vars?.list ?? [],
+  paths: vars?.paths ?? [],
+});
+
+/**
  * Hedge-level alert button for the form header (F8). The header sits outside
  * the leg BotFormProviders, so it can't read a leg's alerts through context.
  * Instead each mounted leg (and save-time validation) publishes its alerts on
@@ -338,6 +371,10 @@ export const HedgeBotEditLayout: React.FC = () => {
   // Read at save time only — no re-render storm from per-keystroke changes.
   const longFormDataRef = useRef<BotFormData | null>(null);
   const shortFormDataRef = useRef<BotFormData | null>(null);
+  // Each leg's global-variable bindings, published from inside the leg's
+  // form. `undefined` = the leg has not mounted yet (use the loaded bot's).
+  const longVarsRef = useRef<BotVars | null | undefined>(undefined);
+  const shortVarsRef = useRef<BotVars | null | undefined>(undefined);
 
   // Re-mount seed per leg. We can't keep both legs mounted at once because
   // exampleOrdersStore (the example/estimated-orders pipeline) is a single
@@ -563,9 +600,17 @@ export const HedgeBotEditLayout: React.FC = () => {
     // forced per leg below, so saving as long+short still produces two
     // independent backend bots that the user can customize separately
     // after the initial save.
+    let longVars = resolveLegVars(longVarsRef.current, longLegBot);
+    let shortVars = resolveLegVars(shortVarsRef.current, shortLegBot);
     if (mode === 'create') {
-      if (!longData && shortData) longData = shortData;
-      if (!shortData && longData) shortData = longData;
+      if (!longData && shortData) {
+        longData = shortData;
+        longVars = shortVars;
+      }
+      if (!shortData && longData) {
+        shortData = longData;
+        shortVars = longVars;
+      }
     }
 
     if (!longData || !shortData) {
@@ -731,13 +776,13 @@ export const HedgeBotEditLayout: React.FC = () => {
       const longMapping = mapFormDataToPayload(
         longData,
         { mode },
-        null,
+        longVars,
         longExchange
       );
       const shortMapping = mapFormDataToPayload(
         shortData,
         { mode },
-        null,
+        shortVars,
         shortExchange
       );
 
@@ -778,10 +823,12 @@ export const HedgeBotEditLayout: React.FC = () => {
         const longPayload = {
           ...(longMapping.createPayload ?? {}),
           strategy: StrategyEnum.long,
+          vars: toVarsInput(longVars),
         };
         const shortPayload = {
           ...(shortMapping.createPayload ?? {}),
           strategy: StrategyEnum.short,
+          vars: toVarsInput(shortVars),
         };
         delete (longPayload as Record<string, unknown>)['importFrom'];
         delete (shortPayload as Record<string, unknown>)['importFrom'];
@@ -933,10 +980,12 @@ export const HedgeBotEditLayout: React.FC = () => {
           long: {
             id: longBot._id,
             ...longDelta,
+            vars: toVarsInput(longVars),
           } as Parameters<typeof botQueries.changeHedgeDCABot>[0]['long'],
           short: {
             id: shortBot._id,
             ...shortDelta,
+            vars: toVarsInput(shortVars),
           } as Parameters<typeof botQueries.changeHedgeDCABot>[0]['short'],
           sharedSettings,
         };
@@ -988,6 +1037,9 @@ export const HedgeBotEditLayout: React.FC = () => {
         // the fresh formData and the leg widgets remount keyed off the
         // new seq, replacing user-edited state with the persisted state.
         refetchHedgeBot();
+        // Bindings, like settings, come back from the refetched legs.
+        longVarsRef.current = undefined;
+        shortVarsRef.current = undefined;
         setPostSaveSeq((n) => n + 1);
       }
     } catch (error) {
@@ -1014,6 +1066,8 @@ export const HedgeBotEditLayout: React.FC = () => {
     exchanges,
     refetchHedgeBot,
     activeTab,
+    longLegBot,
+    shortLegBot,
   ]);
 
   const saveLabel = useMemo(() => {
@@ -1863,6 +1917,8 @@ export const HedgeBotEditLayout: React.FC = () => {
 
       longSeedRef.current = withStrategy(longForm, StrategyEnum.long);
       shortSeedRef.current = withStrategy(shortForm, StrategyEnum.short);
+      longVarsRef.current = null;
+      shortVarsRef.current = null;
 
       // handleSave overrides each leg's name with hedgeName, so seed the
       // shared name from the imported long leg or it would be wiped on save.
@@ -1912,6 +1968,8 @@ export const HedgeBotEditLayout: React.FC = () => {
       if (!template.hedge) return;
       longSeedRef.current = template.hedge.long;
       shortSeedRef.current = template.hedge.short;
+      longVarsRef.current = null;
+      shortVarsRef.current = null;
       setSharedSettings({
         ...SHARED_SETTINGS_DEFAULTS,
         ...template.hedge.sharedSettings,
@@ -1955,6 +2013,8 @@ export const HedgeBotEditLayout: React.FC = () => {
     shortQuickRef.current = null;
     longFormDataRef.current = null;
     shortFormDataRef.current = null;
+    longVarsRef.current = null;
+    shortVarsRef.current = null;
     setSharedSettings({ ...SHARED_SETTINGS_DEFAULTS });
     setHedgeName('');
     setSelectedHedgePreset(null);
@@ -2187,8 +2247,10 @@ export const HedgeBotEditLayout: React.FC = () => {
                   <>
                     <HedgeLegActiveChartPublisher leg="long" />
                     <HedgeLegAlertPublisher leg="long" />
+                    <HedgeLegVarsPublisher targetRef={longVarsRef} />
                   </>
                 }
+                initialBotVars={resolveLegVars(longVarsRef.current, longLegBot)}
                 {...(longSeedRef.current
                   ? { initialFormData: longSeedRef.current }
                   : {})}
@@ -2210,8 +2272,10 @@ export const HedgeBotEditLayout: React.FC = () => {
                   <>
                     <HedgeLegActiveChartPublisher leg="short" />
                     <HedgeLegAlertPublisher leg="short" />
+                    <HedgeLegVarsPublisher targetRef={shortVarsRef} />
                   </>
                 }
+                initialBotVars={resolveLegVars(shortVarsRef.current, shortLegBot)}
                 {...(shortSeedRef.current
                   ? { initialFormData: shortSeedRef.current }
                   : {})}

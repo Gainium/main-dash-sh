@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.68.12] - 2026-10-03
+
+### Fixed
+
+- Hedge DCA and hedge combo bots now save their global-variable bindings. Creating, cloning or editing a hedge bot keeps each leg's bound fields bound to their variables instead of saving the variables' current values.
+
 ## [2.68.11] - 2026-10-03
 
 ### Fixed
