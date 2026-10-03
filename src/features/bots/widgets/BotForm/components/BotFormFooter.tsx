@@ -609,7 +609,7 @@ const FundsChip: React.FC<{ isCompact: boolean; info: FundsInfo }> = ({
  * `ring-1 ring-primary/30` (NOT a border); net % is tinted profit/loss.
  */
 const ViewResultsButton: React.FC<{
-  summary: { netPerc: number; winRate: number; deals: number }
+  summary: { netPerc: number; winRate: number; deals: number; note?: string }
   onClick?: () => void
   onDismiss?: () => void
   label?: string
@@ -635,16 +635,26 @@ const ViewResultsButton: React.FC<{
           <span className='text-xs font-semibold uppercase leading-none tracking-wider text-muted-foreground'>
             {label}
           </span>
-          <span className='truncate text-xs font-medium tabular-nums text-foreground'>
-            <span className={up ? 'text-profit' : 'text-loss'}>
-              {up ? '+' : ''}
-              {fmtNumber(summary.netPerc, 2)}%
+          {summary.note ? (
+            // the figures are not a result (e.g. no deal closed): say why
+            <span
+              className='truncate text-xs font-medium text-muted-foreground'
+              data-backtest-summary-note
+            >
+              {summary.note}
             </span>
-            {' · '}
-            {fmtNumber(summary.winRate, 0)}% win
-            {' · '}
-            {summary.deals} {summary.deals === 1 ? 'deal' : 'deals'}
-          </span>
+          ) : (
+            <span className='truncate text-xs font-medium tabular-nums text-foreground'>
+              <span className={up ? 'text-profit' : 'text-loss'}>
+                {up ? '+' : ''}
+                {fmtNumber(summary.netPerc, 2)}%
+              </span>
+              {' · '}
+              {fmtNumber(summary.winRate, 0)}% win
+              {' · '}
+              {summary.deals} {summary.deals === 1 ? 'deal' : 'deals'}
+            </span>
+          )}
         </span>
         {/* right affordance */}
         <span className='ml-auto flex shrink-0 items-center gap-1 text-xs font-semibold uppercase text-primary'>

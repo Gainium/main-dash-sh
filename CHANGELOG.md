@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.75.0] - 2026-10-03
+
+### Added
+
+- A bot form backtest action's finished-run summary can carry a `note` that replaces the net / win figures in the "View results" chip when they are not a result (e.g. no deal closed).
+
 ## [2.74.0] - 2026-10-03
 
 ### Added

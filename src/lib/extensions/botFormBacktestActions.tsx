@@ -75,8 +75,11 @@ export interface BotFormBacktestActionRunning {
 export interface BotFormBacktestActionDone {
   /** The chip's eyebrow (default "Backtest complete"). */
   label?: string;
-  /** Net %, win rate %, deals — as a normal backtest's chip. */
-  summary: { netPerc: number; winRate: number; deals: number };
+  /**
+   * Net %, win rate %, deals — as a normal backtest's chip. `note` replaces
+   * the net / win figures when they are not a result (e.g. no deal closed).
+   */
+  summary: { netPerc: number; winRate: number; deals: number; note?: string };
   onView: () => void;
   onDismiss: () => void;
 }
