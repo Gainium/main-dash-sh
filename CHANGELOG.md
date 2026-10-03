@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.74.0] - 2026-10-03
+
+### Added
+
+- A results extension can report that its replacement result failed to load (`resultError`, with an optional retry): the results modal shows an error state with Retry in the content area and keeps the row's own header, instead of an empty result.
+
 ## [2.73.0] - 2026-10-03
 
 ### Added
