@@ -91,6 +91,12 @@ export interface BacktestResultsExtension {
    * `null` while it loads. Undefined = the row's own result.
    */
   result?: unknown | null;
+  /**
+   * The replacement result could not be loaded: the modal shows this error
+   * (with Retry when given) in place of the result's tabs; extra tabs still
+   * render. Null / undefined = no error.
+   */
+  resultError?: { message: string; onRetry?: () => void } | null;
   extraTabs?: { key: string; label: string; content: ReactNode }[];
   deals?: BacktestDealsExtension;
   /** Open on this tab. */

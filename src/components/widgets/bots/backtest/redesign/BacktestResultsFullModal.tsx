@@ -24,9 +24,18 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { BookmarkPlus, Download, MoreVertical, Share2, X } from 'lucide-react';
+import {
+  AlertTriangle,
+  BookmarkPlus,
+  Download,
+  MoreVertical,
+  RotateCw,
+  Share2,
+  X,
+} from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -334,9 +343,12 @@ export function BacktestResultsFullModal({
   // An extension may show another result in place of the row's own; null
   // while that one loads.
   const extResult = extension?.result;
-  const replacing = extResult !== undefined;
-  const shownResult = replacing ? extResult : result;
-  const loadingReplacement = replacing && extResult == null;
+  // …or say it could not load it: no result is shown, the error is
+  const replacementError = extension?.resultError ?? null;
+  const replacing = extResult !== undefined || !!replacementError;
+  const shownResult = replacementError ? null : replacing ? extResult : result;
+  const loadingReplacement =
+    replacing && !replacementError && extResult == null;
 
   // DCA / combo build a view model; grid + hedge render their own views.
   const vm = useMemo<BacktestViewModel | null>(() => {
@@ -391,8 +403,23 @@ export function BacktestResultsFullModal({
     ? active
     : tabs[0];
 
+  // a replacement that failed to load keeps the row's own identity line
+  const ownVm = useMemo<BacktestViewModel | null>(() => {
+    if (!replacementError || kind === 'grid' || kind === 'hedge' || !result)
+      return null;
+    return buildBacktestViewModel(
+      result as unknown as
+        | DCABacktestingResult
+        | DCABacktestingResultHistory,
+      settings ?? ({} as DCABotSettings),
+      meta,
+    );
+  }, [replacementError, kind, result, settings, meta]);
+
   const header: HeaderModel | null = vm
     ? headerFromVm(vm, kind)
+    : ownVm
+      ? headerFromVm(ownVm, kind)
     : gridResult
       ? headerFromGrid(gridResult)
       : kind === 'hedge'
@@ -682,6 +709,36 @@ export function BacktestResultsFullModal({
             !extraTabs.some((t) => t.key === activeTab) && (
               <div className="grid h-full place-items-center text-sm text-muted-foreground">
                 Loading result…
+              </div>
+            )}
+
+          {/* an extension's replacement result could not be loaded */}
+          {replacementError &&
+            !extraTabs.some((t) => t.key === activeTab) && (
+              <div
+                className="grid h-full place-items-center p-md"
+                role="alert"
+                data-backtest-result-error
+              >
+                <div className="flex max-w-sm flex-col items-center gap-sm text-center">
+                  <AlertTriangle className="h-6 w-6 text-warning" />
+                  <p className="text-sm font-semibold text-foreground">
+                    This result could not be loaded
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {replacementError.message}
+                  </p>
+                  {replacementError.onRetry && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={replacementError.onRetry}
+                    >
+                      <RotateCw className="mr-1.5 h-3.5 w-3.5" />
+                      Retry
+                    </Button>
+                  )}
+                </div>
               </div>
             )}
 
