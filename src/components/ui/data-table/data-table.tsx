@@ -1142,6 +1142,11 @@ interface DataTableProps<TData, TValue> {
   serverSide?: DataTableServerSide;
   // Row interaction props
   onRowClick?: (row: TData) => void;
+  /**
+   * Content shown in a full-width row under a row (an inline expansion);
+   * return null for none. Table view only.
+   */
+  renderRowDetail?: (row: TData) => React.ReactNode | null;
   getRowIsSelected?: (row: TData) => boolean;
   // Final toolbar actions (rendered after ViewToggle, at the very end)
   finalToolbarActions?: React.ReactNode;
@@ -2158,6 +2163,7 @@ function DataTableComponent<TData, TValue>(
     serverSide,
     // Row interaction props
     onRowClick,
+    renderRowDetail,
     getRowIsSelected,
     // Final toolbar actions
     finalToolbarActions,
@@ -2227,6 +2233,7 @@ function DataTableComponent<TData, TValue>(
       serverTotalRows: props.serverTotalRows,
       serverSide: props.serverSide,
       onRowClick: props.onRowClick,
+      renderRowDetail: props.renderRowDetail,
       getRowIsSelected: props.getRowIsSelected,
       finalToolbarActions: props.finalToolbarActions,
       finalToolbarActionsCompact: props.finalToolbarActionsCompact,
@@ -2495,6 +2502,28 @@ function DataTableComponent<TData, TValue>(
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Row details span the visible width of the table, not its full scroll
+  // width, so they stay readable while a wide table scrolls sideways.
+  const [detailWidth, setDetailWidth] = useState<number | null>(null);
+  const hasRowDetail = !!renderRowDetail;
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!hasRowDetail || !el || typeof ResizeObserver === 'undefined') return;
+    // Sticky content pins to the scrollport's padding edge.
+    const update = () => {
+      const cs = getComputedStyle(el);
+      const inner =
+        el.clientWidth -
+        (parseFloat(cs.paddingLeft) || 0) -
+        (parseFloat(cs.paddingRight) || 0);
+      setDetailWidth(inner > 0 ? inner : null);
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [hasRowDetail]);
 
   // Notify parent of initial view mode
   useEffect(() => {
@@ -4548,8 +4577,10 @@ function DataTableComponent<TData, TValue>(
                     table.getRowModel().rows.map((row, rowIndex) => {
                       const isRowSelected =
                         getRowIsSelected?.(row.original) ?? row.getIsSelected();
+                      const rowDetail = renderRowDetail?.(row.original) ?? null;
 
                       return (
+                        <React.Fragment key={row.id}>
                         <motion.tr
                           key={row.id}
                           initial={
@@ -4708,6 +4739,27 @@ function DataTableComponent<TData, TValue>(
                             );
                           })}
                         </motion.tr>
+                        {rowDetail ? (
+                          <tr
+                            className="border-b border-border/40 bg-muted/30"
+                            data-row-detail={row.id}
+                          >
+                            <td colSpan={row.getVisibleCells().length} className="p-0">
+                              {/* Stays in view while the wide table scrolls sideways. */}
+                              <div
+                                className="sticky left-0 max-w-[1100px] p-2"
+                                style={{
+                                  width: detailWidth
+                                    ? `${Math.min(detailWidth, 1100)}px`
+                                    : 'min(1100px, calc(100vw - 2rem))',
+                                }}
+                              >
+                                {rowDetail}
+                              </div>
+                            </td>
+                          </tr>
+                        ) : null}
+                        </React.Fragment>
                       );
                     })
                   ) : (

@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.71.0] - 2026-10-03
+
+### Added
+
+- Extension points for host builds around backtests: buttons next to the bot form's Backtest button (run on the form's current, unsaved settings, validated as Save would), an action on a backtest limitation item, and backtest result sources — rows of the Backtests table produced by another process, with a Type column, a status beside the name, an inline expansion, and additions to the results modal (a result selector in the header, extra tabs, chart markers with their own toggle on the Deals chart, a per-deal card and deal-list badges). With nothing registered the table and the modal are unchanged.
+- Tables can show an inline detail row under a row, sized to the visible width of the table.
+- The chart can draw note pins (hover text) among a backtest's transactions.
+
 ## [2.69.0] - 2026-10-01
 
 ### Added

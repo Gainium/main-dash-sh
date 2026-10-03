@@ -991,13 +991,15 @@ export const botQueries = {
   },
 
   // Backtest queries
-  getBacktests: (input?: DataGridFilterInput) => {
+  /** `extraFields`: host fields of each row (`setBacktestListExtraFields`). */
+  getBacktests: (input?: DataGridFilterInput, extraFields = '') => {
     const query = `query getBacktests($input: DataGridFilterInput){ 
                     getBacktests(input: $input) {
                         status
                         reason
                         data {
                             ${backtest}
+                            ${extraFields}
                         }
                         total
                     }
@@ -1006,13 +1008,15 @@ export const botQueries = {
     return { query, variables };
   },
 
-  getComboBacktests: (input?: DataGridFilterInput) => {
+  /** `extraFields`: host fields of each row (`setBacktestListExtraFields`). */
+  getComboBacktests: (input?: DataGridFilterInput, extraFields = '') => {
     const query = `query getComboBacktests($input: DataGridFilterInput){ 
                     getComboBacktests(input: $input) {
                         status
                         reason
                         data {
                             ${comboBacktest}
+                            ${extraFields}
                         }
                         total
                     }

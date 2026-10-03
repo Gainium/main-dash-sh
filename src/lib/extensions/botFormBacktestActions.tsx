@@ -1,13 +1,10 @@
 import type { LucideIcon } from 'lucide-react';
-import type { ReactNode } from 'react';
 
 // Bot form backtest actions — lets a host build offer other ways to backtest
-// the form, next to the footer's Backtest button, and add its own runs to the
-// form's Backtests panel. Unregistered (the default) ⇒ the footer and the
-// panel are exactly as before.
+// the form, next to the footer's Backtest button. Unregistered (the default)
+// ⇒ the footer is exactly as before.
 //
 //   registerBotFormBacktestAction({ key, useAction: (ctx) => … });
-//   registerBotBacktestPanelSection({ key, useSection: (ctx) => … });
 
 /** The form as Save would send it, at the moment an action runs. */
 export interface BotFormBacktestSnapshot {
@@ -81,53 +78,6 @@ export function useBotFormBacktestActions(
   for (const action of actions) {
     const view = action.useAction(ctx);
     if (view) out.push({ ...view, key: action.key });
-  }
-  return out;
-}
-
-// ---------------------------------------------------------------------
-// Backtests panel sections
-// ---------------------------------------------------------------------
-
-export interface BotBacktestPanelContext {
-  mode: 'create' | 'edit';
-  /** 'dca' | 'combo' | 'grid' */
-  botType: string;
-  botId?: string | undefined;
-}
-
-export interface BotBacktestPanelSectionView {
-  /** Added to the Backtests tab's count. */
-  count: number;
-  /** Rendered above the backtests table. */
-  content: ReactNode;
-}
-
-export interface BotBacktestPanelSection {
-  key: string;
-  /** A React hook (registration order fixed at boot). Null = nothing. */
-  useSection: (
-    ctx: BotBacktestPanelContext
-  ) => BotBacktestPanelSectionView | null;
-}
-
-const sections: BotBacktestPanelSection[] = [];
-
-export function registerBotBacktestPanelSection(
-  section: BotBacktestPanelSection
-): void {
-  const index = sections.findIndex((s) => s.key === section.key);
-  if (index >= 0) sections[index] = section;
-  else sections.push(section);
-}
-
-export function useBotBacktestPanelSections(
-  ctx: BotBacktestPanelContext
-): (BotBacktestPanelSectionView & { key: string })[] {
-  const out: (BotBacktestPanelSectionView & { key: string })[] = [];
-  for (const section of sections) {
-    const view = section.useSection(ctx);
-    if (view) out.push({ ...view, key: section.key });
   }
   return out;
 }
