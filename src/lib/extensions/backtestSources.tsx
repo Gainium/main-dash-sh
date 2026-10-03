@@ -113,6 +113,11 @@ export interface BacktestSourceKind {
   /** False while the row has no result to open (it expands instead). */
   canOpen?: (row: BacktestSourceRow) => boolean;
   /**
+   * False: the row is not listed yet (e.g. still running — a normal
+   * backtest only appears in the table once it is done). Default: listed.
+   */
+  listed?: (row: BacktestSourceRow) => boolean;
+  /**
    * A React hook called by the results modal's host on every render with the
    * open row when it is of this kind, else null (registration order is fixed
    * at boot). `tab` is the tab the modal was asked to open on.
@@ -167,6 +172,50 @@ export function useBacktestResultsExtension(
     if (mine && ext) out = ext;
   }
   return out;
+}
+
+/** Whether the table lists this row (see `BacktestSourceKind.listed`). */
+export function isBacktestRowListed(
+  row: { source?: BacktestResultSourceRef | null } | null | undefined
+): boolean {
+  const kind = backtestSourceKindOf(row);
+  return kind?.listed ? kind.listed(row as BacktestSourceRow) : true;
+}
+
+// ---------------------------------------------------------------------
+// Open a row's results from elsewhere (e.g. the form's "View results")
+
+type OpenRequest = { id: string; tab?: string | undefined };
+const openListeners = new Set<(r: OpenRequest) => void>();
+
+/**
+ * Ask the Backtests panel to open this row's results (once it is listed).
+ * `tab`: the results modal's tab to open on.
+ */
+export function requestOpenBacktest(id: string, tab?: string): void {
+  if (openListeners.size === 0) {
+    // no panel mounted (e.g. another tab on a phone): kept for a minute
+    lastRequest = { id, tab, at: Date.now() };
+    return;
+  }
+  openListeners.forEach((l) => l({ id, tab }));
+}
+
+let lastRequest: (OpenRequest & { at: number }) | null = null;
+
+/** The panel's side of `requestOpenBacktest`. */
+export function subscribeOpenBacktest(
+  listener: (r: OpenRequest) => void
+): () => void {
+  openListeners.add(listener);
+  if (lastRequest && Date.now() - lastRequest.at < 60_000) {
+    const { id, tab } = lastRequest;
+    lastRequest = null;
+    listener({ id, tab });
+  }
+  return () => {
+    openListeners.delete(listener);
+  };
 }
 
 // ---------------------------------------------------------------------
