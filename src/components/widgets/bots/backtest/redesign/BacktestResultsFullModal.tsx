@@ -23,7 +23,7 @@
  * wrapper — see viewModel.ts::toHistory).
  */
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { BookmarkPlus, Download, MoreVertical, Share2, X } from 'lucide-react';
 
 import { Badge } from '@/components/ui/badge';
@@ -42,6 +42,7 @@ import {
   NOT_STORED_SHARE_HINT,
 } from '@/lib/shareLinks';
 import { toast } from '@/lib/toast';
+import type { BacktestResultsExtension } from '@/lib/extensions/backtestSources';
 import { logger } from '@/lib/loggerInstance';
 import { useAuthStore } from '@/stores/authStore';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
@@ -79,7 +80,8 @@ import {
 
 const DCA_TABS = ['Overview', 'Stats', 'Deals', 'Analysis'] as const;
 const GRID_TABS = ['Overview', 'Transactions', 'Equity', 'Stats'] as const;
-type TabKey = (typeof DCA_TABS)[number] | (typeof GRID_TABS)[number];
+/** A built-in tab, or an extension tab's key. */
+type TabKey = string;
 
 type ResultKind = 'dca' | 'combo' | 'grid' | 'hedge';
 
@@ -121,6 +123,12 @@ export interface BacktestResultsFullModalProps {
   hedgeBotType?: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo;
   /** Optional bot name, shown after the pair chip when provided. */
   botName?: string;
+  /**
+   * What a result source adds for this result (dca/combo): a header control,
+   * a replacement result, extra tabs, Deals markers / card, a start tab and
+   * deal focus requests. Absent ⇒ the modal as it always was.
+   */
+  extension?: BacktestResultsExtension | null;
 }
 
 /** Normalize the strategy string into a render kind. */
@@ -271,10 +279,12 @@ function TabBar({
   tabs,
   active,
   onChange,
+  label = (t) => t,
 }: {
   tabs: readonly TabKey[];
   active: TabKey;
   onChange: (t: TabKey) => void;
+  label?: (t: TabKey) => string;
 }) {
   return (
     <div
@@ -299,7 +309,7 @@ function TabBar({
                 : 'text-muted-foreground hover:text-foreground',
             )}
           >
-            {t}
+            {label(t)}
           </button>
         );
       })}
@@ -317,31 +327,64 @@ export function BacktestResultsFullModal({
   hedgeMeta,
   hedgeBotType,
   botName,
+  extension,
 }: BacktestResultsFullModalProps) {
   const kind = useMemo(() => resultKind(strategy), [strategy]);
+
+  // An extension may show another result in place of the row's own; null
+  // while that one loads.
+  const extResult = extension?.result;
+  const replacing = extResult !== undefined;
+  const shownResult = replacing ? extResult : result;
+  const loadingReplacement = replacing && extResult == null;
 
   // DCA / combo build a view model; grid + hedge render their own views.
   const vm = useMemo<BacktestViewModel | null>(() => {
     if (kind === 'grid' || kind === 'hedge') return null;
+    if (!shownResult) return null;
     return buildBacktestViewModel(
-      result as unknown as DCABacktestingResult | DCABacktestingResultHistory,
+      shownResult as unknown as
+        | DCABacktestingResult
+        | DCABacktestingResultHistory,
       settings ?? ({} as DCABotSettings),
       meta,
     );
-  }, [kind, result, settings, meta]);
+  }, [kind, shownResult, settings, meta]);
 
   const gridResult =
     kind === 'grid'
       ? (result as unknown as GRIDBacktestingResultHistory)
       : null;
 
-  const tabs: readonly TabKey[] = kind === 'grid' ? GRID_TABS : DCA_TABS;
+  const extraTabs = useMemo(
+    () => (kind === 'dca' || kind === 'combo' ? (extension?.extraTabs ?? []) : []),
+    [kind, extension?.extraTabs],
+  );
+  const tabs: readonly TabKey[] = useMemo(
+    () =>
+      kind === 'grid' ? GRID_TABS : [...DCA_TABS, ...extraTabs.map((t) => t.key)],
+    [kind, extraTabs],
+  );
+  const tabLabel = (t: TabKey) =>
+    extraTabs.find((x) => x.key === t)?.label ?? t;
 
   // Default active tab: "Deals" for dca/combo (per prototype), "Overview" for
-  // grid (no Deals tab exists).
+  // grid (no Deals tab exists); an extension may ask for another.
   const [active, setActive] = useState<TabKey>(
-    kind === 'grid' ? 'Overview' : 'Deals',
+    extension?.initialTab ?? (kind === 'grid' ? 'Overview' : 'Deals'),
   );
+
+  // Re-opened (or re-asked) on a given tab.
+  const initialTab = extension?.initialTab;
+  useEffect(() => {
+    if (open && initialTab) setActive(initialTab);
+  }, [open, initialTab]);
+
+  // A deal focus request shows the Deals view.
+  const focusNonce = extension?.focus?.nonce;
+  useEffect(() => {
+    if (focusNonce != null) setActive('Deals');
+  }, [focusNonce]);
 
   // Keep the active tab valid if `kind` flips while the modal stays mounted.
   const activeTab: TabKey = (tabs as readonly string[]).includes(active)
@@ -433,7 +476,7 @@ export function BacktestResultsFullModal({
   // persisted and fresh in-memory results).
   const handleExportJson = useCallback(() => {
     try {
-      const json = JSON.stringify(result, null, 2);
+      const json = JSON.stringify(shownResult, null, 2);
       const blob = new Blob([json], { type: 'application/json' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -451,7 +494,7 @@ export function BacktestResultsFullModal({
       });
       toast.error('Failed to export JSON');
     }
-  }, [result, header?.pair]);
+  }, [shownResult, header?.pair]);
 
   // "Save as template" maps the run's settings → bot form data. Grid uses a
   // different settings shape, so template-save is dca/combo only.
@@ -513,6 +556,7 @@ export function BacktestResultsFullModal({
                   {botName}
                 </span>
               )}
+              {extension?.headerExtra}
             </div>
             {header && (
               <div className="flex min-w-0 flex-wrap items-center gap-1.5 text-xs text-muted-foreground/80">
@@ -550,7 +594,12 @@ export function BacktestResultsFullModal({
                 inside the body, so the modal's single-row TabBar is hidden. */}
             {kind !== 'hedge' && (
               <div className="min-w-0 flex-1 overflow-x-auto sm:flex-none">
-                <TabBar tabs={tabs} active={activeTab} onChange={setActive} />
+                <TabBar
+                  tabs={tabs}
+                  active={activeTab}
+                  onChange={setActive}
+                  label={tabLabel}
+                />
               </div>
             )}
             {/* overflow menu — Save as template + Share (replaces the
@@ -628,10 +677,25 @@ export function BacktestResultsFullModal({
             <GridBacktestStatsTab backtest={gridResult} />
           )}
 
+          {/* an extension's replacement result is loading */}
+          {loadingReplacement &&
+            !extraTabs.some((t) => t.key === activeTab) && (
+              <div className="grid h-full place-items-center text-sm text-muted-foreground">
+                Loading result…
+              </div>
+            )}
+
           {/* dca / combo */}
           {vm && activeTab === 'Overview' && <RedesignOverviewTab vm={vm} />}
           {vm && activeTab === 'Deals' && (
-            <RedesignDealsTab vm={vm} />
+            <RedesignDealsTab
+              vm={vm}
+              extension={extension?.deals}
+              focus={extension?.focus}
+            />
+          )}
+          {extraTabs.map((t) =>
+            t.key === activeTab ? <div key={t.key}>{t.content}</div> : null,
           )}
           {vm && activeTab === 'Stats' && <BacktestStatsTab backtest={vm.raw} />}
           {vm &&

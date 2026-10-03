@@ -726,7 +726,12 @@ export const TradingViewChartCore = forwardRef<
           const cells = new Map<string, TransactionExtended>();
           for (const tr of visible) {
             const side = tr.side?.toString().toLowerCase().trim();
-            const sideKey = side === 'buy' || side === 'long' ? 'buy' : 'sell';
+            // Notes are few and each one is distinct: never merged.
+            const sideKey = tr.note
+              ? `note:${tr.id}`
+              : side === 'buy' || side === 'long'
+                ? 'buy'
+                : 'sell';
             const level =
               tr.isCompletedTrade === true && tr.entryPrice != null
                 ? tr.entryPrice

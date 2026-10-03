@@ -64,7 +64,48 @@ export function addTransactionInternal(
     const isBuy = side === 'buy' || side === 'long';
     const entities: unknown[] = [];
 
-    if (
+    if (tr.note && chart.createShape) {
+      // A note pin at the bar: TradingView shows its text on hover.
+      const entity = chart.createShape(
+        { time: timeInSeconds, price: tr.price },
+        {
+          disableSave: true,
+          shape: 'note',
+          lock: true,
+          zOrder: 'top',
+          text: tr.note.text,
+          overrides: {
+            markerColor: tr.note.color,
+            textColor: getCSSVar('--color-foreground', '#ffffff'),
+            backgroundColor: getCSSVar('--color-popover', '#1e1e1e'),
+            borderColor: tr.note.color,
+            backgroundTransparency: 0,
+            fontSize: 12,
+          },
+        }
+      );
+      if (entity) entities.push(entity);
+      if (tr.note.active) {
+        // The highlighted note: a dashed line through its bar.
+        const line = chart.createShape(
+          { time: timeInSeconds, price: tr.price },
+          {
+            disableSave: true,
+            shape: 'vertical_line',
+            lock: true,
+            disableSelection: true,
+            zOrder: 'bottom',
+            overrides: {
+              linecolor: tr.note.color,
+              linewidth: 2,
+              linestyle: 2,
+              showTime: false,
+            },
+          }
+        );
+        if (line) entities.push(line);
+      }
+    } else if (
       tr.isCompletedTrade === true &&
       tr.entryTime != null &&
       tr.exitTime != null &&

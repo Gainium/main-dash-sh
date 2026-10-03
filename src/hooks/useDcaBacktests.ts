@@ -5,6 +5,7 @@ import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
 import type { DCABacktestingResultHistory } from '../types';
 import { useGraphQL } from './useGraphQL';
+import { useBacktestListExtraFields } from '../lib/extensions/backtestSources';
 import { useLocalBacktestsByType } from './useLocalBacktestsByType';
 import { useShareContext } from './useShareContext';
 
@@ -27,11 +28,13 @@ export function useDcaBacktests(_filter?: BacktestsFilter): UseBacktestsResult {
   const local = useLocalBacktestsByType('DCA');
 
   // Get the query and variables from botQueries with proper input parameters
+  // Host fields of each row (e.g. a result's source), once served.
+  const extraFields = useBacktestListExtraFields();
   const { query, variables } = botQueries.getBacktests({
     page: 0,
     pageSize: 50,
     sortModel: [{ field: 'time', sort: 'desc' }],
-  });
+  }, extraFields);
 
   // Share-mode visitors must NOT fetch the visitor's backtest list — the
   // share URL renders ONLY the shared backtest via `?backtestShare=…`.
@@ -42,7 +45,9 @@ export function useDcaBacktests(_filter?: BacktestsFilter): UseBacktestsResult {
     'getBacktests',
     {
       query,
-      variables,
+      // The extra selection is part of the cache key (same base key, so
+      // invalidations still match); unknown variables are ignored by the API.
+      variables: extraFields ? { ...variables, fields: extraFields } : variables,
     },
     // Large backtest-history payload → generous long-read cap.
     { enabled: !isDemo, requestTimeoutMs: LONG_READ_TIMEOUT_MS }

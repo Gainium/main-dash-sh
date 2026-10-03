@@ -5,6 +5,7 @@ import type { ReturnResult } from '../lib/api/types';
 import { logger } from '../lib/loggerInstance';
 import type { DCABacktestingResultHistory } from '../types';
 import { useGraphQL } from './useGraphQL';
+import { useBacktestListExtraFields } from '../lib/extensions/backtestSources';
 import { useLocalBacktestsByType } from './useLocalBacktestsByType';
 
 export interface BacktestsFilter {
@@ -28,18 +29,22 @@ export function useComboBacktests(
   const local = useLocalBacktestsByType('Combo');
 
   // Get the query and variables from botQueries with proper input parameters
+  // Host fields of each row (e.g. a result's source), once served.
+  const extraFields = useBacktestListExtraFields();
   const { query, variables } = botQueries.getComboBacktests({
     page: 0,
     pageSize: 50,
     sortModel: [{ field: 'time', sort: 'desc' }],
-  });
+  }, extraFields);
 
   // Use the GraphQL hook with proper caching
   const queryResult = useGraphQL<DCABacktestingResultHistory[]>(
     'getComboBacktests',
     {
       query,
-      variables,
+      // The extra selection is part of the cache key (same base key, so
+      // invalidations still match); unknown variables are ignored by the API.
+      variables: extraFields ? { ...variables, fields: extraFields } : variables,
     },
     // Large backtest-history payload → generous long-read cap.
     { requestTimeoutMs: LONG_READ_TIMEOUT_MS }
