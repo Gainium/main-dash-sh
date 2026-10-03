@@ -52,6 +52,33 @@ export interface BotFormBacktestActionView {
    * it can use the form's own pickers and context.
    */
   element?: ReactNode;
+  /**
+   * The action's own backtest in progress. The footer's backtest box shows
+   * it exactly as it shows a normal backtest (it becomes the progress bar,
+   * with Cancel); a normal backtest in progress takes precedence.
+   */
+  running?: BotFormBacktestActionRunning | null;
+  /** The action's backtest just finished: the box's "View results" chip. */
+  done?: BotFormBacktestActionDone | null;
+}
+
+export interface BotFormBacktestActionRunning {
+  /** 0 … 100 */
+  progress: number;
+  /** What runs, as the progress bar's line. */
+  text: string;
+  /** More detail, in the line's tooltip. */
+  detail?: string;
+  onCancel?: () => void;
+}
+
+export interface BotFormBacktestActionDone {
+  /** The chip's eyebrow (default "Backtest complete"). */
+  label?: string;
+  /** Net %, win rate %, deals — as a normal backtest's chip. */
+  summary: { netPerc: number; winRate: number; deals: number };
+  onView: () => void;
+  onDismiss: () => void;
 }
 
 export interface BotFormBacktestAction {

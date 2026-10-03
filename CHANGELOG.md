@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.73.0] - 2026-10-03
+
+### Added
+
+- A bot form backtest action can report a run in progress (`running`: progress, text, detail, cancel) and a finished one (`done`: summary, view, dismiss); the footer's backtest box shows them with the same progress bar and "View results" chip as a normal backtest.
+- Backtest source kinds can keep a row out of the list until it is ready (`listed`), and a row's results can be opened from outside the backtests panel (`requestOpenBacktest` / `subscribeOpenBacktest`).
+- `MultiSelect` takes a `contentClassName` for its list (e.g. to open above a dialog).
+
 ## [2.72.0] - 2026-10-03
 
 ### Added

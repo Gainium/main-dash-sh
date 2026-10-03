@@ -26,6 +26,8 @@ interface MultiSelectProps {
   maxDisplay?: number;
   onRemoveCustom?: (value: string) => void;
   customSectionLabel?: string;
+  /** Extra classes for the options panel (e.g. a z-index above a dialog). */
+  contentClassName?: string;
 }
 
 export function MultiSelect({
@@ -37,6 +39,7 @@ export function MultiSelect({
   maxDisplay = 2,
   onRemoveCustom,
   customSectionLabel = 'Custom',
+  contentClassName,
 }: MultiSelectProps) {
   const [open, setOpen] = React.useState(false);
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -136,7 +139,7 @@ export function MultiSelect({
           </div>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-full p-0" align="start">
+      <PopoverContent className={cn('w-full p-0', contentClassName)} align="start">
         <div className="p-2 border-b">
           <div className="relative">
             <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />

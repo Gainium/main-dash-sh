@@ -612,7 +612,8 @@ const ViewResultsButton: React.FC<{
   summary: { netPerc: number; winRate: number; deals: number }
   onClick?: () => void
   onDismiss?: () => void
-}> = ({ summary, onClick, onDismiss }) => {
+  label?: string
+}> = ({ summary, onClick, onDismiss, label = 'Backtest complete' }) => {
   const up = summary.netPerc >= 0
   return (
     // Card is a plain <div> so we can nest two real buttons (View / Dismiss)
@@ -632,7 +633,7 @@ const ViewResultsButton: React.FC<{
         {/* stacked eyebrow + headline numbers */}
         <span className='flex min-w-0 flex-col leading-tight'>
           <span className='text-xs font-semibold uppercase leading-none tracking-wider text-muted-foreground'>
-            Backtest complete
+            {label}
           </span>
           <span className='truncate text-xs font-medium tabular-nums text-foreground'>
             <span className={up ? 'text-profit' : 'text-loss'}>
@@ -1592,7 +1593,18 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     // Local backtests don't flip `backtestPending` (that's only the
     // server-side mutation) — they push to `backtestProgress` instead.
     // Treat either signal as "running".
-    const isRunning = backtestPending || !!backtestProgress
+    // A host action's own backtest (e.g. Max) runs in the same box, shown
+    // the same way; a normal backtest in progress takes precedence.
+    const actionRunning = useMemo(
+      () => (extraBacktestActions ?? []).find((a) => a.running)?.running ?? null,
+      [extraBacktestActions],
+    )
+    const actionDone = useMemo(
+      () => (extraBacktestActions ?? []).find((a) => a.done)?.done ?? null,
+      [extraBacktestActions],
+    )
+    const localRunning = backtestPending || !!backtestProgress
+    const isRunning = localRunning || !!actionRunning
 
     const backtestButtonConfigs = useMemo((): ResponsiveButtonConfig[] => {
       const runDisabled =
@@ -1787,40 +1799,72 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         {showBacktest && (
           <div className='rounded-lg bg-muted p-1.5'>
             {isRunning ? (
-              <div className='space-y-1 px-1 py-1'>
-                <div className='flex items-center justify-between gap-sm text-xs'>
-                  <div className='flex min-w-0 items-center gap-xs'>
-                    <Loader2 className='h-3.5 w-3.5 shrink-0 animate-spin text-primary' />
-                    <span className='truncate text-muted-foreground'>
-                      {backtestProgress?.text ?? 'Running backtest…'}
-                    </span>
+              (() => {
+                // the normal backtest's bar; a host action's run uses it too
+                const pct = localRunning
+                  ? progressPct
+                  : Math.max(
+                      0,
+                      Math.min(100, Math.round(actionRunning?.progress ?? 0)),
+                    )
+                const text = localRunning
+                  ? (backtestProgress?.text ?? 'Running backtest…')
+                  : (actionRunning?.text ?? 'Running backtest…')
+                const cancel = localRunning
+                  ? onCancelBacktest
+                  : actionRunning?.onCancel
+                return (
+                  <div
+                    className='space-y-1 px-1 py-1'
+                    data-backtest-running={localRunning ? 'backtest' : 'action'}
+                  >
+                    <div className='flex items-center justify-between gap-sm text-xs'>
+                      <div className='flex min-w-0 items-center gap-xs'>
+                        <Loader2 className='h-3.5 w-3.5 shrink-0 animate-spin text-primary' />
+                        <span
+                          className='truncate text-muted-foreground'
+                          title={
+                            (!localRunning && actionRunning?.detail) || text
+                          }
+                        >
+                          {text}
+                        </span>
+                      </div>
+                      <div className='flex shrink-0 items-center gap-1'>
+                        <span className='font-semibold tabular-nums'>
+                          {pct}%
+                        </span>
+                        {cancel && (
+                          <Button
+                            type='button'
+                            variant='ghost'
+                            size='icon'
+                            onClick={cancel}
+                            aria-label='Cancel backtest'
+                            title='Cancel backtest'
+                            className='h-6 w-6 text-muted-foreground hover:text-foreground'
+                          >
+                            <X className='h-3.5 w-3.5' />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                    <ProgressBar value={pct} size='sm' variant='primary' />
                   </div>
-                  <div className='flex shrink-0 items-center gap-1'>
-                    <span className='font-semibold tabular-nums'>
-                      {progressPct}%
-                    </span>
-                    {onCancelBacktest && (
-                      <Button
-                        type='button'
-                        variant='ghost'
-                        size='icon'
-                        onClick={onCancelBacktest}
-                        aria-label='Cancel backtest'
-                        title='Cancel backtest'
-                        className='h-6 w-6 text-muted-foreground hover:text-foreground'
-                      >
-                        <X className='h-3.5 w-3.5' />
-                      </Button>
-                    )}
-                  </div>
-                </div>
-                <ProgressBar value={progressPct} size='sm' variant='primary' />
-              </div>
+                )
+              })()
             ) : backtestSummary ? (
               <ViewResultsButton
                 summary={backtestSummary}
                 {...(onViewResults ? { onClick: onViewResults } : {})}
                 {...(onDismissResults ? { onDismiss: onDismissResults } : {})}
+              />
+            ) : actionDone ? (
+              <ViewResultsButton
+                summary={actionDone.summary}
+                onClick={actionDone.onView}
+                onDismiss={actionDone.onDismiss}
+                {...(actionDone.label ? { label: actionDone.label } : {})}
               />
             ) : (
               <ResponsiveButtonRow
