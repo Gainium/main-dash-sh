@@ -50,6 +50,8 @@ import { useAuthStore } from '@/stores/authStore';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
 import {
   backtestSourceKindOf,
+  isBacktestRowListed,
+  subscribeOpenBacktest,
   useBacktestListExtraFields,
   useBacktestResultsExtension,
   type BacktestSourceRow,
@@ -246,10 +248,19 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   // Per-type backtest list for the table. Descriptor is a stable module
   // constant per page, so calling descriptor.useList() here is hooks-safe.
   const {
-    backtests: rows,
+    backtests: allRows,
     isLoading: rowsLoading,
     error: rowsError,
   } = descriptor.useList();
+  // A result source's row is listed once its kind says so (e.g. a run only
+  // appears when it is done, like a normal backtest).
+  const rows = useMemo(
+    () =>
+      allRows.filter((r) =>
+        isBacktestRowListed(r as unknown as BacktestSourceRow)
+      ),
+    [allRows]
+  );
 
   // List rows carry only the list fields. When a backtest is opened, merge in
   // its full local result (deals, equity curves, …) if this browser has one.
@@ -651,6 +662,21 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [loadBacktestDetailsMutation.mutateAsync, hydrateFromLocal]
   );
+
+  // "View results" elsewhere (e.g. the form's backtest box) opens a row here
+  // once it is listed.
+  const [openRequest, setOpenRequest] = useState<{
+    id: string;
+    tab?: string | undefined;
+  } | null>(null);
+  useEffect(() => subscribeOpenBacktest((r) => setOpenRequest(r)), []);
+  useEffect(() => {
+    if (!openRequest) return;
+    const found = rows.find((b) => b._id === openRequest.id);
+    if (!found) return;
+    setOpenRequest(null);
+    openBacktest(found, openRequest.tab);
+  }, [openRequest, rows, openBacktest]);
 
   // A sourced row with nothing to open yet (running, failed, cancelled)
   // expands in place instead.
