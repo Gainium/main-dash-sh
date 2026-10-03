@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.69.0] - 2026-10-03
+
+### Added
+
+- Bot form quick backtest: the period picker now has start and end time inputs, so a backtest can start and end at a time of day instead of only on whole days. The chosen times also carry into the Backtest settings dialog.
+
+### Fixed
+
+- Bot form quick backtest: the picked period's last day is now included. The end date was read as midnight UTC at the start of that day, so the final day was left out of the test.
+
 ## [2.68.12] - 2026-10-03
 
 ### Fixed

@@ -242,7 +242,12 @@ const BacktestPeriodChip: React.FC<BacktestPeriodChipProps> = ({
         </button>
       </PopoverTrigger>
       <PopoverContent align='start' className='w-auto p-0'>
-        <PeriodDatePicker value={value} onApply={onApply} onReset={onReset} />
+        <PeriodDatePicker
+          value={value}
+          onApply={onApply}
+          onReset={onReset}
+          showTime
+        />
       </PopoverContent>
     </Popover>
   )
@@ -1508,11 +1513,16 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
 
     const buildPeriodConfig = useCallback((): BacktestConfig | null => {
       if (!period) return null
+      // Local `YYYY-MM-DDTHH:mm`, the same shape the settings dialog emits.
+      // A bare `YYYY-MM-DD` parses as UTC midnight downstream, which dropped
+      // the picked times and cut the last day off the window.
       const fmt = (d: Date) => {
         const y = d.getFullYear()
         const m = String(d.getMonth() + 1).padStart(2, '0')
         const day = String(d.getDate()).padStart(2, '0')
-        return `${y}-${m}-${day}`
+        const hh = String(d.getHours()).padStart(2, '0')
+        const min = String(d.getMinutes()).padStart(2, '0')
+        return `${y}-${m}-${day}T${hh}:${min}`
       }
       return {
         mode: 'local',
