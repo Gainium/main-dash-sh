@@ -18,7 +18,7 @@ import {
   Wallet,
   Zap,
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mapWidgetMenuItemsToPanelMenu } from '@/components/bots/panels/menuUtils';
@@ -4074,6 +4074,10 @@ const BotForm: React.FC<BotFormProps> = ({
         onRun={onRunBacktest}
       />
       {backtestLimitations.dialog}
+      {/* Host-provided backtest actions' own UI (e.g. their dialog). */}
+      {extraBacktestActions.map((a) =>
+        a.element ? <Fragment key={a.key}>{a.element}</Fragment> : null
+      )}
       {backtestResult && (
         <BacktestResultsFullModal
           open={resultsModalOpen}
@@ -4544,6 +4548,10 @@ const BotForm: React.FC<BotFormProps> = ({
         onRun={onRunBacktest}
       />
       {backtestLimitations.dialog}
+      {/* Host-provided backtest actions' own UI (e.g. their dialog). */}
+      {extraBacktestActions.map((a) =>
+        a.element ? <Fragment key={a.key}>{a.element}</Fragment> : null
+      )}
       {backtestResult && (
         <BacktestResultsFullModal
           open={resultsModalOpen}

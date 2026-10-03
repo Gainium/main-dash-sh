@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react';
+import type { ReactNode } from 'react';
 
 // Bot form backtest actions — lets a host build offer other ways to backtest
 // the form, next to the footer's Backtest button. Unregistered (the default)
@@ -46,6 +47,11 @@ export interface BotFormBacktestActionView {
     getSnapshot: () => BotFormBacktestSnapshot | null,
     options: BotFormBacktestActionOptions
   ) => void;
+  /**
+   * Rendered once inside the bot form (e.g. the dialog the action opens), so
+   * it can use the form's own pickers and context.
+   */
+  element?: ReactNode;
 }
 
 export interface BotFormBacktestAction {

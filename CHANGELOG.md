@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.72.0] - 2026-10-03
+
+### Added
+
+- Bot form backtest actions can render their own UI inside the form (`element`, e.g. the dialog the action opens), so it can use the form's pickers.
+- The pair picker can offer only a given set of pairs (`allowedPairs`), let its caller handle the "change pair" of the last chip (`onReplaceCoin`) instead of writing the form's pair, and open its list above another dialog (`modalZIndex`); the list dialog takes a `zIndex`.
+
 ## [2.71.0] - 2026-10-03
 
 ### Added

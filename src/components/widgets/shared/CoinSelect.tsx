@@ -10,7 +10,7 @@ import {
   type PairRoiContext,
 } from '@/lib/pairMarketData';
 import { useStarredPairsStore } from '@/stores/starredPairsStore';
-import { resolveStoredPairSymbol } from '@/utils/pairs';
+import { normalizePairKey, resolveStoredPairSymbol } from '@/utils/pairs';
 import { BotTypesEnum, StrategyEnum, type CoinListItem } from '@/types';
 import { ArrowRightLeft, X as CloseIcon, RefreshCw } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -74,6 +74,20 @@ export interface CoinFilterProps {
    * chips non-interactive.
    */
   onPairClick?: (selectionSymbol: string) => void;
+  /**
+   * Pairs mode: offer only these pairs (any separator / case) in the add
+   * and change dialog — e.g. a subset of a bot's own pairs. Omit to offer
+   * every pair of the exchange.
+   */
+  allowedPairs?: readonly string[];
+  /**
+   * Replace the only chip's pair (the change dialog) through the caller
+   * instead of writing the bot form's pair — for a picker that edits its
+   * own selection.
+   */
+  onReplaceCoin?: (previous: string, next: string) => void;
+  /** Stacking order of the pick dialog (e.g. above another dialog). */
+  modalZIndex?: number;
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -89,6 +103,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   pairFilter,
   onClearSelection,
   onPairClick,
+  allowedPairs,
+  onReplaceCoin,
+  modalZIndex,
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -253,23 +270,31 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // for shorts/coinm) with the current selection. They stay in the list but
   // become unpickable and carry the reason as a tooltip — removing them
   // outright made a valid, listed pair look like it wasn't offered at all.
+  const allowedKeys = useMemo(
+    () =>
+      allowedPairs ? new Set(allowedPairs.map((p) => normalizePairKey(p))) : null,
+    [allowedPairs]
+  );
   const filteredPairItems = useMemo(() => {
+    const offered = allowedKeys
+      ? pairItems.filter((item) => allowedKeys.has(normalizePairKey(item.symbol)))
+      : pairItems;
     if (!pairFilter || !filterActive) {
-      return pairItems;
+      return offered;
     }
     const anchor = pairFilter.anchor.toUpperCase();
     const dimensionLabel = pairFilter.dimension === 'base' ? 'base' : 'quote';
     const reason =
       `This bot's pairs all share the ${dimensionLabel} asset ${anchor}. ` +
       `Remove the ${anchor} chip above to start over with a different one.`;
-    return pairItems.map((item) => {
+    return offered.map((item) => {
       const asset =
         pairFilter.dimension === 'base' ? item.baseAsset : item.quoteAsset;
       return asset?.toUpperCase() === anchor
         ? item
         : { ...item, disabledReason: reason };
     });
-  }, [pairItems, pairFilter, filterActive]);
+  }, [pairItems, pairFilter, filterActive, allowedKeys]);
 
   const modalItems = useMemo(() => {
     if (isPairsMode) {
@@ -432,6 +457,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           handleDialogClose();
           return;
         }
+        if (onReplaceCoin) {
+          onReplaceCoin(replacingSymbol, symbol);
+          handleDialogClose();
+          return;
+        }
         // The dialog items use a dashed selectionSymbol (e.g. `BTC-USDT`),
         // but the rest of the form keys `pairMetadata` by the undashed
         // form (`BTCUSDT`). Without normalizing here the downstream
@@ -470,6 +500,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       handleDialogClose,
       updateFormData,
       onCoinToggle,
+      onReplaceCoin,
       itemLookup,
     ]
   );
@@ -710,6 +741,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
 
       {/* Selection Modal */}
       <ListModal
+        {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
         isOpen={showCoinDialog}
         onClose={handleDialogClose}
         title={

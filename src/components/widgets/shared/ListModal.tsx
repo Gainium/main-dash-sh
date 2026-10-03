@@ -113,6 +113,8 @@ export interface ListModalSortOption {
 }
 
 interface ListModalProps {
+  /** Stacking order of the overlay (default: the `z-50` layer). */
+  zIndex?: number;
   isOpen: boolean;
   onClose: () => void;
   title: string;
@@ -838,6 +840,7 @@ export const ListModal: React.FC<ListModalProps> = ({
   activeFilterHint,
   onClearFilter,
   assetClassOptions,
+  zIndex,
   selectedAssetClass = 'all',
   onAssetClassChange,
 }) => {
@@ -1011,6 +1014,7 @@ export const ListModal: React.FC<ListModalProps> = ({
   const modalContent = (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-xs"
+      style={zIndex !== undefined ? { zIndex } : undefined}
       onClick={onClose}
       data-testid="list-modal-overlay"
     >
