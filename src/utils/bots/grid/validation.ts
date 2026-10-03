@@ -57,6 +57,8 @@ const isNonZeroNumber = (value?: string | number | null): boolean => {
 const isNonEmptyString = (value?: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0;
 
+export const GRID_LEVELS_ERROR = 'Levels must be a positive integer.';
+
 export const validateGridFormData = ({
   name,
   exchangeUUID,
@@ -120,7 +122,7 @@ export const validateGridFormData = ({
   }
 
   if (!Number.isInteger(Number(grid.levels)) || Number(grid.levels) <= 0) {
-    errors['levels'] = 'Levels must be a positive integer.';
+    errors['levels'] = GRID_LEVELS_ERROR;
   }
 
   if (isInvalidNumber(grid.gridStep)) {

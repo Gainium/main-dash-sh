@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.1] - 2026-10-03
+
+### Fixed
+
+- Grid bot form: clearing the Grid levels field, or typing a value that is not a whole number (`20.1`, `20,`), no longer freezes the page on a geometric grid. The field now keeps only whole numbers of 1 or more and shows "Levels must be a positive integer." for anything else; leaving the field restores the last valid count.
+
 ## [2.69.0] - 2026-10-03
 
 ### Added

@@ -2311,6 +2311,9 @@ function createGridOrders(
     sellDisplacement,
     gridType,
   });
+  if (!prices.length) {
+    return [];
+  }
   const gs = (top / low) ** (1 / parseFloat(levels)) - 1;
   const { sellCount, buyCount, buys, sells } = getSellBuyCount(prices, {
     useStartPrice,
@@ -2659,8 +2662,13 @@ function getPrices({
 }) {
   const low = parseFloat(lowPrice);
   const top = parseFloat(topPrice);
-  const newGS = (top / low) ** (1 / parseFloat(levels)) - 1;
   const prices: { buy: number; sell: number }[] = [];
+  // A level count of 0 makes the geometric factor Infinity, and
+  // `Infinity <= Infinity` never ends the ladder loop below.
+  if (!(parseFloat(levels) > 0) || !Number.isFinite(parseFloat(levels))) {
+    return prices;
+  }
+  const newGS = (top / low) ** (1 / parseFloat(levels)) - 1;
   let sellD = parseFloat(sellDisplacement);
   sellD = isNaN(sellD) ? 0 : sellD / 100;
   if (gridType === 'arithmetic') {
