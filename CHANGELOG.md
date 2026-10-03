@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.2] - 2026-10-03
+
+### Fixed
+
+- Grid bot form: a local backtest now reads a decimal comma the way saving the bot does (`1,5` runs as 1.5 instead of 1 or not-a-number), and a value that is not a number (`1000abc`, `1,000.5`) stops the backtest with an error on the field instead of running with a silently wrong setting.
+
 ## [2.69.1] - 2026-10-03
 
 ### Fixed

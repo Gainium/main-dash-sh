@@ -145,7 +145,10 @@ import type { GridBot } from '@/types/gridBot';
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
-import { validateGridFormData } from '@/utils/bots/grid/validation';
+import {
+  readGridBacktestNumbers,
+  validateGridFormData,
+} from '@/utils/bots/grid/validation';
 import {
   buildBotCloneRoute,
   buildBotListRoute,
@@ -2991,6 +2994,16 @@ const BotForm: React.FC<BotFormProps> = ({
               'Manual Backtesting exchange cannot run local backtests'
             );
           }
+          // The grid inputs are free text and the engine reads them with
+          // `parseFloat` / `+`, so read them the way save does: `1,5` is 1.5,
+          // and text that is not a number refuses the run.
+          const { grid: gridNumbers, errors: gridNumberErrors } =
+            readGridBacktestNumbers(formData.grid);
+          if (isGridBot && Object.keys(gridNumberErrors).length > 0) {
+            setErrors((prev) => ({ ...prev, ...gridNumberErrors }));
+            toast.error(Object.values(gridNumberErrors).join(' '));
+            return;
+          }
           const resolvedPeriodName =
             cfg.periodId && !['auto', 'custom'].includes(cfg.periodId)
               ? getPeriod?.(cfg.periodId)?.name
@@ -3104,7 +3117,7 @@ const BotForm: React.FC<BotFormProps> = ({
           if (isGridBot) {
             // ── Grid Bot Local Backtest ──
             const gridSettings = {
-              ...formData.grid,
+              ...gridNumbers,
               pair: primaryPair,
               name: formData.name || 'New Bot',
               // Legacy forces this flag true at backtest time (gridbot
@@ -3519,6 +3532,7 @@ const BotForm: React.FC<BotFormProps> = ({
       persistGridBacktestResult,
       queryBalances,
       onBacktestComplete,
+      setErrors,
     ]
   );
 

@@ -59,6 +59,48 @@ const isNonEmptyString = (value?: unknown): boolean =>
 
 export const GRID_LEVELS_ERROR = 'Levels must be a positive integer.';
 
+const GRID_BACKTEST_NUMBER_FIELDS = {
+  budget: 'Budget',
+  topPrice: 'Top price',
+  lowPrice: 'Low price',
+  levels: 'Levels',
+  gridStep: 'Grid step',
+  sellDisplacement: 'Sell displacement',
+  ordersInAdvance: 'Active orders',
+  leverage: 'Leverage',
+  tpPerc: 'Take profit',
+  slPerc: 'Stop loss',
+  tpTopPrice: 'Take profit price',
+  slLowPrice: 'Stop loss price',
+} as const;
+
+/**
+ * Read the grid number fields for a local backtest, which does not go through
+ * the save mapper: the engine reads them with `parseFloat` / `+`, so `1,5`
+ * would run as 1 (or NaN) and `1000abc` would run at all. Each field is read
+ * with `parseGridNumber` and kept in the form's units (no percent /100 — the
+ * engine does that itself). A blank field is passed through untouched; one
+ * that is not a number is returned as an error keyed by the field.
+ */
+export const readGridBacktestNumbers = <T extends object>(
+  grid: T
+): { grid: T; errors: Record<string, string> } => {
+  const out = { ...grid } as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  for (const [field, label] of Object.entries(GRID_BACKTEST_NUMBER_FIELDS)) {
+    const parsed = parseGridNumber(out[field]);
+    if (parsed === undefined) {
+      continue;
+    }
+    if (Number.isFinite(parsed)) {
+      out[field] = parsed;
+    } else {
+      errors[field] = `${label} must be a number.`;
+    }
+  }
+  return { grid: out as T, errors };
+};
+
 export const validateGridFormData = ({
   name,
   exchangeUUID,
