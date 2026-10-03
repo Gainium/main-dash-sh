@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.3] - 2026-10-04
+
+### Fixed
+
+- DCA bot form: Move SL is available again when the stop loss type is Indicators or Dynamic ATR/ADR, as it was in the legacy dashboard. Once the deal reaches the trigger profit, a percentage stop loss at the "Move to" level is armed alongside the indicator stop.
+
 ## [2.69.2] - 2026-10-03
 
 ### Fixed
