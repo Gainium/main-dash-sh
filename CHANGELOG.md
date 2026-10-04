@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.4] - 2026-10-04
+
+### Fixed
+
+- Bot edit page (Grid, DCA, Combo): the chart opens on the bot's own pair instead of BTCUSDT while the exchange's pair list is still loading or failed to load.
+
 ## [2.69.3] - 2026-10-04
 
 ### Fixed

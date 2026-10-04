@@ -188,6 +188,7 @@ import { useBotFormRegistryContext } from './context';
 import type { BotSettingsMapperContext } from './hooks/useBotFormInitialization';
 /* import { useBotSmartOrders } from './hooks/useBotSmartOrders';
 import { useMergeSmartOrders } from './hooks/useMergeSmartOrders'; */
+import { resolveChartSymbol } from './chartSymbol';
 import { buildBotFormPayloadMapper } from './payloadMapper';
 import {
   pickDefaultPair,
@@ -2341,11 +2342,15 @@ const BotForm: React.FC<BotFormProps> = ({
 
     const payload: BotChartData = {};
 
-    if (
-      chartPair?.exchange === currentExchange?.provider &&
-      typeof chartPair?.pair === 'string'
-    ) {
-      payload.symbol = chartPair.pair;
+    const symbol = resolveChartSymbol({
+      mode,
+      primaryPair,
+      selectedPair,
+      chartPair,
+      provider: currentExchange?.provider,
+    });
+    if (symbol) {
+      payload.symbol = symbol;
     }
 
     if (currentExchange) {
