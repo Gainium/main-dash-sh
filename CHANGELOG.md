@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.5] - 2026-10-04
+
+### Fixed
+
+- Help articles and other pages with images no longer reload and jump back to the top every 15 seconds; the startup loading check now only reacts to an app that never rendered.
+
 ## [2.69.4] - 2026-10-04
 
 ### Fixed
