@@ -130,6 +130,7 @@ import {
 } from '../../../ui/select';
 import { Skeleton } from '../../../ui/skeleton';
 import CoinPair from '../../../widgets/shared/CoinPair';
+import { Slot } from '../../../../lib/extensions';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
 import { SYMBOL_COLUMN_FILTER_META } from '../../../widgets/shared/symbolColumnFilterMeta';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
@@ -2292,14 +2293,22 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           }
 
           return (
-            <CoinPair
-              baseAsset={baseAsset}
-              quoteAsset={quoteAsset}
-              pair={symbolString}
-              iconSize="sm"
-              showText={true}
-              className="font-medium"
-            />
+            <span className="inline-flex items-center gap-xs">
+              <CoinPair
+                baseAsset={baseAsset}
+                quoteAsset={quoteAsset}
+                pair={symbolString}
+                iconSize="sm"
+                showText={true}
+                className="font-medium"
+              />
+              <Slot
+                name="deal.badges"
+                dealId={trade.id}
+                botId={trade.botId ?? botId}
+                botType={isComboBot ? 'combo' : 'dca'}
+              />
+            </span>
           );
         },
         enableSorting: true,
@@ -3186,6 +3195,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     handleEdit,
     handleMoveToTerminal,
     accountTimeZone,
+    botId,
   ]);
   // Server-paged drawer: only columns with a server field sort.
   const pagedFields = pagedDeals.serverPaging?.fields;

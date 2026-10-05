@@ -1,5 +1,6 @@
 import { BalanceInput } from '@/components/ui/balance-input';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
+import { BotFieldExtensionPanel } from '@/lib/extensions/botFieldExtensions';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
@@ -489,6 +490,8 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                     title={baseOrderWarning.message}
                   />
                 )}
+                {/* Host extensions' block under the base order size. */}
+                <BotFieldExtensionPanel path="baseOrderSize" />
               </div>
             </SettingsRow>
 
