@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.8] - 2026-10-05
+
+### Fixed
+
+- Trading bots list: a DCA bot holding an open deal on a pair that was later removed from the bot showed that deal at zero value, so unrealized PnL read as a loss of the deal's whole cost. Assets whose names use lowercase letters (such as stock tokens) are now priced correctly.
+
 ## [2.69.7] - 2026-10-05
 
 ### Fixed

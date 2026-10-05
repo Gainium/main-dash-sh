@@ -482,15 +482,31 @@ export function transformDcaBotToBot(
       ];
     })
   );
+  // Pair names derived from balance keys keep the exchange's asset casing
+  // (Bitget stock tokens: `rIVV` → `rIVVUSDT`) while the ticker feed uses the
+  // symbol casing (`RIVVUSDT`). An exact match missed them, so a deal on a pair
+  // since removed from the bot was valued at 0. Match case-insensitively and
+  // key each rate by the bot's own name, which is what sumBalances looks up.
+  const botSymbolKeysByUpper = new Map<string, string[]>();
+  for (const bs of botSymbols) {
+    const upper = bs.key.toUpperCase();
+    botSymbolKeysByUpper.set(upper, [
+      ...(botSymbolKeysByUpper.get(upper) ?? []),
+      bs.key,
+    ]);
+  }
   const findRates = latestPrices
-    .filter(
-      (lp) =>
-        botSymbols.map((bs) => bs.key).includes(lp.symbol) &&
-        lp.exchange === res.exchange
-    )
-    .reduce((acc, lp) => ({ ...acc, [lp.symbol]: lp }), {}) as {
-    [key: string]: Prices[0];
-  };
+    .filter((lp) => lp.exchange === res.exchange)
+    .reduce(
+      (acc, lp) => {
+        for (const key of botSymbolKeysByUpper.get(lp.symbol.toUpperCase()) ??
+          []) {
+          acc[key] = lp;
+        }
+        return acc;
+      },
+      {} as { [key: string]: Prices[0] }
+    );
   // Whether the price feed actually carries a usable rate for THIS bot's
   // symbol on THIS bot's exchange — the only input the client-side unPnL
   // formula below can work from.
