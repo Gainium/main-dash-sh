@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.6] - 2026-10-05
+
+### Fixed
+
+- Grid bot page: opening the Settings tab no longer removes the bot's grid order lines from the chart; they stay visible when you return to Overview.
+
 ## [2.69.5] - 2026-10-04
 
 ### Fixed
