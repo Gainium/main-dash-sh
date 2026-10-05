@@ -7,7 +7,10 @@ import {
   listLocalBacktestSummaries,
   LOCAL_BACKTEST_LIST_LIMIT,
 } from '@/utils/backtest/db';
-import { localSummaryToHistory } from '@/utils/backtest/localRows';
+import {
+  isServerDetailsCopy,
+  localSummaryToHistory,
+} from '@/utils/backtest/localRows';
 
 export type LocalBacktestEntryType = 'DCA' | 'Combo' | 'Grid';
 
@@ -42,6 +45,9 @@ export function useLocalBacktestsByType(type: LocalBacktestEntryType) {
         limit: LOCAL_BACKTEST_LIST_LIMIT,
       });
       const filtered = recent
+        // a downloaded copy of a server result is not a local backtest: listed,
+        // it showed up as a row of its own (a variant id has no time → "now")
+        .filter((summary) => !isServerDetailsCopy(summary))
         .map((summary) =>
           localSummaryToHistory<DCABacktestingResultHistory>(summary)
         )

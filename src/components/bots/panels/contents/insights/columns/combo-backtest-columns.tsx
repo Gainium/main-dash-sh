@@ -17,6 +17,8 @@ import {
 import type { BacktestColumnContext } from '@/components/bots/workbench/descriptors/types';
 import { Button } from '@/components/ui/button';
 import { ProfitLossPercChip, StrategyChip } from '@/components/ui/chip';
+import { NoDealClosedCell } from './NoDealClosedCell';
+import { noDealClosed } from './noDealClosed';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -170,6 +172,8 @@ export function buildComboBacktestColumns(
     header: 'Avg. Net Daily',
     meta: { filterType: 'number' },
     cell: ({ row }) => {
+      const none = noDealClosed(row.original);
+      if (none) return <NoDealClosedCell {...none} />;
       const value = row.original.financial?.avgNetDailyPerc || 0;
       return <ProfitLossPercChip value={value} size="sm" />;
     },
@@ -180,6 +184,8 @@ export function buildComboBacktestColumns(
     header: 'Annualized Return',
     meta: { filterType: 'number' },
     cell: ({ row }) => {
+      const none = noDealClosed(row.original);
+      if (none) return <NoDealClosedCell {...none} />;
       const value = row.original.financial?.annualizedReturn;
       if (value === null || value === undefined)
         return <span className="text-muted-foreground">-</span>;
@@ -232,6 +238,8 @@ export function buildComboBacktestColumns(
     header: '% Net Profit',
     meta: { filterType: 'number' },
     cell: ({ row }) => {
+      const none = noDealClosed(row.original);
+      if (none) return <NoDealClosedCell {...none} />;
       const value = row.original.financial?.netProfitTotalPerc || 0;
       return <ProfitLossPercChip value={value} size="sm" showSign={true} />;
     },

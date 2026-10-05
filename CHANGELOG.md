@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.75.1] - 2026-10-05
+
+### Fixed
+
+- Backtests list: a browser copy of a server-stored result (downloaded to show its deals) replaced the server's row, so the row lost its name, "server side" and source; the server's row now wins, and a downloaded copy is never listed as a row of its own (one with a variant id showed as a new backtest created "now").
+- Backtests list: a backtest where no deal closed shows "No deal closed" instead of 0% for its returns.
+
 ## [2.75.0] - 2026-10-03
 
 ### Added

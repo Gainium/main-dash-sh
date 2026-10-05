@@ -4701,6 +4701,8 @@ export type StoreBacktest = {
   quoteAsset: string;
   symbol: string;
   type: string;
+  /** A downloaded copy of a result the server stores (not listed locally). */
+  fromServer?: boolean;
 };
 
 export type StoreHedgeSideBacktest = {
