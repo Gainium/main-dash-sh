@@ -29,6 +29,7 @@ import {
   canExecuteNextDca,
 } from '@/features/bots/shared/runtime';
 import { useExecuteNextDca } from '@/hooks/useDealActions';
+import { Slot } from '@/lib/extensions';
 import { toast } from '@/lib/toast';
 
 interface TradeDetailContentProps {
@@ -195,7 +196,18 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
           <Card className="p-md">
             <div className="space-y-xs">
               <div className="text-sm text-muted-foreground">Status</div>
-              <StatusChip status={trade.status} size="sm" chipStyle="solid" />
+              <div className="flex flex-wrap items-center gap-xs">
+                <StatusChip status={trade.status} size="sm" chipStyle="solid" />
+                {trade.botId &&
+                  (trade.type === 'DCA' || trade.type === 'Combo') && (
+                    <Slot
+                      name="deal.badges"
+                      dealId={trade.id}
+                      botId={trade.botId}
+                      botType={trade.type === 'Combo' ? 'combo' : 'dca'}
+                    />
+                  )}
+              </div>
             </div>
           </Card>
 

@@ -176,6 +176,15 @@ export interface SlotPropsMap {
    *  pending-delete banner so it sits above the page content. */
   'max.detachedPanel': Record<string, unknown>;
 
+  /** Badges on a bot deal — its deal card, the bot drawer's deals table and
+   *  the deal detail. `dealId` is the deal's id; `botType` the bot's
+   *  (`dca` / `combo`). Sh renders nothing. */
+  'deal.badges': {
+    dealId: string;
+    botId?: string | undefined;
+    botType: 'dca' | 'combo';
+  };
+
   /**
    * Start-trial prompt shown when a free, trial-eligible user picks a
    * premium exchange in the connect-exchange form. Core owns the open

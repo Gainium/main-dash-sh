@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.76.0] - 2026-10-05
+
+### Added
+
+- Bot form: host extensions can render a block under the base order size (`BotFieldExtensionPanel` for `baseOrderSize`).
+- Deals: a `deal.badges` slot after a bot deal's pair on the deal card, in the bot drawer's deals table and in the deal detail.
+
 ## [2.75.1] - 2026-10-05
 
 ### Fixed

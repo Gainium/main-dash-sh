@@ -68,6 +68,7 @@ import { ConfirmationDialog } from '../ui';
 import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
 import { TrailingBadge } from './TrailingBadge';
+import { Slot } from '@/lib/extensions';
 import { orderDataToViewOrder } from '@/utils/orders/viewOrder';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
@@ -1362,6 +1363,15 @@ const EnhancedCard = React.memo(
                 size="xs"
                 chipStyle="solid"
               />
+              {trade.botId &&
+                (trade.type === 'DCA' || trade.type === 'Combo') && (
+                  <Slot
+                    name="deal.badges"
+                    dealId={trade.id}
+                    botId={trade.botId}
+                    botType={trade.type === 'Combo' ? 'combo' : 'dca'}
+                  />
+                )}
             </div>
 
             {trade.botName && (
@@ -1889,6 +1899,15 @@ const SimpleCard = React.memo(
                 size="xs"
                 chipStyle="solid"
               />
+              {trade.botId &&
+                (trade.type === 'DCA' || trade.type === 'Combo') && (
+                  <Slot
+                    name="deal.badges"
+                    dealId={trade.id}
+                    botId={trade.botId}
+                    botType={trade.type === 'Combo' ? 'combo' : 'dca'}
+                  />
+                )}
             </div>
 
             {/* Bot Name */}
