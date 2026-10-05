@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.7] - 2026-10-05
+
+### Fixed
+
+- Backtests list: a browser copy of a server-stored result (downloaded to show its deals) replaced the server's row, so the row lost its name and "server side"; the server's row now wins and the copy only marks that its details are in this browser.
+
 ## [2.69.6] - 2026-10-05
 
 ### Fixed

@@ -77,3 +77,35 @@ export const loadLocalBacktestHistory = async <T>(
     payloadHasDetails(base)
   ) as T | null;
 };
+
+/**
+ * The list: the server's rows, plus this browser's own backtests the server
+ * does not have. A row the server lists keeps the server's fields (name,
+ * server side …); a local copy of it (e.g. its details downloaded to show
+ * its deals) only adds `hasLocalDetails`.
+ */
+export function mergeRemoteAndLocalRows<
+  T extends { _id?: string; time?: number; hasLocalDetails?: boolean },
+>(remote: readonly T[], local: readonly T[]): T[] {
+  const byId = new Map<string, T>();
+  const withoutId: T[] = [];
+  for (const r of remote) {
+    if (r?._id) byId.set(r._id, r);
+    else withoutId.push(r);
+  }
+  for (const l of local) {
+    const id = l?._id;
+    if (!id) {
+      withoutId.push(l);
+      continue;
+    }
+    const r = byId.get(id);
+    byId.set(
+      id,
+      r ? ({ ...l, ...r, hasLocalDetails: !!l.hasLocalDetails } as T) : l
+    );
+  }
+  const merged = [...withoutId, ...Array.from(byId.values())];
+  merged.sort((a, b) => (b.time || 0) - (a.time || 0));
+  return merged;
+}
