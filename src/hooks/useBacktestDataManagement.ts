@@ -400,6 +400,8 @@ export function useLoadBacktestDetails() {
       const entry: StoreBacktest = {
         ...payload,
         size: payload.size ?? payload.data?.length ?? 0,
+        // a copy of a server result, not a backtest this browser ran
+        fromServer: true,
       };
 
       const saved = await saveBacktestInDB(entry);
