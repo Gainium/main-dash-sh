@@ -99,6 +99,19 @@ const HEDGE_CARD_VIEW_BREAKPOINTS = {
   1200: 4,
 };
 
+// Hedge wrapper has no name of its own — surface whichever leg has one so
+// the user can tell their bots apart in the list (and pick it in the Name
+// filter).
+const hedgeBotName = (row: HedgeBot): string => {
+  const long = row.bots?.find(
+    (b) => b.settings?.strategy === StrategyEnum.long
+  );
+  const short = row.bots?.find(
+    (b) => b.settings?.strategy === StrategyEnum.short
+  );
+  return long?.settings?.name || short?.settings?.name || 'Hedge bot';
+};
+
 const formatPair = (bot: HedgeBot): string => {
   const first = bot.symbol?.[0]?.value;
   if (!first) return '—';
@@ -394,18 +407,13 @@ const HedgeComboBots = () => {
       {
         id: 'name',
         header: 'Name',
-        meta: { description: BOT_METRIC_DESCRIPTIONS.hedge.name },
-        // Hedge wrapper has no name of its own — surface whichever leg
-        // has one so the user can tell their bots apart in the list.
-        accessorFn: (row) => {
-          const long = row.bots?.find(
-            (b) => b.settings?.strategy === StrategyEnum.long
-          );
-          const short = row.bots?.find(
-            (b) => b.settings?.strategy === StrategyEnum.short
-          );
-          return long?.settings?.name || short?.settings?.name || 'Hedge bot';
+        meta: {
+          filterType: 'textSelect',
+          getOptionValue: (row: unknown) =>
+            hedgeBotName(row as EnrichedHedgeBot),
+          description: BOT_METRIC_DESCRIPTIONS.hedge.name,
         },
+        accessorFn: hedgeBotName,
         cell: ({ getValue }) => (
           <span className="truncate" title={getValue() as string}>
             {getValue() as string}

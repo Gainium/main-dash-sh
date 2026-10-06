@@ -51,14 +51,35 @@ export function dealPairOptions(
   return [...out].sort((a, b) => a.localeCompare(b));
 }
 
-/** `fields` with `options` on the column(s) the server filters by pair. */
-export function withPairFilterOptions(
+/**
+ * The bot names a server-paged deal table's Bot Name filter offers: those of
+ * the given deal lists plus the caller's own bot names (bots whose deals are
+ * older than the loaded window). Values are what the server's `botName`
+ * filter matches.
+ */
+export function dealBotNameOptions(
+  dealLists: ReadonlyArray<ReadonlyArray<{ botName?: string | null }>>,
+  names: readonly string[] = []
+): string[] {
+  const out = new Set<string>(names.filter(Boolean));
+  for (const list of dealLists) for (const d of list) if (d.botName) out.add(d.botName);
+  return [...out].sort((a, b) => a.localeCompare(b));
+}
+
+/**
+ * `fields` with option lists on the columns the server filters by pair and
+ * by bot name. A list that is not given leaves its column as it was.
+ */
+export function withDealFilterOptions(
   fields: Fields,
-  options: readonly string[]
+  options: { pairs?: readonly string[]; botNames?: readonly string[] }
 ): Fields {
   const out: Fields = {};
-  for (const [id, f] of Object.entries(fields))
-    out[id] = f.filter === PAIR ? { ...f, filterOptions: options } : f;
+  for (const [id, f] of Object.entries(fields)) {
+    const list =
+      f.filter === PAIR ? options.pairs : f.filter === BOT_NAME ? options.botNames : undefined;
+    out[id] = list ? { ...f, filterOptions: list } : f;
+  }
   return out;
 }
 

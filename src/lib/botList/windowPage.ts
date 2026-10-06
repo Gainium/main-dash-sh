@@ -104,16 +104,22 @@ export function previewPage<T>(
   }
   for (const f of q.filters ?? []) {
     const val = String(f.value);
-    if (f.operator === 'isAnyOf') {
+    const text = (r: T) => String(get(r, f.field) ?? '').toLowerCase();
+    const v = val.toLowerCase();
+    if (f.operator === 'isAnyOf' || f.operator === 'isNoneOf') {
       const set = new Set(val.split(','));
-      out = out.filter((r) => set.has(String(get(r, f.field))));
+      const keep = f.operator === 'isAnyOf';
+      out = out.filter((r) => set.has(String(get(r, f.field))) === keep);
     } else if (f.operator === 'equals') {
       out = out.filter((r) => String(get(r, f.field)) === val);
     } else if (f.operator === 'contains') {
-      const v = val.toLowerCase();
-      out = out.filter((r) =>
-        String(get(r, f.field) ?? '').toLowerCase().includes(v)
-      );
+      out = out.filter((r) => text(r).includes(v));
+    } else if (f.operator === 'notContains') {
+      out = out.filter((r) => !text(r).includes(v));
+    } else if (f.operator === 'startsWith') {
+      out = out.filter((r) => text(r).startsWith(v));
+    } else if (f.operator === 'endsWith') {
+      out = out.filter((r) => text(r).endsWith(v));
     }
   }
   const sort = q.sort ?? opts.defaultSort ?? null;

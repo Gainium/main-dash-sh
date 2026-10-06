@@ -64,7 +64,13 @@ const NUMBER_OPS: Record<string, string> = {
   lessThanOrEqual: '<=',
 };
 
-const TEXT_OPS = new Set(['contains', 'equals', 'startsWith', 'endsWith']);
+const TEXT_OPS = new Set([
+  'contains',
+  'notContains',
+  'equals',
+  'startsWith',
+  'endsWith',
+]);
 
 /**
  * Translate ONE filter into server items, or `null` when the server cannot
@@ -90,8 +96,8 @@ export function translateSingleFilter(
     case 'text':
       if (TEXT_OPS.has(op) && typeof v === 'string' && v.trim())
         return [{ field, operator: op, value: v.trim() }];
-      if (op === 'isAnyOf' && Array.isArray(v) && v.length)
-        return [{ field, operator: 'isAnyOf', value: v.map(String).join(',') }];
+      if ((op === 'isAnyOf' || op === 'isNoneOf') && Array.isArray(v) && v.length)
+        return [{ field, operator: op, value: v.map(String).join(',') }];
       return null;
     case 'enum':
       if ((op === 'isAnyOf' || op === 'equals') && hasValue(v))

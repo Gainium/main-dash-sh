@@ -2760,6 +2760,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'closeTrigger',
         accessorKey: 'closeTrigger',
         header: 'Close Trigger',
+        meta: {
+          filterType: 'array',
+          getOptionValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['closeTrigger'] as string) || '',
+        },
         cell: ({ row }) => {
           const value = (row.original as any).closeTrigger;
           const status = row.original.status?.toLowerCase();

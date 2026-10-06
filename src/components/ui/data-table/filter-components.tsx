@@ -542,8 +542,7 @@ const MultiSelectFilterInput: React.FC<{
 // Filter Operators Configuration
 // ---------------------------------------------------------------------------
 
-// eslint-disable-next-line react-refresh/only-export-components
-export const FILTER_OPERATORS = {
+const BASE_FILTER_OPERATORS = {
   string: [
     {
       id: 'contains',
@@ -775,6 +774,25 @@ export const FILTER_OPERATORS = {
       type: 'boolean' as const,
       component: BooleanFilterInput,
     },
+  ],
+};
+
+/**
+ * `textSelect`: a free-text column whose values are also worth picking from
+ * a list — a bot name, say. "Is any of" / "Is none of" come first (the
+ * dropdown of the values the column holds, as on Symbol), followed by every
+ * text operator, so "Not contains" and friends stay available. Declare
+ * `meta.getOptionValue` with it, so a picked name matches exactly instead of
+ * also matching every longer name that contains it.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export const FILTER_OPERATORS = {
+  ...BASE_FILTER_OPERATORS,
+  textSelect: [
+    ...BASE_FILTER_OPERATORS.array.filter(
+      (op) => op.id === 'isAnyOf' || op.id === 'isNoneOf'
+    ),
+    ...BASE_FILTER_OPERATORS.string,
   ],
 };
 

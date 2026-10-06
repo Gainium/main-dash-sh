@@ -487,7 +487,10 @@ export function buildOrderColumns(
       id: 'botName',
       accessorFn: (r) => r.botName || '',
       header: 'Source',
-      meta: { filterType: 'string' },
+      meta: {
+        filterType: 'textSelect',
+        getOptionValue: (row: unknown) => (row as RowOrder).botName || '',
+      },
       cell: ({ row }) => {
         const b = row.original;
         return (

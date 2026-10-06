@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.76.4] - 2026-10-06
+
+### Added
+
+- Bot name columns (deals, bot lists, latest orders, terminal orders) and the Global Variables name column offer "Is any of" / "Is none of" with a dropdown of the names in the table, alongside the text operators. A picked name matches that name only, not every longer name containing it.
+- Close Trigger columns in the deal tables offer the same dropdown.
+
+### Fixed
+
+- On large accounts whose deals page on the server, "Not contains" and "Is none of" on Bot Name and Symbol were shown as not applied; they are now sent to the server. The Bot Name dropdown there lists the account's bots, not only those on the page on screen.
+
 ## [2.76.3] - 2026-10-06
 
 ### Changed

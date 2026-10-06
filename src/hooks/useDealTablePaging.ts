@@ -29,8 +29,9 @@ import {
   CLOSED_DEAL_SORT_TOOLTIP,
   DEAL_SEARCH_FIELD,
   OPEN_DEAL_SERVER_FIELDS,
+  dealBotNameOptions,
   dealPairOptions,
-  withPairFilterOptions,
+  withDealFilterOptions,
 } from '../lib/botList/dealListServerFields';
 import {
   tableQueryToServerBotQuery,
@@ -149,6 +150,8 @@ export function useDealTablePaging(opts: {
    * bots' configured pairs, so deals older than the first window are reachable.
    */
   pairs?: readonly string[];
+  /** Bot names the Bot Name filter offers besides those of the loaded deals. */
+  botNames?: readonly string[];
 }): DealTablePaging {
   const { status, terminal } = opts;
   const enabled = opts.enabled !== false;
@@ -367,12 +370,27 @@ export function useDealTablePaging(opts: {
         : '',
     [serverPaged, windowResult.deals, rawDeals, opts.pairs]
   );
+  // The Bot Name filter's choices, for the same reason.
+  const botNameOptionsKey = useMemo(
+    () =>
+      serverPaged
+        ? dealBotNameOptions([windowResult.deals, rawDeals], opts.botNames).join(
+            '\n'
+          )
+        : '',
+    [serverPaged, windowResult.deals, rawDeals, opts.botNames]
+  );
   const pagingFields = useMemo(
     () =>
-      pairOptionsKey
-        ? withPairFilterOptions(fields, pairOptionsKey.split('\n'))
+      pairOptionsKey || botNameOptionsKey
+        ? withDealFilterOptions(fields, {
+            ...(pairOptionsKey ? { pairs: pairOptionsKey.split('\n') } : {}),
+            ...(botNameOptionsKey
+              ? { botNames: botNameOptionsKey.split('\n') }
+              : {}),
+          })
         : fields,
-    [fields, pairOptionsKey]
+    [fields, pairOptionsKey, botNameOptionsKey]
   );
 
   const totalsColumns = opts.totalsColumns ?? DEALS_TAB_TOTALS_COLUMNS;

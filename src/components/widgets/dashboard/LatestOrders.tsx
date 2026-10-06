@@ -273,7 +273,11 @@ const LatestOrders: React.FC<LatestOrdersProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'textSelect',
+          getOptionValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['botName'] as string) || '',
+        },
       },
       {
         accessorKey: 'botType',

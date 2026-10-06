@@ -702,7 +702,9 @@ const GridBots: React.FC = () => {
           accessorKey: 'name',
           header: 'NAME',
           meta: {
-            filterType: 'string',
+            filterType: 'textSelect',
+            getOptionValue: (row: unknown) =>
+              ((row as Record<string, unknown>)['name'] as string) || '',
             description: BOT_METRIC_DESCRIPTIONS.grid.name,
           },
           cell: ({ getValue, row }) => {

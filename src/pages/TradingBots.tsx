@@ -1123,7 +1123,9 @@ const TradingBots: React.FC = () => {
         accessorKey: 'name',
         header: 'NAME',
         meta: {
-          filterType: 'string',
+          filterType: 'textSelect',
+          getOptionValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['name'] as string) || '',
           description: BOT_METRIC_DESCRIPTIONS.dca.name,
         },
         cell: ({ getValue, row }) => {
@@ -2064,11 +2066,16 @@ const TradingBots: React.FC = () => {
       ),
     [canonicalDcaBots]
   );
+  const dealsTableBotNames = useMemo(
+    () => canonicalDcaBots.map((b) => b.settings?.name ?? '').filter(Boolean),
+    [canonicalDcaBots]
+  );
   const dealsTable = useDealTablePaging({
     status: dealsStatus,
     terminal: false,
     tableId: `dca-bot-deals-trades-${dealsStatus}`,
     pairs: dealsTablePairs,
+    botNames: dealsTableBotNames,
   });
   const dcaDealsForTab = dealsTable.deals;
 

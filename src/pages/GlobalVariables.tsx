@@ -747,7 +747,11 @@ const GlobalVariables: React.FC<GlobalVariablesProps> = ({
           );
         },
         enableSorting: true,
-        meta: { filterType: 'string' },
+        meta: {
+          filterType: 'textSelect',
+          getOptionValue: (row: unknown) =>
+            ((row as Record<string, unknown>)['name'] as string) || '',
+        },
       },
       // Type column
       {
