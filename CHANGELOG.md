@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.80.1] - 2026-10-06
+
+### Fixed
+
+- Charts show prices with the exchange's own precision. Low-priced pairs quoted in USD, EUR, GBP or JPY were rounded to 2 decimals on the price axis and crosshair, so for example every price from 0.065 to 0.075 read "0.07".
+
 ## [2.80.0] - 2026-10-06
 
 ### Added

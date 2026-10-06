@@ -1,6 +1,7 @@
 import { ExchangeEnum } from '@/types';
 import { COMMON_QUOTE_ASSETS, extractPairAssets } from '@/utils/pairs';
 import logger from '../../lib/loggerInstance';
+import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { binanceHandler } from './exchanges/binance';
 import { bitgetHandler } from './exchanges/bitget';
 import { bybitHandler } from './exchanges/bybit';
@@ -594,6 +595,25 @@ export const createDatafeed = (): IBasicDataFeed => ({
           // Default for other cases
           return 10000; // 4 decimal places
         };
+        // Prefer the exchange's own price precision (from its tick size) so
+        // the axis and crosshair resolve prices the way the exchange does —
+        // a fiat-quoted sub-$1 pair otherwise collapses to 2 decimals and
+        // every price between 0.065 and 0.075 reads "0.07". Read it from the
+        // pairs store rather than `symbol`: charts that register no symbol
+        // list resolve to a placeholder whose precision is invented.
+        const normalizedPair = symbol.pair.replace(/:/g, '_').toLowerCase();
+        const exchangePrecision = useTradingPairsDataStore
+          .getState()
+          .getPairsByExchange(symbol.exchange)
+          .find(
+            (p) => p.pair.replace(/:/g, '_').toLowerCase() === normalizedPair
+          )?.priceAssetPrecision;
+        const pricescale =
+          Number.isInteger(exchangePrecision) &&
+          (exchangePrecision as number) >= 0 &&
+          (exchangePrecision as number) <= 12
+            ? 10 ** (exchangePrecision as number)
+            : getDynamicPriceScale(symbol.quoteAsset.name, symbol.pair);
         const symbolInfo: LibrarySymbolInfo = {
           ticker: parsed.metaSegments.length
             ? symbolName
@@ -608,7 +628,7 @@ export const createDatafeed = (): IBasicDataFeed => ({
           session: '24x7',
           timezone: 'UTC',
           minmov: 1,
-          pricescale: getDynamicPriceScale(symbol.quoteAsset.name, symbol.pair),
+          pricescale,
           supported_resolutions: handler.config.supportedResolutions,
           has_intraday: true,
           has_daily: true,
