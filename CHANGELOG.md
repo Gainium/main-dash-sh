@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.78.1] - 2026-10-06
+
+### Fixed
+
+- Bot Statistics tab, Lifetime / Since views: "Win, %" now matches the Win Rate donut (break-even deals count as neither), and in the Since view the per-pair table's range chip shows the since-change period instead of "All time".
+
 ## [2.78.0] - 2026-10-06
 
 ### Added

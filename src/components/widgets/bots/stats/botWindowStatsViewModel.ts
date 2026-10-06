@@ -119,7 +119,12 @@ export const windowBreakdown = (
     winners: {
       ...base.winners,
       count: w.wins,
-      winRate: math.round(w.winRate * 100),
+      // Over decided deals, as the engine and the Win Rate donut count it: a
+      // break-even deal is neither a win nor a loss.
+      winRate:
+        w.wins + w.losses > 0
+          ? math.round((w.wins / (w.wins + w.losses)) * 100)
+          : 0,
       grossProfitPerc: overCapital(w, w.grossProfitUsd),
       grossProfitText: usd(w.grossProfitUsd),
       maxDealProfitPerc: overCapital(w, w.maxDealProfitUsd),

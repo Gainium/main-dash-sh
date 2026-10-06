@@ -125,14 +125,22 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
     (symbolStats?.length ?? 0) > 1;
 
   const [range, setRange] = useState<PeriodValue | null>(null);
+  // With no range picked, the since view windows the pairs the same way, and
+  // the table's range chip says so instead of "All time".
+  const sinceRange = useMemo<PeriodValue | null>(
+    () =>
+      resetAt && statsWindow === 'since'
+        ? { from: new Date(resetAt), to: new Date() }
+        : null,
+    [resetAt, statsWindow]
+  );
+  const pairRange = range ?? sinceRange;
   const pairStats = useBotPairStats({
     botId,
     type: botType,
     shareId: shareId ?? null,
-    // With no range picked, the since view windows the pairs the same way.
-    from:
-      range?.from.getTime() ??
-      (resetAt && statsWindow === 'since' ? resetAt : undefined),
+    from: pairRange?.from.getTime(),
+    // Only a picked range has an end; the since window runs to now.
     to: range?.to.getTime(),
     enabled: active && multiPair,
   });
@@ -224,7 +232,7 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
             botId={botId}
             rows={pairRows}
             isLoading={pairStats.isLoading}
-            range={range}
+            range={pairRange}
             // An older backend has no per-pair query, so no range to apply.
             {...(pairStats.unavailable ? {} : { onRangeChange: setRange })}
             fromStoredStats={pairStats.unavailable}
