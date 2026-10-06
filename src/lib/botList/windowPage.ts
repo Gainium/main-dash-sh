@@ -36,6 +36,58 @@ function comparable(v: unknown): number | string | undefined {
   return undefined;
 }
 
+/**
+ * Server filter fields that are stored under another path on the held rows
+ * (`pair` is a logical field the server resolves to `symbol.symbol`).
+ */
+export type WindowFieldAliases = Readonly<Record<string, string>>;
+
+const TEXT_FILTER_OPS = new Set([
+  'isAnyOf',
+  'isNoneOf',
+  'equals',
+  'contains',
+  'notContains',
+  'startsWith',
+  'endsWith',
+]);
+
+/** The comparison operators server filters use for numbers and day bounds. */
+const NUMBER_FILTER_OPS: Record<string, (a: number, b: number) => boolean> = {
+  '=': (a, b) => a === b,
+  '!=': (a, b) => a !== b,
+  '>': (a, b) => a > b,
+  '>=': (a, b) => a >= b,
+  '<': (a, b) => a < b,
+  '<=': (a, b) => a <= b,
+};
+
+const filterField = (f: { field: string }, aliases?: WindowFieldAliases) =>
+  aliases?.[f.field] ?? f.field;
+
+/**
+ * The held rows can answer every filter of the query: its operator is one
+ * `previewPage` applies, and the rows carry the field it reads (a number
+ * where it compares numbers). A filter on a value the rows do not hold — a
+ * computed column such as the deal cost — needs the server, however complete
+ * the window; answering it locally showed an empty or an unfiltered list.
+ */
+export function windowCanFilter<T>(
+  rows: readonly T[],
+  q: ServerBotQuery,
+  aliases?: WindowFieldAliases
+): boolean {
+  if (rows.length === 0) return true;
+  return (q.filters ?? []).every((f) => {
+    const field = filterField(f, aliases);
+    if (TEXT_FILTER_OPS.has(f.operator))
+      return rows.some((r) => get(r, field) != null);
+    if (f.operator in NUMBER_FILTER_OPS)
+      return rows.some((r) => typeof comparable(get(r, field)) === 'number');
+    return false;
+  });
+}
+
 /** The query asks for the table's default order with no narrowing. */
 export function isDefaultQuery(
   q: ServerBotQuery,
@@ -92,6 +144,7 @@ export function previewPage<T>(
   opts: {
     searchField?: string | null;
     defaultSort?: { field: string; direction: 'asc' | 'desc' } | null;
+    fieldAliases?: WindowFieldAliases;
   } = {}
 ): { rows: T[]; matched: number } {
   let out = rows as T[];
@@ -103,15 +156,25 @@ export function previewPage<T>(
     );
   }
   for (const f of q.filters ?? []) {
+    const field = filterField(f, opts.fieldAliases);
     const val = String(f.value);
-    const text = (r: T) => String(get(r, f.field) ?? '').toLowerCase();
+    const text = (r: T) => String(get(r, field) ?? '').toLowerCase();
     const v = val.toLowerCase();
-    if (f.operator === 'isAnyOf' || f.operator === 'isNoneOf') {
+    const cmp = NUMBER_FILTER_OPS[f.operator];
+    if (cmp) {
+      const bound = Number(val);
+      out = out.filter((r) => {
+        const x = comparable(get(r, field));
+        // A missing value matches only "not equal", as on the server.
+        if (typeof x !== 'number') return f.operator === '!=';
+        return cmp(x, bound);
+      });
+    } else if (f.operator === 'isAnyOf' || f.operator === 'isNoneOf') {
       const set = new Set(val.split(','));
       const keep = f.operator === 'isAnyOf';
-      out = out.filter((r) => set.has(String(get(r, f.field))) === keep);
+      out = out.filter((r) => set.has(String(get(r, field))) === keep);
     } else if (f.operator === 'equals') {
-      out = out.filter((r) => String(get(r, f.field)) === val);
+      out = out.filter((r) => String(get(r, field)) === val);
     } else if (f.operator === 'contains') {
       out = out.filter((r) => text(r).includes(v));
     } else if (f.operator === 'notContains') {

@@ -34,6 +34,9 @@ const PAIR: ServerFilterSpec = { field: 'pair', kind: 'text', requiresNewBackend
 
 export const DEAL_SEARCH_FIELD = 'symbol.symbol';
 
+/** Logical filter fields stored under another path on a loaded deal. */
+export const DEAL_WINDOW_FIELD_ALIASES = { pair: 'symbol.symbol' } as const;
+
 /**
  * The pairs a server-paged deal table's Symbol filter offers: every symbol in
  * the given deal lists (the loaded window, the page on screen) plus the

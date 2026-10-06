@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.76.5] - 2026-10-06
+
+### Fixed
+
+- Deal tables on large accounts: when every deal of the list was already loaded, a Symbol filter showed no deals at all, and Cost and date filters were ignored (the whole list was shown). Symbol and date filters are now applied to the loaded deals; Cost, which the loaded deals do not carry, is answered by the server.
+
 ## [2.76.4] - 2026-10-06
 
 ### Added

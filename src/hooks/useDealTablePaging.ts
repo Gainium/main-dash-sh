@@ -21,6 +21,7 @@ import {
   isDefaultQuery,
   previewPage,
   servesFromWindow,
+  windowCanFilter,
   windowCanSort,
 } from '../lib/botList/windowPage';
 import { useServerTableQuery } from './useServerTableQuery';
@@ -28,6 +29,7 @@ import {
   CLOSED_DEAL_SERVER_FIELDS,
   CLOSED_DEAL_SORT_TOOLTIP,
   DEAL_SEARCH_FIELD,
+  DEAL_WINDOW_FIELD_ALIASES,
   OPEN_DEAL_SERVER_FIELDS,
   dealBotNameOptions,
   dealPairOptions,
@@ -269,6 +271,10 @@ export function useDealTablePaging(opts: {
     () => windowCanSort(windowResult.deals, sq),
     [windowResult.deals, sq]
   );
+  const windowFilterable = useMemo(
+    () => windowCanFilter(windowResult.deals, sq, DEAL_WINDOW_FIELD_ALIASES),
+    [windowResult.deals, sq]
+  );
   const fromWindow =
     !serverPaged ||
     windowPending ||
@@ -276,9 +282,9 @@ export function useDealTablePaging(opts: {
       servesFromWindow(
         sq,
         windowResult.loadedCount,
-        // A sort on a server-only field (not in the list fragment) cannot
-        // be answered from the window, however complete.
-        windowComplete && windowSortable,
+        // A sort or filter on a server-only field (not in the list
+        // fragment) cannot be answered from the window, however complete.
+        windowComplete && windowSortable && windowFilterable,
         null
       ));
 
@@ -306,7 +312,10 @@ export function useDealTablePaging(opts: {
   const windowPage = useMemo(
     () =>
       serverPaged
-        ? previewPage(windowResult.deals, sq, { searchField: DEAL_SEARCH_FIELD })
+        ? previewPage(windowResult.deals, sq, {
+            searchField: DEAL_SEARCH_FIELD,
+            fieldAliases: DEAL_WINDOW_FIELD_ALIASES,
+          })
         : null,
     [serverPaged, windowResult.deals, sq]
   );
