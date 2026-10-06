@@ -316,6 +316,22 @@ export type ChartIndicatorsContext = {
  */
 const OPEN_BAND_EDGE = 1e6;
 
+// "between" draws the band from its two bounds (ATH values are negative).
+const betweenBand = (
+  i: IndicatorConfig
+): { upper: number; lower: number } | undefined => {
+  const sign = (v: number) => (i.type === IndicatorEnum.ath ? -Math.abs(v) : v);
+  const a = parseFloat(i.indicatorValue ?? '');
+  const b = parseFloat(i.indicatorValue2 ?? '');
+  if (!Number.isFinite(a) || !Number.isFinite(b)) {
+    return undefined;
+  }
+  return {
+    upper: Math.max(sign(a), sign(b)),
+    lower: Math.min(sign(a), sign(b)),
+  };
+};
+
 function buildChartIndicator(
   i: IndicatorConfig,
   context: ChartIndicatorsContext
@@ -350,15 +366,17 @@ function buildChartIndicator(
                     ? 100
                     : +(i.stochUpper ?? '20')
               : i.valueInsteadof
-            : i.indicatorCondition === IndicatorStartConditionEnum.gt
-              ? i.type === IndicatorEnum.ath
-                ? 0
-                : OPEN_BAND_EDGE
-              : i.indicatorValue
+            : i.indicatorCondition === IndicatorStartConditionEnum.bw
+              ? betweenBand(i)?.upper
+              : i.indicatorCondition === IndicatorStartConditionEnum.gt
                 ? i.type === IndicatorEnum.ath
-                  ? Math.abs(parseFloat(i.indicatorValue)) * -1
-                  : parseFloat(i.indicatorValue)
-                : undefined,
+                  ? 0
+                  : OPEN_BAND_EDGE
+                : i.indicatorValue
+                  ? i.type === IndicatorEnum.ath
+                    ? Math.abs(parseFloat(i.indicatorValue)) * -1
+                    : parseFloat(i.indicatorValue)
+                  : undefined,
     lowerLimit:
       i.indicatorAction === IndicatorAction.riskReward ||
       (i.indicatorAction === IndicatorAction.startDca && scaleAr) ||
@@ -381,17 +399,19 @@ function buildChartIndicator(
                     ? 0
                     : +(i.stochLower ?? '20')
               : undefined
-            : i.indicatorCondition === IndicatorStartConditionEnum.gt
-              ? i.indicatorValue
-                ? i.type === IndicatorEnum.ath
-                  ? Math.abs(parseFloat(i.indicatorValue)) * -1
-                  : parseFloat(i.indicatorValue)
-                : undefined
-              : i.indicatorCondition === IndicatorStartConditionEnum.lt
-                ? i.type === IndicatorEnum.ath
-                  ? -100
-                  : -OPEN_BAND_EDGE
-                : undefined,
+            : i.indicatorCondition === IndicatorStartConditionEnum.bw
+              ? betweenBand(i)?.lower
+              : i.indicatorCondition === IndicatorStartConditionEnum.gt
+                ? i.indicatorValue
+                  ? i.type === IndicatorEnum.ath
+                    ? Math.abs(parseFloat(i.indicatorValue)) * -1
+                    : parseFloat(i.indicatorValue)
+                  : undefined
+                : i.indicatorCondition === IndicatorStartConditionEnum.lt
+                  ? i.type === IndicatorEnum.ath
+                    ? -100
+                    : -OPEN_BAND_EDGE
+                  : undefined,
     type: i.type,
     maType: i.maType,
     uuid: i.uuid,

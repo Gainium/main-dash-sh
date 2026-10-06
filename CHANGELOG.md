@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.82.0] - 2026-10-06
+
+### Added
+
+- Indicator condition "Between" for value-type indicators (RSI, CCI, MFI, Williams %R, ADX, AO, UO, MOM, VO, BBW, BBWP, %B, Keltner %B, MA ratio, ATR, ADR, ATH): pick "Between" and an "Upper value" field appears next to Value; the condition holds while the indicator is strictly inside the range. Replaces a "Greater than" + "Lower than" pair with one indicator. Not offered with percentile. The chart shades the band between the two bounds, and editor backtests evaluate it (needs `@gainium/backtester` 1.11.0).
+
 ## [2.81.0] - 2026-10-06
 
 ### Added

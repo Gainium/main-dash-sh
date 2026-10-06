@@ -111,7 +111,13 @@ export const shouldHideField = (
   params: IndicatorParamsState | null
 ): boolean => {
   if (!params) {
-    return false;
+    return !!field.shownWhen;
+  }
+  if (
+    field.shownWhen &&
+    !field.shownWhen.some(({ field: key, equals }) => params[key] === equals)
+  ) {
+    return true;
   }
   if (!field.hiddenWhen) {
     return false;

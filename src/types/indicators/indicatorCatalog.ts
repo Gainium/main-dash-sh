@@ -73,6 +73,12 @@ const INDICATOR_CONDITION_OPTIONS = [
   { value: IndicatorStartConditionEnum.lt, label: 'Lower than' },
 ];
 
+// Value-type indicators (one number vs a threshold) can also test a range.
+const VALUE_CONDITION_OPTIONS = [
+  ...INDICATOR_CONDITION_OPTIONS,
+  { value: IndicatorStartConditionEnum.bw, label: 'Between' },
+];
+
 const SR_CONDITION_OPTIONS = [
   { value: IndicatorStartConditionEnum.cd, label: 'Price crossing down' },
   { value: IndicatorStartConditionEnum.cu, label: 'Price crossing up' },
@@ -515,7 +521,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -523,6 +536,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 20,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -793,7 +820,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -801,6 +835,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0.05,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -906,7 +954,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -916,6 +971,22 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         max: 100,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        min: 0,
+        max: 100,
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -948,7 +1019,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -958,6 +1036,22 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         max: 1000,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        min: -1000,
+        max: 1000,
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -991,7 +1085,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1001,6 +1102,22 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         max: 100,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        min: 0,
+        max: 100,
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1039,7 +1156,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1047,6 +1171,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1366,7 +1504,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1374,6 +1512,19 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 70,
         step: 1,
         allowVariables: true,
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
       }),
       keepConditionBarsField,
     ],
@@ -1410,7 +1561,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1418,6 +1569,19 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0,
         step: 1,
         allowVariables: true,
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
       }),
       keepConditionBarsField,
     ],
@@ -1584,7 +1748,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1592,6 +1763,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 80,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1646,7 +1831,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1654,6 +1846,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0.05,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1723,7 +1929,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1738,6 +1951,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0.99,
         step: 0.01,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 0.01,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1763,7 +1990,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1771,6 +2005,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 0,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1801,7 +2049,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1809,6 +2064,20 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: -40,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1854,7 +2123,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1862,6 +2138,19 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 70,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Level',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
@@ -1900,7 +2189,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: IndicatorStartConditionEnum.cd,
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
+        optionsWhen: [
+          {
+            field: 'percentile',
+            equals: true,
+            options: INDICATOR_CONDITION_OPTIONS,
+          },
+        ],
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -1908,6 +2204,19 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 70,
         step: 1,
         allowVariables: true,
+        hiddenWhen: [{ field: 'percentile', equals: true }],
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Level',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       ...percentileFields,
@@ -2400,7 +2709,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: 'cd',
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -2408,6 +2717,19 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 10,
         step: 1,
         allowVariables: true,
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
       }),
       keepConditionBarsField,
     ],
@@ -2528,7 +2850,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorCondition',
         label: 'Condition',
         defaultValue: 'cd',
-        options: INDICATOR_CONDITION_OPTIONS,
+        options: VALUE_CONDITION_OPTIONS,
       }),
       makeNumberField({
         key: 'indicatorValue',
@@ -2538,6 +2860,21 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         max: 100,
         step: 1,
         allowVariables: true,
+      }),
+      makeNumberField({
+        key: 'indicatorValue2',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Value and below this.',
+        min: 0,
+        max: 100,
+        step: 1,
+        allowVariables: true,
+        shownWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: IndicatorStartConditionEnum.bw,
+          },
+        ],
       }),
       keepConditionBarsField,
     ],

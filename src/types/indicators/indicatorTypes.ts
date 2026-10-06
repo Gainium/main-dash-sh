@@ -99,6 +99,8 @@ export interface IndicatorFieldDefinition {
   };
   multiple?: boolean;
   hiddenWhen?: ConditionalDirective[];
+  /** Hidden unless one of these matches (e.g. the "between" upper bound). */
+  shownWhen?: ConditionalDirective[];
   disabledWhen?: ConditionalDirective[];
   /**
    * Statically (always) disable this field's control. Ports legacy fields that

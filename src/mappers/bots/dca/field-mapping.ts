@@ -152,6 +152,7 @@ const normalizeIndicatorParamsRecord = (
 
   const fieldsAsString: (keyof IndicatorConfig)[] = [
     'indicatorValue',
+    'indicatorValue2',
     'groupId',
     'uuid',
     'maUUID',

@@ -231,6 +231,20 @@ export const validateIndicatorParams = (
       break;
   }
 
+  // "between" needs two numeric bounds; the API refuses it with percentile.
+  if (getParam('indicatorCondition') === IndicatorStartConditionEnum.bw) {
+    if (getParam('percentile')) {
+      errors.push('indicatorCondition');
+    } else {
+      if (!Number.isFinite(toNumber(getParam('indicatorValue')))) {
+        errors.push('indicatorValue');
+      }
+      if (!Number.isFinite(toNumber(getParam('indicatorValue2')))) {
+        errors.push('indicatorValue2');
+      }
+    }
+  }
+
   return Array.from(new Set(errors));
 };
 

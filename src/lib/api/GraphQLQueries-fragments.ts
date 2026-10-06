@@ -309,6 +309,7 @@ pair
                     uuid
                     indicatorLength
                     indicatorValue
+                    indicatorValue2
                     indicatorCondition
                     groupId
                     indicatorInterval
@@ -607,6 +608,7 @@ pair
                     uuid
                     indicatorLength
                     indicatorValue
+                    indicatorValue2
                     indicatorCondition
                     indicatorInterval
                     groupId
@@ -853,6 +855,7 @@ pairs
                     uuid
                     indicatorLength
                     indicatorValue
+                    indicatorValue2
                     indicatorCondition
                     indicatorInterval
                     groupId
