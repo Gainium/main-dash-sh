@@ -1120,6 +1120,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           slLowPrice: formData.grid.slLowPrice,
           slPerc: formData.grid.slPerc,
           strategy: formData.grid.strategy,
+          futuresStrategy: formData.grid.futuresStrategy,
           useStartPrice: formData.grid.useStartPrice,
           startPrice: formData.grid.startPrice,
           useOrderInAdvance: formData.grid.useOrderInAdvance,

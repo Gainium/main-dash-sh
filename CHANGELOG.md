@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.10] - 2026-10-06
+
+### Fixed
+
+- Grid bots: a Short futures grid with a take profit or stop loss target price is now checked as a short grid, so a take profit below the range or a stop loss above it can be saved again. Futures grids are judged by their position side, as the bot itself trades them.
+
 ## [2.69.9] - 2026-10-06
 
 ### Fixed

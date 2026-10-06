@@ -1,4 +1,4 @@
-import type { BotSettings, BotTypesEnum } from '@/types';
+import { FuturesStrategyEnum, type BotSettings, type BotTypesEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 export interface GridFormValidationResult {
@@ -127,6 +127,7 @@ export const validateGridFormData = ({
     | 'slLowPrice'
     | 'slPerc'
     | 'strategy'
+    | 'futuresStrategy'
     | 'useStartPrice'
     | 'startPrice'
     | 'useOrderInAdvance'
@@ -210,12 +211,18 @@ export const validateGridFormData = ({
   // A long grid takes profit on the way up and stops out on the way down, so
   // a take profit at or below the low price, or a stop loss at or above the
   // top price, is true everywhere inside the range. A short grid runs the
-  // other way round.
+  // other way round. The side is the engine's (`get isShort()`): a futures
+  // grid's position side, falling back to `strategy` only when it is NEUTRAL.
   const rangeTop = parseGridNumber(grid.topPrice) ?? NaN;
   const rangeLow = parseGridNumber(grid.lowPrice) ?? NaN;
   const hasRange =
     Number.isFinite(rangeTop) && Number.isFinite(rangeLow) && rangeTop > rangeLow;
-  const isShortGrid = grid.strategy === 'SHORT';
+  const isShortGrid =
+    grid.futures &&
+    grid.futuresStrategy &&
+    grid.futuresStrategy !== FuturesStrategyEnum.neutral
+      ? grid.futuresStrategy === FuturesStrategyEnum.short
+      : grid.strategy === 'SHORT';
 
   if (
     hasRange &&
