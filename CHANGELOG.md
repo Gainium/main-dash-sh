@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.79.1] - 2026-10-06
+
+### Fixed
+
+- Bot Statistics tab, Lifetime / Since views: the confidence grade and its deal count now follow the selected view. They showed the count since the last stats reset in both views, often zero deals.
+
 ## [2.79.0] - 2026-10-06
 
 ### Added

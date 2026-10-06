@@ -77,12 +77,34 @@ const pf = (raw: number): number => profitFactorOf(raw);
 const overCapital = (w: BotWindowStatsDTO, v: number): number =>
   w.peakCapitalUsd > 0 ? PERC(v / w.peakCapitalUsd) : 0;
 
+/**
+ * The engine's confidence grade (dcaHelper `botUpdateStats`): a function of
+ * decided deals (wins + losses) only, so each window can grade its own deals
+ * instead of showing the engine's, which restart at every reset.
+ */
+export const confidenceGradeFor = (decided: number): string =>
+  decided < 107
+    ? 'F'
+    : decided < 133
+      ? 'E'
+      : decided < 164
+        ? 'D'
+        : decided < 208
+          ? 'C'
+          : decided < 273
+            ? 'B'
+            : decided < 385
+              ? 'A'
+              : 'A+';
+
 export const windowHeadline = (
   base: BotStatsHeadlineVM,
   w: BotWindowStatsDTO,
   window: StatsWindow
 ): BotStatsHeadlineVM => ({
   ...base,
+  confidenceGrade: confidenceGradeFor(w.wins + w.losses),
+  closedDeals: w.wins + w.losses,
   netPerc: PERC(w.returnOnPeakCapital),
   netUsd: roundUsd(w.realizedProfitUsd),
   maxDealDuration: formatDuration(w.maxDealDuration),

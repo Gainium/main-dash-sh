@@ -12,6 +12,7 @@ import {
   buildBotStatsHeadline,
 } from '@/components/widgets/bots/stats/botStatsViewModel';
 import {
+  confidenceGradeFor,
   windowBreakdown,
   windowHeadline,
   windowTooltip,
@@ -134,6 +135,27 @@ describe('Statistics window views', () => {
     expect(b.showDca).toBe(true);
     expect(b.ratios.sharpeRatio).toBe(1.2);
     expect(b.losers.maxEquityDdPerc).toBe(baseBreakdown.losers.maxEquityDdPerc);
+  });
+
+  it('the confidence grade and its deal count follow the window', () => {
+    // The engine's stats restart at a reset, so its grade read 0 deals in
+    // both views on a bot that had not closed a deal since.
+    const life = windowHeadline(
+      { ...baseHeadline, confidenceGrade: 'F', closedDeals: 0 },
+      { ...lifetime, wins: 200, losses: 10 },
+      'lifetime'
+    );
+    expect(life.closedDeals).toBe(210);
+    expect(life.confidenceGrade).toBe('B');
+    const since = windowHeadline(baseHeadline, { ...lifetime, wins: 3, losses: 1 }, 'since');
+    expect(since.closedDeals).toBe(4);
+    expect(since.confidenceGrade).toBe('F');
+  });
+
+  it('grade thresholds match the engine', () => {
+    expect([0, 106, 107, 133, 164, 208, 273, 384, 385].map(confidenceGradeFor)).toEqual(
+      ['F', 'F', 'E', 'D', 'C', 'B', 'A', 'A', 'A+']
+    );
   });
 
   it('profit with no losses reads as Infinity', () => {
