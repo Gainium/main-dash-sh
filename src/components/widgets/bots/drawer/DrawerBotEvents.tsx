@@ -1,11 +1,29 @@
 import type { DrawerBot } from '@/types/bots/drawer';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useBotEvents, type BotEvent } from '../../../../hooks/useBotEvents';
 import {
   classifyBotEvent,
   type EventIconKey,
+  type EventVariant,
 } from '../../../../lib/botEventTaxonomy';
+import {
+  BOT_EVENT_TYPE_OPTIONS,
+  EMPTY_BOT_EVENT_FILTERS,
+  botEventsToCsv,
+  buildBotEventsQuery,
+  countActiveBotEventFilters,
+  extractOrderId,
+  isBotEventTypeFilter,
+  pairOptionsFromBot,
+  type BotEventFilters,
+} from '../../../../lib/botEventFilters';
+import { GraphQLClient, getGraphQLConfig } from '../../../../lib/api';
+import { botQueries } from '../../../../lib/api/GraphQLQueries-bot-queries';
+import { useShareContext } from '../../../../hooks/useShareContext';
+import { useAuthStore } from '../../../../stores/authStore';
+import { useUIStore } from '../../../../stores/uiStore';
+import { BotEventsFilterBar } from './BotEventsFilterBar';
 /* import { useComboBots } from '../../../../hooks/useComboBots';
 import { useDcaBots } from '../../../../hooks/useDcaBots';
 import { useGridBots } from '../../../../hooks/useGridBots';
@@ -16,7 +34,7 @@ import { copyToClipboard } from '../../../../lib/webhookUtils';
 import { toast } from '../../../../lib/toast';
 import CoinPair from '../../shared/CoinPair';
 import { DrawerSection } from './DrawerSection';
-import { BotTypesEnum, type GridFilterModel } from '../../../../types';
+import { BotTypesEnum } from '../../../../types';
 import { Alert, AlertDescription } from '../../../ui/alert';
 import { Badge } from '../../../ui/badge';
 import { Button } from '../../../ui/button';
@@ -27,12 +45,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '../../../ui/dialog';
-import { Input } from '../../../ui/input';
 import { ScrollArea } from '../../../ui/scroll-area';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../../ui/tabs';
 import { Timeline, type TimelineItem } from '../../../ui/timeline';
 import {
-  Activity,
   AlertCircle,
   AlertTriangle,
   ArrowDown,
@@ -42,18 +57,17 @@ import {
   Clock,
   Copy,
   Eye,
+  Filter,
   Info,
   Layers,
   Plus,
   Power,
   RefreshCw,
-  Search,
   Settings,
   Share2,
   Trash2,
   TrendingUp,
   Webhook,
-  X,
 } from 'lucide-react';
 
 // Maps the taxonomy's semantic icon key to a concrete lucide icon. Keeping the
@@ -120,16 +134,6 @@ const formatDayWithSuffix = (day: number): string => {
   }
 };
 
-// Order ids only live inside the event description, e.g.
-// "Order filled: x-ABC-TP-..." or "...Order id: x-ABC-TP-..., side: sell".
-const extractOrderId = (event: BotEvent): string | null => {
-  const desc = event.description ?? '';
-  const match =
-    desc.match(/order\s*id:\s*([^\s,]+)/i) ||
-    desc.match(/order\s+filled:\s*([^\s,]+)/i);
-  return match ? match[1].trim() : null;
-};
-
 // Truncated, click-to-copy id chip with a trailing copy icon (full id copied).
 const CopyableId: React.FC<{ id: string; label?: string }> = ({
   id,
@@ -184,6 +188,38 @@ const ExpandableMessage: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
+// Text colour per taxonomy variant, matching the timeline's label colours.
+const VARIANT_TEXT: Record<EventVariant, string> = {
+  default: 'text-muted-foreground',
+  success: 'text-success',
+  warning: 'text-warning',
+  error: 'text-destructive',
+  info: 'text-primary',
+  profit: 'text-profit',
+  loss: 'text-loss',
+};
+
+const MetadataDialog: React.FC<{ event: BotEvent }> = ({ event }) => (
+  <Dialog>
+    <DialogTrigger asChild>
+      <Button variant="ghost" size="sm" className="h-5 px-2 text-xs">
+        <Eye className="mr-1 h-3 w-3" />
+        View Details
+      </Button>
+    </DialogTrigger>
+    <DialogContent className="max-w-2xl">
+      <DialogHeader>
+        <DialogTitle>Event Metadata: {event.event}</DialogTitle>
+      </DialogHeader>
+      <ScrollArea className="max-h-96">
+        <pre className="overflow-x-auto rounded-lg bg-muted p-md text-xs">
+          {formatEventMetadata(event.metadata)}
+        </pre>
+      </ScrollArea>
+    </DialogContent>
+  </Dialog>
+);
+
 export interface DrawerBotEventsProps {
   widgetId: string;
   botId?: string;
@@ -200,14 +236,44 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   const { id: paramBotId } = useParams<{ id: string }>();
   const actualBotId = botId || paramBotId;
 
-  const [selectedTab, setSelectedTab] = useState<'recent' | 'deals' | 'alerts'>(
-    'recent'
+  const [searchParams, setSearchParams] = useSearchParams();
+  // `?eventsType=errors` deep-links straight to a filtered view (the bot
+  // error banner's "Review the bot events" uses it). Read once for the
+  // initial state, then consumed by the effect below.
+  const linkedType = searchParams.get('eventsType');
+  const [filters, setFilters] = useState<BotEventFilters>(() =>
+    isBotEventTypeFilter(linkedType)
+      ? { ...EMPTY_BOT_EVENT_FILTERS, type: linkedType }
+      : EMPTY_BOT_EVENT_FILTERS
   );
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const updateFilters = useCallback(
+    (patch: Partial<BotEventFilters>) =>
+      setFilters((prev) => ({ ...prev, ...patch })),
+    []
+  );
+  // Apply a deep link that arrives while already mounted, then drop the param
+  // so a later reload or tab switch doesn't re-impose it over the user's own
+  // filter choices.
+  useEffect(() => {
+    if (!linkedType) return;
+    if (isBotEventTypeFilter(linkedType)) {
+      setFilters({ ...EMPTY_BOT_EVENT_FILTERS, type: linkedType });
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete('eventsType');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [linkedType, setSearchParams]);
   // const [selectedEvent, setSelectedEvent] = useState<BotEvent | null>(null);
 
   // Determine bot type from prop
   const botType = botProp?.type || 'dca';
+  // Grid bots have no deals, so "Deals" is not a type they can filter on.
+  const isGrid = botType === 'grid';
 
   // Get bot data
   /* const { bots: dcaBots, isLoading: dcaLoading } = useDcaBots({
@@ -257,18 +323,8 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   // Determine bot type from bot data
   const botTypeEnum = useMemo(() => bot?.type, [bot]);
 
-  // Grid awareness to tweak UX (hide Deals tab)
-  const isGrid = botType === 'grid' || botTypeEnum === BotTypesEnum.grid;
-
-  // Ensure selected tab remains valid if bot type is Grid (no Deals tab)
-  useEffect(() => {
-    if (isGrid && selectedTab === 'deals') {
-      setSelectedTab('recent');
-    }
-  }, [isGrid, selectedTab]);
-
-  // Server-side paging: fetch a handful for the active tab and let
-  // "Load more" grow the page size. Reset when the tab or search changes.
+  // Server-side paging: fetch a handful and let "Load more" grow the page
+  // size. Reset whenever the filters change.
   const PAGE_SIZE = 10;
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
 
@@ -276,61 +332,116 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   const [debouncedSearch, setDebouncedSearch] = useState('');
   useEffect(() => {
     const handle = setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
+      setDebouncedSearch(filters.search.trim());
     }, 300);
     return () => clearTimeout(handle);
-  }, [searchQuery]);
+  }, [filters.search]);
+
+  // The query follows the debounced search, never the raw keystrokes.
+  const { type, symbol, from, to } = filters;
+  const queryFilters = useMemo<BotEventFilters>(
+    () => ({ type, symbol, from, to, search: debouncedSearch }),
+    [type, symbol, from, to, debouncedSearch]
+  );
+  const { category, filterModel } = useMemo(
+    () => buildBotEventsQuery(queryFilters),
+    [queryFilters]
+  );
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [selectedTab, debouncedSearch]);
+  }, [queryFilters]);
 
-  // Server-side search across event name + description (OR). `linkOperator`
-  // is the key the backend's grid-options mapper reads to apply `$or`.
-  const searchFilterModel = useMemo<GridFilterModel | undefined>(() => {
-    if (!debouncedSearch) {
-      return undefined;
-    }
-    return {
-      linkOperator: 'or',
-      items: [
-        {
-          id: 'search-event',
-          field: 'event',
-          operator: 'contains',
-          value: debouncedSearch,
-        },
-        {
-          id: 'search-description',
-          field: 'description',
-          operator: 'contains',
-          value: debouncedSearch,
-        },
-      ],
-    };
-  }, [debouncedSearch]);
+  const pairOptions = useMemo(() => pairOptionsFromBot(bot), [bot]);
+  const typeOptions = useMemo(
+    () =>
+      isGrid
+        ? BOT_EVENT_TYPE_OPTIONS.filter((o) => o.value !== 'deals')
+        : BOT_EVENT_TYPE_OPTIONS,
+    [isGrid]
+  );
+  const isFiltered =
+    !!debouncedSearch || countActiveBotEventFilters(queryFilters) > 0;
 
-  // Get bot events from backend — categorized + paginated server-side.
+  // Get bot events from backend — filtered + paginated server-side.
   const {
     events,
     total: backendTotal,
-    counts,
     hasValidResponse,
     isLoading: eventsLoading,
     isError: eventsError,
     refetch,
   } = useBotEvents(actualBotId || '', botTypeEnum, {
-    category: selectedTab,
     pageSize: visibleCount,
-    ...(searchFilterModel ? { filterModel: searchFilterModel } : {}),
+    ...(category ? { category } : {}),
+    ...(filterModel ? { filterModel } : {}),
   });
-
-  // Total matches across all categories (counts already respect the search).
-  const totalMatches = counts.recent + counts.deals + counts.alerts;
 
   const handleLoadMore = useCallback(() => {
     setVisibleCount((current) => current + PAGE_SIZE);
   }, []);
+
+  // CSV export of the whole filtered set (not just the loaded page). Events
+  // expire after 30 days, so the set is bounded; the cap guards a very chatty
+  // bot from one huge response.
+  const EXPORT_CAP = 5000;
+  const { shareId } = useShareContext();
+  const tokens = useAuthStore((st) => st.tokens);
+  const isLiveTrading = useUIStore((st) => st.isLiveTrading);
+  const [isExporting, setIsExporting] = useState(false);
+  const handleExport = useCallback(async () => {
+    if (!actualBotId) return;
+    setIsExporting(true);
+    try {
+      const { query, variables } = botQueries.getBotEvents({
+        botId: actualBotId,
+        page: 0,
+        pageSize: EXPORT_CAP,
+        ...(category ? { category } : {}),
+        ...(filterModel ? { filterModel } : {}),
+        combo: botTypeEnum === BotTypesEnum.combo,
+        hedge:
+          botTypeEnum === BotTypesEnum.hedgeCombo ||
+          botTypeEnum === BotTypesEnum.hedgeDca,
+      });
+      const config = getGraphQLConfig(tokens, isLiveTrading);
+      const client = new GraphQLClient(
+        import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000',
+        config.token,
+        config.paperContext
+      );
+      const res = await client.request<{
+        getBotEvents: { status: string; data?: BotEvent[]; total?: number };
+      }>(query, variables);
+      const rows = res.getBotEvents?.data ?? [];
+      if (res.getBotEvents?.status !== 'OK') {
+        throw new Error('export failed');
+      }
+      const blob = new Blob([botEventsToCsv(rows)], {
+        type: 'text/csv;charset=utf-8;',
+      });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute(
+        'download',
+        `bot-events-${actualBotId}-${new Date().toISOString().slice(0, 10)}.csv`
+      );
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      if ((res.getBotEvents?.total ?? 0) > rows.length) {
+        toast.info(
+          `Exported the newest ${rows.length.toLocaleString()} events. Narrow the time range to export the rest.`
+        );
+      }
+    } catch (_error) {
+      toast.error('Could not export events. Try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  }, [actualBotId, category, filterModel, botTypeEnum, tokens, isLiveTrading]);
 
   // Format event timestamp
   const formatEventTime = useCallback((created: string) => {
@@ -381,11 +492,6 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
       minute: '2-digit',
       hour12: false,
     });
-  }, []);
-
-  // Handle metadata viewing
-  const handleViewMetadata = useCallback((_event: BotEvent) => {
-    // Event metadata is displayed in the dialog modal
   }, []);
 
   // State for refresh animation
@@ -468,29 +574,7 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
           variant,
           badge: badgeContent,
           metadata: event.metadata ? (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-5 px-2 text-xs"
-                  onClick={() => handleViewMetadata(event)}
-                >
-                  <Eye className="mr-1 h-3 w-3" />
-                  View Details
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Event Metadata: {event.event}</DialogTitle>
-                </DialogHeader>
-                <ScrollArea className="max-h-96">
-                  <pre className="overflow-x-auto rounded-lg bg-muted p-md text-xs">
-                    {formatEventMetadata(event.metadata)}
-                  </pre>
-                </ScrollArea>
-              </DialogContent>
-            </Dialog>
+            <MetadataDialog event={event} />
           ) : undefined,
         };
 
@@ -509,26 +593,41 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
         return timelineItem;
       });
     },
-    [
-      formatEventTime,
-      formatEventDateLabel,
-      formatEventTimeLabel,
-      handleViewMetadata,
-    ]
+    [formatEventTime, formatEventDateLabel, formatEventTimeLabel]
   ); // Render event timeline
-  const renderEventTimeline = useCallback(
-    (
-      eventList: BotEvent[],
-      emptyMessage: string,
-      emptyIcon: React.ComponentType<{ className?: string }>
-    ) => {
+  const formatEventDateTime = useCallback((created: string) => {
+    const date = new Date(created);
+    if (Number.isNaN(date.getTime())) {
+      return '';
+    }
+    return date.toLocaleString([], {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: false,
+    });
+  }, []);
+
+  // Render the event list. The widget is resizable, so the layout follows its
+  // container width: a timeline under 500px, a table from 500px, with the
+  // order/deal column from 800px.
+  const renderEvents = useCallback(
+    (eventList: BotEvent[]) => {
       if (eventList.length === 0) {
-        const EmptyIcon = emptyIcon;
+        const EmptyIcon = isFiltered ? Filter : Clock;
         return (
           <div className="text-center py-8 text-muted-foreground">
             <EmptyIcon className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p className="font-medium">{emptyMessage}</p>
-            <p className="text-sm">Events will appear here as they occur</p>
+            <p className="font-medium">
+              {isFiltered ? 'No events match these filters' : 'No events yet'}
+            </p>
+            <p className="text-sm">
+              {isFiltered
+                ? 'Widen the time range or clear a filter.'
+                : 'Events will appear here as they occur.'}
+            </p>
           </div>
         );
       }
@@ -540,7 +639,94 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
         <div className="flex h-full flex-col overflow-hidden">
           <div className="relative min-h-0 flex-1">
             <div className="h-full overflow-y-auto pr-2 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
-              <Timeline items={timelineItems} className="py-2" />
+              <Timeline
+                items={timelineItems}
+                className="py-2 @[500px]:hidden"
+              />
+              <table className="hidden w-full table-fixed border-collapse text-sm @[500px]:table">
+                <colgroup>
+                  <col className="w-36" />
+                  <col className="w-32" />
+                  <col className="w-32" />
+                  <col className="hidden w-36 @[800px]:table-column" />
+                  <col />
+                </colgroup>
+                <thead className="sticky top-0 z-[1] bg-background">
+                  <tr className="border-b border-border text-left text-xs text-muted-foreground">
+                    <th className="px-2 py-2 font-medium">Time</th>
+                    <th className="px-2 py-2 font-medium">Event</th>
+                    <th className="px-2 py-2 font-medium">Pair</th>
+                    <th className="hidden px-2 py-2 font-medium @[800px]:table-cell">
+                      Order / deal
+                    </th>
+                    <th className="px-2 py-2 font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventList.map((event) => {
+                    const classified = classifyBotEvent(event);
+                    const EventIcon = ICON_BY_KEY[classified.iconKey] ?? Info;
+                    const orderId = extractOrderId(event);
+                    return (
+                      <tr
+                        key={event._id}
+                        className="border-b border-border/50 align-top"
+                      >
+                        <td className="whitespace-nowrap px-2 py-2 text-xs tabular-nums text-muted-foreground">
+                          {formatEventDateTime(event.created)}
+                        </td>
+                        <td className="px-2 py-2">
+                          <div className="flex items-center gap-1">
+                            <EventIcon
+                              className={cn(
+                                'h-3.5 w-3.5 shrink-0',
+                                VARIANT_TEXT[classified.variant]
+                              )}
+                            />
+                            <span className="truncate">{classified.title}</span>
+                          </div>
+                          {classified.label && (
+                            <div
+                              className={cn(
+                                'text-xs',
+                                VARIANT_TEXT[classified.variant]
+                              )}
+                            >
+                              {classified.label}
+                            </div>
+                          )}
+                        </td>
+                        <td className="px-2 py-2">
+                          {event.symbol ? (
+                            <CoinPair
+                              pair={event.symbol}
+                              iconSize="sm"
+                              layout="horizontal"
+                              showText
+                            />
+                          ) : (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="hidden px-2 py-2 @[800px]:table-cell">
+                          <div className="flex flex-col items-start gap-1">
+                            {orderId && (
+                              <CopyableId id={orderId} label="Order ID" />
+                            )}
+                            {event.deal && (
+                              <CopyableId id={event.deal} label="Deal ID" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-2 py-2">
+                          <ExpandableMessage text={event.description} />
+                          {event.metadata && <MetadataDialog event={event} />}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
             {/* Fade indicator for scrollable content */}
             <div className="absolute bottom-0 left-0 right-0 h-4 bg-linear-to-t from-background to-transparent pointer-events-none" />
@@ -564,7 +750,14 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
         </div>
       );
     },
-    [convertToTimelineItems, backendTotal, eventsLoading, handleLoadMore]
+    [
+      convertToTimelineItems,
+      backendTotal,
+      eventsLoading,
+      handleLoadMore,
+      isFiltered,
+      formatEventDateTime,
+    ]
   );
 
   if (/* botsLoading || */ eventsLoading) {
@@ -612,107 +805,23 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
       title="Events"
       bare
     >
-      <div className="w-full h-full flex flex-col">
-        {/* Search and Refresh Bar */}
-        <div className="flex items-center gap-xs mb-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <Input
-              placeholder="Search events..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10 pr-10 h-9 text-sm"
-            />
-            {searchQuery && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setSearchQuery('')}
-                className="absolute right-1 top-1/2 transform -translate-y-1/2 h-7 w-7 p-0 hover:bg-muted"
-              >
-                <X className="w-3 h-3" />
-              </Button>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={eventsLoading || isRefreshing}
-            className="h-9"
-          >
-            <RefreshCw
-              className={cn(
-                'w-4 h-4 mr-2 transition-transform duration-200',
-                (eventsLoading || isRefreshing) && 'animate-spin'
-              )}
-            />
-            {isRefreshing ? 'Refreshing...' : 'Refresh'}
-          </Button>
+      <div className="@container w-full h-full flex flex-col">
+        <BotEventsFilterBar
+          filters={filters}
+          pairOptions={pairOptions}
+          typeOptions={typeOptions}
+          onChange={updateFilters}
+          onRefresh={handleRefresh}
+          isRefreshing={eventsLoading || isRefreshing}
+          {...(shareId ? {} : { onExport: handleExport, isExporting })}
+        />
+        <div className="mb-1 text-xs text-muted-foreground">
+          {backendTotal.toLocaleString()} event{backendTotal !== 1 ? 's' : ''}
+          {isFiltered ? ' match' : ''}
         </div>
-
-        <Tabs
-          value={selectedTab}
-          onValueChange={(value) =>
-            setSelectedTab(value as 'recent' | 'deals' | 'alerts')
-          }
-        >
-          <TabsList className="grid w-full grid-cols-3 h-auto">
-            <TabsTrigger
-              value="recent"
-              className="flex items-center gap-xs text-xs"
-            >
-              <Clock className="w-4 h-4" />
-              Recent ({counts.recent})
-            </TabsTrigger>
-            {!isGrid && (
-              <TabsTrigger
-                value="deals"
-                className="flex items-center gap-xs text-xs"
-              >
-                <Activity className="w-4 h-4" />
-                Deals ({counts.deals})
-              </TabsTrigger>
-            )}
-            <TabsTrigger
-              value="alerts"
-              className="flex items-center gap-xs text-xs"
-            >
-              <AlertCircle className="w-4 h-4" />
-              Alerts ({counts.alerts})
-            </TabsTrigger>
-          </TabsList>
-
-          {/* Search Results Indicator */}
-          {debouncedSearch && (
-            <div className="mt-2 mb-2">
-              <div className="text-xs text-muted-foreground">
-                {totalMatches > 0 ? (
-                  <>
-                    Found {totalMatches} event
-                    {totalMatches !== 1 ? 's' : ''} matching "{debouncedSearch}"
-                  </>
-                ) : (
-                  <>No events found matching "{debouncedSearch}"</>
-                )}
-              </div>
-            </div>
-          )}
-
-          <TabsContent value="recent" className="mt-4 flex-1 overflow-hidden">
-            {renderEventTimeline(events, 'No Recent Activity', Clock)}
-          </TabsContent>
-
-          {!isGrid && (
-            <TabsContent value="deals" className="mt-4 flex-1 overflow-hidden">
-              {renderEventTimeline(events, 'No Deal Events', TrendingUp)}
-            </TabsContent>
-          )}
-
-          <TabsContent value="alerts" className="mt-4 flex-1 overflow-hidden">
-            {renderEventTimeline(events, 'No Alerts', AlertCircle)}
-          </TabsContent>
-        </Tabs>
+        <div className="min-h-0 flex-1 overflow-hidden">
+          {renderEvents(events)}
+        </div>
       </div>
     </DrawerSection>
   );

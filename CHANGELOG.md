@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.81.0] - 2026-10-06
+
+### Added
+
+- Bot Events: filter events by time range, type (orders, deals, errors, warnings) and pair, search by order ID together with those filters, and export the filtered events as CSV. Wider widgets show the events as a table with an order/deal column; filters move into a two-column panel when the widget is narrow.
+
+### Changed
+
+- The bot error/warning banner's "Review the bot events" link now opens the Events tab filtered to errors (or warnings), also when the Events tab is already open.
+
 ## [2.80.1] - 2026-10-06
 
 ### Fixed

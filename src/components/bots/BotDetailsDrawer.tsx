@@ -440,17 +440,24 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       };
     }, [isHedge, hedge, bot, type]);
 
-    // Deep-link the alert's "review events" action to the Events tab.
+    // Deep-link the alert's "review events" action to the Events tab,
+    // pre-filtered to the alert's severity (the events widget consumes
+    // `eventsType`). Works from the Events tab too, re-applying the filter.
+    const errorWarningSeverity = errorWarning?.severity;
     const goToEvents = useCallback(() => {
       setSearchParams(
         (prev) => {
           const next = new URLSearchParams(prev);
           next.set('tab', 'events');
+          next.set(
+            'eventsType',
+            errorWarningSeverity === 'warning' ? 'warnings' : 'errors'
+          );
           return next;
         },
         { replace: false }
       );
-    }, [setSearchParams]);
+    }, [setSearchParams, errorWarningSeverity]);
 
     // Combined hedge deals (both legs of THIS hedge bot). Fetched only while
     // the Deals tab is active, via the dedicated hedge query that keeps its
@@ -1801,9 +1808,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                   <BotErrorWarningAlert
                     severity={errorWarning.severity}
                     targets={errorWarning.targets}
-                    onReviewEvents={
-                      activeTab === 'events' ? undefined : goToEvents
-                    }
+                    onReviewEvents={goToEvents}
                     className=""
                   />
                 )}
