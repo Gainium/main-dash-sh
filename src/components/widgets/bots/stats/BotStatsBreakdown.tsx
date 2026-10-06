@@ -91,11 +91,13 @@ export const BotStatsBreakdown: React.FC<BotStatsBreakdownProps> = ({ vm }) => (
           value={vm.winners.avgDealProfitPerc}
           additionalText={vm.winners.avgDealProfitText}
         />
-        <StatItemWithChip
-          label="Max Run-Up"
-          value={vm.winners.maxRunUpPerc}
-          additionalText={vm.winners.maxRunUpText}
-        />
+        {!vm.hideEngineOnly && (
+          <StatItemWithChip
+            label="Max Run-Up"
+            value={vm.winners.maxRunUpPerc}
+            additionalText={vm.winners.maxRunUpText}
+          />
+        )}
         <StatItem
           label="Max Consecutive Wins"
           value={vm.winners.maxConsecutiveWins}
@@ -186,11 +188,13 @@ export const BotStatsBreakdown: React.FC<BotStatsBreakdownProps> = ({ vm }) => (
             value={fmtRatio(vm.ratios.cwr)}
           />
         )}
-        <StatItemWithChip
-          label="Buy-and-Hold Return"
-          value={vm.ratios.buyAndHoldPerc}
-          additionalText={vm.ratios.buyAndHoldText}
-        />
+        {!vm.hideEngineOnly && (
+          <StatItemWithChip
+            label="Buy-and-Hold Return"
+            value={vm.ratios.buyAndHoldPerc}
+            additionalText={vm.ratios.buyAndHoldText}
+          />
+        )}
       </div>
     </StatsSection>
 

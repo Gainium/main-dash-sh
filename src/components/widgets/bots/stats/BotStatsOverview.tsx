@@ -77,7 +77,7 @@ export const BotStatsOverview: React.FC<BotStatsOverviewProps> = ({ vm }) => {
         />
         {vm.maxEquityDdPerc !== null && (
           <Kpi
-            label="Max Equity DD"
+            label={vm.ddLabel ?? 'Max Equity DD'}
             value={vm.maxEquityDdPerc.toFixed(2) + '%'}
             sub={vm.maxEquityDdUsd !== null ? fmtUsd(vm.maxEquityDdUsd) : ''}
             tone="down"

@@ -347,6 +347,35 @@ export const botQueries = {
     return { query, variables };
   },
 
+  /**
+   * Lifetime and since-last-stats-reset performance of a DCA / Combo / hedge
+   * bot, folded by main-app from its deals. Older backends do not have this
+   * field — callers then show the engine's stored stats only.
+   */
+  getBotWindowStats: (input: { id: string; type: string; shareId?: string }) => {
+    const fields = `from closedDeals wins losses winRate
+                            realizedProfitUsd grossProfitUsd grossLossUsd profitFactor
+                            peakCapitalUsd returnOnPeakCapital maxDrawdownUsd maxDrawdownPerc
+                            avgDealDuration maxDealDuration
+                            maxDealProfitUsd maxDealLossUsd avgDealProfitUsd avgDealLossUsd
+                            maxConsecutiveWins maxConsecutiveLosses
+                            avgWinningDealDuration maxWinningDealDuration
+                            avgLosingDealDuration maxLosingDealDuration firstCloseTime`;
+    const query = `query getBotWindowStats($input: getBotWindowStatsInput!) {
+                    getBotWindowStats(input: $input) {
+                        status
+                        reason
+                        data {
+                            resetStatsAfter
+                            lifetime { ${fields} }
+                            sinceChange { ${fields} }
+                        }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   getComboBotDcaUsage: (input: { id: string; shareId?: string }) => {
     const query = `query getComboBotDcaUsage($input: getBotDealsStatsInput!) {
                     getComboBotDcaUsage(input: $input) {

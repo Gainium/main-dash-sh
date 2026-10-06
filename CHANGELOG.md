@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.77.0] - 2026-10-06
+
+### Added
+
+- Bot Statistics tab: a Lifetime / Since-last-change toggle for bots whose statistics were reset by a settings change. Lifetime figures are derived from all of the bot's deals and keep counting across sizing and profit-currency changes; return and drawdown are measured against the peak capital the bot used at once. An info icon explains what each view counts. Run-up, ratios, buy-and-hold and DCA usage show in the Since view only. The toggle is hidden for bots that were never reset and on backends without the lifetime query.
+
 ## [2.76.5] - 2026-10-06
 
 ### Fixed

@@ -16,8 +16,11 @@
 
 import type { PeriodValue } from '@/components/ui/PeriodDatePicker';
 import { Skeleton } from '@/components/ui/skeleton';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useBotFullStats } from '@/hooks/useBotFullStats';
 import { useBotPairStats } from '@/hooks/useBotPairStats';
+import { useBotWindowStats } from '@/hooks/useBotWindowStats';
+import { cn } from '@/lib/utils';
 import { useShareContext } from '@/hooks/useShareContext';
 import type { BotSymbolsStats, BotTypesEnum } from '@/types';
 import { useMemo, useState, type FC } from 'react';
@@ -36,6 +39,13 @@ import {
   buildPairStatsRows,
   buildPairStatsRowsFromSymbolStats,
 } from './pairStatsViewModel';
+import {
+  sinceLabel,
+  windowBreakdown,
+  windowHeadline,
+  windowTooltip,
+  type StatsWindow,
+} from './botWindowStatsViewModel';
 
 export interface BotStatsTabProps {
   botId: string;
@@ -78,14 +88,35 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
     existingSymbolStats: bot.symbolStats as BotSymbolsStats[] | undefined,
   });
 
-  const headline = useMemo(
-    () => (stats ? buildBotStatsHeadline(stats, bot) : null),
-    [stats, bot]
-  );
-  const breakdown = useMemo(
-    () => (stats ? buildBotStatsBreakdown(stats, bot) : null),
-    [stats, bot]
-  );
+  // Lifetime / since-last-change, folded from the deals. Only a bot whose
+  // stats were reset by a settings change has two windows to choose from.
+  const { data: windows } = useBotWindowStats({
+    botId,
+    type: botType,
+    shareId: shareId ?? null,
+    enabled: active,
+  });
+  const resetAt = windows?.sinceChange ? windows.resetStatsAfter : null;
+  const [statsWindow, setStatsWindow] = useState<StatsWindow>('lifetime');
+  const windowStats = resetAt
+    ? statsWindow === 'lifetime'
+      ? windows?.lifetime
+      : windows?.sinceChange
+    : null;
+  const open = Math.max((bot.dealsInBot?.active ?? 0) | 0, 0);
+
+  const headline = useMemo(() => {
+    if (!stats) return null;
+    const base = buildBotStatsHeadline(stats, bot);
+    return windowStats ? windowHeadline(base, windowStats, statsWindow) : base;
+  }, [stats, bot, windowStats, statsWindow]);
+  const breakdown = useMemo(() => {
+    if (!stats) return null;
+    const base = buildBotStatsBreakdown(stats, bot);
+    return windowStats
+      ? windowBreakdown(base, windowStats, statsWindow, open)
+      : base;
+  }, [stats, bot, windowStats, statsWindow, open]);
   // Per-pair breakdown only earns its space on multi-pair bots. The stored
   // symbolStats seed one row even for a single-pair bot, hence `> 1`.
   const multiPair =
@@ -98,7 +129,10 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
     botId,
     type: botType,
     shareId: shareId ?? null,
-    from: range?.from.getTime(),
+    // With no range picked, the since view windows the pairs the same way.
+    from:
+      range?.from.getTime() ??
+      (resetAt && statsWindow === 'since' ? resetAt : undefined),
     to: range?.to.getTime(),
     enabled: active && multiPair,
   });
@@ -148,6 +182,41 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
       bare
     >
       <div className="flex flex-col gap-md">
+        {resetAt && (
+          <div className="flex items-center justify-end gap-xs">
+            <div
+              role="tablist"
+              aria-label="Statistics window"
+              className="inline-flex items-center gap-1 rounded-md bg-muted/60 p-1"
+            >
+              {(
+                [
+                  ['lifetime', 'Lifetime'],
+                  ['since', sinceLabel(resetAt)],
+                ] as const
+              ).map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={statsWindow === id}
+                  onClick={() => setStatsWindow(id)}
+                  className={cn(
+                    'rounded-sm px-sm py-1 text-xs font-semibold transition-colors',
+                    statsWindow === id
+                      ? 'bg-primary/10 text-primary ring-1 ring-inset ring-primary/40'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <Tooltip tooltip={windowTooltip(statsWindow, resetAt)} side="bottom">
+              <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+            </Tooltip>
+          </div>
+        )}
         <BotStatsOverview vm={headline} />
         <BotStatsBreakdown vm={breakdown} />
         {multiPair && (

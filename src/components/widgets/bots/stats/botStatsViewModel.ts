@@ -69,6 +69,8 @@ export interface BotStatsHeadlineVM {
 
   maxEquityDdPerc: number | null;
   maxEquityDdUsd: number | null;
+  /** Label of that drawdown KPI; a window view shows realized DD there. */
+  ddLabel?: string;
 
   maxDealDuration: string;
   workingTime: string;
@@ -86,6 +88,11 @@ export interface BotStatsBreakdownVM {
   profitSign: string;
   usdOnly: boolean;
   showDca: boolean;
+  /**
+   * Hide the rows only the engine's own stats carry (run-up, buy-and-hold).
+   * Set by the Lifetime view, whose figures are folded from deals.
+   */
+  hideEngineOnly?: boolean;
 
   general: {
     netPerc: number;
@@ -155,10 +162,10 @@ export interface BotStatsBreakdownVM {
   };
 }
 
-const PERC = (v: number | undefined | null): number =>
+export const PERC = (v: number | undefined | null): number =>
   typeof v === 'number' && Number.isFinite(v) ? math.round(v * 100) : 0;
 
-const roundUsd = (v: number | undefined | null): number =>
+export const roundUsd = (v: number | undefined | null): number =>
   typeof v === 'number' && Number.isFinite(v) ? math.round(v, 3) : 0;
 
 /**
@@ -174,7 +181,7 @@ const fmtAsset = (v: number | undefined | null): string => {
 };
 
 /** `-1` is the backend's "no losing deals" sentinel for profit factor. */
-const profitFactorOf = (raw: number | undefined | null): number =>
+export const profitFactorOf = (raw: number | undefined | null): number =>
   raw === -1 ? Infinity : typeof raw === 'number' ? math.round(raw, 3) : 0;
 
 /**
