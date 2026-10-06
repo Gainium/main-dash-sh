@@ -606,7 +606,15 @@ const DealActionsMenu: React.FC<{
     [executeNextDcaMutation, trade.botId, trade.id]
   );
 
-  // Restart deal — DCA and Combo bot deals; re-places this deal's orders only.
+  // Restart deal — DCA / Combo deals, hedge ones included (the backend routes
+  // a hedge deal to the long or short child that owns it); re-places this
+  // deal's orders only.
+  const canShowRestartDeal = [
+    'DCA',
+    'Combo',
+    'Hedge DCA',
+    'Hedge Combo',
+  ].includes(trade.type);
   const restartDealMutation = useRestartDeal();
   const handleRestartConfirm = useCallback(() => {
     if (!trade.botId) {
@@ -616,10 +624,14 @@ const DealActionsMenu: React.FC<{
     restartDealMutation.mutate({
       dealId: trade.id,
       botId: trade.botId,
-      combo: trade.type === 'Combo',
+      combo:
+        trade.type === 'Combo' ||
+        trade.type === 'Hedge Combo' ||
+        botType === BotTypesEnum.combo ||
+        botType === BotTypesEnum.hedgeCombo,
     });
     setRestartDialogOpen(false);
-  }, [restartDealMutation, trade.botId, trade.id, trade.type]);
+  }, [restartDealMutation, trade.botId, trade.id, trade.type, botType]);
 
   const editDealMutation = useEditDeal({
     onSuccess: () => {
@@ -720,7 +732,7 @@ const DealActionsMenu: React.FC<{
               Execute next DCA
             </DropdownMenuItem>
           )}
-          {canShowChangeDca && (
+          {canShowRestartDeal && (
             <DropdownMenuItem
               onClick={() => setRestartDialogOpen(true)}
               disabled={!isDealOpen}

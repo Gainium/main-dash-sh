@@ -962,8 +962,12 @@ const EnhancedCard = React.memo(
       },
       [executeNextDcaMutation, trade.botId, trade.id]
     );
-    // Restart deal — same audience as "Change DCA levels" (DCA/Combo bot
-    // deals, not terminal); re-places this deal's orders only.
+    // Restart deal — DCA / Combo bot deals, hedge ones included (the backend
+    // routes a hedge deal to the long or short child that owns it); not
+    // terminal. Re-places this deal's orders only.
+    const canShowRestartDeal =
+      !terminal &&
+      ['DCA', 'Combo', 'Hedge DCA', 'Hedge Combo'].includes(trade.type);
     const restartDealMutation = useRestartDeal();
     const handleRestartConfirm = useCallback(() => {
       if (!trade.botId) {
@@ -973,7 +977,11 @@ const EnhancedCard = React.memo(
       restartDealMutation.mutate({
         dealId: trade.id,
         botId: trade.botId,
-        combo: trade.type === 'Combo' || botType === BotTypesEnum.combo,
+        combo:
+          trade.type === 'Combo' ||
+          trade.type === 'Hedge Combo' ||
+          botType === BotTypesEnum.combo ||
+          botType === BotTypesEnum.hedgeCombo,
       });
       setRestartDialogOpen(false);
     }, [restartDealMutation, trade.botId, trade.id, trade.type, botType]);
@@ -1305,7 +1313,7 @@ const EnhancedCard = React.memo(
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
-                {canShowChangeDca && (
+                {canShowRestartDeal && (
                   <DropdownMenuItem
                     onClick={() => setRestartDialogOpen(true)}
                     disabled={!isDealOpen}

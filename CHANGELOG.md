@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.79.0] - 2026-10-06
+
+### Added
+
+- "Restart deal" is offered on hedge DCA and hedge Combo deals too.
+
 ## [2.78.1] - 2026-10-06
 
 ### Fixed
