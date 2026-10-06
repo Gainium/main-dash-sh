@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.76.2] - 2026-10-06
+
+### Changed
+
+- Includes the fix released in 2.69.9 (listed below).
+
 ## [2.76.1] - 2026-10-06
 
 ### Changed
@@ -70,6 +76,12 @@
 - More extension points for the bot form: a block under an individual setting or at the top of a section, a section-header highlight, whole extra form sections, extension settings kept in the form and saved by its Save button after the bot itself, and decorations for a bot's header in the details drawer and the bot form. The Take profit and Stop loss "More Settings" groups open by themselves while an extension manages trailing take profit or trailing stop loss.
 - AI color tokens (`ai-surface`, `ai-surface-strong`, `ai-border`, `ai-foreground`) for light and dark themes.
 - Backtest limitations: before a DCA or Combo backtest, a dialog lists the settings that are on for the bot but can't be simulated in a backtest (webhook signals, volume filters, global variables, Combo trailing / multiple targets and others), with what the backtest does instead. It never blocks the run, and "Don't remind me again" is remembered per setting, so a newly applicable one still shows. Host builds can add their own items.
+## [2.69.9] - 2026-10-06
+
+### Fixed
+
+- Notifications: an update or news item whose text is cut off now always shows the expand arrow. Short items made of a heading and a few paragraphs could be cut off with no way to expand them.
+
 ## [2.69.8] - 2026-10-05
 
 ### Fixed
