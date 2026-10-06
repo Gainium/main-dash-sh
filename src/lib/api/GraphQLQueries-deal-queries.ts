@@ -994,6 +994,18 @@ export const dealQueries = {
     return { query, variables };
   },
 
+  restartDeal: (input: { dealId: string; botId: string; combo?: boolean }) => {
+    const query = `mutation restartDeal($input: restartDealInput!) {
+  restartDeal(input: $input) {
+  status
+  reason
+  data
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   executeNextDca: (input: {
     dealId: string;
     botId: string;

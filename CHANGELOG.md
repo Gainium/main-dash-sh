@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.78.0] - 2026-10-06
+
+### Added
+
+- "Restart deal" in the deal actions menu (bot deals table and trade cards) for open DCA and Combo deals. It cancels and re-places that deal's safety orders and take profit without restarting the bot or touching its other deals. Needs a backend with the `restartDeal` mutation.
+
 ## [2.77.0] - 2026-10-06
 
 ### Added

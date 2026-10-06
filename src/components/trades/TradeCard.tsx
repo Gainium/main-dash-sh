@@ -14,6 +14,7 @@ import {
     useDealActions,
     useEditDeal,
     useExecuteNextDca,
+    useRestartDeal,
     useMoveDealToTerminal,
     useRestoreDeal,
     toastDealCloseError,
@@ -51,6 +52,7 @@ import {
     X,
     XCircle,
     Zap,
+    RefreshCw,
 } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -351,6 +353,7 @@ const EnhancedCard = React.memo(
     const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
     const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
     const [executeNextDcaOpen, setExecuteNextDcaOpen] = useState(false);
+    const [restartDialogOpen, setRestartDialogOpen] = useState(false);
     const handleAddFunds = () => {
       setAdjustFundsDialog('add');
     };
@@ -959,6 +962,21 @@ const EnhancedCard = React.memo(
       },
       [executeNextDcaMutation, trade.botId, trade.id]
     );
+    // Restart deal — same audience as "Change DCA levels" (DCA/Combo bot
+    // deals, not terminal); re-places this deal's orders only.
+    const restartDealMutation = useRestartDeal();
+    const handleRestartConfirm = useCallback(() => {
+      if (!trade.botId) {
+        toast.error('Cannot restart the deal - missing bot ID');
+        return;
+      }
+      restartDealMutation.mutate({
+        dealId: trade.id,
+        botId: trade.botId,
+        combo: trade.type === 'Combo' || botType === BotTypesEnum.combo,
+      });
+      setRestartDialogOpen(false);
+    }, [restartDealMutation, trade.botId, trade.id, trade.type, botType]);
     // The inverse of "Move to Terminal": only terminal deals can be moved back
     // into a bot, and only while open (a closed deal has no position to adopt).
     const canShowMoveToBot = useMemo(
@@ -1140,6 +1158,15 @@ const EnhancedCard = React.memo(
           onConfirm={handleMoveToTerminalConfirm}
         />
         <ConfirmationDialog
+          open={restartDialogOpen}
+          onOpenChange={setRestartDialogOpen}
+          title="Restart deal"
+          description={`Restart the deal for ${symbolString}? Its open safety orders and take profit are cancelled and placed again from the deal's current state. The bot's other deals are not touched.`}
+          confirmText="Restart"
+          cancelText="Cancel"
+          onConfirm={handleRestartConfirm}
+        />
+        <ConfirmationDialog
           open={restoreDialogOpen}
           onOpenChange={setRestoreDialogOpen}
           title="Restore deal"
@@ -1278,6 +1305,15 @@ const EnhancedCard = React.memo(
                   <Edit className="w-4 h-4 mr-2" />
                   Edit
                 </DropdownMenuItem>
+                {canShowChangeDca && (
+                  <DropdownMenuItem
+                    onClick={() => setRestartDialogOpen(true)}
+                    disabled={!isDealOpen}
+                  >
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    Restart deal
+                  </DropdownMenuItem>
+                )}
                 {canShowChangeDca && (
                   <DropdownMenuItem
                     onClick={() => setChangeDcaDialogOpen(true)}

@@ -25,6 +25,7 @@ import {
     X,
     XCircle,
     Zap,
+    RefreshCw,
 } from 'lucide-react';
 import React, {
     useCallback,
@@ -76,6 +77,7 @@ import {
     useDealActions,
     useEditDeal,
     useExecuteNextDca,
+    useRestartDeal,
     useMoveDealToTerminal,
     useRestoreDeal,
     isDealNotOpenError,
@@ -281,6 +283,7 @@ const DealActionsMenu: React.FC<{
   const [moveDialogOpen, setMoveDialogOpen] = useState(false);
   const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
   const [executeNextDcaOpen, setExecuteNextDcaOpen] = useState(false);
+  const [restartDialogOpen, setRestartDialogOpen] = useState(false);
   const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
   const [adjustFundsDialog, setAdjustFundsDialog] =
     useState<AdjustFundsDialogMode | null>(null);
@@ -603,6 +606,21 @@ const DealActionsMenu: React.FC<{
     [executeNextDcaMutation, trade.botId, trade.id]
   );
 
+  // Restart deal — DCA and Combo bot deals; re-places this deal's orders only.
+  const restartDealMutation = useRestartDeal();
+  const handleRestartConfirm = useCallback(() => {
+    if (!trade.botId) {
+      toast.error('Cannot restart the deal - missing bot ID');
+      return;
+    }
+    restartDealMutation.mutate({
+      dealId: trade.id,
+      botId: trade.botId,
+      combo: trade.type === 'Combo',
+    });
+    setRestartDialogOpen(false);
+  }, [restartDealMutation, trade.botId, trade.id, trade.type]);
+
   const editDealMutation = useEditDeal({
     onSuccess: () => {
       toast.success('DCA levels updated');
@@ -704,6 +722,15 @@ const DealActionsMenu: React.FC<{
           )}
           {canShowChangeDca && (
             <DropdownMenuItem
+              onClick={() => setRestartDialogOpen(true)}
+              disabled={!isDealOpen}
+            >
+              <RefreshCw className="w-4 h-4 mr-2" />
+              Restart deal
+            </DropdownMenuItem>
+          )}
+          {canShowChangeDca && (
+            <DropdownMenuItem
               onClick={() => setChangeDcaDialogOpen(true)}
               disabled={!canChangeDca}
             >
@@ -752,6 +779,15 @@ const DealActionsMenu: React.FC<{
         cancelText="Keep Deal"
         variant="destructive"
         onConfirm={handleCancelConfirm}
+      />
+      <ConfirmationDialog
+        open={restartDialogOpen}
+        onOpenChange={setRestartDialogOpen}
+        title="Restart deal"
+        description={`Restart the deal for ${symbolString}? Its open safety orders and take profit are cancelled and placed again from the deal's current state. The bot's other deals are not touched.`}
+        confirmText="Restart"
+        cancelText="Cancel"
+        onConfirm={handleRestartConfirm}
       />
       <ConfirmationDialog
         open={restoreDialogOpen}

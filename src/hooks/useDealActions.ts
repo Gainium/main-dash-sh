@@ -426,6 +426,66 @@ export function useExecuteNextDca() {
   });
 }
 
+export type RestartDealInput = {
+  dealId: string;
+  botId: string;
+  combo?: boolean;
+};
+
+/**
+ * Restart one deal: cancel and re-place its safety orders and take profit,
+ * like the bot's Restart but without touching the bot's other deals.
+ * https://community.gainium.io/t/restart-option-for-individual-deals/5302
+ *
+ * QUEUED like execute-next-DCA: OK means the engine accepted it; the new
+ * orders (or the exchange's refusal) arrive over the websocket.
+ */
+export function useRestartDeal() {
+  const { tokens } = useAuthStore();
+
+  const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+
+  const client = new GraphQLClient(
+    import.meta.env['VITE_API_ENDPOINT'],
+    tokens?.accessToken,
+    !isLiveTrading
+  );
+
+  return useMutation<DealResponse, Error, RestartDealInput>({
+    meta: { errorToast: true },
+    mutationFn: async (input) => {
+      logger.info('[useRestartDeal] Restarting deal:', input);
+
+      const { query, variables } = dealQueries.restartDeal(input);
+
+      const response = await client.request<{
+        restartDeal: DealResponse;
+      }>(query, variables);
+
+      if (response.restartDeal?.status !== 'OK') {
+        throw new Error(
+          response.restartDeal?.reason || 'Failed to restart the deal'
+        );
+      }
+
+      return response.restartDeal;
+    },
+    onSuccess: (response) => {
+      toast.info(
+        typeof response?.data === 'string' && response.data.trim()
+          ? response.data
+          : 'Deal restart scheduled'
+      );
+    },
+    onError: (error, variables) => {
+      logger.error('[useRestartDeal] Failed to restart deal:', {
+        dealId: variables.dealId,
+        error: error.message,
+      });
+    },
+  });
+}
+
 // Hook for closing Combo deals
 export function useCloseComboDeal() {
   const { tokens } = useAuthStore();
