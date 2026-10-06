@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.11] - 2026-10-06
+
+### Fixed
+
+- Bot details panel: on touch screens, dragging the panel's left edge or the divider between the chart and the bot info with a finger now resizes them, as dragging with a mouse does on desktop.
+
 ## [2.69.10] - 2026-10-06
 
 ### Fixed

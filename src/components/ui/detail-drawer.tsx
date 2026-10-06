@@ -558,7 +558,7 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
       return Math.max(minTotalWidth, viewport);
     };
 
-    const handleMouseMove = (e: MouseEvent) => {
+    const handlePointerMove = (e: PointerEvent) => {
       if (!isResizing || !containerRef.current) return;
 
       const containerRect = containerRef.current.getBoundingClientRect();
@@ -638,7 +638,7 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
       }
     };
 
-    const handleMouseUp = () => {
+    const handlePointerUp = () => {
       setResizeMode(null);
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
@@ -651,15 +651,17 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
     };
 
     if (isResizing) {
-      document.addEventListener('mousemove', handleMouseMove);
-      document.addEventListener('mouseup', handleMouseUp);
+      document.addEventListener('pointermove', handlePointerMove);
+      document.addEventListener('pointerup', handlePointerUp);
+      document.addEventListener('pointercancel', handlePointerUp);
       document.body.style.cursor = 'col-resize';
       document.body.style.userSelect = 'none';
     }
 
     return () => {
-      document.removeEventListener('mousemove', handleMouseMove);
-      document.removeEventListener('mouseup', handleMouseUp);
+      document.removeEventListener('pointermove', handlePointerMove);
+      document.removeEventListener('pointerup', handlePointerUp);
+      document.removeEventListener('pointercancel', handlePointerUp);
     };
   }, [
     isResizing,
@@ -673,9 +675,12 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
   ]);
 
   const handleResizeStart =
-    (mode: 'left-edge' | 'split') => (e: React.MouseEvent) => {
+    (mode: 'left-edge' | 'split') => (e: React.PointerEvent) => {
       e.preventDefault();
       if (!isResizableLayout) return;
+      // Pointer events cover mouse, pen and touch alike; capture keeps the
+      // drag's moves coming even when the finger leaves the thin handle.
+      e.currentTarget.setPointerCapture?.(e.pointerId);
       const separatorWidth = shouldShowLeftPanel ? RESIZER_WIDTH : 0;
       const effectiveLeftWidth = shouldShowLeftPanel ? leftPanelWidth : 0;
       const currentTotalWidth =
@@ -841,15 +846,15 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
                   {isResizableLayout && (
                     <div
                       className={cn(
-                        'absolute left-0 top-0 h-full w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors pointer-events-auto z-10',
+                        'absolute left-0 top-0 h-full w-1 bg-border hover:bg-primary/50 cursor-col-resize touch-none transition-colors pointer-events-auto z-10',
                         isResizing && 'bg-primary'
                       )}
-                      onMouseDown={handleResizeStart('left-edge')}
+                      onPointerDown={handleResizeStart('left-edge')}
                       role="separator"
                       aria-orientation="vertical"
                       aria-label="Resize chart panel"
                     >
-                      <div className="absolute inset-y-0 -left-1 -right-1" />
+                      <div className="absolute inset-y-0 -left-1 -right-1 pointer-coarse:-left-3 pointer-coarse:-right-3" />
                     </div>
                   )}
                   <div
@@ -872,15 +877,15 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
                 {isResizableLayout && (
                   <div
                     className={cn(
-                      'w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors relative group pointer-events-auto',
+                      'w-1 bg-border hover:bg-primary/50 cursor-col-resize touch-none transition-colors relative group pointer-events-auto pointer-coarse:z-10',
                       isResizing && 'bg-primary'
                     )}
-                    onMouseDown={handleResizeStart('split')}
+                    onPointerDown={handleResizeStart('split')}
                     role="separator"
                     aria-orientation="vertical"
                     aria-label="Resize drawer"
                   >
-                    <div className="absolute inset-y-0 -left-1 -right-1" />
+                    <div className="absolute inset-y-0 -left-1 -right-1 pointer-coarse:-left-3 pointer-coarse:-right-3" />
                   </div>
                 )}
               </>
@@ -906,15 +911,15 @@ const DetailDrawerContent: React.FC<DetailDrawerContentProps> = ({
               {!shouldShowLeftPanel && isResizableLayout && (
                 <div
                   className={cn(
-                    'absolute left-0 top-0 h-full w-1 bg-border hover:bg-primary/50 cursor-col-resize transition-colors pointer-events-auto z-10',
+                    'absolute left-0 top-0 h-full w-1 bg-border hover:bg-primary/50 cursor-col-resize touch-none transition-colors pointer-events-auto z-10',
                     isResizing && 'bg-primary'
                   )}
-                  onMouseDown={handleResizeStart('left-edge')}
+                  onPointerDown={handleResizeStart('left-edge')}
                   role="separator"
                   aria-orientation="vertical"
                   aria-label="Resize drawer"
                 >
-                  <div className="absolute inset-y-0 -left-1 -right-1" />
+                  <div className="absolute inset-y-0 -left-1 -right-1 pointer-coarse:-left-3 pointer-coarse:-right-3" />
                 </div>
               )}
               {showCloseButton && (
