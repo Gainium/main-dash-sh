@@ -32,8 +32,9 @@
  *    `dca.orderSize` (when sized in quote/base/usd; percent modes
  *    skipped).
  *  - Combo (incl. hedgeCombo leg): same fields on the `combo` slice.
- *  - Grid: `grid.budget` against minQuoteAmount × levels (one quote
- *    minimum per grid order).
+ *  - Grid: `grid.budget` against the grid's minimum budget
+ *    (`computeGridBudgetRangeFromForm`), falling back to
+ *    minQuoteAmount × levels when that can't be computed yet.
  *
  * Out of scope (intentional): `dca.ordersCount`, `stepScale`,
  * `volumeScale`, `step` — these are scalars, not amounts; the
@@ -55,6 +56,7 @@ import {
   type AggregatedPrecision,
 } from '@/features/bots/shared/utils/order-guard';
 import logger from '@/lib/loggerInstance';
+import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 import { BotTypesEnum, OrderSizeTypeEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
@@ -361,7 +363,21 @@ export const useExchangeMinimumBump = (
       if (!(typeof minQuote === 'number' && minQuote > 0)) {
         return;
       }
-      const minBudget = minQuote * levels;
+      // One quote minimum per level undershoots whenever levels are fixed
+      // in base (every level the same qty, so the LOWEST price binds) or the
+      // qty step rounds up — the engine then refuses the start. Prefer the
+      // full per-level calculation the budget hint and validator use.
+      const seedPrice = Number(formData.initialPrice ?? 0) || undefined;
+      const range = computeGridBudgetRangeFromForm({
+        grid: formData.grid,
+        primaryPair: primaryPair as string,
+        pairPrecisionMap: formData.pairPrecisionMap,
+        userFee: formData.userFee,
+        latestPrice: seedPrice,
+        initialPrice: seedPrice,
+      });
+      const minBudget =
+        range && range.min > 0 ? range.min : minQuote * levels;
       if (budget <= 0 || budget >= minBudget) {
         return;
       }

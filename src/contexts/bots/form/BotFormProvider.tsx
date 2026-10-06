@@ -77,6 +77,7 @@ import {
   type HandleSettingsUpdateResult,
 } from '@/utils/bots/dca/handle-settings';
 import { hotValidateDcaFormData } from '@/utils/bots/dca/validation';
+import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 import { validateGridFormData } from '@/utils/bots/grid/validation';
 import { parseIndicatorFavoriteCodes } from '@/utils/indicators';
 import {
@@ -1104,7 +1105,25 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     let newErrors: BotFormErrors = {};
     let newAlerts: BotFormAlerts = {};
     if (formData.type === BotTypesEnum.grid) {
+      // Same minimum as the "Min budget is X" hint under the budget input,
+      // and gated the same way (create only).
+      const primaryPair = Array.isArray(formData.pair)
+        ? formData.pair[0]
+        : formData.pair;
+      const seedPrice = Number(formData.initialPrice ?? 0) || undefined;
+      const minBudget =
+        mode === 'create' && primaryPair
+          ? (computeGridBudgetRangeFromForm({
+              grid: formData.grid,
+              primaryPair,
+              pairPrecisionMap: formData.pairPrecisionMap,
+              userFee: formData.userFee,
+              latestPrice: seedPrice,
+              initialPrice: seedPrice,
+            })?.min ?? null)
+          : null;
       const { errors: _newErrors, alerts: _newAlerts } = validateGridFormData({
+        minBudget,
         name: formData.name,
         exchangeUUID: formData.exchangeUUID,
         pair: formData.pair,

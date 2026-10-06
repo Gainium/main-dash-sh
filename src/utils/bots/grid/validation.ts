@@ -106,6 +106,7 @@ export const validateGridFormData = ({
   exchangeUUID,
   pair,
   grid,
+  minBudget,
 }: Omit<
   Pick<BotFormData, 'name' | 'exchangeUUID' | 'pair' | BotTypesEnum.grid>,
   'grid'
@@ -136,6 +137,12 @@ export const validateGridFormData = ({
     | 'leverage'
     | 'marginType'
   >;
+  /**
+   * Least budget at which every level clears the exchange's per-order
+   * minimum (`computeGridBudgetRangeFromForm`). Omit when it is unknown —
+   * the check is skipped, as before.
+   */
+  minBudget?: number | null;
 }): GridFormValidationResult => {
   const errors: Record<string, string> = {};
 
@@ -154,6 +161,15 @@ export const validateGridFormData = ({
 
   if (!isPositiveNumber(grid.budget)) {
     errors['budget'] = 'Budget must be greater than zero.';
+  } else if (
+    typeof minBudget === 'number' &&
+    minBudget > 0 &&
+    (parseGridNumber(grid.budget) ?? 0) < minBudget
+  ) {
+    // Below this the engine raises levels to the exchange minimum and
+    // refuses the start ("Budget … is below the minimum …"), so the bot
+    // could be saved but never run. Legacy main-dash blocked save here too.
+    errors['budget'] = `Min budget for these settings is ${minBudget}.`;
   }
 
   if (!isPositiveNumber(grid.topPrice)) {
