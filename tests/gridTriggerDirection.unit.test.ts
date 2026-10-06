@@ -93,6 +93,58 @@ test.describe('grid priceReached trigger direction', () => {
     expect(flipped['sl']).toContain('above the low price');
   });
 
+  // A futures grid's side is its position side, `futuresStrategy`; the engine
+  // reads `strategy` only when that is NEUTRAL (helper.ts `get isShort()`).
+  // Bots created before the form mirrored the two carry strategy LONG under a
+  // SHORT position side, and must be checked as the short grid they run as.
+  test('reads a futures grid side from its position side', () => {
+    const short = validate({
+      strategy: 'LONG',
+      futuresStrategy: 'SHORT',
+      tpTopPrice: LOW,
+      slLowPrice: TOP,
+    });
+    expect(short['tpSl']).toBeUndefined();
+    expect(short['sl']).toBeUndefined();
+
+    const flipped = validate({
+      strategy: 'LONG',
+      futuresStrategy: 'SHORT',
+      tpTopPrice: TOP,
+      slLowPrice: LOW,
+    });
+    expect(flipped['tpSl']).toContain('below the top price');
+    expect(flipped['sl']).toContain('above the low price');
+
+    const long = validate({
+      strategy: 'SHORT',
+      futuresStrategy: 'LONG',
+      tpTopPrice: LOW,
+    });
+    expect(long['tpSl']).toContain('above the low price');
+  });
+
+  test('falls back to the spot direction for a neutral futures grid', () => {
+    const errors = validate({
+      strategy: 'SHORT',
+      futuresStrategy: 'NEUTRAL',
+      tpTopPrice: LOW,
+      slLowPrice: TOP,
+    });
+    expect(errors['tpSl']).toBeUndefined();
+    expect(errors['sl']).toBeUndefined();
+  });
+
+  test('ignores the position side on a spot grid', () => {
+    const errors = validate({
+      futures: false,
+      strategy: 'LONG',
+      futuresStrategy: 'SHORT',
+      tpTopPrice: LOW,
+    });
+    expect(errors['tpSl']).toContain('above the low price');
+  });
+
   test('leaves a valueChanged trigger alone', () => {
     const errors = validate({
       tpSlCondition: 'valueChanged',
