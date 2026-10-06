@@ -21,10 +21,10 @@ export interface JournalDealKey {
 // auto-generated notes; match them on symbol + exchange + deal open time.
 const DEAL_NOTE_PREFIXES = ['Deal from ', 'Terminal trade from '];
 
-const isLegacyDealEntry = (trade: JournalTradeLike) =>
-  !trade.sourceDealId &&
-  !!trade.notes &&
-  DEAL_NOTE_PREFIXES.some((prefix) => trade.notes!.startsWith(prefix));
+const isLegacyDealEntry = ({ sourceDealId, notes }: JournalTradeLike) =>
+  !sourceDealId &&
+  !!notes &&
+  DEAL_NOTE_PREFIXES.some((prefix) => notes.startsWith(prefix));
 
 export const isDealInJournal = (
   trades: readonly JournalTradeLike[],
