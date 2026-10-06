@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.80.0] - 2026-10-06
+
+### Added
+
+- Backtest results, Deals tab: sort the deal list (deal number, start/close time, P&L %, P&L $, duration, safety orders filled, volume), filter it by outcome (all/wins/losses/open), P&L, duration, safety orders filled, start date and pair, and export the shown deals as CSV. Prev/next follow the shown order.
+
+### Fixed
+
+- Backtest results, Deals tab: the selected deal no longer jumps back to the default one when the bot form behind the results re-renders.
+
 ## [2.79.1] - 2026-10-06
 
 ### Fixed
