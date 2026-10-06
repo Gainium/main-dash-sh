@@ -15,6 +15,7 @@ import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import {
   BotTypesEnum,
+  type BotVars,
   type DCABacktestingResultHistory,
   type DCABot,
 } from '@/types';
@@ -44,6 +45,9 @@ const TradingBotNewWidget = () => {
   const [loadedFormData, setLoadedFormData] = useState<
     Partial<BotFormData> | undefined
   >(undefined);
+  // The source bot's global-variable bindings, so the clone stays bound to
+  // the same variables rather than freezing their current values.
+  const [loadedBotVars, setLoadedBotVars] = useState<BotVars | null>(null);
   const [loadHandled, setLoadHandled] = useState(false);
   const [formReloadKey, setFormReloadKey] = useState(0);
 
@@ -74,6 +78,10 @@ const TradingBotNewWidget = () => {
         { bot }
       );
       const base = formData.name?.trim();
+      // A clone replaces the form, so the unsaved create-draft must not be
+      // restored over it when the form mounts.
+      clearBotFormDraft(botFormDraftKey(BotTypesEnum.dca, 'create'));
+      setLoadedBotVars(bot.vars ?? null);
       setLoadedFormData({
         ...formData,
         name: base ? `${base} (Clone)` : 'Bot (Clone)',
@@ -118,6 +126,7 @@ const TradingBotNewWidget = () => {
         // must not be restored over it when the form remounts.
         clearBotFormDraft(botFormDraftKey(BotTypesEnum.dca, 'create'));
         setLoadedFormData(mappedFormData);
+        setLoadedBotVars(null);
         setFormReloadKey((prev) => prev + 1);
         toast.success('Backtest settings loaded into bot form');
       } catch (error) {
@@ -138,6 +147,7 @@ const TradingBotNewWidget = () => {
       descriptor={dcaPageDescriptor}
       mode="create"
       initialFormData={initialFormData}
+      initialBotVars={loadedBotVars}
       formReloadKey={formReloadKey}
       isSeedPending={isLoadingClone}
       openInManual={Boolean(preload?.openInManual)}

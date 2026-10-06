@@ -28,7 +28,7 @@ import {
   tryGetBotExperience,
 } from '@/features/bots/catalog/BotExperienceCatalog';
 import type { BotExperienceDescriptor } from '@/features/bots/catalog/types';
-import { BotTypesEnum } from '@/types';
+import { BotTypesEnum, type BotVars } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 export interface BotFormWidgetProps extends BotFormProps {
@@ -55,6 +55,8 @@ export interface BotFormWidgetProps extends BotFormProps {
   /** Forwarded to BotFormProvider — the seed is a full settings load
    *  (backtest "Load in settings"), so the form opens in Manual. */
   openInManual?: boolean;
+  /** Forwarded to BotFormProvider — the seed's global-variable bindings. */
+  initialBotVars?: BotVars | null;
 }
 
 /**
@@ -90,6 +92,7 @@ const BotFormWidget: React.FC<BotFormWidgetProps> = ({
   innerSlot,
   isNestedLeg,
   openInManual,
+  initialBotVars,
   ...restProps
 }) => {
   const { id: paramBotId } = useParams<{ id: string }>();
@@ -182,6 +185,7 @@ const BotFormWidget: React.FC<BotFormWidgetProps> = ({
         botType={botType}
         isNestedLeg={isNestedLeg}
         openInManual={openInManual}
+        initialBotVars={initialBotVars}
       >
         {formDataRef && <FormDataRefPublisher targetRef={formDataRef} />}
         {innerSlot}

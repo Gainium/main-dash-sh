@@ -1204,7 +1204,7 @@ const ComboBots: React.FC = () => {
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.original.currentValue ?? row.original.maxValue ?? 0;
+          const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
           return (
             <ProfitAndPerc
@@ -1241,7 +1241,7 @@ const ComboBots: React.FC = () => {
           const totalProfit = row.totalProfitUsd ?? 0;
           const unrealized = row.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.currentValue ?? row.maxValue ?? 0;
+          const cost = row.currentValue || row.maxValue || 0;
           return cost > 0 ? (netPnl / cost) * 100 : 0;
         },
         cell: ({ row }) => {
@@ -1251,7 +1251,7 @@ const ComboBots: React.FC = () => {
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.original.currentValue ?? row.original.maxValue ?? 0;
+          const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
           return <ProfitLossPercChip value={percentage} size="sm" />;
         },

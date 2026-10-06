@@ -3,6 +3,7 @@ import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
@@ -31,6 +32,11 @@ export interface PeriodDatePickerProps {
   presets?: PeriodPreset[];
   /** Disallow selecting dates after this. Defaults to today. */
   maxDate?: Date;
+  /**
+   * Show start/end time-of-day inputs under the calendar. Without it the
+   * range always spans whole days (00:00 → 23:59:59.999).
+   */
+  showTime?: boolean;
   className?: string;
 }
 
@@ -77,6 +83,24 @@ const startOfDay = (d: Date) =>
 const endOfDay = (d: Date) =>
   new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
 
+const formatTime = (d: Date) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
+// Move `d` to the `HH:mm` of an `<input type="time">`, keeping its day. The
+// end of a range keeps :59.999 so "23:59" still covers the whole last minute.
+const withTime = (d: Date, hhmm: string, isEnd: boolean) => {
+  const [hh, mm] = hhmm.split(':').map(Number);
+  return new Date(
+    d.getFullYear(),
+    d.getMonth(),
+    d.getDate(),
+    hh || 0,
+    mm || 0,
+    isEnd ? 59 : 0,
+    isEnd ? 999 : 0
+  );
+};
+
 const formatDisplay = (d: Date) =>
   `${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 
@@ -98,6 +122,7 @@ export const PeriodDatePicker: React.FC<PeriodDatePickerProps> = ({
   onReset,
   presets = DEFAULT_PRESETS,
   maxDate = new Date(),
+  showTime = false,
   className,
 }) => {
   const [cursor, setCursor] = useState<Date>(() => value?.to ?? new Date());
@@ -126,17 +151,26 @@ export const PeriodDatePicker: React.FC<PeriodDatePickerProps> = ({
     if (isAfter(d, maxDate)) return;
     // Range builder: first click sets from, second click sets to. If
     // clicking before from, restart.
+    // With time inputs shown, re-picking a day keeps the times already chosen.
+    const fromAt = (day: Date) =>
+      showTime && draftFrom
+        ? withTime(day, formatTime(draftFrom), false)
+        : startOfDay(day);
     if (!draftFrom || (draftFrom && draftTo)) {
-      setDraftFrom(startOfDay(d));
+      setDraftFrom(fromAt(d));
       setDraftTo(null);
       return;
     }
     if (isBefore(d, draftFrom)) {
-      setDraftFrom(startOfDay(d));
+      setDraftFrom(fromAt(d));
       setDraftTo(null);
       return;
     }
-    const next = { from: draftFrom, to: endOfDay(d) };
+    const to =
+      showTime && value?.to ? withTime(d, formatTime(value.to), true) : endOfDay(d);
+    // Same day with an end time at or before the start: fall back to the end
+    // of that day rather than emit an empty/inverted range.
+    const next = { from: draftFrom, to: to > draftFrom ? to : endOfDay(d) };
     setDraftTo(next.to);
     onApply(next);
   };
@@ -153,6 +187,20 @@ export const PeriodDatePicker: React.FC<PeriodDatePickerProps> = ({
     setCursor(to);
     onApply({ from, to });
   };
+
+  const handleTimeChange = (which: 'from' | 'to', hhmm: string) => {
+    if (!draftFrom || !draftTo || !hhmm) return;
+    const next =
+      which === 'from'
+        ? { from: withTime(draftFrom, hhmm, false), to: draftTo }
+        : { from: draftFrom, to: withTime(draftTo, hhmm, true) };
+    if (which === 'from') setDraftFrom(next.from);
+    else setDraftTo(next.to);
+    // Only hand a usable range upstream; an inverted one stays a draft
+    // (flagged below) until the user fixes it.
+    if (next.from < next.to) onApply(next);
+  };
+  const timeInverted = !!draftFrom && !!draftTo && draftFrom >= draftTo;
 
   const handleReset = () => {
     onReset?.();
@@ -316,6 +364,40 @@ export const PeriodDatePicker: React.FC<PeriodDatePickerProps> = ({
           })}
         </div>
       </div>
+
+      {showTime && (
+        <div className="space-y-1">
+          <div className="grid grid-cols-2 gap-xs">
+            <label className="space-y-1 text-[10px] font-semibold uppercase text-muted-foreground">
+              <span>Start time</span>
+              <Input
+                type="time"
+                aria-label="Start time"
+                disabled={!draftFrom || !draftTo}
+                value={draftFrom ? formatTime(draftFrom) : ''}
+                onChange={(e) => handleTimeChange('from', e.target.value)}
+                className="h-8 text-xs tabular-nums"
+              />
+            </label>
+            <label className="space-y-1 text-[10px] font-semibold uppercase text-muted-foreground">
+              <span>End time</span>
+              <Input
+                type="time"
+                aria-label="End time"
+                disabled={!draftFrom || !draftTo}
+                value={draftTo ? formatTime(draftTo) : ''}
+                onChange={(e) => handleTimeChange('to', e.target.value)}
+                className="h-8 text-xs tabular-nums"
+              />
+            </label>
+          </div>
+          {timeInverted && (
+            <p className="text-xs text-destructive">
+              End time must be after the start time.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="flex items-center gap-xs">
         <Button

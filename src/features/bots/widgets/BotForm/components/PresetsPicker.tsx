@@ -350,7 +350,7 @@ export const PresetsPicker: React.FC<PresetsPickerProps> = ({
     <div className="space-y-md">
       <div
         role="radiogroup"
-        aria-label="Risk profile"
+        aria-label="Preset"
         className="grid grid-cols-1 gap-xs"
       >
         {QUICK_SETUP_PRESETS.map((preset) => {

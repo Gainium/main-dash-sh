@@ -155,15 +155,11 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
   const strategy = useBotFormSelector('strategy');
   const multiSl = useBotFormSelector('multiSl');
   const moveSL = useBotFormSelector('moveSL');
-  const moveSLTrigger = useBotFormSelector('moveSLTrigger');
-  const moveSLValue = useBotFormSelector('moveSLValue');
   const slPerc = useBotFormSelector('slPerc');
   const baseOrderPrice = useBotFormSelector('baseOrderPrice');
   const terminalDealType = useBotFormSelector('terminalDealType');
   const useMultiSl = useBotFormSelector('useMultiSl');
   const trailingSl = useBotFormSelector('trailingSl');
-  const tpPerc = useBotFormSelector('tpPerc');
-  const dealCloseCondition = useBotFormSelector('dealCloseCondition');
   const baseSlOn = useBotFormSelector('baseSlOn');
   const comboSlLimit = useBotFormSelector('comboSlLimit');
   const useFixedSLPrices = useBotFormSelector('useFixedSLPrices');
@@ -393,7 +389,6 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
 
   const hasMultipleSlTargets = multiTargets.length > 1;
   const isTrailingLocked = Boolean(moveSL) || hasMultipleSlTargets;
-  const isMoveSlLocked = Boolean(trailingSl) || hasMultipleSlTargets;
 
   useEffect(() => {
     if (trailingSl && moveSL) {
@@ -412,53 +407,6 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
       }
     }
   }, [hasMultipleSlTargets, trailingSl, moveSL, updateFormData]);
-
-  const moveSlTriggerMax = useMemo(
-    () =>
-      resolveMoveSlTriggerMax(
-        tpPerc,
-        dealCloseCondition as import('@/types').CloseConditionEnum | undefined
-      ),
-    [tpPerc, dealCloseCondition]
-  );
-
-  const moveSlValueMax = useMemo(
-    () => resolveMoveSlValueMax(moveSLTrigger, moveSlTriggerMax),
-    [moveSLTrigger, moveSlTriggerMax]
-  );
-
-  const minMoveSlTrigger = useMemo(
-    () => resolveMinMoveSlTrigger(minSlToUse),
-    [minSlToUse]
-  );
-
-  const formattedMinMoveSlTrigger = useMemo(
-    () => formatMinMoveSlTrigger(minMoveSlTrigger),
-    [minMoveSlTrigger]
-  );
-
-  const moveSlValidation = useMemo(
-    () =>
-      validateMoveSlConfiguration({
-        moveSlEnabled: Boolean(moveSL),
-        trigger: moveSLTrigger,
-        value: moveSLValue,
-        tpPerc: tpPerc,
-        dealCloseCondition:
-          dealCloseCondition as import('@/types').CloseConditionEnum | undefined,
-        minTrigger: minMoveSlTrigger,
-        formattedMinTrigger: formattedMinMoveSlTrigger,
-      }),
-    [
-      moveSL,
-      moveSLTrigger,
-      moveSLValue,
-      tpPerc,
-      dealCloseCondition,
-      minMoveSlTrigger,
-      formattedMinMoveSlTrigger,
-    ]
-  );
 
   const slValidation = useMemo(() => {
     // Inline validation for the SL input to provide instant feedback. The
@@ -1551,89 +1499,17 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
             <BotFieldExtensionPanel path="trailingSl" kind="boolean" />
           </SettingsRow>
 
-          <SettingsRow
-            name="Move SL"
-            tooltip="Move the stop loss to a new level once the unrealized profit target is reached."
-            tooltipURL="/help/move-stop-loss"
-            colSpan="full"
-            trailing={
-              <Switch
-                id="move-sl"
-                checked={moveSL || false}
-                onCheckedChange={(checked) => {
-                  if (checked) {
-                    updateFormData('trailingSl', false);
-                  }
-                  updateFormData('moveSL', checked);
-                }}
-                disabled={isMoveSlLocked}
-              />
+          <MoveSlRow
+            updateFormData={updateFormData}
+            minSlToUse={minSlToUse}
+            lockedReason={
+              hasMultipleSlTargets
+                ? 'Move stop loss is not available with multiple stop loss targets. Remove extra targets to enable this option.'
+                : trailingSl
+                  ? 'Disable trailing stop loss to configure Move Stop Loss.'
+                  : undefined
             }
-            contentClassName={moveSL ? 'space-y-sm' : undefined}
-          >
-            {isMoveSlLocked ? (
-              <SettingsAlert
-                variant="info"
-                title={
-                  hasMultipleSlTargets
-                    ? 'Move stop loss is not available with multiple stop loss targets. Remove extra targets to enable this option.'
-                    : 'Disable trailing stop loss to configure Move Stop Loss.'
-                }
-              />
-            ) : null}
-            {moveSL ? (
-              <ResponsiveFormLayout mode="auto" minFieldWidth={200}>
-                <div className="space-y-xs">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="move-sl-trigger">Trigger %</Label>
-                    <Tooltip tooltip="Unrealized profit percentage that must be reached before the stop loss moves.">
-                      <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                    </Tooltip>
-                  </div>
-                  <NumberInput
-                    id="move-sl-trigger"
-                    value={moveSLTrigger}
-                    onChange={(value) => updateFormData('moveSLTrigger', value)}
-                    min={minMoveSlTrigger}
-                    max={moveSlTriggerMax}
-                    step={0.1}
-                    precision={3}
-                    placeholder="2.0"
-                    endAdornment={unitAdornment('%')}
-                  />
-                  {moveSlValidation.trigger ? (
-                    <p className="text-xs text-destructive">
-                      {moveSlValidation.trigger}
-                    </p>
-                  ) : null}
-                </div>
-                <div className="space-y-xs">
-                  <div className="flex items-center gap-1">
-                    <Label htmlFor="move-sl-value">Move to %</Label>
-                    <Tooltip tooltip="A positive number moves the stop loss into profit once the trigger is reached.">
-                      <InfoIcon className="h-3 w-3 text-muted-foreground" />
-                    </Tooltip>
-                  </div>
-                  <NumberInput
-                    id="move-sl-value"
-                    value={moveSLValue}
-                    onChange={(value) => updateFormData('moveSLValue', value)}
-                    min={0}
-                    max={moveSlValueMax}
-                    step={0.1}
-                    precision={3}
-                    placeholder="0.5"
-                    endAdornment={unitAdornment('%')}
-                  />
-                  {moveSlValidation.value ? (
-                    <p className="text-xs text-destructive">
-                      {moveSlValidation.value}
-                    </p>
-                  ) : null}
-                </div>
-              </ResponsiveFormLayout>
-            ) : null}
-          </SettingsRow>
+          />
 
           {closeConditionSl !== CloseConditionEnum.webhook &&
           (trailingSl || moveSL) ? (
@@ -1673,6 +1549,151 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
         </SettingsLoadMore>
       ) : null}
     </div>
+  );
+};
+
+/**
+ * Move SL: once the deal reaches `moveSLTrigger` % profit, a percentage stop
+ * at `moveSLValue` % is armed. The engine does this for EVERY stop-loss type
+ * (an indicator / ATR / webhook stop is replaced by the moved % stop), so the
+ * row is rendered under each SL tab — matching the legacy dashboard.
+ */
+const MoveSlRow: React.FC<{
+  updateFormData: StopLossSettingsProps['updateFormData'];
+  minSlToUse: number;
+  /** Set when Move SL cannot be enabled; shown as the reason. */
+  lockedReason?: string;
+}> = ({ updateFormData, minSlToUse, lockedReason }) => {
+  const moveSL = useBotFormSelector('moveSL');
+  const moveSLTrigger = useBotFormSelector('moveSLTrigger');
+  const moveSLValue = useBotFormSelector('moveSLValue');
+  const tpPerc = useBotFormSelector('tpPerc');
+  const dealCloseCondition = useBotFormSelector('dealCloseCondition');
+
+  const moveSlTriggerMax = useMemo(
+    () =>
+      resolveMoveSlTriggerMax(
+        tpPerc,
+        dealCloseCondition as import('@/types').CloseConditionEnum | undefined
+      ),
+    [tpPerc, dealCloseCondition]
+  );
+
+  const moveSlValueMax = useMemo(
+    () => resolveMoveSlValueMax(moveSLTrigger, moveSlTriggerMax),
+    [moveSLTrigger, moveSlTriggerMax]
+  );
+
+  const minMoveSlTrigger = useMemo(
+    () => resolveMinMoveSlTrigger(minSlToUse),
+    [minSlToUse]
+  );
+
+  const formattedMinMoveSlTrigger = useMemo(
+    () => formatMinMoveSlTrigger(minMoveSlTrigger),
+    [minMoveSlTrigger]
+  );
+
+  const moveSlValidation = useMemo(
+    () =>
+      validateMoveSlConfiguration({
+        moveSlEnabled: Boolean(moveSL),
+        trigger: moveSLTrigger,
+        value: moveSLValue,
+        tpPerc: tpPerc,
+        dealCloseCondition:
+          dealCloseCondition as import('@/types').CloseConditionEnum | undefined,
+        minTrigger: minMoveSlTrigger,
+        formattedMinTrigger: formattedMinMoveSlTrigger,
+      }),
+    [
+      moveSL,
+      moveSLTrigger,
+      moveSLValue,
+      tpPerc,
+      dealCloseCondition,
+      minMoveSlTrigger,
+      formattedMinMoveSlTrigger,
+    ]
+  );
+
+  return (
+    <SettingsRow
+      name="Move SL"
+      tooltip="Move the stop loss to a new level once the unrealized profit target is reached."
+      tooltipURL="/help/move-stop-loss"
+      colSpan="full"
+      trailing={
+        <Switch
+          id="move-sl"
+          checked={moveSL || false}
+          onCheckedChange={(checked) => {
+            if (checked) {
+              updateFormData('trailingSl', false);
+            }
+            updateFormData('moveSL', checked);
+          }}
+          disabled={Boolean(lockedReason)}
+        />
+      }
+      contentClassName={moveSL ? 'space-y-sm' : undefined}
+    >
+      {lockedReason ? (
+        <SettingsAlert variant="info" title={lockedReason} />
+      ) : null}
+      {moveSL ? (
+        <ResponsiveFormLayout mode="auto" minFieldWidth={200}>
+          <div className="space-y-xs">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="move-sl-trigger">Trigger %</Label>
+              <Tooltip tooltip="Unrealized profit percentage that must be reached before the stop loss moves.">
+                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+              </Tooltip>
+            </div>
+            <NumberInput
+              id="move-sl-trigger"
+              value={moveSLTrigger}
+              onChange={(value) => updateFormData('moveSLTrigger', value)}
+              min={minMoveSlTrigger}
+              max={moveSlTriggerMax}
+              step={0.1}
+              precision={3}
+              placeholder="2.0"
+              endAdornment={unitAdornment('%')}
+            />
+            {moveSlValidation.trigger ? (
+              <p className="text-xs text-destructive">
+                {moveSlValidation.trigger}
+              </p>
+            ) : null}
+          </div>
+          <div className="space-y-xs">
+            <div className="flex items-center gap-1">
+              <Label htmlFor="move-sl-value">Move to %</Label>
+              <Tooltip tooltip="A positive number moves the stop loss into profit once the trigger is reached.">
+                <InfoIcon className="h-3 w-3 text-muted-foreground" />
+              </Tooltip>
+            </div>
+            <NumberInput
+              id="move-sl-value"
+              value={moveSLValue}
+              onChange={(value) => updateFormData('moveSLValue', value)}
+              min={0}
+              max={moveSlValueMax}
+              step={0.1}
+              precision={3}
+              placeholder="0.5"
+              endAdornment={unitAdornment('%')}
+            />
+            {moveSlValidation.value ? (
+              <p className="text-xs text-destructive">
+                {moveSlValidation.value}
+              </p>
+            ) : null}
+          </div>
+        </ResponsiveFormLayout>
+      ) : null}
+    </SettingsRow>
   );
 };
 
@@ -2220,6 +2241,12 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
     ]
   );
 
+  // Indicator/ATR stops have no % level of their own; Move SL arms one once
+  // the trigger is hit (legacy parity). Combo never offered Move SL.
+  const indicatorMoveSlRow = isComboBot ? null : (
+    <MoveSlRow updateFormData={updateFormData} minSlToUse={MIN_DCA_TP_NEW} />
+  );
+
   const renderSLContent = (condition: CloseConditionEnum) => {
     if (isDealEdit && condition && condition !== CloseConditionEnum.tp) {
       return (
@@ -2238,20 +2265,26 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
     switch (condition) {
       case CloseConditionEnum.techInd:
         return (
-          <IndicatorsSL
-            currentExchange={currentExchange}
-            formData={formData}
-            updateFormData={updateFormData}
-            errors={mergedErrors}
-            stopLossLocked={riskRewardActive}
-          />
+          <>
+            <IndicatorsSL
+              currentExchange={currentExchange}
+              formData={formData}
+              updateFormData={updateFormData}
+              errors={mergedErrors}
+              stopLossLocked={riskRewardActive}
+            />
+            {indicatorMoveSlRow}
+          </>
         );
       case CloseConditionEnum.dynamicAr:
         return (
-          <DynamicArIndicatorPanel
-            section={IndicatorSection.sl}
-            currentExchange={currentExchange}
-          />
+          <>
+            <DynamicArIndicatorPanel
+              section={IndicatorSection.sl}
+              currentExchange={currentExchange}
+            />
+            {indicatorMoveSlRow}
+          </>
         );
       case CloseConditionEnum.webhook:
         return (

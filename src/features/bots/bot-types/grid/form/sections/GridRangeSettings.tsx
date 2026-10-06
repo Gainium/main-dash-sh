@@ -10,6 +10,7 @@ import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import { cn } from '@/lib/utils';
 import type { BotFormAlert } from '@/types/bots/form';
+import { GRID_LEVELS_ERROR } from '@/utils/bots/grid/validation';
 import { Crosshair } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo } from 'react';
 
@@ -171,6 +172,8 @@ export const GridRangeSettings: React.FC = () => {
       setCoordinates(null);
     }
   }, [coordinates, setCoordinates, updateFormData, activePickerField]);
+
+  const [levelsDraftInvalid, setLevelsDraftInvalid] = React.useState(false);
 
   const [topPercent, setTopPercent] = React.useState<string>(() =>
     computePercentFromPrice(startPrice, topPrice)
@@ -402,7 +405,11 @@ export const GridRangeSettings: React.FC = () => {
           name="Grid levels"
           tooltip="Specify how many buy and sell levels compose the grid. More levels increase sensitivity but spread capital thinner per order."
           navId="levels"
-          alerts={buildErrorAlerts(errors, 'levels')}
+          alerts={
+            levelsDraftInvalid
+              ? [{ variant: 'error', message: GRID_LEVELS_ERROR, navId: 'levels' }]
+              : buildErrorAlerts(errors, 'levels')
+          }
         >
           <div className="space-y-xs">
             <NumberInput
@@ -410,17 +417,22 @@ export const GridRangeSettings: React.FC = () => {
               inputMode="numeric"
               value={(levels ?? '').toString()}
               onChange={(value) => {
-                if (value === '') {
-                  updateFormData('levels', 0);
+                // Only a whole number reaches the form. An empty field or
+                // `20,` used to be stored as 0, which sends the chart's
+                // geometric ladder into an endless loop; `20.1` was stored
+                // as is. Anything else stays a draft with the message.
+                const text = `${value}`.trim();
+                if (!/^\d+$/.test(text) || Number(text) < 1) {
+                  setLevelsDraftInvalid(true);
                   return;
                 }
-
-                const parsed =
-                  typeof value === 'string' ? Number(value) : value;
-                const nextLevels = Number.isFinite(parsed) ? parsed : 0;
+                const nextLevels = Number(text);
+                setLevelsDraftInvalid(false);
                 updateFormData('levels', nextLevels);
                 recalcGridStepFromLevels(nextLevels);
               }}
+              // NumberInput drops its draft on blur and shows the stored count.
+              onBlur={() => setLevelsDraftInvalid(false)}
               placeholder="Number of levels"
               min={1}
               step={1}

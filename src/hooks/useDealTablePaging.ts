@@ -29,6 +29,8 @@ import {
   CLOSED_DEAL_SORT_TOOLTIP,
   DEAL_SEARCH_FIELD,
   OPEN_DEAL_SERVER_FIELDS,
+  dealPairOptions,
+  withPairFilterOptions,
 } from '../lib/botList/dealListServerFields';
 import {
   tableQueryToServerBotQuery,
@@ -142,6 +144,11 @@ export function useDealTablePaging(opts: {
   };
   /** Which footer column shows which filtered-set total (default: Deals tab ids). */
   totalsColumns?: DealTotalsColumns;
+  /**
+   * Pairs the Symbol filter offers besides those of the loaded deals — the
+   * bots' configured pairs, so deals older than the first window are reachable.
+   */
+  pairs?: readonly string[];
 }): DealTablePaging {
   const { status, terminal } = opts;
   const enabled = opts.enabled !== false;
@@ -349,6 +356,25 @@ export function useDealTablePaging(opts: {
     botId: opts.botId,
     items: fetchSq.filters ?? [],
   });
+  // The Symbol filter's choices. In server mode the table holds one page, so
+  // options built from its rows would offer that page's pairs only: the
+  // loaded window, the page and the caller's pairs are offered instead. Keyed
+  // by content so the columns change only when the set does.
+  const pairOptionsKey = useMemo(
+    () =>
+      serverPaged
+        ? dealPairOptions([windowResult.deals, rawDeals], opts.pairs).join('\n')
+        : '',
+    [serverPaged, windowResult.deals, rawDeals, opts.pairs]
+  );
+  const pagingFields = useMemo(
+    () =>
+      pairOptionsKey
+        ? withPairFilterOptions(fields, pairOptionsKey.split('\n'))
+        : fields,
+    [fields, pairOptionsKey]
+  );
+
   const totalsColumns = opts.totalsColumns ?? DEALS_TAB_TOTALS_COLUMNS;
   const totals = useMemo(
     () => (serverTotals ? mapDealTotals(serverTotals, totalsColumns) : null),
@@ -381,7 +407,7 @@ export function useDealTablePaging(opts: {
               filterStatus,
               totals,
             },
-            fields,
+            fields: pagingFields,
             fetchAllDeals,
           }
         : undefined,
@@ -396,7 +422,7 @@ export function useDealTablePaging(opts: {
       onQueryChange,
       filterStatus,
       totals,
-      fields,
+      pagingFields,
       fetchAllDeals,
     ]
   );

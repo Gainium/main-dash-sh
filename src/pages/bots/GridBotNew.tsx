@@ -4,13 +4,17 @@ import { useSearchParams } from 'react-router-dom';
 import { BotPageBoundary } from '@/components/bots/workbench/BotPageBoundary';
 import { BotWorkbench } from '@/components/bots/workbench/BotWorkbench';
 import { gridPageDescriptor } from '@/components/bots/workbench/descriptors';
+import {
+  botFormDraftKey,
+  clearBotFormDraft,
+} from '@/contexts/bots/form/botFormDraft';
 import { useBotConfigPreload } from '@/hooks/useBotConfigPreload';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { mapGridBotSettingsToFormData } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
-import { type Bot } from '@/types';
+import { BotTypesEnum, type Bot } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 const GridBotNewWidget = () => {
@@ -23,6 +27,14 @@ const GridBotNewWidget = () => {
   // form. Mirrors the hedge flow in HedgeBotFormProvider.
   const [searchParams] = useSearchParams();
   const loadFromBotId = searchParams.get('load');
+  // A clone replaces the form, so the unsaved create-draft must not be
+  // restored over it. Cleared once on mount, before the form can mount and
+  // read it (grid seeds straight from the query, with no load handler).
+  useState(() => {
+    if (loadFromBotId) {
+      clearBotFormDraft(botFormDraftKey(BotTypesEnum.grid, 'create'));
+    }
+  });
   const loadQueryInput = useMemo(
     () => botQueries.getBot({ id: loadFromBotId ?? '' }),
     [loadFromBotId]
@@ -80,12 +92,18 @@ const GridBotNewWidget = () => {
     Boolean(preload?.exchangePending);
 
   const initialFormData = clonedInitialFormData ?? preload?.initialFormData;
+  // The source bot's global-variable bindings travel with the clone.
+  const clonedBotVars =
+    loadFromBotId && clonedInitialFormData && loadQuery.data?.status === 'OK'
+      ? (loadQuery.data.data?.vars ?? null)
+      : null;
 
   return (
     <BotWorkbench
       descriptor={gridPageDescriptor}
       mode="create"
       initialFormData={initialFormData}
+      initialBotVars={clonedBotVars}
       formReloadKey={0}
       isSeedPending={isLoadingClone}
       openInManual={Boolean(preload?.openInManual)}

@@ -168,13 +168,25 @@ export const useGridForm = (): GridFormContext => {
     [quoteAsset, prices, activePair?.exchange]
   );
 
-  useEffect(() => {
-    exampleOrdersStore.setContext({ inputLatestPrice: latestPrice });
-  }, [latestPrice]);
+  // A read-only settings view (the bot drawer's Settings tab) must not touch
+  // the shared store: each setContext recomputes `orders` from the form
+  // context, which this mode never seeds, and that wipes the bot's live grid
+  // lines the drawer put on the chart. Same guard as useDcaTradingContext.
+  const isSkipExampleOrders = formState.mode === 'settings-readonly';
 
   useEffect(() => {
+    if (isSkipExampleOrders) {
+      return;
+    }
+    exampleOrdersStore.setContext({ inputLatestPrice: latestPrice });
+  }, [latestPrice, isSkipExampleOrders]);
+
+  useEffect(() => {
+    if (isSkipExampleOrders) {
+      return;
+    }
     exampleOrdersStore.setContext({ usdPrice: usdPrice });
-  }, [usdPrice]);
+  }, [usdPrice, isSkipExampleOrders]);
 
   return useMemo(
     () => ({

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.76.1] - 2026-10-06
+
+### Changed
+
+- Includes the fixes released in 2.68.4–2.69.8 (listed below).
+
 ## [2.76.0] - 2026-10-05
 
 ### Added
@@ -64,6 +70,120 @@
 - More extension points for the bot form: a block under an individual setting or at the top of a section, a section-header highlight, whole extra form sections, extension settings kept in the form and saved by its Save button after the bot itself, and decorations for a bot's header in the details drawer and the bot form. The Take profit and Stop loss "More Settings" groups open by themselves while an extension manages trailing take profit or trailing stop loss.
 - AI color tokens (`ai-surface`, `ai-surface-strong`, `ai-border`, `ai-foreground`) for light and dark themes.
 - Backtest limitations: before a DCA or Combo backtest, a dialog lists the settings that are on for the bot but can't be simulated in a backtest (webhook signals, volume filters, global variables, Combo trailing / multiple targets and others), with what the backtest does instead. It never blocks the run, and "Don't remind me again" is remembered per setting, so a newly applicable one still shows. Host builds can add their own items.
+## [2.69.8] - 2026-10-05
+
+### Fixed
+
+- Trading bots list: a DCA bot holding an open deal on a pair that was later removed from the bot showed that deal at zero value, so unrealized PnL read as a loss of the deal's whole cost. Assets whose names use lowercase letters (such as stock tokens) are now priced correctly.
+
+## [2.69.7] - 2026-10-05
+
+### Fixed
+
+- Backtests list: a browser copy of a server-stored result (downloaded to show its deals) replaced the server's row, so the row lost its name and "server side"; the server's row now wins and the copy only marks that its details are in this browser.
+
+## [2.69.6] - 2026-10-05
+
+### Fixed
+
+- Grid bot page: opening the Settings tab no longer removes the bot's grid order lines from the chart; they stay visible when you return to Overview.
+
+## [2.69.5] - 2026-10-04
+
+### Fixed
+
+- Help articles and other pages with images no longer reload and jump back to the top every 15 seconds; the startup loading check now only reacts to an app that never rendered.
+
+## [2.69.4] - 2026-10-04
+
+### Fixed
+
+- Bot edit page (Grid, DCA, Combo): the chart opens on the bot's own pair instead of BTCUSDT while the exchange's pair list is still loading or failed to load.
+
+## [2.69.3] - 2026-10-04
+
+### Fixed
+
+- DCA bot form: Move SL is available again when the stop loss type is Indicators or Dynamic ATR/ADR, as it was in the legacy dashboard. Once the deal reaches the trigger profit, a percentage stop loss at the "Move to" level is armed alongside the indicator stop.
+
+## [2.69.2] - 2026-10-03
+
+### Fixed
+
+- Grid bot form: a local backtest now reads a decimal comma the way saving the bot does (`1,5` runs as 1.5 instead of 1 or not-a-number), and a value that is not a number (`1000abc`, `1,000.5`) stops the backtest with an error on the field instead of running with a silently wrong setting.
+
+## [2.69.1] - 2026-10-03
+
+### Fixed
+
+- Grid bot form: clearing the Grid levels field, or typing a value that is not a whole number (`20.1`, `20,`), no longer freezes the page on a geometric grid. The field now keeps only whole numbers of 1 or more and shows "Levels must be a positive integer." for anything else; leaving the field restores the last valid count.
+
+## [2.69.0] - 2026-10-03
+
+### Added
+
+- Bot form quick backtest: the period picker now has start and end time inputs, so a backtest can start and end at a time of day instead of only on whole days. The chosen times also carry into the Backtest settings dialog.
+
+### Fixed
+
+- Bot form quick backtest: the picked period's last day is now included. The end date was read as midnight UTC at the start of that day, so the final day was left out of the test.
+
+## [2.68.12] - 2026-10-03
+
+### Fixed
+
+- Hedge DCA and hedge combo bots now save their global-variable bindings. Creating, cloning or editing a hedge bot keeps each leg's bound fields bound to their variables instead of saving the variables' current values.
+
+## [2.68.11] - 2026-10-03
+
+### Fixed
+
+- Cloning a DCA, combo or grid bot now keeps its global-variable bindings: a field bound to a variable stays bound in the clone instead of being saved with the variable's current value.
+- Bot form: a base order sized in % of balance no longer shows a "Minimum order: 0 %" note. The note now appears only when there is a real minimum.
+
+## [2.68.10] - 2026-10-02
+
+### Fixed
+
+- Grid bot form: a number typed with a decimal comma (`1,5`) in a grid field such as Sell displacement, Grid step, Investment or Take profit % is now saved as `1.5` instead of `0`, and a value that is not a number shows an error on the field instead of being saved as `0`.
+
+## [2.68.9] - 2026-10-02
+
+### Fixed
+
+- Deal lists paged on the server (Trading Bots → Deals, the bot drawer): the Symbol column's "is any of" filter now offers every pair of the loaded deals and of the bots' configured pairs, not only the pairs on the page on screen, so a pair on another page can be found and several pairs picked at once.
+
+## [2.68.8] - 2026-10-02
+
+### Fixed
+
+- Grid bot list and drawer: on a neutral futures grid, Net PnL, Unrealized PnL, Run up and Drawdown now value the open position against the same entry the bot's percentage take-profit and stop-loss use, so a run-up no longer shows above the take-profit while the take-profit has correctly not fired. Futures grids also value the position as quantity × price change, the same measure the bot itself uses. Needs the matching backend release.
+
+## [2.68.7] - 2026-10-02
+
+### Fixed
+
+- DCA and combo bot lists: Net PnL % on a bot with nothing open now divides by max cost, as the column tooltip describes, instead of always reading 0%. The bot drawer's Net PnL % does the same.
+
+## [2.68.6] - 2026-10-01
+
+### Fixed
+
+- Cloning a DCA, combo or grid bot now opens the form with the source bot's settings. An older unsaved new-bot draft is no longer restored over the clone.
+
+## [2.68.5] - 2026-10-02
+
+### Fixed
+
+- Adding deals to the trade journal (from a bot's deals table or the trading terminal, one at a time or in bulk) no longer creates a second entry for a deal that is already in the journal. Deals already present are skipped, and the notice says how many.
+
+## [2.68.4] - 2026-10-01
+
+### Changed
+
+- Quick-mode bot forms: the "Risk profile" section is now called "Preset", since the values are calculated from the pair's price history, not from the user.
+- Preset descriptions no longer call deeper safety-order ladders "protection"; they state how deep each preset covers and how much capital it commits.
+- The calibration line under the presets now notes that it is based on past data and that future moves can be larger.
 
 ## [2.68.3] - 2026-10-01
 

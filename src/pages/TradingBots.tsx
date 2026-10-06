@@ -1433,7 +1433,7 @@ const TradingBots: React.FC = () => {
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.original.currentValue ?? row.original.maxValue ?? 0;
+          const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
           return (
             <ProfitAndPerc
@@ -1470,7 +1470,7 @@ const TradingBots: React.FC = () => {
           const totalProfit = row.totalProfitUsd ?? 0;
           const unrealized = row.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.currentValue ?? row.maxValue ?? 0;
+          const cost = row.currentValue || row.maxValue || 0;
           return cost > 0 ? (netPnl / cost) * 100 : 0;
         },
         cell: ({ row }) => {
@@ -1480,7 +1480,7 @@ const TradingBots: React.FC = () => {
           const totalProfit = row.original.totalProfitUsd ?? 0;
           const unrealized = row.original.unPnl ?? 0;
           const netPnl = totalProfit + unrealized;
-          const cost = row.original.currentValue ?? row.original.maxValue ?? 0;
+          const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
           return <ProfitLossPercChip value={percentage} size="sm" />;
         },
@@ -2055,10 +2055,20 @@ const TradingBots: React.FC = () => {
 
   // Server-paged for large accounts, and as soon as the first window of
   // deals comes back capped (never a silent subset).
+  // The bots' pairs, so the Symbol filter of a server-paged list also offers
+  // pairs whose deals are older than the loaded window.
+  const dealsTablePairs = useMemo(
+    () =>
+      canonicalDcaBots.flatMap((b) =>
+        b.settings?.pair ? [b.settings.pair].flat() : []
+      ),
+    [canonicalDcaBots]
+  );
   const dealsTable = useDealTablePaging({
     status: dealsStatus,
     terminal: false,
     tableId: `dca-bot-deals-trades-${dealsStatus}`,
+    pairs: dealsTablePairs,
   });
   const dcaDealsForTab = dealsTable.deals;
 

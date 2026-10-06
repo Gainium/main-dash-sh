@@ -176,6 +176,12 @@ position {
   price
   side
 }
+closeEntry {
+  qty
+  price
+  side
+  entry
+}
 exchangeUnassigned
 vars {${varsFragment}}
 notEnoughBalance {${notEnoughBalanceFragment}}

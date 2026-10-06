@@ -6,17 +6,43 @@ export interface GridFormValidationResult {
   alerts?: import('@/types/bots/form').BotFormAlerts;
 }
 
+/**
+ * Read a grid number field. The grid inputs are free text, so the value
+ * arrives exactly as typed: a decimal comma (`1,5`) is read as a decimal
+ * point when it is the only separator. `undefined` means the field was left
+ * blank; anything else that is not a number (`1abc`, `1,000.5`) is `NaN`
+ * rather than the leading digits `parseFloat` would keep. The save mapper
+ * reads the fields with this too, so a value this accepts is the value saved.
+ */
+export const parseGridNumber = (value: unknown): number | undefined => {
+  if (value === '' || value === null || value === undefined) {
+    return undefined;
+  }
+
+  if (typeof value !== 'string') {
+    return Number(value);
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return undefined;
+  }
+
+  return Number(
+    /^[^.,]*,[^.,]*$/.test(trimmed) ? trimmed.replace(',', '.') : trimmed
+  );
+};
+
 const isPositiveNumber = (value?: string | number | null): boolean => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value > 0;
-  }
+  const parsed = parseGridNumber(value);
+  return parsed !== undefined && Number.isFinite(parsed) && parsed > 0;
+};
 
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) && parsed > 0;
-  }
-
-  return false;
+// A blank optional field saves as 0; one holding text that is not a number
+// must not.
+const isInvalidNumber = (value?: string | number | null): boolean => {
+  const parsed = parseGridNumber(value);
+  return parsed !== undefined && !Number.isFinite(parsed);
 };
 
 // Grid stop loss is expressed as a negative percentage (a drawdown), the
@@ -24,20 +50,56 @@ const isPositiveNumber = (value?: string | number | null): boolean => {
 // So a valid SL percentage is any non-zero finite number, not a positive
 // one. (See bug 865bne405: forcing positive SL caused immediate triggers.)
 const isNonZeroNumber = (value?: string | number | null): boolean => {
-  if (typeof value === 'number') {
-    return Number.isFinite(value) && value !== 0;
-  }
-
-  if (typeof value === 'string') {
-    const parsed = parseFloat(value);
-    return Number.isFinite(parsed) && parsed !== 0;
-  }
-
-  return false;
+  const parsed = parseGridNumber(value);
+  return parsed !== undefined && Number.isFinite(parsed) && parsed !== 0;
 };
 
 const isNonEmptyString = (value?: unknown): boolean =>
   typeof value === 'string' && value.trim().length > 0;
+
+export const GRID_LEVELS_ERROR = 'Levels must be a positive integer.';
+
+const GRID_BACKTEST_NUMBER_FIELDS = {
+  budget: 'Budget',
+  topPrice: 'Top price',
+  lowPrice: 'Low price',
+  levels: 'Levels',
+  gridStep: 'Grid step',
+  sellDisplacement: 'Sell displacement',
+  ordersInAdvance: 'Active orders',
+  leverage: 'Leverage',
+  tpPerc: 'Take profit',
+  slPerc: 'Stop loss',
+  tpTopPrice: 'Take profit price',
+  slLowPrice: 'Stop loss price',
+} as const;
+
+/**
+ * Read the grid number fields for a local backtest, which does not go through
+ * the save mapper: the engine reads them with `parseFloat` / `+`, so `1,5`
+ * would run as 1 (or NaN) and `1000abc` would run at all. Each field is read
+ * with `parseGridNumber` and kept in the form's units (no percent /100 — the
+ * engine does that itself). A blank field is passed through untouched; one
+ * that is not a number is returned as an error keyed by the field.
+ */
+export const readGridBacktestNumbers = <T extends object>(
+  grid: T
+): { grid: T; errors: Record<string, string> } => {
+  const out = { ...grid } as Record<string, unknown>;
+  const errors: Record<string, string> = {};
+  for (const [field, label] of Object.entries(GRID_BACKTEST_NUMBER_FIELDS)) {
+    const parsed = parseGridNumber(out[field]);
+    if (parsed === undefined) {
+      continue;
+    }
+    if (Number.isFinite(parsed)) {
+      out[field] = parsed;
+    } else {
+      errors[field] = `${label} must be a number.`;
+    }
+  }
+  return { grid: out as T, errors };
+};
 
 export const validateGridFormData = ({
   name,
@@ -54,6 +116,8 @@ export const validateGridFormData = ({
     | 'topPrice'
     | 'lowPrice'
     | 'levels'
+    | 'gridStep'
+    | 'sellDisplacement'
     | 'tpSl'
     | 'tpSlCondition'
     | 'tpPerc'
@@ -100,12 +164,20 @@ export const validateGridFormData = ({
   }
 
   if (!Number.isInteger(Number(grid.levels)) || Number(grid.levels) <= 0) {
-    errors['levels'] = 'Levels must be a positive integer.';
+    errors['levels'] = GRID_LEVELS_ERROR;
+  }
+
+  if (isInvalidNumber(grid.gridStep)) {
+    errors['gridStep'] = 'Grid step must be a number.';
+  }
+
+  if (isInvalidNumber(grid.sellDisplacement)) {
+    errors['sellDisplacement'] = 'Sell displacement must be a number.';
   }
 
   if (grid.topPrice && grid.lowPrice) {
-    const top = parseFloat(String(grid.topPrice));
-    const low = parseFloat(String(grid.lowPrice));
+    const top = parseGridNumber(grid.topPrice) ?? NaN;
+    const low = parseGridNumber(grid.lowPrice) ?? NaN;
     if (Number.isFinite(top) && Number.isFinite(low) && top <= low) {
       errors['priceRange'] = 'Top price must be greater than low price.';
     }
@@ -139,8 +211,8 @@ export const validateGridFormData = ({
   // a take profit at or below the low price, or a stop loss at or above the
   // top price, is true everywhere inside the range. A short grid runs the
   // other way round.
-  const rangeTop = parseFloat(String(grid.topPrice));
-  const rangeLow = parseFloat(String(grid.lowPrice));
+  const rangeTop = parseGridNumber(grid.topPrice) ?? NaN;
+  const rangeLow = parseGridNumber(grid.lowPrice) ?? NaN;
   const hasRange =
     Number.isFinite(rangeTop) && Number.isFinite(rangeLow) && rangeTop > rangeLow;
   const isShortGrid = grid.strategy === 'SHORT';
@@ -151,7 +223,7 @@ export const validateGridFormData = ({
     grid.tpSlCondition === 'priceReached' &&
     isPositiveNumber(grid.tpTopPrice)
   ) {
-    const tp = parseFloat(String(grid.tpTopPrice));
+    const tp = parseGridNumber(grid.tpTopPrice) ?? NaN;
     if (isShortGrid ? tp >= rangeTop : tp <= rangeLow) {
       errors['tpSl'] = isShortGrid
         ? 'Take profit price must be below the top price — a short grid takes profit as the price falls.'
@@ -165,7 +237,7 @@ export const validateGridFormData = ({
     grid.slCondition === 'priceReached' &&
     isPositiveNumber(grid.slLowPrice)
   ) {
-    const stop = parseFloat(String(grid.slLowPrice));
+    const stop = parseGridNumber(grid.slLowPrice) ?? NaN;
     if (isShortGrid ? stop <= rangeLow : stop >= rangeTop) {
       errors['sl'] = isShortGrid
         ? 'Stop loss price must be above the low price — a short grid stops out as the price rises.'

@@ -111,14 +111,16 @@ export function initLoadingWatchdog(): void {
   if (watchdogTimeoutId) clearTimeout(watchdogTimeoutId);
   if (watchdogCheckId) clearTimeout(watchdogCheckId);
 
-  // If the app hasn't fully loaded after 15 seconds, clear caches
+  // "Loaded" means the root has rendered anything at all. Do not look for the
+  // word "loading" in the markup: rendered pages contain it legitimately
+  // (`<img loading="lazy">`, "Error loading …", article text), which kept the
+  // probe failing and reloaded those pages every 15 seconds.
+  const appHasRendered = () =>
+    Boolean(document.getElementById('root')?.innerHTML.trim());
+
+  // If the app hasn't rendered after 15 seconds, clear caches
   watchdogTimeoutId = setTimeout(() => {
-    const appRoot = document.getElementById('root');
-    if (
-      !appRoot ||
-      !appRoot.innerHTML.trim() ||
-      appRoot.innerHTML.includes('loading')
-    ) {
+    if (!appHasRendered()) {
       logger.warn(
         '[CacheManager] App appears stuck in loading state, clearing caches'
       );
@@ -128,12 +130,7 @@ export function initLoadingWatchdog(): void {
 
   // Clear timeout if app loads successfully
   const checkAppLoaded = () => {
-    const appRoot = document.getElementById('root');
-    if (
-      appRoot &&
-      appRoot.innerHTML.trim() &&
-      !appRoot.innerHTML.includes('loading')
-    ) {
+    if (appHasRendered()) {
       if (watchdogTimeoutId) clearTimeout(watchdogTimeoutId);
       logger.info('[CacheManager] App loaded successfully');
     } else {

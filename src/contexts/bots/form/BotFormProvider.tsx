@@ -284,6 +284,12 @@ interface BotFormProviderProps {
    */
   openInManual?: boolean | undefined;
   /**
+   * Global-variable bindings of the seed. A clone carries its source bot's
+   * `vars` here so the new bot stays bound to the same variables instead of
+   * freezing their current values.
+   */
+  initialBotVars?: BotVars | null | undefined;
+  /**
    * When true, this provider creates its OWN instances of the example-orders
    * and indicator side-effect stores and supplies them to descendants via
    * context, instead of sharing the module singletons. Set for hedge legs so
@@ -658,7 +664,9 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
   const resetFormData = useCallback(() => {
     setFormData(defaultStateFn(propsRef.current, true));
   }, [setFormData]);
-  const [botVars, setBotVars] = useState<BotVars | null>(null);
+  const [botVars, setBotVars] = useState<BotVars | null>(
+    props.initialBotVars ?? null
+  );
   // The bot edit page opens directly in an editable state — reaching
   // `/x/edit/:id` (from the sidebar, a bot card, the drawer's Edit action,
   // etc.) always expresses intent to edit. The read-only surface is the
@@ -1105,6 +1113,8 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           topPrice: formData.grid.topPrice,
           lowPrice: formData.grid.lowPrice,
           levels: formData.grid.levels,
+          gridStep: formData.grid.gridStep,
+          sellDisplacement: formData.grid.sellDisplacement,
           tpSl: formData.grid.tpSl,
           tpSlCondition: formData.grid.tpSlCondition,
           tpPerc: formData.grid.tpPerc,

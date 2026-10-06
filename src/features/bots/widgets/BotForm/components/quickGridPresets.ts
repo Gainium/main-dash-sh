@@ -199,7 +199,7 @@ export const QUICK_GRID_PRESETS: QuickGridPreset[] = [
   {
     id: 'long',
     label: 'Long-term',
-    tagline: 'Wide range to survive deep drawdowns.',
+    tagline: 'Wide range to cover deep drawdowns.',
     explanation:
       'Range sized for the worst drawdown observed in the past year. Fewer fills, larger steps.',
     calibration: {

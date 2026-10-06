@@ -861,10 +861,10 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                   (rawBot?.profit?.totalUsd || 0) + valueMetrics.currentValue
                 }
                 percentage={
-                  (rawBot?.currentValue || 0) > 0
+                  (rawBot?.currentValue || rawBot?.maxValue || 0) > 0
                     ? (((rawBot?.profit?.totalUsd || 0) +
                         valueMetrics.currentValue) /
-                        (rawBot?.currentValue || 1)) *
+                        (rawBot?.currentValue || rawBot?.maxValue || 1)) *
                       100
                     : 0
                 }

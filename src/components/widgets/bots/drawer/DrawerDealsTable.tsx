@@ -52,6 +52,7 @@ import { formatNumber } from '@/utils/numberFormatter';
 import { logger } from '../../../../lib/loggerInstance';
 import { toast } from '../../../../lib/toast';
 import { useTradeJournalStore } from '../../../../stores/tradeJournalStore';
+import { isDealInJournal } from '../../../../utils/journalDealDedupe';
 import {
     BotTypesEnum,
     CloseDCATypeEnum,
@@ -333,7 +334,20 @@ const DealActionsMenu: React.FC<{
       const symbolString =
         typeof trade.symbol === 'string' ? trade.symbol : trade.symbol.symbol;
 
+      if (
+        isDealInJournal(useTradeJournalStore.getState().trades, {
+          dealId: trade.id,
+          symbol: symbolString,
+          exchange: trade.exchange,
+          entryTime,
+        })
+      ) {
+        toast.info(`Deal ${symbolString} is already in your journal`);
+        return;
+      }
+
       const journalEntry: any = {
+        sourceDealId: trade.id,
         symbol: symbolString,
         exchange: trade.exchange,
         direction: (trade.side?.toUpperCase() === 'LONG' ||
@@ -1046,6 +1060,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const { isDemo: isShareView } = useShareContext();
   const drawerServerPaged =
     largeAccount.active && !isComboBot && !!botId && !isShareView;
+  // The bot's pairs: the Symbol filter of the server page offers them all.
+  const botPairs = useMemo(
+    () => (bot?.settings?.pair ? [bot.settings.pair].flat() : undefined),
+    [bot?.settings?.pair]
+  );
   const pagedDeals = useDealTablePaging({
     status: selectedTab === 'active' ? 'open' : 'closed',
     terminal: false,
@@ -1058,6 +1077,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       closed: DRAWER_CLOSED_DEAL_SERVER_FIELDS,
     },
     totalsColumns: DRAWER_TOTALS_COLUMNS,
+    pairs: botPairs,
   });
   // An empty id disables the auto-loader while the server page is in use.
   const specificDealsInput = useMemo(
@@ -2008,6 +2028,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     });
 
     let successCount = 0;
+    let skippedCount = 0;
+    // Re-read after every add so a deal selected twice is only added once.
+    const getJournalTrades = () => useTradeJournalStore.getState().trades;
 
     for (const deal of selectedDeals) {
       try {
@@ -2046,7 +2069,20 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         const symbolString =
           typeof deal.symbol === 'string' ? deal.symbol : deal.symbol.symbol;
 
+        if (
+          isDealInJournal(getJournalTrades(), {
+            dealId: deal.id,
+            symbol: symbolString,
+            exchange: deal.exchange,
+            entryTime,
+          })
+        ) {
+          skippedCount++;
+          continue;
+        }
+
         const journalEntry: any = {
+          sourceDealId: deal.id,
           symbol: symbolString,
           exchange: deal.exchange,
           direction: (deal.side?.toUpperCase() === 'LONG' ||
@@ -2078,9 +2114,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     if (successCount > 0) {
       toast.success(`Added ${successCount} deal(s) to journal`);
     }
-    if (successCount < selectedDeals.length) {
+    if (skippedCount > 0) {
+      toast.info(`${skippedCount} deal(s) already in your journal, skipped`);
+    }
+    if (successCount + skippedCount < selectedDeals.length) {
       toast.error(
-        `Failed to add ${selectedDeals.length - successCount} deal(s)`
+        `Failed to add ${selectedDeals.length - successCount - skippedCount} deal(s)`
       );
     }
   }, [addToJournalBulk, completedOrders, journalBulkDialogOpen]);

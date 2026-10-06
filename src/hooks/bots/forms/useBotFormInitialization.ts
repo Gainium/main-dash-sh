@@ -149,8 +149,9 @@ export const useBotFormInitialization = (
 
   useEffect(() => {
     if (mode === 'create') {
+      // Bindings in create mode come only from the provider's
+      // `initialBotVars` (a clone's source bot); leave them in place.
       setIsLoading(false);
-      setBotVars(null);
       return;
     }
 
