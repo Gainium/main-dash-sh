@@ -962,16 +962,64 @@ const BotForm: React.FC<BotFormProps> = ({
 
   // Post-create dialog actions. Celebration calls onClose after each one,
   // which clears createdBotId — so read it before navigating.
+  const startCreatedBot = useCallback(
+    (
+      id: string,
+      grid?: { buyType: BuyTypeEnum; buyCount?: string; buyAmount?: number }
+    ) => {
+      statusToggleMutation.mutate(
+        { id, status: 'open', ...(grid ?? {}) },
+        { onSuccess: () => toast.success('Bot started') }
+      );
+      // Don't wait for the mutation: `{base}/view/:id` is the list page with
+      // the bot open in its sidebar, which reflects the status once it lands.
+      navigate(buildBotViewRoute(botExperience.id, id));
+    },
+    [botExperience.id, navigate, statusToggleMutation]
+  );
+
+  // A grid start goes through the start dialog, as it does from the footer:
+  // the dialog is where the balance is checked and the buy type chosen.
+  // Starting straight from here skipped both — the bot started on an empty
+  // wallet and every grid order failed. The celebration clears
+  // `createdBotId` on close, so the id is held separately.
+  const [celebrationGridStartId, setCelebrationGridStartId] = useState<
+    string | undefined
+  >(undefined);
+
   const handleCelebrationStartBot = useCallback(() => {
     if (!createdBotId) return;
-    statusToggleMutation.mutate(
-      { id: createdBotId, status: 'open' },
-      { onSuccess: () => toast.success('Bot started') }
-    );
-    // Don't wait for the mutation: `{base}/view/:id` is the list page with
-    // the bot open in its sidebar, which reflects the status once it lands.
-    navigate(buildBotViewRoute(botExperience.id, createdBotId));
-  }, [createdBotId, botExperience.id, navigate, statusToggleMutation]);
+    if (isGridBot) {
+      setCelebrationGridStartId(createdBotId);
+      return;
+    }
+    startCreatedBot(createdBotId);
+  }, [createdBotId, isGridBot, startCreatedBot]);
+
+  const handleCelebrationGridStartConfirm = useCallback(
+    (buyType: BuyTypeEnum, buyCount?: string, buyAmount?: number) => {
+      if (!celebrationGridStartId) return;
+      const id = celebrationGridStartId;
+      setCelebrationGridStartId(undefined);
+      startCreatedBot(id, {
+        buyType,
+        ...(buyCount ? { buyCount } : {}),
+        ...(buyAmount !== undefined ? { buyAmount } : {}),
+      });
+    },
+    [celebrationGridStartId, startCreatedBot]
+  );
+
+  const celebrationGridStartDialog = isGridBot ? (
+    <GridStartBotDialog
+      open={!!celebrationGridStartId}
+      onOpenChange={(open) => {
+        if (!open) setCelebrationGridStartId(undefined);
+      }}
+      onConfirm={handleCelebrationGridStartConfirm}
+      isProcessing={statusToggleMutation.isPending}
+    />
+  ) : null;
 
   const handleCelebrationAllBots = useCallback(() => {
     navigate(buildBotListRoute(botExperience.id));
@@ -4154,6 +4202,7 @@ const BotForm: React.FC<BotFormProps> = ({
           ]}
         />
       )}
+      {celebrationGridStartDialog}
     </>
   );
 
@@ -4626,6 +4675,7 @@ const BotForm: React.FC<BotFormProps> = ({
           },
         ]}
       />
+      {celebrationGridStartDialog}
     </div>
   );
 
