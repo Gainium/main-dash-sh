@@ -2891,6 +2891,12 @@ export const mapRiskRewardFields = (
       );
 
       fieldsMapped.push('indicators');
+    } else if (normalizedRrSlType === RRSlTypeEnum.fixed) {
+      // A fixed SL is derived from rrSlFixedValue, not an indicator — the
+      // backtester and main-app's v2 validator only require one for
+      // `indicator`. Pass the other roles' indicators through unchanged.
+      riskRewardFields['indicators'] = indicators;
+      fieldsMapped.push('indicators');
     } else {
       errors.push(
         'At least one indicator is required when Risk:Reward is enabled'

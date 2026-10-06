@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.82.1] - 2026-10-06
+
+### Fixed
+
+- Backtesting a DCA or Combo bot with Risk:Reward enabled and a Fixed % stop loss no longer fails with "At least one indicator is required"; a Risk:Reward indicator is only required when the stop loss type is Indicator.
+
 ## [2.82.0] - 2026-10-06
 
 ### Added
