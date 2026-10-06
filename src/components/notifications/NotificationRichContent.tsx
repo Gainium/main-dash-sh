@@ -2,7 +2,7 @@ import { cn } from '@/lib/utils';
 import DOMPurify from 'dompurify';
 import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { ChevronDown, ChevronUp } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import React, { useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 /**
  * `http(s)://…` runs, so a notification that cites a help page renders a real
@@ -76,8 +76,28 @@ export const NotificationRichContent: React.FC<
     [hasHtmlContent, messageContent]
   );
 
-  const shouldShowToggle =
-    !disableClamp && messageContent.length > clampLines * 90;
+  // Whether the clamped text is actually cut off, read from the element rather
+  // than guessed from the string length: HTML messages count their tags as
+  // characters, and every block (`h3`, `p`) starts a new line however short
+  // it is, so a short multi-block update can overflow the clamp.
+  const messageRef = useRef<HTMLDivElement>(null);
+  const [isOverflowing, setIsOverflowing] = useState(false);
+
+  useLayoutEffect(() => {
+    const el = messageRef.current;
+    // Expanded text no longer overflows; keep the last clamped reading so the
+    // collapse arrow stays.
+    if (!el || disableClamp || expanded) return;
+    const measure = () =>
+      setIsOverflowing(el.scrollHeight - el.clientHeight > 1);
+    measure();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [disableClamp, expanded, clampLines, messageContent, sanitizedMessage]);
+
+  const shouldShowToggle = !disableClamp && (expanded || isOverflowing);
 
   const messageClass = cn(
     'text-sm text-muted-foreground mb-2 whitespace-pre-wrap',
@@ -91,12 +111,15 @@ export const NotificationRichContent: React.FC<
         <div className="flex-1">
           {hasHtmlContent ? (
             <div
+              ref={messageRef}
               className={messageClass}
               dangerouslySetInnerHTML={{ __html: sanitizedMessage }}
               style={{ cursor: 'text' }}
             />
           ) : (
-            <div className={messageClass}>{linkify(messageContent)}</div>
+            <div ref={messageRef} className={messageClass}>
+              {linkify(messageContent)}
+            </div>
           )}
         </div>
 

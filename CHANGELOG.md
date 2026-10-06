@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.69.9] - 2026-10-06
+
+### Fixed
+
+- Notifications: an update or news item whose text is cut off now always shows the expand arrow. Short items made of a heading and a few paragraphs could be cut off with no way to expand them.
+
 ## [2.69.8] - 2026-10-05
 
 ### Fixed
