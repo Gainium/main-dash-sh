@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.86.1] - 2026-10-07
+
+### Fixed
+
+- Merge Deals is no longer offered for combo deals (the merge failed for them) or for deals of different bots.
+
 ## [2.86.0] - 2026-10-07
 
 ### Added
