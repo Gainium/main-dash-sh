@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.83.1] - 2026-10-07
+
+### Fixed
+
+- Grid bot Orders tab: the Buy/Sell count bar no longer wraps its label when one side has few or no orders.
+
 ## [2.83.0] - 2026-10-07
 
 ### Added

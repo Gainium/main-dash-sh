@@ -98,7 +98,9 @@ const DrawerGridOrderBook: React.FC<DrawerGridOrderBookProps> = ({
   }, [orders, currentPrice]);
 
   const total = buys.length + sells.length;
-  const buyShare = total > 0 ? (buys.length / total) * 100 : 50;
+  // Clamped so a near-empty side still has room for its own label.
+  const buyShare =
+    total > 0 ? Math.min(Math.max((buys.length / total) * 100, 20), 80) : 50;
   const rows = Math.max(buys.length, sells.length);
   const levels = gridBot?.settings?.levels ?? 0;
   const truncated =
@@ -188,12 +190,12 @@ const DrawerGridOrderBook: React.FC<DrawerGridOrderBookProps> = ({
         <>
           <div className="flex h-6 overflow-hidden rounded text-xs font-medium">
             <div
-              className="flex items-center bg-success/15 px-2 text-success"
+              className="flex items-center whitespace-nowrap bg-success/15 px-2 text-success"
               style={{ width: `${buyShare}%` }}
             >
               Buy {buys.length}
             </div>
-            <div className="flex flex-1 items-center justify-end bg-destructive/15 px-2 text-destructive">
+            <div className="flex flex-1 items-center justify-end whitespace-nowrap bg-destructive/15 px-2 text-destructive">
               Sell {sells.length}
             </div>
           </div>
