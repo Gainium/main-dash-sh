@@ -29,6 +29,23 @@ export const mirroredSpotStrategy = (
     ? StrategyEnum.short
     : StrategyEnum.long;
 
+/**
+ * Whether a grid runs short, by the engine's own rule (`get isShort()`): a
+ * futures grid's position side, falling back to `strategy` only when that
+ * side is NEUTRAL. A short grid takes profit as the price falls and stops
+ * out as it rises.
+ */
+export const isShortGrid = (settings: {
+  futures?: boolean | null;
+  futuresStrategy?: FuturesStrategyEnum | string | null;
+  strategy?: StrategyEnum | string | null;
+}): boolean =>
+  settings.futures &&
+  settings.futuresStrategy &&
+  settings.futuresStrategy !== FuturesStrategyEnum.neutral
+    ? settings.futuresStrategy === FuturesStrategyEnum.short
+    : settings.strategy === StrategyEnum.short;
+
 export const FUTURES_STRATEGY_TOOLTIP =
   'Long: open a long position at the start. Buy orders increase the position, sell orders reduce it. ' +
   'Short: open a short position at the start. Sell orders increase the position, buy orders reduce it. ' +

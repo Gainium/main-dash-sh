@@ -1,4 +1,5 @@
-import { FuturesStrategyEnum, type BotSettings, type BotTypesEnum } from '@/types';
+import { type BotSettings, type BotTypesEnum } from '@/types';
+import { isShortGrid } from '@/features/bots/bot-types/grid/form/positionSide';
 import type { BotFormData } from '@/types/bots/form';
 
 export interface GridFormValidationResult {
@@ -233,12 +234,7 @@ export const validateGridFormData = ({
   const rangeLow = parseGridNumber(grid.lowPrice) ?? NaN;
   const hasRange =
     Number.isFinite(rangeTop) && Number.isFinite(rangeLow) && rangeTop > rangeLow;
-  const isShortGrid =
-    grid.futures &&
-    grid.futuresStrategy &&
-    grid.futuresStrategy !== FuturesStrategyEnum.neutral
-      ? grid.futuresStrategy === FuturesStrategyEnum.short
-      : grid.strategy === 'SHORT';
+  const isShort = isShortGrid(grid);
 
   if (
     hasRange &&
@@ -247,8 +243,8 @@ export const validateGridFormData = ({
     isPositiveNumber(grid.tpTopPrice)
   ) {
     const tp = parseGridNumber(grid.tpTopPrice) ?? NaN;
-    if (isShortGrid ? tp >= rangeTop : tp <= rangeLow) {
-      errors['tpSl'] = isShortGrid
+    if (isShort ? tp >= rangeTop : tp <= rangeLow) {
+      errors['tpSl'] = isShort
         ? 'Take profit price must be below the top price — a short grid takes profit as the price falls.'
         : 'Take profit price must be above the low price — a long grid takes profit as the price rises.';
     }
@@ -261,8 +257,8 @@ export const validateGridFormData = ({
     isPositiveNumber(grid.slLowPrice)
   ) {
     const stop = parseGridNumber(grid.slLowPrice) ?? NaN;
-    if (isShortGrid ? stop <= rangeLow : stop >= rangeTop) {
-      errors['sl'] = isShortGrid
+    if (isShort ? stop <= rangeLow : stop >= rangeTop) {
+      errors['sl'] = isShort
         ? 'Stop loss price must be above the low price — a short grid stops out as the price rises.'
         : 'Stop loss price must be below the top price — a long grid stops out as the price falls.';
     }

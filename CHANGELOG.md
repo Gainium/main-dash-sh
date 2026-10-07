@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.85.2] - 2026-10-07
+
+### Fixed
+
+- Grid bots: on a short grid, the take profit "Target price" shortcuts and custom % field now set a price below the start price, and the stop loss ones a price above it. They previously always pointed the long way, so a short take profit could not be picked from them.
+
 ## [2.85.1] - 2026-10-07
 
 ### Fixed

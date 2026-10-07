@@ -18,6 +18,7 @@ import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { CustomPercentChip } from '@/features/bots/shared/components/CustomPercentChip';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
+import { isShortGrid } from '@/features/bots/bot-types/grid/form/positionSide';
 import { useGridForm } from '@/hooks/bots/grid/useGridForm';
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
@@ -54,7 +55,9 @@ const priceFromPercent = (basePrice: number, percent: number): string => {
   return (basePrice * (1 + percent / 100)).toFixed(6);
 };
 
-const PRICE_PERCENT_PRESETS = [-5, -10];
+// Magnitudes; the sign follows the grid's side (a short stops out above
+// the start price).
+const PRICE_PERCENT_PRESETS = [5, 10];
 
 export const GridStopLossSettings: React.FC = () => {
   const {
@@ -76,6 +79,15 @@ export const GridStopLossSettings: React.FC = () => {
   const slLowPrice = useBotFormSelector('slLowPrice');
   const slAction = useBotFormSelector('slAction');
   const futures = useBotFormSelector('futures');
+  const futuresStrategy = useBotFormSelector('futuresStrategy');
+  const strategy = useBotFormSelector('strategy');
+  const direction: 1 | -1 = isShortGrid({ futures, futuresStrategy, strategy })
+    ? 1
+    : -1;
+  const pricePercentPresets = useMemo(
+    () => PRICE_PERCENT_PRESETS.map((percent) => percent * direction),
+    [direction]
+  );
   const actionOptions = useMemo(
     () => buildActionOptions(futures ?? false),
     [futures]
@@ -132,14 +144,14 @@ export const GridStopLossSettings: React.FC = () => {
 
   const pricePresetOptions = React.useMemo(
     () =>
-      PRICE_PERCENT_PRESETS.map((percent) => ({
+      pricePercentPresets.map((percent) => ({
         percent,
         value: percent.toString(),
-        label: `${percent}%`,
+        label: `${percent > 0 ? '+' : ''}${percent}%`,
         buttonClassName: 'min-w-[64px] px-2',
         targetPrice: priceFromPercent(startPrice, percent),
       })),
-    [startPrice]
+    [startPrice, pricePercentPresets]
   );
 
   const activePricePreset = React.useMemo(() => {
@@ -308,13 +320,13 @@ export const GridStopLossSettings: React.FC = () => {
                 )}
                 trailing={
                   <CustomPercentChip
-                    sign={-1}
+                    sign={direction}
                     currentPercent={
                       startPrice > 0
                         ? (Number(slLowPrice) / startPrice - 1) * 100
                         : NaN
                     }
-                    presets={PRICE_PERCENT_PRESETS}
+                    presets={pricePercentPresets}
                     onApply={applyPricePercent}
                   />
                 }
