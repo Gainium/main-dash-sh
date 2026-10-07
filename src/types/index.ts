@@ -1133,6 +1133,7 @@ export enum AlertType {
   dca100 = 'dca100',
   priceOutOfRange = 'priceOutOfRange',
   safetyOrderFilled = 'safetyOrderFilled',
+  maxDealsReached = 'maxDealsReached',
 }
 
 /**
