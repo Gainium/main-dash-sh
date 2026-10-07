@@ -27,6 +27,10 @@ interface UseNotificationsOptions {
    * `all`. Read messages are kept server-side, so history is just a view.
    */
   botView?: BotMessageView;
+  /** Narrow bot messages to one severity (error | warning | info). */
+  botSeverity?: string;
+  /** Narrow bot messages to one bot. */
+  botId?: string;
   /**
    * Badge mode: fetch one row per feed and read the server `total`s. Only a
    * countOnly instance writes the unread counts to the notifications store.
@@ -107,6 +111,8 @@ export function useNotifications(
     pageSize = ITEMS_PER_PAGE,
     unreadOnly = false,
     botView = 'unread',
+    botSeverity,
+    botId,
     countOnly = false,
     enabled = true,
   } = options;
@@ -136,16 +142,21 @@ export function useNotifications(
       });
     }
 
-    // History views name themselves; only the unread view keeps the legacy
-    // no-input / unreadOnly shapes below (older APIs understand those).
-    if (botView !== 'unread') {
+    // History views and filtered queries name their view; only the plain
+    // unread inbox keeps the legacy no-input / unreadOnly shapes below
+    // (older APIs understand those).
+    if (botView !== 'unread' || botSeverity || botId) {
       const historyParams: {
         view: BotMessageView;
         page: number;
         pageSize: number;
         search?: string;
+        type?: string;
+        botId?: string;
       } = { view: botView, page, pageSize };
       if (search && search.trim()) historyParams.search = search.trim();
+      if (botSeverity) historyParams.type = botSeverity;
+      if (botId) historyParams.botId = botId;
       return GraphQlQuery.getMessageBot(historyParams);
     }
 
@@ -187,7 +198,17 @@ export function useNotifications(
     }
 
     return GraphQlQuery.getMessageBot(params);
-  }, [type, unreadOnly, page, pageSize, search, countOnly, botView]);
+  }, [
+    type,
+    unreadOnly,
+    page,
+    pageSize,
+    search,
+    countOnly,
+    botView,
+    botSeverity,
+    botId,
+  ]);
 
   const {
     data: botData,

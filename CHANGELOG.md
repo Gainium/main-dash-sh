@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.87.0] - 2026-10-07
+
+### Added
+
+- Notifications page (link at the bottom of the notifications panel): bot messages with Read & unread / Unread / Read, severity and per-bot filters, search and pages; News and Updates tabs.
+
+### Changed
+
+- The notifications panel is the unread inbox again: marking a message read clears it from the panel, and it stays on the Notifications page for 90 days.
+- Bot notifications show the coin-pair icon and the exchange chip.
+
+### Fixed
+
+- Bot notifications now load their read state. A second definition of the feed query shadowed the one that asked for it, so every message showed as unread.
+
 ## [2.86.1] - 2026-10-07
 
 ### Fixed

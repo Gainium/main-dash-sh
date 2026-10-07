@@ -30,6 +30,7 @@ import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useNotificationsStore } from '@/stores/notificationsStore';
 import { useNotifications } from '@/hooks/useNotifications';
+import { GraphQlQuery } from '@/lib/api';
 
 /** The reporter's shape: four SYND-USDC messages, all already dismissed. */
 const DISMISSED = [0, 1, 2, 3].map((i) => ({
@@ -59,6 +60,8 @@ const UNREAD = {
 
 type BotInput = {
   view?: 'unread' | 'read' | 'all';
+  type?: string;
+  botId?: string;
   unreadOnly?: boolean;
   page?: number;
   pageSize?: number;
@@ -285,5 +288,35 @@ describe('useNotifications — read bot messages stay in history (spec 137)', ()
     renderHook(() => useNotifications({ type: 'bot', countOnly: true }));
     await settle();
     expect(useNotificationsStore.getState().unreadCounts.bot).toBe(0);
+  });
+
+  it('history page filters (severity, bot) reach the API with the view', async () => {
+    store = [UNREAD];
+    renderHook(() =>
+      useNotifications({
+        type: 'bot',
+        botView: 'all',
+        botSeverity: 'error',
+        botId: 'bot-live',
+        page: 2,
+        pageSize: 25,
+      })
+    );
+    await settle();
+    expect(botInputs.at(-1)).toMatchObject({
+      view: 'all',
+      type: 'error',
+      botId: 'bot-live',
+      page: 2,
+      pageSize: 25,
+    });
+  });
+
+  it('the merged GraphQlQuery.getMessageBot asks for read state', () => {
+    // A second getMessageBot in another query module used to shadow this one,
+    // so isRead never reached the wire and every row looked unread.
+    const { query } = GraphQlQuery.getMessageBot({ view: 'all' });
+    expect(query).toContain('isRead');
+    expect(query).toContain('readAt');
   });
 });

@@ -1900,6 +1900,9 @@ export const botQueries = {
   getMessageBot: (input?: {
     /** unread | read | all — wins over unreadOnly. */
     view?: BotMessageView;
+    /** Severity: error | warning | info. */
+    type?: string;
+    botId?: string;
     unreadOnly?: boolean;
     page?: number;
     pageSize?: number;

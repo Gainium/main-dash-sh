@@ -933,42 +933,9 @@ export const otherQueries = {
     return { query, variables };
   },
 
-  // Notification queries
-  getMessageBot: (input?: {
-    unreadOnly?: boolean;
-    page?: number;
-    pageSize?: number;
-    search?: string;
-  }) => {
-    // Always use parameterized query structure (matching legacy dashboard exactly)
-    const query = `query getMessageBot ($input: getMessageBotInput){
-         getMessageBot(input: $input) {
-            status
-            reason
-            data {
-                result {
-                        _id
-                        userId
-                        botId
-                        botType
-                        botName
-                        message
-                        time
-                        type
-                        paperContext
-                        terminal
-                        symbol
-                        exchange
-                }
-            }
-            total
-        }
-    } `;
-
-    // Always pass { input } in variables, even if input is undefined (like legacy dashboard)
-    const variables = { input };
-    return { query, variables };
-  },
+  // getMessageBot lives in GraphQLQueries-bot-queries. A second copy here
+  // used to shadow it in the merged GraphQlQuery object (otherQueries is
+  // spread last), so fields added there never reached the wire.
 
   getPlatformNotifications: (input: {
     unreadOnly: boolean;

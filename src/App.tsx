@@ -29,6 +29,7 @@ import Dashboard from './pages/Dashboard';
 import DualArcProgressGaugeTest from './pages/DualArcProgressGaugeTest';
 import Exchanges from './pages/Exchanges';
 import GlobalVariables from './pages/GlobalVariables';
+import Notifications from './pages/Notifications';
 import DiscordCallback from './pages/DiscordCallback';
 import Login from './pages/Login';
 import MagicLinkConsume from './pages/MagicLinkConsume';
@@ -207,6 +208,14 @@ function App() {
           element={
             <ProtectedRoute>
               <GlobalVariables />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/notifications"
+          element={
+            <ProtectedRoute>
+              <Notifications />
             </ProtectedRoute>
           }
         />
