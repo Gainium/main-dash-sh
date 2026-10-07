@@ -12,6 +12,7 @@ export { DrawerGeneralInfo } from './DrawerGeneralInfo';
 /* export { default as DrawerHedgePnl } from './DrawerHedgePnl'; */
 export { DrawerDCAMetrics } from './DrawerDCAMetrics';
 export { default as DrawerGridFundsOverview } from './DrawerGridFundsOverview';
+export { default as DrawerGridOrderBook } from './DrawerGridOrderBook';
 export { default as DrawerGridProfitChart } from './DrawerGridProfitChart';
 export { default as DrawerMinigridsTable } from './DrawerMinigridsTable';
 export { default as DrawerOrdersTable } from './DrawerOrdersTable';
@@ -37,6 +38,7 @@ export type DrawerWidgetType =
   | 'drawer-profit-chart'
   | 'drawer-grid-funds-overview'
   | 'drawer-grid-profit-chart'
+  | 'drawer-grid-order-book'
   | 'drawer-risk-metrics'
   | 'drawer-bot-events'
   | 'drawer-webhook-info'

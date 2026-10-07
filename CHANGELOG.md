@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.83.0] - 2026-10-07
+
+### Added
+
+- Grid bots: an Orders tab in the bot details shows the open grid orders as an order book — buys below the current price on the left, sells above it on the right, nearest first, each with the price move needed to fill it, plus the buy/sell count and the current price. Works on mobile, where the chart is not shown.
+
 ## [2.82.1] - 2026-10-06
 
 ### Fixed

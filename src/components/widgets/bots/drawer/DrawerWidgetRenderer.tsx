@@ -17,6 +17,7 @@ import {
   DrawerDealsTable,
   DrawerGeneralInfo,
   DrawerGridFundsOverview,
+  DrawerGridOrderBook,
   DrawerGridProfitChart,
   /*  DrawerHedgePnl, */
   DrawerMinigridsTable,
@@ -83,6 +84,7 @@ const WIDGET_COMPONENTS: Record<
   'drawer-profit-chart': DrawerProfitChart,
   'drawer-grid-funds-overview': DrawerGridFundsOverview,
   'drawer-grid-profit-chart': DrawerGridProfitChart,
+  'drawer-grid-order-book': DrawerGridOrderBook,
   'drawer-risk-metrics': DrawerDCAMetrics,
   'drawer-bot-events': DrawerBotEvents,
   'drawer-webhook-info': DrawerWebhookInfo,

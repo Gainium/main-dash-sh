@@ -269,6 +269,7 @@ const statusNew = { status: 'NEW', autoPaginate: true };
 const statusFilled = { status: 'FILLED', autoPaginate: true };
 type BuiltInBotTab =
   | 'deals'
+  | 'orders'
   | 'performance'
   | 'stats'
   | 'events'
@@ -376,6 +377,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
           [
             'performance',
             'deals',
+            'orders',
             'stats',
             'events',
             'settings',
@@ -383,9 +385,12 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
           ] as BotTab[]
         )
           // Grid bots have no deals, no webhooks, and the backend produces no
-          // `stats` block for them — so those three tabs never apply.
+          // `stats` block for them — so those three tabs never apply. The
+          // order book is grid-only: other bots show orders per deal.
           .filter((t) =>
-            isGrid ? t !== 'deals' && t !== 'webhook' && t !== 'stats' : true
+            isGrid
+              ? t !== 'deals' && t !== 'webhook' && t !== 'stats'
+              : t !== 'orders'
           ),
         ...extensionTabs.map((t) => t.key),
       ],
@@ -1779,6 +1784,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       {!isGrid && (
                         <TabsTrigger value="deals">Deals</TabsTrigger>
                       )}
+                      {isGrid && (
+                        <TabsTrigger value="orders">Orders</TabsTrigger>
+                      )}
                       {!isGrid && (
                         <TabsTrigger value="stats">Stats</TabsTrigger>
                       )}
@@ -2005,6 +2013,25 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                           active={activeTab === 'stats'}
                         />
                       )}
+                    </motion.div>
+                  </TabsContent>
+                )}
+
+                {isGrid && (
+                  <TabsContent value="orders" className="mt-0">
+                    <motion.div
+                      key="orders-tab"
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -10 }}
+                      transition={{ duration: 0.2 }}
+                    >
+                      <DrawerWidgetRenderer
+                        botId={bot._id}
+                        bot={bot}
+                        privacyMode={privacyMode}
+                        widgets={[{ type: 'drawer-grid-order-book' }]}
+                      />
                     </motion.div>
                   </TabsContent>
                 )}
