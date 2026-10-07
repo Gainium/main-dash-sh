@@ -184,10 +184,9 @@ export const useBasicSettingsTab = (
     () =>
       resolveMultiToggleState({
         isUseMultiLocked,
-        isComboBot,
         planRestrictsMulti,
       }),
-    [isComboBot, isUseMultiLocked, planRestrictsMulti]
+    [isUseMultiLocked, planRestrictsMulti]
   );
 
   const multiToggleDescriptor = useMemo(

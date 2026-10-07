@@ -65,13 +65,11 @@ export const findMissingPairs = (
 
 export type MultiToggleMessageKey =
   | 'locked-edit'
-  | 'combo-blocked'
   | 'plan-upgrade'
   | null;
 
 export interface ResolveMultiToggleStateInput {
   isUseMultiLocked: boolean;
-  isComboBot: boolean;
   planRestrictsMulti: boolean;
 }
 
@@ -85,10 +83,6 @@ export const resolveMultiToggleState = (
 ): ResolveMultiToggleStateResult => {
   if (input.isUseMultiLocked) {
     return { disabled: true, messageKey: 'locked-edit' };
-  }
-
-  if (input.isComboBot) {
-    return { disabled: true, messageKey: 'combo-blocked' };
   }
 
   if (input.planRestrictsMulti) {
@@ -112,10 +106,6 @@ export const resolveMultiToggleMessageDescriptor = (
       return {
         message:
           'Multiple pairs configuration is locked while editing existing bots.',
-      };
-    case 'combo-blocked':
-      return {
-        message: /* 'Multiple pairs are not available for combo bots.' */ '',
       };
     case 'plan-upgrade':
       return {

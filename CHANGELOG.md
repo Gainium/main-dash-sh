@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.84.0] - 2026-10-07
+
+### Added
+
+- Multi-coin combo bots: the Single/Multiple pairs toggle and "Add pairs" are available on combo bots (hedge combo legs stay single-pair). On the cloud edition this is in beta for selected accounts; self-hosted shows it to everyone.
+- The bot form's credit quote prices each combo pair after the first as a whole combo.
+
 ## [2.83.1] - 2026-10-07
 
 ### Fixed

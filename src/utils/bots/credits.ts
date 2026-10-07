@@ -1,6 +1,8 @@
 import { BotTypesEnum, DCATypeEnum } from '@/types';
 
 const coinFactor = 0.5;
+// Each extra combo coin runs its own grid, so it costs a whole combo.
+export const comboCoinFactor = 200;
 const indicatorFactor = 1;
 const dealsFactor = 1;
 export const gridBaseCost = 250;
@@ -58,7 +60,8 @@ export const calculateCost = ({
     type === DCATypeEnum.terminal ||
     _pairs <= 1
       ? 0
-      : (_pairs - 1) * coinFactor;
+      : (_pairs - 1) *
+        (botType === BotTypesEnum.combo ? comboCoinFactor : coinFactor);
 
   const deals =
     botType === BotTypesEnum.grid ||

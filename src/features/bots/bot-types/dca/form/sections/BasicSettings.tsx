@@ -15,8 +15,10 @@ import {
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
+import { IS_SH } from '@/config/mode';
 import { NameInput } from '@/features/bots/shared/components/NameInput';
 import { useBotFormDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
+import { useIsBetaUser } from '@/hooks/useIsBetaUser';
 import { BotTypesEnum, type ExchangeInUser } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import React, { useCallback, useMemo, useState } from 'react';
@@ -153,9 +155,16 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
     ...((alerts?.pair ?? []) as any[]),
   ];
 
-  const isComboBot = useMemo(
-    () => formType === BotTypesEnum.combo,
-    [formType]
+  // A hedge combo's legs each trade one pair. A standalone combo can trade
+  // many — on the cloud only for the beta group (the API enforces the same
+  // gate); self-hosted is not gated. A combo that is already multi-coin stays
+  // editable either way.
+  const isBetaUser = useIsBetaUser();
+  const isSinglePairOnly = useMemo(
+    () =>
+      formType === BotTypesEnum.combo &&
+      (Boolean(isNestedLeg) || (!IS_SH && !isBetaUser && !useMulti)),
+    [formType, isNestedLeg, isBetaUser, useMulti]
   );
 
   const PAIRS_PREVIEW_LIMIT = 10;
@@ -199,7 +208,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
           alerts={pairAlerts}
           navId="pair"
           trailing={
-            isComboBot ? null : (
+            isSinglePairOnly ? null : (
               <div className="flex items-center gap-xs">
                 {/* Multi-pair selections scroll out of view once the picker
                     grows, so surface the running count next to the toggle. */}
@@ -345,7 +354,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                         onClearSelection: handleClearPairs,
                       }
                     : {})}
-                  shouldShowAddButton={!isComboBot}
+                  shouldShowAddButton={!isSinglePairOnly}
                   showAllOption={false}
                   onPairClick={handleChartPairSelect}
                 />
