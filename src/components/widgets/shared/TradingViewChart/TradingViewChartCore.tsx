@@ -356,6 +356,29 @@ export const TradingViewChartCore = forwardRef<
       return chartCandidate as OverlayChart;
     }, [widgetRef]);
 
+    // A visible range asked for while a symbol / resolution is loading. The
+    // load ends by scrolling to the latest bar, discarding any range set
+    // mid-load, so it is applied once the new data is in.
+    const pendingFrameRef = useRef<{ from: number; to: number } | null>(null);
+    const applyFrame = useCallback(
+      (range: { from: number; to: number }) => {
+        const api = getActiveChart() as BasicChartAPI | null;
+        if (api?.setVisibleRange) api.setVisibleRange(range);
+        else api?.scrollToTime?.(range.from, true, true);
+      },
+      [getActiveChart]
+    );
+    const applyPendingFrame = useCallback(() => {
+      const range = pendingFrameRef.current;
+      pendingFrameRef.current = null;
+      if (!range) return;
+      try {
+        applyFrame(range);
+      } catch (e) {
+        logger.error('Deferred chart frame failed', e);
+      }
+    }, [applyFrame]);
+
     const renderOrderLines = useCallback(
       (chart: OverlayChart) => {
         managedOrderLinesRef.current.forEach((line) => {
@@ -864,6 +887,7 @@ export const TradingViewChartCore = forwardRef<
         // than leave the chart bare.
         logger.warn('[Overlays] Chart load never signalled completion');
         pendingLoadSinceRef.current = null;
+        applyPendingFrame();
       }
 
       const chart = getActiveChart();
@@ -889,7 +913,7 @@ export const TradingViewChartCore = forwardRef<
       } else {
         retryAttemptsRef.current = 0;
       }
-    }, [getActiveChart, scheduleOverlayRetry]);
+    }, [applyPendingFrame, getActiveChart, scheduleOverlayRetry]);
     flushOverlaysRef.current = flushOverlays;
 
     const requestOverlays = useCallback(
@@ -922,9 +946,10 @@ export const TradingViewChartCore = forwardRef<
         // release the newer load.
         if (token != null && token !== pendingLoadTokenRef.current) return;
         pendingLoadSinceRef.current = null;
+        applyPendingFrame();
         requestOverlays();
       },
-      [requestOverlays]
+      [applyPendingFrame, requestOverlays]
     );
 
     /** Hold the overlays until the chart's current data has loaded. */
@@ -1065,6 +1090,7 @@ export const TradingViewChartCore = forwardRef<
           // load's own callback or the next data-loaded event).
           if (key === pendingLoadFromKeyRef.current) return;
           pendingLoadSinceRef.current = null;
+          applyPendingFrame();
           requestOverlays();
           return;
         }
@@ -1085,7 +1111,7 @@ export const TradingViewChartCore = forwardRef<
           /* chart already torn down */
         }
       };
-    }, [getActiveChart, isChartReady, requestOverlays]);
+    }, [applyPendingFrame, getActiveChart, isChartReady, requestOverlays]);
 
     useEffect(
       () => () => {
@@ -1438,8 +1464,14 @@ export const TradingViewChartCore = forwardRef<
               const halfWindow = Math.max(1, 100 * secondsPerBar);
               range = { from: startSec - halfWindow, to: startSec + halfWindow };
             }
-            if (api.setVisibleRange) api.setVisibleRange(range);
-            else api.scrollToTime?.(startSec, true, true);
+            // Mid-load (e.g. a deal on another pair just switched the
+            // symbol): hold the frame until the new data is in.
+            if (pendingLoadSinceRef.current != null) {
+              pendingFrameRef.current = range;
+              return;
+            }
+            pendingFrameRef.current = null;
+            applyFrame(range);
           } catch (e) {
             logger.error('centerAtTimestampMs failed', e);
           }
@@ -1950,6 +1982,7 @@ export const TradingViewChartCore = forwardRef<
 
       return _ensureHandleMatches;
     }, [
+      applyFrame,
       beginChartLoad,
       endChartLoad,
       getActiveChart,

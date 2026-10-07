@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.84.1] - 2026-10-07
+
+### Fixed
+
+- Backtest results, Deals tab: opening a deal on a different pair than the one on the chart now frames the chart on that deal instead of jumping to the latest candle.
+
 ## [2.84.0] - 2026-10-07
 
 ### Added
