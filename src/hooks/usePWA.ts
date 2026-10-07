@@ -10,10 +10,13 @@ import {
   subscribePwaUpdateUrgency,
 } from '@/lib/pwaUpdateUrgency';
 
-// A pending bundle update is applied only when the user clicks "Update Now".
-// The one exception is an imminent maintenance window (cloud), which raises an
-// urgency via the store below: then it is auto-applied at the next SAFE moment
-// — the tab going hidden, or the user being input-idle for that long.
+// While the user is working, a pending bundle update waits for "Update Now".
+// It is applied automatically in two cases:
+//   - the user comes back after a break (tab hidden, or the machine asleep, for
+//     AWAY_RELOAD_MS): reloaded on return, before they start working again;
+//   - an imminent maintenance window (cloud) raises an urgency via the store
+//     below: then it is applied at the next SAFE moment — the tab going hidden,
+//     or the user being input-idle for that long.
 const IDLE_CHECK_INTERVAL_MS = 5_000;
 
 interface PWAUpdateState {
@@ -51,6 +54,12 @@ interface NetworkState {
 // ---------------------------------------------------------------------------
 
 const VERSION_POLL_MS = 5 * 60_000;
+// A gap this long since the user last had the page in front of them counts as
+// "coming back" (the morning return to a tab left open, a reopened PWA).
+const AWAY_RELOAD_MS = 15 * 60_000;
+// After coming back, an update found within this window is applied at once —
+// unless the user has already pressed a key or pointer in the meantime.
+const RETURN_GRACE_MS = 15_000;
 
 const ENTRY_SCRIPT_RE =
   /<script\b[^>]*\btype=["']module["'][^>]*\bsrc=["']([^"']+)["']|<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*\btype=["']module["']/i;
@@ -79,6 +88,24 @@ const versionListeners = new Set<() => void>();
 let pollTimer: ReturnType<typeof setInterval> | null = null;
 let checking = false;
 let legacyWorkersRetired = false;
+let hiddenSince: number | null = null;
+let lastTickAt = 0;
+let returnedAt: number | null = null;
+
+function markReturned(): void {
+  returnedAt = Date.now();
+}
+
+function applyIfJustReturned(): void {
+  if (returnedAt != null && Date.now() - returnedAt <= RETURN_GRACE_MS) {
+    returnedAt = null;
+    window.location.reload();
+  }
+}
+
+const cancelReturn = () => {
+  returnedAt = null;
+};
 
 async function checkForNewVersion(): Promise<void> {
   if (checking || newVersionAvailable) return;
@@ -96,6 +123,7 @@ async function checkForNewVersion(): Promise<void> {
       if (latestPath !== current) {
         newVersionAvailable = true;
         versionListeners.forEach((l) => l());
+        applyIfJustReturned();
       }
     }
   } catch {
@@ -105,8 +133,33 @@ async function checkForNewVersion(): Promise<void> {
   }
 }
 
-const onVisibleCheck = () => {
-  if (document.visibilityState === 'visible') void checkForNewVersion();
+const onVisibilityChange = () => {
+  if (document.visibilityState === 'hidden') {
+    hiddenSince = Date.now();
+    returnedAt = null;
+    return;
+  }
+  if (hiddenSince != null && Date.now() - hiddenSince >= AWAY_RELOAD_MS) {
+    markReturned();
+  }
+  hiddenSince = null;
+  if (newVersionAvailable) applyIfJustReturned();
+  else void checkForNewVersion();
+};
+
+// A laptop that slept with the tab in front never fires visibilitychange; a
+// poll tick arriving far later than scheduled is the only sign of that return.
+const onPollTick = () => {
+  const now = Date.now();
+  if (
+    document.visibilityState === 'visible' &&
+    now - lastTickAt >= AWAY_RELOAD_MS
+  ) {
+    markReturned();
+  }
+  lastTickAt = now;
+  if (newVersionAvailable) applyIfJustReturned();
+  else void checkForNewVersion();
 };
 
 function retireLegacyServiceWorkers(): void {
@@ -122,15 +175,22 @@ function subscribeVersion(listener: () => void): () => void {
   versionListeners.add(listener);
   if (versionListeners.size === 1 && !import.meta.env.DEV) {
     retireLegacyServiceWorkers();
-    pollTimer = setInterval(() => void checkForNewVersion(), VERSION_POLL_MS);
-    document.addEventListener('visibilitychange', onVisibleCheck);
+    lastTickAt = Date.now();
+    pollTimer = setInterval(onPollTick, VERSION_POLL_MS);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('keydown', cancelReturn, { capture: true });
+    window.addEventListener('pointerdown', cancelReturn, { capture: true });
   }
   return () => {
     versionListeners.delete(listener);
     if (versionListeners.size === 0) {
       if (pollTimer) clearInterval(pollTimer);
       pollTimer = null;
-      document.removeEventListener('visibilitychange', onVisibleCheck);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('keydown', cancelReturn, { capture: true });
+      window.removeEventListener('pointerdown', cancelReturn, {
+        capture: true,
+      });
     }
   };
 }
@@ -163,8 +223,8 @@ export function usePWAUpdate(): PWAUpdateState {
   // During a maintenance window only: auto-apply a pending update at the next
   // SAFE moment so stale clients pick up the maintenance UI before the outage.
   // "Safe" = the tab is hidden (user switched away) OR the user has been
-  // input-idle for `urgentIdleMs`. Outside a window nothing happens until the
-  // user clicks "Update Now" (PWAStatus).
+  // input-idle for `urgentIdleMs`. Outside a window the update waits for
+  // "Update Now" (PWAStatus) or the user's next return (see onVisibilityChange).
   useEffect(() => {
     if (isDev || !updateAvailable || urgentIdleMs == null) return;
 

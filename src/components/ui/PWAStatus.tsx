@@ -115,7 +115,7 @@ export const PWAStatus: React.FC<PWAStatusProps> = ({ className = '' }) => {
               <span className="text-primary">Update Available</span>
             </CardTitle>
             <CardDescription className="text-sm">
-              A new version of the app is ready to install.
+              A new version is ready. It installs automatically when you come back after a break, or update now.
             </CardDescription>
           </CardHeader>
           <CardContent className="pt-0">

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.85.0] - 2026-10-07
+
+### Changed
+
+- App updates: when a new version is available and you come back to the dashboard after a break of 15 minutes or more (switching back to the tab, reopening the installed app, or waking the computer), it now updates automatically instead of asking. While you are actively using it, the "Update Available" card still waits for your click.
+
 ## [2.84.1] - 2026-10-07
 
 ### Fixed
