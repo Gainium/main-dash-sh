@@ -502,7 +502,13 @@ export function useNotifications(
       );
     }
 
-    const sortedUnified = unified.sort((a, b) => b.time - a.time);
+    // Changelogs have no server-side unread filter (read state is derived
+    // from the unread count above), so an unread-only caller drops the read
+    // ones here. Bots and announcements are already filtered by the API.
+    const visible = unreadOnly
+      ? unified.filter((n) => n.notificationType !== 'changelog' || !n.isRead)
+      : unified;
+    const sortedUnified = visible.sort((a, b) => b.time - a.time);
 
     // If caller requested a specific notification type, filter the results so that
     // we don't return notifications from other categories. React Query may return
@@ -511,7 +517,14 @@ export function useNotifications(
     // selected. This ensures the hook returns only the requested type.
     if (type === 'all') return sortedUnified;
     return sortedUnified.filter((n) => n.notificationType === type);
-  }, [botData, announcementData, changelogData, unreadChangelogData, type]);
+  }, [
+    botData,
+    announcementData,
+    changelogData,
+    unreadChangelogData,
+    type,
+    unreadOnly,
+  ]);
 
   // Calculate totals and update unread counts
   const totals = useMemo(() => {

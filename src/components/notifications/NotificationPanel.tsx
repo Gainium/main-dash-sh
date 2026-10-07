@@ -158,6 +158,9 @@ const NotificationPanel: React.FC = () => {
     // The feed is only fetched while the panel is open; the bell badge
     // comes from the navbar's count-only query.
     enabled: isNotificationsPanelOpen,
+    // The panel is the unread inbox for every feed: a read bot message,
+    // announcement or update leaves it and stays on the Notifications page.
+    unreadOnly: true,
   });
 
   // Removed unused functions to fix TypeScript errors

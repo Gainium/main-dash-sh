@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.87.1] - 2026-10-07
+
+### Fixed
+
+- Notifications panel: News and Updates you have read now leave the panel like bot messages do. They stay on the Notifications page.
+
 ## [2.87.0] - 2026-10-07
 
 ### Added
