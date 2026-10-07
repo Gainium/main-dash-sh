@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.85.1] - 2026-10-07
+
+### Fixed
+
+- Grid bots: pressing Start on the "Bot Created" popup right after creating a grid crashed the page. It now opens the start confirmation with the balance check and buy options, as starting from the bot page does.
+
 ## [2.85.0] - 2026-10-07
 
 ### Changed

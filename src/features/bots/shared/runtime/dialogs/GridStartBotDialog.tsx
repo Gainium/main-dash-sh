@@ -82,6 +82,11 @@ export interface GridStartBotDialogProps {
   ) => void;
   isProcessing?: boolean;
   update?: boolean;
+  /**
+   * The bot has just been created from the form, which is still in create
+   * mode — so the form query holds no `bot`, but it exists all the same.
+   */
+  botCreated?: boolean;
 }
 
 const defaultPrepareDialog: PrepareStarDialog = {
@@ -173,6 +178,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
   onConfirm,
   isProcessing = false,
   update,
+  botCreated = false,
 }) => {
   const [startDialog, setStartDialog] =
     useState<PrepareStarDialog>(defaultPrepareDialog);
@@ -285,7 +291,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
       return;
     }
 
-    const b = bot as Bot;
+    const b = bot as Bot | null;
     const lp =
       settings.startPrice &&
       settings.startPrice !== '' &&
@@ -299,7 +305,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
       settings.startPrice !== '0' &&
       settings.useStartPrice
         ? +settings.startPrice
-        : (b.initialPrice ?? lp);
+        : (b?.initialPrice ?? lp);
 
     const userBalances = (balances ?? []).filter(
       (b) =>
@@ -530,7 +536,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     const mainAssetBalance = !isShort
       ? +confirmDialog.baseBalance
       : +confirmDialog.quoteBalance;
-    if (bot) {
+    if (bot || botCreated) {
       const diffMainAsset =
         confirmDialog.estimatedMainAssetTotal - mainAssetBalance; /*  *
           (1 - (userFee ?? 0)) */
@@ -639,6 +645,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
     formData.exchangeUUID,
     balances,
     bot,
+    botCreated,
     errors,
     update,
     open,

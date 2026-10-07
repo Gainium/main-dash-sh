@@ -1018,6 +1018,7 @@ const BotForm: React.FC<BotFormProps> = ({
       }}
       onConfirm={handleCelebrationGridStartConfirm}
       isProcessing={statusToggleMutation.isPending}
+      botCreated
     />
   ) : null;
 
