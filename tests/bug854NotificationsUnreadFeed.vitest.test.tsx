@@ -58,6 +58,7 @@ const UNREAD = {
 };
 
 type BotInput = {
+  view?: 'unread' | 'read' | 'all';
   unreadOnly?: boolean;
   page?: number;
   pageSize?: number;
@@ -66,10 +67,11 @@ type BotInput = {
 
 /** Inputs the hook actually sent for getMessageBot, in order. */
 const botInputs: Array<BotInput | null | undefined> = [];
-/** What deleteBotMessage should answer. */
+/** What markBotMessageRead should answer. */
 let deleteStatus: 'OK' | 'NOTOK' = 'OK';
 /** Messages the fake "database" holds. */
-let store = [...DISMISSED];
+type Row = (typeof DISMISSED)[number] & { isRead?: boolean };
+let store: Row[] = [...DISMISSED];
 
 vi.mock('@/lib/api', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
@@ -78,10 +80,20 @@ vi.mock('@/lib/api', async (importOriginal) => {
       const input = (variables as { input?: BotInput } | undefined)?.input;
       if (query.includes('getMessageBot')) {
         botInputs.push(input ?? null);
-        // Mirror core/src/graphql/handlers/botMessage.handler.ts: unreadOnly
-        // defaults to true, and only `false` lets isDeleted:true rows through.
-        const unreadOnly = input?.unreadOnly ?? true;
-        let rows = unreadOnly ? store.filter((m) => !m.isDeleted) : [...store];
+        // Mirror main-app-sh's botMessage.handler.ts (spec 137): `view` wins;
+        // otherwise unreadOnly defaults to true (= unread view) and only
+        // `false` lets isDeleted:true rows through.
+        const view =
+          input?.view ?? ((input?.unreadOnly ?? true) ? 'unread' : 'legacy');
+        let rows =
+          view === 'legacy'
+            ? [...store]
+            : store.filter(
+                (m) =>
+                  !m.isDeleted &&
+                  (view === 'all' ||
+                    (view === 'read' ? m.isRead === true : !m.isRead))
+              );
         const search = input?.search?.trim();
         if (search) {
           const re = new RegExp(search, 'i');
@@ -98,16 +110,16 @@ vi.mock('@/lib/api', async (importOriginal) => {
           },
         };
       }
-      if (query.includes('deleteBotMessage')) {
+      if (query.includes('markBotMessageRead')) {
         if (deleteStatus === 'OK') {
           const id = (variables as { input?: { id?: string } } | undefined)
             ?.input?.id;
           store = store.map((m) =>
-            !id || m._id === id ? { ...m, isDeleted: true } : m
+            (!id || m._id === id) && !m.isDeleted ? { ...m, isRead: true } : m
           );
         }
         return {
-          deleteBotMessage: {
+          markBotMessageRead: {
             status: deleteStatus,
             reason: deleteStatus === 'OK' ? null : 'db error',
           },
@@ -219,7 +231,7 @@ describe('useNotifications — bot feed is the unread feed (bug #854)', () => {
     expect(get().notifications.map((n) => n.id)).toEqual(['msg-live']);
   });
 
-  it('markAllAsRead rejects when deleteBotMessage fails', async () => {
+  it('markAllAsRead rejects when markBotMessageRead fails', async () => {
     store = [UNREAD];
     const get = renderHook(() => useNotifications({ type: 'bot' }));
     await settle();
@@ -233,5 +245,45 @@ describe('useNotifications — bot feed is the unread feed (bug #854)', () => {
         await get().markAllAsRead(get().notifications);
       })
     ).rejects.toThrow(/db error/);
+  });
+});
+
+/**
+ * Spec 137 (main-app-sh) / specs/094: marking a bot message read keeps it in a
+ * Read / All history instead of deleting it.
+ */
+describe('useNotifications — read bot messages stay in history (spec 137)', () => {
+  it('mark as read moves a message from the unread view to the read view', async () => {
+    store = [UNREAD];
+    const unread = renderHook(() => useNotifications({ type: 'bot' }));
+    await settle();
+    expect(unread().notifications.map((n) => n.id)).toEqual(['msg-live']);
+    expect(unread().notifications[0].isRead).toBe(false);
+
+    await act(async () => {
+      await unread().markAsRead(unread().notifications[0]);
+    });
+    await settle();
+    expect(unread().notifications).toHaveLength(0);
+    // Not deleted — acknowledged.
+    expect(store[0]).toMatchObject({ isRead: true, isDeleted: false });
+  });
+
+  it('the read view lists read messages, flagged read, and is searchable', async () => {
+    store = [{ ...UNREAD, isRead: true }, ...DISMISSED];
+    const read = renderHook(() =>
+      useNotifications({ type: 'bot', botView: 'read', search: 'BTC' })
+    );
+    await settle();
+    expect(read().notifications.map((n) => n.id)).toEqual(['msg-live']);
+    expect(read().notifications[0].isRead).toBe(true);
+    expect(botInputs.at(-1)).toMatchObject({ view: 'read', search: 'BTC' });
+  });
+
+  it('read messages do not count toward the unread badge', async () => {
+    store = [{ ...UNREAD, isRead: true }];
+    renderHook(() => useNotifications({ type: 'bot', countOnly: true }));
+    await settle();
+    expect(useNotificationsStore.getState().unreadCounts.bot).toBe(0);
   });
 });

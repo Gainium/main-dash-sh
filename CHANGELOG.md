@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.86.0] - 2026-10-07
+
+### Added
+
+- Notifications: bot messages you mark as read are no longer deleted. Switch between Unread, All and Read to look back at them, search them, and load more. Read messages are kept for 90 days.
+- Notification Preferences: Max Open Deals Reached row.
+
 ## [2.85.2] - 2026-10-07
 
 ### Fixed

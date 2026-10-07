@@ -42,6 +42,8 @@ import {
   symbolsStatsFragment,
 } from './GraphQLQueries-fragments';
 
+export type BotMessageView = 'unread' | 'read' | 'all';
+
 /**
  * Stats-only selection for the live-bot Statistics tab.
  *
@@ -453,6 +455,19 @@ export const botQueries = {
   deleteBotMessage: (input: { id?: string }) => {
     const query = `mutation deleteBotMessage($input: deleteBotMessageInput!) {
         deleteBotMessage(input: $input) {
+            status
+            reason
+        }
+    }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  /** Acknowledge one bot message, or (no id) every unread one. Unlike
+   *  deleteBotMessage, a read message stays in the history views. */
+  markBotMessageRead: (input: { id?: string }) => {
+    const query = `mutation markBotMessageRead($input: markBotMessageReadInput!) {
+        markBotMessageRead(input: $input) {
             status
             reason
         }
@@ -1883,6 +1898,8 @@ export const botQueries = {
   },
 
   getMessageBot: (input?: {
+    /** unread | read | all — wins over unreadOnly. */
+    view?: BotMessageView;
     unreadOnly?: boolean;
     page?: number;
     pageSize?: number;
@@ -1907,6 +1924,8 @@ export const botQueries = {
 
   symbol
   exchange
+  isRead
+  readAt
   }
   }
   total

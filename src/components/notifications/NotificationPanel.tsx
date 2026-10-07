@@ -42,7 +42,12 @@ import { Input } from '../ui/input';
 import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Timeline, type TimelineItem } from '../ui/timeline';
+import type { BotMessageView } from '../../lib/api/GraphQLQueries-bot-queries';
 import { NotificationRichContent } from './NotificationRichContent';
+
+const PAGE_SIZE = 20;
+/** The API caps one page at 100 rows; beyond that, search narrows it. */
+const MAX_PAGE_SIZE = 100;
 
 const timelineVariantForType = (
   type: NotificationType | string
@@ -120,6 +125,9 @@ const NotificationPanel: React.FC = () => {
   } = useNotificationsStore();
 
   const [page] = useState(1);
+  // Bot messages: unread inbox, or the read history the server keeps.
+  const [botView, setBotView] = useState<BotMessageView>('unread');
+  const [pageSize, setPageSize] = useState(PAGE_SIZE);
   const [debouncedSearch, setDebouncedSearch] = useState(searchQuery);
   const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
   const [isMarkingTypeRead, setIsMarkingTypeRead] = useState(false);
@@ -137,9 +145,17 @@ const NotificationPanel: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // A new view or search starts again from the first page.
+  React.useEffect(() => {
+    setPageSize(PAGE_SIZE);
+  }, [botView, debouncedSearch, selectedFilter]);
+
+  const showBotViews = selectedFilter === 'bot' || selectedFilter === 'all';
+
   // Fetch notifications based on current filters
   const {
     notifications,
+    totals,
     isLoading,
     error,
     markAsRead,
@@ -151,7 +167,8 @@ const NotificationPanel: React.FC = () => {
     type: selectedFilter,
     search: debouncedSearch,
     page,
-    pageSize: 20,
+    pageSize,
+    botView: showBotViews ? botView : 'unread',
     // The feed is only fetched while the panel is open; the bell badge
     // comes from the navbar's count-only query.
     enabled: isNotificationsPanelOpen,
@@ -346,6 +363,15 @@ const NotificationPanel: React.FC = () => {
     },
     [notifications]
   );
+
+  const shownBotCount = notifications.filter(
+    (n) => n.notificationType === 'bot'
+  ).length;
+  const canShowMoreBots =
+    showBotViews &&
+    pageSize < MAX_PAGE_SIZE &&
+    totals.bot > shownBotCount &&
+    shownBotCount >= pageSize;
 
   const canMarkCurrentFilterRead =
     getUnreadCountForType(selectedFilter as NotificationType | 'all') > 0;
@@ -734,6 +760,30 @@ const NotificationPanel: React.FC = () => {
             </div>
           </div>
 
+          {showBotViews && (
+            <div className="shrink-0 px-4 pb-2 flex items-center gap-sm">
+              <span className="text-xs text-muted-foreground">
+                Bot messages
+              </span>
+              <Tabs
+                value={botView}
+                onValueChange={(value) => setBotView(value as BotMessageView)}
+              >
+                <TabsList className="h-7" aria-label="Bot message history">
+                  <TabsTrigger value="unread" className="text-xs px-2 py-0.5">
+                    Unread
+                  </TabsTrigger>
+                  <TabsTrigger value="all" className="text-xs px-2 py-0.5">
+                    All
+                  </TabsTrigger>
+                  <TabsTrigger value="read" className="text-xs px-2 py-0.5">
+                    Read
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
+            </div>
+          )}
+
           {/* Content */}
           <div className="flex-1 min-h-0">
             <ScrollArea className="h-full">
@@ -764,7 +814,9 @@ const NotificationPanel: React.FC = () => {
 
                 {!isLoading && !error && timelineItems.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
-                    No notifications found
+                    {showBotViews && botView === 'read'
+                      ? 'No read bot notifications. Read messages are kept for 90 days.'
+                      : 'No notifications found'}
                   </div>
                 )}
 
@@ -774,6 +826,22 @@ const NotificationPanel: React.FC = () => {
                     layout="right"
                     className="px-4"
                   />
+                )}
+
+                {!isLoading && !error && canShowMoreBots && (
+                  <div className="flex justify-center py-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() =>
+                        setPageSize((size) =>
+                          Math.min(size + PAGE_SIZE, MAX_PAGE_SIZE)
+                        )
+                      }
+                    >
+                      Show more
+                    </Button>
+                  </div>
                 )}
               </div>
             </ScrollArea>
