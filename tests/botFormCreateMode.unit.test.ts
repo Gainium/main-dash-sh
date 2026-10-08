@@ -145,6 +145,7 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   minOpenDeal: '100',
   maxOpenDeal: '200',
   reduceToAvailableMinSize: '20',
+  maxPositionEntries: '3',
   startBotPriceValue: '100',
   stopBotPriceValue: '200',
   dcaVolumeRequiredChangeRef: 'avg',
@@ -400,6 +401,8 @@ const buildFormData = (
 ): BotFormData =>
   ({
     ...SHARED_FORM_DEFAULTS,
+    // A backend with single position per pair (the fields are sent).
+    singlePositionSupported: true,
     pair: [PAIR],
     type: section === 'combo' ? BotTypesEnum.combo : BotTypesEnum.dca,
     exchangeUUID: 'exchange-uuid',

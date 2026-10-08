@@ -20,6 +20,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { useDealStore } from '@/stores/live';
 import { recordDealTombstone } from '@/stores/live/staleWriteGuard';
 import { requestDealResync } from '@/stores/live/dealResync';
+import { adoptDeals } from '@/lib/singlePosition/singlePositionApi';
 import {
   removeDealFromListCaches,
   invalidateListCaches,
@@ -76,6 +77,12 @@ interface MoveDealToBotInput {
   targetBotId: string;
   /** The terminal bot currently hosting the deal (cleaned up after the move). */
   sourceBotId: string;
+  /**
+   * Single position per pair: the target bot's open deal on this pair. When
+   * set, the deal is ADOPTED into it (`adoptDeals`, the position keeps its id)
+   * instead of becoming a new deal through `mergeDeals`.
+   */
+  targetDealId?: string;
 }
 
 /**
@@ -829,12 +836,25 @@ export function useMoveDealToBot() {
   );
 
   return useMutation<DealResponse, Error, MoveDealToBotInput>({
-    mutationFn: async ({ dealId, targetBotId, sourceBotId }) => {
+    mutationFn: async ({ dealId, targetBotId, sourceBotId, targetDealId }) => {
       logger.info('[useMoveDealToBot] Moving terminal deal to bot:', {
         dealId,
         targetBotId,
         sourceBotId,
+        targetDealId,
       });
+
+      if (targetDealId) {
+        // Single-position bot with an open deal on this pair: fold the
+        // terminal deal into that position (spec 139 §5.2.1).
+        const adopted = await adoptDeals(client, {
+          botId: targetBotId,
+          targetDealId,
+          dealIds: [dealId],
+        });
+        void cleanupOrphanTerminalBot(client, sourceBotId);
+        return adopted as DealResponse;
+      }
 
       const { query, variables } = dealQueries.mergeDeals({
         botId: targetBotId,

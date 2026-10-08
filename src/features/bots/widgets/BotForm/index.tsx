@@ -17,6 +17,7 @@ import { mapWidgetMenuItemsToPanelMenu } from '@/components/bots/panels/menuUtil
 import { Celebration } from '@/components/onboarding/Celebration';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { useSinglePositionFormBridge } from '@/features/bots/bot-types/dca/form/hooks/useSinglePositionFormBridge';
 // Dialog and input/label components are not used here; render logic moved to footer menu
 import { Button } from '@/components/ui/button';
 import {
@@ -77,7 +78,10 @@ import {
   useBotFormMutations,
   type RefreshBalancesResult,
 } from '@/hooks/bots/base/useBotFormMutations';
-import { useFormHandlers } from '@/hooks/bots/dca/useFormHandlers';
+import {
+  useFormHandlers,
+  type SaveExtraInput,
+} from '@/hooks/bots/dca/useFormHandlers';
 import {
   useBotFormInitialization,
   type BotSettingsMapper,
@@ -729,6 +733,33 @@ const BotForm: React.FC<BotFormProps> = ({
   // via the standard botId-based query) over the query result.
   const bot = initialBot ?? queryBot;
 
+  // Single position per pair (DCA bots only): backend capability, the saved
+  // value (merged into the settings the form initializes from), the save
+  // confirmation and the backtest refusal.
+  const singlePositionSaveRef = useRef<(extra: SaveExtraInput) => void>(
+    () => undefined
+  );
+  const singlePosition = useSinglePositionFormBridge({
+    enabled:
+      !isGridBot &&
+      !isComboBot &&
+      !isNestedLeg &&
+      !formTerminal &&
+      (mode === 'create' || mode === 'edit'),
+    mode,
+    botId: _botId ?? (bot as { _id?: string } | null | undefined)?._id,
+    bot,
+    botSettings,
+    getFormData,
+    setFormData,
+    setErrors,
+    save: (extra) => singlePositionSaveRef.current(extra),
+  });
+  const {
+    interceptSave: interceptSinglePositionSave,
+    backtestBlockReason: singlePositionBacktestBlock,
+  } = singlePosition;
+
   const navigate = useNavigate();
 
   const [showImportExportDialog, setShowImportExportDialog] = useState(false);
@@ -1120,8 +1151,8 @@ const BotForm: React.FC<BotFormProps> = ({
         ? BotTypesEnum.combo
         : BotTypesEnum.dca,
     mode,
-    bot,
-    botSettings,
+    bot: singlePosition.bot,
+    botSettings: singlePosition.botSettings,
     ...(initializationMapper ? { mapper: initializationMapper } : {}),
     debug: debugEnabled,
   });
@@ -1356,6 +1387,10 @@ const BotForm: React.FC<BotFormProps> = ({
       options.onCreateSuccess = handleCreateSuccess;
     }
 
+    options.onSaveError = singlePosition.onSaveError;
+    options.onUpdateSuccess = singlePosition.onSaveSuccess;
+    options.backtestBlockReason = singlePosition.backtestBlockReason;
+
     return options;
   }, [
     mode,
@@ -1364,6 +1399,9 @@ const BotForm: React.FC<BotFormProps> = ({
     isGridBot,
     /* isHedgeBot, */
     payloadMapper,
+    singlePosition.onSaveError,
+    singlePosition.onSaveSuccess,
+    singlePosition.backtestBlockReason,
   ]);
 
   const isTerminal = !!formTerminal;
@@ -1405,6 +1443,9 @@ const BotForm: React.FC<BotFormProps> = ({
     formHandlerOptions,
     isTerminal
   );
+  singlePositionSaveRef.current = (extra) => {
+    void handleSave(undefined, undefined, extra);
+  };
 
   // Seed for the settings dialog. The footer's "More backtest settings"
   // button hands over the period + timeframe its own bar is showing; without
@@ -1416,12 +1457,17 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const onBacktestClick = useCallback(
     (_formData?: BotFormData, cfg?: Partial<BacktestConfig>) => {
+      const blockReason = singlePositionBacktestBlock();
+      if (blockReason) {
+        toast.error(blockReason);
+        return;
+      }
       if (cfg) {
         setBacktestDialogInitial((prev) => ({ ...prev, ...cfg }));
       }
       setShowBacktestDialog(true);
     },
-    [setShowBacktestDialog]
+    [setShowBacktestDialog, singlePositionBacktestBlock]
   );
 
   // Grid validation is the provider's debounced pass (same validator, same
@@ -2742,7 +2788,12 @@ const BotForm: React.FC<BotFormProps> = ({
     return activeStatuses.has(botStatus);
   }, [shouldWarnRestart, botStatus]);
 
-  const handleSubmit = useCallback(() => {
+  const handleSubmit = useCallback(async () => {
+    // Single position per pair turned on over open deals: confirm the
+    // adoption first (spec 139 §5.1.3). The confirmation runs the save.
+    if (await interceptSinglePositionSave()) {
+      return;
+    }
     // Legacy parity: when the edited grid needs different balances than the
     // bot holds, ask how to cover the difference first (start dialog in
     // update mode). Its answer rides on the changeBot call, so the restart
@@ -2767,6 +2818,7 @@ const BotForm: React.FC<BotFormProps> = ({
     shouldWarnRestart,
     bot,
     getFormData,
+    interceptSinglePositionSave,
   ]);
 
   const resumeSaveAfterConfirmation = useCallback(() => {
@@ -2981,6 +3033,12 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const onRunBacktest = useCallback(
     async (cfg: BacktestConfig) => {
+      // §8: not simulated yet, and not run as if the setting were off.
+      const singlePositionBlock = singlePositionBacktestBlock();
+      if (singlePositionBlock) {
+        toast.error(singlePositionBlock);
+        return;
+      }
       if (!(await confirmBacktestLimitations())) return;
       // The form as it is now, read once at run time (the shell does not
       // subscribe to it).
@@ -3567,6 +3625,7 @@ const BotForm: React.FC<BotFormProps> = ({
       queryBalances,
       onBacktestComplete,
       setErrors,
+      singlePositionBacktestBlock,
     ]
   );
 
@@ -3973,6 +4032,7 @@ const BotForm: React.FC<BotFormProps> = ({
         </div>
       </div>
 
+      {singlePosition.dialog}
       <ConfirmationDialog
         open={showRestartDialog}
         onOpenChange={setShowRestartDialog}
@@ -4450,6 +4510,7 @@ const BotForm: React.FC<BotFormProps> = ({
       )}
 
       {/* Dialogs - same as shellContent */}
+      {singlePosition.dialog}
       <ConfirmationDialog
         open={showRestartDialog}
         onOpenChange={setShowRestartDialog}

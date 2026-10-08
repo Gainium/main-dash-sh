@@ -45,6 +45,7 @@ import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import { DealStartBlockedNotice } from '../deals/DealStartBlockedNotice';
 import CoinPair from '../widgets/shared/CoinPair';
 import { TradeDetailDrawer } from './TradeDetailDrawer';
+import { usePositionEntriesLabel } from '@/hooks/useSinglePosition';
 
 export interface TradeCardProps {
   trade: TransformedTrade;
@@ -609,6 +610,8 @@ const EnhancedCard = React.memo(
     // A deal with a single order (just the base buy) has no DCA ladder, so its
     // usage gauge would always read ~100% — meaningless. Hide it in that case.
     const hasDca = (trade.levels?.all ?? 0) > 1;
+    // Single-position bots: the position's entries (it has no DCA ladder).
+    const positionEntries = usePositionEntriesLabel(trade.id);
 
     // The P/L summary box shows realized P/L for closed deals, unrealized for
     // open ones — exactly one applies per card.
@@ -755,6 +758,19 @@ const EnhancedCard = React.memo(
                 <div className="flex items-start gap-md mb-4">
                   {/* Left side - Usage gauge (only meaningful when a DCA ladder
                       exists; a single-order deal would always read ~100%). */}
+                  {!hasDca && positionEntries && (
+                    <div
+                      className="shrink-0 w-20 text-center"
+                      title="Entries in this single position, counting the base order"
+                    >
+                      <div className="text-xs text-muted-foreground mb-2">
+                        Entries
+                      </div>
+                      <div className="text-lg font-semibold">
+                        {positionEntries}
+                      </div>
+                    </div>
+                  )}
                   {hasDca && (
                     <div
                       className="shrink-0 w-20 cursor-pointer transition-opacity hover:opacity-80"
@@ -789,7 +805,10 @@ const EnhancedCard = React.memo(
                         innerProgressColor={colors.warning}
                         trailColor="var(--color-border)"
                         centerText={`${(trade.outerGaugePercent || 0).toFixed(0)}%`}
-                        label={`${trade.levels.complete}/${trade.levels.all}`}
+                        label={
+                          positionEntries ??
+                          `${trade.levels.complete}/${trade.levels.all}`
+                        }
                         animate={true}
                         showInnerGauge={trade.showInnerGauge || false}
                       />

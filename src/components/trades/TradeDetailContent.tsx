@@ -31,6 +31,8 @@ import {
 import { useExecuteNextDca } from '@/hooks/useDealActions';
 import { Slot } from '@/lib/extensions';
 import { toast } from '@/lib/toast';
+import { DealLevelsText } from '@/components/deals/DealLevelsText';
+import { usePositionEntriesLabel } from '@/hooks/useSinglePosition';
 
 interface TradeDetailContentProps {
   trade: {
@@ -145,6 +147,8 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
 
   const progressPercentage =
     trade.levels.all > 0 ? (trade.levels.complete / trade.levels.all) * 100 : 0;
+  // Single-position bots: entries instead of levels (see DealLevelsText).
+  const positionEntries = usePositionEntriesLabel(trade.id);
 
   const normalizedStatus = String(trade.status || '').toLowerCase();
   const isClosedTrade = ['closed', 'cancelled', 'canceled'].includes(
@@ -505,10 +509,10 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
           <div className="space-y-md">
             <div className="flex justify-between items-center">
               <div className="text-sm text-muted-foreground">
-                Levels Completed
+                {positionEntries ? 'Position' : 'Levels Completed'}
               </div>
               <div className="font-medium">
-                {trade.levels.complete} / {trade.levels.all}
+                <DealLevelsText dealId={trade.id} levels={trade.levels} />
               </div>
             </div>
             <div className="w-full bg-muted rounded-full h-3">

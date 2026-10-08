@@ -47,6 +47,7 @@ const buildFormData = (
 
   return {
     ...SHARED_FORM_DEFAULTS,
+    singlePositionSupported: true,
     type,
     exchangeUUID: 'exchange-uuid',
     dca: { ...DCA_FORM_DEFAULTS, ...overrides },
@@ -232,7 +233,7 @@ test.describe('no mapper gap can revert a field to its factory default', () => {
    * map-form-data-to-payload.ts strips both; botFormRoundTrip's VERDICT table
    * classifies them `by-design`. `allowRaiseToExchangeMin` and the
    * `reduceToAvailable*` pair are DCA-only (DECLARED_BY_DCA_ONLY): mapped for
-   * DCA, stripped for combo.
+   * DCA, stripped for combo. So are `singlePosition` / `maxPositionEntries`.
    */
   const STRIPPED_BY_DESIGN = new Set([
     'useExperimental',
@@ -240,6 +241,8 @@ test.describe('no mapper gap can revert a field to its factory default', () => {
     'allowRaiseToExchangeMin',
     'reduceToAvailableBalance',
     'reduceToAvailableMinSize',
+    'singlePosition',
+    'maxPositionEntries',
   ]);
 
   /** A value valid for the field's type but different from `current`. */

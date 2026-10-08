@@ -849,6 +849,8 @@ export const HedgeBotEditLayout: React.FC = () => {
           delete payload['allowRaiseToExchangeMin'];
           delete payload['reduceToAvailableBalance'];
           delete payload['reduceToAvailableMinSize'];
+          delete payload['singlePosition'];
+          delete payload['maxPositionEntries'];
         }
         const input = {
           long: longPayload as Parameters<

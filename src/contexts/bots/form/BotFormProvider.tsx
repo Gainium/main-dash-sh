@@ -891,7 +891,13 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           ? formData.combo.orderSizeType
           : formData.dca.orderSizeType,
         coinm: isComboBot ? formData.combo.coinm : formData.dca.coinm,
-        useDca: isComboBot ? formData.combo.useDca : formData.dca.useDca,
+        // Single position per pair: entries replace safety orders, so the
+        // preview shows none (the DCA settings are kept, just unused).
+        useDca: isComboBot
+          ? formData.combo.useDca
+          : formData.singlePositionSupported && formData.dca.singlePosition
+            ? false
+            : formData.dca.useDca,
         dcaCondition: isComboBot
           ? formData.combo.dcaCondition
           : formData.dca.dcaCondition,

@@ -71,6 +71,8 @@ export const DECLARED_BY_DCA_ONLY = [
   'allowRaiseToExchangeMin',
   'reduceToAvailableBalance',
   'reduceToAvailableMinSize',
+  'singlePosition',
+  'maxPositionEntries',
 ] as const;
 
 /**

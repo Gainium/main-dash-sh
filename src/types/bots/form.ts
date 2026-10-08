@@ -117,6 +117,12 @@ export interface BotFormData {
   askToReset?: boolean;
   dcaOrderGuard?: PrecisionGuard | null | undefined;
   terminal: boolean;
+  /**
+   * Bookkeeping, never sent: the backend knows single position per pair. Off
+   * until the capability probe says so; while off the setting is neither
+   * shown nor sent, because an older backend rejects the whole save.
+   */
+  singlePositionSupported?: boolean;
 }
 
 /* export type HedgeLegFormDraft = Partial<

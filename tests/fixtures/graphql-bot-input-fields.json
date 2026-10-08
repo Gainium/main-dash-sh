@@ -9,10 +9,11 @@
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 171,
+      "fieldCount": 174,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
+        "adoptOpenDeals",
         "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
@@ -86,6 +87,7 @@
         "maxDealsUnderPerSymbol",
         "maxNumberOfOpenDeals",
         "maxOpenDeal",
+        "maxPositionEntries",
         "minOpenDeal",
         "minTp",
         "minimumDeviation",
@@ -125,6 +127,7 @@
         "rrSlFixedValue",
         "rrSlType",
         "scaleDcaType",
+        "singlePosition",
         "skipBalanceCheck",
         "slPerc",
         "startBotLogic",
@@ -419,7 +422,7 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 183,
+      "fieldCount": 185,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -502,6 +505,7 @@
         "maxDealsUnderPerSymbol",
         "maxNumberOfOpenDeals",
         "maxOpenDeal",
+        "maxPositionEntries",
         "minOpenDeal",
         "minTp",
         "minimumDeviation",
@@ -541,6 +545,7 @@
         "rrSlFixedValue",
         "rrSlType",
         "scaleDcaType",
+        "singlePosition",
         "skipBalanceCheck",
         "slPerc",
         "startBotLogic",

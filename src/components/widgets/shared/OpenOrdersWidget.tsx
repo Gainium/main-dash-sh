@@ -104,6 +104,7 @@ import {
 import { Skeleton } from '../../ui/skeleton';
 import CoinPair from './CoinPair';
 import { DealOrdersDialog } from './DealOrdersDialog';
+import { DealLevelsText } from '@/components/deals/DealLevelsText';
 
 // Interface for GraphQL DCA Deal data
 export interface DCADeal {
@@ -2016,7 +2017,10 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           const levels = row.original.levels;
           return (
             <span className="text-sm font-medium">
-              {levels.complete} / {levels.all}
+              <DealLevelsText
+                dealId={row.original.dealId || row.original.id}
+                levels={levels}
+              />
             </span>
           );
         },

@@ -124,6 +124,7 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   minOpenDeal: '100',
   maxOpenDeal: '200',
   reduceToAvailableMinSize: '20',
+  maxPositionEntries: '3',
   startBotPriceValue: '100',
   stopBotPriceValue: '200',
   // Only 'tp' and 'avg' are valid here; the generic sibling lookup finds
@@ -344,6 +345,9 @@ const buildFormData = (section: Section, overrides: Record<string, unknown>) => 
 
   return {
     ...SHARED_FORM_DEFAULTS,
+    // A backend that has single position per pair, so those fields are
+    // exercised; on an older one they are stripped (singlePosition.vitest).
+    singlePositionSupported: true,
     type,
     exchangeUUID: 'exchange-uuid',
     dca,
@@ -518,6 +522,8 @@ const VERDICT: Record<string, string> = {
   allowRaiseToExchangeMin: 'gated:DCA only — the combo engine does not implement the exchange-minimum refusal',
   reduceToAvailableBalance: 'gated:DCA only — the combo form does not offer a reduced deal',
   reduceToAvailableMinSize: 'gated:DCA only — the combo form does not offer a reduced deal',
+  singlePosition: 'gated:DCA only — combo bots are excluded from single position per pair',
+  maxPositionEntries: 'gated:DCA only — combo bots are excluded from single position per pair',
 };
 
 const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
@@ -549,6 +555,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'stopBotPriceCondition', 'stopBotPriceValue', 'stopDealLogic',
     'stopDealSlLogic', 'tpSlTargetFilled', 'useExperimental', 'useRiskReward',
     'volumeTop', 'reduceToAvailableBalance', 'reduceToAvailableMinSize',
+    'singlePosition', 'maxPositionEntries',
   ].sort(),
 };
 
@@ -587,9 +594,11 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'multiTp',
     'reduceToAvailableBalance',
     'reduceToAvailableMinSize',
+    'singlePosition',
+    'maxPositionEntries',
     'startBotPriceValue',
     'stopBotPriceValue',
-  ],
+  ].sort(),
   // The grid payload derives these rather than carrying them through.
   grid: ['newProfit', 'strategy', 'updatedBudget'],
 };

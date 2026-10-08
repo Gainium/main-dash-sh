@@ -46,6 +46,7 @@ export const SHARED_FORM_DEFAULTS: Readonly<
   askToReset: false,
   dcaOrderGuard: null,
   terminal: false,
+  singlePositionSupported: false,
 };
 
 export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
@@ -73,6 +74,8 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   allowRaiseToExchangeMin: false,
   reduceToAvailableBalance: false,
   reduceToAvailableMinSize: '',
+  singlePosition: false,
+  maxPositionEntries: '',
   minOpenDeal: '',
   maxOpenDeal: '',
   useDca: true,

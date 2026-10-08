@@ -131,6 +131,7 @@ const buildFormData = (
   const section = { ...gatesOn(base as Record<string, unknown>), ...overrides };
   return {
     ...SHARED_FORM_DEFAULTS,
+    singlePositionSupported: true,
     type: botType === 'combo' ? BotTypesEnum.combo : BotTypesEnum.dca,
     exchangeUUID: 'exchange-uuid',
     dca: botType === 'dca' ? section : gatesOn(DCA_FORM_DEFAULTS as Record<string, unknown>),
@@ -236,6 +237,7 @@ const wirePayload = (
     Object.keys(overrides).length === 0
       ? ({
           ...SHARED_FORM_DEFAULTS,
+          singlePositionSupported: true,
           type: botType === 'combo' ? BotTypesEnum.combo : BotTypesEnum.dca,
           exchangeUUID: 'exchange-uuid',
           dca: { ...DCA_FORM_DEFAULTS },

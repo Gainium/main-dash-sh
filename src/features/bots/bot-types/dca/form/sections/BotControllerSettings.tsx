@@ -16,6 +16,9 @@ import { Switch } from '@/components/ui/switch';
 import { Tooltip } from '@/components/ui/tooltip';
 /* Webhook helper moved to its own section */
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
+import SettingsAlert from '@/components/ui/SettingsAlert';
+import { useSinglePositionFormState } from '@/features/bots/bot-types/dca/form/hooks/useSinglePositionFormState';
+import { SINGLE_POSITION_CLOSE_AFTER_OPENED_MESSAGE } from '@/lib/singlePosition/singlePosition';
 import {
   useBotFormSelector,
   useTrackedBotFormData,
@@ -799,6 +802,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
   ).toUpperCase();
   const stopBotPriceCondition = useBotFormSelector('stopBotPriceCondition');
   const useCloseAfterXopen = useBotFormSelector('useCloseAfterXopen');
+  const { active: singlePositionActive } = useSinglePositionFormState();
   const closeAfterXopen = useBotFormSelector('closeAfterXopen');
   const useCloseAfterX = useBotFormSelector('useCloseAfterX');
   const closeAfterX = useBotFormSelector('closeAfterX');
@@ -1369,6 +1373,10 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
               <Switch
                 id="stop-after-open"
                 checked={!!useCloseAfterXopen}
+                // Single position: a position never re-opens per signal, so
+                // the count would only grow with closes. It can still be
+                // switched OFF.
+                disabled={singlePositionActive && !useCloseAfterXopen}
                 onCheckedChange={(checked) =>
                   updateFormData('useCloseAfterXopen', checked)
                 }
@@ -1377,6 +1385,12 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
             headerAlign="center"
             contentClassName="space-y-sm"
           >
+            {singlePositionActive && (
+              <SettingsAlert
+                variant={useCloseAfterXopen ? 'error' : 'info'}
+                title={SINGLE_POSITION_CLOSE_AFTER_OPENED_MESSAGE}
+              />
+            )}
             {useCloseAfterXopen && (
               <>
                 <NumberInput

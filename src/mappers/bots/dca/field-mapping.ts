@@ -4,6 +4,10 @@
  */
 
 import { DCA_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
+import {
+  maxPositionEntriesError,
+  normalizeMaxPositionEntries,
+} from '@/lib/singlePosition/singlePosition';
 import type {
   MultipleSLVarBindingPath,
   MultipleTPVarBindingPath,
@@ -940,6 +944,8 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         | 'allowRaiseToExchangeMin'
         | 'reduceToAvailableBalance'
         | 'reduceToAvailableMinSize'
+        | 'singlePosition'
+        | 'maxPositionEntries'
         | 'activeOrdersCount'
         | 'gridLevel'
         | 'baseGridLevels'
@@ -1034,6 +1040,26 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
       } else {
         errors.push('Minimum reduced base order must be a non-negative number');
         fieldsSkipped.push('reduceToAvailableMinSize');
+      }
+
+      // Single position per pair — DCA bots only, and only once the backend
+      // is known to have it (an older one rejects the whole save on an
+      // unknown input field). map-form-data-to-payload strips both otherwise.
+      if (formData.singlePositionSupported) {
+        dcaFields['singlePosition'] = Boolean(formData.dca.singlePosition);
+        fieldsMapped.push('singlePosition');
+        const maxEntriesError = maxPositionEntriesError(
+          formData.dca.maxPositionEntries
+        );
+        if (maxEntriesError) {
+          errors.push(maxEntriesError);
+          fieldsSkipped.push('maxPositionEntries');
+        } else {
+          dcaFields['maxPositionEntries'] = normalizeMaxPositionEntries(
+            formData.dca.maxPositionEntries
+          );
+          fieldsMapped.push('maxPositionEntries');
+        }
       }
     }
 

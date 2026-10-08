@@ -1191,6 +1191,31 @@ export const dealQueries = {
     return { query, variables };
   },
 
+  /**
+   * Fold open deals into a single-position bot's open deal, which keeps its
+   * id. Same answer shape as `mergeDeals`. The input is written inline from
+   * scalar variables so the document does not depend on the input type name.
+   */
+  adoptDeals: (input: {
+    botId: string;
+    targetDealId: string;
+    dealIds: string[];
+  }) => {
+    const query = `mutation adoptDeals($botId: String!, $targetDealId: String!, $dealIds: [String!]!) {
+  adoptDeals(input: { botId: $botId, targetDealId: $targetDealId, dealIds: $dealIds }) {
+  status
+  reason
+  data
+  }
+  }`;
+    const variables = {
+      botId: input.botId,
+      targetDealId: input.targetDealId,
+      dealIds: input.dealIds,
+    };
+    return { query, variables };
+  },
+
   setDealNote: (input: { note?: string; type: BotTypesEnum; id: string }) => {
     const query = `mutation setDealNote($input: setDealNoteInput!) {
   setDealNote(input: $input) {

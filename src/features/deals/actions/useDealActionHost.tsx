@@ -558,6 +558,9 @@ export function useDealActionHost({
           await mergeDeals.mutateAsync({
             botId: first.botId,
             dealIds: deals.map((deal) => deal.dealId),
+            // A single-position target bot adopts the deals into its open
+            // position on this pair instead (spec 139 §5.2.1).
+            ...(first.kind === 'dca' ? { symbol: first.symbol } : {}),
           });
         } catch (error) {
           // The mutation reports its own failure.

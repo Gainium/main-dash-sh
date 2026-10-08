@@ -24,6 +24,20 @@ import { isBotActive } from '@/utils/botStatusUtils';
 import { BotTypesEnum, DCATypeEnum, type DCABot } from '@/types';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
+import { AdoptionPreviewRows } from '@/components/deals/SinglePositionAdoptionDialog';
+import {
+  useInvalidateSinglePosition,
+  useSinglePositionClient,
+  useSinglePositionTargets,
+} from '@/hooks/useSinglePosition';
+import {
+  ADOPTION_IRREVERSIBLE_SENTENCE,
+  mergesIntoPositionLabel,
+  planMoveIntoBot,
+  previewAdoption,
+  type AdoptionPreviewRow,
+} from '@/lib/singlePosition/singlePosition';
+import { fetchBotOpenDeals } from '@/lib/singlePosition/singlePositionApi';
 
 /** Minimal description of the terminal deal being moved. */
 export interface MoveDealToBotTarget {
@@ -60,6 +74,15 @@ export function MoveDealToBotDialog({
   deal,
 }: MoveDealToBotDialogProps) {
   const [selectedBotId, setSelectedBotId] = useState<string>('');
+  /** Single position per pair: the before/after shown before adopting. */
+  const [preview, setPreview] = useState<{
+    row: AdoptionPreviewRow;
+    targetDealId: string;
+    baseAsset?: string | undefined;
+  } | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const { make } = useSinglePositionClient();
+  const invalidateSinglePosition = useInvalidateSinglePosition();
   const moveDealToBot = useMoveDealToBot();
   const canonical = useDcaBots();
   // A capped bot list (or a large account) can't be filtered client-side:
@@ -106,6 +129,7 @@ export function MoveDealToBotDialog({
   // Reset the selection whenever a different deal is opened.
   useEffect(() => {
     setSelectedBotId('');
+    setPreview(null);
   }, [deal?.dealId]);
 
   const compatibleBots = useMemo(() => {
@@ -129,14 +153,73 @@ export function MoveDealToBotDialog({
     });
   }, [bots, deal]);
 
+  // Single-position bots that already hold this pair adopt the deal into
+  // that position instead of opening a new deal (spec 139 §5.2).
+  const compatibleBotIds = useMemo(
+    () => compatibleBots.map((b) => b._id),
+    [compatibleBots]
+  );
+  const { settingsByBot, positionByBot } = useSinglePositionTargets(
+    compatibleBotIds,
+    deal?.symbol,
+    open
+  );
+  const selectedPlan = selectedBotId
+    ? planMoveIntoBot(selectedBotId, settingsByBot, positionByBot)
+    : ({ mode: 'merge' } as const);
+
+  /** Adopting: show the before/after first. */
+  const openPreview = async (targetDealId: string) => {
+    if (!deal) return;
+    const bot = compatibleBots.find((b) => b._id === selectedBotId);
+    const position = positionByBot[selectedBotId];
+    if (!bot || !position) return;
+    setPreviewLoading(true);
+    try {
+      const terminalDeals = await fetchBotOpenDeals(make(), deal.sourceBotId, {
+        terminal: true,
+      });
+      const incoming = terminalDeals.find((d) => d._id === deal.dealId);
+      const row = previewAdoption(position, incoming ? [incoming] : [], {
+        strategy: bot.settings?.strategy ?? deal.strategy,
+        tpPerc: bot.settings?.tpPerc,
+        useTp: bot.settings?.useTp,
+      });
+      // The incoming deal always counts, even when its figures did not load.
+      setPreview({
+        row: {
+          ...row,
+          kind: 'adopt',
+          dealCount: 2,
+          sourceDealIds: [deal.dealId],
+        },
+        targetDealId,
+        baseAsset: position.baseAsset,
+      });
+    } catch (error) {
+      toast.error(
+        error instanceof Error ? error.message : 'Failed to load the position'
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleConfirm = async () => {
     if (!deal || !selectedBotId) return;
+    if (selectedPlan.mode === 'adopt' && !preview) {
+      await openPreview(selectedPlan.targetDealId);
+      return;
+    }
     try {
       const response = await moveDealToBot.mutateAsync({
         dealId: deal.dealId,
         targetBotId: selectedBotId,
         sourceBotId: deal.sourceBotId,
+        ...(preview ? { targetDealId: preview.targetDealId } : {}),
       });
+      if (preview) invalidateSinglePosition();
+      setPreview(null);
       toast.success(
         typeof response.data === 'string'
           ? response.data
@@ -176,7 +259,23 @@ export function MoveDealToBotDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {isLoading ? (
+        {preview ? (
+          <div className="space-y-sm">
+            <p className="text-sm text-muted-foreground">
+              {mergesIntoPositionLabel(deal?.symbol ?? '')} in{' '}
+              {compatibleBots.find((b) => b._id === selectedBotId)?.settings
+                ?.name ?? 'the bot'}
+              . The position keeps its history; the terminal entry is removed.
+            </p>
+            <AdoptionPreviewRows
+              rows={[preview.row]}
+              baseAssetOf={() => preview.baseAsset}
+            />
+            <p className="text-sm font-medium text-destructive">
+              {ADOPTION_IRREVERSIBLE_SENTENCE}
+            </p>
+          </div>
+        ) : isLoading ? (
           <p className="text-sm text-muted-foreground py-2">Loading bots…</p>
         ) : hasCandidates ? (
           <Select value={selectedBotId} onValueChange={setSelectedBotId}>
@@ -184,11 +283,21 @@ export function MoveDealToBotDialog({
               <SelectValue placeholder="Select a bot" />
             </SelectTrigger>
             <SelectContent>
-              {compatibleBots.map((bot) => (
-                <SelectItem key={bot._id} value={bot._id}>
-                  {bot.settings?.name || bot._id}
-                </SelectItem>
-              ))}
+              {compatibleBots.map((bot) => {
+                const merges =
+                  planMoveIntoBot(bot._id, settingsByBot, positionByBot)
+                    .mode === 'adopt';
+                return (
+                  <SelectItem key={bot._id} value={bot._id}>
+                    {bot.settings?.name || bot._id}
+                    {merges && deal ? (
+                      <span className="ml-xs text-xs text-muted-foreground">
+                        — {mergesIntoPositionLabel(deal.symbol)}
+                      </span>
+                    ) : null}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
         ) : (
@@ -200,16 +309,30 @@ export function MoveDealToBotDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Cancel
+          <Button
+            variant="outline"
+            onClick={() =>
+              preview ? setPreview(null) : onOpenChange(false)
+            }
+          >
+            {preview ? 'Back' : 'Cancel'}
           </Button>
           <Button
             onClick={handleConfirm}
             disabled={
-              !hasCandidates || !selectedBotId || moveDealToBot.isPending
+              !hasCandidates ||
+              !selectedBotId ||
+              moveDealToBot.isPending ||
+              previewLoading
             }
           >
-            {moveDealToBot.isPending ? 'Moving…' : 'Move to bot'}
+            {moveDealToBot.isPending
+              ? 'Moving…'
+              : previewLoading
+                ? 'Loading…'
+                : preview
+                  ? 'Confirm merge'
+                  : 'Move to bot'}
           </Button>
         </DialogFooter>
       </DialogContent>

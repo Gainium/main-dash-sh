@@ -96,6 +96,7 @@ import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 import { DrawerSection } from './DrawerSection';
 import { useLargeAccount } from '../../../../hooks/useLargeAccount';
 import { useShareContext } from '../../../../hooks/useShareContext';
+import { DealLevelsText } from '@/components/deals/DealLevelsText';
 import { useDealTablePaging } from '../../../../hooks/useDealTablePaging';
 import {
   DRAWER_CLOSED_DEAL_SERVER_FIELDS,
@@ -1360,10 +1361,9 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         meta: { filterType: 'number' },
         cell: ({ row }) => {
           const trade = row.original;
-          const levels = trade.levels;
           return (
             <span className="text-sm font-medium">
-              {levels.complete} / {levels.all}
+              <DealLevelsText dealId={trade.id} levels={trade.levels} />
             </span>
           );
         },

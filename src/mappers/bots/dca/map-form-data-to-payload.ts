@@ -593,6 +593,15 @@ export const mapFormDataToPayload = (
     delete updatePayload.reduceToAvailableBalance;
     delete updatePayload.reduceToAvailableMinSize;
   }
+  // Single position per pair rides the same DCA_FORM_DEFAULTS spread. It is
+  // sent only for a DCA bot on a backend that has it: an older main-app
+  // rejects the whole save (BAD_USER_INPUT) on an input field it does not
+  // declare. See `singlePositionSupported`.
+  const sendSinglePosition = !isComboBot && !!formData.singlePositionSupported;
+  if (!sendSinglePosition) {
+    delete updatePayload.singlePosition;
+    delete updatePayload.maxPositionEntries;
+  }
 
   const sanitizedUpdatePayload = sanitizeSettingsForApi(
     sanitizeUpdateSettings(updatePayload)
@@ -668,6 +677,10 @@ export const mapFormDataToPayload = (
       delete createPayload.allowRaiseToExchangeMin;
       delete createPayload.reduceToAvailableBalance;
       delete createPayload.reduceToAvailableMinSize;
+    }
+    if (!sendSinglePosition) {
+      delete createPayload.singlePosition;
+      delete createPayload.maxPositionEntries;
     }
     successResult.createPayload = createPayload;
   }

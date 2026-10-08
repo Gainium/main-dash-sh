@@ -1829,6 +1829,10 @@ export interface DCABotSettings extends BaseSettings {
   reduceToAvailableBalance?: boolean;
   /** Smallest base order a reduced deal may open with, in the base order size unit. Empty/0: no floor. */
   reduceToAvailableMinSize?: string;
+  /** At most one open deal per pair: start signals add entries to it, other deals are adopted. Missing = off. */
+  singlePosition?: boolean;
+  /** Most entries a position may hold, counting the base order. ''/'0' = no limit. */
+  maxPositionEntries?: string;
   dcaCustom?: DCACustom[] | undefined;
   strategy: StrategyEnum;
   baseOrderSize: string;
@@ -3357,6 +3361,15 @@ export type DCADeals = {
     all: number;
     complete: number;
   };
+  /**
+   * Single-position bots: entries the position holds (1 at creation). Not in
+   * the shared fragments (an older backend would reject the query); read
+   * through `@/lib/singlePosition/singlePositionApi`, or present on a live
+   * update.
+   */
+  positionEntries?: number | null;
+  /** Ids of the deals adopted into this position. */
+  adoptedIds?: string[] | null;
   usage: Usage;
   settings: DCADealsSettings;
   assets: {

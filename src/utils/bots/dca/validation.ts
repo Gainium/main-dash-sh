@@ -1,6 +1,10 @@
 import type { BotFormMode } from '@/features/bots';
 import { mapFormDataToBackend } from '@/mappers/bots/dca/field-mapping';
 import {
+  SINGLE_POSITION_CLOSE_AFTER_OPENED_MESSAGE,
+  singlePositionAsapError,
+} from '@/lib/singlePosition/singlePosition';
+import {
   isCloseIndicatorOfSection,
   isCloseIndicatorUsedByCondition,
 } from '@/utils/indicators/indicatorConfigUtils';
@@ -168,6 +172,10 @@ const ERROR_PATTERNS: ErrorPattern[] = [
   { regex: /Volume scale must be between/i, field: 'volumeScale' },
   { regex: /Minimum deviation must be between/i, field: 'minimumDeviation' },
   { regex: /closeByTimerValue must be at least/i, field: 'closeByTimerValue' },
+  { regex: /Max entries per position must be/i, field: 'maxPositionEntries' },
+  // Server reasons for single position per pair, mapped onto the toggle.
+  { regex: /^Single position/i, field: 'singlePosition' },
+  { regex: /single position$/i, field: 'singlePosition' },
 ];
 
 export const mapDcaErrorMessageToField = (
@@ -365,6 +373,21 @@ export const validateDcaFormData = (
         'tpPerc',
         'Configure a take profit percentage or provide a valid fixed TP price.'
       );
+    }
+  }
+
+  // Single position per pair (DCA only, and only where the backend has it).
+  if (
+    !isComboBot &&
+    formData.singlePositionSupported &&
+    formData.dca.singlePosition
+  ) {
+    const asapError = singlePositionAsapError(formData.dca);
+    if (asapError) {
+      addError('singlePosition', asapError);
+    }
+    if (formData.dca.useBotController && formData.dca.useCloseAfterXopen) {
+      addError('closeAfterXopen', SINGLE_POSITION_CLOSE_AFTER_OPENED_MESSAGE);
     }
   }
 

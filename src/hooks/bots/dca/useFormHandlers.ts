@@ -84,6 +84,18 @@ interface UseFormHandlersOptions {
     vars?: BotVars | undefined | null,
     exchange?: ExchangeInUser | undefined | null
   ) => MapFormDataToPayloadResult | MapGridFormDataToPayloadResult;
+  /** A save the server refused; receives the reason. */
+  onSaveError?: (message: string) => void;
+  /** An edit save the server accepted. */
+  onUpdateSuccess?: () => void;
+  /** Why this form may not be backtested right now, or null. */
+  backtestBlockReason?: () => string | null;
+}
+
+/** Top-level input an edit save can carry beside the settings. */
+export interface SaveExtraInput {
+  /** Single position per pair: the user confirmed adopting the open deals. */
+  adoptOpenDeals?: boolean;
 }
 
 /**
@@ -104,7 +116,8 @@ export interface UseFormHandlersReturn {
   updateFormData: (field: Fields, value: BotFormUpdateValue) => void;
   handleSave: (
     e?: React.FormEvent,
-    gridRebalance?: GridRebalanceChoice
+    gridRebalance?: GridRebalanceChoice,
+    extra?: SaveExtraInput
   ) => Promise<void>;
   handleBacktest: (overrides?: BacktestOverrides) => Promise<void>;
   backtestPending: boolean;
@@ -227,7 +240,8 @@ export const useFormHandlers = (
 
   const handleSave = async (
     e?: React.FormEvent,
-    gridRebalance?: GridRebalanceChoice
+    gridRebalance?: GridRebalanceChoice,
+    extra?: SaveExtraInput
   ) => {
     e?.preventDefault();
     // The form as it is at the moment of the click.
@@ -447,6 +461,10 @@ export const useFormHandlers = (
           updatePayloadBase as Record<string, unknown>,
           { botType: 'dca', stripPair: !useMulti && hasStoredPair }
         ) as UpdateDCABotPayload;
+        // Top-level beside the settings, only when the user confirmed it.
+        if (extra?.adoptOpenDeals) {
+          (upb as Record<string, unknown>)['adoptOpenDeals'] = true;
+        }
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({
           id: bot._id,
@@ -523,6 +541,7 @@ export const useFormHandlers = (
       setErrors({});
       setIsDirty(false);
       disableEditing();
+      options.onUpdateSuccess?.();
       toast.success('Bot updated successfully!');
       logger.info('[BotForm] Bot updated successfully', {
         botId: bot._id,
@@ -533,11 +552,17 @@ export const useFormHandlers = (
       const message = err?.message || 'Failed to update bot';
       logger.error('[BotForm] Save failed', serializeSaveError(error));
       toast.error(`Save failed: ${message}`);
+      options.onSaveError?.(message);
     }
   };
 
   const handleBacktest = useCallback(async (overrides?: BacktestOverrides) => {
     const formData = store.getState().formData;
+    const blockReason = options.backtestBlockReason?.();
+    if (blockReason) {
+      toast.error(blockReason);
+      return;
+    }
     try {
       if (options.validate) {
         const validation = options.validate(formData) as unknown as {

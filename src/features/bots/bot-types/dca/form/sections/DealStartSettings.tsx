@@ -28,6 +28,8 @@ import {
 } from '@/contexts/bots/form/BotFormProvider';
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { IndicatorGroupsManager } from '@/features/bots/shared/components/IndicatorGroupsManager';
+import { SinglePositionSettings } from '@/features/bots/bot-types/dca/form/sections/SinglePositionSettings';
+import { useSinglePositionFormState } from '@/features/bots/bot-types/dca/form/hooks/useSinglePositionFormState';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import useBotVarBinding from '@/hooks/bots/global-variables/useBotVarBinding';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
@@ -463,6 +465,7 @@ export const DealStartSettings: React.FC = () => {
     'cooldownAfterDealStopUnits'
   );
   const isMultiBot = useMemo(() => Boolean(useMulti), [useMulti]);
+  const { active: singlePositionActive } = useSinglePositionFormState();
 
   // const isUnlimitedValue = React.useCallback((value: unknown) => {
   //   if (typeof value === 'number') {
@@ -1294,7 +1297,12 @@ export const DealStartSettings: React.FC = () => {
           </SettingsRow>
         )}
 
-        {isMultiBot && (
+        {/* Single position per pair (DCA only, on a backend that has it). */}
+        {!isTerminal && <SinglePositionSettings />}
+
+        {/* A single-position bot holds one deal per pair by definition, so
+            the per-pair cap is hidden (and ignored by the engine). */}
+        {isMultiBot && !singlePositionActive && (
           <SettingsRow
             name="Max open deals per pair"
             tooltip="The total number of simultaneous open deals the bot is allowed to open per token pair. Once this number is reached on a specific pair the bot won't be allowed to open new ones. With the dynamic price filter on Over and Under, turn on Over / under to set separate per-pair limits above and below the first deal's price."

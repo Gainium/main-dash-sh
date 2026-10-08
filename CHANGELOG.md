@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.89.0] - 2026-10-08
+
+### Added
+
+- DCA bots: "Single position per pair" setting with "Max entries per position". The bot holds at most one open deal per pair; a start signal on a pair that already has one adds an entry to it instead of opening another deal. Entries replace safety orders, so the DCA section is shown disabled (its values are kept), "Max open deals per pair" is hidden and "Stop after X deals opened" is unavailable. Requires a backend that supports it; on an older one the setting is not shown and nothing new is sent.
+- With an ASAP start condition, single position needs a dynamic price filter or a cooldown after deal start; the form says so on the toggle and offers both as one-click fixes.
+- Turning single position on for a bot with open deals shows, per pair, the deals that become one position (size, estimated average and take-profit price before and after) and asks for confirmation before saving.
+- Move to bot and Merge into a single-position bot that already holds the pair fold the deal into that open position, after the same before/after confirmation; the picker labels such bots.
+- Deal tables, cards and details show a single-position deal's entries (e.g. "Entries 3/5") instead of its levels.
+
+### Changed
+
+- Backtesting a single-position bot is refused with an explanation instead of running as if the setting were off.
+
 ## [2.88.1] - 2026-10-08
 
 ### Fixed
