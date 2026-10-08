@@ -23,6 +23,11 @@ export interface WebhookPayloadEntry {
   description?: string;
   /** Shown behind an info icon next to the title. */
   tooltip?: string;
+  /**
+   * Payload keys marked `// optional` in the rendered block only. JSON has no
+   * comments, so the copied payload never carries the marker.
+   */
+  optionalKeys?: string[];
   copyLabel?: string;
   trackingId?: string;
   headerControls?: React.ReactNode;

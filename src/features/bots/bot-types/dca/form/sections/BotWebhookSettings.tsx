@@ -281,6 +281,13 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
         null,
         2
       ),
+      optionalKeys: [
+        'baseOrderSize',
+        'tpPerc',
+        'slPerc',
+        'tpPrice',
+        'slPrice',
+      ],
       copyLabel: 'Copy',
       headerControls: isCombo ? undefined : (
         <div className="flex items-center gap-xs">
@@ -897,7 +904,28 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
       <div className="relative flex gap-xs">
         <div className="flex-1 max-h-64 overflow-auto rounded-md border border-border/40 bg-muted/40 p-sm">
           <pre className="font-mono text-xs leading-relaxed text-foreground/90 whitespace-pre-wrap break-all">
-            {entry.payload}
+            {entry.optionalKeys?.length
+              ? entry.payload.split('\n').map((line, i, lines) => {
+                  const optional = entry.optionalKeys?.some((key) =>
+                    line.trimStart().startsWith(`"${key}":`)
+                  );
+                  const eol = i < lines.length - 1 ? '\n' : '';
+                  return optional ? (
+                    <span key={i} className="text-muted-foreground">
+                      {line}
+                      <span className="select-none italic">
+                        {'  // optional'}
+                      </span>
+                      {eol}
+                    </span>
+                  ) : (
+                    <React.Fragment key={i}>
+                      {line}
+                      {eol}
+                    </React.Fragment>
+                  );
+                })
+              : entry.payload}
           </pre>
         </div>
         <Tooltip tooltip={copiedId === trackingId ? 'Copied!' : 'Copy payload'}>

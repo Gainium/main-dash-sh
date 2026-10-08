@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.9] - 2026-10-08
+
+### Changed
+
+- Webhook settings: in the start-deal example, the optional fields are dimmed and marked `// optional`. The marker is display-only; copying the payload still gives valid JSON.
+
 ## [2.89.8] - 2026-10-08
 
 ### Added
