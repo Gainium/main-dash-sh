@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.88.1] - 2026-10-08
+
+### Fixed
+
+- Switching a spot DCA bot or a hedge bot's short leg between quote and base sizing converts the order sizes at the current price, instead of carrying the number over (a 10 USDT order no longer becomes a 10 BTC one).
+
 ## [2.88.0] - 2026-10-08
 
 ### Added

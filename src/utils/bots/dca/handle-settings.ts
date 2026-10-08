@@ -1,4 +1,5 @@
 import type { BotFormUpdateValue, Fields } from '@/features/bots';
+import { resolveOrderSizeDecimals } from '@/features/bots/shared/utils/order-guard';
 import { math, trimNumber, verifyNumber } from '@/lib/utils/math';
 import {
   BotStartTypeEnum,
@@ -24,6 +25,7 @@ import {
 } from '@/types';
 import { getIndicatorDefaultParams } from '@/types/indicators/indicatorLogic';
 import type { BotFormData } from '@/types/bots';
+import { convertOrderSizesForUnit } from '@/utils/bots/dca/order-size-convert';
 
 export type HandleSettingsUpdateResult = Partial<Omit<BotFormData, 'dca'>> & {
   dca: Partial<DCABotSettings>;
@@ -437,6 +439,30 @@ export const handleSettingsUpdate = (
             ? meta.quoteAsset.name === firstMeta
             : meta.baseAsset.name === firstMeta;
         });
+      }
+    }
+    // A strategy flip above may have moved the sizes to a different unit.
+    // Convert them at the latest price so "10 USDT" does not become
+    // "10 BTC" (legacy reset them to a minimum in the new unit instead).
+    if (
+      field === 'strategy' &&
+      updates.dca.orderSizeType !== undefined &&
+      updates.dca.orderSizeType !== orderSizeType
+    ) {
+      const firstPair = [pair].flat()[0];
+      const converted = convertOrderSizesForUnit(
+        { baseOrderSize: settings.baseOrderSize, orderSize },
+        orderSizeType,
+        updates.dca.orderSizeType,
+        latestPrice,
+        resolveOrderSizeDecimals(
+          updates.dca.orderSizeType,
+          firstPair ? formData.pairPrecisionMap?.[firstPair] : undefined
+        )
+      );
+      if (converted) {
+        updates.dca.baseOrderSize = converted.baseOrderSize;
+        updates.dca.orderSize = converted.orderSize;
       }
     }
     if (field === 'useMulti' && !!value) {

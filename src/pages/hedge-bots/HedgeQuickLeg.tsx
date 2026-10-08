@@ -52,6 +52,7 @@ import {
   resolveBaseOrderContext,
   useDcaTradingContext,
 } from '@/hooks/bots/dca/useDcaTradingContext';
+import { convertOrderSizesForUnit } from '@/utils/bots/dca/order-size-convert';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
 import {
   BotTypesEnum,
@@ -412,15 +413,36 @@ export const HedgeQuickInvestment: React.FC = () => {
         ? OrderSizeTypeEnum.base
         : OrderSizeTypeEnum.quote;
 
+  const tradingContext = useDcaTradingContext(formData);
+
   // Keep the leg denominated in its natural side even if the user never
   // touches the field (so the saved bot + balance check use the right wallet).
+  // The sizes move with the unit: re-pinning without converting them read a
+  // quote figure as base (10 USDT -> 10 BTC).
   useEffect(() => {
-    if (dcaState.orderSizeType !== unit) {
-      updateFormData('orderSizeType' as Fields, unit);
+    if (dcaState.orderSizeType === unit) return;
+    const legPair = Array.isArray(formData.pair)
+      ? formData.pair[0]
+      : formData.pair;
+    const converted = convertOrderSizesForUnit(
+      dcaState,
+      dcaState.orderSizeType,
+      unit,
+      tradingContext.latestPrice,
+      resolveOrderSizeDecimals(
+        unit,
+        legPair ? formData.pairPrecisionMap?.[legPair] : undefined
+      )
+    );
+    if (converted) {
+      updateFormData('baseOrderSize' as Fields, converted.baseOrderSize);
+      updateFormData('orderSize' as Fields, converted.orderSize);
     }
+    updateFormData('orderSizeType' as Fields, unit);
+    // Only a unit mismatch should trigger this; the sizes and price are read
+    // at that moment, not tracked.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dcaState.orderSizeType, unit, updateFormData]);
-
-  const tradingContext = useDcaTradingContext(formData);
   const { availableBalance, currencyLabel } = useMemo(() => {
     const params: Parameters<typeof resolveBaseOrderContext>[0] = {
       currencyReference: unit,
