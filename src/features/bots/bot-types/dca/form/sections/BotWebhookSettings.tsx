@@ -24,7 +24,7 @@ import {
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs';
-import { Tooltip } from '@/components/ui/tooltip';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
   useBotFormSelector,
@@ -42,6 +42,7 @@ import {
 import { useWebhookEligibility } from '@/hooks/useWebhookEligibility';
 import { copyToClipboard, generateWebhookUrl } from '@/lib/webhookUtils';
 import { useUIStore } from '@/stores/uiStore';
+import { BotTypesEnum } from '@/types';
 import {
   BotWebhookOptionMethodEnum,
   BotWebhookOptionTriggerEnum,
@@ -105,6 +106,8 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
     context: 'drawer',
   });
   const formPair = useBotFormTopLevelSelector('pair');
+  const formType = useBotFormTopLevelSelector('type');
+  const isCombo = formType === BotTypesEnum.combo;
   const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
   const copyTimeoutRef = React.useRef<number | null>(null);
@@ -167,6 +170,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
   const [reduceQty, setReduceQty] = React.useState<string>('10');
   const [reduceQtyType, setReduceQtyType] = React.useState<string>('perc');
   const [targetSymbol, setTargetSymbol] = React.useState<string>(sampleSymbol);
+  const [exitsType, setExitsType] = React.useState<'perc' | 'price'>('perc');
 
   const useBotController = useBotFormSelector('useBotController');
   const startCondition = useBotFormSelector('startCondition');
@@ -174,6 +178,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
   const useMulti = useBotFormSelector('useMulti');
   const useTp = useBotFormSelector('useTp');
   const useSl = useBotFormSelector('useSl');
+  const baseOrderSize = useBotFormSelector('baseOrderSize');
   const dealCloseCondition = useBotFormSelector('dealCloseCondition');
   const dealCloseConditionSL = useBotFormSelector('dealCloseConditionSL');
 
@@ -253,6 +258,47 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
         2
       ),
       copyLabel: 'Copy',
+    });
+  }
+  if (availability.openDeal) {
+    // Prices belong to one pair, and Combo deals take percentages only.
+    const byPrice = exitsType === 'price' && !isCombo;
+    dealPayloads.push({
+      title: 'Open deal with its own size, TP and SL (example)',
+      tooltip: `Optional fields, each replacing the bot's setting for this deal only: baseOrderSize (in the bot's base order unit), ${
+        isCombo ? 'tpPerc and slPerc' : 'tpPerc or tpPrice, slPerc or slPrice'
+      }. Send only the ones you need.`,
+      payload: JSON.stringify(
+        {
+          action: 'startDeal',
+          uuid: resolvedBotUuid,
+          ...(useMulti ? { symbol: sampleSymbol } : {}),
+          baseOrderSize: baseOrderSize || '10',
+          ...(byPrice
+            ? { tpPrice: 'X', slPrice: 'X' }
+            : { tpPerc: '2', slPerc: '1' }),
+        },
+        null,
+        2
+      ),
+      copyLabel: 'Copy',
+      headerControls: isCombo ? undefined : (
+        <div className="flex items-center gap-xs">
+          <Label className="text-xs">TP/SL</Label>
+          <Select
+            value={exitsType}
+            onValueChange={(v) => setExitsType(v as 'perc' | 'price')}
+          >
+            <SelectTrigger id="open-deal-exits-type" className="w-20">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="perc">perc</SelectItem>
+              <SelectItem value="price">price</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      ),
     });
   }
   if (availability.closeDeal) {
@@ -829,7 +875,14 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
     >
       <div className="flex flex-col gap-xs sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="space-y-1 min-w-0 flex-1">
-          <p className="text-sm font-semibold leading-tight">{entry.title}</p>
+          <div className="flex items-center gap-xs">
+            <p className="text-sm font-semibold leading-tight">{entry.title}</p>
+            {entry.tooltip ? (
+              <Tooltip tooltip={entry.tooltip} side="right">
+                <InfoIcon />
+              </Tooltip>
+            ) : null}
+          </div>
           {entry.description ? (
             <p className="text-xs text-muted-foreground">{entry.description}</p>
           ) : null}

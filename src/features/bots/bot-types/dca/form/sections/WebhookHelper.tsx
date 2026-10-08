@@ -21,6 +21,8 @@ export interface WebhookPayloadEntry {
   title: string;
   payload: string;
   description?: string;
+  /** Shown behind an info icon next to the title. */
+  tooltip?: string;
   copyLabel?: string;
   trackingId?: string;
   headerControls?: React.ReactNode;

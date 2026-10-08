@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.8] - 2026-10-08
+
+### Added
+
+- DCA and Combo bot webhook settings: a "start deal" example carrying the deal's own base order size, take profit and stop loss (percentages, or prices on DCA bots).
+
 ## [2.89.7] - 2026-10-08
 
 ### Fixed
