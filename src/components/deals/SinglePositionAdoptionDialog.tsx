@@ -24,14 +24,14 @@ export function AdoptionPreviewRows({
   baseAssetOf?: (pair: string) => string | undefined;
 }) {
   return (
-    <ul className="space-y-sm" aria-label="Affected pairs">
+    <ul className="space-y-md" aria-label="Affected pairs">
       {rows.map((row) => {
         const unit = baseAssetOf?.(row.pair);
+        // No TP on either side (the bot closes by webhook / indicator, or the
+        // deal has none): leave the row out rather than show dashes.
+        const hasTp = row.tpBefore !== null || row.tpAfter !== null;
         return (
-          <li
-            key={row.targetDealId}
-            className="rounded-md border border-border/60 bg-muted/40 p-sm text-sm"
-          >
+          <li key={row.targetDealId} className="text-sm">
             <p className="font-medium text-foreground">{adoptionRowTitle(row)}</p>
             <dl className="mt-xs grid grid-cols-[auto_1fr] gap-x-md gap-y-0.5 text-muted-foreground">
               <dt>Size</dt>
@@ -46,15 +46,21 @@ export function AdoptionPreviewRows({
                 {formatPreviewNumber(row.avgAfter)}{' '}
                 <span className="text-muted-foreground">(est.)</span>
               </dd>
-              <dt>Take-profit price</dt>
-              <dd className="text-foreground">
-                {formatPreviewNumber(row.tpBefore)}
-                {!row.tpBeforeLive && (
-                  <span className="text-muted-foreground"> (est.)</span>
-                )}{' '}
-                → {formatPreviewNumber(row.tpAfter)}{' '}
-                <span className="text-muted-foreground">(est.)</span>
-              </dd>
+              {hasTp && (
+                <>
+                  <dt>Take-profit price</dt>
+                  <dd className="text-foreground">
+                    {formatPreviewNumber(row.tpBefore)}
+                    {row.tpBefore !== null && !row.tpBeforeLive && (
+                      <span className="text-muted-foreground"> (est.)</span>
+                    )}{' '}
+                    → {formatPreviewNumber(row.tpAfter)}
+                    {row.tpAfter !== null && (
+                      <span className="text-muted-foreground"> (est.)</span>
+                    )}
+                  </dd>
+                </>
+              )}
             </dl>
           </li>
         );
@@ -85,7 +91,7 @@ export function SinglePositionAdoptionDialog({
   open,
   rows,
   title = 'Switch to one position per pair',
-  description = 'Saving turns on single position per pair. These open deals change:',
+  description,
   confirmText = 'Confirm',
   pending = false,
   baseAssetOf,
@@ -102,17 +108,25 @@ export function SinglePositionAdoptionDialog({
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
+          {description ? (
+            <DialogDescription>{description}</DialogDescription>
+          ) : (
+            <DialogDescription className="sr-only">
+              {ADOPTION_IRREVERSIBLE_SENTENCE}
+            </DialogDescription>
+          )}
         </DialogHeader>
-        <div className="max-h-[50vh] overflow-y-auto">
-          <AdoptionPreviewRows
-            rows={rows}
-            {...(baseAssetOf ? { baseAssetOf } : {})}
-          />
+        <div className="space-y-md">
+          <div className="max-h-[50vh] overflow-y-auto">
+            <AdoptionPreviewRows
+              rows={rows}
+              {...(baseAssetOf ? { baseAssetOf } : {})}
+            />
+          </div>
+          <p className="text-sm text-destructive">
+            {ADOPTION_IRREVERSIBLE_SENTENCE}
+          </p>
         </div>
-        <p className="text-sm font-medium text-destructive">
-          {ADOPTION_IRREVERSIBLE_SENTENCE}
-        </p>
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={pending}>
             Cancel

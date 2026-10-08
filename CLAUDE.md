@@ -16,6 +16,23 @@ licensed. Cloud overlay (`main-dash-redesign`) consumes this repo as a
 `core/` submodule, so changes here ship to both self-hosted users and the
 hosted cloud product.
 
+## 🧹 UI copy rule — no explanations in the UI, only in tooltips
+
+Keep the interface clean. **Explanatory text never sits in the UI; it goes in a tooltip.**
+
+- **Allowed on screen:** labels, values, units, button text, and short one-line validation errors.
+- **Explanations go in a tooltip:** what a setting does, how it interacts with others, caveats, "this is kept when…".
+  Use `SettingsRow`'s `tooltip` prop, or `<Tooltip tooltip="…"><InfoIcon /></Tooltip>` next to a label.
+- **Not allowed:**
+  - helper paragraphs under a field ("Counts the base order…");
+  - info alerts that describe behaviour;
+  - intro sentences in dialogs ("Saving turns on… These deals change:");
+  - "why" sentences after a label.
+- **Only exception:** a destructive confirmation may keep ONE line saying it cannot be undone.
+- **Don't render empty data:** if a row or field has no value (no TP, no SL, nothing to compare), leave it
+  out. Never show "—" placeholders for things that don't apply.
+- Before adding any visible sentence, ask whether it could be a tooltip. The answer is almost always yes.
+
 ## Release ceremony — REQUIRED on every PR
 
 Every PR that changes user-visible behavior MUST do both of these in the

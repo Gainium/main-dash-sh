@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.89.6] - 2026-10-08
+
+### Changed
+
+- Single position per pair: explanations moved into tooltips; the toggle's tooltip links to its help article.
+- Switch-to-one-position dialog: no take-profit row when there is no take profit, cleaner layout.
+
 ## [2.89.5] - 2026-10-08
 
 ### Changed

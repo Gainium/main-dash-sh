@@ -270,18 +270,17 @@ export function MoveDealToBotDialog({
         </DialogHeader>
 
         {preview ? (
-          <div className="space-y-sm">
+          <div className="space-y-md">
             <p className="text-sm text-muted-foreground">
               {mergesIntoPositionLabel(deal?.symbol ?? '')} in{' '}
               {compatibleBots.find((b) => b._id === selectedBotId)?.settings
                 ?.name ?? 'the bot'}
-              . The position keeps its history; the terminal entry is removed.
             </p>
             <AdoptionPreviewRows
               rows={[preview.row]}
               baseAssetOf={() => preview.baseAsset}
             />
-            <p className="text-sm font-medium text-destructive">
+            <p className="text-sm text-destructive">
               {ADOPTION_IRREVERSIBLE_SENTENCE}
             </p>
           </div>

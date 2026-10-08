@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Switch } from '@/components/ui/switch';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
   useBotFormActions,
@@ -21,7 +22,6 @@ import {
   singlePositionAsapError,
   type SinglePositionSpacingSettings,
 } from '@/lib/singlePosition/singlePosition';
-import { StartConditionEnum } from '@/types';
 
 /** Live spacing settings the §7 check reads. */
 function useSpacingSettings(): SinglePositionSpacingSettings {
@@ -50,7 +50,10 @@ function useSpacingSettings(): SinglePositionSpacingSettings {
 }
 
 const HELP_TEXT =
-  'Hold at most one open deal per pair. A start signal on a pair that already has an open deal adds an entry to that deal instead of opening another one, and the take profit moves with the new average. Entries replace safety orders: the DCA settings are kept but not used while this is on. Turning it off later does not split a position — it runs to its close as one deal, without safety orders, and new deals follow the restored settings. With ASAP, a dynamic price filter or a cooldown after deal start is required to space the entries; with an indicator start that stays true, a cooldown after deal start is recommended.';
+  'One open deal per pair. A start signal on a pair with an open deal adds an entry to it and the take profit moves with the new average. Entries replace safety orders. Turning it off does not split a position. With ASAP, a dynamic price filter or a cooldown after deal start is required; with an indicator start, a cooldown is recommended.';
+const MAX_ENTRIES_TOOLTIP = 'Counts the base order. Empty or 0 = no limit.';
+const DCA_OFF_TOOLTIP =
+  'Entries replace safety orders while single position per pair is on. These settings are kept and apply again when it is turned off.';
 
 /** Spec 139 §2.3 / §7.3: the toggle, the entry limit and the ASAP check. */
 export const SinglePositionSettings: React.FC = () => {
@@ -60,7 +63,6 @@ export const SinglePositionSettings: React.FC = () => {
   const maxPositionEntries = useBotFormSelector('maxPositionEntries');
   const spacing = useSpacingSettings();
   const asapError = singlePositionAsapError(spacing);
-  const isIndicatorStart = spacing.startCondition === StartConditionEnum.ti;
 
   const applyPatch = (patch: Record<string, unknown>) => {
     for (const [field, value] of Object.entries(patch)) {
@@ -79,6 +81,7 @@ export const SinglePositionSettings: React.FC = () => {
     <SettingsRow
       name="Single position per pair"
       tooltip={HELP_TEXT}
+      tooltipURL="/help/single-position-per-pair"
       colSpan="full"
       navId="singlePosition"
       trailing={
@@ -96,18 +99,15 @@ export const SinglePositionSettings: React.FC = () => {
     >
       {active && (
         <>
-          <p className="text-xs text-muted-foreground">
-            At most one open deal per pair. Start signals add entries to it
-            instead of opening new deals; entries replace safety orders.
-            Turning this off later does not split a position.
-            {isIndicatorStart
-              ? ' An indicator that stays true re-enters every candle — consider a cooldown after deal start.'
-              : ''}
-          </p>
           <div className="space-y-xs">
-            <Label htmlFor="max-position-entries">
-              Max entries per position
-            </Label>
+            <div className="flex items-center gap-xs">
+              <Label htmlFor="max-position-entries">
+                Max entries per position
+              </Label>
+              <Tooltip tooltip={MAX_ENTRIES_TOOLTIP} side="right">
+                <InfoIcon />
+              </Tooltip>
+            </div>
             <NumberInput
               id="max-position-entries"
               value={maxPositionEntries ?? ''}
@@ -124,9 +124,6 @@ export const SinglePositionSettings: React.FC = () => {
               showControls={false}
               endAdornment={unitAdornment('entries', { size: 'sm' })}
             />
-            <p className="text-xs text-muted-foreground">
-              Counts the base order. Empty or 0 = no limit.
-            </p>
             {errors['maxPositionEntries'] && (
               <p className="text-xs text-destructive">
                 {errors['maxPositionEntries']}
@@ -169,9 +166,10 @@ export const SinglePositionSettings: React.FC = () => {
 
 /** §2.3.1: the DCA section stays visible but inert, with its values kept. */
 export const SinglePositionDcaNote: React.FC = () => (
-  <SettingsAlert
-    variant="info"
-    title="Safety orders are off while single position per pair is on"
-    description="Entries replace safety orders. These settings are kept and apply again if you turn single position off."
-  />
+  <div className="flex items-center gap-xs text-sm text-muted-foreground">
+    <span>Off — single position per pair</span>
+    <Tooltip tooltip={DCA_OFF_TOOLTIP} side="right">
+      <InfoIcon />
+    </Tooltip>
+  </div>
 );
