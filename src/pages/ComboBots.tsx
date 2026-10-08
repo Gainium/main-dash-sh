@@ -10,6 +10,7 @@ import {
   StrategyEnum,
   type ComboBot,
   type DCABot,
+  type DCADeals,
   type ExchangeInUser,
 } from '@/types';
 import { comboDealToOpenTrade } from '@/lib/utils/comboDealToOpenTrade';
@@ -1653,6 +1654,9 @@ const ComboBots: React.FC = () => {
                   <OpenOrdersWidget
                     widgetId="combo-bot-deals"
                     data={{ trades: comboDealsAsOpenTrades }}
+                    // The edit drawer looks deals up here. Without them a bulk
+                    // Edit fell back to opening only the first selected deal.
+                    rawDeals={comboDealsForTab as unknown as DCADeals[]}
                     partial={
                       comboDealsPartial
                         ? {

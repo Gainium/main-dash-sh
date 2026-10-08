@@ -18,7 +18,10 @@ import {
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import type { ExampleOrdersStoreContext } from '@/utils/bots/dca/example-orders-core';
 import { useLiveUpdate } from '@/contexts/LiveUpdateContext';
-import { mapFromDataToDealSettings } from '@/components/deals/dealEditSettingsDiff';
+import {
+  mapFromDataToDealSettings,
+  pickMassEditChanges,
+} from '@/components/deals/dealEditSettingsDiff';
 import { buildDealEditSeedSettings } from '@/components/deals/dealEditSeedSettings';
 import {
   BotFormProvider,
@@ -89,7 +92,6 @@ import ResponsiveButtonRow, {
   type ResponsiveButtonConfig,
 } from '../ui/ResponsiveButtonRow';
 import { Button } from '../ui/button';
-import { DCA_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
 import type { TradingPair } from '@/hooks/useTradingPairs';
 import { NumberInput } from '@/components/ui/number-input';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
@@ -315,11 +317,13 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
               prev.type === BotTypesEnum.combo
                 ? BotTypesEnum.combo
                 : BotTypesEnum.dca,
+            // Mass edit: exactly what the drawer shows, so "changed" means
+            // changed by the user (pickMassEditChanges).
             settings: {
               ...(clonedPrev.type === BotTypesEnum.combo
                 ? clonedPrev.combo
                 : clonedPrev.dca),
-              ...(isSingle ? trade[0].dcaBot?.settings : DCA_FORM_DEFAULTS),
+              ...(isSingle ? trade[0].dcaBot?.settings : {}),
             },
           };
           clonedPrev.pair = trade.map((t) => t.symbol.symbol);
@@ -590,10 +594,23 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       }
       const isSingle = trade.length === 1;
       const settings = mapFromDataToDealSettings(formData, !isSingle);
-      for (const t of trade) {
-        const localSettings = isSingle
-          ? settings
-          : mapFromDataToDealSettings(formData, !isSingle, false, t.settings);
+      const edits = trade
+        .map((t) => ({
+          t,
+          localSettings: isSingle
+            ? settings
+            : pickMassEditChanges(formData, t.settings),
+        }))
+        .filter(
+          ({ localSettings }) =>
+            isSingle || Object.keys(localSettings).length > 0
+        );
+      if (edits.length === 0) {
+        setSubmitIsPending(false);
+        onClose();
+        return;
+      }
+      for (const { t, localSettings } of edits) {
         editMutation.mutate({
           dealId: t._id,
           botId: t.botId,
@@ -607,7 +624,7 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       // callback — and therefore the button-config array — on every parent
       // re-render, re-rendering ResponsiveButtonRow under live data).
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [trade, formData, isAnySettingChanged, editMutation.mutate]);
+    }, [trade, formData, isAnySettingChanged, editMutation.mutate, onClose]);
     const handleCancel = useCallback(() => {
       onClose();
     }, [onClose]);

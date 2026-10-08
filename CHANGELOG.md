@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.89.7] - 2026-10-08
+
+### Fixed
+
+- Bulk deal edit showed the new-bot defaults (take profit on at 1%, stop loss at -10%) instead of the selected deals' settings; it now shows the values the deals share and leaves the rest empty.
+- Saving a bulk deal edit wrote those defaults onto every selected deal; it now sends only the fields you changed.
+- Bulk Edit on the Combo deals list opened only the first selected deal; it now edits all of them.
+
 ## [2.89.6] - 2026-10-08
 
 ### Changed

@@ -11,8 +11,10 @@ import type { DCADeals } from '@/types';
  * directly by a test with a real deal payload. Nothing here is React.
  */
 export const buildDealEditSeedSettings = (trade: DCADeals[]) => {
-  if (trade.length !== 1 || !trade[0]) {
-    // Mass edit: several deals with nothing in common to seed from.
+  if (trade.length > 1) {
+    return buildMassEditSeedSettings(trade);
+  }
+  if (!trade[0]) {
     return { ...DCA_FORM_DEFAULTS };
   }
 
@@ -41,4 +43,44 @@ export const buildDealEditSeedSettings = (trade: DCADeals[]) => {
     // the payload and be presented as spent instead.
     tpSlTargetFilled: deal.tpSlTargetFilled ?? [],
   };
+};
+
+/**
+ * Mass edit: the values every selected deal shares, and nothing else.
+ *
+ * This used to return `DCA_FORM_DEFAULTS`, so the drawer showed the new-bot
+ * defaults (take profit on at 1%, stop loss at -10%, …) as if they were the
+ * deals' settings — for combo deals too, whose own defaults differ. A field the
+ * deals disagree on is seeded `undefined`, so it renders empty instead of
+ * showing one deal's value, or a default, as everyone's.
+ *
+ * Seeding is display only. What a save sends is decided by
+ * `pickMassEditChanges` — the fields the user changed, never the seed.
+ */
+export const buildMassEditSeedSettings = (trade: DCADeals[]) => {
+  const merged = trade.map(
+    (deal) =>
+      ({
+        ...deal.dcaBot?.settings,
+        ...deal.settings,
+      }) as Record<string, unknown>
+  );
+  const keys = new Set(merged.flatMap((m) => Object.keys(m)));
+  const seed: Record<string, unknown> = {};
+  for (const key of keys) {
+    const first = JSON.stringify(merged[0][key] ?? null);
+    const shared = merged.every(
+      (m) => JSON.stringify(m[key] ?? null) === first
+    );
+    seed[key] = shared ? merged[0][key] : undefined;
+  }
+  // Direction is not in the deal's settings snapshot (see the single-deal
+  // branch); resolve it per deal and keep it only when every deal agrees.
+  const strategies = new Set(
+    trade.map((deal) =>
+      dealStrategy(deal, mergeDealSettings(deal.dcaBot?.settings, deal))
+    )
+  );
+  seed['strategy'] = strategies.size === 1 ? [...strategies][0] : undefined;
+  return seed;
 };

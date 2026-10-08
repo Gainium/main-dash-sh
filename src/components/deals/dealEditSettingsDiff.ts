@@ -232,3 +232,30 @@ export const mapFromDataToDealSettings = (
   }, {} as DealSettingsInput);
   return result;
 };
+
+/**
+ * Mass edit: what to send ONE of the selected deals — only the fields the user
+ * changed in the drawer, and of those only the ones that differ from that deal.
+ *
+ * The drawer used to diff the form against each deal's own settings and send
+ * every difference. The form had been seeded with the new-bot defaults, not the
+ * deals, so an untouched save wrote take profit, stop loss, DCA step and order
+ * count defaults onto every selected deal. "Changed" is now measured against
+ * the seed (`formData.originalBot.settings`, what the drawer showed), and the
+ * per-deal diff only filters that set down.
+ */
+export const pickMassEditChanges = (
+  formData: BotFormData,
+  dealSettings?: DCADealsSettings
+): DealSettingsInput => {
+  const changed = mapFromDataToDealSettings(formData, true);
+  const forDeal = mapFromDataToDealSettings(formData, true, false, dealSettings);
+  const result: DealSettingsInput = {};
+  for (const key of Object.keys(changed) as (keyof DealSettingsInput)[]) {
+    if (key in forDeal) {
+      //@ts-expect-error per-key copy between identical shapes
+      result[key] = forDeal[key];
+    }
+  }
+  return result;
+};
