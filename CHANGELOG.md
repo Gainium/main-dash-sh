@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.89.2] - 2026-10-08
+
+### Fixed
+
+- Single position per pair: a position's card shows its entries instead of the DCA usage gauge.
+- Single position per pair: the bot edit form always loads the current setting, so a value changed elsewhere is not saved back over it.
+- Single position per pair: a dynamic price filter only counts as spacing for ASAP when its deviation is set, matching when the bot actually applies the filter; the one-click fix sets it.
+
 ## [2.89.1] - 2026-10-08
 
 ### Added

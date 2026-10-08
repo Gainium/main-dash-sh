@@ -90,6 +90,7 @@ export interface SinglePositionSpacingSettings {
   singlePosition?: boolean | undefined;
   startCondition?: StartConditionEnum | string | undefined;
   useDynamicPriceFilter?: boolean | undefined;
+  dynamicPriceFilterDeviation?: string | number | undefined;
   dynamicPriceFilterDirection?: string | undefined;
   dynamicPriceFilterOverValue?: string | number | undefined;
   dynamicPriceFilterUnderValue?: string | number | undefined;
@@ -108,6 +109,8 @@ export const hasDynamicPriceSpacing = (
   s: SinglePositionSpacingSettings
 ): boolean => {
   if (!s.useDynamicPriceFilter) return false;
+  // The engine arms the filter only when the deviation field is set.
+  if (!positive(s.dynamicPriceFilterDeviation)) return false;
   const direction = s.dynamicPriceFilterDirection ?? 'under';
   if (direction === 'over') return positive(s.dynamicPriceFilterOverValue);
   if (direction === 'overAndUnder') {
@@ -149,6 +152,10 @@ export const enableDynamicPriceFilterPatch = (
   const patch: Record<string, string | boolean> = {
     useDynamicPriceFilter: true,
   };
+  // The engine arms the filter only when the deviation field is set.
+  if (!positive(s.dynamicPriceFilterDeviation)) {
+    patch['dynamicPriceFilterDeviation'] = '1';
+  }
   const direction = s.dynamicPriceFilterDirection ?? 'under';
   if (
     (direction === 'under' || direction === 'overAndUnder') &&

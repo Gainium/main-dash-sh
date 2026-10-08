@@ -29,6 +29,9 @@ function useSpacingSettings(): SinglePositionSpacingSettings {
     singlePosition: useBotFormSelector('singlePosition'),
     startCondition: useBotFormSelector('startCondition'),
     useDynamicPriceFilter: useBotFormSelector('useDynamicPriceFilter'),
+    dynamicPriceFilterDeviation: useBotFormSelector(
+      'dynamicPriceFilterDeviation'
+    ),
     dynamicPriceFilterDirection: useBotFormSelector(
       'dynamicPriceFilterDirection'
     ),

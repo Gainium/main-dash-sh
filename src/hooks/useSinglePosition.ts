@@ -46,6 +46,8 @@ export interface UseSinglePositionSettingsResult {
   backend: SinglePositionBackend;
   byBot: Record<string, BotSinglePositionSettings>;
   isLoading: boolean;
+  /** A (re)fetch is in flight — `byBot` may be a cached answer. */
+  isFetching: boolean;
 }
 
 /**
@@ -56,7 +58,9 @@ export interface UseSinglePositionSettingsResult {
  */
 export function useSinglePositionSettings(
   botIds: readonly string[],
-  active = true
+  active = true,
+  /** Always refetch on mount (the edit form: a cached value would be saved back). */
+  fresh = false
 ): UseSinglePositionSettingsResult {
   const { make, enabled, paperContext } = useSinglePositionClient();
   const ids = useMemo(
@@ -67,13 +71,19 @@ export function useSinglePositionSettings(
     queryKey: [SINGLE_POSITION_QUERY_KEY, paperContext, ids.join(',')],
     enabled: enabled && active,
     retry: false,
-    staleTime: ids.length === 0 ? Infinity : 30_000,
+    staleTime: ids.length === 0 ? Infinity : fresh ? 0 : 30_000,
+    // Refetched on mount only: a refetch on window focus would land after
+    // the user started editing.
+    ...(fresh
+      ? { refetchOnMount: 'always' as const, refetchOnWindowFocus: false }
+      : {}),
     queryFn: () => fetchSinglePositionSettings(make(), ids),
   });
   return {
     backend: q.data?.backend ?? 'unknown',
     byBot: q.data?.byBot ?? EMPTY_BY_BOT,
     isLoading: q.isLoading,
+    isFetching: q.isFetching,
   };
 }
 

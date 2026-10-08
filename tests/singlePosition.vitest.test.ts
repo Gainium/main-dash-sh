@@ -183,10 +183,20 @@ describe('ASAP spacing (§7)', () => {
       singlePositionAsapError({
         ...asap,
         useDynamicPriceFilter: true,
+        dynamicPriceFilterDeviation: '1',
         dynamicPriceFilterDirection: 'under',
         dynamicPriceFilterUnderValue: '3',
       })
     ).toBeNull();
+    // The engine arms the filter only with the deviation field set.
+    expect(
+      singlePositionAsapError({
+        ...asap,
+        useDynamicPriceFilter: true,
+        dynamicPriceFilterDirection: 'under',
+        dynamicPriceFilterUnderValue: '3',
+      })
+    ).not.toBeNull();
     expect(
       singlePositionAsapError({
         ...asap,

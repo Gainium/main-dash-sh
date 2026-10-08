@@ -66,9 +66,15 @@ export function useSinglePositionFormBridge({
 }: Options) {
   const isEdit = mode === 'edit' && !!botId;
   const ids = useMemo(() => (isEdit && botId ? [botId] : []), [isEdit, botId]);
-  const { backend, byBot } = useSinglePositionSettings(ids, enabled);
+  // Fresh on every mount: the settings can change outside this form (another
+  // tab, the API, Max), and a cached value would be saved back with the form.
+  const { backend, byBot, isFetching } = useSinglePositionSettings(
+    ids,
+    enabled,
+    isEdit
+  );
   const supported = enabled && backend === 'new';
-  const saved = isEdit && botId ? byBot[botId] : undefined;
+  const saved = isEdit && botId && !isFetching ? byBot[botId] : undefined;
   const invalidate = useInvalidateSinglePosition();
   const { make } = useSinglePositionClient();
 
@@ -99,6 +105,28 @@ export function useSinglePositionFormBridge({
     [botSettings, savedExtra]
   );
   const mergedBot = useMemo(() => mergeSettings(bot, savedExtra), [bot, savedExtra]);
+
+  // The form initializes from the bot query, which may land before or after
+  // this one; the fresh saved values are written into the form once per
+  // mount, whichever arrives first.
+  const appliedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!saved || !botId || appliedFor.current === botId) return;
+    appliedFor.current = botId;
+    setFormData((prev) =>
+      prev.dca.singlePosition === saved.singlePosition &&
+      prev.dca.maxPositionEntries === saved.maxPositionEntries
+        ? prev
+        : {
+            ...prev,
+            dca: {
+              ...prev.dca,
+              singlePosition: saved.singlePosition,
+              maxPositionEntries: saved.maxPositionEntries,
+            },
+          }
+    );
+  }, [saved, botId, setFormData]);
 
   const [rows, setRows] = useState<AdoptionPreviewRow[] | null>(null);
   const [assets, setAssets] = useState<Record<string, string>>({});

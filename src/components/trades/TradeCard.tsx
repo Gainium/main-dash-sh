@@ -609,9 +609,11 @@ const EnhancedCard = React.memo(
 
     // A deal with a single order (just the base buy) has no DCA ladder, so its
     // usage gauge would always read ~100% — meaningless. Hide it in that case.
-    const hasDca = (trade.levels?.all ?? 0) > 1;
     // Single-position bots: the position's entries (it has no DCA ladder).
+    // Every entry also counts as a level, so a position must be told apart by
+    // its entries, not by `levels`.
     const positionEntries = usePositionEntriesLabel(trade.id);
+    const hasDca = !positionEntries && (trade.levels?.all ?? 0) > 1;
 
     // The P/L summary box shows realized P/L for closed deals, unrealized for
     // open ones — exactly one applies per card.
