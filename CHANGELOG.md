@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.87.4] - 2026-10-08
+
+### Fixed
+
+- Removing pairs from a multi-pair DCA or combo bot lowers Max open deals to the number of pairs left when that is smaller, as in the previous dashboard. Adding pairs never raises it.
+
 ## [2.87.3] - 2026-10-08
 
 ### Changed

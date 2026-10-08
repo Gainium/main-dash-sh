@@ -76,6 +76,7 @@ import {
   handleSettingsUpdate,
   type HandleSettingsUpdateResult,
 } from '@/utils/bots/dca/handle-settings';
+import { maxOpenDealsAfterPairChange } from '@/utils/bots/dca/pair-limits';
 import { hotValidateDcaFormData } from '@/utils/bots/dca/validation';
 import { computeGridBudgetRangeFromForm } from '@/utils/bots/grid/budget-ranges';
 import { validateGridFormData } from '@/utils/bots/grid/validation';
@@ -1018,6 +1019,25 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       let settingsUpdateResult: HandleSettingsUpdateResult = { dca: {} };
       setFormData((prev) => {
         if (field in prev) {
+          if (
+            field === 'pair' &&
+            Array.isArray(value) &&
+            (botType === BotTypesEnum.dca || botType === BotTypesEnum.combo)
+          ) {
+            const slice = botType === BotTypesEnum.combo ? 'combo' : 'dca';
+            const nextMax = maxOpenDealsAfterPairChange(
+              Array.isArray(prev.pair) ? prev.pair.length : 0,
+              value.length,
+              prev[slice].maxNumberOfOpenDeals
+            );
+            if (nextMax !== null) {
+              return {
+                ...prev,
+                pair: value,
+                [slice]: { ...prev[slice], maxNumberOfOpenDeals: nextMax },
+              } as typeof prev;
+            }
+          }
           return {
             ...prev,
             [field]: value,
