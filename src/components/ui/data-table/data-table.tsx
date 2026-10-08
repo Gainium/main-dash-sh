@@ -264,6 +264,8 @@ export interface BulkAction<TData> {
   destructive?: boolean;
   /** Whether the action is disabled */
   disabled?: boolean;
+  /** Tooltip explaining why the action is disabled */
+  disabledReason?: string;
   /** Optional function to determine if this action should be shown based on selected rows */
   shouldShow?: (selectedRows: TData[]) => boolean;
 }
@@ -1800,6 +1802,7 @@ function ToolbarButtonRow<TData>({
                     onClearSelection?.();
                   }}
                   disabled={action.disabled}
+                  title={action.disabled ? action.disabledReason : undefined}
                   className={clsx(
                     'text-sm',
                     action.destructive &&

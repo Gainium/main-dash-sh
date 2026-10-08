@@ -96,6 +96,15 @@ export function getDeleteBlockedReason(
 }
 
 /**
+ * Check if a bot is archived. The API spells the status both `archive`
+ * and `archived`, so every surface must go through this helper.
+ */
+export function isBotArchived(status: BotStatus | string): boolean {
+  const normalized = normalizeStatus(status);
+  return normalized === 'archive' || normalized === 'archived';
+}
+
+/**
  * Check if a bot can be archived or unarchived.
  * Only stopped/archived bots qualify; running bots must be stopped first.
  */

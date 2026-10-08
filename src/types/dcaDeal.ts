@@ -44,6 +44,11 @@ export type TransformedTrade = {
   type: 'DCA' | 'Combo' | 'Hedge DCA' | 'Hedge Combo' | 'Grid' | 'Terminal';
   /** True for terminal deals — they have no bot page, so bot links are hidden */
   terminal?: boolean;
+  /**
+   * True for a hedge bot's leg deal that is rendered under its leg's plain
+   * `type` ('DCA' / 'Combo'). The deal actions treat it as a hedge deal.
+   */
+  hedge?: boolean;
   symbol:
     | string
     | {

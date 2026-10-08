@@ -39,6 +39,7 @@ vi.mock('@/hooks/useBotMutations', () => ({
   useBotStatusToggle: () => ({ mutate: vi.fn(), isPending: false }),
   useBotRestart: () => ({ mutate: vi.fn(), isPending: false }),
   useBotDelete: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useBotArchive: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 // Mount the REAL form provider the way the workbench does, and hold it while
@@ -91,6 +92,7 @@ vi.mock('@/lib/toast', () => ({
 
 import TradingBotNew from '@/pages/bots/TradingBotNew';
 import { useBotActions } from '@/hooks/useBotActions';
+import { toBotRef } from '@/features/bots/actions/botRef';
 import { stageDuplicateToOtherMode } from '@/hooks/useBotConfigPreload';
 import { useExchangesStore } from '@/stores/exchangesStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -159,16 +161,12 @@ describe('bug 1008: Duplicate to paper/live', () => {
     const hook = { onCopy: () => {} };
     const Host = () => {
       const path = useLocation().pathname;
-      const { onCopyToLive } = useBotActions({
-        botId: 'b1',
-        botType: BotTypesEnum.combo,
-        botName: 'x',
-        status: 'open',
-        botData: liveBot,
-      }).menuProps;
+      const { run } = useBotActions(
+        toBotRef({ ...liveBot, _id: 'b1', status: 'open' }, 'combo')
+      );
       useEffect(() => {
         captured.path = path;
-        hook.onCopy = onCopyToLive;
+        hook.onCopy = () => run('duplicateToOtherMode');
       });
       return null;
     };

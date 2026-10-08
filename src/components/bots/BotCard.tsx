@@ -8,7 +8,6 @@ import {
   type AdditionalBotData,
   type Bot,
   type BotStats,
-  type BotStatus,
   type ComboBot,
   type DCABot,
 } from '@/types';
@@ -25,6 +24,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useBotActions } from '../../hooks/useBotActions';
+import { botKindFromType, toBotRef } from '@/features/bots/actions/botRef';
 import { useLongPressMenu } from '../../hooks/useLongPressMenu';
 import { useChartColors } from '../../hooks/useChartColors';
 import logger from '../../lib/loggerInstance';
@@ -116,16 +116,7 @@ type BaseBotCardProps = {
   type: BotTypesEnum;
 };
 
-interface BotCardProps extends BaseBotCardProps {
-  //botDealsOverride?: DCADeals[];
-  // Optional hedge-aware status toggle override
-  onToggleStatus?: (
-    bot: BotLike,
-    targetStatus: BotStatus,
-    closeType?: string
-  ) => Promise<void> | void;
-  isTogglingStatus?: boolean;
-}
+type BotCardProps = BaseBotCardProps;
 
 /* interface BotCardComponentProps extends BotCardProps {
   botDeals: DCADeals[];
@@ -139,8 +130,6 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
   index,
   //bot,
   /* botDeals, */
-  onToggleStatus,
-  isTogglingStatus,
   privacyMode = false,
 }) => {
   const colors = useChartColors();
@@ -242,32 +231,10 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
     return [];
   }, [statsChart /* , botDeals */]);
 
-  // Shared bot-action orchestration (clone/status/restart/delete + their
-  // modals). Clone opens the pre-filled create page; status/delete go through
-  // the confirmation modals rendered by <BotActionsModals> below.
-  const botActions = useBotActions({
-    botId: bot.id,
-    botType: type,
-    botName: bot.name,
-    status: bot.status,
-    activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
-    totalValue: bot?.usage?.current?.quote || 0,
-    currency: Array.isArray(bot.symbol)
-      ? bot.symbol[0]?.value?.quoteAsset || ''
-      : bot.symbol?.quoteAsset || '',
-    lastActivity: bot?.created || 'Unknown',
-    botData: bot,
-    // Hedge-aware / page-level status override (list pages pass this in).
-    ...(onToggleStatus
-      ? {
-          onToggleStatus: (
-            targetStatus: BotStatus,
-            closeType?: string
-          ) => onToggleStatus(bot, targetStatus, closeType),
-          statusTogglePending: !!isTogglingStatus,
-        }
-      : {}),
-  });
+  // Bot actions: which items the ⋮ menu shows comes from the registry; the
+  // runner owns the clone/status/restart/delete flows and their modals.
+  const botRef = useMemo(() => toBotRef(bot, botKindFromType(type)), [bot, type]);
+  const botActions = useBotActions(botRef);
 
   // Helper function to determine gauge color based on percentage
   const getGaugeColor = (percentage: number): string => {
@@ -500,13 +467,8 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                 <BotActionsMenuItems
                   align="end"
                   className="w-56"
-                  bot={{
-                    id: bot.id,
-                    name: bot.name,
-                    type: type,
-                    status: bot.status,
-                  }}
-                  {...botActions.menuProps}
+                  actions={botActions}
+                  surface="card"
                 />
               </DropdownMenu>
             </div>
@@ -903,26 +865,9 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
   );
 };
 
-const BotCardBase: React.FC<BotCardProps> = (props) => {
-  const {
-    /*  botDealsOverride, */ onToggleStatus,
-    isTogglingStatus,
-    ...baseProps
-  } = props;
-  const safeBaseProps = baseProps as BaseBotCardProps;
-
-  const extraProps: Record<string, unknown> = {};
-  if (onToggleStatus) {
-    (extraProps['onToggleStatus'] as unknown) = onToggleStatus;
-  }
-  if (typeof isTogglingStatus === 'boolean') {
-    (extraProps['isTogglingStatus'] as unknown) = isTogglingStatus;
-  }
-
-  return (
-    <BotCardComponent {...(safeBaseProps as BotCardProps)} {...extraProps} />
-  );
-};
+const BotCardBase: React.FC<BotCardProps> = (props) => (
+  <BotCardComponent {...props} />
+);
 
 // Memoize BotCard to prevent unnecessary re-renders
 export const BotCard = React.memo(BotCardBase, (prevProps, nextProps) => {

@@ -166,9 +166,14 @@ const makeTrade = (long: boolean) => ({
 // available at this project's es2020 build target.) The `vi.mock` factories
 // above are hoisted above all imports, so they still apply.
 let TradeCard: unknown;
+// Cards render their deal actions through the surface's provider.
+let DealActionsProvider: unknown;
 
 beforeAll(async () => {
   ({ TradeCard } = await import('@/components/trades/TradeCard'));
+  ({ DealActionsProvider } = await import(
+    '@/features/deals/actions/DealActionsProvider'
+  ));
 }, 120_000);
 
 async function renderCard(long: boolean) {
@@ -203,12 +208,15 @@ async function renderCard(long: boolean) {
           createElement(
             ExchangeDataProvider,
             null,
-            createElement(TradeCard as never, {
-              trade: makeTrade(long),
-              enableEnhancedView: true,
-              showChart: true,
-              handleEdit: () => {},
-            })
+            createElement(
+              DealActionsProvider as never,
+              null,
+              createElement(TradeCard as never, {
+                trade: makeTrade(long),
+                enableEnhancedView: true,
+                showChart: true,
+              })
+            )
           )
         )
       )

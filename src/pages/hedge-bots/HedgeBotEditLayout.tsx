@@ -20,7 +20,7 @@
  *  - Create-from-template flow (`?load=<botId>`) still uses defaults; will
  *    use getHedge*BotSettings in a follow-up slice.
  */
-import { ArrowLeftRight, Bookmark, FolderOpen, RotateCcw, Trash2 } from 'lucide-react';
+import { Bookmark, FolderOpen, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
@@ -93,10 +93,6 @@ import { GraphQLClient, getGraphQLConfig } from '@/lib/api';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import { logger } from '@/lib/loggerInstance';
-import {
-  patchBotInListCaches,
-  BOT_LIST_QUERY_KEYS_BY_TYPE,
-} from '@/lib/queryCacheUtils';
 import { toast } from '@/lib/toast';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
@@ -106,12 +102,18 @@ import {
   useBotTemplatesStore,
   type BotTemplate,
 } from '@/stores/botTemplatesStore';
-import { useHedgeComboBotsStore } from '@/stores/live/hedgeComboBotsStore';
-import { useHedgeDcaBotsStore } from '@/stores/live/hedgeDcaBotsStore';
+import { useBotActions } from '@/hooks/useBotActions';
+import {
+  buildSurfaceItems,
+  type BotActionId,
+  type BotFormActionContext,
+} from '@/features/bots/actions/botActions';
+import { botKindFromType, formBotRef } from '@/features/bots/actions/botRef';
 import { useShortcutStore } from '@/stores/shortcutStore';
 import { useUIStore } from '@/stores/uiStore';
 import {
   BotTypesEnum,
+  CloseDCATypeEnum,
   ComboTpBase,
   ExchangeIntervals,
   StrategyEnum,
@@ -287,6 +289,11 @@ const HedgeHeaderAlertButton: React.FC<{
       );
   }, []);
   return <BotFormAlertButton alerts={alertMap[activeContext] ?? {}} />;
+};
+
+const HEDGE_FORM_CONTEXT: Record<'create' | 'edit', BotFormActionContext> = {
+  create: { mode: 'create' },
+  edit: { mode: 'edit' },
 };
 
 export const HedgeBotEditLayout: React.FC = () => {
@@ -1075,14 +1082,31 @@ export const HedgeBotEditLayout: React.FC = () => {
     return mode === 'edit' ? 'Save hedge bot' : 'Create hedge bot';
   }, [saving, mode]);
 
-  // Hedge start/stop. The leg's BotFormFooter would otherwise call
-  // changeStatus with the leg's id + dca/combo type, which only flips
-  // the leg bot status — the hedge wrapper (and the live bots store)
-  // never sees the change. This handler dispatches changeStatus with the
-  // hedge id + hedgeDca/hedgeCombo type, optimistically updates the
-  // matching live bots store (so the badge / list reflect immediately),
-  // and refetches the hedge bot so the form rebinds to the new status.
-  const [togglingStatus, setTogglingStatus] = useState(false);
+  // Hedge start/stop. The leg's BotFormFooter would otherwise change the
+  // LEG's status (leg id + dca/combo type) and the hedge wrapper would never
+  // see it. The footer's toggle is routed to the shared bot-actions runner
+  // with the hedge wrapper (its id + hedgeDca/hedgeCombo type), which
+  // optimistically updates the hedge store (badge + lists flip at once) and
+  // rolls back on failure. It does not refetch this page's hedge-bot query,
+  // so a racing read cannot overwrite the optimistic status.
+  // `botId` here is the route's hedge WRAPPER id (never a leg id).
+  const hedgeBotRef = useMemo(
+    () =>
+      formBotRef({
+        bot: hedgeBot,
+        kind: botKindFromType(botType),
+        mode,
+        botId,
+      }),
+    [hedgeBot, botType, botId, mode]
+  );
+  const hedgeBotLoaded = hedgeBot != null;
+  const hedgeActions = useBotActions(hedgeBotRef, {
+    form: HEDGE_FORM_CONTEXT[mode === 'edit' ? 'edit' : 'create'],
+  });
+  const togglingStatus = hedgeActions.statusPending;
+  const changeHedgeStatus = hedgeActions.changeStatus;
+  const runHedgeAction = hedgeActions.run;
   const [showCelebration, setShowCelebration] = useState(false);
   const [createdBotId, setCreatedBotId] = useState<string | undefined>();
 
@@ -1168,96 +1192,19 @@ export const HedgeBotEditLayout: React.FC = () => {
     setCreatedBotId(undefined);
   }, [createdBotId, navigate, buildHedgeEditPath]);
   const handleHedgeToggleStatus = useCallback(
-    async (payload: { nextStatus: string; closeType?: string }) => {
-      const nextStatus =
-        payload.nextStatus === 'open' ? ('open' as const) : ('closed' as const);
-      if (togglingStatus) return;
-      if (!tokens?.accessToken) {
-        toast.error('Not authenticated.');
-        return;
-      }
-      if (!botId || !hedgeBot) {
+    (payload: { nextStatus: string; closeType?: string }) => {
+      if (!hedgeBotRef.id || !hedgeBot) {
         toast.error('Hedge bot context is missing.');
         return;
       }
-
-      setTogglingStatus(true);
-
-      // Optimistic store update so the toggle button + any list views
-      // reflect the requested status immediately.
-      const store =
-        botType === BotTypesEnum.hedgeCombo
-          ? useHedgeComboBotsStore.getState()
-          : useHedgeDcaBotsStore.getState();
-      const previousStatus = hedgeBot.status;
-      const hedgeType =
-        botType === BotTypesEnum.hedgeCombo ? 'hedgeCombo' : 'hedgeDca';
-      store.updateBot({ ...hedgeBot, status: nextStatus });
-      // Keep the persisted list cache from replaying the pre-toggle status.
-      patchBotInListCaches(
-        botId,
-        { status: nextStatus },
-        BOT_LIST_QUERY_KEYS_BY_TYPE[hedgeType]
-      );
-
-      try {
-        const endpoint =
-          import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
-        const config = getGraphQLConfig(tokens, isLiveTrading);
-        const client = new GraphQLClient(
-          endpoint,
-          config.token,
-          config.paperContext
-        );
-        const { query, variables } = otherQueries.changeStatus({
-          id: botId,
-          status: nextStatus,
-          type: botType,
-          ...(payload.closeType
-            ? { closeType: payload.closeType as never }
-            : {}),
-        });
-        const response = await client.request<{
-          changeStatus: {
-            status: string;
-            reason?: string;
-            data?: { _id: string };
-          };
-        }>(query, variables);
-        if (response.changeStatus.status !== 'OK') {
-          throw new Error(
-            response.changeStatus.reason || 'Failed to change hedge status'
-          );
-        }
-        toast.success(
-          nextStatus === 'open' ? 'Hedge bot started' : 'Hedge bot stopped'
-        );
-        // Intentionally NOT refetching here. The hedge bot's GraphQL
-        // endpoint can race the backend's status propagation — a refetch
-        // fired right after `changeStatus` succeeds occasionally returns
-        // the pre-toggle status, which then overwrites our optimistic
-        // update via the provider's "push query data into store"
-        // useEffect. WebSocket events for the hedge wrapper / its legs
-        // sync the rest of the bot state, and the optimistic status set
-        // above is what we trust until those land.
-      } catch (error) {
-        // Roll back the optimistic update on failure.
-        store.updateBot({ ...hedgeBot, status: previousStatus });
-        patchBotInListCaches(
-          botId,
-          { status: previousStatus },
-          BOT_LIST_QUERY_KEYS_BY_TYPE[hedgeType]
-        );
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error('[HedgeBotEditLayout] Toggle status failed', {
-          error: message,
-        });
-        toast.error(`Failed to update hedge status: ${message}`);
-      } finally {
-        setTogglingStatus(false);
-      }
+      changeHedgeStatus({
+        nextStatus: payload.nextStatus === 'open' ? 'open' : 'closed',
+        ...(payload.closeType
+          ? { closeType: payload.closeType as CloseDCATypeEnum }
+          : {}),
+      });
     },
-    [togglingStatus, tokens, botId, hedgeBot, botType, isLiveTrading]
+    [hedgeBotRef.id, hedgeBot, changeHedgeStatus]
   );
 
   // The unified footer is the regular BotFormFooter rendered by each leg's
@@ -1522,7 +1469,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       hideTemplates: true,
       creditsMultiplier: 2,
       onToggleStatus: handleHedgeToggleStatus,
-      toggleDisabled: togglingStatus || !botId || mode !== 'edit',
+      toggleDisabled: togglingStatus || !hedgeBotRef.id || !hedgeBotLoaded,
       togglePending: togglingStatus,
       botStatus: hedgeBot?.status ?? null,
       activeDeals: totalActiveDeals,
@@ -1535,7 +1482,8 @@ export const HedgeBotEditLayout: React.FC = () => {
       mode,
       handleHedgeToggleStatus,
       togglingStatus,
-      botId,
+      hedgeBotRef.id,
+      hedgeBotLoaded,
       hedgeBot?.status,
       totalActiveDeals,
       backtestRunner,
@@ -2028,18 +1976,23 @@ export const HedgeBotEditLayout: React.FC = () => {
   // Reset, Save as template) plus a Load entry since hedge has no Quick
   // template picker.
   const hedgeFooterMenuConfig = useMemo(() => {
-    const items: WidgetMenuActionItem[] = [
-      {
-        label: 'Import / Export settings',
-        icon: ArrowLeftRight,
-        onSelect: openImportExport,
-      },
-      {
-        label: 'Reset to defaults',
-        icon: RotateCcw,
-        onSelect: () => setShowResetConfirm(true),
-        disabled: mode === 'edit',
-      },
+    // Bot-level entries come from the actions registry (`hedgeForm`
+    // surface); this page supplies the dialogs they open.
+    const hedgeFormHandlers: Partial<Record<BotActionId, () => void>> = {
+      importExport: openImportExport,
+      resetDefaults: () => setShowResetConfirm(true),
+    };
+    const items: WidgetMenuActionItem[] = buildSurfaceItems(
+      'hedgeForm',
+      hedgeActions.bot,
+      hedgeActions.ctx
+    ).map((item) => ({
+      label: item.label,
+      icon: item.icon,
+      onSelect: hedgeFormHandlers[item.id] ?? (() => runHedgeAction(item.id)),
+      disabled: item.disabled,
+    }));
+    items.push(
       {
         label: 'Save as template',
         icon: Bookmark,
@@ -2050,13 +2003,19 @@ export const HedgeBotEditLayout: React.FC = () => {
         icon: FolderOpen,
         onSelect: () => setShowLoadTemplate(true),
         disabled: hedgeTemplates.length === 0,
-      },
-    ];
+      }
+    );
     return mapWidgetMenuItemsToPanelMenu(items, {
       triggerAriaLabel: 'Hedge bot options',
       idPrefix: 'hedge-form-menu',
     });
-  }, [openImportExport, mode, hedgeTemplates.length]);
+  }, [
+    openImportExport,
+    hedgeActions.bot,
+    hedgeActions.ctx,
+    runHedgeAction,
+    hedgeTemplates.length,
+  ]);
 
   // Inject the hedge menu into the leg footers (footerOverride/quick are
   // defined above without it).

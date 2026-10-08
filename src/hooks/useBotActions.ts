@@ -1,140 +1,90 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
+import { isReadOnly } from '@/lib/demoMode';
 import { stageDuplicateToOtherMode } from '@/hooks/useBotConfigPreload';
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { useUIStore } from '@/stores/uiStore';
+import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
+  isHedgeKind,
+  type BotActionContext,
+  type BotActionId,
+  type BotFormActionContext,
+  type BotRef,
+} from '@/features/bots/actions/botActions';
+import {
+  buildBotBacktestRoute,
   buildBotCloneRoute,
   buildBotEditRoute,
   buildBotListRoute,
+  buildBotViewRoute,
 } from '@/utils/bots/navigation';
-import {
-  getActionPastTense,
-  getTargetStatus,
-  isBotActive,
-} from '@/utils/botStatusUtils';
+import { getTargetStatus } from '@/utils/botStatusUtils';
 import {
   BotTypesEnum,
   CloseDCATypeEnum,
   CloseGRIDTypeEnum,
-  type Bot,
   type BotStatus,
-  type ComboBot,
-  type DCABot,
+  type BuyTypeEnum,
 } from '@/types';
 import {
+  useBotArchive,
   useBotDelete,
   useBotRestart,
   useBotStatusToggle,
 } from './useBotMutations';
 
 /**
- * Shared bot-action orchestration.
+ * The single runner for bot actions.
  *
- * The lifecycle *mutations* already live in `useBotMutations`. What used to be
- * copy-pasted (and had drifted) across every bot surface — BotCard, the detail
- * drawer, the grid/hedge cards, and the four list pages — is the *orchestration*
- * around them: which modal opens, what "Clone" means, how a stop's close-type is
- * threaded, the success/toast wiring. This hook owns that once so a surface never
- * re-decides it.
+ * WHICH actions a bot offers (and when they are disabled) is decided by the
+ * registry in `features/bots/actions/botActions.ts`; this hook EXECUTES them:
+ * navigation, the lifecycle mutations, the confirmation modals' state and the
+ * toasts. Every surface — cards, rows, the drawer, the bot form footer and
+ * the hedge edit page — runs actions through here, so a status change, a
+ * clone or an archive behaves the same wherever it was clicked.
  *
- * A surface calls `useBotActions(...)` and gets:
- *   - `menuProps` — spread straight into `<BotActionsMenuItems bot={…} {...menuProps} />`
- *   - `modalProps` — spread straight into `<BotActionsModals {...modalProps} />`
- *   - raw handlers (`edit`, `clone`, `restart`, `openStatusModal`, `openDeleteModal`)
- *     for surfaces that also render their own button row (e.g. the drawer footer).
+ *   const actions = useBotActions(toBotRef(bot, 'grid'));
+ *   <BotActionsMenuItems actions={actions} surface="card" />
+ *   <BotActionsModals {...actions.modalProps} />
  *
- * Canonical decisions encoded here:
- *   - **Clone always opens the pre-filled create page** (`buildBotCloneRoute`) for
- *     every bot type, so the pair/exchange stay editable. The old combo/grid
- *     "immediate copy" behaviour (which locked the pair) is gone.
- *   - **Status toggle always routes through the confirmation modal**, then the
- *     shared `useBotStatusToggle` mutation (grid threads `closeGridType` +
- *     `cancelPartiallyFilled`; everything else threads `closeType`). Hedge shares
- *     the same mutation now that it does optimistic updates on the hedge stores.
- *   - **Archive is intentionally not handled here** — `BotActionsMenuItems` owns
- *     it internally (the archive/unarchive status matching lives there); passing
- *     `onArchive` would just duplicate it.
+ * Surface-only actions (the form's import/export, reset, share-access and
+ * funds dialogs) are supplied through `handlers`; a handler also overrides a
+ * runner action (the drawer's caller-supplied edit/clone).
  */
-export interface UseBotActionsParams {
+export interface UseBotActionsOptions {
+  /** Share-link visitor / someone else's bot: locks mutating actions. */
+  viewOnly?: boolean;
   /**
-   * The id the mutations target. For a hedge bot viewed in the drawer this is
-   * the wrapper id (`parentBotId ?? bot._id`); the caller resolves that.
-   */
-  botId: string;
-  botType: BotTypesEnum;
-  botName: string;
-  status: BotStatus;
-
-  /** Number of currently-open deals — gates the stop close-type dialog and
-   *  feeds the delete confirmation. */
-  activeDeals?: number;
-  /** Quote-currency value shown in the delete confirmation. */
-  totalValue?: number;
-  /** Quote asset shown in the delete confirmation. */
-  currency?: string;
-  /** "Last activity" line in the delete confirmation (usually `bot.created`). */
-  lastActivity?: string;
-
-  /** Grid stop-dialog context — only meaningful when `botType === grid`. */
-  gridFutures?: boolean;
-  gridHasOpenPosition?: boolean;
-  gridIsShort?: boolean;
-
-  /**
-   * Show the post-action success modal. List cards use it (clone/delete
-   * feedback); surfaces that manage their own close flow can pass `false`.
+   * Show the post-delete success modal. Surfaces that close themselves
+   * after a delete can pass `false`.
    * @default true
    */
   showSuccessModal?: boolean;
-
-  /** Copy-to-clipboard payload for "Share Configuration". When omitted the
-   *  Share item falls back to `onShareConfig`. */
-  botData?: DCABot | ComboBot | Bot | unknown;
-
-  /** Custom delete-confirmation copy (hedge overrides the wording). */
-  deleteTitle?: string;
-  deleteDescription?: string;
-
-  // --- Escape hatches: override a single action's default behaviour. ---
-  /** Replace the default edit navigation. */
-  onEdit?: () => void;
-  /** Replace the default clone navigation. */
-  onClone?: () => void;
-  /** Replace the default "Duplicate to live/paper" (hedge bots). */
-  onCopyToLive?: () => void;
-  /** Replace the default clipboard "Share Configuration". */
-  onShareConfig?: () => void;
-  /**
-   * Page-level status override (e.g. a list page that batches its own toast /
-   * optimistic handling). Still driven through the confirmation modal; receives
-   * the resolved target status and the chosen close-type.
-   */
-  onToggleStatus?: (
-    targetStatus: BotStatus,
-    closeType?: string
-  ) => Promise<void> | void;
-  /** External pending flag for the status toggle when `onToggleStatus` is set. */
-  statusTogglePending?: boolean;
+  /** Set by the bot form surfaces; enables the form-only actions. */
+  form?: BotFormActionContext;
+  /** Share id carried into the backtest route (share-link visitors). */
+  shareId?: string;
+  handlers?: Partial<Record<BotActionId, () => void>>;
 }
 
-export interface BotActionsMenuHandlers {
-  pending: {
-    statusToggle: boolean;
-    restart: boolean;
-    clone: boolean;
-    delete: boolean;
-  };
-  onToggleStatus: () => void;
-  onRestart: () => void;
-  onEdit: () => void;
-  onClone: () => void;
-  onShareConfig: () => void;
-  onCopyToLive: () => void;
-  onDelete: () => void;
+/** A start/stop request, with the options the stop/start dialogs collect. */
+export interface BotStatusChangePayload {
+  nextStatus: BotStatus;
+  closeType?: CloseDCATypeEnum;
+  closeGridType?: CloseGRIDTypeEnum;
+  cancelPartiallyFilled?: boolean;
+  buyType?: BuyTypeEnum;
+  buyCount?: string;
+  buyAmount?: number;
+  /**
+   * No success toast (the bot form, whose footer reflects the new status
+   * itself). Failures still toast — from the mutation.
+   */
+  silent?: boolean;
 }
 
 export interface BotActionsModalProps {
@@ -172,281 +122,333 @@ export interface BotActionsModalProps {
 }
 
 export interface BotActionsController {
-  menuProps: BotActionsMenuHandlers;
+  /** The bot the actions target (paper flag resolved to the current mode). */
+  bot: BotRef;
+  /** Gating context the registry resolves items against. */
+  ctx: BotActionContext;
+  /** Run an action by id. Stable across renders. */
+  run: (id: BotActionId) => void;
+  /** Start/stop without a dialog (the caller already collected options). */
+  changeStatus: (payload: BotStatusChangePayload) => void;
+  statusPending: boolean;
   modalProps: BotActionsModalProps;
-  /** Raw handlers for surfaces that render their own action buttons. */
-  edit: () => void;
-  clone: () => void;
-  restart: () => void;
-  openStatusModal: () => void;
-  openDeleteModal: () => void;
-  pending: BotActionsMenuHandlers['pending'];
 }
 
+const HEDGE_DELETE_TITLE = 'Delete hedge bot';
+const HEDGE_DELETE_DESCRIPTION =
+  'Are you sure you want to delete this hedge bot? Both legs will be removed. This action cannot be undone.';
+const DELETE_TITLE = 'Delete Bot';
+const DELETE_DESCRIPTION =
+  'Are you sure you want to delete this bot? This action cannot be undone.';
+
 export function useBotActions(
-  params: UseBotActionsParams
+  inputBot: BotRef,
+  options: UseBotActionsOptions = {}
 ): BotActionsController {
   const {
-    botId,
-    botType,
-    botName,
-    status,
-    activeDeals = 0,
-    totalValue = 0,
-    currency = '',
-    lastActivity = 'Unknown',
-    gridFutures,
-    gridHasOpenPosition,
-    gridIsShort,
+    viewOnly = false,
     showSuccessModal = true,
-    botData,
-    deleteTitle = 'Delete Bot',
-    deleteDescription = 'Are you sure you want to delete this bot? This action cannot be undone.',
-    onEdit,
-    onClone,
-    onCopyToLive,
-    onShareConfig,
-    onToggleStatus,
-    statusTogglePending,
-  } = params;
+    form,
+    shareId,
+    handlers,
+  } = options;
 
   const navigate = useNavigate();
-  const isGrid = botType === BotTypesEnum.grid;
   const { setLiveTrading } = usePaperContext();
+  const isPaperTrading = !useUIStore((s) => s.isLiveTrading);
+  const toggleStarred = useStarredBotsStore((s) => s.toggleStarred);
+  const starred = useStarredBotsStore((s) => s.starredBotIds.has(inputBot.id));
 
+  const botType = inputBot.kind as BotTypesEnum;
   const statusToggleMutation = useBotStatusToggle(botType);
   const restartMutation = useBotRestart();
   const deleteMutation = useBotDelete();
-
-  // React Query's `useMutation` returns `{ ...result, mutate, mutateAsync }` —
-  // a fresh object literal on EVERY render. So a `useCallback` that lists the
-  // mutation OBJECT in its deps never actually memoises: it hands back a new
-  // function each render, and that instability fans out to every memoised
-  // consumer. On the bot detail drawer, `bot` is replaced on each socket
-  // stats/deal tick (~26x/s); `restart` being new each tick recomputed
-  // `footerActionButtons`, which re-rendered the memoised ResponsiveButtonRow
-  // at the same rate (RenderLoopTripwire "26 renders in 820ms" on
-  // /combo/view + /grid/view — bug #381; #355 patched a call site instead of
-  // this hook, which is why it came back on a different surface).
-  //
-  // `mutate` is bound once in the MutationObserver's constructor and handed
-  // through unchanged, so it IS referentially stable — depend on it, not on
-  // its wrapper. Everything else these callbacks read off the mutation object
-  // (`isPending`) is consumed at render time, not inside the callback.
-  const restartMutate = restartMutation.mutate;
-  const statusToggleMutate = statusToggleMutation.mutate;
-  const deleteMutateAsync = deleteMutation.mutateAsync;
+  const archiveMutation = useBotArchive();
 
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
-  const [successType, setSuccessType] = useState<'clone' | 'delete'>('delete');
 
-  // --- Edit ---
-  const edit = useCallback(() => {
-    if (onEdit) {
-      onEdit();
-      return;
-    }
-    navigate(buildBotEditRoute(botType, botId));
-  }, [onEdit, navigate, botType, botId]);
+  // Bots listed on a page always belong to the current trading mode, which
+  // is what "Duplicate to live/paper" switches away from.
+  const bot = useMemo<BotRef>(
+    () =>
+      inputBot.paper === isPaperTrading
+        ? inputBot
+        : { ...inputBot, paper: isPaperTrading },
+    [inputBot, isPaperTrading]
+  );
 
-  // --- Clone (canonical: open the pre-filled create page) ---
-  const clone = useCallback(() => {
-    if (onClone) {
-      onClone();
-      return;
-    }
-    navigate(buildBotCloneRoute(botType, botId));
-  }, [onClone, navigate, botType, botId]);
+  const statusPending = statusToggleMutation.isPending;
+  const restartPending = restartMutation.isPending;
+  const deletePending = deleteMutation.isPending;
+  const archivePending = archiveMutation.isPending;
 
-  // --- Restart ---
-  const restart = useCallback(() => {
-    restartMutate(
-      { id: botId, type: botType },
+  const readOnly = isReadOnly();
+  const ctx = useMemo<BotActionContext>(
+    () => ({
+      readOnly,
+      viewOnly,
+      starred,
+      pending: {
+        start: statusPending,
+        stop: statusPending,
+        restart: restartPending,
+        delete: deletePending,
+        archive: archivePending,
+        unarchive: archivePending,
+      },
+      ...(form ? { form } : {}),
+    }),
+    [
+      readOnly,
+      viewOnly,
+      starred,
+      statusPending,
+      restartPending,
+      deletePending,
+      archivePending,
+      form,
+    ]
+  );
+
+  // `useMutation` returns a fresh object every render, but its `mutate` /
+  // `mutateAsync` are bound once and stable. The callbacks below read
+  // everything through this ref, so `run` / `changeStatus` keep one identity
+  // for the component's lifetime — memoised consumers (ResponsiveButtonRow
+  // on the drawer and form footers) are not re-rendered by live ticks.
+  const latest = useRef({
+    bot,
+    handlers,
+    shareId,
+    navigate,
+    setLiveTrading,
+    toggleStarred,
+    statusToggleMutate: statusToggleMutation.mutate,
+    restartMutate: restartMutation.mutate,
+    archiveMutate: archiveMutation.mutate,
+  });
+  latest.current = {
+    bot,
+    handlers,
+    shareId,
+    navigate,
+    setLiveTrading,
+    toggleStarred,
+    statusToggleMutate: statusToggleMutation.mutate,
+    restartMutate: restartMutation.mutate,
+    archiveMutate: archiveMutation.mutate,
+  };
+
+  const changeStatus = useCallback((payload: BotStatusChangePayload) => {
+    const { bot: target, statusToggleMutate } = latest.current;
+    const starting = payload.nextStatus === 'open';
+    const isGrid = target.kind === 'grid';
+    statusToggleMutate(
       {
-        onSuccess: () => toast.success(`Bot "${botName}" restarted successfully`),
-        onError: () => toast.error(`Failed to restart bot "${botName}"`),
+        id: target.id,
+        status: payload.nextStatus,
+        // Grid threads the close decision through `closeGridType` (+ the
+        // partially-filled flag); DCA/combo/hedge use `closeType`.
+        ...(isGrid
+          ? {
+              closeGridType: payload.closeGridType,
+              cancelPartiallyFilled: payload.cancelPartiallyFilled,
+            }
+          : payload.closeType
+            ? { closeType: payload.closeType }
+            : {}),
+        ...(payload.buyType ? { buyType: payload.buyType } : {}),
+        ...(payload.buyCount ? { buyCount: payload.buyCount } : {}),
+        ...(payload.buyAmount !== undefined
+          ? { buyAmount: payload.buyAmount }
+          : {}),
+      },
+      // Failures are toasted once, by the mutation itself (with the
+      // backend's reason); a second toast here doubled every error.
+      {
+        onSuccess: () => {
+          setStatusModalOpen(false);
+          if (payload.silent) return;
+          toast.success(
+            `Bot "${target.name}" ${starting ? 'started' : 'stopped'} successfully`
+          );
+        },
       }
     );
-  }, [restartMutate, botId, botType, botName]);
-
-  // --- Status toggle (modal → mutation) ---
-  const openStatusModal = useCallback(() => setStatusModalOpen(true), []);
+  }, []);
 
   const confirmStatusChange = useCallback(
     (closeType?: string, cancelPartiallyFilled?: boolean) => {
-      const targetStatus = getTargetStatus(status);
-      const wasActive = isBotActive(status);
-
-      // Page-level override (e.g. a list page that batches its own handling).
-      if (onToggleStatus) {
-        Promise.resolve(onToggleStatus(targetStatus, closeType))
-          .then(() => {
-            setStatusModalOpen(false);
-            toast.success(
-              `Bot "${botName}" ${getActionPastTense(status)} successfully`
-            );
-          })
-          .catch((error) => {
-            logger.error('[useBotActions] Status toggle override failed', error);
-            toast.error(
-              `Failed to ${wasActive ? 'stop' : 'start'} bot "${botName}"`
-            );
-          });
-        return;
-      }
-
-      statusToggleMutate(
-        {
-          id: botId,
-          status: targetStatus,
-          // Grid threads the close decision through `closeGridType` (+ the
-          // partially-filled flag); DCA/combo/hedge use `closeType`.
-          ...(isGrid
-            ? {
-                closeGridType: closeType as CloseGRIDTypeEnum | undefined,
-                cancelPartiallyFilled,
-              }
-            : { closeType: closeType as CloseDCATypeEnum | undefined }),
-        },
-        {
-          onSuccess: () => {
-            setStatusModalOpen(false);
-            toast.success(
-              `Bot "${botName}" ${getActionPastTense(status)} successfully`
-            );
-          },
-          onError: () => {
-            toast.error(
-              `Failed to ${wasActive ? 'stop' : 'start'} bot "${botName}"`
-            );
-          },
-        }
+      const target = latest.current.bot;
+      const nextStatus = getTargetStatus(target.status);
+      changeStatus(
+        target.kind === 'grid'
+          ? {
+              nextStatus,
+              closeGridType: closeType as CloseGRIDTypeEnum | undefined,
+              cancelPartiallyFilled,
+            }
+          : {
+              nextStatus,
+              closeType: closeType as CloseDCATypeEnum | undefined,
+            }
       );
     },
-    [status, onToggleStatus, statusToggleMutate, botId, isGrid, botName]
+    [changeStatus]
   );
 
-  // --- Delete (modal → mutation → optional success modal) ---
-  const openDeleteModal = useCallback(() => setDeleteModalOpen(true), []);
-
   const confirmDelete = useCallback(async () => {
+    const target = latest.current.bot;
     try {
-      await deleteMutateAsync({ id: botId, type: botType });
+      await deleteMutation.mutateAsync({
+        id: target.id,
+        type: target.kind as BotTypesEnum,
+      });
       setDeleteModalOpen(false);
-      if (showSuccessModal) {
-        setSuccessType('delete');
-        setSuccessModalOpen(true);
-      }
+      if (showSuccessModal) setSuccessModalOpen(true);
     } catch (error) {
       // The mutation already surfaced a toast; keep the modal open so the
       // user can retry or cancel.
       logger.error('[useBotActions] Delete failed', error);
     }
-  }, [deleteMutateAsync, botId, botType, showSuccessModal]);
+    // `mutateAsync` is stable; the mutation object is not.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deleteMutation.mutateAsync, showSuccessModal]);
 
-  // --- Share Configuration (clipboard) ---
-  const shareConfig = useCallback(async () => {
-    if (onShareConfig) {
-      onShareConfig();
+  const run = useCallback((id: BotActionId) => {
+    const {
+      bot: target,
+      handlers: surfaceHandlers,
+      shareId: targetShareId,
+      navigate: go,
+      setLiveTrading: switchMode,
+      toggleStarred: toggleStar,
+      restartMutate,
+      archiveMutate,
+    } = latest.current;
+    const handler = surfaceHandlers?.[id];
+    if (handler) {
+      handler();
       return;
     }
-    try {
-      await navigator.clipboard.writeText(JSON.stringify(botData ?? {}, null, 2));
-      toast.success('Configuration copied to clipboard');
-    } catch (error) {
-      logger.error('[useBotActions] Share config copy failed', error);
-      toast.error('Failed to copy configuration');
-    }
-  }, [onShareConfig, botData]);
+    const type = target.kind as BotTypesEnum;
 
-  // --- Duplicate to live/paper ---
-  // Stage the source bot's settings, switch to the other trading mode, and
-  // open that mode's create page for this bot type.
-  const copyToLive = useCallback(() => {
-    if (onCopyToLive) {
-      onCopyToLive();
-      return;
+    switch (id) {
+      case 'openNewTab':
+        window.open(buildBotViewRoute(type, target.id), '_blank');
+        return;
+      case 'star':
+        toggleStar(target.id);
+        return;
+      case 'start':
+      case 'stop':
+        setStatusModalOpen(true);
+        return;
+      case 'restart':
+        restartMutate(
+          { id: target.id, type },
+          // The mutation toasts a failure itself.
+          {
+            onSuccess: () =>
+              toast.success(`Bot "${target.name}" restarted successfully`),
+          }
+        );
+        return;
+      case 'edit':
+        go(buildBotEditRoute(type, target.id));
+        return;
+      // Clone always opens the pre-filled create page, so the pair and
+      // exchange stay editable before anything is saved.
+      case 'clone':
+        go(buildBotCloneRoute(type, target.id));
+        return;
+      case 'backtest':
+        go(buildBotBacktestRoute(type, target.id, targetShareId));
+        return;
+      case 'shareConfig':
+        void navigator.clipboard
+          .writeText(JSON.stringify(target.raw ?? {}, null, 2))
+          .then(() => toast.success('Configuration copied to clipboard'))
+          .catch((error: unknown) => {
+            logger.error('[useBotActions] Share config copy failed', error);
+            toast.error('Failed to copy configuration');
+          });
+        return;
+      // Stage the source bot's settings, switch to the other trading mode
+      // and open that mode's create page for this bot type.
+      case 'duplicateToOtherMode': {
+        const toLive = target.paper;
+        try {
+          // The registry offers this for DCA / combo / grid bots only.
+          stageDuplicateToOtherMode(
+            type as BotTypesEnum.dca | BotTypesEnum.combo | BotTypesEnum.grid,
+            (target.raw ?? {}) as { settings?: unknown; exchange?: string },
+            toLive
+          );
+        } catch (error) {
+          logger.error('[useBotActions] Failed to stage duplicate', error);
+          toast.error('Failed to stage configuration');
+          return;
+        }
+        switchMode(toLive);
+        go(`${buildBotListRoute(type)}/new`);
+        return;
+      }
+      // Archiving is reversible (un-archive rehydrates cold-stored history),
+      // so there is no confirmation step.
+      case 'archive':
+      case 'unarchive':
+        archiveMutate({ id: target.id, archive: id === 'archive', type });
+        return;
+      case 'delete':
+        setDeleteModalOpen(true);
+        return;
+      case 'importExport':
+      case 'resetDefaults':
+      case 'shareAccess':
+      case 'addFunds':
+      case 'reduceFunds':
+        logger.warn(`[useBotActions] "${id}" needs a surface handler`);
+        return;
+      default: {
+        const unhandled: never = id;
+        logger.warn('[useBotActions] Unhandled bot action', unhandled);
+      }
     }
-    if (
-      botType !== BotTypesEnum.dca &&
-      botType !== BotTypesEnum.combo &&
-      botType !== BotTypesEnum.grid
-    ) {
-      toast.info('Duplicate to live/paper is not available here.');
-      return;
-    }
-    const toLive = !useUIStore.getState().isLiveTrading;
-    try {
-      stageDuplicateToOtherMode(
-        botType,
-        (botData ?? {}) as { settings?: unknown; exchange?: string },
-        toLive
-      );
-    } catch (error) {
-      logger.error('[useBotActions] Failed to stage duplicate', error);
-      toast.error('Failed to stage configuration');
-      return;
-    }
-    setLiveTrading(toLive);
-    navigate(`${buildBotListRoute(botType)}/new`);
-  }, [onCopyToLive, botType, botData, setLiveTrading, navigate]);
+  }, []);
 
-  const statusPending = onToggleStatus
-    ? !!statusTogglePending
-    : statusToggleMutation.isPending;
-
-  const pending: BotActionsMenuHandlers['pending'] = {
-    statusToggle: statusPending,
-    restart: restartMutation.isPending,
-    // Clone navigates — it is never "pending".
-    clone: false,
-    delete: deleteMutation.isPending,
+  const hedge = isHedgeKind(bot.kind);
+  const modalProps: BotActionsModalProps = {
+    botName: bot.name,
+    status: bot.status as BotStatus,
+    botType,
+    statusModalOpen,
+    onStatusModalOpenChange: setStatusModalOpen,
+    onConfirmStatusChange: confirmStatusChange,
+    hasActiveDeals: bot.activeDeals > 0,
+    statusPending,
+    ...(bot.grid
+      ? {
+          gridFutures: bot.grid.futures,
+          gridHasOpenPosition: bot.grid.hasOpenPosition,
+          gridIsShort: bot.grid.isShort,
+        }
+      : {}),
+    deleteModalOpen,
+    onDeleteModalOpenChange: setDeleteModalOpen,
+    onConfirmDelete: confirmDelete,
+    deletePending,
+    deleteTitle: hedge ? HEDGE_DELETE_TITLE : DELETE_TITLE,
+    deleteDescription: hedge ? HEDGE_DELETE_DESCRIPTION : DELETE_DESCRIPTION,
+    deleteActiveDeals: bot.activeDeals,
+    deleteTotalValue: bot.totalValue,
+    deleteCurrency: bot.currency,
+    deleteLastActivity: bot.lastActivity,
+    successModalOpen,
+    onSuccessModalOpenChange: setSuccessModalOpen,
+    successType: 'delete',
   };
 
-  return {
-    menuProps: {
-      pending,
-      onToggleStatus: openStatusModal,
-      onRestart: restart,
-      onEdit: edit,
-      onClone: clone,
-      onShareConfig: shareConfig,
-      onCopyToLive: copyToLive,
-      onDelete: openDeleteModal,
-    },
-    modalProps: {
-      botName,
-      status,
-      botType,
-      statusModalOpen,
-      onStatusModalOpenChange: setStatusModalOpen,
-      onConfirmStatusChange: confirmStatusChange,
-      hasActiveDeals: activeDeals > 0,
-      statusPending,
-      gridFutures,
-      gridHasOpenPosition,
-      gridIsShort,
-      deleteModalOpen,
-      onDeleteModalOpenChange: setDeleteModalOpen,
-      onConfirmDelete: confirmDelete,
-      deletePending: deleteMutation.isPending,
-      deleteTitle,
-      deleteDescription,
-      deleteActiveDeals: activeDeals,
-      deleteTotalValue: totalValue,
-      deleteCurrency: currency,
-      deleteLastActivity: lastActivity,
-      successModalOpen,
-      onSuccessModalOpenChange: setSuccessModalOpen,
-      successType,
-    },
-    edit,
-    clone,
-    restart,
-    openStatusModal,
-    openDeleteModal,
-    pending,
-  };
+  return { bot, ctx, run, changeStatus, statusPending, modalProps };
 }

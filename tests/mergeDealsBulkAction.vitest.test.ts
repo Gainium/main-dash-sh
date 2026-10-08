@@ -1,42 +1,36 @@
 import { describe, expect, it } from 'vitest';
 
-import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
+import { buildDealBulkActions } from '@/features/deals/actions/dealActionRegistry';
+import { dealRefFromTrade } from '@/features/deals/actions/dealRef';
+import type { TransformedTrade } from '@/types/dcaDeal';
 
 /**
  * Merge Deals is offered for non-combo deals on one pair and exchange, across
  * bots too — terminal deals each have their own bot. A combo position lives in
  * its minigrids and cannot be merged; the backend refuses it.
  */
-type Row = {
-  symbol: string;
-  exchange: string;
-  botId?: string;
-  type: string;
-};
+type Row = TransformedTrade;
 
+let nextId = 0;
 const row = (over: Partial<Row> = {}): Row => ({
+  id: `deal-${(nextId += 1)}`,
   symbol: 'BTCUSDT',
   exchange: 'binance',
   botId: 'bot-1',
   type: 'DCA',
+  status: 'open',
+  strategy: 'LONG',
+  active: true,
+  currentBalance: { base: 0, quote: 0 },
+  usage: { current: { base: 0, quote: 0 } },
+  levels: { complete: 1, all: 1 },
   ...over,
 });
 
-const noop = () => undefined;
-
 const mergeShown = (rows: Row[]) => {
-  const merge = createSharedDealBulkActions<Row>({
-    onMerge: noop,
-    onAddToJournal: noop,
-    onAddFunds: noop,
-    onReduceFunds: noop,
-    onEdit: noop,
-    onMoveToTerminal: noop,
-    onCancel: noop,
-    onClose: noop,
-    canMoveToTerminal: () => false,
-    canMerge: (r) => r.type !== 'Combo' && r.type !== 'Hedge Combo',
-    getSymbol: (r) => r.symbol,
+  const merge = buildDealBulkActions<Row>({
+    toDeal: dealRefFromTrade,
+    run: () => undefined,
   }).find((a) => a.id === 'merge');
   return merge?.shouldShow?.(rows) ?? true;
 };
@@ -52,6 +46,12 @@ describe('Merge Deals bulk action', () => {
     );
     expect(
       mergeShown([row({ type: 'Hedge Combo' }), row({ type: 'Hedge Combo' })])
+    ).toBe(false);
+    expect(
+      mergeShown([
+        row({ type: 'Combo', hedge: true }),
+        row({ type: 'Combo', hedge: true }),
+      ])
     ).toBe(false);
   });
 

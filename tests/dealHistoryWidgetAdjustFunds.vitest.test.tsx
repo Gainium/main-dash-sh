@@ -35,8 +35,8 @@ import { MemoryRouter } from 'react-router-dom';
 const captured = vi.hoisted(() => ({
   adjust: [] as Array<Record<string, unknown>>,
   closed: [] as Array<Record<string, unknown>>,
-  // The 4th `closeDeal` argument — which close mutation `useDealActions` routes
-  // to. Kept apart from `closed` so the #911 assertions above stay as written.
+  // Which close mutation the deal was routed to. Kept apart from `closed` so
+  // the assertions on the request itself stay as written.
   closeDealTypes: [] as Array<string | undefined>,
   closeError: null as Error | null,
   toastErrors: [] as string[],
@@ -59,24 +59,33 @@ vi.mock('../src/hooks/useDealActions', async (importOriginal) => {
   const actual = (await importOriginal()) as Record<string, unknown>;
   return {
     ...actual,
-    useDealActions: () => ({
-      closeDeal: vi.fn(
-        async (
-          dealId: string,
-          botId: string,
-          type: string,
-          dealType?: string
-        ) => {
+    // The shared deal-action runner routes a close by the deal's kind: combo
+    // deals to the combo mutation, the rest to the DCA one.
+    useDealActions: () => {
+      const close =
+        (dealType: string) =>
+        async ({
+          dealId,
+          botId,
+          type,
+        }: {
+          dealId: string;
+          botId: string;
+          type: string;
+        }) => {
           captured.closed.push({ dealId, botId, type });
           captured.closeDealTypes.push(dealType);
           if (captured.closeError) {
             throw captured.closeError;
           }
-        }
-      ),
-      isLoading: false,
-      error: null,
-    }),
+        };
+      return {
+        closeDCADeal: close('dca'),
+        closeComboDeal: close('combo'),
+        isLoading: false,
+        error: null,
+      };
+    },
     useAdjustFunds: () => ({
       mutate: (input: Record<string, unknown>) => {
         captured.adjust.push(input);
@@ -282,7 +291,7 @@ describe('Deal History widget — per-row deal actions', () => {
   it('places an add-funds request when the row button is confirmed', async () => {
     await mount(BotTypesEnum.dca);
 
-    const addButtons = byTitle('Add funds');
+    const addButtons = byTitle('Add Funds');
     expect(addButtons.length).toBe(1);
 
     await click(addButtons[0]);
@@ -306,7 +315,7 @@ describe('Deal History widget — per-row deal actions', () => {
   it('places a reduce-funds request when the row button is confirmed', async () => {
     await mount(BotTypesEnum.dca);
 
-    const reduceButtons = byTitle('Reduce funds');
+    const reduceButtons = byTitle('Reduce Funds');
     expect(reduceButtons.length).toBe(1);
     await click(reduceButtons[0]);
 
@@ -334,8 +343,8 @@ describe('Deal History widget — per-row deal actions', () => {
   // is 'active'/'completed' here — so the gate must read the WIDGET's botType.
   it('offers no funds buttons on a combo bot', async () => {
     await mount(BotTypesEnum.combo);
-    expect(byTitle('Add funds').length).toBe(0);
-    expect(byTitle('Reduce funds').length).toBe(0);
+    expect(byTitle('Add Funds').length).toBe(0);
+    expect(byTitle('Reduce Funds').length).toBe(0);
   });
 
   // Spec 048 §5.1/§5.2 — bug #911. Cancel used to fire `closeDeal` on the
@@ -351,10 +360,10 @@ describe('Deal History widget — per-row deal actions', () => {
     expect(captured.closed.length).toBe(0);
     const dialog = document.body.querySelector('[role="dialog"]');
     expect(dialog?.textContent).toContain(
-      'Cancel this deal? This action cannot be undone.'
+      'Remove the deal for BTCUSDT from Gainium and cancel any pending exchange orders.'
     );
 
-    await click(enabledButton('Cancel Deal'));
+    await click(enabledButton('Cancel deal'));
 
     expect(captured.closed).toEqual([
       { dealId: 'deal-1', botId: 'bot-1', type: CloseDCATypeEnum.cancel },
@@ -366,7 +375,7 @@ describe('Deal History widget — per-row deal actions', () => {
     await mount(BotTypesEnum.dca);
 
     await click(byTitle('Cancel deal')[0]);
-    await click(enabledButton('Keep Deal'));
+    await click(enabledButton('Keep deal'));
 
     expect(captured.closed.length).toBe(0);
     expect(document.body.querySelector('[role="dialog"]')).toBeNull();
@@ -405,7 +414,7 @@ describe('Deal History widget — per-row deal actions', () => {
     await mount(BotTypesEnum.combo);
 
     await click(byTitle('Cancel deal')[0]);
-    await click(enabledButton('Cancel Deal'));
+    await click(enabledButton('Cancel deal'));
 
     expect(captured.closed).toEqual([
       { dealId: 'deal-1', botId: 'bot-1', type: CloseDCATypeEnum.cancel },

@@ -30,6 +30,8 @@ import {
 } from '../../ui/select';
 import EmptyState from '../../ui/empty-state';
 import { TradeCard } from '../../trades/TradeCard';
+import { DealActionsProvider } from '@/features/deals/actions/DealActionsProvider';
+import type { DealRef } from '@/features/deals/actions/dealRef';
 import { WidgetWrapper } from '../../widgets/WidgetWrapper';
 import CoinPair from '../shared/CoinPair';
 import { SYMBOL_COLUMN_FILTER_META } from '../shared/symbolColumnFilterMeta';
@@ -211,6 +213,19 @@ const TopDeals: React.FC<TopDealsProps> = ({
     [navigate]
   );
 
+  const openDealBot = useCallback(
+    (deal: DealRef) => {
+      if (deal.trade) handleOpenBot(deal.trade);
+    },
+    [handleOpenBot]
+  );
+  const openFirstDealBot = useCallback(
+    (deals: DealRef[]) => {
+      if (deals[0]) openDealBot(deals[0]);
+    },
+    [openDealBot]
+  );
+
   // Render each deal with the shared TradeCard. Memoised so the component type
   // is stable across re-renders (DataTable would otherwise remount every card).
   const TopDealCard = useCallback(
@@ -221,11 +236,8 @@ const TopDeals: React.FC<TopDealsProps> = ({
         enableEnhancedView
         showChart={item.active}
         showTradeDrawer={false}
-        filledOrders={[]}
         botType={typeToBotType(item.type)}
         onClick={() => handleOpenBot(item)}
-        handleOpenDetailDrawer={handleOpenBot}
-        handleEdit={handleOpenBot}
       />
     ),
     [privacyMode, handleOpenBot]
@@ -450,7 +462,11 @@ const TopDeals: React.FC<TopDealsProps> = ({
       isEditable={isEditable ?? false}
       isCollapsible={isCollapsible}
     >
-      {content}
+      {/* View and Edit open the deal's bot page: the dashboard has no deal
+          drawer of its own. */}
+      <DealActionsProvider onView={openDealBot} onEdit={openFirstDealBot}>
+        {content}
+      </DealActionsProvider>
     </WidgetWrapper>
   );
 };

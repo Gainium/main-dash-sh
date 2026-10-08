@@ -6,36 +6,13 @@ import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
   BotTypesEnum,
-  CloseGRIDTypeEnum,
-  PositionSide,
   type Bot,
   type BotStatus,
   type ExchangeInUser,
 } from '@/types';
-import { isFuturesExchange } from '@/utils/exchangeUtils';
-import {
-  areAllBotsDeletable,
-  filterDeletableBots,
-  filterRestartableBots,
-  filterStartableBots,
-  filterStoppableBots,
-} from '@/utils/botStatusUtils';
-import { useBulkBotConfirm } from '@/hooks/useBulkBotConfirm';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import {
-  Archive,
-  Edit,
-  ExternalLink,
-  Grid3x3,
-  MoreHorizontal,
-  Play,
-  Plus,
-  RefreshCw,
-  Square,
-  Star,
-  Trash2,
-} from 'lucide-react';
+import { Archive, Grid3x3, Plus } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import React, {
   useCallback,
@@ -46,20 +23,11 @@ import React, {
 } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 /* import { toDrawerBot } from '../adapters/bots/drawer'; */
-import {
-  BotActionsMenuItems,
-  type BotStatusType,
-  type BotTypeId,
-} from '../components/bots/BotActionsMenuItems';
 import { BotCard } from '../components/bots/BotCard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { BotDetailsDrawer } from '../components/bots/BotDetailsDrawer';
 import MainLayout from '../components/layout/MainLayout';
 import WidgetContainer from '../components/layout/WidgetContainer';
-import {
-  BotStatusConfirmationModal,
-  DeleteConfirmationModal,
-} from '../components/modals';
 import BotsSkeleton from '../components/ui/BotsPageSkeleton';
 import { Button } from '../components/ui/button';
 import {
@@ -69,10 +37,6 @@ import {
   StatusChip,
 } from '../components/ui/chip';
 import { DataTable } from '../components/ui/data-table/data-table';
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-} from '../components/ui/dropdown-menu';
 
 import { MotionButton } from '../components/ui/MotionWrapper';
 import BotListStatsBoxes from '../components/ui/BotListStatsBoxes';
@@ -81,26 +45,21 @@ import CoinPair from '../components/widgets/shared/CoinPair';
 import StaleIndicator from '../components/widgets/shared/StaleIndicator';
 import { CARD_VIEW_COLUMNS } from '../config/responsive';
 import { useBotModeGuard } from '../hooks/bots/base/useBotModeGuard';
-import {
-  useBotArchive,
-  useBotDelete,
-  useBotRestart,
-  useBotStatusToggle,
-} from '../hooks/useBotMutations';
-import { useBotActions } from '../hooks/useBotActions';
-import { BotActionsModals } from '../components/bots/BotActionsModals';
 import { useCacheKey } from '../hooks/useCacheKey';
 import { useCacheStatus } from '../hooks/useCacheStatus';
 import { useGridBots, useGridBotStats } from '../hooks/useGridBots';
 import { logger } from '../lib/loggerInstance';
-import { toast } from '../lib/toast';
 import { useGridBotStore } from '../stores/botWidgetsStoreFactory';
 import { useUIStore } from '../stores/uiStore';
 /* import type { BotStatus } from '../types'; */
 /* import type { DrawerBot } from '../types/bots/drawer'; */
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
-import { transformGridBotToBot, type GridBot } from '../types/gridBot';
+import { transformGridBotToBot } from '../types/gridBot';
+import { BotNameCell } from '@/components/bots/BotNameCell';
+import { BotTableActions } from '@/components/bots/BotTableActions';
+import { toBotRef } from '@/features/bots/actions/botRef';
+import { useBulkBotRunner } from '@/hooks/useBulkBotRunner';
 import { useShareContext } from '../hooks/useShareContext';
 import { useDrawerBot } from '../hooks/useDrawerBot';
 import { useBotListPaging } from '../hooks/useBotListPaging';
@@ -114,69 +73,6 @@ import { PartialCount } from '../components/ui/large-account';
 import { useAuthStore } from '../stores/authStore';
 
 const GRID_BOT_TYPE_ID = 'grid';
-
-// Bot table actions component for mobile accessibility
-interface BotTableActionsProps {
-  bot: ReturnType<typeof transformGridBotToBot>;
-  originalBotData: GridBot | undefined;
-}
-
-const BotTableActions: React.FC<BotTableActionsProps> = ({
-  bot,
-  originalBotData,
-}) => {
-  // Shared bot-action orchestration (clone opens the pre-filled create page;
-  // status/delete via the confirmation modals rendered by <BotActionsModals>).
-  const botActions = useBotActions({
-    botId: bot.id,
-    botType: BotTypesEnum.grid,
-    botName: bot.name,
-    status: bot.status,
-    // Grid "active deals" = active buy/sell levels.
-    activeDeals:
-      (originalBotData?.levels?.active?.buy || 0) +
-      (originalBotData?.levels?.active?.sell || 0),
-    totalValue: 0,
-    currency: originalBotData?.symbol?.quoteAsset || 'USD',
-    lastActivity: originalBotData?.created || 'Unknown',
-    botData: originalBotData ?? bot,
-    gridFutures: isFuturesExchange(bot.exchange),
-    gridHasOpenPosition: (originalBotData?.position?.price ?? 0) !== 0,
-    gridIsShort: originalBotData?.position?.side === PositionSide.SHORT,
-  });
-
-  return (
-    <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <BotActionsMenuItems
-          align="end"
-          className="w-56"
-          bot={{
-            id: bot.id,
-            name: bot.name,
-            type: bot.type as BotTypeId,
-            status: bot.status as BotStatusType,
-            coldArchived: bot.coldArchived,
-          }}
-          {...botActions.menuProps}
-        />
-      </DropdownMenu>
-
-      {/* Shared status / delete / success modals, driven by useBotActions. */}
-      <BotActionsModals {...botActions.modalProps} />
-    </>
-  );
-};
 
 type ProfitabilityFilter = 'all' | 'profitable' | 'losing';
 type GridActiveFilters = {
@@ -200,9 +96,6 @@ const GridBots: React.FC = () => {
   // Check if in demo mode (read-only)
   const readOnly = isReadOnly();
 
-  // Bot status toggle mutation for bulk actions
-  const statusToggleMutation = useBotStatusToggle(BotTypesEnum.grid);
-  const restartMutation = useBotRestart();
 
   const [showArchived, setShowArchived] = useState(false);
   const [activeFilters] = useState<GridActiveFilters>({
@@ -258,154 +151,6 @@ const GridBots: React.FC = () => {
   // Share-link path: see TradingBots.tsx
   const currentUser = useAuthStore((s) => s.user);
   const { shareId } = useShareContext();
-
-  const deleteMutation = useBotDelete();
-  const archiveMutation = useBotArchive();
-  const { confirmRestart, confirmArchive, confirmDialog } =
-    useBulkBotConfirm();
-
-  // Bulk delete modal state
-  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
-  const [bulkDeleteTargets, setBulkDeleteTargets] = useState<
-    ReturnType<typeof transformGridBotToBot>[]
-  >([]);
-  const [bulkDeleteLoading, setBulkDeleteLoading] = useState(false);
-
-  // Bulk status change modal state
-  const [bulkStatusOpen, setBulkStatusOpen] = useState(false);
-  const [bulkStatusSelectedCount, setBulkStatusSelectedCount] = useState(0);
-  const [bulkStatusTargets, setBulkStatusTargets] = useState<
-    ReturnType<typeof transformGridBotToBot>[]
-  >([]);
-  const [bulkStatusAction, setBulkStatusAction] = useState<'start' | 'stop'>(
-    'start'
-  );
-  const [bulkStatusLoading, setBulkStatusLoading] = useState(false);
-
-  const handleOpenBulkDelete = (
-    bots: ReturnType<typeof transformGridBotToBot>[]
-  ) => {
-    if (!bots || bots.length === 0) {
-      toast.info('No bots selected');
-      return;
-    }
-
-    if (!areAllBotsDeletable(bots)) {
-      const deletableBots = filterDeletableBots(bots);
-      if (deletableBots.length === 0) {
-        toast.info(
-          'Only closed or archived bots can be deleted. Stop bots before deleting.'
-        );
-      } else {
-        toast.info(
-          'Some selected bots are still running. Stop them before bulk delete.'
-        );
-      }
-      return;
-    }
-
-    setBulkDeleteTargets(bots);
-    setBulkDeleteOpen(true);
-  };
-
-  const handleConfirmBulkDelete = async () => {
-    if (!areAllBotsDeletable(bulkDeleteTargets)) {
-      toast.info(
-        'Only closed or archived bots can be deleted. Stop bots before deleting.'
-      );
-      setBulkDeleteOpen(false);
-      setBulkDeleteTargets([]);
-      return;
-    }
-
-    setBulkDeleteLoading(true);
-    try {
-      for (const b of bulkDeleteTargets) {
-        await deleteMutation.mutateAsync({ id: b.id, type: BotTypesEnum.grid });
-      }
-      toast.success(`Deleted ${bulkDeleteTargets.length} bot(s)`);
-    } catch (error) {
-      console.error('Failed to delete selected grid bots:', error);
-      toast.error('Failed to delete selected bot(s)');
-    } finally {
-      setBulkDeleteLoading(false);
-      setBulkDeleteOpen(false);
-      setBulkDeleteTargets([]);
-    }
-  };
-
-  // Open bulk status change modal
-  const handleOpenBulkStatusChange = (
-    bots: ReturnType<typeof transformGridBotToBot>[],
-    action: 'start' | 'stop'
-  ) => {
-    const filteredBots =
-      action === 'start'
-        ? filterStartableBots(bots)
-        : filterStoppableBots(bots);
-
-    if (filteredBots.length === 0) {
-      toast.info(
-        action === 'start'
-          ? 'No stopped bots selected'
-          : 'No active bots selected'
-      );
-      return;
-    }
-    setBulkStatusSelectedCount(bots.length);
-    setBulkStatusTargets(filteredBots);
-    setBulkStatusAction(action);
-    setBulkStatusOpen(true);
-  };
-
-  const handleBulkRestart = (
-    bots: ReturnType<typeof transformGridBotToBot>[]
-  ) =>
-    confirmRestart(bots, async (restartableBots) => {
-      try {
-        for (const b of restartableBots) {
-          await restartMutation.mutateAsync({
-            id: b.id,
-            type: BotTypesEnum.grid,
-          });
-        }
-        toast.success(`Restarted ${restartableBots.length} bot(s)`);
-      } catch {
-        toast.error('Failed to restart selected bots');
-      }
-    });
-
-  // Confirm bulk status change
-  const handleConfirmBulkStatusChange = async (
-    closeType?: string,
-    cancelPartiallyFilled?: boolean
-  ) => {
-    setBulkStatusLoading(true);
-    try {
-      const newStatus = bulkStatusAction === 'start' ? 'open' : 'closed';
-      const isStop = bulkStatusAction === 'stop';
-      for (const b of bulkStatusTargets) {
-        await statusToggleMutation.mutateAsync({
-          id: b.id,
-          status: newStatus,
-          closeGridType: isStop
-            ? (closeType as CloseGRIDTypeEnum | undefined)
-            : undefined,
-          cancelPartiallyFilled: isStop ? cancelPartiallyFilled : undefined,
-        });
-      }
-      toast.success(
-        `${bulkStatusAction === 'start' ? 'Started' : 'Stopped'} ${bulkStatusTargets.length} bot(s)`
-      );
-    } catch (error) {
-      console.error('Failed to change status for selected bots:', error);
-      toast.error('Failed to change status for selected bots');
-    } finally {
-      setBulkStatusLoading(false);
-      setBulkStatusOpen(false);
-      setBulkStatusTargets([]);
-    }
-  };
 
   const { botListStats, isLoading: statsLoading } =
     useGridBotStats(/* filterOptions */);
@@ -646,50 +391,13 @@ const GridBots: React.FC = () => {
     return map;
   }, [gridBots]);
 
-  // Check if any bulk targets have pending orders (for showing close options)
-  const bulkHasActiveDeals = useMemo(() => {
-    return bulkStatusTargets.some((b) => {
-      const original = botDataMap.get(b.id) as GridBot | undefined;
-      return (
-        (original?.levels?.active?.buy || 0) +
-          (original?.levels?.active?.sell || 0) >
-        0
-      );
-    });
-  }, [bulkStatusTargets, botDataMap]);
-
-  const NameCell: React.FC<{ value: string; id: string }> = ({ value, id }) => {
-    const toggleStarred = useStarredBotsStore((s) => s.toggleStarred);
-    const starredBotIds = useStarredBotsStore((s) => s.starredBotIds);
-    const starred = starredBotIds.has(id);
-    return (
-      <div className="flex items-center gap-xs">
-        <div className="truncate">{value}</div>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            window.open(`/grid/view/${id}`, '_blank');
-          }}
-          className="p-1 rounded hover:bg-muted/30"
-          title="Open in new tab"
-        >
-          <ExternalLink className="w-4 h-4 text-muted-foreground" />
-        </button>
-        <button
-          onClick={(e) => {
-            e.stopPropagation();
-            toggleStarred(id);
-          }}
-          className="p-1 rounded hover:bg-muted/30"
-          title={starred ? 'Unstar bot' : 'Star bot'}
-        >
-          <Star
-            className={`w-4 h-4 ${starred ? 'text-yellow-400 fill-yellow-400' : 'text-muted-foreground'}`}
-          />
-        </button>
-      </div>
-    );
-  };
+  // Bulk toolbar: entries, confirmation and per-bot run from the registry.
+  const toBulkRef = useCallback(
+    (row: ReturnType<typeof transformGridBotToBot>) =>
+      toBotRef(botDataMap.get(row.id) ?? row, 'grid'),
+    [botDataMap]
+  );
+  const bulk = useBulkBotRunner(toBulkRef);
 
   // Date columns bucket and render their day in the ACCOUNT's zone, the same
   // boundary the `filterType: 'date'` filter matches on — not the browser's.
@@ -710,7 +418,14 @@ const GridBots: React.FC = () => {
           cell: ({ getValue, row }) => {
             const name = getValue() as string;
             const id = row.original.id as string;
-            return <NameCell value={name} id={id} />;
+            return (
+              <BotNameCell
+                name={name}
+                id={id}
+                kind="grid"
+                showBadges={false}
+              />
+            );
           },
         },
         {
@@ -1264,8 +979,8 @@ const GridBots: React.FC = () => {
             const bot = row.original;
             return (
               <BotTableActions
-                bot={bot}
-                originalBotData={botDataMap.get(bot.id)}
+                source={botDataMap.get(bot.id) ?? bot}
+                kind="grid"
               />
             );
           },
@@ -1633,79 +1348,7 @@ const GridBots: React.FC = () => {
                   onRowClick={(bot) => handleSelectBot(bot.id)}
                   getRowIsSelected={(bot) => selectedBot === bot.id}
                   getRowId={(bot) => bot.id}
-                  bulkActions={
-                    readOnly
-                      ? undefined
-                      : [
-                          {
-                            id: 'start',
-                            label: 'Start',
-                            icon: Play,
-                            onAction: (bots) => {
-                              handleOpenBulkStatusChange(bots, 'start');
-                            },
-                            shouldShow: (
-                              bots: ReturnType<typeof transformGridBotToBot>[]
-                            ) => filterStartableBots(bots).length > 0,
-                          },
-                          {
-                            id: 'stop',
-                            label: 'Stop',
-                            icon: Square,
-                            onAction: (bots) => {
-                              handleOpenBulkStatusChange(bots, 'stop');
-                            },
-                            shouldShow: (
-                              bots: ReturnType<typeof transformGridBotToBot>[]
-                            ) => filterStoppableBots(bots).length > 0,
-                          },
-                          {
-                            id: 'restart',
-                            label: 'Restart',
-                            icon: RefreshCw,
-                            onAction: (bots) => {
-                              handleBulkRestart(bots);
-                            },
-                            shouldShow: (
-                              bots: ReturnType<typeof transformGridBotToBot>[]
-                            ) => filterRestartableBots(bots).length > 0,
-                          },
-                          {
-                            id: 'edit',
-                            label: 'Edit',
-                            icon: Edit,
-                            onAction: () => {
-                              toast.info('Bulk edit coming soon');
-                            },
-                          },
-                          {
-                            id: 'delete',
-                            label: 'Delete',
-                            icon: Trash2,
-                            onAction: (bots) => {
-                              handleOpenBulkDelete(bots);
-                            },
-                            shouldShow: (
-                              bots: ReturnType<typeof transformGridBotToBot>[]
-                            ) => areAllBotsDeletable(bots),
-                          },
-                          {
-                            id: 'archive',
-                            label: showArchived ? 'Unarchive' : 'Archive',
-                            icon: Archive,
-                            onAction: (bots) =>
-                              confirmArchive(bots, !showArchived, (targets) =>
-                                targets.forEach((b) =>
-                                  archiveMutation.mutate({
-                                    id: b.id,
-                                    archive: !showArchived,
-                                    type: BotTypesEnum.grid,
-                                  })
-                                )
-                              ),
-                          },
-                        ]
-                  }
+                  bulkActions={bulk.bulkActions}
                   customToolbarActions={
                     <Button
                       variant={showArchived ? 'default' : 'ghost'}
@@ -1741,61 +1384,7 @@ const GridBots: React.FC = () => {
                   // New button moved to widget header
                 />
 
-                {/* Bulk delete modal */}
-                <DeleteConfirmationModal
-                  open={bulkDeleteOpen}
-                  onOpenChange={setBulkDeleteOpen}
-                  onConfirm={handleConfirmBulkDelete}
-                  title={`Delete ${bulkDeleteTargets.length} bot${bulkDeleteTargets.length === 1 ? '' : 's'}`}
-                  description={`Are you sure you want to delete ${bulkDeleteTargets.length} selected bot${bulkDeleteTargets.length === 1 ? '' : 's'}? This action cannot be undone.`}
-                  itemName={`${bulkDeleteTargets.length} bots`}
-                  bulkCount={bulkDeleteTargets.length}
-                  itemType="bot"
-                  additionalInfo={{
-                    activeDeals: /*  bulkDeleteTargets.reduce(
-                      (
-                        sum: number,
-                        b: ReturnType<typeof transformGridBotToBot>
-                      ) => sum + (b?.openTrades || 0),
-                      0
-                    ) */ 0,
-                    totalValue: bulkDeleteTargets.reduce(
-                      (
-                        sum: number,
-                        b: ReturnType<typeof transformGridBotToBot>
-                      ) => sum + (b?.value || 0),
-                      0
-                    ),
-                    currency:
-                      bulkDeleteTargets[0]?.pair?.split('/')[1] || 'USD',
-                  }}
-                  isLoading={bulkDeleteLoading}
-                />
-
-                {confirmDialog}
-
-                {/* Bulk status change modal */}
-                <BotStatusConfirmationModal
-                  open={bulkStatusOpen}
-                  onOpenChange={setBulkStatusOpen}
-                  onConfirm={handleConfirmBulkStatusChange}
-                  botName={`${bulkStatusTargets.length} bot${bulkStatusTargets.length === 1 ? '' : 's'}`}
-                  bulkCount={bulkStatusTargets.length}
-                  bulkSelectedCount={bulkStatusSelectedCount}
-                  currentStatus={
-                    bulkStatusAction === 'start' ? 'closed' : 'open'
-                  }
-                  targetStatus={
-                    bulkStatusAction === 'start' ? 'open' : 'closed'
-                  }
-                  hasActiveDeals={bulkHasActiveDeals}
-                  botType={BotTypesEnum.grid}
-                  // Bulk targets are heterogeneous — use the generic
-                  // "close position" wording and always offer the options.
-                  gridFutures
-                  gridHasOpenPosition
-                  isLoading={bulkStatusLoading}
-                />
+                {bulk.dialogs}
               </motion.div>
             </div>
           </Widget>

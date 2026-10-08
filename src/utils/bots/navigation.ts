@@ -154,3 +154,26 @@ export function buildBotCloneRoute(
   const builder = botTypeId ? CLONE_ROUTE_BUILDERS[botTypeId] : undefined;
   return (builder ?? DEFAULT_CLONE_ROUTE)(botId);
 }
+
+/**
+ * Build the "run a backtest of this bot" route: the bot type's create page
+ * pre-loaded with the source bot (the clone route) plus `backtest=run`, and
+ * the share id when the bot is opened through a share link.
+ */
+export function buildBotBacktestRoute(
+  botTypeId: string | null | undefined,
+  botId: string | null | undefined,
+  shareId?: string | null
+): string {
+  const cloneRoute = buildBotCloneRoute(botTypeId, botId);
+  if (!botId) {
+    return cloneRoute;
+  }
+  const [path, query = ''] = cloneRoute.split('?');
+  const params = new URLSearchParams(query);
+  params.set('backtest', 'run');
+  if (shareId) {
+    params.set('share', shareId);
+  }
+  return `${path}?${params.toString()}`;
+}

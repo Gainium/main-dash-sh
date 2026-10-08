@@ -89,6 +89,7 @@ import type {
 import { BotFormLoadTemplateDialog } from './BotFormLoadTemplateDialog'
 import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog'
 import GridStopBotDialog from '@/features/bots/shared/runtime/dialogs/GridStopBotDialog'
+import { chooseStatusDialog } from '@/features/bots/actions/botActions'
 
 export interface ToggleStatusPayload {
   nextStatus: BotStatus
@@ -1076,17 +1077,25 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         return
       }
 
-      if (isGridBot && !isBotActive) {
+      // The dialog choice is the bot-actions runner's (form flow): grid
+      // start/stop dialogs, close options for a stop with open deals.
+      const dialog = chooseStatusDialog(
+        {
+          kind: isGridBot ? 'grid' : 'dca',
+          active: isBotActive,
+          activeDeals,
+        },
+        'form',
+      )
+      if (dialog === 'gridStart') {
         setStartDialogOpen(true)
         return
       }
-
-      if (isGridBot && isBotActive) {
+      if (dialog === 'gridStop') {
         setStopGridDialogOpen(true)
         return
       }
-
-      if (isBotActive && activeDeals > 0) {
+      if (dialog === 'closeOptions') {
         setStopDialogOpen(true)
         return
       }

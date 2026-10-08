@@ -2,20 +2,12 @@ import { motion } from 'framer-motion';
 import GridStartBotDialog from '@/features/bots/shared/runtime/dialogs/GridStartBotDialog';
 import { gridEditNeedsRebalance } from '@/utils/bots/grid/rebalance-on-edit';
 import {
-  Archive,
-  ArchiveRestore,
-  ArrowLeftRight,
   ChevronDown,
-  Copy,
-  LineChart,
   Loader2,
   Lock,
   /*  Merge, */
-  MinusCircle,
   RotateCcw,
-  Share2,
   Sparkles,
-  Wallet,
   Zap,
 } from 'lucide-react';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -100,7 +92,16 @@ import {
   normalizePairKey,
   resolveNativePairSymbol,
 } from '@/utils/pairs';
-import { useBotArchive } from '@/hooks/useBotMutations';
+import { useBotActions } from '@/hooks/useBotActions';
+import {
+  buildSurfaceItems,
+  type BotActionId,
+  type BotFormActionContext,
+} from '@/features/bots/actions/botActions';
+import {
+  botKindFromType,
+  formBotRef as formBotRefFor,
+} from '@/features/bots/actions/botRef';
 import { useBotTemplateShortcuts } from '@/hooks/useBotTemplatesSync';
 import { getLocalPrices } from '@/helper/price';
 import GridBacktestingEngine from '@/lib/backtester/gridWrapper';
@@ -161,11 +162,7 @@ import {
   readGridBacktestNumbers,
   validateGridFormData,
 } from '@/utils/bots/grid/validation';
-import {
-  buildBotCloneRoute,
-  buildBotListRoute,
-  buildBotViewRoute,
-} from '@/utils/bots/navigation';
+import { buildBotListRoute, buildBotViewRoute } from '@/utils/bots/navigation';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { COMBO_BOT_TYPE_ID } from '../../registry';
 import { useBacktestLimitationsGate } from '@/features/bots/backtest-limitations/useBacktestLimitationsGate';
@@ -733,7 +730,6 @@ const BotForm: React.FC<BotFormProps> = ({
   const bot = initialBot ?? queryBot;
 
   const navigate = useNavigate();
-  const archiveMutation = useBotArchive();
 
   const [showImportExportDialog, setShowImportExportDialog] = useState(false);
   // Template creation/edit state moved to footer templates menu component
@@ -2091,10 +2087,17 @@ const BotForm: React.FC<BotFormProps> = ({
     return null;
   }, [isGridBot, bot]);
 
-  const botShareId = botForOperations?.shareId ?? null;
-  const botShareEnabled = Boolean(botForOperations?.share);
+  // Share state is read off the loaded bot of any type (grid bots carry it
+  // too, but never pass `isDcaBotEntity`).
+  const shareSource = bot as {
+    shareId?: string | null;
+    share?: boolean;
+    settings?: { name?: unknown };
+  } | null;
+  const botShareId = shareSource?.shareId ?? null;
+  const botShareEnabled = Boolean(shareSource?.share);
   const botShareName =
-    (botForOperations?.settings?.name as string | undefined) ?? null;
+    (shareSource?.settings?.name as string | undefined) ?? null;
 
   /*   const mergeBotName =
     botShareName ?? (botForOperations?.settings?.name as string | undefined); */
@@ -2460,88 +2463,53 @@ const BotForm: React.FC<BotFormProps> = ({
     exampleOrdersStore,
   ]);
 
+  // Bot actions for this form: the overflow menu's bot-level operations and
+  // the footer's Start/Stop run through the shared runner. Built from the
+  // loaded bot of ANY type (grid bots have no `usage`, so `botForOperations`
+  // is null for them) and addressed by the route id. Only a saved bot (edit
+  // mode) has an id; the create form gets the form-local items only.
+  const formBotRef = useMemo(
+    () =>
+      formBotRefFor({
+        bot,
+        kind: botKindFromType(botTypeEnum),
+        mode,
+        botId,
+      }),
+    [bot, botTypeEnum, mode, botId]
+  );
+  const formBotSaved = formBotRef.id !== '';
+  const formActionContext = useMemo<BotFormActionContext>(
+    () => ({
+      mode: mode === 'edit' ? 'edit' : 'create',
+      shareEnabled: botShareEnabled,
+      ...(fundsActionsDisabled
+        ? { fundsDisabledReason: 'Save the bot before adjusting funds.' }
+        : {}),
+    }),
+    [mode, botShareEnabled, fundsActionsDisabled]
+  );
+  const formActions = useBotActions(formBotRef, {
+    form: formActionContext,
+    ...(botShareId ? { shareId: botShareId } : {}),
+  });
+  const formChangeStatus = formActions.changeStatus;
+  const runFormAction = formActions.run;
+
+  // Start/Stop from the footer goes through the shared bot-actions runner
+  // (same mutation, toasts and optimistic update as every other surface);
+  // the footer's own dialogs collected the close / buy options already.
   const handleStatusToggle = useCallback(
-    ({
-      nextStatus,
-      closeType,
-      buyType,
-      buyCount,
-      buyAmount,
-      cancelPartiallyFilled,
-      closeGridType,
-    }: ToggleStatusPayload) => {
-      if (!botId) {
+    (payload: ToggleStatusPayload) => {
+      if (!formBotSaved) {
         toast.error('Bot ID missing. Unable to update status.');
         return;
       }
-
-      statusToggleMutation.mutate({
-        id: botId,
-        status: nextStatus,
-        buyType,
-        buyCount,
-        buyAmount,
-        cancelPartiallyFilled,
-        closeGridType,
-        ...(closeType ? { closeType } : {}),
-      });
+      // The form reflects the new status itself; no success toast (as
+      // before the runner), failures still toast from the mutation.
+      formChangeStatus({ ...payload, silent: true });
     },
-    [botId, statusToggleMutation]
-  );
-
-  // Duplicating opens the pre-filled *create* page (the canonical clone route
-  // every other surface already uses — see `useBotActions.clone`). Creating the
-  // copy immediately instead would land on the edit page, where the pair and
-  // exchange of a saved bot can no longer be changed — which defeats the main
-  // reason to duplicate a bot. Nothing is persisted until the user hits Create.
-  const handleDuplicate = useCallback(() => {
-    if (!botId) {
-      toast.error('Bot ID missing. Unable to duplicate.');
-      return;
-    }
-
-    navigate(buildBotCloneRoute(botExperience.id, botId));
-  }, [botExperience.id, botId, navigate]);
-
-  const handleBacktest = useCallback(() => {
-    if (!botId) {
-      toast.error('Bot ID missing. Unable to start backtest.');
-      return;
-    }
-
-    const params = new URLSearchParams({ load: botId, backtest: 'run' });
-    if (botShareId) {
-      params.set('share', botShareId);
-    }
-
-    navigate(`/bot/new?${params.toString()}`);
-  }, [botId, botShareId, navigate]);
-
-  const handleArchiveToggle = useCallback(
-    async (archive: boolean) => {
-      if (!botId) {
-        toast.error('Bot ID missing. Unable to update archive state.');
-        return;
-      }
-
-      try {
-        await archiveMutation.mutateAsync({
-          id: botId,
-          archive,
-          type: botTypeEnum,
-        });
-      } catch (error) {
-        console.error('[BotForm] Failed to toggle archive state', error);
-      }
-    },
-    // Stable `.mutateAsync`, not the whole react-query mutation object (fresh
-    // every render). Depending on the object rebuilt this callback on EVERY
-    // render, which churned `resolvedMenuActions.optionsMenuItems` →
-    // `panelMenuConfig` → the footer's `overflowMenuItems`, re-rendering the
-    // memoised ResponsiveButtonRow on every live tick (RenderLoopTripwire).
-    // Same fix as 2.30.13 applied to `restartMutation.mutate`.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [archiveMutation.mutateAsync, botId, botTypeEnum]
+    [formBotSaved, formChangeStatus]
   );
 
   /* const handleSmartOrderMergeDialogChange = useCallback(
@@ -2671,12 +2639,6 @@ const BotForm: React.FC<BotFormProps> = ({
     setFundsDialogMode('reduce');
   }, []);
 
-  const archivePending = archiveMutation.isPending;
-
-  const isBotArchived =
-    typeof botForOperations?.status === 'string' &&
-    botForOperations.status.toLowerCase() === 'archived';
-
   const resolvedMenuActions = useMemo(() => {
     const baseActions = menuActions ?? {};
 
@@ -2692,88 +2654,27 @@ const BotForm: React.FC<BotFormProps> = ({
     };
 
     if (!isTerminal) {
-      mergedOptions.push(
-        {
-          label: 'Import / Export settings',
-          icon: ArrowLeftRight,
-          onSelect: openImportExport,
-        },
-        // Save as Template handled via bookmark button in footer
-        {
-          label: 'Reset to defaults',
-          icon: RotateCcw,
-          onSelect: () => {
-            setShowResetConfirm(true);
-          },
-          disabled: mode === 'edit',
-        }
-      );
-
-      if (mode === 'edit' && botForOperations) {
-        // Operations previously rendered in the footer now live in the gear menu
-        // so they remain accessible without occupying persistent screen space.
-        mergedOptions.push(
-          /* {
-            label: smartOrderMergeLabel,
-            icon: Merge,
-            onSelect: () => {
-              handleOpenSmartOrderMerge();
-            },
-            disabled: smartOrderMergeActionDisabled,
-          }, */
-          {
-            label: 'Share bot access',
-            icon: Share2,
-            onSelect: () => setShowShareDialog(true),
-            isChecked: botShareEnabled,
-            disabled: !botId,
-          },
-          {
-            label: 'Duplicate bot',
-            icon: Copy,
-            onSelect: () => {
-              void handleDuplicate();
-            },
-            disabled: !botId,
-          },
-          {
-            label: 'Run backtest',
-            icon: LineChart,
-            onSelect: () => {
-              handleBacktest();
-            },
-            disabled: !botId,
-          },
-          {
-            label: isBotArchived ? 'Unarchive bot' : 'Archive bot',
-            icon: isBotArchived ? ArchiveRestore : Archive,
-            onSelect: () => {
-              void handleArchiveToggle(!isBotArchived);
-            },
-            disabled: archivePending || !botId,
-          }
-        );
-      }
-
-      if (mode === 'edit' && isGridBot && botId) {
-        mergedOptions.push(
-          {
-            label: 'Add funds',
-            icon: Wallet,
-            onSelect: () => {
-              handleAddFundsClick();
-            },
-            disabled: fundsActionsDisabled,
-          },
-          {
-            label: 'Reduce funds',
-            icon: MinusCircle,
-            onSelect: () => {
-              handleReduceFundsClick();
-            },
-            disabled: fundsActionsDisabled,
-          }
-        );
+      // The bot-level operations come from the actions registry (`form`
+      // surface); this form only supplies the dialogs it owns.
+      const formHandlers: Partial<Record<BotActionId, () => void>> = {
+        importExport: openImportExport,
+        resetDefaults: () => setShowResetConfirm(true),
+        shareAccess: () => setShowShareDialog(true),
+        addFunds: handleAddFundsClick,
+        reduceFunds: handleReduceFundsClick,
+      };
+      for (const item of buildSurfaceItems(
+        'form',
+        formActions.bot,
+        formActions.ctx
+      )) {
+        mergedOptions.push({
+          label: item.label,
+          icon: item.icon,
+          onSelect: formHandlers[item.id] ?? (() => runFormAction(item.id)),
+          disabled: item.disabled,
+          ...(item.id === 'shareAccess' ? { isChecked: !!item.checked } : {}),
+        });
       }
     }
 
@@ -2783,24 +2684,13 @@ const BotForm: React.FC<BotFormProps> = ({
       optionsMenuItems: mergedOptions,
     };
   }, [
-    archivePending,
-    botForOperations,
-    botId,
-    botShareEnabled,
-    handleArchiveToggle,
-    handleBacktest,
-    handleDuplicate,
-    /*     handleOpenSmartOrderMerge,
-    smartOrderMergeActionDisabled,
-    smartOrderMergeLabel, */
     menuActions,
-    mode,
-    isBotArchived,
-    isGridBot,
+    isTerminal,
+    formActions.bot,
+    formActions.ctx,
+    runFormAction,
     handleAddFundsClick,
     handleReduceFundsClick,
-    fundsActionsDisabled,
-    isTerminal,
   ]);
 
   const panelMenuConfig = useMemo(() => {
@@ -4049,14 +3939,14 @@ const BotForm: React.FC<BotFormProps> = ({
                 }
                 toggleDisabled={
                   footerOverride?.toggleDisabled ??
-                  (statusToggleMutation.isPending ||
-                    !botId ||
+                  (formActions.statusPending ||
+                    !formBotSaved ||
                     (isPlacingOrders &&
                       !gridPlacementProgress?.isAllowedToCancel))
                 }
                 togglePending={
                   footerOverride?.togglePending ??
-                  statusToggleMutation.isPending
+                  formActions.statusPending
                 }
                 botStatus={footerOverride?.botStatus ?? bot?.status ?? null}
                 bot={botForOperations}
@@ -4533,10 +4423,10 @@ const BotForm: React.FC<BotFormProps> = ({
             }
             toggleDisabled={
               footerOverride?.toggleDisabled ??
-              (statusToggleMutation.isPending || !botId)
+              (formActions.statusPending || !formBotSaved)
             }
             togglePending={
-              footerOverride?.togglePending ?? statusToggleMutation.isPending
+              footerOverride?.togglePending ?? formActions.statusPending
             }
             botStatus={footerOverride?.botStatus ?? bot?.status ?? null}
             bot={botForOperations}

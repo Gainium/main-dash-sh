@@ -8,14 +8,13 @@ import {
   ScaleDcaTypeEnum,
   StartConditionEnum,
   DCADealStatusEnum,
-  PositionSide,
   StrategyEnum,
   type AvgPrice,
-  type BotStatus,
   type DCABot,
   type BotVars,
   type DCABotSettings,
   type DCADeals,
+  type HedgeBot,
   type HedgeBotSettings,
 } from '@/types';
 /* import type { DrawerBot } from '@/types/bots/drawer'; */
@@ -27,22 +26,12 @@ import { useUserFees } from '@/hooks/useUserFeesService';
 import { buildDealExitLines } from '@/utils/bots/dca/deal-exit-lines';
 import type { ViewOrder } from '@/types/bots';
 import type { DrawerBot } from '@/types/bots/drawer';
-import type { GridBot } from '@/types/gridBot';
-import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
-import {
-  canToggleBotStatus,
-  getActionPresent,
-  getActionText,
-  isBotActive,
-  isBotRestartable,
-} from '@/utils/botStatusUtils';
 import { cn } from '@/lib/utils';
 import {
   BotStatsTab,
   type BotStatsTabProps,
 } from '@/components/widgets/bots/stats';
-import { isReadOnly } from '@/lib/demoMode';
 import { getOrderTypeLabel } from '@/utils/mapOrderName';
 import { motion } from 'framer-motion';
 import {
@@ -50,13 +39,9 @@ import {
   ChevronLeft,
   ChevronRight,
   Copy,
-  Edit as EditIcon,
   Loader2,
   MoreVertical,
-  Play,
-  RefreshCw,
   Share2,
-  Square,
   X,
 } from 'lucide-react';
 import React, {
@@ -77,11 +62,16 @@ import { useAuthStore } from '../../stores/authStore';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { toast } from '../../lib/toast';
 import type { BotType } from '../../stores/drawerPanelWidthsStore';
+import { BotActionsMenuItems } from '../bots/BotActionsMenuItems';
 import {
-  BotActionsMenuItems,
-  type BotStatusType,
-  type BotTypeId,
-} from '../bots/BotActionsMenuItems';
+  buildSurfaceItems,
+  type BotActionItem,
+} from '@/features/bots/actions/botActions';
+import {
+  botKindFromType,
+  toBotRef,
+  toHedgeDrawerBotRef,
+} from '@/features/bots/actions/botRef';
 import { DealEditDrawer } from '../deals/DealEditDrawer';
 import { BotActionsModals } from './BotActionsModals';
 import { Button } from '../ui/button';
@@ -140,11 +130,21 @@ export interface HedgeDrawerContext {
   /** Hedge wrapper id — scopes the combined deals query to this bot. */
   wrapperId: string;
   /**
+   * Hedge wrapper status. Bot actions (start/stop, archive, …) act on the
+   * wrapper, so they gate on its status rather than the displayed leg's.
+   */
+  status: string;
+  /**
    * Hedge-level shared TP/SL, read off the wrapper (`hedgeBot.sharedSettings`).
    * These live ONLY on the wrapper — they are NOT mirrored into either leg's
    * settings — so the read-only "Hedge" settings tab must read them from here.
    */
   sharedSettings?: HedgeBotSettings;
+  /**
+   * The hedge bot itself, as the list holds it. Share Configuration copies
+   * it — the same JSON the hedge list rows and cards copy.
+   */
+  wrapper: HedgeBot;
 }
 
 export interface TradeDetails {
@@ -206,7 +206,6 @@ interface BotDetailsDrawerProps {
   privacyMode?: boolean;
   onEdit?: (botId: string) => void;
   onClone?: (botId: string) => void;
-  onToggleStatus?: (botId: string, newStatus: BotStatus) => void;
   onClose?: () => void;
   /**
    * Hedge wrapper id — when the drawer is mounted for a hedge bot the
@@ -289,6 +288,62 @@ const TAB_GRID_COLS: Record<number, string> = {
   9: 'grid-cols-9',
 };
 
+// Footer priorities: Start/Stop leftmost, Restart in the middle, and Edit —
+// the highest — becomes the full-width primary button on the right.
+const FOOTER_PRIORITY: Partial<Record<BotActionItem['id'], number>> = {
+  start: 1,
+  stop: 1,
+  restart: 2,
+  edit: 3,
+};
+
+const drawerFooterButton = (
+  item: BotActionItem,
+  onClick: () => void
+): ResponsiveButtonConfig => {
+  const Icon = item.pending ? Loader2 : item.icon;
+  const primary = item.id === 'edit';
+  const iconClass = cn('w-4 h-4', item.pending && 'animate-spin');
+  return {
+    id: item.id,
+    priority: FOOTER_PRIORITY[item.id] ?? 2,
+    fullContent: (
+      <Button
+        onClick={onClick}
+        disabled={item.disabled}
+        variant={primary ? 'default' : 'outline'}
+        className={cn(
+          'flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2',
+          primary && 'w-full'
+        )}
+        aria-label={item.label}
+        aria-pressed={item.id === 'stop' ? true : undefined}
+        title={item.disabledReason}
+      >
+        <Icon className={cn(iconClass, 'shrink-0')} />
+        <span className="truncate">{item.label}</span>
+      </Button>
+    ),
+    compactContent: (
+      <Button
+        onClick={onClick}
+        size="icon"
+        disabled={item.disabled}
+        variant={primary ? 'default' : 'outline'}
+        aria-label={item.label}
+        title={item.disabledReason}
+      >
+        <Icon className={iconClass} />
+        <span className="sr-only">{item.label}</span>
+      </Button>
+    ),
+    menuLabel: item.label,
+    menuIcon: item.icon,
+    onMenuClick: onClick,
+    disabled: item.disabled,
+  };
+};
+
 const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
   ({
     bot,
@@ -298,7 +353,6 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     privacyMode: _privacyMode,
     onEdit,
     onClone,
-    //onToggleStatus,
     onClose,
     parentBotId,
     legSwitcher,
@@ -516,9 +570,17 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     );
     const hedgeDealsAsOpenTrades = useMemo(() => {
       if (!isHedge) return [];
+      // Leg deals keep their leg's plain type for display; `hedge` makes the
+      // deal actions treat them as hedge deals.
       return hedge?.isCombo
-        ? (hedgeRawDeals as ComboDeal[]).map((d) => comboDealToOpenTrade(d))
-        : (hedgeRawDeals as DCADeals[]).map((d) => dcaDealToOpenTrade(d));
+        ? (hedgeRawDeals as ComboDeal[]).map((d) => ({
+            ...comboDealToOpenTrade(d),
+            hedge: true,
+          }))
+        : (hedgeRawDeals as DCADeals[]).map((d) => ({
+            ...dcaDealToOpenTrade(d),
+            hedge: true,
+          }));
     }, [isHedge, hedge?.isCombo, hedgeRawDeals]);
 
     // Server-accurate combined unrealized for the Overview: sum the open
@@ -857,54 +919,37 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       }
     }, []);
 
-    // Bot status management
-    const isActive = isBotActive(bot.status);
-
-    // For hedge bots, the drawer renders a leg's transformed bot — its
-    // `_id` is the leg's id, while the menu actions (edit / clone /
-    // delete / start-stop / restart / view backtests) need to operate on
-    // the hedge wrapper. The caller passes that wrapper id via
-    // `parentBotId`; everywhere we'd otherwise use `bot._id` for an
-    // action that targets the bot identity, prefer the parent id when
-    // it's set. The `type` prop is already the wrapper type
-    // (`hedgeDca` / `hedgeCombo`) for hedge bots.
-    const actionBotId = parentBotId ?? bot._id;
-
-    // Shared bot-action orchestration: clone (opens the pre-filled create
-    // page — this is what fixes the old combo/grid "immediate copy" that
-    // locked the pair), start/stop + delete (confirmation modals rendered by
-    // <BotActionsModals> below), restart. Overrides preserve the drawer's
-    // caller-supplied onEdit/onClone hooks (used by hedge/list pages). Archive is intentionally not
-    // passed — BotActionsMenuItems owns it.
-    const botActions = useBotActions({
-      botId: actionBotId,
-      botType: type,
-      botName: bot.settings.name,
-      status: bot.status,
-      activeDeals: (bot as DCABot)?.dealsInBot?.active || 0,
-      totalValue: (bot as DCABot)?.usage?.current?.quote || 0,
-      currency: Array.isArray((bot as DCABot)?.symbol)
-        ? (bot as DCABot).symbol[0]?.value?.quoteAsset || 'USDT'
-        : 'USDT',
-      lastActivity: bot.created || 'Unknown',
-      botData: bot,
-      ...(isGrid
-        ? {
-            gridFutures: isFuturesExchange(bot.exchange),
-            gridHasOpenPosition: ((bot as GridBot).position?.price ?? 0) !== 0,
-            gridIsShort:
-              (bot as GridBot).position?.side === PositionSide.SHORT,
-          }
-        : {}),
-      ...(onEdit ? { onEdit: () => onEdit(actionBotId) } : {}),
-      ...(onClone ? { onClone: () => onClone(actionBotId) } : {}),
+    // Bot actions. For hedge bots the drawer renders a LEG (`bot`), but every
+    // action — start/stop, clone, archive, star, delete — must target the
+    // hedge wrapper: its id (`parentBotId`), its status and the hedge type.
+    const actionBotRef = useMemo(
+      () =>
+        hedge && (type === BotTypesEnum.hedgeDca || type === BotTypesEnum.hedgeCombo)
+          ? toHedgeDrawerBotRef({
+              kind: type,
+              wrapperId: parentBotId ?? hedge.wrapperId,
+              wrapperStatus: hedge.status,
+              name: bot.settings.name,
+              legs: [hedge.longBot, hedge.shortBot].filter(Boolean),
+              wrapper: hedge.wrapper,
+            })
+          : toBotRef(bot, botKindFromType(type), {
+              ...(parentBotId ? { id: parentBotId } : {}),
+            }),
+      [hedge, type, parentBotId, bot]
+    );
+    const actionBotId = actionBotRef.id;
+    const actionHandlers = useMemo(
+      () => ({
+        ...(onEdit ? { edit: () => onEdit(actionBotId) } : {}),
+        ...(onClone ? { clone: () => onClone(actionBotId) } : {}),
+      }),
+      [onEdit, onClone, actionBotId]
+    );
+    const botActions = useBotActions(actionBotRef, {
+      viewOnly,
+      handlers: actionHandlers,
     });
-
-    // Thin aliases so the footer button-config array and the actions menu keep
-    // their existing call sites — the behaviour now lives in useBotActions.
-    const handleEdit = botActions.edit;
-    const handleStatusToggle = botActions.openStatusModal;
-    const handleRestart = botActions.restart;
 
     const handleDrawerClose = () => {
       handleDrawerOpenChange(false);
@@ -1465,185 +1510,33 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       [isLeftPanelCollapsed]
     );
 
-    // Bottom action bar (mirrors the edit/new bot form footer, minus the
-    // backtest row). Shown for every bot type in the main "bot" view.
-    // Memoised: `bot` is replaced on every socket stats/deal tick (~26x/s), so
-    // building this array unconditionally each render fed the memoised
-    // ResponsiveButtonRow a fresh `buttons` reference every tick and re-rendered
-    // it (RenderLoopTripwire on /bot/view, /combo/view, /hedge/combo/view). It
-    // now depends only on the status-derived primitives + stable handlers, so it
-    // recomputes only when the bot's status/pending state actually changes.
-    const footerReadOnly = isReadOnly() || viewOnly;
-    const footerStatus = bot.status.toLowerCase();
-    const isArchivedBot =
-      footerStatus === 'archive' || footerStatus === 'archived';
-    const canToggle = canToggleBotStatus(bot.status);
-    const canRestart = isBotRestartable(bot.status);
-    const statusTogglePending = botActions.pending.statusToggle;
-    const restartPending = botActions.pending.restart;
-    const toggleLabel = getActionText(bot.status);
-    const botStatus = bot.status;
-    const footerActionButtons = useMemo<ResponsiveButtonConfig[]>(() => {
-      const configs: ResponsiveButtonConfig[] = [];
-
-      // Archived bots can't be started, restarted or edited — un-archive first
-      // (via the ⋯ menu). So the lifecycle footer is empty for them.
-      if (isArchivedBot) return configs;
-
-      if (canToggle) {
-        configs.push({
-        id: 'toggle',
-        // Lowest priority → renders leftmost (Stop/Start).
-        priority: 1,
-        fullContent: (
-          <Button
-            onClick={() => handleStatusToggle()}
-            disabled={statusTogglePending || footerReadOnly}
-            variant="outline"
-            className="flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
-            aria-pressed={isActive}
-            aria-label={toggleLabel}
-          >
-            {statusTogglePending ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span className="truncate">{getActionPresent(botStatus)}…</span>
-              </>
-            ) : isActive ? (
-              <>
-                <Square className="w-4 h-4 shrink-0" />
-                <span className="truncate">{toggleLabel}</span>
-              </>
-            ) : (
-              <>
-                <Play className="w-4 h-4 shrink-0" />
-                <span className="truncate">{toggleLabel}</span>
-              </>
-            )}
-          </Button>
+    // Bottom action bar: the registry's lifecycle actions (Start/Stop,
+    // Restart, Edit) as buttons. `bot` is replaced on every socket tick
+    // (~26x/s), so the button configs are keyed on what the buttons actually
+    // show — rebuilding them every tick re-rendered the memoised
+    // ResponsiveButtonRow at that rate (RenderLoopTripwire).
+    const footerItems = buildSurfaceItems(
+      'drawerFooter',
+      botActions.bot,
+      botActions.ctx
+    );
+    const footerItemsRef = useRef(footerItems);
+    footerItemsRef.current = footerItems;
+    const footerKey = footerItems
+      .map(
+        (i) =>
+          `${i.id}:${i.label}:${i.disabled}:${i.pending}:${i.disabledReason ?? ''}`
+      )
+      .join('|');
+    const runBotAction = botActions.run;
+    const footerActionButtons = useMemo<ResponsiveButtonConfig[]>(
+      () =>
+        footerItemsRef.current.map((item) =>
+          drawerFooterButton(item, () => runBotAction(item.id))
         ),
-        compactContent: (
-          <Button
-            onClick={() => handleStatusToggle()}
-            size="icon"
-            disabled={statusTogglePending || footerReadOnly}
-            variant="outline"
-            aria-pressed={isActive}
-            aria-label={toggleLabel}
-          >
-            {statusTogglePending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : isActive ? (
-              <Square className="w-4 h-4" />
-            ) : (
-              <Play className="w-4 h-4" />
-            )}
-            <span className="sr-only">{toggleLabel}</span>
-          </Button>
-        ),
-        menuLabel: statusTogglePending
-          ? `${getActionPresent(botStatus)}…`
-          : toggleLabel,
-        menuIcon: isActive ? Square : Play,
-        onMenuClick: () => handleStatusToggle(),
-        disabled: statusTogglePending || footerReadOnly,
-      });
-    }
-
-      configs.push({
-      id: 'edit',
-      // Highest priority → with `highestPriorityFullWidth` it becomes the
-      // full-width primary button, anchored to the right of the row.
-      priority: 3,
-      fullContent: (
-        <Button
-          onClick={() => handleEdit()}
-          disabled={footerReadOnly}
-          variant="default"
-          className="flex w-full items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
-          aria-label="Edit bot"
-          title={footerReadOnly ? 'Editing is not available in demo mode' : undefined}
-        >
-          <EditIcon className="w-4 h-4 shrink-0" />
-          <span className="truncate">Edit</span>
-        </Button>
-      ),
-      compactContent: (
-        <Button
-          onClick={() => handleEdit()}
-          size="icon"
-          disabled={footerReadOnly}
-          variant="default"
-          aria-label="Edit bot"
-          title={footerReadOnly ? 'Editing is not available in demo mode' : undefined}
-        >
-          <EditIcon className="w-4 h-4" />
-          <span className="sr-only">Edit</span>
-        </Button>
-      ),
-      menuLabel: 'Edit',
-      menuIcon: EditIcon,
-      onMenuClick: () => handleEdit(),
-      disabled: footerReadOnly,
-    });
-
-    if (canRestart) {
-        configs.push({
-        id: 'restart',
-        // Middle priority → sits between Stop (left) and the full-width Edit.
-        priority: 2,
-        fullContent: (
-          <Button
-            onClick={() => handleRestart()}
-            disabled={restartPending || footerReadOnly}
-            variant="outline"
-            className="flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2"
-            aria-label="Restart bot"
-          >
-            <RefreshCw
-              className={cn('w-4 h-4 shrink-0', restartPending && 'animate-spin')}
-            />
-            <span className="truncate">
-              {restartPending ? 'Restarting…' : 'Restart'}
-            </span>
-          </Button>
-        ),
-        compactContent: (
-          <Button
-            onClick={() => handleRestart()}
-            size="icon"
-            disabled={restartPending || footerReadOnly}
-            variant="outline"
-            aria-label="Restart bot"
-          >
-            <RefreshCw
-              className={cn('w-4 h-4', restartPending && 'animate-spin')}
-            />
-            <span className="sr-only">Restart</span>
-          </Button>
-        ),
-        menuLabel: restartPending ? 'Restarting…' : 'Restart',
-        menuIcon: RefreshCw,
-        onMenuClick: () => handleRestart(),
-        disabled: restartPending || footerReadOnly,
-      });
-      }
-
-      return configs;
-    }, [
-      isArchivedBot,
-      canToggle,
-      canRestart,
-      statusTogglePending,
-      restartPending,
-      toggleLabel,
-      footerReadOnly,
-      isActive,
-      botStatus,
-      handleStatusToggle,
-      handleEdit,
-      handleRestart,
-    ]);
+      // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed on footerKey
+      [footerKey, runBotAction]
+    );
 
     return (
       <DetailDrawer open={actualOpen} onOpenChange={handleDrawerOpenChange}>
@@ -1737,17 +1630,8 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                         <BotActionsMenuItems
                           align="end"
                           className="w-56"
-                          viewOnly={viewOnly}
-                          hideLifecycleActions
-                          bot={{
-                            id: bot._id,
-                            name: bot.settings.name,
-                            type: type as BotTypeId,
-                            status: bot.status as BotStatusType,
-                            coldArchived: (bot as { coldArchived?: boolean })
-                              .coldArchived,
-                          }}
-                          {...botActions.menuProps}
+                          actions={botActions}
+                          surface="drawerMenu"
                         />
                       </DropdownMenu>
                       <Button

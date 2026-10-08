@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.88.0] - 2026-10-08
+
+### Added
+
+- Hedge DCA and hedge combo bot lists have a bulk toolbar (start, stop, restart, archive, delete) acting on the whole hedge bot.
+- Restart deal is offered in every deal table and card, and as a bulk action.
+- Canceled hedge DCA deals can be restored, like DCA deals.
+
+### Changed
+
+- Deal action menus come from one shared definition, so every deal list offers the same actions; an action a deal cannot take right now is shown disabled with the reason.
+- Bot action menus come from one shared definition, so cards, table rows, the bot drawer and the bot form offer the same actions, with the same confirmations and status rules.
+- Bulk close, cancel, restart and restore on deals say how many selected deals were skipped and why.
+- The grid bot edit form's options menu offers Clone, Run backtest, Archive and Share bot access like the other bot forms.
+
+### Fixed
+
+- Restart deal was missing from deal lists shown as a table.
+- Cancel and close of a hedge combo deal from a deal card or the bot drawer used the DCA close instead of the combo close.
+- Star and Archive in a hedge bot's drawer menu acted on one leg instead of the hedge bot.
+- Stopping a grid bot from its card offered different stop options than from its table row or drawer.
+- Run backtest from the bot form opened the DCA backtest for combo and grid bots.
+- The bot form showed "Archive" for a bot that was already archived.
+- Share Configuration in a hedge bot's drawer copies the whole hedge bot, including its hedge-level take profit and stop loss.
+- A failed bot start, stop or restart shows one error message instead of two.
+
 ## [2.87.4] - 2026-10-08
 
 ### Fixed

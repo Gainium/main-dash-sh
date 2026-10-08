@@ -440,7 +440,10 @@ export type RestartDealInput = {
  * QUEUED like execute-next-DCA: OK means the engine accepted it; the new
  * orders (or the exchange's refusal) arrive over the websocket.
  */
-export function useRestartDeal() {
+export function useRestartDeal(options?: { silent?: boolean }) {
+  // Silent: bulk callers await every deal and report one aggregate instead of
+  // a toast per deal.
+  const silent = options?.silent ?? false;
   const { tokens } = useAuthStore();
 
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
@@ -452,7 +455,7 @@ export function useRestartDeal() {
   );
 
   return useMutation<DealResponse, Error, RestartDealInput>({
-    meta: { errorToast: true },
+    ...(silent ? {} : { meta: { errorToast: true } }),
     mutationFn: async (input) => {
       logger.info('[useRestartDeal] Restarting deal:', input);
 
@@ -471,6 +474,9 @@ export function useRestartDeal() {
       return response.restartDeal;
     },
     onSuccess: (response) => {
+      if (silent) {
+        return;
+      }
       toast.info(
         typeof response?.data === 'string' && response.data.trim()
           ? response.data

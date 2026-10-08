@@ -14,15 +14,14 @@ import type { BotActionsModalProps } from '@/hooks/useBotActions';
  * entirely by the state `useBotActions` owns. Spread the hook's `modalProps`:
  *
  * ```tsx
- * const botActions = useBotActions({ … });
+ * const actions = useBotActions(toBotRef(bot, 'dca'));
  * // …
- * <BotActionsMenuItems bot={{ id, name, type, status }} {...botActions.menuProps} />
- * <BotActionsModals {...botActions.modalProps} />
+ * <BotActionsMenuItems actions={actions} surface="card" />
+ * <BotActionsModals {...actions.modalProps} />
  * ```
  *
- * A hook can't render JSX and stay a hook, and each surface used to hand-roll
- * these three modals (with subtly different props). This is the shared render
- * half of the pair.
+ * A hook can't render JSX and stay a hook; this is the shared render half of
+ * the pair.
  */
 export const BotActionsModals: React.FC<BotActionsModalProps> = ({
   botName,

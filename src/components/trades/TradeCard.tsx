@@ -1,59 +1,19 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
-import { isComboFundsTarget } from '@/components/deals/actions/bulkAdjustFundsTargets';
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
-import {
-    AdjustFundsDialog,
-    ChangeDcaLevelsDialog,
-    CloseOptionsDialog,
-    ExecuteNextDcaDialog,
-    canExecuteNextDca,
-    type AdjustFundsDialogMode,
-} from '@/features/bots/shared/runtime';
+import { DealActionsMenu } from '@/features/deals/actions/DealActionsMenu';
+import { dealRefFromTrade } from '@/features/deals/actions/dealRef';
 import { useChartColors } from '@/hooks/useChartColors';
-import {
-    useDealActions,
-    useEditDeal,
-    useExecuteNextDca,
-    useRestartDeal,
-    useMoveDealToTerminal,
-    useRestoreDeal,
-    toastDealCloseError,
-} from '@/hooks/useDealActions';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useLongPressMenu } from '@/hooks/useLongPressMenu';
 import { useDealPriceHistory } from '@/hooks/useDealPriceHistory';
-import logger from '@/lib/loggerInstance';
-import { toast } from '@/lib/toast';
 import { cn, formatTradingPair } from '@/lib/utils';
-import { useTradeJournalStore } from '@/stores/tradeJournalStore';
-import {
-    BotTypesEnum,
-    CloseDCATypeEnum,
-    DCADealStatusEnum,
-    type AddFundsSettings,
-} from '@/types';
-import type { ViewOrder } from '@/types/bots';
+import { BotTypesEnum } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatNumber } from '@/utils/numberFormatter';
 import { extractPairAssets } from '@/utils/pairs';
 import { deriveTradeLevels } from '@/utils/trades/deriveTradeLevels';
-import {
-    ArrowRightLeft,
-    BookOpen,
-    Edit,
-    ExternalLink,
-    Eye,
-    MinusCircle,
-    MoreVertical,
-    PlusCircle,
-    RotateCcw,
-    SlidersHorizontal,
-    X,
-    XCircle,
-    Zap,
-    RefreshCw,
-} from 'lucide-react';
+import { ExternalLink, MoreVertical } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Area,
@@ -66,8 +26,6 @@ import {
     YAxis,
 } from 'recharts';
 import getLatestPrices from '../../helper/price';
-import { ConfirmationDialog } from '../ui';
-import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
 import { TrailingBadge } from './TrailingBadge';
 import { Slot } from '@/lib/extensions';
@@ -83,19 +41,12 @@ import {
     StrategyChip,
     TimeChip,
 } from '../ui/chip';
-import {
-    DropdownMenu,
-    DropdownMenuContent,
-    DropdownMenuItem,
-    DropdownMenuTrigger,
-} from '../ui/dropdown-menu';
 import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import { DealStartBlockedNotice } from '../deals/DealStartBlockedNotice';
 import CoinPair from '../widgets/shared/CoinPair';
 import { TradeDetailDrawer } from './TradeDetailDrawer';
 
 export interface TradeCardProps {
-  terminal?: boolean;
   trade: TransformedTrade;
   onClick?: () => void;
   className?: string;
@@ -105,15 +56,8 @@ export interface TradeCardProps {
   showChart?: boolean;
   // Option to show drawer with chart on left and details on right
   showTradeDrawer?: boolean;
-  handleOpenDetailDrawer?: (trade: TransformedTrade) => void;
-  filledOrders?: ViewOrder[];
-  handleAdjustFundsConfirm?: (
-    id: string,
-    settings: AddFundsSettings,
-    mode: AdjustFundsDialogMode
-  ) => void;
+  /** The deal's bot type; the card loads the deal's orders with it. */
   botType?: BotTypesEnum;
-  handleEdit: (trade: TransformedTrade) => void;
 }
 
 /**
@@ -301,8 +245,6 @@ const PnlRangeTrack: React.FC<{
   );
 };
 
-const LOG_PREFIX = 'EnhancedCard';
-
 const EnhancedCard = React.memo(
   ({
     trade,
@@ -318,12 +260,7 @@ const EnhancedCard = React.memo(
     initialPriceDisplay,
     currentPriceDisplay,
     currentPrice = null,
-    handleOpenDetailDrawer,
-    filledOrders,
-    handleAdjustFundsConfirm: _handleAdjustFundsConfirm,
     botType,
-    handleEdit: _handleEdit,
-    terminal,
   }: TradeCardProps & {
     tradingPair: string;
     symbolAssets: {
@@ -340,132 +277,7 @@ const EnhancedCard = React.memo(
     currentPriceDisplay: string | null;
     currentPrice?: number | null;
   }) => {
-    const handleEdit = useCallback(() => {
-      _handleEdit(trade);
-    }, [_handleEdit, trade]);
-    const [adjustFundsDialog, setAdjustFundsDialog] =
-      useState<AdjustFundsDialogMode | null>(null);
-    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
-    const [closeDialogOpen, setCloseDialogOpen] = useState(false);
-    const [moveDialogOpen, setMoveDialogOpen] = useState(false);
-    const [moveToBotDialogOpen, setMoveToBotDialogOpen] = useState(false);
     const [ordersDialogOpen, setOrdersDialogOpen] = useState(false);
-    const [changeDcaDialogOpen, setChangeDcaDialogOpen] = useState(false);
-    const [restoreDialogOpen, setRestoreDialogOpen] = useState(false);
-    const [executeNextDcaOpen, setExecuteNextDcaOpen] = useState(false);
-    const [restartDialogOpen, setRestartDialogOpen] = useState(false);
-    const handleAddFunds = () => {
-      setAdjustFundsDialog('add');
-    };
-    const handleAdjustFundsConfirm = useCallback(
-      (settings: AddFundsSettings) => {
-        if (!_handleAdjustFundsConfirm) {
-          return;
-        }
-        if (!adjustFundsDialog) {
-          return;
-        }
-        _handleAdjustFundsConfirm(trade.id, settings, adjustFundsDialog);
-        setAdjustFundsDialog(null);
-      },
-      [_handleAdjustFundsConfirm, trade.id, adjustFundsDialog]
-    );
-
-    const handleReduceFunds = () => {
-      setAdjustFundsDialog('reduce');
-    };
-    const addToJournal = useTradeJournalStore((state) => state.addTrade);
-    const handleAddToJournal = async () => {
-      if (!filledOrders || !handleOpenDetailDrawer) {
-        return;
-      }
-      try {
-        // Filter orders for this specific deal and only FILLED orders
-        const dealOrders = filledOrders.filter(
-          (order) => order.dealId === trade.id
-        );
-
-        // Transform orders into executions
-        const executions = dealOrders.map((order) => ({
-          id: order.clientOrderId,
-          action: (order.side === 'buy' ? 'buy' : 'sell') as 'buy' | 'sell',
-          timestamp: order.time,
-          quantity: Number(order.executedQty || order.origQty || 0),
-          price: Number(order.price || 0),
-          fee: 0,
-          cost:
-            Number(order.executedQty || order.origQty || 0) *
-            Number(order.price || 0),
-        }));
-
-        const entryTime = trade.created
-          ? new Date(trade.created).getTime()
-          : Date.now();
-
-        const isOpenTrade = ['open', 'active', 'start'].includes(
-          trade.status.toLowerCase()
-        );
-        const isCancelledTrade = ['canceled', 'cancelled'].includes(
-          trade.status.toLowerCase()
-        );
-
-        const profitUsd = trade.profit?.totalUsd || 0;
-        // Cost basis in quote terms. Shorts hold base, so trade.cost and
-        // usage.current.quote are 0; value the base position instead (mirrors
-        // investedAmount used for the card ROI).
-        const initialInvestment =
-          trade.cost ||
-          (!isLongTrade
-            ? (trade.usage?.current?.base || 0) *
-              (currentPrice || trade.avgPrice || trade.entryPrice || 0)
-            : trade.usage?.current?.quote || 0);
-        const calculatedROI =
-          initialInvestment > 0 ? (profitUsd / initialInvestment) * 100 : 0;
-
-        const symbolString =
-          typeof trade.symbol === 'string' ? trade.symbol : trade.symbol.symbol;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const journalEntry: any = {
-          symbol: symbolString,
-          exchange: trade.exchange,
-          direction: (trade.side?.toUpperCase() === 'LONG' ||
-          trade.side?.toUpperCase() === 'BUY'
-            ? 'long'
-            : 'short') as 'long' | 'short',
-          entryPrice: trade.entryPrice || trade.avgPrice || 0,
-          entryTime: entryTime,
-          amount: trade.size || trade.currentBalance.base || 0,
-          pnl: profitUsd,
-          roi: calculatedROI,
-          marketType: (trade.dealType === 'FUTURES' ? 'futures' : 'spot') as
-            | 'spot'
-            | 'futures',
-          notes: `Deal from ${trade.type} bot${trade.botName ? ` (${trade.botName})` : ''}${isOpenTrade ? ' (Open - Unrealized PNL)' : ''}${isCancelledTrade ? ' (Cancelled)' : ''}`,
-          executions: executions.length > 0 ? executions : undefined,
-        };
-
-        // Note: exitPrice/exitTime not available on TransformedTrade type for deals
-        // Only add exit data if explicitly available
-
-        const journalId = addToJournal(journalEntry);
-        logger.info(`${LOG_PREFIX}: Added deal to journal`, {
-          dealId: trade.id,
-          journalId,
-          symbol: symbolString,
-          executionsCount: executions.length,
-        });
-        toast.success(
-          `Deal ${symbolString} added to journal with ${executions.length} execution(s)`
-        );
-      } catch (error) {
-        logger.error(`${LOG_PREFIX}: Failed to add deal to journal`, {
-          error,
-          dealId: trade.id,
-        });
-        toast.error('Failed to add deal to journal');
-      }
-    };
     // Mobile: a long press anywhere on the card opens the actions menu
     // directly — the floating ⋮ pill is a small target on touch.
     const {
@@ -643,11 +455,10 @@ const EnhancedCard = React.memo(
       let si = 0;
       let cost = 0;
       let qty = 0;
-      // `time` is a display label ("14:30" intraday, "Aug 24" otherwise) and
-      // repeats across days/years, so the axis is keyed on the row index
-      // instead — see `withAxisIndex`.
-      return withAxisIndex(
-        priceData.map((p) => {
+      // Walked in a plain loop: the running cost/qty carry from one candle to
+      // the next.
+      const rows = [];
+      for (const p of priceData) {
         let buyFilledHere = false;
         while (fi < fills.length && fills[fi].ts <= p.ts) {
           cost += fills[fi].price * fills[fi].qty;
@@ -666,14 +477,17 @@ const EnhancedCard = React.memo(
         // One marker per candle per side (i.e. per level-per-bar already, since a
         // candle carries a single price): drawing every candle's fill is the
         // accurate representation and never drops a bar.
-          return {
-            ...p,
-            tp,
-            fillMarker: buyFilledHere ? p.price : null,
-            sellMarker: sellFilledHere ? p.price : null,
-          };
-        })
-      );
+        rows.push({
+          ...p,
+          tp,
+          fillMarker: buyFilledHere ? p.price : null,
+          sellMarker: sellFilledHere ? p.price : null,
+        });
+      }
+      // `time` is a display label ("14:30" intraday, "Aug 24" otherwise) and
+      // repeats across days/years, so the axis is keyed on the row index
+      // instead — see `withAxisIndex`.
+      return withAxisIndex(rows);
     }, [
       priceData,
       orders,
@@ -804,314 +618,12 @@ const EnhancedCard = React.memo(
       : trade.unrealizedProfit || 0;
     const pnlBoxRoi = isClosedDeal ? realizedRoi : unrealizedRoi;
     const pnlBoxLabel = isClosedDeal ? 'Realized' : 'Unrealized';
-    // A deal's symbol reaches this card either as the full object or as a bare
-    // exchange string, depending on which list built it — the card view on the
-    // Deals page passes the string. Returning '' for that case left the
-    // Add/Reduce funds picker showing a generic "Base asset" / "Quote asset",
-    // which is how a user comes to mix the two up and reduce by a base amount
-    // they meant as quote. Split the string instead, and fall back to no label
-    // rather than a guessed one: an unnamed asset is recoverable, a wrongly
-    // named one is not.
-    const { baseSymbol, quoteSymbol } = useMemo(() => {
-      if (typeof trade.symbol !== 'string') {
-        return {
-          baseSymbol: trade.symbol.baseAsset,
-          quoteSymbol: trade.symbol.quoteAsset,
-        };
-      }
-      const parsed = extractPairAssets(trade.symbol);
-      return {
-        baseSymbol: parsed.baseAsset || '',
-        quoteSymbol: parsed.quoteAsset || '',
-      };
-    }, [trade.symbol]);
-
     const symbolString = useMemo(
       () =>
         typeof trade.symbol === 'string' ? trade.symbol : trade.symbol.symbol,
       [trade.symbol]
     );
-    const closeDealMutation = useDealActions();
-    const moveDealToTerminalMutation = useMoveDealToTerminal();
-    // Move to Terminal is available to DCA, Combo and Grid bot deals (parity
-    // with legacy main-dash; only combo deals pass `combo: true`).
-    const canShowMoveToTerminal = useMemo(
-      () =>
-        (trade.type === 'DCA' ||
-          trade.type === 'Combo' ||
-          trade.type === 'Grid') &&
-        typeof trade.botId === 'string' &&
-        trade.botId.length > 0,
-      [trade.botId, trade.type]
-    );
-    const isDealOpen = useMemo(
-      () => String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
-      [trade.status]
-    );
-    const canMoveToTerminal = useMemo(
-      () => canShowMoveToTerminal && isDealOpen,
-      [canShowMoveToTerminal, isDealOpen]
-    );
-
-    // Restore — only for canceled DCA and Terminal deals (no other bot types,
-    // no other statuses). Re-adopts the deal's position as a bare active
-    // terminal deal (no DCA, TP or SL).
-    const restoreDealMutation = useRestoreDeal();
-    const canShowRestore = useMemo(
-      () =>
-        (trade.type === 'DCA' || trade.type === 'Terminal') &&
-        typeof trade.botId === 'string' &&
-        trade.botId.length > 0 &&
-        ['canceled', 'cancelled'].includes(
-          String(trade.status || '').toLowerCase()
-        ),
-      [trade.botId, trade.type, trade.status]
-    );
-    const handleRestoreConfirm = useCallback(async () => {
-      if (!trade.botId) {
-        toast.error('Cannot restore deal - missing bot ID');
-        return;
-      }
-      try {
-        const response = await restoreDealMutation.mutateAsync({
-          dealId: trade.id,
-          botId: trade.botId,
-        });
-        toast.success(
-          typeof response.data === 'string'
-            ? response.data
-            : 'Deal restored successfully'
-        );
-      } catch (error) {
-        logger.error(`${LOG_PREFIX}: Failed to restore deal`, {
-          error,
-          dealId: trade.id,
-          botId: trade.botId,
-        });
-        toast.error(
-          error instanceof Error ? error.message : 'Failed to restore deal'
-        );
-      } finally {
-        setRestoreDialogOpen(false);
-      }
-    }, [restoreDealMutation, trade.botId, trade.id]);
-
-    // Change DCA levels — DCA and Combo bot deals only (not grid/terminal),
-    // disabled for risk-based deals whose levels are managed by the risk engine.
-    const canShowChangeDca =
-      !terminal && (trade.type === 'DCA' || trade.type === 'Combo');
-    const canChangeDca = canShowChangeDca && isDealOpen && !trade.riskBased;
-    const changeDcaCurrentLevel = (trade.levels?.complete || 1) - 1;
-    const changeDcaMaxLevel = (trade.levels?.all || 1) - 1;
-    const changeDcaBotType =
-      trade.type === 'Combo' ? BotTypesEnum.combo : BotTypesEnum.dca;
-    const editDealMutation = useEditDeal({
-      onSuccess: () => {
-        toast.success('DCA levels updated');
-        setChangeDcaDialogOpen(false);
-      },
-      onError: (e) => {
-        toast.error(
-          e instanceof Error ? e.message : 'Failed to change DCA levels'
-        );
-      },
-    });
-    const handleChangeDcaConfirm = useCallback(
-      (newMax: number) => {
-        if (!trade.botId) {
-          toast.error('Cannot change DCA levels - missing bot ID');
-          return;
-        }
-        editDealMutation.mutate({
-          dealId: trade.id,
-          botId: trade.botId,
-          type: changeDcaBotType,
-          terminal: false,
-          settings:
-            newMax === 0
-              ? { useDca: false }
-              : { useDca: true, ordersCount: newMax },
-        });
-      },
-      [editDealMutation, trade.botId, trade.id, changeDcaBotType]
-    );
-
-    // Add/Reduce Funds — not offered on combo deals, the same rule the drawer's
-    // row menu and the bulk action already apply. The mutation behind it
-    // resolves the bot out of the DCA bots only, so on a combo deal it can do
-    // nothing but fail. Both bot-type sources are consulted: rendered from the
-    // drawer the deal itself carries no type, only the bot does.
-    const canShowAdjustFunds = !isComboFundsTarget(trade.type, botType);
-
-    // Execute next DCA — offered on open, non-risk-based DCA deals that still
-    // have a level left. Same gate as "Change DCA levels" plus that last part.
-    const canShowExecuteNextDca = canExecuteNextDca(trade);
-    const executeNextDcaMutation = useExecuteNextDca();
-    const handleExecuteNextDcaConfirm = useCallback(
-      (expectedLevel: number) => {
-        if (!trade.botId) {
-          toast.error('Cannot execute the next DCA - missing bot ID');
-          return;
-        }
-        executeNextDcaMutation.mutate({
-          dealId: trade.id,
-          botId: trade.botId,
-          expectedLevel,
-        });
-        setExecuteNextDcaOpen(false);
-      },
-      [executeNextDcaMutation, trade.botId, trade.id]
-    );
-    // Restart deal — DCA / Combo bot deals, hedge ones included (the backend
-    // routes a hedge deal to the long or short child that owns it); not
-    // terminal. Re-places this deal's orders only.
-    const canShowRestartDeal =
-      !terminal &&
-      ['DCA', 'Combo', 'Hedge DCA', 'Hedge Combo'].includes(trade.type);
-    const restartDealMutation = useRestartDeal();
-    const handleRestartConfirm = useCallback(() => {
-      if (!trade.botId) {
-        toast.error('Cannot restart the deal - missing bot ID');
-        return;
-      }
-      restartDealMutation.mutate({
-        dealId: trade.id,
-        botId: trade.botId,
-        combo:
-          trade.type === 'Combo' ||
-          trade.type === 'Hedge Combo' ||
-          botType === BotTypesEnum.combo ||
-          botType === BotTypesEnum.hedgeCombo,
-      });
-      setRestartDialogOpen(false);
-    }, [restartDealMutation, trade.botId, trade.id, trade.type, botType]);
-    // The inverse of "Move to Terminal": only terminal deals can be moved back
-    // into a bot, and only while open (a closed deal has no position to adopt).
-    const canShowMoveToBot = useMemo(
-      () =>
-        trade.type === 'Terminal' &&
-        typeof trade.botId === 'string' &&
-        trade.botId.length > 0 &&
-        String(trade.status || '').toLowerCase() === DCADealStatusEnum.open,
-      [trade.botId, trade.type, trade.status]
-    );
-    const handleCancelConfirm = () => {
-      if (!trade.botId) {
-        logger.error(`${LOG_PREFIX}: Cannot cancel deal - missing botId`, {
-          dealId: trade.id,
-        });
-        toast.error('Cannot cancel deal - missing bot ID');
-        return;
-      }
-
-      const q =
-        botType === BotTypesEnum.combo
-          ? closeDealMutation.closeComboDeal
-          : closeDealMutation.closeDCADeal;
-
-      q(
-        { dealId: trade.id, botId: trade.botId, type: CloseDCATypeEnum.cancel },
-        {
-          onSuccess: () => {
-            logger.info(`${LOG_PREFIX}: Deal canceled successfully`, {
-              dealId: trade.id,
-              botId: trade.botId,
-            });
-            toast.success('Deal canceled successfully');
-            setCancelDialogOpen(false);
-          },
-          onError: (error) => {
-            logger.error(`${LOG_PREFIX}: Failed to cancel deal`, {
-              dealId: trade.id,
-              botId: trade.botId,
-              error,
-            });
-            toastDealCloseError(error, 'Failed to cancel deal');
-            setCancelDialogOpen(false);
-          },
-        }
-      );
-    };
-
-    const handleCloseConfirm = (type: CloseDCATypeEnum) => {
-      if (!trade.botId) {
-        logger.error(`${LOG_PREFIX}: Cannot close deal - missing botId`, {
-          dealId: trade.id,
-        });
-        toast.error('Cannot close deal - missing bot ID');
-        return;
-      }
-
-      const q =
-        botType === BotTypesEnum.combo
-          ? closeDealMutation.closeComboDeal
-          : closeDealMutation.closeDCADeal;
-
-      q(
-        { dealId: trade.id, botId: trade.botId, type },
-        {
-          onSuccess: () => {
-            logger.info(`${LOG_PREFIX}: Deal canceled successfully`, {
-              dealId: trade.id,
-              botId: trade.botId,
-            });
-            toast.success('Deal canceled successfully');
-            setCancelDialogOpen(false);
-          },
-          onError: (error) => {
-            logger.error(`${LOG_PREFIX}: Failed to cancel deal`, {
-              dealId: trade.id,
-              botId: trade.botId,
-              error,
-            });
-            toastDealCloseError(error, 'Failed to cancel deal');
-            setCancelDialogOpen(false);
-          },
-        }
-      );
-    };
-    const viewDetails = useCallback(
-      () =>
-        handleOpenDetailDrawer ? handleOpenDetailDrawer(trade) : undefined,
-      [handleOpenDetailDrawer, trade]
-    );
-    const handleMoveToTerminalConfirm = useCallback(async () => {
-      if (!canShowMoveToTerminal || !trade.botId) {
-        toast.error(
-          'Only DCA, Combo or Grid bot deals can be moved to terminal'
-        );
-        return;
-      }
-
-      try {
-        const response = await moveDealToTerminalMutation.mutateAsync({
-          dealId: trade.id,
-          botId: trade.botId,
-          combo: trade.type === 'Combo',
-        });
-
-        toast.success(
-          typeof response.data === 'string'
-            ? response.data
-            : 'Deal moved to terminal successfully'
-        );
-      } catch (error) {
-        logger.error(`${LOG_PREFIX}: Failed to move deal to terminal`, {
-          error,
-          dealId: trade.id,
-          botId: trade.botId,
-        });
-        toast.error('Failed to move deal to terminal');
-      } finally {
-        setMoveDialogOpen(false);
-      }
-    }, [
-      canShowMoveToTerminal,
-      moveDealToTerminalMutation,
-      trade.botId,
-      trade.id,
-      trade.type,
-    ]);
+    const dealRef = useMemo(() => dealRefFromTrade(trade), [trade]);
     return (
       <>
         <DealOrdersDialog
@@ -1123,99 +635,6 @@ const EnhancedCard = React.memo(
           exchange={trade.exchange}
           orders={ordersForDialog}
           isLoading={ordersLoading}
-        />
-        <AdjustFundsDialog
-          open={!!adjustFundsDialog}
-          mode={adjustFundsDialog || 'add'}
-          onOpenChange={() => setAdjustFundsDialog(null)}
-          onConfirm={handleAdjustFundsConfirm}
-          baseAsset={baseSymbol}
-          quoteAsset={quoteSymbol}
-          symbol={symbolString}
-          exchange={trade.exchange}
-          percentBasis={trade.percentBasis}
-          exchangeUUID={trade.exchangeUUID}
-          futures={!!trade.futures}
-          long={trade.side !== 'SELL'}
-        />
-        <ConfirmationDialog
-          open={cancelDialogOpen}
-          onOpenChange={setCancelDialogOpen}
-          title="Cancel Deal"
-          description={`Are you sure you want to cancel the deal for ${symbolString}? This action cannot be undone.`}
-          confirmText="Cancel Deal"
-          cancelText="Keep Deal"
-          variant="destructive"
-          onConfirm={handleCancelConfirm}
-        />
-        <CloseOptionsDialog
-          open={closeDialogOpen}
-          onOpenChange={setCloseDialogOpen}
-          onConfirm={handleCloseConfirm}
-          defaultCloseType={CloseDCATypeEnum.closeByMarket}
-          ignoreOptions={[CloseDCATypeEnum.leave]}
-          mode="deal"
-        />
-        <ConfirmationDialog
-          open={moveDialogOpen}
-          onOpenChange={setMoveDialogOpen}
-          title="Move deal to terminal"
-          description={`Are you sure you want to move the deal (${trade.id}) to the terminal? After moving a deal to terminal, the bot may open a new deal immediately if slots are available (especially with ASAP start conditions). Consider adjusting max deals and max deals per pair settings if needed.`}
-          confirmText="Confirm"
-          cancelText="Cancel"
-          onConfirm={handleMoveToTerminalConfirm}
-        />
-        <ConfirmationDialog
-          open={restartDialogOpen}
-          onOpenChange={setRestartDialogOpen}
-          title="Restart deal"
-          description={`Restart the deal for ${symbolString}? Its open safety orders and take profit are cancelled and placed again from the deal's current state. The bot's other deals are not touched.`}
-          confirmText="Restart"
-          cancelText="Cancel"
-          onConfirm={handleRestartConfirm}
-        />
-        <ConfirmationDialog
-          open={restoreDialogOpen}
-          onOpenChange={setRestoreDialogOpen}
-          title="Restore deal"
-          description={`Restore the deal for ${symbolString}? It will be added back as an active deal that holds the current position, with no DCA, take profit or stop loss.`}
-          confirmText="Restore"
-          cancelText="Cancel"
-          onConfirm={handleRestoreConfirm}
-        />
-        {canShowExecuteNextDca && (
-          <ExecuteNextDcaDialog
-            open={executeNextDcaOpen}
-            onOpenChange={setExecuteNextDcaOpen}
-            trade={trade}
-            currentPrice={currentPrice}
-            onConfirm={handleExecuteNextDcaConfirm}
-            isProcessing={executeNextDcaMutation.isPending}
-          />
-        )}
-        <ChangeDcaLevelsDialog
-          open={changeDcaDialogOpen}
-          onOpenChange={setChangeDcaDialogOpen}
-          currentLevel={changeDcaCurrentLevel}
-          maxLevel={changeDcaMaxLevel}
-          onConfirm={handleChangeDcaConfirm}
-          isProcessing={editDealMutation.isPending}
-        />
-        <MoveDealToBotDialog
-          open={moveToBotDialogOpen}
-          onOpenChange={setMoveToBotDialogOpen}
-          deal={
-            canShowMoveToBot && trade.botId
-              ? {
-                  dealId: trade.id,
-                  sourceBotId: trade.botId,
-                  symbol: symbolString,
-                  exchange: trade.exchange,
-                  exchangeUUID: trade.exchangeUUID,
-                  strategy: trade.strategy,
-                }
-              : null
-          }
         />
         <CardContent
           className="p-md relative"
@@ -1255,120 +674,23 @@ const EnhancedCard = React.memo(
                   <ExternalLink className="w-4 h-4 text-muted-foreground" />
                 </button>
               )}
-            <DropdownMenu
+            <DealActionsMenu
+              deal={dealRef}
+              surface="tradeCard"
               open={actionsMenuOpen}
               onOpenChange={setActionsMenuOpen}
-            >
-              <DropdownMenuTrigger asChild>
+              trigger={
                 <Button
                   variant="ghost"
                   size="sm"
                   className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground hover:bg-muted/60"
                   onClick={(e) => e.stopPropagation()}
+                  aria-label="Deal actions"
                 >
                   <MoreVertical className="w-4 h-4" />
                 </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent
-                align="end"
-                className="w-56"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <DropdownMenuItem onClick={viewDetails} disabled={terminal}>
-                  <Eye className="w-4 h-4 mr-2" />
-                  View Details
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleAddToJournal}>
-                  <BookOpen className="w-4 h-4 mr-2" />
-                  Add to Journal
-                </DropdownMenuItem>
-                {canShowExecuteNextDca && (
-                  <DropdownMenuItem
-                    onClick={() => setExecuteNextDcaOpen(true)}
-                    disabled={!isDealOpen}
-                  >
-                    <Zap className="w-4 h-4 mr-2" />
-                    Execute next DCA
-                  </DropdownMenuItem>
-                )}
-                {canShowAdjustFunds && (
-                  <>
-                    <DropdownMenuItem
-                      onClick={handleAddFunds}
-                      disabled={!isDealOpen}
-                    >
-                      <PlusCircle className="w-4 h-4 mr-2" />
-                      Add Funds
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={handleReduceFunds}
-                      disabled={!isDealOpen}
-                    >
-                      <MinusCircle className="w-4 h-4 mr-2" />
-                      Reduce Funds
-                    </DropdownMenuItem>
-                  </>
-                )}
-                <DropdownMenuItem onClick={handleEdit} disabled={!isDealOpen}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
-                </DropdownMenuItem>
-                {canShowRestartDeal && (
-                  <DropdownMenuItem
-                    onClick={() => setRestartDialogOpen(true)}
-                    disabled={!isDealOpen}
-                  >
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Restart deal
-                  </DropdownMenuItem>
-                )}
-                {canShowChangeDca && (
-                  <DropdownMenuItem
-                    onClick={() => setChangeDcaDialogOpen(true)}
-                    disabled={!canChangeDca}
-                  >
-                    <SlidersHorizontal className="w-4 h-4 mr-2" />
-                    Change DCA levels
-                  </DropdownMenuItem>
-                )}
-                {canShowMoveToTerminal && (
-                  <DropdownMenuItem
-                    onClick={() => setMoveDialogOpen(true)}
-                    disabled={!canMoveToTerminal}
-                  >
-                    <ArrowRightLeft className="w-4 h-4 mr-2" />
-                    Move to Terminal
-                  </DropdownMenuItem>
-                )}
-                {canShowMoveToBot && (
-                  <DropdownMenuItem onClick={() => setMoveToBotDialogOpen(true)}>
-                    <ArrowRightLeft className="w-4 h-4 mr-2" />
-                    Move to Bot
-                  </DropdownMenuItem>
-                )}
-                {canShowRestore && (
-                  <DropdownMenuItem onClick={() => setRestoreDialogOpen(true)}>
-                    <RotateCcw className="w-4 h-4 mr-2" />
-                    Restore
-                  </DropdownMenuItem>
-                )}
-                <DropdownMenuItem
-                  onClick={() => setCancelDialogOpen(true)}
-                  disabled={!isDealOpen}
-                >
-                  <X className="w-4 h-4 mr-2" />
-                  Cancel
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  onClick={() => setCloseDialogOpen(true)}
-                  className="text-destructive"
-                  disabled={!isDealOpen}
-                >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Close
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+              }
+            />
           </div>
 
           {/* Header — pair, chips, bot name (no inline external-link; that

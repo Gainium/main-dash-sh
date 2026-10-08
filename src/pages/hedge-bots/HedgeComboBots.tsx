@@ -31,6 +31,8 @@ import { DualArcProgressGauge } from '@/components/ui/DualArcProgressGauge';
 import EmptyState from '@/components/ui/empty-state';
 import { Button } from '@/components/ui/button';
 import { HedgeBotActionsCell } from './HedgeBotActionsCell';
+import { toBotRef } from '@/features/bots/actions/botRef';
+import { useBulkBotRunner } from '@/hooks/useBulkBotRunner';
 import { MotionButton } from '@/components/ui/MotionWrapper';
 import Widget from '@/components/ui/widget';
 import BotListStatsBoxes from '@/components/ui/BotListStatsBoxes';
@@ -374,9 +376,19 @@ const HedgeComboBots = () => {
       totalProfitUsd,
       isCombo: true,
       wrapperId: selectedHedgeBot._id,
+      status: selectedHedgeBot.status,
       sharedSettings: selectedHedgeBot.sharedSettings,
+      wrapper: selectedHedgeBot,
     };
   }, [selectedHedgeBot, drawerPrimaryBot, longBot, shortBot, unPnlMap, exchanges]);
+
+  // Bulk toolbar (row selection): the same registry-driven bulk actions as
+  // the other bot lists, acting on the hedge wrappers.
+  const toBulkRef = useCallback(
+    (row: EnrichedHedgeBot) => toBotRef(row, 'hedgeCombo'),
+    []
+  );
+  const bulk = useBulkBotRunner(toBulkRef);
 
   const handleSelectBot = useCallback(
     (botId: string) => navigate(`/hedge/combo/view/${botId}`),
@@ -961,6 +973,7 @@ const HedgeComboBots = () => {
                       serverSide={botListPaging.serverSide}
                       data={enrichedBots}
                       getRowId={(row) => row._id}
+                      bulkActions={bulk.bulkActions}
                       enableGlobalFilter
                       enableColumnFilters
                       enableQuickFilterBar
@@ -1065,6 +1078,7 @@ const HedgeComboBots = () => {
                       }
                       onRowClick={(row) => handleSelectBot(row._id)}
                     />
+                    {bulk.dialogs}
                 </motion.div>
               </div>
             </Widget>

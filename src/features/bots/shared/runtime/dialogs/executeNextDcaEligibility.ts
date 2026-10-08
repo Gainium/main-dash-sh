@@ -34,6 +34,28 @@ export function nextDcaLevelNumber(trade: {
 }
 
 /**
+ * Why the deal's state keeps it from executing its next DCA level now, or null
+ * when nothing does. Says nothing about the deal's type — the caller decides
+ * whether the action applies to it at all.
+ */
+export function executeNextDcaBlockedReason(
+  trade: Pick<ExecuteNextDcaEligibilityTrade, 'status' | 'riskBased' | 'levels'>
+): string | null {
+  const complete = trade.levels?.complete ?? 0;
+  const all = trade.levels?.all ?? 0;
+  if (String(trade.status ?? '').toLowerCase() !== 'open') {
+    return 'Available on open deals only';
+  }
+  if (trade.riskBased) {
+    return 'A risk-based deal manages its own DCA levels';
+  }
+  if (!(complete > 0 && complete < all)) {
+    return 'This deal has no DCA level left to execute';
+  }
+  return null;
+}
+
+/**
  * Whether "Execute next DCA" is offered at all for this deal. Mirrors
  * `canShowChangeDca` — DCA deals only, open, not terminal, not risk-based
  * (those levels are engine-managed) — plus "there is a level left to execute".
@@ -43,15 +65,10 @@ export function nextDcaLevelNumber(trade: {
  * `this.combo` and the action could never do anything there.
  */
 export function canExecuteNextDca(trade: ExecuteNextDcaEligibilityTrade) {
-  const complete = trade.levels?.complete ?? 0;
-  const all = trade.levels?.all ?? 0;
   return (
     !trade.terminal &&
     trade.type === 'DCA' &&
-    String(trade.status ?? '').toLowerCase() === 'open' &&
-    !trade.riskBased &&
-    complete > 0 &&
-    complete < all
+    executeNextDcaBlockedReason(trade) === null
   );
 }
 

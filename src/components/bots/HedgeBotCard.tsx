@@ -19,6 +19,7 @@ import { useNavigate } from 'react-router-dom';
 import { BotActionsMenuItems } from '@/components/bots/BotActionsMenuItems';
 import { BotActionsModals } from '@/components/bots/BotActionsModals';
 import { useBotActions } from '@/hooks/useBotActions';
+import { toBotRef } from '@/features/bots/actions/botRef';
 import { useLongPressMenu } from '@/hooks/useLongPressMenu';
 import { Button } from '@/components/ui/button';
 import {
@@ -36,7 +37,6 @@ import CoinPair from '@/components/widgets/shared/CoinPair';
 import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import { cardHoverVariants } from '@/lib/animations/variants';
 import { cn } from '@/lib/utils';
-import { toast } from '@/lib/toast';
 import {
   BotTypesEnum,
   StrategyEnum,
@@ -273,32 +273,10 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
     [longLeg?.dealsInBot?.all, shortLeg?.dealsInBot?.all]
   );
 
-  // Shared bot-action orchestration. Hedge start/stop now goes through the
-  // same useBotStatusToggle as every other bot type (it optimistically
-  // updates the hedge stores), retiring this card's bespoke inline toggle.
-  // Clone opens the pre-filled create page via the canonical clone route,
-  // and Archive is owned by BotActionsMenuItems.
-  const botActions = useBotActions({
-    botId: bot._id,
-    botType,
-    botName: name,
-    status: bot.status,
-    activeDeals: totalActiveDeals,
-    currency: symbol?.quoteAsset ?? '',
-    lastActivity: bot.created || 'Unknown',
-    botData: bot,
-    deleteTitle: 'Delete hedge bot',
-    deleteDescription:
-      'Are you sure you want to delete this hedge bot? Both legs will be removed. This action cannot be undone.',
-    // Hedge bots don't support paper↔live copy yet — toast and clone on the
-    // current trading context (the canonical clone route handles hedge).
-    onCopyToLive: () => {
-      toast.info(
-        "Live↔paper copy isn't available for hedge bots yet. Cloned on the current trading context instead."
-      );
-      navigate(`${basePath}/new?load=${bot._id}`);
-    },
-  });
+  // Bot actions target the hedge wrapper (its id + hedge type). Which items
+  // the menu shows comes from the registry; the runner owns the flows.
+  const botRef = useMemo(() => toBotRef(bot, botType), [bot, botType]);
+  const botActions = useBotActions(botRef);
 
   // Mobile: a long press anywhere on the card opens the actions menu directly
   // (the floating pill's target is small on touch).
@@ -381,13 +359,8 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
               <BotActionsMenuItems
                 align="end"
                 className="w-56"
-                bot={{
-                  id: bot._id,
-                  name,
-                  type: botType,
-                  status: bot.status,
-                }}
-                {...botActions.menuProps}
+                actions={botActions}
+                surface="hedgeCard"
               />
             </DropdownMenu>
           </div>
