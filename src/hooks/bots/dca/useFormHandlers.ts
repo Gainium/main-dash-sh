@@ -89,8 +89,6 @@ interface UseFormHandlersOptions {
   onSaveError?: (message: string) => void;
   /** An edit save the server accepted. */
   onUpdateSuccess?: () => void;
-  /** Why this form may not be backtested right now, or null. */
-  backtestBlockReason?: () => string | null;
 }
 
 /** Top-level input an edit save can carry beside the settings. */
@@ -573,11 +571,6 @@ export const useFormHandlers = (
 
   const handleBacktest = useCallback(async (overrides?: BacktestOverrides) => {
     const formData = store.getState().formData;
-    const blockReason = options.backtestBlockReason?.();
-    if (blockReason) {
-      toast.error(blockReason);
-      return;
-    }
     try {
       if (options.validate) {
         const validation = options.validate(formData) as unknown as {

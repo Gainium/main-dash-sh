@@ -5,7 +5,8 @@
  * Single position per pair (DCA bots), the dashboard half: the adoption
  * preview, the ASAP spacing rule and its one-click fixes, the move/merge
  * routing, the entries label, the backend-compatibility gate on the save
- * payload, and the reads that detect an older backend.
+ * payload, the reads that detect an older backend, and the backtest inputs
+ * (the backtester simulates single position, §8).
  */
 import { describe, expect, it } from 'vitest';
 
@@ -14,6 +15,8 @@ import {
   DCA_FORM_DEFAULTS,
   SHARED_FORM_DEFAULTS,
 } from '@/contexts/bots/form/formDefaults';
+import { localDcaBacktestSettings } from '@/features/bots/widgets/BotForm/localBacktestSettings';
+import { prepareBacktestInput } from '@/hooks/useBacktestMutations';
 import { mapBotSettingsToFormData } from '@/mappers/bots/dca/map-bot-settings-to-form-data';
 import { mapFormDataToPayload } from '@/mappers/bots/dca/map-form-data-to-payload';
 import {
@@ -48,7 +51,12 @@ import {
   parseSinglePositionAnswer,
 } from '@/lib/singlePosition/singlePositionApi';
 import type { GraphQLClient } from '@/lib/api/GraphQLClient';
-import { BotTypesEnum, StartConditionEnum } from '@/types';
+import {
+  BotTypesEnum,
+  ExchangeIntervals,
+  StartConditionEnum,
+  type ExchangeInUser,
+} from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import { validateDcaFormData } from '@/utils/bots/dca/validation';
 
@@ -525,5 +533,88 @@ describe('form validation blocks the save', () => {
       singlePositionSupported: false,
     });
     expect(old.errors['singlePosition']).toBeUndefined();
+  });
+});
+
+describe('backtests carry single position (§8)', () => {
+  // A single-position DCA form on a backend that predates the setting: the
+  // SAVE payload strips both fields, the backtest inputs must not.
+  const form = (supported: boolean): BotFormData =>
+    ({
+      ...SHARED_FORM_DEFAULTS,
+      singlePositionSupported: supported,
+      type: BotTypesEnum.dca,
+      name: 'sp',
+      pair: ['BTCUSDT'],
+      exchangeUUID: 'exchange-uuid',
+      pairMetadata: {
+        BTCUSDT: {
+          pair: 'BTCUSDT',
+          baseAsset: { name: 'BTC', minAmount: 0.0001, step: 0.0001 },
+          quoteAsset: { name: 'USDT', minAmount: 1 },
+          priceAssetPrecision: 2,
+        },
+      },
+      dca: {
+        ...DCA_FORM_DEFAULTS,
+        startCondition: StartConditionEnum.asap,
+        useCooldown: true,
+        cooldownAfterDealStart: true,
+        cooldownAfterDealStartInterval: 3,
+        singlePosition: true,
+        maxPositionEntries: '3',
+      },
+      combo: { ...COMBO_FORM_DEFAULTS },
+      grid: {},
+    }) as unknown as BotFormData;
+  const exchange = {
+    provider: 'binance',
+    uuid: 'exchange-uuid',
+  } as unknown as ExchangeInUser;
+
+  it.each([true, false])(
+    'the server-side request sends both fields (backend has the setting: %s)',
+    (supported) => {
+      const { payload, symbols } = prepareBacktestInput(
+        form(supported),
+        exchange,
+        { userFee: '0.001', slippage: '0' } as never,
+        ExchangeIntervals.oneH
+      );
+      expect(payload.type).toBe(BotTypesEnum.dca);
+      expect(payload.data.settings).toMatchObject({
+        singlePosition: true,
+        maxPositionEntries: '3',
+      });
+      expect(symbols).toHaveLength(1);
+    }
+  );
+
+  it('the in-browser run sends both fields, though the save strips them', () => {
+    const saved = mapFormDataToPayload(form(false), { mode: 'edit' });
+    expect(saved.updatePayload).toBeDefined();
+    expect(saved.updatePayload).not.toHaveProperty('singlePosition');
+    const settings = localDcaBacktestSettings(form(false), {
+      indicators: [],
+      indicatorGroups: [],
+    });
+    expect(settings).toMatchObject({
+      singlePosition: true,
+      maxPositionEntries: '3',
+      name: 'sp',
+      pair: ['BTCUSDT'],
+    });
+  });
+
+  it('a combo form backtests its own slice, where the setting is off', () => {
+    const combo = {
+      ...form(true),
+      type: BotTypesEnum.combo,
+    } as BotFormData;
+    const settings = localDcaBacktestSettings(combo, {
+      indicators: [],
+      indicatorGroups: [],
+    });
+    expect(settings.singlePosition).toBeFalsy();
   });
 });

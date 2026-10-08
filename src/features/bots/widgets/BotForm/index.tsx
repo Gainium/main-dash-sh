@@ -157,6 +157,7 @@ import {
   type Symbols,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+import { localDcaBacktestSettings } from './localBacktestSettings';
 import type { ComboBot } from '@/types/comboBot';
 import type { GridBot } from '@/types/gridBot';
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
@@ -755,10 +756,7 @@ const BotForm: React.FC<BotFormProps> = ({
     setErrors,
     save: (extra) => singlePositionSaveRef.current(extra),
   });
-  const {
-    interceptSave: interceptSinglePositionSave,
-    backtestBlockReason: singlePositionBacktestBlock,
-  } = singlePosition;
+  const { interceptSave: interceptSinglePositionSave } = singlePosition;
 
   const navigate = useNavigate();
 
@@ -1389,7 +1387,6 @@ const BotForm: React.FC<BotFormProps> = ({
 
     options.onSaveError = singlePosition.onSaveError;
     options.onUpdateSuccess = singlePosition.onSaveSuccess;
-    options.backtestBlockReason = singlePosition.backtestBlockReason;
 
     return options;
   }, [
@@ -1401,7 +1398,6 @@ const BotForm: React.FC<BotFormProps> = ({
     payloadMapper,
     singlePosition.onSaveError,
     singlePosition.onSaveSuccess,
-    singlePosition.backtestBlockReason,
   ]);
 
   const isTerminal = !!formTerminal;
@@ -1457,17 +1453,12 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const onBacktestClick = useCallback(
     (_formData?: BotFormData, cfg?: Partial<BacktestConfig>) => {
-      const blockReason = singlePositionBacktestBlock();
-      if (blockReason) {
-        toast.error(blockReason);
-        return;
-      }
       if (cfg) {
         setBacktestDialogInitial((prev) => ({ ...prev, ...cfg }));
       }
       setShowBacktestDialog(true);
     },
-    [setShowBacktestDialog, singlePositionBacktestBlock]
+    [setShowBacktestDialog]
   );
 
   // Grid validation is the provider's debounced pass (same validator, same
@@ -3033,12 +3024,6 @@ const BotForm: React.FC<BotFormProps> = ({
 
   const onRunBacktest = useCallback(
     async (cfg: BacktestConfig) => {
-      // §8: not simulated yet, and not run as if the setting were off.
-      const singlePositionBlock = singlePositionBacktestBlock();
-      if (singlePositionBlock) {
-        toast.error(singlePositionBlock);
-        return;
-      }
       if (!(await confirmBacktestLimitations())) return;
       // The form as it is now, read once at run time (the shell does not
       // subscribe to it).
@@ -3402,44 +3387,11 @@ const BotForm: React.FC<BotFormProps> = ({
                 settingsFromMapping.useMulti;
             }
 
-            // A combo bot stores its settings in `formData.combo`, not
-            // `formData.dca`, and must run with `combo: true` so the
-            // backtester applies combo grid logic. Mirrors legacy
-            // (useDCAPage `settingsInput`), which passes the bot's own
-            // settings plus the real `combo` flag. Using `formData.dca` +
-            // `combo: false` for a combo bot ran it as a plain DCA bot with
-            // the empty DCA slice, producing trivial ~1% ROI deals.
             const isComboBacktest = formData.type === BotTypesEnum.combo;
-            const backtestSettings = (
-              isComboBacktest ? formData.combo : formData.dca
-            ) as unknown as DCABotSettings;
             const backtesterInput: DCABacktestingInput = {
               exchange: currentExchange?.provider,
               symbols,
-              settings: {
-                ...backtestSettings,
-                // The raw form slice keeps every indicator NUMBER param as a
-                // STRING: `InlineIndicatorConfig` stores `newValue.toString()`
-                // so a `$var` expression can share the field. It is
-                // `mapFormDataToPayload` that coerces them back (its
-                // `fieldsAsNumber` list), so a SAVED bot holds
-                // `indicatorLength: 14` while the form the user is still
-                // editing holds `'14'` — and the engine is not tolerant:
-                // `new RSI('14')` returns `null` for every bar, so no crossing
-                // ever fires and the run reports 0 deals. That is bug #559,
-                // and it explains the reporter's own workaround (save, reopen
-                // in Edit, backtest works) — reloading re-reads the coerced
-                // values from the API.
-                // Take the indicators from the mapped payload instead: it is
-                // normalised exactly the way the backend receives them, and
-                // pruned of the close indicators the active close condition
-                // cannot use. `mapIndicatorGroupsFields` reads the combo slice
-                // for combo bots, so this is correct for both bot types.
-                indicators: settingsFromMapping.indicators,
-                indicatorGroups: settingsFromMapping.indicatorGroups,
-                name: formData.name,
-                pair: [formData.pair].flat(),
-              },
+              settings: localDcaBacktestSettings(formData, settingsFromMapping),
               userFee,
               prices: getLocalPrices(),
               balances: queryBalances ?? [],
@@ -3625,7 +3577,6 @@ const BotForm: React.FC<BotFormProps> = ({
       queryBalances,
       onBacktestComplete,
       setErrors,
-      singlePositionBacktestBlock,
     ]
   );
 

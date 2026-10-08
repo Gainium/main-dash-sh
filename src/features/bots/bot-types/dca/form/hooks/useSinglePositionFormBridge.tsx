@@ -1,7 +1,8 @@
 // Wires single position per pair into the bot form shell: whether the backend
 // has it, the bot's saved value, the save confirmation that adopts open deals
-// (spec 139 §5.1.3) and the backtest refusal (§8). Kept out of the 4k-line
-// form shell so the whole feature reads in one place.
+// (spec 139 §5.1.3). Kept out of the 4k-line form shell so the whole feature
+// reads in one place. Backtests need nothing here: the backtester simulates
+// single position (§8) from the form's own DCA settings.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { SinglePositionAdoptionDialog } from '@/components/deals/SinglePositionAdoptionDialog';
@@ -12,7 +13,6 @@ import {
 } from '@/hooks/useSinglePosition';
 import { logger } from '@/lib/loggerInstance';
 import {
-  SINGLE_POSITION_BACKTEST_REASON,
   buildAdoptionPreview,
   isMultiDealRefusal,
   isTurningSinglePositionOn,
@@ -230,15 +230,6 @@ export function useSinglePositionFormBridge({
     toast.info('Single position per pair was left off.');
   }, [setFormData]);
 
-  /** §8: the reason to refuse a backtest of this form, or null. */
-  const backtestBlockReason = useCallback((): string | null => {
-    if (!enabled) return null;
-    const formData = getFormData();
-    return formData.singlePositionSupported && formData.dca.singlePosition
-      ? SINGLE_POSITION_BACKTEST_REASON
-      : null;
-  }, [enabled, getFormData]);
-
   const dialog = (
     <SinglePositionAdoptionDialog
       open={rows !== null}
@@ -256,7 +247,6 @@ export function useSinglePositionFormBridge({
     interceptSave,
     onSaveError,
     onSaveSuccess,
-    backtestBlockReason,
     dialog,
   };
 }

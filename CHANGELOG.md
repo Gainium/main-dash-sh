@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.5] - 2026-10-08
+
+### Changed
+
+- DCA bots: a bot with "single position per pair" can be backtested, in the browser and on the server. The backtester now simulates single position, so the backtest is no longer refused.
+
 ## [2.89.4] - 2026-10-08
 
 ### Fixed

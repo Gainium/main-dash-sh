@@ -12,8 +12,6 @@ export const SINGLE_POSITION_ASAP_REASON =
   'Single position with ASAP needs a dynamic price filter or a cooldown after deal start';
 export const SINGLE_POSITION_START_BOT_REASON =
   'Start the bot to switch it to single position';
-export const SINGLE_POSITION_BACKTEST_REASON =
-  'Backtesting is not available for single-position bots yet';
 /** Prefix of the refusal sent while a pair holds more than one open deal. */
 export const SINGLE_POSITION_MULTI_DEAL_PREFIX =
   'Single position: more than one open deal on';
