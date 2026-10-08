@@ -48,8 +48,11 @@ export function AdoptionPreviewRows({
               </dd>
               <dt>Take-profit price</dt>
               <dd className="text-foreground">
-                {formatPreviewNumber(row.tpBefore)} →{' '}
-                {formatPreviewNumber(row.tpAfter)}{' '}
+                {formatPreviewNumber(row.tpBefore)}
+                {!row.tpBeforeLive && (
+                  <span className="text-muted-foreground"> (est.)</span>
+                )}{' '}
+                → {formatPreviewNumber(row.tpAfter)}{' '}
                 <span className="text-muted-foreground">(est.)</span>
               </dd>
             </dl>

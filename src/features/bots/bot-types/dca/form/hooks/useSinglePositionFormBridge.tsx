@@ -20,6 +20,7 @@ import {
 } from '@/lib/singlePosition/singlePosition';
 import {
   fetchBotOpenDeals,
+  withRestingTpPrices,
   type OpenDealForPreview,
 } from '@/lib/singlePosition/singlePositionApi';
 import { toast } from '@/lib/toast';
@@ -141,11 +142,22 @@ export function useSinglePositionFormBridge({
       if (deal.baseAsset) nextAssets[deal.symbol] = deal.baseAsset;
     }
     setAssets(nextAssets);
-    return buildAdoptionPreview(deals, {
+    const bot = {
       strategy: formData.dca.strategy,
       tpPerc: formData.dca.tpPerc,
       useTp: formData.dca.useTp,
-    });
+    };
+    // A first pass names the target of each pair; only their resting take
+    // profits are loaded (one small orders request per affected pair).
+    const targets = buildAdoptionPreview(deals, bot).map((r) => r.targetDealId);
+    const withTp = await withRestingTpPrices(
+      make(),
+      botId,
+      deals,
+      targets,
+      formData.dca.strategy
+    );
+    return buildAdoptionPreview(withTp, bot);
   }, [botId, getFormData, make]);
 
   /**

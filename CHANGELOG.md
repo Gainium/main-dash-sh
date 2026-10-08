@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.3] - 2026-10-08
+
+### Fixed
+
+- Single position per pair: the switch confirmation shows the take profit actually resting for the position, and estimates the new one from that order's distance to the average (fees included) instead of the bare TP %.
+
 ## [2.89.2] - 2026-10-08
 
 ### Fixed

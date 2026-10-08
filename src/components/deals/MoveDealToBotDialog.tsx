@@ -37,7 +37,10 @@ import {
   previewAdoption,
   type AdoptionPreviewRow,
 } from '@/lib/singlePosition/singlePosition';
-import { fetchBotOpenDeals } from '@/lib/singlePosition/singlePositionApi';
+import {
+  fetchBotOpenDeals,
+  fetchRestingTpPrice,
+} from '@/lib/singlePosition/singlePositionApi';
 
 /** Minimal description of the terminal deal being moved. */
 export interface MoveDealToBotTarget {
@@ -180,7 +183,14 @@ export function MoveDealToBotDialog({
         terminal: true,
       });
       const incoming = terminalDeals.find((d) => d._id === deal.dealId);
-      const row = previewAdoption(position, incoming ? [incoming] : [], {
+      const restingTpPrice = await fetchRestingTpPrice(
+        make(),
+        selectedBotId,
+        position._id,
+        position.strategy ?? bot.settings?.strategy ?? deal.strategy
+      );
+      const target = { ...position, restingTpPrice };
+      const row = previewAdoption(target, incoming ? [incoming] : [], {
         strategy: bot.settings?.strategy ?? deal.strategy,
         tpPerc: bot.settings?.tpPerc,
         useTp: bot.settings?.useTp,

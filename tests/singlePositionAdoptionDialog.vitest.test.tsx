@@ -14,6 +14,8 @@ import { SinglePositionAdoptionDialog } from '@/components/deals/SinglePositionA
 import {
   ADOPTION_IRREVERSIBLE_SENTENCE,
   buildAdoptionPreview,
+  type AdoptionPreviewRow,
+  type PreviewDeal,
 } from '@/lib/singlePosition/singlePosition';
 
 beforeAll(() => {
@@ -31,8 +33,7 @@ afterEach(() => {
   host = null;
 });
 
-const rows = buildAdoptionPreview(
-  [
+const rowsInput: PreviewDeal[] = [
     {
       _id: 'old',
       symbol: 'BTCUSDT',
@@ -53,11 +54,15 @@ const rows = buildAdoptionPreview(
       currentBalances: { base: 1 },
       levels: { all: 1, complete: 1 },
     },
-  ],
-  { strategy: 'LONG', tpPerc: '1', useTp: true }
-);
+  ];
+const bot = { strategy: 'LONG', tpPerc: '1', useTp: true };
+const rows = buildAdoptionPreview(rowsInput, bot);
 
-const render = (onConfirm = vi.fn(), onCancel = vi.fn()) => {
+const render = (
+  onConfirm = vi.fn(),
+  onCancel = vi.fn(),
+  shown: AdoptionPreviewRow[] = rows
+) => {
   host = document.createElement('div');
   document.body.appendChild(host);
   root = createRoot(host);
@@ -65,7 +70,7 @@ const render = (onConfirm = vi.fn(), onCancel = vi.fn()) => {
     root?.render(
       createElement(SinglePositionAdoptionDialog, {
         open: true,
-        rows,
+        rows: shown,
         baseAssetOf: () => 'BTC',
         onConfirm,
         onCancel,
@@ -87,8 +92,20 @@ describe('SinglePositionAdoptionDialog', () => {
     expect(text).toContain('BTCUSDT — 2 deals → 1 position');
     expect(text).toContain('1 → 2 BTC');
     expect(text).toContain('100 → 110');
-    expect(text).toContain('101 → 111.1');
+    // No resting TP loaded: the old TP is an estimate too, and says so.
+    expect(text).toContain('101 (est.) → 111.1 (est.)');
     expect(text).toContain(ADOPTION_IRREVERSIBLE_SENTENCE);
+  });
+
+  it('shows a loaded resting TP as is, without the estimate mark', () => {
+    const [oldest, newer] = rowsInput as [PreviewDeal, PreviewDeal];
+    render(
+      vi.fn(),
+      vi.fn(),
+      buildAdoptionPreview([{ ...oldest, restingTpPrice: 101.08 }, newer], bot)
+    );
+    const text = document.body.textContent ?? '';
+    expect(text).toContain('101.08 → 111.188 (est.)');
   });
 
   it('Confirm and Cancel call their handlers', () => {

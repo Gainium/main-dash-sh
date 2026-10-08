@@ -161,6 +161,30 @@ describe('adoption preview (§5.1.1 / §5.1.3)', () => {
     expect(row.sizeAfter).toBe(1);
   });
 
+  it('shows the resting TP as before and carries its ratio to the new average', () => {
+    // A resting TP 1.08 % above the average (TP % 1 plus fees), not the bare 1 %.
+    const row = previewAdoption(
+      { ...longDeal('t', 1, 7, 83356.5), restingTpPrice: 84257.4 },
+      [longDeal('s', 2, 1, 82943.0)],
+      bot
+    );
+    expect(row.tpBeforeLive).toBe(true);
+    expect(row.tpBefore).toBe(84257.4);
+    // (7 * 83356.5 + 82943) / 8
+    expect(row.avgAfter).toBeCloseTo(83304.8125, 6);
+    expect(row.tpAfter).toBeCloseTo(83304.8125 * (84257.4 / 83356.5), 6);
+  });
+
+  it('falls back to the TP % estimate when no resting TP was loaded', () => {
+    const row = previewAdoption(
+      { ...longDeal('t', 1, 1, 100), restingTpPrice: null },
+      [longDeal('s', 2, 1, 120)],
+      bot
+    );
+    expect(row.tpBeforeLive).toBe(false);
+    expect(row.tpAfter).toBeCloseTo(111.1, 10);
+  });
+
   it('carries the irreversibility sentence the spec asks for', () => {
     expect(ADOPTION_IRREVERSIBLE_SENTENCE).toBe(
       'Open safety orders and take-profit orders of these deals are cancelled and replaced. This cannot be undone.'

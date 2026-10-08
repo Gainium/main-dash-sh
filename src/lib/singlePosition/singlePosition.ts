@@ -199,6 +199,12 @@ export interface PreviewDeal {
   currentBalances?: { base?: number | null; quote?: number | null } | null | undefined;
   levels?: { all?: number | null; complete?: number | null } | null | undefined;
   settings?: { tpPerc?: string | number | null; useTp?: boolean | null } | null | undefined;
+  /**
+   * Price of the take profit resting for this deal on the exchange, when it
+   * was loaded. Includes whatever the bot adds to the TP % (fees), so it is the
+   * figure to show — and the ratio to carry over to the new average.
+   */
+  restingTpPrice?: number | null | undefined;
 }
 
 export interface PreviewBotSettings {
@@ -220,8 +226,14 @@ export interface AdoptionPreviewRow {
   avgBefore: number;
   /** Size-weighted average of every deal folded in (estimated). */
   avgAfter: number;
+  /** The target's resting take profit; estimated from TP % when it was not loaded. */
   tpBefore: number | null;
-  /** From the bot's TP % over the new average (estimated). */
+  /** True when `tpBefore` is the order resting on the exchange, not an estimate. */
+  tpBeforeLive: boolean;
+  /**
+   * Estimated: the resting TP's ratio to the average carried over to the new
+   * average, else the bot's TP % over the new average.
+   */
   tpAfter: number | null;
 }
 
@@ -292,11 +304,19 @@ export const previewAdoption = (
   const avgBefore = Number(target.avgPrice ?? 0) || 0;
   const avgAfter = size > 0 ? notional / size : avgBefore;
   const targetUsesTp = target.settings?.useTp ?? bot.useTp ?? true;
-  const tpBefore = targetUsesTp
-    ? tpPriceFor(avgBefore, target.settings?.tpPerc ?? bot.tpPerc, strategy)
-    : null;
+  const resting = Number(target.restingTpPrice ?? 0) || 0;
+  const tpBeforeLive = resting > 0 && avgBefore > 0;
+  const tpBefore = tpBeforeLive
+    ? resting
+    : targetUsesTp
+      ? tpPriceFor(avgBefore, target.settings?.tpPerc ?? bot.tpPerc, strategy)
+      : null;
   const tpAfter =
-    bot.useTp === false ? null : tpPriceFor(avgAfter, bot.tpPerc, strategy);
+    bot.useTp === false
+      ? null
+      : tpBeforeLive
+        ? avgAfter * (resting / avgBefore)
+        : tpPriceFor(avgAfter, bot.tpPerc, strategy);
   return {
     pair: target.symbol,
     kind: sources.length > 0 ? 'adopt' : 'ladder',
@@ -308,6 +328,7 @@ export const previewAdoption = (
     avgBefore,
     avgAfter,
     tpBefore,
+    tpBeforeLive,
     tpAfter,
   };
 };

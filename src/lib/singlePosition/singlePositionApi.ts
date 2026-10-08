@@ -280,3 +280,75 @@ export async function adoptDeals(
   }
   return result;
 }
+
+type DealOrderRow = {
+  typeOrder?: string | null;
+  status?: string | null;
+  price?: string | number | null;
+  sl?: boolean | null;
+  reduceFundsId?: string | null;
+};
+
+/**
+ * The take-profit price resting on the exchange for `dealId`, or null (no TP,
+ * or the orders did not load). With several TP targets the nearest one — the
+ * first to fill — is returned.
+ */
+export async function fetchRestingTpPrice(
+  client: GraphQLClient,
+  botId: string,
+  dealId: string,
+  strategy: unknown
+): Promise<number | null> {
+  try {
+    const { query, variables } = dealQueries.getDealOrders({ id: botId, dealId, all: true });
+    const answer = await client.request<{
+      getDealOrders: { status: string; data?: DealOrderRow[] | null };
+    }>(query, variables);
+    if (answer.getDealOrders?.status !== 'OK') return null;
+    const prices = (answer.getDealOrders.data ?? [])
+      .filter(
+        (o) =>
+          o.typeOrder === 'dealTP' &&
+          (o.status === 'NEW' || o.status === 'PARTIALLY_FILLED') &&
+          !o.sl &&
+          !o.reduceFundsId
+      )
+      .map((o) => Number(o.price))
+      .filter((p) => Number.isFinite(p) && p > 0);
+    if (prices.length === 0) return null;
+    return String(strategy ?? '').toUpperCase() === 'SHORT'
+      ? Math.max(...prices)
+      : Math.min(...prices);
+  } catch {
+    return null;
+  }
+}
+
+/** `deals` with the resting TP of each of `dealIds` attached (§5.1.3 preview). */
+export async function withRestingTpPrices<T extends PreviewDeal & { botId?: string }>(
+  client: GraphQLClient,
+  botId: string,
+  deals: T[],
+  dealIds: string[],
+  strategy: unknown
+): Promise<T[]> {
+  const wanted = new Set(dealIds);
+  const prices = new Map<string, number | null>();
+  await Promise.all(
+    deals
+      .filter((d) => wanted.has(d._id))
+      .map(async (d) => {
+        const price = await fetchRestingTpPrice(
+          client,
+          d.botId || botId,
+          d._id,
+          d.strategy ?? strategy
+        );
+        prices.set(d._id, price);
+      })
+  );
+  return deals.map((d) =>
+    prices.has(d._id) ? { ...d, restingTpPrice: prices.get(d._id) ?? null } : d
+  );
+}
