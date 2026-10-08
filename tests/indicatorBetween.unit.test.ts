@@ -54,12 +54,13 @@ test('Between is not offered once percentile is on', () => {
   );
   expect(pct).toBeDefined();
   expect(
-    pct!.options.some((o) => o.value === IndicatorStartConditionEnum.bw)
+    pct?.options.some((o) => o.value === IndicatorStartConditionEnum.bw)
   ).toBe(false);
 });
 
 test('the upper value shows only for Between', () => {
-  const field = upperField(IndicatorEnum.rsi)!;
+  const field = upperField(IndicatorEnum.rsi);
+  if (!field) throw new Error('rsi has no upper value field');
   const params = (condition: IndicatorStartConditionEnum) =>
     ({ indicatorCondition: condition }) as IndicatorParamsState;
   expect(shouldHideField(field, params(IndicatorStartConditionEnum.gt))).toBe(
