@@ -36,6 +36,7 @@ import { formatGridInitialPrice } from '@/mappers/bots/grid/map-grid-bot-setting
 import {
   BotTypesEnum,
   BuyTypeEnum,
+  CloseConditionEnum,
   ExchangeIntervals,
   TerminalDealTypeEnum,
   type BotVars,
@@ -419,13 +420,27 @@ export const useFormHandlers = (
           }
         }
 
-        toast.success(
-          terminal
-            ? formData.dca.terminalDealType === TerminalDealTypeEnum.import
-              ? 'Deal succesfully imported'
-              : 'Deal created, waiting to place orders'
-            : 'Bot created successfully!'
-        );
+        // A webhook-managed terminal deal is useless until the user copies
+        // its payloads, and the uuid they need only exists from now on.
+        const terminalUsesWebhook =
+          terminal &&
+          ((formData.dca.useTp &&
+            formData.dca.dealCloseCondition === CloseConditionEnum.webhook) ||
+            (formData.dca.useSl &&
+              formData.dca.dealCloseConditionSL === CloseConditionEnum.webhook));
+        const createdMessage = terminal
+          ? formData.dca.terminalDealType === TerminalDealTypeEnum.import
+            ? 'Deal succesfully imported'
+            : 'Deal created, waiting to place orders'
+          : 'Bot created successfully!';
+        if (terminalUsesWebhook) {
+          toast.success(
+            `${createdMessage}. To get its webhook UUID and payloads, edit the deal: Open orders → Edit → Webhooks.`,
+            { duration: 10000 }
+          );
+        } else {
+          toast.success(createdMessage);
+        }
         options.onCreateSuccess?.(createdBot);
         setErrors({});
         setIsDirty(false);

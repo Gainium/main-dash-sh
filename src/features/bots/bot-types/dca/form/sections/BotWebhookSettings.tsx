@@ -966,7 +966,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
               </AlertTitle>
               <AlertDescription className="text-xs sm:text-sm">
                 {isTerminal
-                  ? 'The identifier is created with the deal. After placing it, open the deal\'s Edit drawer from Open orders to copy payloads with the real UUID.'
+                  ? 'The webhook UUID is created with the deal. After placing it, edit the deal (Open orders → Edit → Webhooks) to copy these payloads with its real UUID.'
                   : 'Save the bot first to generate a persistent identifier. Webhook payloads need a valid bot UUID.'}
               </AlertDescription>
             </Alert>

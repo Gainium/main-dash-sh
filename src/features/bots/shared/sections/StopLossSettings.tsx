@@ -2294,8 +2294,9 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
                 Webhook-managed stop loss
               </AlertTitle>
               <AlertDescription className="text-xs leading-relaxed">
-                Stop loss management will rely on webhook signals. Configure
-                your payload in the webhook section to control exits.
+                {formData.terminal && mode !== 'deal-edit'
+                  ? 'Stop loss management will rely on webhook signals. The webhook UUID is created with the deal: after placing it, edit the deal (Open orders → Edit → Webhooks) to copy its payloads.'
+                  : 'Stop loss management will rely on webhook signals. Configure your payload in the webhook section to control exits.'}
               </AlertDescription>
             </Alert>
             <WebhooksDisabledWarning />

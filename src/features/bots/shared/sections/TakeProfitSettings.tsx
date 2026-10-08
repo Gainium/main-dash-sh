@@ -2711,9 +2711,9 @@ export const TakeProfitSettings: React.FC = () => {
                     Webhook-managed take profit
                   </AlertTitle>
                   <AlertDescription className="text-xs leading-relaxed">
-                    Take profit management will rely on webhook signals.
-                    Configure your payload in the webhook section to control
-                    exits.
+                    {formTerminal
+                      ? 'Take profit management will rely on webhook signals. The webhook UUID is created with the deal: after placing it, edit the deal (Open orders → Edit → Webhooks) to copy its payloads.'
+                      : 'Take profit management will rely on webhook signals. Configure your payload in the webhook section to control exits.'}
                   </AlertDescription>
                 </Alert>
               ) : null}
