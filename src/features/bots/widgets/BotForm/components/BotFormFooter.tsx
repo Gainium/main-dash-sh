@@ -403,6 +403,8 @@ interface CreditsChipProps {
     total: number
   }
   affiliate: boolean
+  /** Combo coins are priced per coin that can run at the same time. */
+  isCombo?: boolean
 }
 
 /**
@@ -416,6 +418,7 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
   isCompact,
   credits,
   affiliate,
+  isCombo,
 }) => {
   const [open, setOpen] = useState(false)
   // Quote `credits.total`, NOT the sum of the component rows. The backend
@@ -433,7 +436,10 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
     credits.total
   const rows = [
     { label: 'Base cost', value: credits.base },
-    { label: 'Extra pairs', value: credits.pairs },
+    {
+      label: isCombo ? 'Extra parallel coins' : 'Extra pairs',
+      value: credits.pairs,
+    },
     { label: 'Indicators', value: credits.indicators },
     { label: 'Extra deals', value: credits.deals },
   ].filter((r) => r.value > 0)
@@ -482,6 +488,12 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
               <span>{isRoundedDown ? 'Total (rounded down)' : 'Total'}</span>
               <span className='tabular-nums'>{totalLabel}</span>
             </div>
+            {isCombo && credits.pairs > 0 && (
+              <p className='pt-1 text-muted-foreground'>
+                Each coin the bot can trade at the same time (up to Max open
+                deals) costs one combo.
+              </p>
+            )}
           </div>
         )}
       </PopoverContent>
@@ -1208,6 +1220,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               isCompact={isCompact}
               credits={credits}
               affiliate={!!currentExchange?.affiliate}
+              isCombo={botType === BotTypesEnum.combo}
             />
           ),
           compactContent: (
@@ -1215,6 +1228,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               isCompact
               credits={credits}
               affiliate={!!currentExchange?.affiliate}
+              isCombo={botType === BotTypesEnum.combo}
             />
           ),
         })

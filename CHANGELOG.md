@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.87.3] - 2026-10-08
+
+### Changed
+
+- Multi-coin combo bots: the credit quote charges one combo for each coin the bot can trade at the same time — the number of pairs, capped by Max open deals — instead of one per pair. The credit breakdown labels this line "Extra parallel coins".
+
 ## [2.87.2] - 2026-10-08
 
 ### Fixed

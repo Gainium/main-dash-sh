@@ -1,8 +1,12 @@
 import { BotTypesEnum, DCATypeEnum } from '@/types';
 
 const coinFactor = 0.5;
-// Each extra combo coin runs its own grid, so it costs a whole combo.
+// Each coin a combo can trade at the same time is its own market, so it is
+// priced as one combo: min(coins, max open deals) combos. Max open deals <= 0
+// is unlimited, so every coin counts. Mirrors main-app's calculateCost.
 export const comboCoinFactor = 200;
+export const comboParallelCoins = (pairs: number, deals: number): number =>
+  Math.max(1, deals > 0 ? Math.min(pairs, deals) : pairs);
 const indicatorFactor = 1;
 const dealsFactor = 1;
 export const gridBaseCost = 250;
@@ -56,12 +60,13 @@ export const calculateCost = ({
         ? _indicators * indicatorFactor
         : _indicators * _pairs * indicatorFactor;
   const pairs =
-    botType === BotTypesEnum.grid ||
-    type === DCATypeEnum.terminal ||
-    _pairs <= 1
-      ? 0
-      : (_pairs - 1) *
-        (botType === BotTypesEnum.combo ? comboCoinFactor : coinFactor);
+    botType === BotTypesEnum.combo
+      ? (comboParallelCoins(_pairs, _deals) - 1) * comboCoinFactor
+      : botType === BotTypesEnum.grid ||
+          type === DCATypeEnum.terminal ||
+          _pairs <= 1
+        ? 0
+        : (_pairs - 1) * coinFactor;
 
   const deals =
     botType === BotTypesEnum.grid ||
