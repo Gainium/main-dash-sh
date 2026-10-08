@@ -6,6 +6,7 @@
 
 - Trading terminal: the order form has a Webhooks section again, and the Edit Deal drawer of a terminal deal shows its webhook URL with ready close, close-by-SL and add/reduce funds payloads, so a take profit or stop loss set to Webhook can actually be triggered.
 - Trading terminal: a take profit or stop loss set to Webhook, and the deal-created message, now say where to find the deal's webhook UUID (edit the deal from Open orders).
+- Bot forms: the webhook-managed take profit / stop loss notes and the locked stop loss type note use the same tinted style as the other notes instead of a black box.
 
 ## [2.89.3] - 2026-10-08
 

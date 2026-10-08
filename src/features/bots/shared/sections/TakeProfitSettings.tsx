@@ -2706,7 +2706,7 @@ export const TakeProfitSettings: React.FC = () => {
               )}
 
               {option.value === CloseConditionEnum.webhook && !isDealEdit ? (
-                <Alert>
+                <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
                   <AlertTitle className="text-sm font-semibold">
                     Webhook-managed take profit
                   </AlertTitle>

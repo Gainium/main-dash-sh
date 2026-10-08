@@ -2250,7 +2250,7 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
   const renderSLContent = (condition: CloseConditionEnum) => {
     if (isDealEdit && condition && condition !== CloseConditionEnum.tp) {
       return (
-        <Alert>
+        <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
           <AlertTitle className="text-sm font-semibold">
             Stop loss type locked
           </AlertTitle>
@@ -2289,7 +2289,7 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
       case CloseConditionEnum.webhook:
         return (
           <>
-            <Alert>
+            <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
               <AlertTitle className="text-sm font-semibold">
                 Webhook-managed stop loss
               </AlertTitle>
