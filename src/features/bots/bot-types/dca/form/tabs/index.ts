@@ -141,6 +141,7 @@ const dcaTabConfig: TabDescriptorInput[] = [
     icon: ExternalLink,
     Component: WebhookSettingsTab,
     description: 'Webhook helper and prebuilt payloads',
+    isTerminal: true,
     isDca: true,
   },
 ];

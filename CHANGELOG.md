@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.4] - 2026-10-08
+
+### Fixed
+
+- Trading terminal: the order form has a Webhooks section again, and the Edit Deal drawer of a terminal deal shows its webhook URL with ready close, close-by-SL and add/reduce funds payloads, so a take profit or stop loss set to Webhook can actually be triggered.
+
 ## [2.89.3] - 2026-10-08
 
 ### Fixed

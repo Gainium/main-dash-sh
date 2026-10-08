@@ -28,6 +28,7 @@ import {
   type BotFormTabId,
 } from '@/features/bots';
 import {
+  BotWebhookSettings,
   DCASettings,
   TakeProfitSettings,
 } from '@/features/bots/bot-types/dca/form/sections';
@@ -55,6 +56,7 @@ import {
   type UseBotFormMutationsOptions,
 } from '@/hooks/bots/base/useBotFormMutations';
 import { useEditDeal, useResetDeal } from '@/hooks/useDealActions';
+import { useSharedBot } from '@/hooks/useSharedBot';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
 import { isActiveDeal } from '@/lib/utils/unrealizedPnL';
@@ -69,6 +71,7 @@ import { motion } from 'framer-motion';
 import {
   AlertTriangle,
   Delete,
+  ExternalLink,
   Loader2,
   Save,
   SlidersHorizontal,
@@ -139,6 +142,25 @@ const toDealFormBotType = (botType?: BotTypesEnum): BotTypesEnum =>
   botType === BotTypesEnum.combo || botType === BotTypesEnum.hedgeCombo
     ? BotTypesEnum.combo
     : BotTypesEnum.dca;
+
+/**
+ * Webhook payloads for one terminal deal (legacy terminal page's `WebhookData`
+ * under the active deal). Payloads key on the deal's bot `uuid`, which the
+ * deal list does not carry, so it is fetched here — only once the section is
+ * expanded, since it mounts collapsed.
+ */
+const TerminalDealWebhookSection: React.FC<{ botId: string }> = ({
+  botId,
+}) => {
+  const { bot } = useSharedBot({
+    botId,
+    type: BotTypesEnum.dca,
+    shareId: null,
+    enabled: true,
+  });
+  const uuid = (bot as { uuid?: string } | null)?.uuid;
+  return <BotWebhookSettings terminal {...(uuid ? { botUuid: uuid } : {})} />;
+};
 
 export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
   ({ children, onClose, trade, botType, inline = false, chartSync = false }) => {
@@ -376,6 +398,11 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
       }),
       []
     );
+    // Webhooks act on one terminal deal, so the section is single-edit only.
+    const terminalDealBotId =
+      botType === BotTypesEnum.terminal && trade?.length === 1
+        ? trade[0].botId
+        : undefined;
     const visibleDescriptors: TabDescriptorInput[] = useMemo(() => {
       return [
         {
@@ -423,8 +450,23 @@ export const DealEditDrawerInner: React.FC<DealEditDrawerProps> = React.memo(
           isTerminal: true,
           isDca: true,
         },
+        ...(terminalDealBotId
+          ? [
+              {
+                id: 'webhook' as const,
+                label: 'Webhooks',
+                icon: ExternalLink,
+                Component: () => (
+                  <TerminalDealWebhookSection botId={terminalDealBotId} />
+                ),
+                description: 'Webhook URL and prebuilt payloads for this deal',
+                isTerminal: true,
+                isDca: true,
+              },
+            ]
+          : []),
       ];
-    }, []);
+    }, [terminalDealBotId]);
     const getBalanceFn = useMemo<GetBalanceFn>(
       () => getBalance as unknown as GetBalanceFn,
       [getBalance]
