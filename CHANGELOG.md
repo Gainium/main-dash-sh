@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.87.2] - 2026-10-08
+
+### Fixed
+
+- Merge Deals is offered again for deals of different bots, so terminal deals can be merged.
+
 ## [2.87.1] - 2026-10-07
 
 ### Fixed

@@ -2257,7 +2257,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         },
         canMoveToTerminal: canMoveTradeToTerminal,
         canMerge: () => !isComboLike,
-        getBotId: (deal) => deal.botId ?? botId,
         canAdjustFunds: (deal) => canAdjustDealFunds(toAdjustFundsTarget(deal)),
         getSymbol: (deal) =>
           typeof deal.symbol === 'string' ? deal.symbol : deal.symbol.symbol,
@@ -2269,7 +2268,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       openBulkAdjustFunds,
       toAdjustFundsTarget,
       isComboLike,
-      botId,
     ]
   );
 

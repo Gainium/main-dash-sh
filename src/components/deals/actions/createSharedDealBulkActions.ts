@@ -31,8 +31,6 @@ interface CreateSharedDealBulkActionsOptions<T extends SharedDealActionRow> {
    * backend refuses it — the legacy dashboard never offered it either.
    */
   canMerge: (deal: T) => boolean;
-  /** The deal's bot — merging is offered only within one bot, as in V1. */
-  getBotId: (deal: T) => string | undefined;
   /**
    * Whether a deal can take a funds adjustment (see `canAdjustDealFunds`).
    * Omit to always offer the Add/Reduce Funds actions.
@@ -55,7 +53,6 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
     onClose,
     canMoveToTerminal,
     canMerge,
-    getBotId,
     canAdjustFunds,
     getSymbol,
   } = options;
@@ -79,15 +76,11 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
 
         const firstSymbol = getSymbol(selectedDeals[0]);
         const firstExchange = selectedDeals[0].exchange;
-        const firstBotId = getBotId(selectedDeals[0]);
-
-        if (!firstBotId || !selectedDeals.every(canMerge)) {
+        // Deals of different bots merge too (terminal deals each have their
+        // own bot); the merged deal lands in the first deal's bot.
+        if (!selectedDeals.every(canMerge)) {
           return false;
         }
-
-        const allSameBot = selectedDeals.every(
-          (deal: T) => getBotId(deal) === firstBotId
-        );
 
         const allSameSymbol = selectedDeals.every(
           (deal: T) => getSymbol(deal) === firstSymbol
@@ -97,7 +90,7 @@ export function createSharedDealBulkActions<T extends SharedDealActionRow>(
           (deal: T) => deal.exchange === firstExchange
         );
 
-        return allSameBot && allSameSymbol && allSameExchange;
+        return allSameSymbol && allSameExchange;
       },
     },
     {

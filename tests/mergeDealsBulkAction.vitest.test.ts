@@ -3,8 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { createSharedDealBulkActions } from '@/components/deals/actions/createSharedDealBulkActions';
 
 /**
- * Merge Deals is offered only for deals of one non-combo bot, on one pair and
- * exchange — the rule the legacy dashboard applied. A combo position lives in
+ * Merge Deals is offered for non-combo deals on one pair and exchange, across
+ * bots too — terminal deals each have their own bot. A combo position lives in
  * its minigrids and cannot be merged; the backend refuses it.
  */
 type Row = {
@@ -36,7 +36,6 @@ const mergeShown = (rows: Row[]) => {
     onClose: noop,
     canMoveToTerminal: () => false,
     canMerge: (r) => r.type !== 'Combo' && r.type !== 'Hedge Combo',
-    getBotId: (r) => r.botId,
     getSymbol: (r) => r.symbol,
   }).find((a) => a.id === 'merge');
   return merge?.shouldShow?.(rows) ?? true;
@@ -56,9 +55,13 @@ describe('Merge Deals bulk action', () => {
     ).toBe(false);
   });
 
-  it('is not offered across bots, or for a deal with no bot', () => {
-    expect(mergeShown([row(), row({ botId: 'bot-2' })])).toBe(false);
-    expect(mergeShown([row({ botId: undefined }), row()])).toBe(false);
+  it('is offered across bots, e.g. two terminal deals', () => {
+    expect(
+      mergeShown([
+        row({ type: 'Terminal', botId: 'term-1' }),
+        row({ type: 'Terminal', botId: 'term-2' }),
+      ])
+    ).toBe(true);
   });
 
   it('still requires one pair and one exchange, and two deals', () => {

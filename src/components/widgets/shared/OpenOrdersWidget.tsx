@@ -2304,7 +2304,6 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
         canMoveToTerminal: canMoveTradeToTerminal,
         canMerge: (trade) => !isComboFundsTarget(trade.type),
-        getBotId: (trade) => trade.botId,
         canAdjustFunds: (trade) => canAdjustDealFunds(toAdjustFundsTarget(trade)),
         getSymbol: (trade) => trade.symbol,
       }),
