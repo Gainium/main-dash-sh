@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.1] - 2026-10-08
+
+### Added
+
+- Markdown toolbar: Quote button (prefixes the selected lines with `> `).
+
 ## [2.89.0] - 2026-10-08
 
 ### Added

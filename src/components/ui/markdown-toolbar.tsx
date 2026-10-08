@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   List,
   Strikethrough,
+  TextQuote,
 } from 'lucide-react';
 
 import {
@@ -197,6 +198,16 @@ export const MarkdownToolbar = ({
         onClick={() => prefixLines('- ')}
       >
         <List className="h-3.5 w-3.5" />
+      </button>
+      <button
+        type="button"
+        className={BTN}
+        disabled={disabled}
+        aria-label="Quote"
+        title="Quote"
+        onClick={() => prefixLines('> ')}
+      >
+        <TextQuote className="h-3.5 w-3.5" />
       </button>
       <button
         type="button"
