@@ -82,6 +82,43 @@ export const formatPositionEntries = (
   return max > 0 ? `${n}/${max}` : `${n}`;
 };
 
+/** A single-position bot's open positions, for its Usage ring. */
+export interface BotPositionEntries {
+  entries: number;
+  positions: number;
+  maxPositionEntries: string;
+}
+
+/**
+ * The Usage ring of a single-position bot. Cost-vs-max says nothing there: a
+ * position has no safety ladder, so its max cost is its cost and the ring
+ * reads 100% as soon as every deal slot holds a position. Entries are what
+ * fill up instead — against the entry limit of the open positions, or as a
+ * bare count when the positions have no limit.
+ */
+export const positionUsageRing = (
+  p: BotPositionEntries
+): { percent: number; centerText: string; label: string; title: string } => {
+  const max = parseMaxPositionEntries(p.maxPositionEntries);
+  const capacity = max * p.positions;
+  const where = `${p.positions} open position${p.positions === 1 ? '' : 's'}`;
+  if (capacity > 0) {
+    const percent = Math.min(100, (p.entries / capacity) * 100);
+    return {
+      percent,
+      centerText: `${percent.toFixed(0)}%`,
+      label: `${p.entries}/${capacity}`,
+      title: `${p.entries} of ${capacity} entries used across ${where}`,
+    };
+  }
+  return {
+    percent: 0,
+    centerText: `${p.entries}`,
+    label: 'entries',
+    title: `${p.entries} entries across ${where}, no entry limit`,
+  };
+};
+
 // ─── §7 ASAP spacing ────────────────────────────────────────────────────────
 
 export interface SinglePositionSpacingSettings {

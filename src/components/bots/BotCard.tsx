@@ -27,6 +27,8 @@ import { useBotActions } from '../../hooks/useBotActions';
 import { botKindFromType, toBotRef } from '@/features/bots/actions/botRef';
 import { useLongPressMenu } from '../../hooks/useLongPressMenu';
 import { useChartColors } from '../../hooks/useChartColors';
+import { useBotPositionEntries } from '@/hooks/useSinglePosition';
+import { positionUsageRing } from '@/lib/singlePosition/singlePosition';
 import logger from '../../lib/loggerInstance';
 import { BotActionsModals } from './BotActionsModals';
 import { Button } from '../ui/button';
@@ -142,6 +144,13 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
       : undefined,
     type === BotTypesEnum.combo ? 'combo' : 'dca'
   );
+  // Single-position bots fill entries, not a safety ladder.
+  const positionEntries = useBotPositionEntries(
+    type === BotTypesEnum.dca ? bot.id : undefined
+  );
+  const positionRing = positionEntries
+    ? positionUsageRing(positionEntries)
+    : undefined;
   // Header pair base/quote — resolve its asset class + venue so tokenized
   // stocks render their real logo (not a letter tile) on the card.
   const headerBaseAsset =
@@ -235,14 +244,6 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
   // runner owns the clone/status/restart/delete flows and their modals.
   const botRef = useMemo(() => toBotRef(bot, botKindFromType(type)), [bot, type]);
   const botActions = useBotActions(botRef);
-
-  // Helper function to determine gauge color based on percentage
-  const getGaugeColor = (percentage: number): string => {
-    const roundedPercentage = Math.round(percentage);
-    if (roundedPercentage >= 100) return colors.destructive; // Error color for 100%
-    if (roundedPercentage > 80) return colors.warning; // Caution color for >80%
-    return colors.success; // Default success color
-  };
 
   // Helper function to format time to show only the biggest unit
   const formatTimeToBiggestUnit = (timeStr: string): string => {
@@ -549,9 +550,11 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                   <div
                     className="shrink-0 w-20"
                     title={
-                      dcaOrderFill
-                        ? `${dcaOrderFill.complete} of ${dcaOrderFill.all} DCA orders filled`
-                        : undefined
+                      positionRing
+                        ? positionRing.title
+                        : dcaOrderFill
+                          ? `${dcaOrderFill.complete} of ${dcaOrderFill.all} DCA orders filled`
+                          : undefined
                     }
                   >
                     <div className="text-xs text-muted-foreground mb-2">
@@ -559,16 +562,24 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     </div>
                     <DualArcProgressGauge
                       size={70}
-                      outerPercentage={bot.usageTotal || 0}
+                      outerPercentage={
+                        positionRing ? positionRing.percent : bot.usageTotal || 0
+                      }
                       innerPercentage={0}
-                      outerProgressColor={getGaugeColor(bot.usageTotal || 0)}
+                      outerProgressColor={colors.success}
                       innerProgressColor={colors.warning}
                       trailColor="var(--color-border)"
-                      centerText={`${(bot.usageTotal || 0).toFixed(0)}%`}
+                      centerText={
+                        positionRing
+                          ? positionRing.centerText
+                          : `${(bot.usageTotal || 0).toFixed(0)}%`
+                      }
                       label={
-                        dcaOrderFill
-                          ? `${dcaOrderFill.complete}/${dcaOrderFill.all}`
-                          : ''
+                        positionRing
+                          ? positionRing.label
+                          : dcaOrderFill
+                            ? `${dcaOrderFill.complete}/${dcaOrderFill.all}`
+                            : ''
                       }
                       animate={true}
                       showInnerGauge={false}
@@ -797,11 +808,15 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                         ? '***'
                         : `$${(bot.currentValue || 0).toFixed(2)}`}
                     </div>
-                    <div className="text-muted-foreground text-xs truncate">
-                      {privacyMode
-                        ? '***'
-                        : `Max: $${(bot.maxValue || 0).toFixed(2)}`}
-                    </div>
+                    {/* A position's max cost is its cost, so "Max" would
+                        only repeat the figure above. */}
+                    {!positionEntries && (
+                      <div className="text-muted-foreground text-xs truncate">
+                        {privacyMode
+                          ? '***'
+                          : `Max: $${(bot.maxValue || 0).toFixed(2)}`}
+                      </div>
+                    )}
                   </div>
                   <div className="min-w-0">
                     <div className="text-muted-foreground mb-1 text-xs">

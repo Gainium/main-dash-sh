@@ -196,6 +196,7 @@ export async function fetchBotOpenDeals(
 }
 
 export interface PositionEntriesInfo {
+  botId: string;
   entries: number;
   /** '' = no limit. */
   maxPositionEntries: string;
@@ -245,6 +246,7 @@ export async function fetchPositionEntriesIndex(
     const bot = settings.byBot[deal.botId as string];
     if (!bot?.singlePosition) continue;
     index[deal._id] = {
+      botId: deal.botId as string,
       entries: deal.positionEntries as number,
       maxPositionEntries: bot.maxPositionEntries,
     };

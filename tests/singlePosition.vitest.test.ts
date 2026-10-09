@@ -30,6 +30,7 @@ import {
   enableDynamicPriceFilterPatch,
   findPositionDeal,
   formatPositionEntries,
+  positionUsageRing,
   isMultiDealRefusal,
   isTurningSinglePositionOn,
   maxPositionEntriesError,
@@ -299,6 +300,17 @@ describe('max entries and the entries label', () => {
     expect(formatPositionEntries(3, '5')).toBe('3/5');
     expect(formatPositionEntries(3, '')).toBe('3');
     expect(formatPositionEntries(3, '0')).toBe('3');
+  });
+
+  it('the usage ring fills with entries, not cost', () => {
+    // 5 entries over 2 positions limited to 5 each: half the capacity.
+    expect(
+      positionUsageRing({ entries: 5, positions: 2, maxPositionEntries: '5' })
+    ).toMatchObject({ percent: 50, centerText: '50%', label: '5/10' });
+    // No limit: a count, never a fraction.
+    expect(
+      positionUsageRing({ entries: 5, positions: 1, maxPositionEntries: '' })
+    ).toMatchObject({ percent: 0, centerText: '5', label: 'entries' });
   });
 });
 

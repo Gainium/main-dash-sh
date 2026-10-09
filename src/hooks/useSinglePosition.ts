@@ -17,6 +17,8 @@ import {
 import {
   findPositionDeal,
   formatPositionEntries,
+  positionUsageRing,
+  type BotPositionEntries,
 } from '@/lib/singlePosition/singlePosition';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -125,6 +127,50 @@ export function usePositionEntriesLabel(
   const info = dealId ? index[dealId] : undefined;
   if (!info) return null;
   return formatPositionEntries(info.entries, info.maxPositionEntries);
+}
+
+/** The Usage ring of a single-position deal; undefined for any other deal. */
+export function useDealPositionRing(
+  dealId: string | undefined | null,
+  active = true
+): ReturnType<typeof positionUsageRing> | undefined {
+  const index = usePositionEntriesIndex(active && !!dealId);
+  const info = dealId ? index[dealId] : undefined;
+  return useMemo(
+    () =>
+      info
+        ? positionUsageRing({
+            entries: info.entries,
+            positions: 1,
+            maxPositionEntries: info.maxPositionEntries,
+          })
+        : undefined,
+    [info]
+  );
+}
+
+/**
+ * Entries summed over the open positions of a single-position bot; undefined
+ * when the bot holds none (or is not single-position).
+ */
+export function useBotPositionEntries(
+  botId: string | undefined | null,
+  active = true
+): BotPositionEntries | undefined {
+  const index = usePositionEntriesIndex(active && !!botId);
+  return useMemo(() => {
+    if (!botId) return undefined;
+    let entries = 0;
+    let positions = 0;
+    let maxPositionEntries = '';
+    for (const info of Object.values(index)) {
+      if (info.botId !== botId) continue;
+      entries += info.entries;
+      positions += 1;
+      maxPositionEntries = info.maxPositionEntries;
+    }
+    return positions > 0 ? { entries, positions, maxPositionEntries } : undefined;
+  }, [index, botId]);
 }
 
 /** Refresh every single-position read after a change that moves them. */

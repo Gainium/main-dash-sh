@@ -92,7 +92,7 @@ import {
     StrategyChip,
 } from '../../ui/chip';
 import { DataTable, type BulkAction } from '../../ui/data-table/data-table';
-import { DualArcProgressGauge } from '../../ui/DualArcProgressGauge';
+import { DealUsageGauge } from '@/components/deals/DealUsageGauge';
 import EmptyState from '../../ui/empty-state';
 import {
     Select,
@@ -622,16 +622,6 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   // per-row `loadedPrices`).
   const pricesLoading = !pricesLoaded;
 
-  // Helper function to determine gauge color based on percentage
-  const getGaugeColor = useCallback(
-    (percentage: number): string => {
-      const roundedPercentage = Math.round(percentage);
-      if (roundedPercentage >= 100) return colors.destructive; // Error color for 100%
-      if (roundedPercentage > 80) return colors.warning; // Caution color for >80%
-      return colors.success; // Default success color
-    },
-    [colors.destructive, colors.warning, colors.success]
-  );
 
   // Check if external trade data is provided
   const externalTrades = _data?.['trades'] as OpenTrade[] | undefined;
@@ -2063,14 +2053,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               }}
               title="Click to view orders"
             >
-              <DualArcProgressGauge
-                size={40}
-                outerPercentage={trade.outerGaugePercent || 0}
-                innerPercentage={0}
-                outerProgressColor={getGaugeColor(trade.outerGaugePercent || 0)}
-                centerText={`${(trade.outerGaugePercent || 0).toFixed(0)}%`}
-                label={`${levels.complete}/${levels.all}`}
-                showInnerGauge={false}
+              <DealUsageGauge
+                dealId={trade.dealId || trade.id}
+                percent={trade.outerGaugePercent || 0}
+                levels={levels}
+                color={colors.success}
               />
             </button>
           );
@@ -2491,7 +2478,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
     return allColumns;
   }, [
-    getGaugeColor,
+    colors.success,
     privacyMode,
     pricesLoading,
     hideBotName,

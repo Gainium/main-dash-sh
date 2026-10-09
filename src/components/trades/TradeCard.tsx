@@ -45,7 +45,10 @@ import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import { DealStartBlockedNotice } from '../deals/DealStartBlockedNotice';
 import CoinPair from '../widgets/shared/CoinPair';
 import { TradeDetailDrawer } from './TradeDetailDrawer';
-import { usePositionEntriesLabel } from '@/hooks/useSinglePosition';
+import {
+  useDealPositionRing,
+  usePositionEntriesLabel,
+} from '@/hooks/useSinglePosition';
 
 export interface TradeCardProps {
   trade: TransformedTrade;
@@ -303,16 +306,6 @@ const EnhancedCard = React.memo(
     // Hook for theme colors
     const colors = useChartColors();
 
-    // Helper function to determine gauge color based on percentage
-    const getGaugeColor = useCallback(
-      (percentage: number): string => {
-        const roundedPercentage = Math.round(percentage);
-        if (roundedPercentage >= 100) return colors.destructive; // Error color for 100%
-        if (roundedPercentage > 80) return colors.warning; // Caution color for >80%
-        return colors.success; // Default success color
-      },
-      [colors.destructive, colors.success, colors.warning]
-    );
 
     // Each open-deal card loads its own orders (the dashboard store isn't
     // pre-populated for all deals). Gate on showChart && active so closed or
@@ -613,6 +606,7 @@ const EnhancedCard = React.memo(
     // Every entry also counts as a level, so a position must be told apart by
     // its entries, not by `levels`.
     const positionEntries = usePositionEntriesLabel(trade.id);
+    const positionRing = useDealPositionRing(trade.id);
     const hasDca = !positionEntries && (trade.levels?.all ?? 0) > 1;
 
     // The P/L summary box shows realized P/L for closed deals, unrealized for
@@ -799,17 +793,24 @@ const EnhancedCard = React.memo(
                       </div>
                       <DualArcProgressGauge
                         size={72}
-                        outerPercentage={trade.outerGaugePercent || 0}
+                        outerPercentage={
+                          positionRing
+                            ? positionRing.percent
+                            : trade.outerGaugePercent || 0
+                        }
                         innerPercentage={0}
-                        outerProgressColor={getGaugeColor(
-                          trade.outerGaugePercent || 0
-                        )}
+                        outerProgressColor={colors.success}
                         innerProgressColor={colors.warning}
                         trailColor="var(--color-border)"
-                        centerText={`${(trade.outerGaugePercent || 0).toFixed(0)}%`}
+                        centerText={
+                          positionRing
+                            ? positionRing.centerText
+                            : `${(trade.outerGaugePercent || 0).toFixed(0)}%`
+                        }
                         label={
-                          positionEntries ??
-                          `${trade.levels.complete}/${trade.levels.all}`
+                          positionRing
+                            ? positionRing.label
+                            : `${trade.levels.complete}/${trade.levels.all}`
                         }
                         animate={true}
                         showInnerGauge={trade.showInnerGauge || false}

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.89.10] - 2026-10-09
+
+### Changed
+
+- Usage rings on bot cards, deal cards and the bots/deals tables are always green; they no longer turn amber above 80% or red at 100%.
+- Single-position DCA bots and their positions: the Usage ring counts entries against the entry limit (or shows the entry count when there is no limit) instead of cost, which always read 100%. The bot card no longer shows a "Max" cost for them.
+
 ## [2.89.9] - 2026-10-08
 
 ### Changed
