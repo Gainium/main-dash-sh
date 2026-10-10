@@ -1520,7 +1520,7 @@ const ComboBots: React.FC = () => {
                   className="flex-1 min-h-[400px] overflow-hidden mt-0"
                 >
                   <motion.div
-                    className="flex-1 min-h-[400px] overflow-hidden"
+                    className="flex-1 min-h-[400px] overflow-hidden md:h-full"
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.6 }}

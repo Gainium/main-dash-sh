@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.90.2] - 2026-10-10
+
+### Fixed
+
+- DCA, Combo and Hedge DCA bots tables (desktop): the table scrolls again with its header pinned, so every bot, the totals row and the pagination controls are reachable. The table's container did not take the tab's height, so it was clipped instead of scrolling.
+
 ## [2.90.1] - 2026-10-10
 
 ### Changed

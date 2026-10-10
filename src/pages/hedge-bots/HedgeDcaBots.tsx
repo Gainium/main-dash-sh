@@ -1070,7 +1070,7 @@ const HedgeDcaBots = () => {
                   className="flex-1 min-h-[400px] overflow-hidden mt-0"
                 >
                 <motion.div
-                  className="flex-1 min-h-[400px] overflow-hidden"
+                  className="flex-1 min-h-[400px] overflow-hidden md:h-full"
                   {...HEDGE_BOTS_TABLE_MOTION}
                 >
                     <DataTable

@@ -1860,7 +1860,7 @@ const TradingBots: React.FC = () => {
                   >
                     {/* Data Table with Card View - Full Height */}
                     <motion.div
-                      className="flex-1 min-h-[400px] overflow-hidden"
+                      className="flex-1 min-h-[400px] overflow-hidden md:h-full"
                       {...TRADING_BOTS_TABLE_MOTION}
                     >
                       <TradingBotsCardContext.Provider value={cardContextValue}>
