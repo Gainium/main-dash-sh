@@ -12,9 +12,7 @@ import {
   Lock,
   MoreVertical,
   Play,
-  Plus,
   RotateCcw,
-  Save,
   Square,
   Unlock,
   X,
@@ -34,6 +32,12 @@ import { useBotFormPreloadStore } from '@/stores/botFormPreloadStore'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type PanelMenuConfig } from '@/components/bots/panels/PanelContainer'
+import {
+  FormFooterFrame,
+  FormRunButton,
+  FormSubmitButton,
+  FormToggleButton,
+} from './FormFooterParts'
 import { Button } from '@/components/ui/button'
 import {
   ResponsiveButtonRow,
@@ -394,7 +398,7 @@ interface DcaBreakdown {
   totalValue: string
 }
 
-interface CreditsChipProps {
+export interface CreditsChipProps {
   isCompact: boolean
   credits: {
     base: number
@@ -406,6 +410,14 @@ interface CreditsChipProps {
   affiliate: boolean
   /** Combo coins are priced per coin that can run at the same time. */
   isCombo?: boolean
+  /**
+   * Breakdown rows for a form priced on other components than a bot's
+   * (rows with a zero value are left out). When set, `credits.total` is still
+   * the total and the bot component fields are ignored.
+   */
+  rows?: { label: string; value: number }[]
+  /** Red chip: the account cannot cover the total. */
+  insufficient?: boolean
 }
 
 /**
@@ -420,6 +432,8 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
   credits,
   affiliate,
   isCombo,
+  rows: customRows,
+  insufficient = false,
 }) => {
   const [open, setOpen] = useState(false)
   // Quote `credits.total`, NOT the sum of the component rows. The backend
@@ -432,18 +446,19 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
   // total row says so, so a 50 + 64.5 + 40 breakdown over a "154" total doesn't
   // read as an arithmetic slip.
   const totalLabel = fmtNumber(credits.total, 2)
+  const rows = customRows
+    ? customRows.filter((r) => r.value > 0)
+    : [
+        { label: 'Base cost', value: credits.base },
+        {
+          label: isCombo ? 'Extra parallel coins' : 'Extra pairs',
+          value: credits.pairs,
+        },
+        { label: 'Indicators', value: credits.indicators },
+        { label: 'Extra deals', value: credits.deals },
+      ].filter((r) => r.value > 0)
   const isRoundedDown =
-    credits.base + credits.pairs + credits.indicators + credits.deals >
-    credits.total
-  const rows = [
-    { label: 'Base cost', value: credits.base },
-    {
-      label: isCombo ? 'Extra parallel coins' : 'Extra pairs',
-      value: credits.pairs,
-    },
-    { label: 'Indicators', value: credits.indicators },
-    { label: 'Extra deals', value: credits.deals },
-  ].filter((r) => r.value > 0)
+    rows.reduce((sum, r) => sum + r.value, 0) > credits.total
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -455,7 +470,10 @@ export const CreditsChip: React.FC<CreditsChipProps> = ({
           onMouseLeave={() => setOpen(false)}
           onFocus={() => setOpen(true)}
           onBlur={() => setOpen(false)}
-          className={chipButtonClass(isCompact, open)}
+          className={cn(
+            chipButtonClass(isCompact, open),
+            insufficient && 'text-destructive',
+          )}
         >
           <Coins className='h-3.5 w-3.5 text-warning' />
           {!isCompact && <span>{totalLabel}</span>}
@@ -1142,73 +1160,38 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           id: 'submit',
           priority: BUTTON_PRIORITIES.SUBMIT,
           fullContent: () => (
-            <Button
-              type='button'
-              data-tour='botForm.launchButton'
-              aria-busy={submitIsPending}
+            <FormSubmitButton
+              mode={mode === 'create' ? 'create' : 'edit'}
+              label={submitLabel}
               onClick={handleSubmit}
+              pending={submitIsPending}
               disabled={
                 submitDisabled ||
                 readOnly ||
                 shouldDisplayErrorSummary ||
                 insufficientCredits
               }
-              aria-label={submitLabel}
-              fullwidth
-              className={cn(
-                'gradient-brand hover:opacity-90 text-white font-semibold shadow-lg hover:shadow-xl duration-200 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed uppercase',
-                mode === 'create' && 'fx-glow',
-              )}
               title={submitTitle}
-            >
-              {submitIsPending ? (
-                <>
-                  <Loader2 className='w-4 h-4 mr-2 animate-spin' />
-                  <span className='truncate'>{submitLabel}</span>
-                </>
-              ) : readOnly ? (
-                `${submitLabel} (DEMO)`
-              ) : (
-                <div className='flex items-center justify-center w-full gap-xs'>
-                  {mode === 'create' ? (
-                    <Plus className='w-4 h-4 shrink-0' />
-                  ) : (
-                    <Save className='w-4 h-4 shrink-0' />
-                  )}
-                  <span className='truncate'>{submitLabel}</span>
-                </div>
-              )}
-            </Button>
+              demo={readOnly}
+              data-tour='botForm.launchButton'
+            />
           ),
           compactContent: (
-            <Button
-              type='button'
-              data-tour='botForm.launchButton'
-              aria-busy={submitIsPending}
+            <FormSubmitButton
+              compact
+              mode={mode === 'create' ? 'create' : 'edit'}
+              label={submitLabel}
               onClick={handleSubmit}
+              pending={submitIsPending}
               disabled={
                 submitDisabled ||
                 readOnly ||
                 shouldDisplayErrorSummary ||
                 insufficientCredits
               }
-              aria-label={submitLabel}
-              size='icon'
-              className={cn(
-                'gradient-brand hover:opacity-90 text-white font-semibold shadow-lg hover:shadow-xl duration-200 transition-transform hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed uppercase',
-                mode === 'create' && 'fx-glow',
-              )}
               title={submitTitle}
-            >
-              {submitIsPending ? (
-                <Loader2 className='w-4 h-4 animate-spin' />
-              ) : mode === 'create' ? (
-                <Plus className='w-4 h-4' />
-              ) : (
-                <Save className='w-4 h-4' />
-              )}
-              <span className='sr-only'>{submitLabel}</span>
-            </Button>
+              data-tour='botForm.launchButton'
+            />
           ),
           // Submit button should never overflow - it's the primary action
           neverOverflow: true,
@@ -1316,53 +1299,25 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           id: 'toggle',
           priority: BUTTON_PRIORITIES.TOGGLE,
           fullContent: (
-            <Button
+            <FormToggleButton
+              icon={isBotActive ? Square : Play}
+              label={startButtonLabel}
               onClick={handleToggle}
+              active={isBotActive}
+              pending={Boolean(togglePending)}
               disabled={toggleDisabled || readOnly}
-              variant='outline'
-              className='flex items-center justify-center gap-xs font-semibold uppercase px-4 py-2'
-              aria-pressed={isBotActive}
-              aria-label={startButtonLabel}
-            >
-              {togglePending ? (
-                <>
-                  <Loader2 className='w-4 h-4 animate-spin' />
-                  <span className='truncate'>UPDATING…</span>
-                </>
-              ) : isBotActive ? (
-                <>
-                  <Square className='w-4 h-4 shrink-0' />
-                  <span className='truncate'>{startButtonLabel}</span>
-                </>
-              ) : (
-                <>
-                  <Play className='w-4 h-4 shrink-0' />
-                  <span className='truncate'>{startButtonLabel}</span>
-                </>
-              )}
-            </Button>
+            />
           ),
           compactContent: (
-            <Button
+            <FormToggleButton
+              compact
+              icon={isBotActive ? Square : Play}
+              label={startButtonLabel}
               onClick={handleToggle}
-              size='icon'
+              active={isBotActive}
+              pending={Boolean(togglePending)}
               disabled={toggleDisabled || readOnly}
-              variant='outline'
-              className={cn(
-                'flex items-center justify-center font-semibold uppercase',
-              )}
-              aria-pressed={isBotActive}
-              aria-label={startButtonLabel}
-            >
-              {togglePending ? (
-                <Loader2 className='w-4 h-4 animate-spin' />
-              ) : isBotActive ? (
-                <Square className='w-4 h-4' />
-              ) : (
-                <Play className='w-4 h-4' />
-              )}
-              <span className='sr-only'>{startButtonLabel}</span>
-            </Button>
+            />
           ),
           menuLabel: togglePending ? 'Updating...' : startButtonLabel,
           menuIcon: isBotActive ? Square : Play,
@@ -1713,41 +1668,26 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           priority: 4,
           neverOverflow: true,
           fullContent: (
-            <Button
-              type='button'
-              variant='ghost'
-              size='sm'
+            <FormRunButton
+              icon={Play}
+              label='Backtest'
+              ariaLabel='Run backtest'
+              runningLabel='Testing…'
               onClick={handleQuickRun}
+              running={isRunning}
               disabled={runDisabled}
-              aria-label='Run backtest'
-              className='h-8 w-full gap-1 text-xs font-semibold uppercase'
-            >
-              {isRunning ? (
-                <Loader2 className='h-3.5 w-3.5 animate-spin' />
-              ) : (
-                <Play className='h-3.5 w-3.5' />
-              )}
-              <span className='truncate'>
-                {isRunning ? 'Testing…' : 'Backtest'}
-              </span>
-            </Button>
+            />
           ),
           compactContent: (
-            <Button
-              type='button'
-              variant='ghost'
-              size='icon'
+            <FormRunButton
+              compact
+              icon={Play}
+              label='Backtest'
+              ariaLabel='Run backtest'
               onClick={handleQuickRun}
+              running={isRunning}
               disabled={runDisabled}
-              aria-label='Run backtest'
-              className='h-8 w-8'
-            >
-              {isRunning ? (
-                <Loader2 className='h-3.5 w-3.5 animate-spin' />
-              ) : (
-                <Play className='h-3.5 w-3.5' />
-              )}
-            </Button>
+            />
           ),
         },
         ...(extraBacktestActions ?? []).map(
@@ -1838,10 +1778,10 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     ])
 
     return (
-      <div className='px-1 pt-1 border-t border-border space-y-2'>
-        {showBacktest && (
-          <div className='rounded-lg bg-muted p-1.5'>
-            {isRunning ? (
+      <FormFooterFrame
+        secondary={
+          showBacktest ? (
+            isRunning ? (
               (() => {
                 // the normal backtest's bar; a host action's run uses it too
                 const pct = localRunning
@@ -1918,9 +1858,10 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
                 highestPriorityFullWidth
                 compactThreshold={compactThreshold}
               />
-            )}
-          </div>
-        )}
+            )
+          ) : null
+        }
+      >
         <ResponsiveButtonRow
           buttons={buttonConfigs}
           gap={8}
@@ -1986,7 +1927,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           variant='destructive'
           onConfirm={handleResetConfirm}
         />
-      </div>
+      </FormFooterFrame>
     )
   },
 )

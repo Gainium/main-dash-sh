@@ -265,11 +265,13 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
       )}
 
       {filteredGroups.length === 0 ? (
-        <div className="rounded-lg border border-dashed border-border/50 p-md text-sm text-muted-foreground">
+        <div className="rounded-lg bg-muted p-md text-sm text-muted-foreground">
           {emptyStateMessage}
         </div>
       ) : (
-        <div className="space-y-md">
+        // Groups have no frame; a hairline between them (a peer separator)
+        // keeps two groups readable as two.
+        <div className="divide-y divide-border/50">
           {filteredGroups.map((group) => {
             const indicatorsInGroup = filteredIndicators.filter(
               (i) => i.groupId === group.id
@@ -294,7 +296,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
             })();
 
             return (
-              <div key={group.id} className="space-y-xs">
+              <div key={group.id} className="space-y-xs py-md first:pt-0 last:pb-0">
                 <IndicatorGroupCard
                   group={group}
                   indicators={indicatorsInGroup}
@@ -344,7 +346,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                       );
                     } catch (_error) {
                       return (
-                        <div className="rounded-md border border-border/60 bg-destructive/10 p-sm text-sm text-destructive">
+                        <div className="rounded-md bg-destructive/10 p-sm text-sm text-destructive">
                           Selected indicator definition is unavailable.
                         </div>
                       );

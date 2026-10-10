@@ -17,6 +17,11 @@ interface StatusChipProps {
    * repeating the status label. Falls back to the status label when omitted.
    */
   tooltip?: string;
+  /**
+   * Override the visible label while keeping the status's colour — for a
+   * record whose own state names map onto a bot status colour.
+   */
+  label?: string;
 }
 
 export const StatusChip: React.FC<StatusChipProps> = ({
@@ -27,8 +32,10 @@ export const StatusChip: React.FC<StatusChipProps> = ({
   dotOnly = false,
   className,
   tooltip,
+  label,
 }) => {
-  const config = getBotStatusConfig(status);
+  const base = getBotStatusConfig(status);
+  const config = label ? { ...base, label } : base;
 
   // Explicit tooltip (e.g. an error reason) wins over the static status label.
   const tooltipText = tooltip || config.label;

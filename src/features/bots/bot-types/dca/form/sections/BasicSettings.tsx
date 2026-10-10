@@ -255,7 +255,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
               </p>
             )}
             {pairLockState.locked ? (
-              <div className="space-y-sm rounded-lg border border-border bg-muted/30 p-sm">
+              <div className="space-y-sm">
                 {pairs.length > 0 ? (
                   <>
                     <div className="flex flex-wrap gap-xs">
@@ -281,7 +281,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                             onClick={() => handleChartPairSelect(pair)}
                             title={`Show ${baseAsset}/${quoteAsset} on chart`}
                             aria-label={`Show ${baseAsset}/${quoteAsset} on chart`}
-                            className="flex min-w-0 cursor-pointer items-center gap-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm transition-colors hover:bg-muted/50"
+                            className="flex min-w-0 cursor-pointer items-center gap-xs rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-muted/70"
                           >
                             <CoinPair
                               baseAsset={baseAsset}

@@ -79,7 +79,7 @@ const Switch = React.forwardRef<HTMLInputElement, SwitchProps>(
                 ? 'bg-muted border-border/50 cursor-not-allowed'
                 : checked
                   ? 'color-gradient'
-                  : 'bg-muted hover:bg-muted/70 dark:bg-border dark:hover:bg-border/70'
+                  : 'bg-foreground/15 hover:bg-foreground/20 dark:bg-border dark:hover:bg-border/70'
           )}
         >
           <span

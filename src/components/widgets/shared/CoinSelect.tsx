@@ -547,7 +547,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       return (
         <div
           key={`ALL-${index}`}
-          className="bg-card rounded-lg p-xs flex items-center gap-xs min-w-0"
+          className="bg-muted rounded-lg p-xs flex items-center gap-xs min-w-0"
         >
           <div className="flex items-center gap-xs flex-1 min-w-0">
             <CoinIcon symbol="ALL" size="w-4 h-4" />
@@ -606,7 +606,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       return (
         <div
           key={`${symbol}-${index}`}
-          className="bg-card rounded-lg p-xs flex items-center gap-xs min-w-0"
+          className="bg-muted rounded-lg p-xs flex items-center gap-xs min-w-0"
         >
           {onPairClick ? (
             <button
@@ -632,7 +632,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     return (
       <div
         key={`${symbol}-${index}`}
-        className="bg-card rounded-lg p-xs flex items-center gap-xs min-w-0"
+        className="bg-muted rounded-lg p-xs flex items-center gap-xs min-w-0"
       >
         <div className="flex items-center gap-xs flex-1 min-w-0">
           <CoinIcon
@@ -660,8 +660,9 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
 
   return (
     <>
-      {/* Coins Section */}
-      <div className="rounded-lg p-sm space-y-sm bg-inner-container">
+      {/* Coins Section — no surface of its own (DESIGN_SYSTEM §3): the
+          selected items are muted chips on the host's surface. */}
+      <div className="space-y-sm">
         {isPairsMode && tradingPairsError && (
           <div className="flex items-center gap-sm text-xs text-destructive">
             <span>
@@ -728,7 +729,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
               (!shouldShowAddButton && selectedCoins.length === 0)) && (
               <button
                 onClick={() => setShowCoinDialog(true)}
-                className="border border-border rounded-lg p-xs flex items-center gap-xs text-muted-foreground hover:text-foreground bg-card hover:border-primary transition-all disabled:cursor-not-allowed disabled:opacity-60"
+                className="border border-border rounded-lg p-xs flex items-center gap-xs text-muted-foreground hover:text-foreground hover:border-primary transition-all disabled:cursor-not-allowed disabled:opacity-60"
                 disabled={isPairsMode && tradingPairsLoading}
                 aria-busy={isPairsMode && tradingPairsLoading}
               >

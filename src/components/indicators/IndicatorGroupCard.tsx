@@ -68,7 +68,10 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   }, [_onRemoveGroup, indicators, onRemoveIndicator]);
 
   return (
-    <div className="space-y-md rounded-lg border border-border/60 bg-inner-container p-md">
+    // No frame of its own (DESIGN_SYSTEM §3): groups are told apart by
+    // spacing and the manager's separators; the indicators carry the inset
+    // surface. A single fixed indicator renders straight in its host's flow.
+    <div className="space-y-md">
       {!singleIndicator && (
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <div className="flex items-center gap-sm">

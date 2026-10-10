@@ -1,5 +1,19 @@
 # Changelog
 
+## [2.91.0] - 2026-10-11
+
+### Added
+
+- Bot form footer: its frame, primary action, start/stop toggle and secondary run button are exported as context-free components (`FormFooterParts`), so other forms can render the same footer. `CreditsChip` accepts optional `rows` (a custom cost breakdown) and `insufficient`.
+- Bot tables: the row actions menu content (`ActionMenuItems`) and its trigger (`RowActionsTriggerButton`) work for any list of actions.
+- `StatusChip` accepts an optional `label` that replaces the status name while keeping its colour.
+
+### Changed
+
+- Indicator settings: indicator groups and the pair picker drop their bordered and raised containers in favour of surface spacing. Groups are separated by a hairline, each indicator sits on a muted inset, a group with one indicator uses the full width, and selected pairs are muted chips on the form's surface.
+- Timeline items (bot events, notifications) no longer draw a border.
+- Switches: the off track is translucent, so it stays visible on muted surfaces in light mode.
+
 ## [2.90.2] - 2026-10-10
 
 ### Fixed

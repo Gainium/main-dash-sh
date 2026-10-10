@@ -744,7 +744,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       >
         <div className="space-y-xs">
           {isPairsLocked ? (
-            <div className="space-y-sm rounded-lg border border-border bg-muted/30 p-sm">
+            <div className="space-y-sm">
               {lockedPairs.length ? (
                 <div className="flex flex-wrap gap-xs">
                   {lockedPairs.map(({ key, base, quote, label }) => {
@@ -760,7 +760,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
                     return (
                     <div
                       key={key}
-                      className="flex min-w-0 items-center gap-xs rounded-lg border border-border bg-card px-2.5 py-1.5 text-xs font-medium text-foreground shadow-sm"
+                      className="flex min-w-0 items-center gap-xs rounded-lg bg-muted px-2.5 py-1.5 text-xs font-medium text-foreground"
                     >
                       <CoinPair
                         baseAsset={base || '?'}

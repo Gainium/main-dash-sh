@@ -28,7 +28,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   if (!indicators.length) {
     return (
-      <div className="rounded-lg border border-dashed p-md text-sm text-muted-foreground text-center">
+      <div className="rounded-lg bg-muted p-md text-sm text-muted-foreground text-center">
         {emptyState ?? 'No indicators configured yet.'}
       </div>
     );
@@ -38,10 +38,12 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
     <>
     <MasonryLayout
       gap={16}
+      // Never more columns than indicators: one indicator uses the full
+      // width instead of leaving an empty column beside it.
       containerBreakpoints={{
         default: 1,
-        640: 2,
-        1024: 3,
+        640: Math.min(2, indicators.length),
+        1024: Math.min(3, indicators.length),
       }}
     >
       {indicators.map((indicator, index) => {
@@ -52,7 +54,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
         return (
           <div
             key={indicator.uuid}
-            className="space-y-md rounded-lg border border-border/60 bg-card p-md shadow-sm"
+            className="space-y-md rounded-lg bg-muted p-md"
           >
             <div className="flex items-start justify-between gap-sm">
               <div className="min-w-0 space-y-xs">
@@ -117,7 +119,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
             </div>
 
             {renderExtras ? (
-              <div className="border-t border-border/50 pt-4">
+              <div className="pt-xs">
                 {renderExtras(indicator, index)}
               </div>
             ) : null}

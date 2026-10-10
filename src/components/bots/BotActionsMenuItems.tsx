@@ -1,4 +1,3 @@
-import { RefreshCw } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 import {
@@ -7,12 +6,7 @@ import {
   type BotActionSurfaceId,
 } from '@/features/bots/actions/botActions';
 import type { BotActionsController } from '@/hooks/useBotActions';
-import { cn } from '@/lib/utils';
-import {
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-} from '../ui/dropdown-menu';
+import { ActionMenuItems } from './ActionMenuItems';
 
 export interface BotActionsMenuItemsProps {
   /** The runner for this bot (`useBotActions`). */
@@ -41,49 +35,12 @@ export const BotActionsMenuItems: React.FC<BotActionsMenuItemsProps> = ({
   );
 
   return (
-    <DropdownMenuContent
+    <ActionMenuItems
+      items={items}
+      onSelect={(id) => run(id as BotActionItem['id'])}
       align={align}
-      side="bottom"
-      className={className}
-      sideOffset={8}
-      onClick={(e) => e.stopPropagation()}
-    >
-      {items.map((item, index) => (
-        <React.Fragment key={item.id}>
-          {index > 0 && items[index - 1]?.group !== item.group && (
-            <DropdownMenuSeparator />
-          )}
-          <BotActionMenuItem item={item} onSelect={() => run(item.id)} />
-        </React.Fragment>
-      ))}
-    </DropdownMenuContent>
-  );
-};
-
-const BotActionMenuItem: React.FC<{
-  item: BotActionItem;
-  onSelect: () => void;
-}> = ({ item, onSelect }) => {
-  const Icon = item.pending ? RefreshCw : item.icon;
-  const starred = item.id === 'star' && item.checked;
-  return (
-    <DropdownMenuItem
-      onClick={item.disabled ? undefined : onSelect}
-      disabled={item.disabled}
-      title={item.disabledReason}
-      className={cn(
-        item.destructive && 'text-destructive focus:text-destructive'
-      )}
-    >
-      <Icon
-        className={cn(
-          'w-4 h-4 mr-2',
-          item.pending && 'animate-spin',
-          starred && 'text-yellow-400 fill-yellow-400'
-        )}
-      />
-      {item.label}
-    </DropdownMenuItem>
+      {...(className ? { className } : {})}
+    />
   );
 };
 

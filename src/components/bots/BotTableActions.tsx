@@ -40,15 +40,10 @@ export const BotTableActions: React.FC<BotTableActionsProps> = ({
     <div onClick={stopPropagation} className="flex justify-end">
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button
-            variant="ghost"
-            size="sm"
-            className="p-0"
+          <RowActionsTriggerButton
             onClick={stopPropagation}
             aria-label="Open bot actions"
-          >
-            <MoreHorizontal className="w-4 h-4" />
-          </Button>
+          />
         </DropdownMenuTrigger>
         <BotActionsMenuItems
           align="end"
@@ -62,5 +57,16 @@ export const BotTableActions: React.FC<BotTableActionsProps> = ({
     </div>
   );
 };
+
+/** The ⋯ trigger of a table row's actions menu. */
+export const RowActionsTriggerButton = React.forwardRef<
+  HTMLButtonElement,
+  React.ButtonHTMLAttributes<HTMLButtonElement>
+>((props, ref) => (
+  <Button ref={ref} variant="ghost" size="sm" className="p-0" {...props}>
+    <MoreHorizontal className="w-4 h-4" />
+  </Button>
+));
+RowActionsTriggerButton.displayName = 'RowActionsTriggerButton';
 
 export default BotTableActions;
