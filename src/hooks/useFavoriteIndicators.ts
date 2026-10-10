@@ -1,8 +1,12 @@
 import {
-  useBotFormActions,
-  useBotFormTopLevelSelector,
+  useOptionalBotFormContext,
+  useOptionalBotFormTopLevelSelector,
 } from '@/contexts/bots/form/BotFormProvider';
-import { GraphQLClient, GraphQlQuery } from '@/lib/api';
+import {
+  DEFAULT_READ_TIMEOUT_MS,
+  GraphQLClient,
+  GraphQlQuery,
+} from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -99,10 +103,55 @@ export const useFavoriteIndicators = () => {
   // Narrow reads: only the top-level `favoriteIndicators` field + the stable
   // dispatch. Previously this used the broad `useBotFormState()`, which
   // re-rendered every consumer of this shared hook on EVERY keystroke.
-  const favoriteIndicators = useBotFormTopLevelSelector('favoriteIndicators');
-  const { updateFormData } = useBotFormActions();
+  // Inside the bot form the favourites live in the form (the provider loads
+  // them). Outside it — a standalone indicator editor — they live in local
+  // state, loaded once with the same query.
+  const botForm = useOptionalBotFormContext();
+  const formFavorites = useOptionalBotFormTopLevelSelector('favoriteIndicators');
+  const [localFavorites, setLocalFavorites] = useState<string[]>([]);
+  const favoriteIndicators = botForm ? formFavorites : localFavorites;
+  const formUpdate = botForm?.updateFormData;
+  const updateFormData = useCallback(
+    (_field: 'favoriteIndicators', value: string[]) => {
+      if (formUpdate) {
+        formUpdate('favoriteIndicators', value);
+      } else {
+        setLocalFavorites(value);
+      }
+    },
+    [formUpdate]
+  );
   const { tokens } = useAuthStore();
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
+  const standalone = !botForm;
+  useEffect(() => {
+    if (!standalone || !tokens?.accessToken) return;
+    let active = true;
+    const endpoint =
+      import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+    const client = new GraphQLClient(
+      endpoint,
+      tokens.accessToken,
+      !isLiveTrading
+    );
+    const { query } = GraphQlQuery.getUserFavoriteIndicators();
+    client
+      .request<{ getUserFavoriteIndicators: FavoriteMutationResponse }>(
+        query,
+        undefined,
+        { timeoutMs: DEFAULT_READ_TIMEOUT_MS }
+      )
+      .then((response) => {
+        const loaded = extractFavoriteIndicators(
+          response?.getUserFavoriteIndicators
+        );
+        if (active && loaded) setLocalFavorites(loaded);
+      })
+      .catch(() => undefined);
+    return () => {
+      active = false;
+    };
+  }, [standalone, tokens?.accessToken, isLiveTrading]);
   const favorites = useMemo(
     () => (favoriteIndicators || []).filter(Boolean) as IndicatorEnum[],
     [favoriteIndicators]

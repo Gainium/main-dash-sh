@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.90.1] - 2026-10-10
+
+### Changed
+
+- Indicator editor: `IndicatorGroupsManager` accepts optional `singleIndicator` (one fixed indicator, no group or add/remove controls), `minIntervalMs` and `allowVariableBinding` props; `InlineIndicatorConfig` drops the unused `hiddenFieldKeys` prop. Existing callers are unchanged.
+- Pair picker: `CoinFilter` also works outside the bot form, taking its pairs from an optional `pairItems` prop; `buildExchangePairItems` exposes the bot form's per-exchange pair list.
+- Favourite indicators load and save outside the bot form too.
+
 ## [2.90.0] - 2026-10-10
 
 ### Added

@@ -31,6 +31,11 @@ export interface IndicatorGroupCardProps {
   addIndicatorDisabledReason?: string | undefined;
   emptyState?: string;
   addButtonLabel?: string;
+  /**
+   * One fixed indicator: hides the join logic, remove group, remove
+   * indicator and add indicator controls. Default false.
+   */
+  singleIndicator?: boolean;
 }
 
 export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
@@ -47,6 +52,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   addIndicatorDisabledReason,
   emptyState,
   addButtonLabel = 'Add indicator',
+  singleIndicator = false,
 }) => {
   const addIndicatorDisabled = !canAddIndicator || disableControls;
   const addIndicatorTooltip = addIndicatorDisabled
@@ -63,6 +69,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
 
   return (
     <div className="space-y-md rounded-lg border border-border/60 bg-inner-container p-md">
+      {!singleIndicator && (
       <div className="flex flex-wrap items-center justify-between gap-sm">
         <div className="flex items-center gap-sm">
           <Label
@@ -104,10 +111,11 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           <Trash2 className="h-4 w-4" />
         </Button>
       </div>
+      )}
 
       <IndicatorList
         indicators={indicators}
-        onRemove={onRemoveIndicator}
+        {...(singleIndicator ? {} : { onRemove: onRemoveIndicator })}
         {...(onSelectIndicatorType
           ? { onSelectType: onSelectIndicatorType }
           : {})}
@@ -117,6 +125,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
         {...(emptyState ? { emptyState } : {})}
       />
 
+      {!singleIndicator && (
       <div className="flex justify-end">
         <IndicatorActionsToolbar
           onAddIndicator={onAddIndicator}
@@ -126,6 +135,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           addIndicatorVariant="outline"
         />
       </div>
+      )}
     </div>
   );
 };

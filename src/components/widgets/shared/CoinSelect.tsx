@@ -1,9 +1,9 @@
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import {
-  useBotFormActions,
-  useBotFormPick,
-} from '@/features/bots';
-import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
+  useOptionalBotFormContext,
+  useOptionalBotFormPick,
+} from '@/contexts/bots/form/BotFormProvider';
+import { BotFormQueryContext } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { type AssetClass, type TradingPair } from '@/hooks/useTradingPairs';
 import {
   usePairMarketData,
@@ -19,6 +19,7 @@ import CoinPair from './CoinPair';
 import { ListModal, type ListModalSortOption } from './ListModal';
 
 const NO_TOP_KEYS = [] as const;
+const NO_PAIR_ITEMS: CoinListItem[] = [];
 const STRATEGY_KEY = ['strategy'] as const;
 
 const PAIR_SORT_OPTIONS: ListModalSortOption[] = [
@@ -88,6 +89,12 @@ export interface CoinFilterProps {
   onReplaceCoin?: (previous: string, next: string) => void;
   /** Stacking order of the pick dialog (e.g. above another dialog). */
   modalZIndex?: number;
+  /**
+   * Pairs mode: the pairs to offer, for a picker used outside the bot form
+   * (see `buildExchangePairItems`). Omit to offer the bot form's current
+   * exchange pairs.
+   */
+  pairItems?: CoinListItem[];
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -106,6 +113,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   allowedPairs,
   onReplaceCoin,
   modalZIndex,
+  pairItems: pairItemsProp,
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -124,9 +132,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // only (provider-injected); favorites are local (Zustand + localStorage).
   const [sortMode, setSortMode] = useState('marketcap');
   const [favoritesFirst, setFavoritesFirst] = useState(false);
-  const { updateFormData } = useBotFormActions();
+  // Provider-optional: outside the bot form the picker edits its own
+  // selection through the callbacks (`onReplaceCoin`) and `pairItems`.
+  const updateFormData = useOptionalBotFormContext()?.updateFormData;
   // Only the fields this picker reads (type + direction) — not every keystroke.
-  const formData = useBotFormPick(NO_TOP_KEYS, STRATEGY_KEY);
+  const formData = useOptionalBotFormPick(NO_TOP_KEYS, STRATEGY_KEY);
 
   // Surface the curated ROI that matches the bot form's risk-profile
   // cards: DCA & Combo read the DCA leaderboard, Grid reads grid; the
@@ -233,7 +243,8 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // (e.g. last-used `BTCUSDC` on the terminal) silently constrained
   // the search to USDC. Any "single quote currency per bot" constraint
   // should be enforced at submit time, not by hiding pairs from search.
-  const { pairItems } = useBotFormQuery();
+  const botFormQuery = React.useContext(BotFormQueryContext);
+  const pairItems = pairItemsProp ?? botFormQuery?.pairItems ?? NO_PAIR_ITEMS;
 
   const coinItems = useMemo(() => {
     if (isPairsMode || !pairsByExchange) {
@@ -489,7 +500,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
             : null
         );
         // Atomic single-write replacement.
-        updateFormData('pair', [stored]);
+        updateFormData?.('pair', [stored]);
         handleDialogClose();
         return;
       }

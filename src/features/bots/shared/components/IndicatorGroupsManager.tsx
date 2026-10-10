@@ -49,6 +49,21 @@ export interface IndicatorGroupsManagerProps {
    * parity). Omitted = no interval filtering.
    */
   exchange?: ExchangeEnum | undefined;
+  /**
+   * Shortest candle interval (ms) the interval selects offer. Omitted = no
+   * lower bound.
+   */
+  minIntervalMs?: number | undefined;
+  /**
+   * One group holding one fixed indicator: hides the group logic, group and
+   * indicator add/remove controls. Default false.
+   */
+  singleIndicator?: boolean;
+  /**
+   * Offer global-variable binding on the indicator's numeric fields.
+   * Default true.
+   */
+  allowVariableBinding?: boolean;
   /** Maximum number of groups allowed */
   maxGroups?: number;
   /** Maximum indicators per group */
@@ -93,6 +108,9 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   indicatorAction,
   indicatorSection,
   exchange,
+  minIntervalMs,
+  singleIndicator = false,
+  allowVariableBinding = true,
   maxGroups,
   maxIndicatorsPerGroup,
   globalLogicLabel = 'Group logic',
@@ -203,6 +221,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
         </div>
       )}
 
+      {!singleIndicator && (
       <MasonryLayout
         gap={16}
         containerBreakpoints={{
@@ -243,6 +262,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
           <div className=" space-y-4">{secondColumnContent}</div>
         ) : null}
       </MasonryLayout>
+      )}
 
       {filteredGroups.length === 0 ? (
         <div className="rounded-lg border border-dashed border-border/50 p-md text-sm text-muted-foreground">
@@ -279,6 +299,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                   group={group}
                   indicators={indicatorsInGroup}
                   disableControls={false}
+                  singleIndicator={singleIndicator}
                   canAddIndicator={canAddIndicator}
                   onChangeLogic={(logic) => onChangeGroupLogic(group.id, logic)}
                   onAddIndicator={() => onAddIndicatorToGroup(group.id)}
@@ -306,8 +327,11 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                         <InlineIndicatorConfig
                           definition={definition}
                           params={params}
-                          indicatorUuid={indicator.uuid}
+                          {...(allowVariableBinding
+                            ? { indicatorUuid: indicator.uuid }
+                            : {})}
                           exchange={exchange}
+                          minIntervalMs={minIntervalMs}
                           onChange={(next) =>
                             onChangeIndicatorParams(
                               group.id,
@@ -337,6 +361,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
         </div>
       )}
 
+      {!singleIndicator && (
       <div className="flex items-center justify-end gap-md">
         <Button
           type="button"
@@ -349,6 +374,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
           Add group
         </Button>
       </div>
+      )}
     </div>
   );
 };

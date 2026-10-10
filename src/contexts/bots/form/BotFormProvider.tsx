@@ -2349,6 +2349,24 @@ export function useBotFormStoreSelector<T>(
   equality?: (a: T, b: T) => boolean
 ): T {
   const context = useContext(BotFormStateContext);
+  const selected = useStoreSelectorWithFallback(selector, equality);
+  if (!context) {
+    throw new Error(
+      'useBotFormStoreSelector must be used within a BotFormProvider'
+    );
+  }
+  return selected;
+}
+
+/**
+ * `useBotFormStoreSelector` that reads the empty default form outside a
+ * `BotFormProvider` instead of throwing.
+ */
+function useStoreSelectorWithFallback<T>(
+  selector: (state: BotFormStoreState) => T,
+  equality?: (a: T, b: T) => boolean
+): T {
+  const context = useContext(BotFormStateContext);
   const store = context?.store ?? EMPTY_BOT_FORM_STORE;
   const lastRef = useRef<{ value: T } | null>(null);
   const selected = useStore(store, (s) => {
@@ -2359,11 +2377,6 @@ export function useBotFormStoreSelector<T>(
     lastRef.current = { value: next };
     return next;
   });
-  if (!context) {
-    throw new Error(
-      'useBotFormStoreSelector must be used within a BotFormProvider'
-    );
-  }
   return selected;
 }
 
@@ -2484,11 +2497,33 @@ export const useBotFormPick = (
   topKeys: readonly (keyof BotFormData)[],
   sliceKeys: readonly string[]
 ): BotFormData => {
+  const context = useContext(BotFormStateContext);
+  const picked = usePickImpl(topKeys, sliceKeys);
+  if (!context) {
+    throw new Error('useBotFormPick must be used within a BotFormProvider');
+  }
+  return picked;
+};
+
+/**
+ * `useBotFormPick` that returns the picked fields of the empty default form
+ * outside a `BotFormProvider` instead of throwing — for a control shared by
+ * the bot form and standalone pages.
+ */
+export const useOptionalBotFormPick = (
+  topKeys: readonly (keyof BotFormData)[],
+  sliceKeys: readonly string[]
+): BotFormData => usePickImpl(topKeys, sliceKeys);
+
+const usePickImpl = (
+  topKeys: readonly (keyof BotFormData)[],
+  sliceKeys: readonly string[]
+): BotFormData => {
   const topRef = useRef(topKeys);
   const sliceRef = useRef(sliceKeys);
   topRef.current = topKeys;
   sliceRef.current = sliceKeys;
-  return useBotFormStoreSelector(
+  return useStoreSelectorWithFallback(
     (s) => {
       const fd = s.formData as unknown as Record<string, unknown>;
       return {
