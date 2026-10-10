@@ -77,6 +77,7 @@ import React, {
 import { DataTableFooter } from './data-table-footer';
 import { singleFilters } from '../../../lib/botList/serverFilters';
 import { downloadCsv } from './exportCsv';
+import { usePinnedHeaderOnPageScroll } from './usePinnedHeaderOnPageScroll';
 import { ColumnFilter } from './filter-components';
 import {
   countActiveFilters,
@@ -1062,6 +1063,11 @@ interface DataTableProps<TData, TValue> {
   enableGrouping?: boolean;
   showPagination?: boolean;
   className?: string;
+  /**
+   * Keep the header row on screen when the page itself scrolls (phones):
+   * the page scrolls first, then the table, with its header pinned.
+   */
+  pinHeaderOnPageScroll?: boolean;
   emptyMessage?: string;
   /**
    * Rich empty-state node rendered when there are no rows. Takes precedence
@@ -2139,6 +2145,7 @@ function DataTableComponent<TData, TValue>(
     emptyContent,
     showPagination,
     className,
+    pinHeaderOnPageScroll,
     emptyMessage,
     defaultColumnVisibility,
     defaultPinnedColumns,
@@ -2204,6 +2211,7 @@ function DataTableComponent<TData, TValue>(
       enableGrouping: props.enableGrouping ?? false,
       showPagination: props.showPagination ?? true,
       className: props.className,
+      pinHeaderOnPageScroll: props.pinHeaderOnPageScroll ?? false,
       emptyMessage: props.emptyMessage ?? 'No results.',
       emptyContent: props.emptyContent,
       defaultColumnVisibility: props.defaultColumnVisibility ?? {},
@@ -2505,6 +2513,18 @@ function DataTableComponent<TData, TValue>(
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  // The scroller mounts after the first render (rows load later), so the
+  // header pinning needs the node itself, not a ref read in an effect.
+  const [scrollContainerNode, setScrollContainerNode] =
+    useState<HTMLDivElement | null>(null);
+  const setScrollContainer = useCallback((node: HTMLDivElement | null) => {
+    scrollContainerRef.current = node;
+    setScrollContainerNode(node);
+  }, []);
+  usePinnedHeaderOnPageScroll(
+    scrollContainerNode,
+    pinHeaderOnPageScroll && (viewMode === 'table' || !enableCardView)
+  );
 
   // Row details span the visible width of the table, not its full scroll
   // width, so they stay readable while a wide table scrolls sideways.
@@ -4260,7 +4280,7 @@ function DataTableComponent<TData, TValue>(
           )}
 
           <div
-            ref={scrollContainerRef}
+            ref={setScrollContainer}
             className={clsx(
               'overflow-auto w-full h-full custom-scrollbar',
               // Sticky elements pin to the scrollport's PADDING edge, so

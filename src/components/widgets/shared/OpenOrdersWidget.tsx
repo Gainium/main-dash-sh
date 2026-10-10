@@ -395,6 +395,8 @@ export interface OpenTradesWidgetProps {
   emptyContent?: React.ReactNode;
   enableCardView?: boolean;
   privacyMode?: boolean;
+  /** Pin the table header while the page scrolls (full-page deal lists). */
+  pinHeaderOnPageScroll?: boolean;
   // Terminal specific display tweaks
   hideBotName?: boolean; // If true, do not show the Bot Name column (useful for terminal page)
   botTypeOverride?: OpenTrade['type']; // Force the displayed Type column to this value (e.g., 'Terminal')
@@ -474,6 +476,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   emptyContent,
   enableCardView = true,
   privacyMode = false,
+  pinHeaderOnPageScroll = false,
   hideBotName = false,
   botTypeOverride,
   onTradeClick,
@@ -2615,6 +2618,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           columns={serverColumns}
           data={trades}
           serverSide={effectiveServerPaging?.serverSide}
+          pinHeaderOnPageScroll={pinHeaderOnPageScroll}
           getExportData={getExportData}
           onRowClick={(row) => {
             // Match the card-click default: read-only details drawer unless

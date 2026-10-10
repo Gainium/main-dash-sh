@@ -954,7 +954,10 @@ const HedgeDcaBots = () => {
           verticalGap
           className="h-full min-h-0 flex-1"
         >
-          <motion.div {...HEDGE_BOTS_WIDGET_MOTION}>
+          <motion.div
+            {...HEDGE_BOTS_WIDGET_MOTION}
+            className="md:flex md:min-h-0 md:flex-1 md:flex-col"
+          >
             <Widget
               className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
@@ -963,8 +966,9 @@ const HedgeDcaBots = () => {
               <Tabs
                 value={pageTab}
                 onValueChange={(v) => setPageTab(v as 'bots' | 'deals')}
+                className="md:flex md:min-h-0 md:flex-1 md:flex-col"
               >
-              <div className="flex h-full min-h-[500px] flex-col">
+              <div className="flex h-full min-h-[500px] flex-col md:h-auto md:flex-1">
                 <motion.div
                   className="shrink-0"
                   {...HEDGE_BOTS_HEADER_MOTION}
@@ -1189,6 +1193,7 @@ const HedgeDcaBots = () => {
                   className="flex-1 min-h-[400px] overflow-hidden mt-0"
                 >
                   <OpenOrdersWidget
+                    pinHeaderOnPageScroll
                     widgetId="hedge-dca-bot-deals"
                     data={{ trades: hedgeDealsAsOpenTrades }}
                     rawDeals={hedgeDealsForTab}

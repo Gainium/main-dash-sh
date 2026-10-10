@@ -1728,7 +1728,10 @@ const TradingBots: React.FC = () => {
           {/* Enhanced Statistics Cards moved into header */}
 
           {/* Active Trading Bots - Full Height */}
-          <motion.div {...TRADING_BOTS_WIDGET_MOTION}>
+          <motion.div
+            {...TRADING_BOTS_WIDGET_MOTION}
+            className="md:flex md:min-h-0 md:flex-1 md:flex-col"
+          >
             <Widget
               className="p-sm text-card-foreground flex-1 min-h-[500px]"
               noPadding
@@ -1737,8 +1740,9 @@ const TradingBots: React.FC = () => {
               <Tabs
                 value={pageTab}
                 onValueChange={(v) => setPageTab(v as 'bots' | 'deals')}
+                className="md:flex md:min-h-0 md:flex-1 md:flex-col"
               >
-                <div className="flex flex-col h-full min-h-[500px]">
+                <div className="flex flex-col h-full min-h-[500px] md:h-auto md:flex-1">
                   <motion.div
                     className="shrink-0"
                     {...TRADING_BOTS_HEADER_MOTION}
@@ -1951,6 +1955,7 @@ const TradingBots: React.FC = () => {
                     className="flex-1 min-h-[400px] overflow-hidden mt-0"
                   >
                     <OpenOrdersWidget
+                      pinHeaderOnPageScroll
                       widgetId="dca-bot-deals"
                       data={{ trades: dcaDealsAsOpenTrades }}
                       rawDeals={dcaDealsForTab}

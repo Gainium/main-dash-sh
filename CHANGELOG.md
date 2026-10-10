@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.89.11] - 2026-10-10
+
+### Changed
+
+- The bots and deals tables on the DCA, Combo and Hedge DCA pages keep their column headers in view while scrolling. On phones the deals list scrolls the summary above it away first, then fills the screen with its header pinned.
+
 ## [2.89.10] - 2026-10-09
 
 ### Changed

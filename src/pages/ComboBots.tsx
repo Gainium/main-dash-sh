@@ -1385,6 +1385,7 @@ const ComboBots: React.FC = () => {
             delay: 0.3,
             ease: [0.25, 0.1, 0.25, 1],
           }}
+          className="md:flex md:min-h-0 md:flex-1 md:flex-col"
         >
           <Widget
             className="p-sm text-card-foreground flex-1 min-h-[500px]"
@@ -1394,8 +1395,9 @@ const ComboBots: React.FC = () => {
             <Tabs
               value={pageTab}
               onValueChange={(v) => setPageTab(v as 'bots' | 'deals')}
+              className="md:flex md:min-h-0 md:flex-1 md:flex-col"
             >
-              <div className="flex flex-col h-full min-h-[500px]">
+              <div className="flex flex-col h-full min-h-[500px] md:h-auto md:flex-1">
                 <motion.div
                   className="shrink-0"
                   initial={{ opacity: 0, x: -20 }}
@@ -1652,6 +1654,7 @@ const ComboBots: React.FC = () => {
                   className="flex-1 min-h-[400px] overflow-hidden mt-0"
                 >
                   <OpenOrdersWidget
+                    pinHeaderOnPageScroll
                     widgetId="combo-bot-deals"
                     data={{ trades: comboDealsAsOpenTrades }}
                     // The edit drawer looks deals up here. Without them a bulk
