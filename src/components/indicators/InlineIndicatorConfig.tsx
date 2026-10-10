@@ -57,6 +57,9 @@ interface InlineIndicatorConfigProps {
   // (indicators.tsx:1415 `timeIntervalMap[int] >= 60 * 60 * 1000`). Omitted =
   // no lower bound. Applied on top of the per-exchange filter.
   minIntervalMs?: number | undefined;
+  // Field keys the host does not support; those fields are not rendered.
+  // Omitted = every field of the definition is shown.
+  hiddenFieldKeys?: readonly string[] | undefined;
 }
 
 // Global variables are typed `int` | `float` | `text`. We infer numeric
@@ -81,6 +84,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
   indicatorUuid,
   exchange,
   minIntervalMs,
+  hiddenFieldKeys,
 }) => {
   const updateParam = (key: string, value: IndicatorParamPrimitive) => {
     const next: IndicatorParamsState = { ...params, [key]: value };
@@ -129,7 +133,10 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
     // default the driving control displays.
     const label = resolveFieldLabel(definition, field, effectiveParams);
 
-    if (shouldHideField(field, effectiveParams)) {
+    if (
+      shouldHideField(field, effectiveParams) ||
+      hiddenFieldKeys?.includes(field.key as string)
+    ) {
       return null;
     }
 

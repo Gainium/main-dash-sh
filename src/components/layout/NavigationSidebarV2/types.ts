@@ -23,4 +23,10 @@ export interface NavigationGroup {
     text: string;
     variant?: 'default' | 'pro' | 'beta';
   };
+  /**
+   * Optional runtime visibility (a React hook, called once per render of the
+   * entry). Returns false to hide the entry everywhere the sidebar lists it.
+   * Omitted = always visible.
+   */
+  useIsVisible?: () => boolean;
 }

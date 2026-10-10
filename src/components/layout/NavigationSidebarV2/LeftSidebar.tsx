@@ -19,6 +19,7 @@ import { getBotTypeRoute, getNavigationBotTypes } from '@/utils/botUtils';
 import { BarChart2, ChevronRight, LayoutDashboard } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { NavVisibilityGate } from '../NavVisibilityGate';
 import { NAVIGATION_GROUPS } from './navigationConfig';
 import type { NavigationGroup, SecondaryPanel } from './types';
 
@@ -305,22 +306,19 @@ export const LeftSidebar: React.FC<LeftSidebarProps> = ({
                 </div>
               );
 
-              if (group.href) {
-                return (
-                  <Link
-                    key={group.id}
-                    to={linkTo(group.href)}
-                    className="w-full"
-                  >
-                    {content}
-                  </Link>
-                );
-              }
-
               return (
-                <div key={group.id} className="w-full">
-                  {content}
-                </div>
+                <NavVisibilityGate
+                  key={group.id}
+                  useIsVisible={group.useIsVisible}
+                >
+                  {group.href ? (
+                    <Link to={linkTo(group.href)} className="w-full">
+                      {content}
+                    </Link>
+                  ) : (
+                    <div className="w-full">{content}</div>
+                  )}
+                </NavVisibilityGate>
               );
             });
           })()}

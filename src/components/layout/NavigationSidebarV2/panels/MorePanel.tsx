@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import ShortcutChip from '@/components/common/ShortcutChip';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -46,6 +47,7 @@ import {
   DEFAULT_VISIBLE_NAV_IDS,
   NAVIGATION_GROUPS,
 } from '../navigationConfig';
+import { NavVisibilityGate } from '../../NavVisibilityGate';
 import CustomNavItemDialog from './CustomNavItemDialog';
 import RightPanel from './RightPanel';
 
@@ -83,6 +85,7 @@ type NavItem = {
   shortcutId?: string;
   isCustom?: boolean;
   reportId?: string;
+  useIsVisible?: () => boolean;
 };
 
 const MorePanel: React.FC<MorePanelProps> = ({ onClose, onNavigate }) => {
@@ -145,6 +148,7 @@ const MorePanel: React.FC<MorePanelProps> = ({ onClose, onNavigate }) => {
     href: g.href,
     badge: g.badge,
     shortcutId: NAV_ID_TO_SHORTCUT_ID[g.id],
+    ...(g.useIsVisible ? { useIsVisible: g.useIsVisible } : {}),
   }));
 
   // Add user dashboards as individual items so they can appear in More (and be toggled / reordered)
@@ -393,8 +397,11 @@ const MorePanel: React.FC<MorePanelProps> = ({ onClose, onNavigate }) => {
                       const currentLabel = item.label;
                       const isEditing = editingLabelId === id;
                       return (
-                        <SortableListItem
+                        <NavVisibilityGate
                           key={id}
+                          useIsVisible={item.useIsVisible}
+                        >
+                        <SortableListItem
                           id={id}
                           label={item.label}
                           icon={item.icon}
@@ -439,6 +446,7 @@ const MorePanel: React.FC<MorePanelProps> = ({ onClose, onNavigate }) => {
                               : undefined
                           }
                         />
+                        </NavVisibilityGate>
                       );
                     })}
                 </div>
@@ -453,18 +461,23 @@ const MorePanel: React.FC<MorePanelProps> = ({ onClose, onNavigate }) => {
             </h4>
             <div className="flex flex-col gap-1">
               {navItems.map((item) => (
-                <StaticListItem
+                <NavVisibilityGate
                   key={item.id}
-                  id={item.id}
-                  label={item.label}
-                  icon={item.icon}
-                  href={item.href}
-                  checked={visibleIds.includes(item.id)}
-                  disabled={visibleIds.includes(item.id)}
-                  onToggle={() => toggleItemVisible(item.id)}
-                  onClick={() => handleNavigate(item.href, item.id)}
-                  shortcutId={item.shortcutId}
-                />
+                  useIsVisible={item.useIsVisible}
+                >
+                  <StaticListItem
+                    id={item.id}
+                    label={item.label}
+                    icon={item.icon}
+                    href={item.href}
+                    checked={visibleIds.includes(item.id)}
+                    disabled={visibleIds.includes(item.id)}
+                    onToggle={() => toggleItemVisible(item.id)}
+                    onClick={() => handleNavigate(item.href, item.id)}
+                    shortcutId={item.shortcutId}
+                    badge={item.badge}
+                  />
+                </NavVisibilityGate>
               ))}
             </div>
           </div>
@@ -750,6 +763,7 @@ const StaticListItem: React.FC<{
   shortcutId?: string;
   isCustom?: boolean;
   onDelete?: () => void;
+  badge?: NavItem['badge'];
 }> = ({
   label,
   icon,
@@ -761,6 +775,7 @@ const StaticListItem: React.FC<{
   shortcutId,
   isCustom,
   onDelete,
+  badge,
 }) => {
   return (
     <div className="group flex items-center gap-3 p-2 rounded-md hover:bg-muted/50">
@@ -778,6 +793,14 @@ const StaticListItem: React.FC<{
         <div className="text-sm flex-1 truncate min-w-0">
           <div className="flex items-center gap-2">
             <span className="truncate block">{label}</span>
+            {badge && (
+              <Badge
+                variant={badge.variant === 'beta' ? 'destructive' : 'secondary'}
+                className="text-xs px-1 py-0 h-4"
+              >
+                {badge.text}
+              </Badge>
+            )}
             {shortcutId ? (
               <ShortcutChip id={shortcutId} />
             ) : shortcut ? (

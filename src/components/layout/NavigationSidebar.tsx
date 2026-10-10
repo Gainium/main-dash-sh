@@ -28,6 +28,7 @@ import {
   useUserSessionsStore,
 } from '../../stores/userSessionsStore';
 import { Badge } from '../ui/badge';
+import { NavVisibilityGate } from './NavVisibilityGate';
 import { Button } from '../ui/button';
 import { InputDialog } from '../ui/confirmation-dialog';
 import { CreateDashboardDialog } from '../dashboard/CreateDashboardDialog';
@@ -794,6 +795,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
           icon: nav.icon,
           isCustom: isCustomNavItemId(id),
           enabled: isNavigationItemEnabled(navigationItemsEnabled, id),
+          ...(nav.useIsVisible ? { useIsVisible: nav.useIsVisible } : {}),
         };
       })
       .filter((item): item is EditorItem => Boolean(item)),
@@ -1078,8 +1080,11 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                               ? 'nav.portfolio'
                               : undefined;
                         return (
-                          <div
+                          <NavVisibilityGate
                             key={itemIndex}
+                            useIsVisible={item.useIsVisible}
+                          >
+                          <div
                             className="mb-2 px-2"
                             data-tour={tourKey}
                             onMouseEnter={() => {
@@ -1667,6 +1672,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
                                 </div>
                               )}
                           </div>
+                          </NavVisibilityGate>
                         );
                       })}
                     </div>

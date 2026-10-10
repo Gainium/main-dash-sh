@@ -41,6 +41,12 @@ export interface NavigationItem {
       }
     | undefined;
   shortcut?: string;
+  /**
+   * Optional runtime visibility (a React hook, called once per render of the
+   * entry). Returns false to hide the entry from the sidebar and its editor.
+   * Omitted = always visible.
+   */
+  useIsVisible?: () => boolean;
 }
 
 export interface NavigationSection {

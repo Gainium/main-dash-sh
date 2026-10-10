@@ -280,10 +280,14 @@ const GlobalSearchContent: React.FC<{
       label: string;
       icon?: React.ReactNode;
       children?: NavItem[];
+      useIsVisible?: () => boolean;
     };
 
     const processItems = (items: NavItem[], parentLabel?: string) => {
       items.forEach((item) => {
+        // Entries with runtime visibility can't be checked outside render;
+        // leave them out of search rather than surface a hidden page.
+        if (item.useIsVisible) return;
         if (item.href && !item.href.startsWith('http')) {
           pages.push({
             id: item.href,

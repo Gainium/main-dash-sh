@@ -27,6 +27,7 @@ import {
 } from 'lucide-react';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CustomNavItemDialog from './NavigationSidebarV2/panels/CustomNavItemDialog';
+import { NavVisibilityGate } from './NavVisibilityGate';
 import { ROOT_SECTION_ID, type NavLayoutSection } from './navigationLayout';
 
 export interface EditorItem {
@@ -35,6 +36,8 @@ export interface EditorItem {
   icon: React.ReactNode;
   isCustom: boolean;
   enabled: boolean;
+  /** Runtime visibility hook of the nav entry (see `NavigationItem`). */
+  useIsVisible?: () => boolean;
 }
 
 export interface EditorSection {
@@ -350,8 +353,11 @@ const SidebarNavEditor: React.FC<SidebarNavEditorProps> = ({ sections }) => {
                 />
               )}
               {section.items.map((item) => (
-                <SortableItemRow
+                <NavVisibilityGate
                   key={item.id}
+                  useIsVisible={item.useIsVisible}
+                >
+                <SortableItemRow
                   id={`${ITEM_PREFIX}${item.id}`}
                   item={item}
                   onToggle={() => toggleItem(item.id, item.enabled)}
@@ -371,6 +377,7 @@ const SidebarNavEditor: React.FC<SidebarNavEditorProps> = ({ sections }) => {
                       : undefined
                   }
                 />
+                </NavVisibilityGate>
               ))}
               {/* Add a custom item into this section */}
               <button
