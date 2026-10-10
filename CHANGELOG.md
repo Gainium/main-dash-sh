@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.90.0] - 2026-10-10
+
+### Added
+
+- Sidebar: navigation entries (V1 items and V2 groups) accept an optional `useIsVisible` hook, so a build can show or hide an entry at runtime. Global search leaves such entries out, since it cannot evaluate the hook.
+- Indicator settings: `InlineIndicatorConfig` accepts an optional `hiddenFieldKeys` list to omit fields the host does not support. Existing callers are unchanged.
+
+### Changed
+
+- The More panel's page list shows an entry's badge.
+
 ## [2.89.11] - 2026-10-10
 
 ### Changed
