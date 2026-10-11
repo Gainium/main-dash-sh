@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.91.4] - 2026-10-11
+
+### Fixed
+
+- Bot builder: the "Restored your unsaved bot" notice no longer pushes the Backtest / Create Bot bar out of view; the notice now fits inside the builder.
+
 ## [2.91.3] - 2026-10-11
 
 ### Fixed

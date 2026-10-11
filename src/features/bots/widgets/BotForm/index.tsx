@@ -3657,10 +3657,23 @@ const BotForm: React.FC<BotFormProps> = ({
   const allStrategiesOpen =
     allStrategiesState.open && allStrategiesState.botType !== null;
 
+  // Seated inside each shell's own flex column (never as a sibling above it):
+  // the shells are `h-full` / `fixed inset-0`, so a notice outside them adds
+  // its height on top of 100% and pushes the footer out of the panel.
+  const draftNotice =
+    draftRestoredAt !== null ? (
+      <DraftRestoredNotice
+        savedAt={draftRestoredAt}
+        onKeep={dismissDraftNotice}
+        onDiscard={discardDraft}
+      />
+    ) : null;
+
   const shellContent = (
     <>
       <div className="flex h-full flex-col">
         <div className="flex h-full flex-col">
+          {draftNotice && <div className="shrink-0">{draftNotice}</div>}
           {(showStickyHeader || allStrategiesOpen) && (
             <motion.div
               className={cn(
@@ -4138,6 +4151,8 @@ const BotForm: React.FC<BotFormProps> = ({
           </div>
         </motion.div>
       )}
+
+      {draftNotice && <div className="shrink-0 px-3 pt-3">{draftNotice}</div>}
 
       {/* Scrollable content area */}
       <div className="flex-1 overflow-hidden">
@@ -4624,13 +4639,6 @@ const BotForm: React.FC<BotFormProps> = ({
 
   return (
     <AllStrategiesPanelContext.Provider value={allStrategiesCtxValue}>
-      {/* Rendered above every variant (widget / panel / mobile) so the
-          restore is announced exactly once, whatever shell the form is in. */}
-      <DraftRestoredNotice
-        savedAt={draftRestoredAt}
-        onKeep={dismissDraftNotice}
-        onDiscard={discardDraft}
-      />
       {rendered}
     </AllStrategiesPanelContext.Provider>
   );
