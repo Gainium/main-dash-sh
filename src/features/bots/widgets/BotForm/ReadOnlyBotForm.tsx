@@ -32,6 +32,7 @@ import {
   measureSectionTops,
   pickActiveSection,
 } from '@/features/bots/widgets/BotForm/sectionScrollSpy';
+import { findScrollingAncestor } from '@/components/ui/data-table/usePinnedHeaderOnPageScroll';
 
 import {
   BotFormProvider,
@@ -279,22 +280,17 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
   const scrollContainerRef = useRef<HTMLElement | null>(null);
   const clickedTabRef = useRef<string | null>(null);
 
-  /** Walk up the DOM to find the first scrollable ancestor. */
+  /**
+   * The nearest ancestor that actually scrolls. The drawer nests an
+   * overflow-auto wrapper that grows to its content, so "first overflow:auto
+   * ancestor" is not enough. A miss is not cached: the content may not
+   * overflow yet.
+   */
   const findScrollContainer = useCallback((): HTMLElement | null => {
     if (scrollContainerRef.current) return scrollContainerRef.current;
-    let el: HTMLElement | null = formRef.current?.parentElement ?? null;
-    while (el && el !== document.documentElement) {
-      const { overflow, overflowY } = window.getComputedStyle(el);
-      if (
-        ['auto', 'scroll'].includes(overflowY) ||
-        ['auto', 'scroll'].includes(overflow)
-      ) {
-        scrollContainerRef.current = el;
-        return el;
-      }
-      el = el.parentElement;
-    }
-    return null;
+    const el = formRef.current ? findScrollingAncestor(formRef.current) : null;
+    if (el) scrollContainerRef.current = el;
+    return el;
   }, []);
 
   /** Highlight the section whose header the user has scrolled to. */
@@ -320,21 +316,32 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
 
   // Attach the scroll listener to the real scroll container after mount
   useEffect(() => {
-    // Give the DOM a moment to settle before finding the scroll container
+    let bound: HTMLElement | null = null;
     let unbindUserScroll: (() => void) | null = null;
-    const frameId = requestAnimationFrame(() => {
+    const bind = () => {
+      if (bound) return;
       const sc = findScrollContainer();
       if (!sc) return;
+      bound = sc;
       updateActiveTab(); // Sync on mount
       sc.addEventListener('scroll', updateActiveTab, { passive: true });
       unbindUserScroll = bindUserScrollIntent(sc, () => {
         clickedTabRef.current = null;
       });
-    });
+    };
+    // Give the DOM a moment to settle before finding the scroll container
+    const frameId = requestAnimationFrame(bind);
+    // Retry when the form grows, until some ancestor scrolls
+    const form = formRef.current;
+    const resizeObserver =
+      form && typeof ResizeObserver !== 'undefined'
+        ? new ResizeObserver(bind)
+        : null;
+    if (form) resizeObserver?.observe(form);
     return () => {
       cancelAnimationFrame(frameId);
-      const sc = scrollContainerRef.current;
-      if (sc) sc.removeEventListener('scroll', updateActiveTab);
+      resizeObserver?.disconnect();
+      bound?.removeEventListener('scroll', updateActiveTab);
       unbindUserScroll?.();
     };
   }, [findScrollContainer, updateActiveTab]);

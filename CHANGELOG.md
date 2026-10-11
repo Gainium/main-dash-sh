@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.91.3] - 2026-10-11
+
+### Fixed
+
+- Bot details drawer: the highlighted section tab now follows the section you scroll to by hand, instead of staying on the last clicked tab.
+
 ## [2.91.2] - 2026-10-11
 
 ### Fixed

@@ -12,9 +12,16 @@ function scrollableAncestors(el: HTMLElement): HTMLElement[] {
 }
 
 /** Nearest ancestor that actually scrolls — not just one with overflow:auto. */
-function findPageScroller(el: HTMLElement): HTMLElement {
+export function findScrollingAncestor(el: HTMLElement): HTMLElement | null {
   return (
     scrollableAncestors(el).find((p) => p.scrollHeight > p.clientHeight + 1) ??
+    null
+  );
+}
+
+function findPageScroller(el: HTMLElement): HTMLElement {
+  return (
+    findScrollingAncestor(el) ??
     (document.scrollingElement as HTMLElement) ??
     document.body
   );
