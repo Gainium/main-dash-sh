@@ -26,6 +26,12 @@ import {
 } from '@/components/ui/ScrollableFormTabNavigation';
 import { SectionHeader } from '@/features/bots/shared/components/SectionHeader';
 import {
+  bindUserScrollIntent,
+  isScrolledToBottom,
+  measureSectionTops,
+  pickActiveSection,
+} from '@/features/bots/widgets/BotForm/sectionScrollSpy';
+import {
   useBotFormSectionsVersion,
   withBotFormExtensionSections,
 } from '@/lib/extensions/botFormExtensions';
@@ -2837,6 +2843,7 @@ const BotForm: React.FC<BotFormProps> = ({
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const scrollContainerRef = useRef<HTMLDivElement | null>(null);
   const isScrolling = useRef(false);
+  const clickedTab = useRef<string | null>(null);
 
   // Handle tab change by scrolling to the section
   const handleTabChangeWithScroll = useCallback(
@@ -2847,7 +2854,9 @@ const BotForm: React.FC<BotFormProps> = ({
       const scrollContainer = scrollContainerRef.current;
 
       if (sectionElement && scrollContainer) {
-        isScrolling.current = true;
+        // Keep the clicked tab until the user scrolls by hand: a short or
+        // last section would otherwise lose to the scroll-spy.
+        clickedTab.current = tabId;
 
         // Calculate the offset to scroll to
         const containerTop = scrollContainer.getBoundingClientRect().top;
@@ -2859,11 +2868,6 @@ const BotForm: React.FC<BotFormProps> = ({
           top: offset,
           behavior: 'smooth',
         });
-
-        // Reset scrolling flag after animation
-        setTimeout(() => {
-          isScrolling.current = false;
-        }, 800);
       }
     },
     [setActiveTab]
@@ -2879,6 +2883,7 @@ const BotForm: React.FC<BotFormProps> = ({
     const scrollContainer = scrollContainerRef.current;
     if (!scrollContainer) return;
     isScrolling.current = true;
+    clickedTab.current = null;
     scrollContainer.scrollTo({ top: 0, behavior: 'auto' });
     setTimeout(() => {
       isScrolling.current = false;
@@ -2898,44 +2903,20 @@ const BotForm: React.FC<BotFormProps> = ({
     let frame: number | null = null;
     const measure = () => {
       frame = null;
-      if (isScrolling.current) return;
+      if (isScrolling.current || clickedTab.current) return;
 
-      const containerRect = scrollContainer.getBoundingClientRect();
+      // Highlight the section whose header the user has scrolled to.
+      const sections = measureSectionTops(
+        scrollContainer,
+        navigationTabs.map(({ id }) => id),
+        (id) => sectionRefs.current[id]
+      );
+      const activeSection = pickActiveSection(
+        sections,
+        isScrolledToBottom(scrollContainer)
+      );
 
-      // Find which section is currently most visible in the viewport
-      let activeSection: string | null = null;
-      let maxVisibleArea = 0;
-
-      visibleDescriptors.forEach(({ id }) => {
-        const sectionElement = sectionRefs.current[id];
-        if (!sectionElement) return;
-
-        const sectionRect = sectionElement.getBoundingClientRect();
-
-        // Calculate the visible portion of this section
-        const visibleTop = Math.max(sectionRect.top, containerRect.top);
-        const visibleBottom = Math.min(
-          sectionRect.bottom,
-          containerRect.bottom
-        );
-        const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-
-        // Use visible area as the metric (height * width for accuracy)
-        const visibleArea = visibleHeight * sectionRect.width;
-
-        // The section with the largest visible area is the active one
-        if (visibleArea > maxVisibleArea) {
-          maxVisibleArea = visibleArea;
-          activeSection = id;
-        }
-      });
-
-      // Update active tab only if we have a clear winner and it's different
-      if (
-        activeSection &&
-        activeSection !== activeTabRef.current &&
-        maxVisibleArea > 0
-      ) {
+      if (activeSection && activeSection !== activeTabRef.current) {
         setActiveTab(activeSection as BotFormTabId);
       }
     };
@@ -2949,11 +2930,15 @@ const BotForm: React.FC<BotFormProps> = ({
     measure();
 
     scrollContainer.addEventListener('scroll', handleScroll, { passive: true });
+    const unbindUserScroll = bindUserScrollIntent(scrollContainer, () => {
+      clickedTab.current = null;
+    });
     return () => {
       scrollContainer.removeEventListener('scroll', handleScroll);
+      unbindUserScroll();
       if (frame !== null) cancelAnimationFrame(frame);
     };
-  }, [setActiveTab, visibleDescriptors]);
+  }, [setActiveTab, navigationTabs]);
 
   const loadingContent = (
     <div className="flex h-full flex-col items-center justify-center space-y-md">

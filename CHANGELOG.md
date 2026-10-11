@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.91.2] - 2026-10-11
+
+### Fixed
+
+- Bot form section tabs: clicking a section keeps it highlighted instead of jumping to a larger neighbouring section, including short sections and the last sections of the form. Scrolling by hand highlights the section whose header has reached the top.
+
 ## [2.91.1] - 2026-10-11
 
 ### Added
