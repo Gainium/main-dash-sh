@@ -44,6 +44,11 @@ interface MarkdownToolbarProps {
   variables?: MarkdownVariable[];
   /** Telegram-style spoiler. Not every target supports one. */
   showSpoiler?: boolean;
+  /**
+   * Show the formatting buttons. Off for a field that takes variables but is
+   * not markdown (a JSON body): only the Variables menu is shown.
+   */
+  formatting?: boolean;
   disabled?: boolean;
 }
 
@@ -56,6 +61,7 @@ export const MarkdownToolbar = ({
   onChange,
   variables,
   showSpoiler = false,
+  formatting = true,
   disabled = false,
 }: MarkdownToolbarProps) => {
   /** Apply an edit, then put the caret back where the user expects it. */
@@ -136,105 +142,111 @@ export const MarkdownToolbar = ({
 
   return (
     <div className="flex flex-wrap items-center gap-0.5 rounded-md border border-border/50 bg-muted/40 px-1 py-1">
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Bold"
-        title="Bold"
-        onClick={() => wrap('**', 'bold')}
-      >
-        <Bold className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Italic"
-        title="Italic"
-        onClick={() => wrap('*', 'italic')}
-      >
-        <Italic className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Strikethrough"
-        title="Strikethrough"
-        onClick={() => wrap('~~', 'text')}
-      >
-        <Strikethrough className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Code"
-        title="Code"
-        onClick={() => wrap('`', 'code')}
-      >
-        <Code className="h-3.5 w-3.5" />
-      </button>
+      {formatting ? (
+        <>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Bold"
+            title="Bold"
+            onClick={() => wrap('**', 'bold')}
+          >
+            <Bold className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Italic"
+            title="Italic"
+            onClick={() => wrap('*', 'italic')}
+          >
+            <Italic className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Strikethrough"
+            title="Strikethrough"
+            onClick={() => wrap('~~', 'text')}
+          >
+            <Strikethrough className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Code"
+            title="Code"
+            onClick={() => wrap('`', 'code')}
+          >
+            <Code className="h-3.5 w-3.5" />
+          </button>
 
-      <span className="mx-1 h-4 w-px bg-border/60" aria-hidden />
+          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden />
 
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Heading"
-        title="Heading"
-        onClick={() => prefixLines('## ')}
-      >
-        <Heading className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Bullet list"
-        title="Bullet list"
-        onClick={() => prefixLines('- ')}
-      >
-        <List className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Quote"
-        title="Quote"
-        onClick={() => prefixLines('> ')}
-      >
-        <TextQuote className="h-3.5 w-3.5" />
-      </button>
-      <button
-        type="button"
-        className={BTN}
-        disabled={disabled}
-        aria-label="Link"
-        title="Link"
-        onClick={makeLink}
-      >
-        <LinkIcon className="h-3.5 w-3.5" />
-      </button>
-      {showSpoiler ? (
-        <button
-          type="button"
-          className={BTN}
-          disabled={disabled}
-          aria-label="Spoiler"
-          title="Spoiler — hidden until tapped"
-          onClick={() => wrap('||', 'hidden')}
-        >
-          <EyeOff className="h-3.5 w-3.5" />
-        </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Heading"
+            title="Heading"
+            onClick={() => prefixLines('## ')}
+          >
+            <Heading className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Bullet list"
+            title="Bullet list"
+            onClick={() => prefixLines('- ')}
+          >
+            <List className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Quote"
+            title="Quote"
+            onClick={() => prefixLines('> ')}
+          >
+            <TextQuote className="h-3.5 w-3.5" />
+          </button>
+          <button
+            type="button"
+            className={BTN}
+            disabled={disabled}
+            aria-label="Link"
+            title="Link"
+            onClick={makeLink}
+          >
+            <LinkIcon className="h-3.5 w-3.5" />
+          </button>
+          {showSpoiler ? (
+            <button
+              type="button"
+              className={BTN}
+              disabled={disabled}
+              aria-label="Spoiler"
+              title="Spoiler — hidden until tapped"
+              onClick={() => wrap('||', 'hidden')}
+            >
+              <EyeOff className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
+        </>
       ) : null}
 
       {variables?.length ? (
         <>
-          <span className="mx-1 h-4 w-px bg-border/60" aria-hidden />
+          {formatting ? (
+            <span className="mx-1 h-4 w-px bg-border/60" aria-hidden />
+          ) : null}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

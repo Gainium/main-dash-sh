@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.91.1] - 2026-10-11
+
+### Added
+
+- `MarkdownToolbar` accepts `formatting={false}` to show only its Variables menu, for fields that take variables but are not markdown (such as a JSON body).
+
 ## [2.91.0] - 2026-10-11
 
 ### Added
