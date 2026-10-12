@@ -3750,7 +3750,9 @@ const BotForm: React.FC<BotFormProps> = ({
 
                 <fieldset
                   disabled={isContentReadOnly}
-                  className="m-0 border-0 p-0 space-y-md pb-2"
+                  // min-w-0: a fieldset defaults to min-width: min-content, so
+                  // one wide row would push the whole form past a phone screen.
+                  className="m-0 min-w-0 border-0 p-0 space-y-md pb-2"
                   aria-disabled={isContentReadOnly}
                 >
                   {quickSetupMode === 'quick' &&

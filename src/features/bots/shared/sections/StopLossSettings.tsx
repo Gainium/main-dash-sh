@@ -1988,6 +1988,7 @@ const IndicatorsSL: React.FC<
           totalIndicatorsAcrossBot={totalIndicatorsAcrossBot}
           indicatorAction={IndicatorAction.closeDeal}
           indicatorSection={IndicatorSection.sl}
+          formulaLabel="Stop loss when"
           exchange={currentExchange?.provider}
           topTrailingContent={
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

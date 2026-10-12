@@ -2989,6 +2989,7 @@ export const TakeProfitSettings: React.FC = () => {
                     errorMessage={closeIndicatorErrorMessage}
                     totalIndicatorsAcrossBot={totalIndicatorsAcrossBot}
                     indicatorAction={IndicatorAction.closeDeal}
+                    formulaLabel="Close the deal when"
                     exchange={currentExchange?.provider}
                     emptyStateMessage="No indicator groups configured yet. Add a group to start building your close conditions."
                     emptyIndicatorsAlertTitle="No close indicators yet"

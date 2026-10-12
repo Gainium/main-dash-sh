@@ -1,16 +1,9 @@
 import { IndicatorGroupCard } from '@/components/indicators/IndicatorGroupCard';
+import { LogicPill } from '@/components/indicators/LogicPill';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { Tooltip } from '@/components/ui/tooltip';
 import {
   IndicatorAction,
   IndicatorSection,
@@ -27,9 +20,8 @@ import {
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
-import { AlertTriangle, Info } from 'lucide-react';
+import { AlertTriangle, Info, Plus } from 'lucide-react';
 import React, { useMemo } from 'react';
-import MasonryLayout from '../../../../components/ui/MasonryLayout';
 
 export interface IndicatorGroupsManagerProps {
   /** All indicators from the form */
@@ -73,6 +65,8 @@ export interface IndicatorGroupsManagerProps {
   maxIndicatorsPerGroup?: number;
   /** Label for the global logic select */
   globalLogicLabel?: string;
+  /** Caption above the one-line condition, e.g. "Start a deal when". */
+  formulaLabel?: string;
   /** Options for global logic select (override default) */
   globalLogicOptions?: Array<{
     value: IndicatorsLogicEnum;
@@ -116,11 +110,9 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   allowVariableBinding = true,
   maxGroups,
   maxIndicatorsPerGroup,
-  globalLogicLabel = 'Match groups',
-  globalLogicOptions = [
-    { value: IndicatorsLogicEnum.and, label: 'All groups (AND)' },
-    { value: IndicatorsLogicEnum.or, label: 'Any group (OR)' },
-  ],
+  globalLogicLabel: _globalLogicLabel = 'Match groups',
+  formulaLabel = 'Condition',
+  globalLogicOptions: _globalLogicOptions,
   emptyStateMessage = 'No indicator groups configured yet. Add a group to start building your conditions.',
   emptyIndicatorsAlertTitle = 'No indicators in groups',
   emptyIndicatorsAlertDescription = 'Add at least one indicator to each group. Groups without indicators will never trigger.',
@@ -177,8 +169,42 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   }, [indicators, indicatorAction, indicatorSection]);
 
   const totalIndicators = filteredIndicators.length;
-  // AND/OR between groups only means something once there are two of them.
-  const showGlobalLogic = filteredGroups.length > 1;
+
+  // The whole condition in one readable line, e.g. "(RSI or MACD) and BB".
+  const formula = useMemo(() => {
+    const parts = filteredGroups
+      .map((group) => {
+        const names = filteredIndicators
+          .filter((i) => i.groupId === group.id)
+          .map((i) => {
+            try {
+              const d = getIndicatorDefinition(i.type);
+              return d.shortLabel || d.label;
+            } catch {
+              return String(i.type);
+            }
+          });
+        if (!names.length) return '';
+        const joined = names.join(group.logic === 'or' ? ' or ' : ' and ');
+        return names.length > 1 && filteredGroups.length > 1
+          ? `(${joined})`
+          : joined;
+      })
+      .filter(Boolean);
+    if (totalIndicators < 2) return '';
+    return parts.join(
+      globalLogic === IndicatorsLogicEnum.or ? ' or ' : ' and '
+    );
+  }, [filteredGroups, filteredIndicators, globalLogic, totalIndicators]);
+
+  // A second group is an alternative: groups that are all ANDed add nothing
+  // over one group, so going from one group to two joins them with OR.
+  const handleAddGroup = React.useCallback(() => {
+    if (filteredGroups.length === 1 && globalLogic !== IndicatorsLogicEnum.or) {
+      onChangeGlobalLogic(IndicatorsLogicEnum.or);
+    }
+    onAddGroup();
+  }, [filteredGroups.length, globalLogic, onAddGroup, onChangeGlobalLogic]);
   const shouldShowEmptyIndicatorAlert = totalIndicators === 0;
 
   const addGroupDisabledReason = useMemo(() => {
@@ -194,7 +220,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   }, [indicatorLimitReached, maxGroups, filteredGroups.length]);
 
   return (
-    <div className="space-y-md">
+    <div className="min-w-0 space-y-md">
       {(errorMessage ||
         indicatorLimitReached ||
         shouldShowEmptyIndicatorAlert) && (
@@ -245,60 +271,28 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
         </div>
       )}
 
-      {!singleIndicator && (showGlobalLogic || secondColumnContent) && (
-      <MasonryLayout
-        gap={16}
-        containerBreakpoints={{
-          default: 1,
-          640: 2,
-          1024: 3,
-        }}
-      >
-        {showGlobalLogic ? (
-        <div className="flex-[1_1_300px] min-w-60 space-y-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-1">
-              <Label htmlFor="group-logic" className="text-sm">
-                {globalLogicLabel}
-              </Label>
-              <Tooltip
-                tooltip="Use AND/OR operators to define how indicator conditions inside groups are combined."
-                tooltipURL="/help/and-or-operators"
-              >
-                <InfoIcon className="h-3.5 w-3.5" />
-              </Tooltip>
-            </div>
-            <Select value={globalLogic} onValueChange={onChangeGlobalLogic}>
-              <SelectTrigger id="group-logic" className="w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {globalLogicOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+      {secondColumnContent ? (
+        <div className="space-y-4">{secondColumnContent}</div>
+      ) : null}
+
+      {!singleIndicator && formula ? (
+        <div className="space-y-xs">
+          <div className="text-xs text-muted-foreground">{formulaLabel}</div>
+          <div className="break-words rounded-md border border-border bg-card px-md py-sm font-mono text-sm">
+            {formula}
           </div>
         </div>
-        ) : null}
-
-        {secondColumnContent ? (
-          <div className=" space-y-4">{secondColumnContent}</div>
-        ) : null}
-      </MasonryLayout>
-      )}
+      ) : null}
 
       {filteredGroups.length === 0 ? (
         <div className="rounded-lg bg-muted p-md text-sm text-muted-foreground">
           {emptyStateMessage}
         </div>
       ) : (
-        // Groups have no frame; a hairline between them (a peer separator)
-        // keeps two groups readable as two.
-        <div className="divide-y divide-border/50">
-          {filteredGroups.map((group) => {
+        // Several groups are framed as brackets with the AND/OR that joins
+        // them drawn between the frames.
+        <div className="flex min-w-0 flex-col">
+          {filteredGroups.map((group, groupIndex) => {
             const indicatorsInGroup = filteredIndicators.filter(
               (i) => i.groupId === group.id
             );
@@ -322,9 +316,24 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
             })();
 
             return (
-              <div key={group.id} className="space-y-xs py-md first:pt-0 last:pb-0">
+              <React.Fragment key={group.id}>
+                {groupIndex > 0 ? (
+                  <LogicPill
+                    className="py-sm"
+                    logic={globalLogic}
+                    onToggle={() =>
+                      onChangeGlobalLogic(
+                        globalLogic === IndicatorsLogicEnum.or
+                          ? IndicatorsLogicEnum.and
+                          : IndicatorsLogicEnum.or
+                      )
+                    }
+                  />
+                ) : null}
                 <IndicatorGroupCard
                   group={group}
+                  framed={filteredGroups.length > 1}
+                  title={`Group ${groupIndex + 1}`}
                   indicators={indicatorsInGroup}
                   disableControls={false}
                   singleIndicator={singleIndicator}
@@ -385,25 +394,28 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                     ? { addIndicatorDisabledReason }
                     : undefined)}
                 />
-              </div>
+              </React.Fragment>
             );
           })}
         </div>
       )}
 
       {!singleIndicator && (
-      <div className="flex items-center justify-end gap-md">
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAddGroup}
-          disabled={!!addGroupDisabledReason}
-          title={addGroupDisabledReason}
-        >
-          Add group
-        </Button>
-      </div>
+        <Tooltip tooltip={addGroupDisabledReason ?? 'Add an alternative condition, joined with OR'}>
+          <span className="inline-block">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="border-dashed"
+              onClick={handleAddGroup}
+              disabled={!!addGroupDisabledReason}
+            >
+              <Plus className="mr-1 h-4 w-4" />
+              Group
+            </Button>
+          </span>
+        </Tooltip>
       )}
     </div>
   );

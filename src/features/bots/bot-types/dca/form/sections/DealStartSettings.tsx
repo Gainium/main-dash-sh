@@ -1234,6 +1234,7 @@ export const DealStartSettings: React.FC = () => {
                   errorMessage={startIndicatorErrorMessage}
                   totalIndicatorsAcrossBot={totalIndicators}
                   indicatorAction={IndicatorAction.startDeal}
+                  formulaLabel="Start a deal when"
                   exchange={currentExchange?.provider}
                   emptyStateMessage="No indicator groups configured yet. Add a group to start building your technical start conditions."
                   emptyIndicatorsAlertTitle="No start indicators yet"

@@ -1,13 +1,6 @@
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { IndicatorActionsToolbar } from '@/features/bots/shared/components/IndicatorActionsToolbar';
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
@@ -39,6 +32,10 @@ export interface IndicatorGroupCardProps {
    * indicator and add indicator controls. Default false.
    */
   singleIndicator?: boolean;
+  /** Draw the group as a bracket (when it is one of several). */
+  framed?: boolean;
+  /** Label in the frame's header, e.g. "Group 2". */
+  title?: string;
 }
 
 export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
@@ -56,8 +53,10 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   renderIndicatorExtras,
   addIndicatorDisabledReason,
   emptyState,
-  addButtonLabel = 'Add indicator',
+  addButtonLabel = 'Indicator',
   singleIndicator = false,
+  framed = false,
+  title = 'Group',
 }) => {
   const addIndicatorDisabled = !canAddIndicator || disableControls;
   const addIndicatorTooltip = addIndicatorDisabled
@@ -73,55 +72,32 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   }, [_onRemoveGroup, indicators, onRemoveIndicator]);
 
   return (
-    // No frame of its own (DESIGN_SYSTEM §3): groups are told apart by
-    // spacing and the manager's separators; the indicators carry the inset
-    // surface. A single fixed indicator renders straight in its host's flow.
-    <div className="space-y-md">
-      {!singleIndicator && (
-      <div className="flex flex-wrap items-center justify-between gap-sm">
-        {indicators.length > 1 ? (
-        <div className="flex items-center gap-sm">
-          <Label
-            htmlFor={`indicator-group-logic-${group.id}`}
-            className="whitespace-nowrap"
-          >
-            Match indicators
-          </Label>
-          <Select
-            value={group.logic}
-            onValueChange={(value) =>
-              onChangeLogic(value as IndicatorGroup['logic'])
-            }
-            disabled={disableControls}
-          >
-            <SelectTrigger
-              id={`indicator-group-logic-${group.id}`}
-              className="w-[200px]"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="and">All indicators (AND)</SelectItem>
-              <SelectItem value="or">Any indicator (OR)</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        ) : (
-          <span />
-        )}
-
-        <Button
-          type="button"
-          size="icon"
-          variant="ghost"
-          onClick={onRemoveGroup}
-          className="text-destructive hover:bg-destructive/10 hover:text-destructive"
-          disabled={disableControls}
-        >
-          <Trash2 className="h-4 w-4" />
-        </Button>
-      </div>
+    // Framed only when it is one of several groups: the frame is the bracket
+    // around "(A or B)". A lone group renders straight in its host's flow.
+    <div
+      className={cn(
+        'min-w-0 space-y-sm',
+        framed && 'rounded-xl border border-border bg-muted/30 p-sm'
       )}
+    >
+      {framed && !singleIndicator ? (
+        <div className="flex items-center justify-between gap-sm pl-xs">
+          <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            {title}
+          </span>
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            onClick={onRemoveGroup}
+            className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive"
+            disabled={disableControls}
+            aria-label="Remove group"
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : null}
 
       <IndicatorList
         indicators={indicators}
@@ -135,18 +111,29 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           ? { renderExtras: renderIndicatorExtras }
           : {})}
         {...(emptyState ? { emptyState } : {})}
+        connector={{
+          logic: group.logic,
+          ...(disableControls
+            ? {}
+            : {
+                onToggle: () =>
+                  onChangeLogic(
+                    (group.logic === 'or'
+                      ? 'and'
+                      : 'or') as IndicatorGroup['logic']
+                  ),
+              }),
+        }}
       />
 
       {!singleIndicator && (
-      <div className="flex justify-end">
         <IndicatorActionsToolbar
           onAddIndicator={onAddIndicator}
           addIndicatorLabel={addButtonLabel}
           addIndicatorDisabled={addIndicatorDisabled}
           addIndicatorTooltip={addIndicatorTooltip}
-          addIndicatorVariant="outline"
+          addIndicatorVariant="ghost"
         />
-      </div>
       )}
     </div>
   );
