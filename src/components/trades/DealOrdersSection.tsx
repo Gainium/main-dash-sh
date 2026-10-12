@@ -24,9 +24,8 @@ import React, {
 import logger from '../../lib/loggerInstance';
 import {
   formatOrderTime,
-  formatPriceWithPrecision,
+  formatPriceInQuote as priceInQuote,
   formatQuoteAmount,
-  quoteUnits,
 } from '@/utils/formatters';
 import { toast } from '@/lib/toast';
 import {
@@ -163,16 +162,6 @@ interface OrderCardContextValue {
   requestCancel: (order: OrderRowModel) => void;
   isCanceling: boolean;
 }
-
-/**
- * A price rendered in the pair's own quote asset rather than a hardcoded "$".
- * `formatPriceWithPrecision` keeps its adaptive-decimals behaviour; all this
- * decides is the unit that goes around the number.
- */
-const priceInQuote = (value: number, quoteAsset?: string | null): string => {
-  const { prefix, suffix } = quoteUnits(quoteAsset);
-  return formatPriceWithPrecision(value, prefix, suffix);
-};
 
 const OrderCardContext = createContext<OrderCardContextValue | null>(null);
 

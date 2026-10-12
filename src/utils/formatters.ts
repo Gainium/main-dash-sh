@@ -212,6 +212,28 @@ export function formatQuoteAmount(
 }
 
 /**
+ * A price rendered in the pair's own quote asset rather than a hardcoded "$".
+ * With the pair's price precision (its tick scale) the price is shown at that
+ * scale; without one (`0` is the "unknown" default in `pairPrecisionMap`) it
+ * keeps `formatPriceWithPrecision`'s adaptive decimals.
+ */
+export function formatPriceInQuote(
+  value: number,
+  quoteAsset?: string | null,
+  pricePrecision?: number
+): string {
+  const { prefix, suffix } = quoteUnits(quoteAsset);
+  if (
+    typeof pricePrecision === 'number' &&
+    pricePrecision > 0 &&
+    Number.isFinite(value)
+  ) {
+    return `${prefix}${value.toFixed(Math.min(pricePrecision, 20))}${suffix}`;
+  }
+  return formatPriceWithPrecision(value, prefix, suffix);
+}
+
+/**
  * Format percentage value
  */
 export function formatPercentage(value: number, decimals = 2): string {

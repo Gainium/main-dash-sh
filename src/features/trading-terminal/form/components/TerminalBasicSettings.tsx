@@ -28,6 +28,7 @@ import { useBasicSettingsTab } from '@/features/bots/bot-types/dca/form/hooks/us
 import { useStrategySettingsTab } from '@/features/bots/bot-types/dca/form/hooks/useStrategySettignsTab';
 import TerminalAmountTotalFields from './TerminalAmountTotalFields';
 import { formatBalance } from '@/utils/numberFormatter';
+import { formatPriceInQuote } from '@/utils/formatters';
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
 import {
   ENTER_MARKET_TIMEOUT_GUARD,
@@ -63,6 +64,8 @@ const LimitPriceInput: React.FC<{
   strategy: StrategyEnum;
   baseAssetSymbol?: string;
   quoteAssetSymbol?: string;
+  /** The pair's price precision (tick scale); the current price is shown at it. */
+  pricePrecision?: number;
   label?: string;
   // Import declares an already-held position at its historical entry price,
   // which can sit on either side of the current price — so the limit-order
@@ -76,6 +79,7 @@ const LimitPriceInput: React.FC<{
   strategy,
   baseAssetSymbol,
   quoteAssetSymbol,
+  pricePrecision,
   label,
   isImport,
 }) => {
@@ -123,16 +127,21 @@ const LimitPriceInput: React.FC<{
       }
 
       const isLong = strategy === StrategyEnum.long;
+      const current = formatPriceInQuote(
+        latestPrice,
+        quoteAssetSymbol,
+        pricePrecision
+      );
       if (isLong && limitPriceValue > latestPrice) {
-        return `For long positions, limit price must be at or below current price ($${latestPrice.toFixed(2)})`;
+        return `For long positions, limit price must be at or below current price (${current})`;
       }
       if (!isLong && limitPriceValue < latestPrice) {
-        return `For short positions, limit price must be at or above current price ($${latestPrice.toFixed(2)})`;
+        return `For short positions, limit price must be at or above current price (${current})`;
       }
 
       return null;
     },
-    [strategy, latestPrice, isImport]
+    [strategy, latestPrice, isImport, quoteAssetSymbol, pricePrecision]
   );
 
   // Handle chart picker coordinates
@@ -240,7 +249,8 @@ const LimitPriceInput: React.FC<{
       )}
       {!displayError && latestPrice && (
         <p className="text-xs text-muted-foreground">
-          Current price: ${latestPrice.toFixed(2)}
+          Current price:{' '}
+          {formatPriceInQuote(latestPrice, quoteAssetSymbol, pricePrecision)}
         </p>
       )}
     </div>
@@ -427,6 +437,18 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
     latestPrice,
     updateFormData,
   ]);
+
+  // The Terminal trades a single pair; its precision keys pairPrecisionMap
+  // either normalized (BTCUSDT) or as written, same lookup as the grid form.
+  const pairPricePrecision = useMemo(() => {
+    const pair = [formData.pair ?? []].flat()[0];
+    if (!pair) return undefined;
+    const normalized = pair.replace(/[\s\-/]/g, '').toUpperCase();
+    return (
+      formData.pairPrecisionMap?.[normalized]?.pricePrecision ??
+      formData.pairPrecisionMap?.[pair]?.pricePrecision
+    );
+  }, [formData.pair, formData.pairPrecisionMap]);
 
   // Import labels the entry-price field by what the user did to acquire the
   // position: a long holding was "Purchased", a short was "Sold".
@@ -797,6 +819,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
               strategy={strategy}
               baseAssetSymbol={displayBaseAsset}
               quoteAssetSymbol={displayQuoteAsset}
+              pricePrecision={pairPricePrecision}
               label={importPriceLabel}
               isImport
             />
@@ -856,6 +879,7 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                   strategy={strategy}
                   baseAssetSymbol={displayBaseAsset}
                   quoteAssetSymbol={displayQuoteAsset}
+                  pricePrecision={pairPricePrecision}
                 />
               )}
             </SettingsRow>

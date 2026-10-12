@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.93.1] - 2026-10-12
+### Fixed
+- Trading Terminal: the "Current price" line under Limit Price and the limit-price direction errors show the price at the pair's own precision and in its quote asset, instead of rounding to two decimals (a sub-cent pair read "$0.01").
+
 ## [2.93.0] - 2026-10-12
 ### Added
 - Futures DCA and Combo bots: **Reverse to Short / Reverse to Long** in the bot menu (card, table row and bot page). It closes the open deals at market, waits until the position is flat, switches the direction and restarts the same bot with the same settings. The confirmation shows each deal's estimated P&L on close, what the bot restarts with, and which indicator conditions stay unchanged. Cloud only.
