@@ -8,6 +8,7 @@ import {
   resolveFieldLabel,
   shouldHideField,
   withFieldDefaults,
+  withGatingParams,
 } from '@/utils/indicators/indicatorFieldGating';
 
 const getOptionLabel = (
@@ -77,21 +78,33 @@ export const buildIndicatorSummary = (
   // Reference "Current price" used to summarize as "Comparison length: 20 ·
   // Comparison interval: 1 hour" (both hidden, both stuck at their defaults)
   // while the live Length/Interval never made the cut.
-  const effectiveParams = withFieldDefaults(definition, params);
+  const effectiveParams = withGatingParams(definition, params);
+  const filledParams = withFieldDefaults(definition, params) ?? params;
 
   const summary: string[] = [];
+  let baseItems = 0;
   for (const field of fields) {
-    if (summary.length >= maxItems) {
-      break;
+    // A field with its own `summary` only shows while its setting is in use,
+    // so it does not count towards (or stop at) the cap.
+    if (!field.summary && baseItems >= maxItems) {
+      continue;
     }
     if (shouldHideField(field, effectiveParams)) {
       continue;
     }
-    const { key, defaultValue } = resolveFieldKey(field, params);
-    const value = params?.[key] ?? defaultValue;
-    const formatted = formatIndicatorParamValue(field, value);
+    let formatted: string;
+    if (field.summary) {
+      formatted = field.summary(filledParams) ?? '';
+    } else {
+      const { key, defaultValue } = resolveFieldKey(field, params);
+      const value = params?.[key] ?? defaultValue;
+      formatted = formatIndicatorParamValue(field, value);
+    }
     if (!formatted) {
       continue;
+    }
+    if (!field.summary) {
+      baseItems += 1;
     }
     // Same dynamic label the form shows, so the card doesn't call a field
     // "Base MA length" while the editor under it says "EMA Length".

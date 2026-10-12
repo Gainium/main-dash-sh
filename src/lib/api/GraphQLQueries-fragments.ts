@@ -364,6 +364,9 @@ xOscillator2voShort
                     percentile
                     percentileLookback
                     percentilePercentage
+                    rsiSmoothing
+                    rsiSmoothingLength
+                    rsiSmoothingCompare
                     mar1type
                     mar1length
                     mar2type
@@ -664,6 +667,9 @@ xOscillator2voShort
                     percentile
                     percentileLookback
                     percentilePercentage
+                    rsiSmoothing
+                    rsiSmoothingLength
+                    rsiSmoothingCompare
                     mar1type
                     mar1length
                     mar2type

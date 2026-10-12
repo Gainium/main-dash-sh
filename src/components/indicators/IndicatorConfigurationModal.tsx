@@ -38,7 +38,6 @@ import {
 import type {
   IndicatorDefinition,
   IndicatorFieldDefinition,
-  IndicatorFieldOption,
 } from '@/types/indicators/indicatorTypes';
 import type {
   IndicatorParamPrimitive,
@@ -46,10 +45,13 @@ import type {
 } from '@/types/indicators/indicatorParams';
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import {
+  resetInvalidConditionalSelects,
   resolveFieldKey,
   resolveFieldLabel,
+  resolveFieldOptions,
   shouldDisableField,
   shouldHideField,
+  withGatingParams,
 } from '@/utils/indicators/indicatorFieldGating';
 
 interface IndicatorConfigurationModalProps {
@@ -165,29 +167,11 @@ export const IndicatorConfigurationModal: React.FC<
         }
         const next: IndicatorParamsState = { ...prev, [key]: value };
         // Reset dependent conditional-option selects to a valid default when
-        // their driving field changes (e.g. Market Structure value when the
-        // trigger type switches), so they never show an empty/stale selection.
-        const allFields = definition
-          ? [...definition.fields, ...(definition.advancedFields ?? [])]
-          : [];
-        for (const f of allFields) {
-          if (!f.optionsWhen?.some((e) => e.field === key)) continue;
-          const opts =
-            f.optionsWhen.find((e) => next[e.field] === e.equals)?.options ??
-            f.options;
-          const valid = opts?.map((o) => o.value);
-          if (
-            valid &&
-            !valid.includes(next[f.key] as IndicatorFieldOption['value'])
-          ) {
-            (next as Record<string, IndicatorParamPrimitive>)[f.key as string] =
-              f.defaultValue !== undefined &&
-              valid.includes(f.defaultValue as IndicatorFieldOption['value'])
-                ? (f.defaultValue as IndicatorParamPrimitive)
-                : (opts?.[0]?.value as IndicatorParamPrimitive);
-          }
-        }
-        return next;
+        // their options change (e.g. Market Structure value when the trigger
+        // type switches), so they never show an empty/stale selection.
+        return definition
+          ? resetInvalidConditionalSelects(definition, prev, next, key)
+          : next;
       });
     },
     [definition]
@@ -198,11 +182,12 @@ export const IndicatorConfigurationModal: React.FC<
       return null;
     }
 
-    if (shouldHideField(field, paramsState)) {
+    const gatingParams = withGatingParams(definition, paramsState);
+    if (shouldHideField(field, gatingParams)) {
       return null;
     }
 
-    const disabled = shouldDisableField(field, paramsState);
+    const disabled = shouldDisableField(field, gatingParams);
     if (!paramsState) {
       return null;
     }
@@ -216,10 +201,7 @@ export const IndicatorConfigurationModal: React.FC<
     // selected trigger type). First matching directive wins; else fall back.
     // Interval-type fields additionally filter to the exchange's supported
     // intervals when a bot exchange is selected (legacy parity).
-    const baseOptions =
-      field.optionsWhen?.find(
-        (entry) => paramsState[entry.field] === entry.equals
-      )?.options ?? field.options;
+    const baseOptions = resolveFieldOptions(definition, field, paramsState);
     const resolvedOptions =
       field.type === 'interval'
         ? filterIntervalOptionsByExchange(baseOptions, exchange)

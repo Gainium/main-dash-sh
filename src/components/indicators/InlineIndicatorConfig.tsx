@@ -24,12 +24,15 @@ import type {
 } from '@/types/indicators/indicatorParams';
 import { filterIntervalOptionsByExchange } from '@/types/indicators/indicatorLogic';
 import {
+  resetInvalidConditionalSelects,
   resolveFieldKey,
   resolveFieldLabel,
+  resolveFieldOptions,
   shouldDisableField,
   shouldHideField,
-  withFieldDefaults,
+  withGatingParams,
 } from '@/utils/indicators/indicatorFieldGating';
+import { layoutFieldSpans } from '@/utils/indicators/indicatorFieldLayout';
 import {
   timeIntervalMap,
   type ExchangeEnum,
@@ -84,36 +87,17 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
 }) => {
   const updateParam = (key: string, value: IndicatorParamPrimitive) => {
     const next: IndicatorParamsState = { ...params, [key]: value };
-    // When a field that drives another field's conditional options changes,
-    // reset the dependent select to a valid default (its defaultValue if still
-    // valid, otherwise the first available option) so it never shows an empty
-    // or stale selection — e.g. the Market Structure value when the trigger
-    // type switches from Price to Event/Market.
-    const allFields = [
-      ...definition.fields,
-      ...(definition.advancedFields ?? []),
-    ];
-    for (const f of allFields) {
-      if (!f.optionsWhen?.some((e) => e.field === key)) continue;
-      const opts =
-        f.optionsWhen.find((e) => next[e.field] === e.equals)?.options ??
-        f.options;
-      const valid = opts?.map((o) => o.value);
-      if (valid && !valid.includes(next[f.key] as IndicatorFieldOption['value'])) {
-        (next as Record<string, IndicatorParamPrimitive>)[f.key as string] =
-          f.defaultValue !== undefined &&
-          valid.includes(f.defaultValue as IndicatorFieldOption['value'])
-            ? (f.defaultValue as IndicatorParamPrimitive)
-            : (opts?.[0]?.value as IndicatorParamPrimitive);
-      }
-    }
-    onChange(next);
+    // Keep conditional-option selects valid after the edit (e.g. the Market
+    // Structure value when the trigger type switches from Price to
+    // Event/Market).
+    onChange(resetInvalidConditionalSelects(definition, params, next, key));
   };
 
-  // Params with every field's default filled in, used ONLY for the
-  // hiddenWhen/disabledWhen gating so it matches what the inputs actually show.
+  // Params with every field's default filled in and the definition's derived
+  // gates applied, used ONLY for the hiddenWhen/disabledWhen gating so it
+  // matches what the inputs actually show.
   const effectiveParams = React.useMemo(
-    () => withFieldDefaults(definition, params),
+    () => withGatingParams(definition, params),
     [definition, params]
   );
 
@@ -139,9 +123,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
     // selected trigger type). First matching directive wins; else fall back.
     // Interval-type fields additionally filter to the exchange's supported
     // intervals when a bot exchange is selected (legacy parity).
-    const baseOptions =
-      field.optionsWhen?.find((entry) => params[entry.field] === entry.equals)
-        ?.options ?? field.options;
+    const baseOptions = resolveFieldOptions(definition, field, params);
     const resolvedOptions =
       field.type === 'interval'
         ? (() => {
@@ -284,7 +266,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
               onValueChange={(newValue) => updateParam(field.key, newValue)}
               disabled={disabled}
             >
-              <SelectTrigger>
+              <SelectTrigger className="w-full">
                 <SelectValue
                   placeholder={`Select ${label.toLowerCase()}`}
                 />
@@ -343,18 +325,35 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
     return null;
   }
 
+  const isVisible = (field: IndicatorFieldDefinition) =>
+    !shouldHideField(field, effectiveParams);
+  const visibleFields = definition.fields.filter(isVisible);
+  const fieldSpans = layoutFieldSpans(definition.fields, isVisible);
+
   return (
     <div className={className}>
       <div className="@container space-y-md">
         <div className="text-sm font-medium text-muted-foreground">
           {definition.label} Configuration
         </div>
-        {definition.fields.length > 0 ? (
-          // Column count keys off the card's own width (container query), not
-          // the viewport — when the form panel is narrowed the fields wrap to
-          // fewer columns instead of compressing into overlapping labels.
-          <div className="grid gap-md @[26rem]:grid-cols-2 @[40rem]:grid-cols-3">
-            {definition.fields.map((field) => renderField(field))}
+        {visibleFields.length > 0 ? (
+          // Column count keys off the card's own width (container query): two
+          // columns from the bot form's side-panel width (~18rem card), one
+          // when the card is narrower or on a phone-width viewport. Compact
+          // fields pair up; wide ones span the row (`layoutFieldSpans`).
+          <div className="grid gap-md sm:@[18rem]:grid-cols-2">
+            {visibleFields.map((field, index) => (
+              <div
+                key={field.key}
+                className={
+                  fieldSpans[index] === 'full'
+                    ? 'min-w-0 sm:@[18rem]:col-span-2'
+                    : 'min-w-0'
+                }
+              >
+                {renderField(field)}
+              </div>
+            ))}
           </div>
         ) : null}
       </div>

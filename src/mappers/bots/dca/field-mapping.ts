@@ -62,6 +62,10 @@ import {
   isCloseIndicatorUsedByCondition,
 } from '@/utils/indicators/indicatorConfigUtils';
 import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
+import {
+  DEFAULT_RSI_SMOOTHING_LENGTH,
+  normalizeRsiSmoothingFields,
+} from '@/utils/indicators/rsiSmoothing';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 import {
@@ -134,6 +138,7 @@ const normalizeIndicatorParamsRecord = (
     'xOscillator2voLong',
     'percentileLookback',
     'percentilePercentage',
+    'rsiSmoothingLength',
     'mar1length',
     'mar2length',
     'bbwMult',
@@ -267,11 +272,19 @@ const serializeIndicatorConfig = (
   const { params: _legacyParams, ...withoutLegacyParams } = filled as
     IndicatorConfig & { params?: unknown };
 
-  const payload: IndicatorConfig = {
+  // RSI smoothing saves only while it is on (an unsmoothed RSI keeps the
+  // exact payload it had before the setting existed); other types never
+  // carry it.
+  const payload: IndicatorConfig = normalizeRsiSmoothingFields({
     ...withoutLegacyParams,
     ...paramsRecord,
     ...overrides,
-  };
+  });
+  if (payload.type !== IndicatorEnum.rsi) {
+    delete payload.rsiSmoothing;
+    delete payload.rsiSmoothingLength;
+    delete payload.rsiSmoothingCompare;
+  }
 
   // Same "fill the structural holes" contract as `withFieldDefaults` above,
   // for the two ids that are NOT catalog fields. `buildIndicatorConfig` now
@@ -4591,6 +4604,16 @@ export const mapFormDataToBackend = (
       if (i.type === IndicatorEnum.lw) {
         i.lwMaxDuration = `${i.lwMaxDuration || '1000'}`.trim() || undefined;
         i.lwThreshold = `${i.lwThreshold || '2'}`.trim() || undefined;
+      }
+      // An entry no serializer claimed (see the merge above) still saves its
+      // RSI smoothing in the stored shape; the length the form showed is the
+      // default when the row never held one.
+      if (i.type === IndicatorEnum.rsi) {
+        return normalizeRsiSmoothingFields({
+          ...i,
+          rsiSmoothingLength:
+            i.rsiSmoothingLength ?? DEFAULT_RSI_SMOOTHING_LENGTH,
+        });
       }
       return i;
     });

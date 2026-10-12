@@ -98,6 +98,20 @@ export interface IndicatorFieldDefinition {
     suffix: string;
   };
   multiple?: boolean;
+  /**
+   * Width in the two-column field grid. Defaults by type (see
+   * `resolveFieldSpan`): toggles, checkbox groups, fields with a description
+   * and selects with long option labels take the full row; numbers and short
+   * selects take half and pair with their neighbour.
+   */
+  span?: 'full' | 'half';
+  /**
+   * Custom text for the indicator card summary. Return `null` to leave the
+   * field out of the summary (a setting that is off). Fields with a
+   * `summary` do not count towards the summary's item cap: they only show
+   * while their setting is in use, so they never displace the base items.
+   */
+  summary?: (params: SettingsIndicators) => string | null;
   hiddenWhen?: ConditionalDirective[];
   /** Hidden unless one of these matches (e.g. the "between" upper bound). */
   shownWhen?: ConditionalDirective[];
@@ -122,4 +136,13 @@ export interface IndicatorDefinition {
   advancedFields?: IndicatorFieldDefinition[];
   pendingPort?: boolean;
   documentationUrl?: string;
+  /**
+   * Map stored params to the EFFECTIVE values the `hiddenWhen` / `shownWhen`
+   * / `disabledWhen` / `optionsWhen` directives compare against. The
+   * directives are plain equality checks; when one setting only applies while
+   * others allow it (RSI's compare mode needs smoothing on and percentile
+   * off), the definition resolves that here instead of in every directive.
+   * Gating only — never applied to what is saved.
+   */
+  deriveGatingParams?: (params: SettingsIndicators) => SettingsIndicators;
 }

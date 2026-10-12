@@ -1,6 +1,7 @@
 import type {
   IndicatorDefinition,
   IndicatorFieldDefinition,
+  IndicatorFieldOption,
 } from '@/types/indicators/indicatorTypes';
 import type {
   IndicatorParamPrimitive,
@@ -153,4 +154,83 @@ export const shouldDisableField = (
   return field.disabledWhen.some(
     ({ field: key, equals }) => params[key] === equals
   );
+};
+
+// The params every directive is evaluated against: defaults filled in (see
+// `withFieldDefaults`), then the definition's `deriveGatingParams`, which turns
+// stored values into the values that are actually in effect. Hiding, options
+// and the summary all read this one object so they cannot disagree.
+export const withGatingParams = (
+  definition: IndicatorDefinition,
+  params: IndicatorParamsState | null
+): IndicatorParamsState | null => {
+  const filled = withFieldDefaults(definition, params);
+  return filled && definition.deriveGatingParams
+    ? definition.deriveGatingParams(filled)
+    : filled;
+};
+
+// The option list a select offers for the given params: the first matching
+// `optionsWhen` entry, else the static `options`.
+export const resolveFieldOptions = (
+  definition: IndicatorDefinition,
+  field: IndicatorFieldDefinition,
+  params: IndicatorParamsState | null
+): IndicatorFieldOption[] | undefined => {
+  if (!field.optionsWhen?.length) {
+    return field.options;
+  }
+  const gating = withGatingParams(definition, params);
+  return (
+    field.optionsWhen.find((entry) => gating?.[entry.field] === entry.equals)
+      ?.options ?? field.options
+  );
+};
+
+// After an edit, move every conditional-option select whose value is no
+// longer offered to a valid one (its default when still valid, else the first
+// option), so it never shows an empty or stale selection — e.g. the Market
+// Structure value when the trigger type switches, or RSI's "Between" when the
+// compare mode becomes "RSI vs smoothed RSI". Runs when the edited key drives
+// the field's options OR when the resolved option list changed, because a
+// derived gate (`deriveGatingParams`) can change it from another key.
+export const resetInvalidConditionalSelects = (
+  definition: IndicatorDefinition,
+  prev: IndicatorParamsState,
+  next: IndicatorParamsState,
+  changedKey: string
+): IndicatorParamsState => {
+  const result = next as Record<string, IndicatorParamPrimitive>;
+  for (const field of [
+    ...definition.fields,
+    ...(definition.advancedFields ?? []),
+  ]) {
+    if (!field.optionsWhen?.length) {
+      continue;
+    }
+    const nextOptions = resolveFieldOptions(definition, field, next);
+    const drivenByKey = field.optionsWhen.some(
+      (entry) => entry.field === changedKey
+    );
+    if (
+      !drivenByKey &&
+      nextOptions === resolveFieldOptions(definition, field, prev)
+    ) {
+      continue;
+    }
+    const valid = nextOptions?.map((option) => option.value);
+    if (
+      valid &&
+      !valid.includes(
+        result[field.key as string] as IndicatorFieldOption['value']
+      )
+    ) {
+      result[field.key as string] =
+        field.defaultValue !== undefined &&
+        valid.includes(field.defaultValue as IndicatorFieldOption['value'])
+          ? (field.defaultValue as IndicatorParamPrimitive)
+          : (nextOptions?.[0]?.value as IndicatorParamPrimitive);
+    }
+  }
+  return result as IndicatorParamsState;
 };

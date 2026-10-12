@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.94.0] - 2026-10-12
+### Added
+- RSI indicator: optional **Smoothing** (SMA, EMA, WMA, DEMA, TEMA, HMA or RMA) with its own length. With smoothing on, the condition tests the smoothed RSI against Value (or its percentile), or, with **Compare: RSI vs smoothed RSI**, tests the RSI against its own smoothed line (crossing up/down, greater/lower than). The bot chart draws the smoothed line in orange. Available in every bot indicator section and in the client-side backtest.
+### Changed
+- Indicator settings lay out in two columns when the panel has room: compact fields (lengths, intervals, short selects, condition and value) sit side by side, toggles and long selects take the full row. Phone-width screens keep one column.
+
 ## [2.93.4] - 2026-10-12
 ### Fixed
 - Combo bots with multiple pairs: adding or removing pairs in the bot editor is saved. The save dropped the pair list, so the editor reported success and the bot kept its old pairs. A save that does not touch the pairs still leaves them as they are.

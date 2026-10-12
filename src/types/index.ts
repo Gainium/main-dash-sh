@@ -1627,6 +1627,12 @@ export type SettingsIndicators = {
   percentile?: boolean;
   percentileLookback?: number;
   percentilePercentage?: number;
+  /** RSI only: moving average over the RSI line. Unset / 'none' = raw RSI. */
+  rsiSmoothing?: RsiSmoothing | null;
+  /** RSI only: candles of the smoothing average. Unset / 0 = raw RSI. */
+  rsiSmoothingLength?: number | null;
+  /** RSI only: what the condition tests while smoothing is on. Unset = 'value'. */
+  rsiSmoothingCompare?: RsiSmoothingCompare | null;
   mar1length?: number;
   mar1type?: MAEnum;
   mar2length?: number;
@@ -1677,6 +1683,26 @@ export type SettingsIndicators = {
   lwValue?: LWValueEnum;
   lwCondition?: LWConditionEnum;
 };
+
+/**
+ * Moving average that can smooth an RSI indicator. VWMA is not offered: an RSI
+ * reading has no volume to weight by.
+ */
+export type RsiSmoothing =
+  | 'none'
+  | 'sma'
+  | 'ema'
+  | 'wma'
+  | 'dema'
+  | 'tema'
+  | 'hma'
+  | 'rma';
+
+/**
+ * With smoothing on: 'value' tests the smoothed RSI against the condition's
+ * value (or its percentile); 'line' tests the RSI against the smoothed RSI.
+ */
+export type RsiSmoothingCompare = 'value' | 'line';
 
 export enum LWConditionEnum {
   onStart = 'onStart',
@@ -3899,6 +3925,9 @@ export type CommonIndicatorSettings = {
   percentileLookback?: number;
   percentilePercentage?: number;
   percentileCondition?: IndicatorStartConditionEnum;
+  rsiSmoothing?: RsiSmoothing | null;
+  rsiSmoothingLength?: number | null;
+  rsiSmoothingCompare?: RsiSmoothingCompare | null;
   mar1length?: number;
   mar1type?: MAEnum;
   mar2length?: number;

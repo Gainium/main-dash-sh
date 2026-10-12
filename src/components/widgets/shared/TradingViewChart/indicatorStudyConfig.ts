@@ -1,5 +1,9 @@
 import { logger } from '@/lib/loggerInstance';
 import { IndicatorEnum, MAEnum, type ChartIndicatorConfig } from '@/types';
+import {
+  DEFAULT_RSI_SMOOTHING_LENGTH,
+  resolveRsiSmoothing,
+} from '@/utils/indicators/rsiSmoothing';
 import {} from '@/types/indicators/indicatorTypes';
 import { OBFVGValueEnum } from '@gainium/backtester/dist/types';
 
@@ -252,15 +256,19 @@ const buildInputs = (
         showDown: condition === 'down',
       };
     }
-    case IndicatorEnum.rsi:
+    case IndicatorEnum.rsi: {
+      // Same on/off reading as the form and the bot: an unknown average or a
+      // length below 1 draws the plain RSI.
+      const smoothing = resolveRsiSmoothing(indicator);
       return mergeInputs(
         {
           length: toNumber(indicator.length, 14),
-          smoothingLine: 'WMA',
-          smoothingLength: toNumber(indicator.length, 14),
+          smoothingMa: smoothing ? smoothing.type.toUpperCase() : 'None',
+          smoothingMaLength: smoothing?.length ?? DEFAULT_RSI_SMOOTHING_LENGTH,
         },
         percentileInputs
       );
+    }
     case IndicatorEnum.ath:
       return { lookback: toNumber(indicator.athLookback, 100) };
     case IndicatorEnum.atr:

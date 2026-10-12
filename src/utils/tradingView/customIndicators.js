@@ -8,6 +8,18 @@ const divTeal = '#00897B';
 const divGreen = '#4CAF50';
 const divOrange = '#FF9800';
 
+// Averages that can smooth the RSI. VWMA needs candle volume, which an RSI
+// reading does not have, so it is left out (same list as the bot).
+export const RSI_SMOOTHING_TYPES = [
+  'SMA',
+  'EMA',
+  'WMA',
+  'DEMA',
+  'TEMA',
+  'HMA',
+  'RMA',
+];
+
 const percentileRank = (data, lookback, percentage, r) => {
   if (!data.get(lookback)) {
     return r.Std.na();
@@ -2088,6 +2100,15 @@ export const RSI = (r) => ({
           visible: !0,
           color: '#7E57C2',
         },
+        plot_smoothed: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 0,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#FF9800',
+        },
         ...percentileDefaultStyles,
       },
       bands: [
@@ -2117,6 +2138,8 @@ export const RSI = (r) => ({
       inputs: {
         length: 14,
         ...percentileDefaultInputs,
+        smoothingMa: 'None',
+        smoothingMaLength: 14,
       },
     },
     plots: [
@@ -2125,6 +2148,10 @@ export const RSI = (r) => ({
         type: 'line',
       },
       ...percentilPlot,
+      {
+        id: 'plot_smoothed',
+        type: 'line',
+      },
     ],
     styles: {
       plot_0: {
@@ -2133,6 +2160,11 @@ export const RSI = (r) => ({
         joinPoints: !1,
       },
       ...percentileStyle,
+      plot_smoothed: {
+        title: 'Smoothed RSI',
+        histogramBase: 0,
+        joinPoints: !1,
+      },
     },
     description: 'Relative Strength Index (Custom)',
     shortDescription: 'RSI',
@@ -2167,6 +2199,22 @@ export const RSI = (r) => ({
         max: 2e3,
       },
       ...percentileInputs,
+      // Inputs are read by position: keep these after the percentile inputs.
+      {
+        id: 'smoothingMa',
+        name: 'Smoothing',
+        defval: 'None',
+        type: 'text',
+        options: ['None', ...RSI_SMOOTHING_TYPES],
+      },
+      {
+        id: 'smoothingMaLength',
+        name: 'Smoothing length',
+        defval: 14,
+        type: 'integer',
+        min: 1,
+        max: 1e3,
+      },
     ],
     id: 'Relative Strength Index Custom@tv-basicstudies-1',
     scriptIdPart: '',
@@ -2185,12 +2233,26 @@ export const RSI = (r) => ({
       const usePercentile = this._input(1);
       const percentileLookback = this._input(2);
       const percentilePercentage = this._input(3);
-      this._context.setMinimumAdditionalDepth(s + percentileLookback);
+      const smoothingMa = this._input(4);
+      const smoothingLength = this._input(5);
+      const smoothed = RSI_SMOOTHING_TYPES.includes(smoothingMa);
+      this._context.setMinimumAdditionalDepth(
+        s + percentileLookback + (smoothed ? smoothingLength * 3 : 0)
+      );
       const g = rsiCalc(r, this._context, s);
       const rsi = g;
       const rsiVar = this._context.new_var(rsi);
+      const smoothedRsi = smoothed
+        ? getMarValue(smoothingMa, r, rsiVar, smoothingLength, this._context)
+        : r.Std.na();
+      // The bot ranks the smoothed line when smoothing is set.
       const percentile = usePercentile
-        ? percentileRank(rsiVar, percentileLookback, percentilePercentage, r)
+        ? percentileRank(
+            smoothed ? this._context.new_var(smoothedRsi) : rsiVar,
+            percentileLookback,
+            percentilePercentage,
+            r
+          )
         : r.Std.na();
       return [
         {
@@ -2199,6 +2261,7 @@ export const RSI = (r) => ({
         { value: percentile },
         { value: usePercentile ? percentileHigh : r.Std.na() },
         { value: usePercentile ? percentileLow : r.Std.na() },
+        { value: smoothedRsi },
       ];
     };
   },
