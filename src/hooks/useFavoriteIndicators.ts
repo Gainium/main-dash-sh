@@ -2,11 +2,7 @@ import {
   useOptionalBotFormContext,
   useOptionalBotFormTopLevelSelector,
 } from '@/contexts/bots/form/BotFormProvider';
-import {
-  DEFAULT_READ_TIMEOUT_MS,
-  GraphQLClient,
-  GraphQlQuery,
-} from '@/lib/api';
+import { DEFAULT_READ_TIMEOUT_MS, GraphQLClient } from '@/lib/api';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -15,6 +11,10 @@ import {
   parseIndicatorFavoriteCodes,
   toIndicatorFavoriteCode,
 } from '@/utils/indicators';
+import {
+  requestFavoriteIndicators,
+  type FavoritePresetParams,
+} from '@/utils/indicators/favoritePresets';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 interface FavoriteMutationState {
@@ -134,17 +134,13 @@ export const useFavoriteIndicators = () => {
       tokens.accessToken,
       !isLiveTrading
     );
-    const { query } = GraphQlQuery.getUserFavoriteIndicators();
-    client
-      .request<{ getUserFavoriteIndicators: FavoriteMutationResponse }>(
-        query,
-        undefined,
-        { timeoutMs: DEFAULT_READ_TIMEOUT_MS }
-      )
-      .then((response) => {
-        const loaded = extractFavoriteIndicators(
-          response?.getUserFavoriteIndicators
-        );
+    requestFavoriteIndicators(
+      client,
+      { kind: 'get' },
+      { timeoutMs: DEFAULT_READ_TIMEOUT_MS }
+    )
+      .then((payload) => {
+        const loaded = extractFavoriteIndicators(payload);
         if (active && loaded) setLocalFavorites(loaded);
       })
       .catch(() => undefined);
@@ -164,7 +160,11 @@ export const useFavoriteIndicators = () => {
   const { isPending, markPending, hasPending } = useFavoriteMutationState();
 
   const mutateFavorites = useCallback(
-    async (indicator: IndicatorEnum, nextIsFavorite: boolean) => {
+    async (
+      indicator: IndicatorEnum,
+      nextIsFavorite: boolean,
+      params?: FavoritePresetParams
+    ) => {
       const code = toIndicatorFavoriteCode(indicator);
       if (!code) {
         toast.error('Unsupported indicator cannot be marked as favorite.');
@@ -198,27 +198,16 @@ export const useFavoriteIndicators = () => {
       markPending(indicator, true);
 
       try {
-        let payload: FavoriteMutationResponse | null | undefined;
-
-        if (nextIsFavorite) {
-          const { query, variables } = GraphQlQuery.addUserFavoriteIndicator({
-            indicator: code,
-          });
-          const response = await client.request<{
-            addUserFavoriteIndicator: FavoriteMutationResponse;
-          }>(query, variables);
-          payload = response?.addUserFavoriteIndicator;
-        } else {
-          const { query, variables } = GraphQlQuery.removeUserFavoriteIndicator(
-            {
-              indicator: code,
-            }
-          );
-          const response = await client.request<{
-            removeUserFavoriteIndicator: FavoriteMutationResponse;
-          }>(query, variables);
-          payload = response?.removeUserFavoriteIndicator;
-        }
+        const payload = await requestFavoriteIndicators(
+          client,
+          nextIsFavorite
+            ? {
+                kind: 'add',
+                indicator: code,
+                ...(params ? { params } : {}),
+              }
+            : { kind: 'remove', indicator: code }
+        );
 
         const serverFavorites = extractFavoriteIndicators(payload);
         if (serverFavorites) {
@@ -248,13 +237,21 @@ export const useFavoriteIndicators = () => {
     [isLiveTrading, markPending, tokens?.accessToken, updateFormData]
   );
 
+  /**
+   * `params`: the indicator's settings to keep with the favorite (starring
+   * from the form). Picking that favorite later starts from them.
+   */
   const toggleFavorite = useCallback(
-    (indicator: IndicatorEnum, nextIsFavorite: boolean) => {
+    (
+      indicator: IndicatorEnum,
+      nextIsFavorite: boolean,
+      params?: FavoritePresetParams
+    ) => {
       if (isPending(indicator)) {
         return;
       }
 
-      void mutateFavorites(indicator, nextIsFavorite);
+      void mutateFavorites(indicator, nextIsFavorite, params);
     },
     [isPending, mutateFavorites]
   );

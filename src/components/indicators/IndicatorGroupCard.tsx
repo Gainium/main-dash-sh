@@ -9,6 +9,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { IndicatorActionsToolbar } from '@/features/bots/shared/components/IndicatorActionsToolbar';
+import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import { Trash2 } from 'lucide-react';
 import React, { useCallback } from 'react';
@@ -24,6 +25,8 @@ export interface IndicatorGroupCardProps {
   onEditIndicator?: (indicator: IndicatorConfig) => void;
   onRemoveIndicator: (indicatorId: string) => void;
   onSelectIndicatorType?: (indicator: IndicatorConfig) => void;
+  onToggleFavorite?: (indicator: IndicatorConfig) => void;
+  isFavorite?: (type: IndicatorEnum) => boolean;
   renderIndicatorExtras?: (
     indicator: IndicatorConfig,
     index: number
@@ -48,6 +51,8 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   onRemoveGroup: _onRemoveGroup,
   onRemoveIndicator,
   onSelectIndicatorType,
+  onToggleFavorite,
+  isFavorite,
   renderIndicatorExtras,
   addIndicatorDisabledReason,
   emptyState,
@@ -74,12 +79,13 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
     <div className="space-y-md">
       {!singleIndicator && (
       <div className="flex flex-wrap items-center justify-between gap-sm">
+        {indicators.length > 1 ? (
         <div className="flex items-center gap-sm">
           <Label
             htmlFor={`indicator-group-logic-${group.id}`}
             className="whitespace-nowrap"
           >
-            Join logic
+            Match indicators
           </Label>
           <Select
             value={group.logic}
@@ -90,18 +96,19 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           >
             <SelectTrigger
               id={`indicator-group-logic-${group.id}`}
-              className="w-[180px]"
+              className="w-[200px]"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="and">
-                AND
-              </SelectItem>
-              <SelectItem value="or">OR</SelectItem>
+              <SelectItem value="and">All indicators (AND)</SelectItem>
+              <SelectItem value="or">Any indicator (OR)</SelectItem>
             </SelectContent>
           </Select>
         </div>
+        ) : (
+          <span />
+        )}
 
         <Button
           type="button"
@@ -122,6 +129,8 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
         {...(onSelectIndicatorType
           ? { onSelectType: onSelectIndicatorType }
           : {})}
+        {...(onToggleFavorite ? { onToggleFavorite } : {})}
+        {...(isFavorite ? { isFavorite } : {})}
         {...(renderIndicatorExtras
           ? { renderExtras: renderIndicatorExtras }
           : {})}

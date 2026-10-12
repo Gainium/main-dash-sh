@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/dialog';
 import { IndicatorSelector } from '@/components/indicators/IndicatorSelector';
 import type { IndicatorAction, IndicatorEnum } from '@/types';
+import { withFavoritePreset } from '@/utils/indicators/favoritePresetScope';
+import { useFavoritePresetsStore } from '@/utils/indicators/favoritePresets';
 
 type SelectorClosedState = { open: false };
 
@@ -56,7 +58,9 @@ export const useIndicatorSelector = (
         open: true,
         onSelect: (type) => {
           setSelectorState({ open: false });
-          options.onSelect(type);
+          // A favorite saved with settings starts from them.
+          const preset = useFavoritePresetsStore.getState().presets[type];
+          withFavoritePreset(type, preset, () => options.onSelect(type));
         },
       };
 

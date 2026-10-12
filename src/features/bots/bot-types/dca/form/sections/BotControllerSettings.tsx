@@ -861,7 +861,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
         >
           <SettingsRow
             name="Bot start"
-            tooltip="Choose how this bot begins new deals."
+            tooltip="When the bot itself switches on. Once on, deals open according to Deal Start."
           >
             <Select
               value={botActualStart ?? 'manual'}

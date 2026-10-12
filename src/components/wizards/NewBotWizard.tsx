@@ -67,7 +67,7 @@ export const NewBotWizard: React.FC<NewBotWizardProps> = ({
     try {
       sessionStorage.setItem(
         'botConfig',
-        JSON.stringify({ type: selectedType })
+        JSON.stringify({ type: selectedType, manual: true })
       );
     } catch (err) {
       logger.error('[NewBotWizard] Failed to stage bot config for create', {
@@ -156,17 +156,17 @@ export const NewBotWizard: React.FC<NewBotWizardProps> = ({
               <>
                 <Button
                   variant="outline"
-                  onClick={() => handleCreateScratch()}
-                  disabled={!selectedType}
-                >
-                  From Scratch
-                </Button>
-                <Button
-                  variant="default"
                   onClick={() => setStep(1)}
                   disabled={!selectedType}
                 >
                   From Template
+                </Button>
+                <Button
+                  variant="default"
+                  onClick={() => handleCreateScratch()}
+                  disabled={!selectedType}
+                >
+                  From Scratch
                 </Button>
               </>
             )}

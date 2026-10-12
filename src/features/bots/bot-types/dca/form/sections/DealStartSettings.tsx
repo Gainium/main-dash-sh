@@ -708,7 +708,26 @@ export const DealStartSettings: React.FC = () => {
 
   const alerts = useBotFormAlerts();
 
-  // Automatically add first indicator group when enabling technical indicators
+  // A new start group holds a default RSI rather than nothing, so it never
+  // shows up empty and failing validation. The type is swapped on its card.
+  const buildDefaultStartIndicator = React.useCallback(
+    (groupId: string): IndicatorConfig => {
+      const type = IndicatorEnum.rsi;
+      return {
+        ...buildIndicatorConfig(
+          type,
+          getIndicatorDefaultParams(type, IndicatorAction.startDeal),
+          { keepConditionBars: '0' }
+        ),
+        groupId,
+      };
+    },
+    []
+  );
+
+  // Switching to technical indicators opens a ready-to-use condition: one
+  // group holding a default RSI, so the form starts valid instead of empty
+  // with errors. The user swaps the indicator from its card.
   React.useEffect(() => {
     if (startCondition === StartConditionEnum.ti) {
       if (startIndicatorGroups.length === 0) {
@@ -718,6 +737,15 @@ export const DealStartSettings: React.FC = () => {
           action: IndicatorAction.startDeal,
         };
         updateFormData('indicatorGroups', [...indicatorGroups, newGroup]);
+        const hasStartIndicator = indicators.some(
+          (indicator) => indicator.indicatorAction === IndicatorAction.startDeal
+        );
+        if (!hasStartIndicator && totalIndicators < indicatorsLimit) {
+          updateFormData('indicators', [
+            ...indicators,
+            buildDefaultStartIndicator(newGroup.id),
+          ]);
+        }
       }
     }
   }, [
@@ -725,6 +753,9 @@ export const DealStartSettings: React.FC = () => {
     startIndicatorGroups.length,
     updateFormData,
     indicatorGroups,
+    indicators,
+    totalIndicators,
+    buildDefaultStartIndicator,
   ]);
 
   const syncStartIndicatorsGroups = React.useCallback(
@@ -754,7 +785,17 @@ export const DealStartSettings: React.FC = () => {
     };
 
     updateFormData('indicatorGroups', [...indicatorGroups, newGroup]);
-  }, [updateFormData, indicatorGroups, totalIndicators]);
+    updateFormData('indicators', [
+      ...indicators,
+      buildDefaultStartIndicator(newGroup.id),
+    ]);
+  }, [
+    updateFormData,
+    indicatorGroups,
+    indicators,
+    totalIndicators,
+    buildDefaultStartIndicator,
+  ]);
 
   const handleRemoveStartGroup = React.useCallback(
     (groupId: string) => {
@@ -817,21 +858,18 @@ export const DealStartSettings: React.FC = () => {
       // Add a default RSI indicator immediately instead of forcing the user
       // through the selector first. They can swap the type afterwards via the
       // card's "change indicator" control (handleSelectIndicatorTypeInGroup).
-      const type = IndicatorEnum.rsi;
-      const defaultParams = getIndicatorDefaultParams(
-        type,
-        IndicatorAction.startDeal
-      );
-      const newIndicator = buildIndicatorConfig(type, defaultParams, {
-        keepConditionBars: '0',
-      });
-
       updateFormData('indicators', [
         ...indicators,
-        { ...newIndicator, groupId: groupId },
+        buildDefaultStartIndicator(groupId),
       ]);
     },
-    [startIndicatorGroups, totalIndicators, updateFormData, indicators]
+    [
+      startIndicatorGroups,
+      totalIndicators,
+      updateFormData,
+      indicators,
+      buildDefaultStartIndicator,
+    ]
   );
 
   const handleChangeIndicatorParamsInGroup = React.useCallback(
@@ -1197,17 +1235,6 @@ export const DealStartSettings: React.FC = () => {
                   totalIndicatorsAcrossBot={totalIndicators}
                   indicatorAction={IndicatorAction.startDeal}
                   exchange={currentExchange?.provider}
-                  globalLogicLabel="Group logic"
-                  globalLogicOptions={[
-                    {
-                      value: IndicatorsLogicEnum.and,
-                      label: 'AND',
-                    },
-                    {
-                      value: IndicatorsLogicEnum.or,
-                      label: 'OR',
-                    },
-                  ]}
                   emptyStateMessage="No indicator groups configured yet. Add a group to start building your technical start conditions."
                   emptyIndicatorsAlertTitle="No start indicators yet"
                   emptyIndicatorsAlertDescription="Add at least one indicator group to allow the bot to open deals automatically when conditions are met."

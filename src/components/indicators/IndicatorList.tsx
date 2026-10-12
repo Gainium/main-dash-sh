@@ -1,11 +1,12 @@
 import { Button } from '@/components/ui/button';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
-import { parseHelpUrl } from '@/components/ui/tooltip';
+import { parseHelpUrl, Tooltip } from '@/components/ui/tooltip';
 import { HelpArticleModal } from '@/components/modals/HelpArticleModal';
 import { getIndicatorDefinition } from '@/types/indicators/indicatorLogic';
+import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
-import { Trash2 } from 'lucide-react';
+import { Star, Trash2 } from 'lucide-react';
 import React from 'react';
 
 interface IndicatorListProps {
@@ -13,6 +14,9 @@ interface IndicatorListProps {
   onEdit?: (indicator: IndicatorConfig) => void;
   onRemove?: (id: string) => void;
   onSelectType?: (indicator: IndicatorConfig) => void;
+  /** Star an indicator as a favorite, keeping its current settings. */
+  onToggleFavorite?: (indicator: IndicatorConfig) => void;
+  isFavorite?: (type: IndicatorEnum) => boolean;
   emptyState?: string;
   renderExtras?: (indicator: IndicatorConfig, index: number) => React.ReactNode;
 }
@@ -24,6 +28,8 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   emptyState,
   renderExtras,
   onSelectType,
+  onToggleFavorite,
+  isFavorite,
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   if (!indicators.length) {
@@ -83,6 +89,37 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
               </div>
 
               <div className="flex shrink-0 flex-col items-end gap-xs">
+                <div className="flex items-center gap-xs">
+                {onToggleFavorite ? (
+                  <Tooltip
+                    tooltip={
+                      isFavorite?.(indicator.type)
+                        ? 'Remove from favorites'
+                        : 'Save as favorite with these settings'
+                    }
+                  >
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className={
+                        isFavorite?.(indicator.type)
+                          ? 'text-yellow-400 hover:text-yellow-400'
+                          : 'text-muted-foreground'
+                      }
+                      onClick={() => onToggleFavorite(indicator)}
+                      aria-label={
+                        isFavorite?.(indicator.type)
+                          ? 'Remove from favorites'
+                          : 'Save as favorite'
+                      }
+                    >
+                      <Star
+                        className={`h-4 w-4 ${isFavorite?.(indicator.type) ? 'fill-yellow-400' : 'fill-transparent'}`}
+                      />
+                    </Button>
+                  </Tooltip>
+                ) : null}
                 {onRemove ? (
                   <Button
                     type="button"
@@ -95,6 +132,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                     <Trash2 className="h-4 w-4" />
                   </Button>
                 ) : null}
+                </div>
                 {onSelectType ? (
                   <Button
                     type="button"

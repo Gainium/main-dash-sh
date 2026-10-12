@@ -29,7 +29,7 @@
  * When a `?clone=<id>` URL param is present, this hook returns null —
  * the clone flow wins and we don't want to fight it.
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 import {
@@ -63,6 +63,8 @@ interface StagedBotConfig {
    */
   formData?: Partial<BotFormData>;
   curated?: CuratedPreloadHint;
+  /** "From Scratch": open the blank form in Manual, not Quick presets. */
+  manual?: boolean;
 }
 
 export interface BotConfigPreload {
@@ -124,19 +126,23 @@ function readSession(): StagedBotConfig | null {
     return null;
   }
   if (!raw) return null;
-  // Clear it BEFORE parsing so a refresh after a bad payload doesn't loop.
-  try {
-    window.sessionStorage.removeItem(SESSION_KEY);
-  } catch {
-    /* best-effort */
-  }
   try {
     return JSON.parse(raw) as StagedBotConfig;
   } catch (e) {
     logger.warn('[useBotConfigPreload] sessionStorage JSON parse failed', {
       err: (e as Error).message,
     });
+    // Drop a bad payload now so a refresh doesn't loop on it.
+    clearSession();
     return null;
+  }
+}
+
+function clearSession(): void {
+  try {
+    window.sessionStorage.removeItem(SESSION_KEY);
+  } catch {
+    /* best-effort */
   }
 }
 
@@ -215,10 +221,15 @@ export function useBotConfigPreload(): BotConfigPreload | null {
   const exchangesError = useExchangesStore((s) => s.error);
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
-  // Read sessionStorage at most ONCE per page mount. useMemo on a
-  // stable empty-deps array is sufficient — the effect of removing the
-  // key happens inline inside readSession on the first invocation.
+  // Read sessionStorage once per page mount, and consume the key only after
+  // the page has committed. The new-bot pages are lazy routes: a render that
+  // suspends discards its memo, so clearing the key during render left the
+  // retry render reading nothing (the staged payload, e.g. "From Scratch"
+  // opening in Manual, was silently lost on in-app navigation).
   const staged = useMemo(readSession, []);
+  useEffect(() => {
+    if (staged) clearSession();
+  }, [staged]);
 
   // Hand the curated hint (if any) to the cloud-side adapter so it can
   // pre-arm Quick Backtest + the Risk Profile picker. Sh leaves the
@@ -371,7 +382,7 @@ export function useBotConfigPreload(): BotConfigPreload | null {
       name: staged?.name,
       curated: staged?.curated,
       exchangePending,
-      openInManual: Boolean(staged?.formData),
+      openInManual: Boolean(staged?.formData || staged?.manual),
     };
   }, [search, staged, exchanges, exchangesReady, exchangesError, isLiveTrading]);
 }

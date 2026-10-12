@@ -11,6 +11,7 @@ import {
   groupIndicatorsByCategory,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorDefinition } from '@/types/indicators/indicatorTypes';
+import { getPopularIndicators } from '@/types/indicators/popularIndicators';
 import type { IndicatorAction, IndicatorEnum } from '@/types';
 
 const normalize = (value: string) => value.toLowerCase();
@@ -110,6 +111,28 @@ export const IndicatorSelector: React.FC<IndicatorSelectorProps> = ({
       .filter((definition) => matchesAction(definition))
       .filter((definition) => matchesAllowedType(definition))
       .filter((definition) => matchesSearch(definition, search));
+  }, [
+    favorites,
+    matchesAction,
+    matchesAllowedType,
+    search,
+    overrideIndicators,
+  ]);
+
+  // The usual first picks, right under the user's favorites. Hidden while
+  // searching: the category results cover them then.
+  const popularDefinitions = React.useMemo(() => {
+    if (search) {
+      return [] as IndicatorDefinition[];
+    }
+    return getPopularIndicators().filter(
+      (definition) =>
+        !favorites.includes(definition.type) &&
+        matchesAction(definition) &&
+        matchesAllowedType(definition) &&
+        (overrideIndicators.length === 0 ||
+          overrideIndicators.includes(definition.type))
+    );
   }, [
     favorites,
     matchesAction,
@@ -302,6 +325,18 @@ export const IndicatorSelector: React.FC<IndicatorSelectorProps> = ({
               </h4>
               <div className="grid gap-sm sm:grid-cols-2 sm:auto-rows-fr">
                 {favoriteDefinitions.map((definition) =>
+                  renderIndicatorButton(definition)
+                )}
+              </div>
+            </section>
+          )}
+          {popularDefinitions.length > 0 && (
+            <section className="space-y-sm">
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                Popular
+              </h4>
+              <div className="grid gap-sm sm:grid-cols-2 sm:auto-rows-fr">
+                {popularDefinitions.map((definition) =>
                   renderIndicatorButton(definition)
                 )}
               </div>

@@ -1,3 +1,4 @@
+import { getActiveFavoritePreset } from '@/utils/indicators/favoritePresetScope';
 import {
   DONCHIAN_BAND_VALUES,
   INDICATOR_CATALOG,
@@ -109,7 +110,7 @@ export const getIndicatorDefaultParams = (
   section?: IndicatorSection | undefined
 ): IndicatorParamsState => {
   const definition = getIndicatorDefinition(type);
-  return collectFields(definition).reduce<IndicatorParamsState>(
+  const defaults = collectFields(definition).reduce<IndicatorParamsState>(
     (acc, field) => {
       const value = getFallbackDefault(field);
       if (value !== undefined) {
@@ -131,6 +132,9 @@ export const getIndicatorDefaultParams = (
       uuid: '',
     } as IndicatorParamsState
   );
+  // A favorite being picked brings its saved settings (see favoritePresetScope).
+  const preset = getActiveFavoritePreset(type);
+  return preset ? { ...defaults, ...preset } : defaults;
 };
 
 export const validateIndicatorParams = (

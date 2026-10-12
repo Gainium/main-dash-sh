@@ -1282,7 +1282,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
           1024: 3,
         }}
       >
-        <SettingsRow name="DCA orders" description={ordersHelperMessage}>
+        <SettingsRow
+          name="DCA orders"
+          description={ordersHelperMessage}
+          tooltip="Number of averaging orders. The base order is not counted: DCA order 1 is the first order placed after the base order."
+        >
           <div className="flex w-full max-w-xs flex-col gap-sm">
             <FieldVariableBinding
               path="ordersCount"

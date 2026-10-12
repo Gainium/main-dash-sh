@@ -17,6 +17,7 @@ import {
   indicatorsLimit,
   IndicatorsLogicEnum,
   type ExchangeEnum,
+  type IndicatorEnum,
 } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import {
@@ -24,6 +25,8 @@ import {
   getIndicatorDefinition,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
+import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
+import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
 import { AlertTriangle, Info } from 'lucide-react';
 import React, { useMemo } from 'react';
 import MasonryLayout from '../../../../components/ui/MasonryLayout';
@@ -113,10 +116,10 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   allowVariableBinding = true,
   maxGroups,
   maxIndicatorsPerGroup,
-  globalLogicLabel = 'Group logic',
+  globalLogicLabel = 'Match groups',
   globalLogicOptions = [
-    { value: IndicatorsLogicEnum.and, label: 'AND' },
-    { value: IndicatorsLogicEnum.or, label: 'OR' },
+    { value: IndicatorsLogicEnum.and, label: 'All groups (AND)' },
+    { value: IndicatorsLogicEnum.or, label: 'Any group (OR)' },
   ],
   emptyStateMessage = 'No indicator groups configured yet. Add a group to start building your conditions.',
   emptyIndicatorsAlertTitle = 'No indicators in groups',
@@ -133,6 +136,25 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   onChangeGlobalLogic,
 }) => {
   const indicatorLimitReached = totalIndicatorsAcrossBot >= indicatorsLimit;
+
+  // Starring a card keeps its settings with the favorite; picking that
+  // favorite in the selector later starts from them.
+  const { favorites, toggleFavorite } = useFavoriteIndicators();
+  const isFavorite = React.useCallback(
+    (type: IndicatorEnum) => favorites.includes(type),
+    [favorites]
+  );
+  const handleToggleFavorite = React.useCallback(
+    (indicator: IndicatorConfig) => {
+      const next = !favorites.includes(indicator.type);
+      toggleFavorite(
+        indicator.type,
+        next,
+        next ? extractFavoritePresetParams(indicator) : undefined
+      );
+    },
+    [favorites, toggleFavorite]
+  );
 
   const filteredGroups = useMemo(() => {
     return indicatorGroups.filter((group) => {
@@ -155,6 +177,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   }, [indicators, indicatorAction, indicatorSection]);
 
   const totalIndicators = filteredIndicators.length;
+  // AND/OR between groups only means something once there are two of them.
+  const showGlobalLogic = filteredGroups.length > 1;
   const shouldShowEmptyIndicatorAlert = totalIndicators === 0;
 
   const addGroupDisabledReason = useMemo(() => {
@@ -182,7 +206,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
             >
               <AlertTriangle className="h-4 w-4" />
               <AlertTitle className="text-sm font-semibold">
-                Close indicator issue
+                Indicator issue
               </AlertTitle>
               <AlertDescription className="text-sm">
                 {errorMessage}
@@ -221,7 +245,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
         </div>
       )}
 
-      {!singleIndicator && (
+      {!singleIndicator && (showGlobalLogic || secondColumnContent) && (
       <MasonryLayout
         gap={16}
         containerBreakpoints={{
@@ -230,6 +254,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
           1024: 3,
         }}
       >
+        {showGlobalLogic ? (
         <div className="flex-[1_1_300px] min-w-60 space-y-4">
           <div className="space-y-1">
             <div className="flex items-center gap-1">
@@ -257,6 +282,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
             </Select>
           </div>
         </div>
+        ) : null}
 
         {secondColumnContent ? (
           <div className=" space-y-4">{secondColumnContent}</div>
@@ -312,6 +338,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                   onSelectIndicatorType={(indicator) =>
                     onSelectIndicatorType(group.id, indicator)
                   }
+                  onToggleFavorite={handleToggleFavorite}
+                  isFavorite={isFavorite}
                   renderIndicatorExtras={(indicator) => {
                     try {
                       const definition = getIndicatorDefinition(indicator.type);

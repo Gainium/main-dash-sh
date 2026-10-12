@@ -36,7 +36,8 @@ import {
 import type { PrecisionGuard } from '@/features/bots/shared/utils/order-guard';
 import { useBotFormRegistryContext } from '@/features/bots/widgets/BotForm/context';
 import { type TradingPair } from '@/hooks/useTradingPairs';
-import { GraphQLClient, GraphQlQuery, DEFAULT_READ_TIMEOUT_MS } from '@/lib/api';
+import { GraphQLClient, DEFAULT_READ_TIMEOUT_MS } from '@/lib/api';
+import { requestFavoriteIndicators } from '@/utils/indicators/favoritePresets';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import {
@@ -1686,11 +1687,6 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       return;
     }
 
-    const favoritesQueryFactory = GraphQlQuery.getUserFavoriteIndicators;
-    if (typeof favoritesQueryFactory !== 'function') {
-      return;
-    }
-
     favoriteIndicatorsRequestState.current.inflight = true;
     const hydrationVersion = favoriteIndicatorsVersionRef.current;
     let isActive = true;
@@ -1701,15 +1697,11 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
         const client = new GraphQLClient(endpoint, accessToken, !isLiveTrading);
 
-        const { query } = favoritesQueryFactory();
-
-        const response = await client.request<{
-          getUserFavoriteIndicators: {
-            status: string;
-            reason?: string | null;
-            data?: { indicators?: IndicatorEnum[] | null } | null;
-          };
-        }>(query, undefined, { timeoutMs: DEFAULT_READ_TIMEOUT_MS });
+        const payload = await requestFavoriteIndicators(
+          client,
+          { kind: 'get' },
+          { timeoutMs: DEFAULT_READ_TIMEOUT_MS }
+        );
 
         favoriteIndicatorsRequestState.current.inflight = false;
         favoriteIndicatorsRequestState.current.lastToken = accessToken;
@@ -1722,7 +1714,6 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
           return;
         }
 
-        const payload = response?.getUserFavoriteIndicators ?? null;
 
         if (payload?.status === 'OK') {
           const rawIndicators = payload.data?.indicators ?? [];
