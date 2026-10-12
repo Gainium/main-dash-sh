@@ -82,7 +82,8 @@ export interface IndicatorGroupsManagerProps {
   /** Optional content rendered in the top trailing area (right side) */
   topTrailingContent?: React.ReactNode;
   /** Callbacks */
-  onAddGroup: () => void;
+  /** `join`: how the new group attaches to the last one (per-group joins). */
+  onAddGroup: (join?: IndicatorsLogicEnum) => void;
   onRemoveGroup: (groupId: string) => void;
   onChangeGroupLogic: (groupId: string, logic: IndicatorGroup['logic']) => void;
   onAddIndicatorToGroup: (groupId: string) => void;
@@ -94,6 +95,11 @@ export interface IndicatorGroupsManagerProps {
     params: IndicatorParamsState
   ) => void;
   onChangeGlobalLogic: (logic: IndicatorsLogicEnum) => void;
+  /**
+   * Set groups' `join` (group id -> AND/OR with the previous group). When
+   * omitted, the pills between groups all edit the bot-level logic.
+   */
+  onChangeGroupJoins?: (joins: Record<string, IndicatorsLogicEnum>) => void;
 }
 
 export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
@@ -126,6 +132,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   onSelectIndicatorType,
   onChangeIndicatorParams,
   onChangeGlobalLogic,
+  onChangeGroupJoins,
 }) => {
   const indicatorLimitReached = totalIndicatorsAcrossBot >= indicatorsLimit;
 
@@ -170,9 +177,19 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
 
   const totalIndicators = filteredIndicators.length;
 
-  // The whole condition in one readable line, e.g. "(RSI or MACD) and BB".
+  // The AND/OR between a group and the one before it: its own `join`, or the
+  // bot-level logic for bots saved before per-group joins.
+  const effectiveJoin = React.useCallback(
+    (group: IndicatorGroup) => group.join ?? globalLogic,
+    [globalLogic]
+  );
+
+  // The whole condition in one readable line. AND binds tighter than OR, and
+  // the line brackets AND-runs so it reads unambiguously:
+  // "((RSI or MACD) and BB) or SuperTrend".
   const formula = useMemo(() => {
-    const parts = filteredGroups
+    if (totalIndicators < 2) return '';
+    const items = filteredGroups
       .map((group) => {
         const names = filteredIndicators
           .filter((i) => i.groupId === group.id)
@@ -184,27 +201,83 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
               return String(i.type);
             }
           });
-        if (!names.length) return '';
+        if (!names.length) return null;
         const joined = names.join(group.logic === 'or' ? ' or ' : ' and ');
-        return names.length > 1 && filteredGroups.length > 1
-          ? `(${joined})`
-          : joined;
+        return {
+          group,
+          text:
+            names.length > 1 && filteredGroups.length > 1
+              ? `(${joined})`
+              : joined,
+        };
       })
-      .filter(Boolean);
-    if (totalIndicators < 2) return '';
-    return parts.join(
-      globalLogic === IndicatorsLogicEnum.or ? ' or ' : ' and '
-    );
-  }, [filteredGroups, filteredIndicators, globalLogic, totalIndicators]);
+      .filter((item): item is { group: IndicatorGroup; text: string } =>
+        Boolean(item)
+      );
+    const terms: string[][] = [];
+    items.forEach((item, index) => {
+      if (index === 0 || effectiveJoin(item.group) === IndicatorsLogicEnum.or) {
+        terms.push([item.text]);
+      } else {
+        terms[terms.length - 1]?.push(item.text);
+      }
+    });
+    return terms
+      .map((term) =>
+        term.length > 1 && terms.length > 1
+          ? `(${term.join(' and ')})`
+          : term.join(' and ')
+      )
+      .join(' or ');
+  }, [filteredGroups, filteredIndicators, totalIndicators, effectiveJoin]);
 
-  // A second group is an alternative: groups that are all ANDed add nothing
-  // over one group, so going from one group to two joins them with OR.
+  // Pin every gap to its current effective join, so changing one gap (or the
+  // bot-level fallback) leaves the others as they are.
+  const pinnedJoins = React.useCallback(
+    (overrides: Record<string, IndicatorsLogicEnum> = {}) =>
+      Object.fromEntries(
+        filteredGroups
+          .slice(1)
+          .map((group) => [group.id, overrides[group.id] ?? effectiveJoin(group)])
+      ) as Record<string, IndicatorsLogicEnum>,
+    [filteredGroups, effectiveJoin]
+  );
+
+  const toggleJoin = React.useCallback(
+    (group: IndicatorGroup) => {
+      const next =
+        effectiveJoin(group) === IndicatorsLogicEnum.or
+          ? IndicatorsLogicEnum.and
+          : IndicatorsLogicEnum.or;
+      if (onChangeGroupJoins) {
+        onChangeGroupJoins(pinnedJoins({ [group.id]: next }));
+      } else {
+        onChangeGlobalLogic(next);
+      }
+    },
+    [effectiveJoin, onChangeGroupJoins, onChangeGlobalLogic, pinnedJoins]
+  );
+
+  // A new group is an alternative (all-AND groups add nothing over one
+  // group), so it joins with OR. With per-group joins the new group carries
+  // that itself; otherwise going from one group to two flips the bot logic.
   const handleAddGroup = React.useCallback(() => {
+    if (onChangeGroupJoins && filteredGroups.length >= 1) {
+      onAddGroup(IndicatorsLogicEnum.or);
+      return;
+    }
     if (filteredGroups.length === 1 && globalLogic !== IndicatorsLogicEnum.or) {
       onChangeGlobalLogic(IndicatorsLogicEnum.or);
     }
     onAddGroup();
-  }, [filteredGroups.length, globalLogic, onAddGroup, onChangeGlobalLogic]);
+  }, [
+    filteredGroups.length,
+    onChangeGroupJoins,
+    globalLogic,
+    onChangeGlobalLogic,
+    onAddGroup,
+  ]);
+
   const shouldShowEmptyIndicatorAlert = totalIndicators === 0;
 
   const addGroupDisabledReason = useMemo(() => {
@@ -320,14 +393,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                 {groupIndex > 0 ? (
                   <LogicPill
                     className="py-sm"
-                    logic={globalLogic}
-                    onToggle={() =>
-                      onChangeGlobalLogic(
-                        globalLogic === IndicatorsLogicEnum.or
-                          ? IndicatorsLogicEnum.and
-                          : IndicatorsLogicEnum.or
-                      )
-                    }
+                    logic={effectiveJoin(group)}
+                    onToggle={() => toggleJoin(group)}
                   />
                 ) : null}
                 <IndicatorGroupCard

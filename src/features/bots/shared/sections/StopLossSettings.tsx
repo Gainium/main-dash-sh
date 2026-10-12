@@ -1759,31 +1759,72 @@ const IndicatorsSL: React.FC<
     [updateFormData, indicatorGroups]
   );
 
-  const handleAddStopLossGroup = useCallback(() => {
-    if (
-      indicatorLimitReached ||
-      stopLossIndicatorGroups.length >= MAX_SL_INDICATOR_GROUPS
-    ) {
-      return;
-    }
+  const handleAddStopLossGroup = useCallback(
+    (join?: IndicatorsLogicEnum) => {
+      if (
+        indicatorLimitReached ||
+        stopLossIndicatorGroups.length >= MAX_SL_INDICATOR_GROUPS
+      ) {
+        return;
+      }
 
-    const newGroup: IndicatorGroup = {
-      id: createSlGroupId(),
-      logic:
-        stopDealSlLogic === IndicatorsLogicEnum.or
-          ? IndicatorsLogicEnum.or
-          : IndicatorsLogicEnum.and,
-      action: IndicatorAction.closeDeal,
-      section: IndicatorSection.sl,
-    };
+      const newGroup: IndicatorGroup = {
+        id: createSlGroupId(),
+        logic:
+          stopDealSlLogic === IndicatorsLogicEnum.or
+            ? IndicatorsLogicEnum.or
+            : IndicatorsLogicEnum.and,
+        action: IndicatorAction.closeDeal,
+        section: IndicatorSection.sl,
+        ...(join ? { join } : {}),
+      };
 
-    syncStopLossIndicatorGroups([...stopLossIndicatorGroups, newGroup]);
-  }, [
-    stopDealSlLogic,
-    indicatorLimitReached,
-    stopLossIndicatorGroups,
-    syncStopLossIndicatorGroups,
-  ]);
+      syncStopLossIndicatorGroups([...stopLossIndicatorGroups, newGroup]);
+      // A new group starts with a default RSI rather than empty.
+      const type = IndicatorEnum.rsi;
+      const newIndicator = buildIndicatorConfig(
+        type,
+        sanitizeIndicatorParams(
+          (getIndicatorDefaultParams(
+            type,
+            IndicatorAction.closeDeal,
+            IndicatorSection.sl
+          ) ?? {}) as IndicatorParamsState
+        ),
+        {
+          uuid: createSlIndicatorId(),
+          keepConditionBars: '0',
+          indicatorAction: IndicatorAction.closeDeal,
+          section: IndicatorSection.sl,
+        }
+      );
+      updateFormData('indicators', [
+        ...indicators,
+        { ...newIndicator, groupId: newGroup.id },
+      ]);
+    },
+    [
+      stopDealSlLogic,
+      indicatorLimitReached,
+      stopLossIndicatorGroups,
+      syncStopLossIndicatorGroups,
+      updateFormData,
+      indicators,
+    ]
+  );
+
+  const handleChangeGroupJoins = useCallback(
+    (joins: Record<string, IndicatorsLogicEnum>) => {
+      updateFormData(
+        'indicatorGroups',
+        indicatorGroups.map((group) =>
+          joins[group.id] ? { ...group, join: joins[group.id] } : group
+        )
+      );
+    },
+    [indicatorGroups, updateFormData]
+  );
+
 
   const handleRemoveStopLossGroup = useCallback(
     (groupId: string) => {
@@ -2005,6 +2046,7 @@ const IndicatorsSL: React.FC<
           emptyIndicatorsAlertTitle="No indicators in groups"
           emptyIndicatorsAlertDescription="Add at least one indicator to each stop loss group. Groups without indicators will never trigger."
           onAddGroup={handleAddStopLossGroup}
+          onChangeGroupJoins={handleChangeGroupJoins}
           onRemoveGroup={handleRemoveStopLossGroup}
           onChangeGroupLogic={handleChangeStopLossGroupLogic}
           onAddIndicatorToGroup={handleAddIndicatorToStopLossGroup}

@@ -2047,27 +2047,63 @@ export const TakeProfitSettings: React.FC = () => {
     [updateFormData, indicators]
   );
 
-  const handleAddCloseGroup = useCallback(() => {
-    if (indicatorLimitReached) {
-      return;
-    }
+  const handleAddCloseGroup = useCallback(
+    (join?: IndicatorsLogicEnum) => {
+      if (indicatorLimitReached) {
+        return;
+      }
 
-    const newGroup: IndicatorGroup = {
-      id: createCloseGroupId(),
-      logic:
-        stopDealLogic === IndicatorsLogicEnum.or
-          ? IndicatorsLogicEnum.or
-          : IndicatorsLogicEnum.and,
-      action: IndicatorAction.closeDeal,
-    };
+      const newGroup: IndicatorGroup = {
+        id: createCloseGroupId(),
+        logic:
+          stopDealLogic === IndicatorsLogicEnum.or
+            ? IndicatorsLogicEnum.or
+            : IndicatorsLogicEnum.and,
+        action: IndicatorAction.closeDeal,
+        ...(join ? { join } : {}),
+      };
 
-    syncCloseIndicatorGroups([...closeIndicatorGroups, newGroup]);
-  }, [
-    closeIndicatorGroups,
-    stopDealLogic,
-    indicatorLimitReached,
-    syncCloseIndicatorGroups,
-  ]);
+      syncCloseIndicatorGroups([...closeIndicatorGroups, newGroup]);
+      // A new group starts with a default RSI rather than empty.
+      const type = IndicatorEnum.rsi;
+      const newIndicator = buildIndicatorConfig(
+        type,
+        sanitizeIndicatorParams(
+          (getIndicatorDefaultParams(type, IndicatorAction.closeDeal) ??
+            {}) as IndicatorParamsState
+        ),
+        {
+          uuid: createCloseIndicatorId(),
+          indicatorAction: IndicatorAction.closeDeal,
+        }
+      );
+      updateFormData('indicators', [
+        ...indicators,
+        { ...newIndicator, groupId: newGroup.id },
+      ]);
+    },
+    [
+      closeIndicatorGroups,
+      stopDealLogic,
+      indicatorLimitReached,
+      syncCloseIndicatorGroups,
+      updateFormData,
+      indicators,
+    ]
+  );
+
+  const handleChangeGroupJoins = useCallback(
+    (joins: Record<string, IndicatorsLogicEnum>) => {
+      updateFormData(
+        'indicatorGroups',
+        indicatorGroups.map((group) =>
+          joins[group.id] ? { ...group, join: joins[group.id] } : group
+        )
+      );
+    },
+    [indicatorGroups, updateFormData]
+  );
+
 
   const handleRemoveCloseGroup = useCallback(
     (groupId: string) => {
@@ -3033,6 +3069,7 @@ export const TakeProfitSettings: React.FC = () => {
                       </div>
                     }
                     onAddGroup={handleAddCloseGroup}
+                    onChangeGroupJoins={handleChangeGroupJoins}
                     onRemoveGroup={handleRemoveCloseGroup}
                     onChangeGroupLogic={handleChangeCloseGroupLogic}
                     onAddIndicatorToGroup={handleAddIndicatorToCloseGroup}

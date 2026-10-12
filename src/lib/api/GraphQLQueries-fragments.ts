@@ -303,6 +303,7 @@ pair
                  logic
                  action
                  section
+                 join
                 }
                 indicators {
                     type
@@ -606,6 +607,7 @@ pair
                  logic
                  action
                  section
+                 join
                 }
                 indicators {
                     type
@@ -857,6 +859,7 @@ pairs
                  logic
                  action
                  section
+                 join
                 }
                 indicators {
                     type

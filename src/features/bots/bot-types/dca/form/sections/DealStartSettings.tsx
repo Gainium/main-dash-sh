@@ -770,7 +770,8 @@ export const DealStartSettings: React.FC = () => {
     [indicatorGroups, updateFormData]
   );
 
-  const handleAddStartGroup = React.useCallback(() => {
+  const handleAddStartGroup = React.useCallback(
+    (join?: IndicatorsLogicEnum) => {
     if (
       /* startIndicatorGroups.length >= MAX_START_INDICATOR_GROUPS || */
       totalIndicators >= indicatorsLimit
@@ -782,6 +783,7 @@ export const DealStartSettings: React.FC = () => {
       id: generateStartGroupId(),
       logic: IndicatorsLogicEnum.and,
       action: IndicatorAction.startDeal,
+      ...(join ? { join } : {}),
     };
 
     updateFormData('indicatorGroups', [...indicatorGroups, newGroup]);
@@ -789,13 +791,28 @@ export const DealStartSettings: React.FC = () => {
       ...indicators,
       buildDefaultStartIndicator(newGroup.id),
     ]);
-  }, [
+    },
+    [
     updateFormData,
     indicatorGroups,
     indicators,
     totalIndicators,
     buildDefaultStartIndicator,
-  ]);
+  ]
+  );
+
+
+  const handleChangeGroupJoins = React.useCallback(
+    (joins: Record<string, IndicatorsLogicEnum>) => {
+      updateFormData(
+        'indicatorGroups',
+        indicatorGroups.map((group) =>
+          joins[group.id] ? { ...group, join: joins[group.id] } : group
+        )
+      );
+    },
+    [indicatorGroups, updateFormData]
+  );
 
   const handleRemoveStartGroup = React.useCallback(
     (groupId: string) => {
@@ -1240,6 +1257,7 @@ export const DealStartSettings: React.FC = () => {
                   emptyIndicatorsAlertTitle="No start indicators yet"
                   emptyIndicatorsAlertDescription="Add at least one indicator group to allow the bot to open deals automatically when conditions are met."
                   onAddGroup={handleAddStartGroup}
+                  onChangeGroupJoins={handleChangeGroupJoins}
                   onRemoveGroup={handleRemoveStartGroup}
                   onChangeGroupLogic={handleChangeGroupLogic}
                   onAddIndicatorToGroup={handleAddIndicatorToGroup}
