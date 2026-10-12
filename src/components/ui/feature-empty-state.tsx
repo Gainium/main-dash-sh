@@ -43,21 +43,23 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
 }) => {
   const visual = video ? <VideoThumbnail url={video.url} title={video.title} /> : media;
   return (
-    <div className={cn('relative w-full overflow-hidden', className)}>
-      <div
-        aria-hidden
-        className="pointer-events-none absolute -top-32 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-primary/10 blur-3xl"
-      />
-      <div className="relative mx-auto flex w-full max-w-6xl flex-col gap-xl px-md py-lg md:py-xl">
+    <div className={cn('w-full', className)}>
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-xl px-md py-lg md:py-xl">
         <section
           className={cn(
-            'grid items-center gap-lg',
+            'relative grid items-center gap-lg overflow-hidden rounded-2xl border border-border',
+            'bg-gradient-to-br from-muted/60 via-muted/25 to-card p-lg md:p-xl',
+            'shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset,0_12px_40px_-12px_rgba(0,0,0,0.5)]',
             visual && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-xl'
           )}
         >
           <div
+            aria-hidden
+            className="pointer-events-none absolute -top-24 -left-24 h-72 w-72 rounded-full bg-primary/15 blur-3xl"
+          />
+          <div
             className={cn(
-              'flex flex-col gap-md',
+              'relative flex flex-col gap-md',
               visual ? 'items-start text-left' : 'items-center text-center'
             )}
           >
@@ -117,7 +119,7 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
               </div>
             )}
           </div>
-          {visual && <div className="w-full">{visual}</div>}
+          {visual && <div className="relative w-full">{visual}</div>}
         </section>
         {children}
       </div>
