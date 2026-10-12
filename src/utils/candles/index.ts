@@ -202,9 +202,10 @@ class Candles {
       let missed: { from: number; to: number }[] = [];
       // Use the caller's requested range as the max gap we'll fill.
       // This respects what the caller actually needs without arbitrary limits.
-      // Safety cap at 1 year to prevent truly pathological downloads.
-      const ABSOLUTE_MAX_GAP_MS = 365 * 24 * 60 * 60 * 1000;
-      const maxGapMs = Math.min(to - from, ABSOLUTE_MAX_GAP_MS);
+      // No fixed cap on top: clipping a gap to its most recent part dropped
+      // the start of every backtest longer than the cap, and the next run on
+      // the same period downloaded the dropped part again.
+      const maxGapMs = to - from;
       let i = 0;
       for (const r of required) {
         if (i !== 0) {
