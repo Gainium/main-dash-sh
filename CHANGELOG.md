@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.3] - 2026-10-12
+### Changed
+- Empty bot-list hero drops its "View archived bots" button; the toolbar's Archived toggle already does that.
+
 ## [2.95.2] - 2026-10-12
 ### Fixed
 - Bot lists in table view: the empty-state hero replaces the table body instead of sitting inside an empty row, so it is no longer pushed right and clipped under the column headers and totals footer.

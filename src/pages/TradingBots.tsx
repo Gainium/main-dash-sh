@@ -1946,11 +1946,6 @@ const TradingBots: React.FC = () => {
                                   onClick: handleCreateBot,
                                   icon: <Plus />,
                                 }}
-                                secondaryAction={{
-                                  label: 'View archived bots',
-                                  onClick: toggleArchived,
-                                  icon: <Archive />,
-                                }}
                                 video={{
                                   url: 'https://youtu.be/dKXa_PLhcbU',
                                   title: 'How DCA bots work',

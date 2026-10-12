@@ -1608,11 +1608,6 @@ const ComboBots: React.FC = () => {
                               onClick: () => navigate('/combo/new'),
                               icon: <Plus />,
                             }}
-                            secondaryAction={{
-                              label: 'View archived bots',
-                              onClick: () => setShowArchived((prev) => !prev),
-                              icon: <Archive />,
-                            }}
                             video={{
                               url: 'https://youtu.be/yRm69WT-L64',
                               title: 'How combo bots work',

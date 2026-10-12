@@ -1363,11 +1363,6 @@ const GridBots: React.FC = () => {
                           onClick: () => navigate('/grid/new'),
                           icon: <Plus />,
                         }}
-                        secondaryAction={{
-                          label: 'View archived bots',
-                          onClick: () => setShowArchived((prev) => !prev),
-                          icon: <Archive />,
-                        }}
                         video={{
                           url: 'https://youtu.be/qHkq8tbiDhY',
                           title: 'How grid bots work',
