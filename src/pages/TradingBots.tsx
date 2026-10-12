@@ -1949,7 +1949,7 @@ const TradingBots: React.FC = () => {
                                   icon: <Archive />,
                                 }}
                                 video={{
-                                  url: 'https://www.youtube.com/watch?v=dKXa_PLhcbU',
+                                  url: 'https://youtu.be/dKXa_PLhcbU',
                                   title: 'How DCA bots work',
                                 }}
                               >

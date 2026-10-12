@@ -1611,7 +1611,7 @@ const ComboBots: React.FC = () => {
                               icon: <Archive />,
                             }}
                             video={{
-                              url: 'https://www.youtube.com/watch?v=_quaIfDcO7A',
+                              url: 'https://youtu.be/yRm69WT-L64',
                               title: 'How combo bots work',
                             }}
                           >

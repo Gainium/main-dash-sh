@@ -1366,7 +1366,7 @@ const GridBots: React.FC = () => {
                           icon: <Archive />,
                         }}
                         video={{
-                          url: 'https://www.youtube.com/watch?v=oduu9VRAK60',
+                          url: 'https://youtu.be/qHkq8tbiDhY',
                           title: 'How grid bots work',
                         }}
                       >
