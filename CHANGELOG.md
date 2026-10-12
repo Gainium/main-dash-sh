@@ -1,5 +1,20 @@
 # Changelog
 
+## [2.95.0] - 2026-10-12
+### Added
+- Indicator conditions (deal start, take profit, stop loss, bot controller) read as compact rows: indicator name and its full settings summary, with Edit to open the settings in place. A condition line above sums the section up, e.g. "((RSI or MACD) and BB) or SuperTrend".
+- AND / OR is set where it applies: a pill between two indicators of a group, and a pill between two groups. Each pill between groups sets that group's own join, with AND binding tighter than OR; groups saved before keep the bot-level AND / OR.
+- Favorite indicators keep their settings: the star on an indicator saves it with its current values, and picking that favorite later starts from them. The indicator picker lists favorites first, then popular indicators.
+### Changed
+- Choosing Indicators as the deal start condition, or adding a group, starts with a ready RSI instead of an empty group with errors.
+- Create Bot: From Scratch is the primary action and opens the full (Manual) form.
+- Tooltips: DCA orders count excludes the base order; Bot Controller switches the bot on or off and does not open deals.
+### Fixed
+- Bot Controller indicator group edits dropped the deal start, take profit and stop loss indicator groups from the bot.
+- The AND / OR shown between Bot Controller groups came from the deal start logic instead of the bot start / stop logic.
+- The bot form widened past the screen on phones after a dialog had been open.
+- A new-bot page opened from inside the app lost the settings handed to it (for example From Scratch opening in Manual).
+
 ## [2.94.0] - 2026-10-12
 ### Added
 - Oscillator indicators (RSI, CCI, MFI, Williams %R, Ultimate Oscillator, Momentum, Awesome Oscillator, ADX, Bollinger Bands %B, Keltner Channel %B, Bollinger Band Width, Volume Oscillator and Moving Average Ratio): optional **Smoothing** (SMA, EMA, WMA, DEMA, TEMA, HMA or RMA) with its own length. With smoothing on, the condition tests the smoothed line against Value (or its percentile), or, with **Compare: Line vs smoothed line**, tests the indicator against its own smoothed line (crossing up/down, greater/lower than). The bot chart draws the smoothed line in orange. Available in every bot indicator section and in the client-side backtest.
