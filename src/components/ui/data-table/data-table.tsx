@@ -1075,6 +1075,13 @@ interface DataTableProps<TData, TValue> {
    * instead of a plain string.
    */
   emptyContent?: React.ReactNode;
+  /**
+   * With no rows, render `emptyContent` in place of the table / cards body
+   * (no column headers, no totals footer) instead of inside an empty row.
+   * For page-size empty states that would otherwise be laid out across the
+   * table's full scroll width.
+   */
+  emptyReplacesBody?: boolean;
   defaultColumnVisibility?: Record<string, boolean>;
   defaultPinnedColumns?: { left: string[]; right: string[] };
   initialPageSize?: number; // Initial page size for new tables (defaults to 5)
@@ -2530,9 +2537,12 @@ function DataTableComponent<TData, TValue>(
   // width, so they stay readable while a wide table scrolls sideways.
   const [detailWidth, setDetailWidth] = useState<number | null>(null);
   const hasRowDetail = !!renderRowDetail;
+  // The empty-state row is pinned to the same visible width as row details,
+  // so it stays centred instead of spreading across the full scroll width.
+  const measureScrollport = hasRowDetail || !!emptyContent;
   useEffect(() => {
     const el = scrollContainerRef.current;
-    if (!hasRowDetail || !el || typeof ResizeObserver === 'undefined') return;
+    if (!measureScrollport || !el || typeof ResizeObserver === 'undefined') return;
     // Sticky content pins to the scrollport's padding edge.
     const update = () => {
       const cs = getComputedStyle(el);
@@ -2546,7 +2556,7 @@ function DataTableComponent<TData, TValue>(
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [hasRowDetail]);
+  }, [measureScrollport]);
 
   // Notify parent of initial view mode
   useEffect(() => {
@@ -4265,8 +4275,10 @@ function DataTableComponent<TData, TValue>(
         </div>
       )}
 
-      {/* Table or Card View */}
-      {isTableView ? (
+      {/* Table or Card View — or, opted in, the empty content alone */}
+      {props.emptyReplacesBody && !table.getRowModel().rows.length ? (
+        <div className="w-full h-full min-h-0 overflow-auto">{emptyContent}</div>
+      ) : isTableView ? (
         <div
           className="relative overflow-hidden data-table-container"
           style={{
@@ -4808,7 +4820,14 @@ function DataTableComponent<TData, TValue>(
                         colSpan={columns.length}
                         className="text-center text-muted-foreground"
                       >
-                        {emptyContent ?? (
+                        {emptyContent ? (
+                          <div
+                            className="sticky left-0"
+                            style={detailWidth ? { width: `${detailWidth}px` } : undefined}
+                          >
+                            {emptyContent}
+                          </div>
+                        ) : (
                           <div className="h-24 flex items-center justify-center">
                             {emptyMessage}
                           </div>

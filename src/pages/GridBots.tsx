@@ -1306,6 +1306,9 @@ const GridBots: React.FC = () => {
                   cardComponent={BotCardWrapper}
                   cardViewBreakpoints={CARD_VIEW_COLUMNS}
                   cardViewGap={16}
+                  emptyReplacesBody={
+                    !showArchived && !readOnly && transformedBots.length === 0
+                  }
                   emptyContent={
                     showArchived || readOnly || transformedBots.length > 0 ? (
                       <EmptyState

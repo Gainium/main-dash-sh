@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.95.2] - 2026-10-12
+### Fixed
+- Bot lists in table view: the empty-state hero replaces the table body instead of sitting inside an empty row, so it is no longer pushed right and clipped under the column headers and totals footer.
+- Table empty states (e.g. no archived bots) stay centred in the visible area when the table scrolls sideways, so their action button is never cut off.
+
 ## [2.95.1] - 2026-10-12
 ### Changed
 - DCA, grid and combo bot lists with no bots yet show what the bot type does, a create button and its tutorial video as a thumbnail that plays in a modal. A search or filter with no matches keeps the plain empty state.

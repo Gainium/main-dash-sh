@@ -1889,6 +1889,9 @@ const TradingBots: React.FC = () => {
                             TRADING_BOTS_CARD_VIEW_BREAKPOINTS
                           }
                           cardViewGap={16}
+                          emptyReplacesBody={
+                            !showArchived && !readOnly && transformedBots.length === 0
+                          }
                           emptyContent={
                             showArchived || readOnly || transformedBots.length > 0 ? (
                               <EmptyState
