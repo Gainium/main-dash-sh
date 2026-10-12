@@ -6,7 +6,7 @@ import { getIndicatorDefinition } from '@/types/indicators/indicatorLogic';
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
-import { Star, Trash2 } from 'lucide-react';
+import { ChevronDown, Star, Trash2 } from 'lucide-react';
 import React from 'react';
 
 interface IndicatorListProps {
@@ -32,6 +32,18 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   isFavorite,
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
+  // Settings start folded: the summary line already says what each
+  // indicator is set to, so the full form only opens on demand.
+  const [expanded, setExpanded] = React.useState<Set<string>>(
+    () => new Set()
+  );
+  const toggleExpanded = (uuid: string) =>
+    setExpanded((prev) => {
+      const next = new Set(prev);
+      if (next.has(uuid)) next.delete(uuid);
+      else next.add(uuid);
+      return next;
+    });
   if (!indicators.length) {
     return (
       <div className="rounded-lg bg-muted p-md text-sm text-muted-foreground text-center">
@@ -56,6 +68,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
         const definition = getIndicatorDefinition(indicator.type);
         const summary = buildIndicatorSummary(definition, indicator);
         const documentationUrl = definition.documentationUrl;
+        const isExpanded = expanded.has(indicator.uuid);
 
         return (
           <div
@@ -73,9 +86,19 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                   </span>
                 </div>
                 {summary.length > 0 ? (
-                  <p className="text-xs text-muted-foreground sm:text-sm">
-                    {summary.join(' · ')}
-                  </p>
+                  renderExtras ? (
+                    <button
+                      type="button"
+                      className="text-left text-xs text-muted-foreground hover:text-foreground sm:text-sm"
+                      onClick={() => toggleExpanded(indicator.uuid)}
+                    >
+                      {summary.join(' · ')}
+                    </button>
+                  ) : (
+                    <p className="text-xs text-muted-foreground sm:text-sm">
+                      {summary.join(' · ')}
+                    </p>
+                  )
                 ) : null}
                 {documentationUrl && parseHelpUrl(documentationUrl).helpSlug ? (
                   <button
@@ -90,6 +113,24 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
 
               <div className="flex shrink-0 flex-col items-end gap-xs">
                 <div className="flex items-center gap-xs">
+                {renderExtras ? (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => toggleExpanded(indicator.uuid)}
+                    aria-expanded={isExpanded}
+                    aria-label={
+                      isExpanded
+                        ? 'Hide indicator settings'
+                        : 'Edit indicator settings'
+                    }
+                  >
+                    <ChevronDown
+                      className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
+                    />
+                  </Button>
+                ) : null}
                 {onToggleFavorite ? (
                   <Tooltip
                     tooltip={
@@ -156,7 +197,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
               </div>
             </div>
 
-            {renderExtras ? (
+            {renderExtras && isExpanded ? (
               <div className="pt-xs">
                 {renderExtras(indicator, index)}
               </div>
