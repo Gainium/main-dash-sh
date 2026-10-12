@@ -11,7 +11,9 @@ import { BotTypesEnum } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatNumber } from '@/utils/numberFormatter';
-import { extractPairAssets } from '@/utils/pairs';
+import { formatPairPrice } from '@/utils/formatters';
+import { extractPairAssets, findTradingPair } from '@/utils/pairs';
+import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { deriveTradeLevels } from '@/utils/trades/deriveTradeLevels';
 import { ExternalLink, MoreVertical } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -1558,28 +1560,39 @@ export const TradeCard: React.FC<TradeCardProps> = React.memo((props) => {
     [trade.strategy, trade.side]
   );
 
+  // Prices print at the pair's own precision: formatNumber turns anything
+  // below 0.01 into exponent notation (8.42e-3).
+  const pairsByProvider = useTradingPairsDataStore((s) => s.pairsByProvider);
+  const pricePrecision = useMemo(
+    () =>
+      findTradingPair(pairsByProvider, trade.exchange, tradeSymbol)
+        ?.priceAssetPrecision,
+    [pairsByProvider, trade.exchange, tradeSymbol]
+  );
   const avgPriceValue = useMemo(
     () => trade.avgPrice || trade.entryPrice || 0,
     [trade.avgPrice, trade.entryPrice]
   );
   const avgPriceDisplay = useMemo(
-    () => `${formatNumber(avgPriceValue, true)} ${symbolAssets.quoteAsset}`,
-    [avgPriceValue, symbolAssets.quoteAsset]
+    () =>
+      `${formatPairPrice(avgPriceValue, pricePrecision)} ${symbolAssets.quoteAsset}`,
+    [avgPriceValue, pricePrecision, symbolAssets.quoteAsset]
   );
   const initialPriceValue = useMemo(
     () => trade.initialPrice || trade.entryPrice || trade.avgPrice || 0,
     [trade.initialPrice, trade.entryPrice, trade.avgPrice]
   );
   const initialPriceDisplay = useMemo(
-    () => `${formatNumber(initialPriceValue, true)} ${symbolAssets.quoteAsset}`,
-    [initialPriceValue, symbolAssets.quoteAsset]
+    () =>
+      `${formatPairPrice(initialPriceValue, pricePrecision)} ${symbolAssets.quoteAsset}`,
+    [initialPriceValue, pricePrecision, symbolAssets.quoteAsset]
   );
   const currentPriceDisplay = useMemo(
     () =>
       currentPrice !== null
-        ? `${formatNumber(currentPrice, true)} ${symbolAssets.quoteAsset}`
+        ? `${formatPairPrice(currentPrice, pricePrecision)} ${symbolAssets.quoteAsset}`
         : null,
-    [currentPrice, symbolAssets.quoteAsset]
+    [currentPrice, pricePrecision, symbolAssets.quoteAsset]
   );
 
   const avgPriceLabel = useMemo(

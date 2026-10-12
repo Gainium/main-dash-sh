@@ -24,10 +24,9 @@ import { cn } from '@/lib/utils';
 import {
   formatBalance,
   formatCurrency,
-  formatNumber,
   formatPercentage,
 } from '@/utils/numberFormatter';
-import { formatDate } from '@/utils/formatters';
+import { formatDate, formatPairPrice } from '@/utils/formatters';
 
 export interface SmartOrderMergeDeal {
   id: string;
@@ -399,7 +398,7 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
                                 Average price
                               </p>
                               <p className="font-medium">
-                                {formatNumber(deal.avgPrice, true)}{' '}
+                                {formatPairPrice(deal.avgPrice)}{' '}
                                 {deal.quoteAsset ?? ''}
                               </p>
                             </div>
