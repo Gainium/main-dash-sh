@@ -57,7 +57,7 @@
     "@tanstack/react-table": "^8.21.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
-    "dompurify": "3.4.13",
+    "dompurify": "3.4.16",
     "dotenv": "^17.2.3",
     "ethers": "^6.16.0",
     "events": "^3.3.0",
@@ -116,5 +116,10 @@
     "vite": "^7.2.6",
     "vite-plugin-pwa": "^1.2.0",
     "workbox-window": "^7.4.0"
+  },
+  "overrides": {
+    "@nktkas/hyperliquid": {
+      "valibot": "1.4.2"
+    }
   }
 }
