@@ -85,6 +85,7 @@ export interface BotSettings {
   cooldownAfterDealStopInterval?: string;
   cooldownAfterDealStartOption?: string;
   cooldownAfterDealStopOption?: string;
+  cooldownAfterDealStopTrigger?: string;
 }
 
 export interface BotSettingsData {

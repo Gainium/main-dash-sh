@@ -21,6 +21,7 @@ import {
   CloseDCATypeEnum,
   ComboTpBase,
   CooldownOptionsEnum,
+  CooldownStopTriggerEnum,
   CooldownUnits,
   DCAConditionEnum,
   DCATypeEnum,
@@ -4084,6 +4085,9 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
   const cooldownAfterDealStopOption = isComboBot
     ? formData.combo.cooldownAfterDealStopOption
     : formData.dca.cooldownAfterDealStopOption;
+  const cooldownAfterDealStopTrigger = isComboBot
+    ? formData.combo.cooldownAfterDealStopTrigger
+    : formData.dca.cooldownAfterDealStopTrigger;
   const useStaticPriceFilter = isComboBot
     ? formData.combo.useStaticPriceFilter
     : formData.dca.useStaticPriceFilter;
@@ -4126,6 +4130,7 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
       'cooldownAfterDealStopInterval',
       'cooldownAfterDealStopUnits',
       'cooldownAfterDealStopOption',
+      'cooldownAfterDealStopTrigger',
       'useStaticPriceFilter',
       'minOpenDeal',
       'maxOpenDeal',
@@ -4151,6 +4156,7 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
         | 'cooldownAfterDealStopInterval'
         | 'cooldownAfterDealStopUnits'
         | 'cooldownAfterDealStopOption'
+        | 'cooldownAfterDealStopTrigger'
         | 'useStaticPriceFilter'
         | 'minOpenDeal'
         | 'maxOpenDeal'
@@ -4285,12 +4291,20 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
           filterFields['cooldownAfterDealStopOption'] = CooldownOptionsEnum.bot;
           fieldsMapped.push('cooldownAfterDealStopOption');
         }
+
+        filterFields['cooldownAfterDealStopTrigger'] = Object.values(
+          CooldownStopTriggerEnum
+        ).includes(cooldownAfterDealStopTrigger as CooldownStopTriggerEnum)
+          ? cooldownAfterDealStopTrigger
+          : CooldownStopTriggerEnum.any;
+        fieldsMapped.push('cooldownAfterDealStopTrigger');
       } else {
         fieldsSkipped.push(
           'cooldownAfterDealStop',
           'cooldownAfterDealStopInterval',
           'cooldownAfterDealStopUnits',
-          'cooldownAfterDealStopOption'
+          'cooldownAfterDealStopOption',
+          'cooldownAfterDealStopTrigger'
         );
       }
     } else {
@@ -4303,7 +4317,8 @@ export const mapFilterFields = (formData: BotFormData): FieldMappingResult => {
         'cooldownAfterDealStop',
         'cooldownAfterDealStopInterval',
         'cooldownAfterDealStopUnits',
-        'cooldownAfterDealStopOption'
+        'cooldownAfterDealStopOption',
+        'cooldownAfterDealStopTrigger'
       );
     }
 

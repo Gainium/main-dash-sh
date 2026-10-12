@@ -38,6 +38,7 @@ import { useIndicatorSelector } from '@/hooks/useIndicatorSelector';
 import { useUserSettings } from '@/hooks/useUserSettings';
 import {
   CooldownOptionsEnum,
+  CooldownStopTriggerEnum,
   CooldownUnits,
   IndicatorAction,
   IndicatorEnum,
@@ -102,6 +103,12 @@ const COOLDOWN_UNITS = [
   { value: 'minutes', label: 'Minutes' },
   { value: 'hours', label: 'Hours' },
   { value: 'days', label: 'Days' },
+] as const;
+
+const COOLDOWN_STOP_TRIGGER_OPTIONS = [
+  { value: CooldownStopTriggerEnum.any, label: 'Any close' },
+  { value: CooldownStopTriggerEnum.sl, label: 'Stop loss only' },
+  { value: CooldownStopTriggerEnum.loss, label: 'Losing deals only' },
 ] as const;
 
 const COOLDOWN_SCOPE_OPTIONS = [
@@ -464,6 +471,9 @@ export const DealStartSettings: React.FC = () => {
   );
   const cooldownAfterDealStopUnits = useBotFormSelector(
     'cooldownAfterDealStopUnits'
+  );
+  const cooldownAfterDealStopTrigger = useBotFormSelector(
+    'cooldownAfterDealStopTrigger'
   );
   const isMultiBot = useMemo(() => Boolean(useMulti), [useMulti]);
   const { active: singlePositionActive } = useSinglePositionFormState();
@@ -1909,6 +1919,37 @@ export const DealStartSettings: React.FC = () => {
 
                 {cooldownAfterDealStop && (
                   <div className="grid gap-md sm:grid-cols-3">
+                    <div className="space-y-xs">
+                      <div className="flex items-center gap-xs">
+                        <Label htmlFor="cooldown-close-trigger">After</Label>
+                        <Tooltip tooltip="Which closed deals start the cooldown. Stop loss only: deals closed by a stop loss (including a moved or trailing stop loss) or a liquidation, even if the deal ended in profit. Losing deals only: any deal that closed with a net loss after fees, however it was closed. A winning close during the cooldown does not end it early.">
+                          <InfoIcon />
+                        </Tooltip>
+                      </div>
+                      <Select
+                        value={
+                          cooldownAfterDealStopTrigger ||
+                          CooldownStopTriggerEnum.any
+                        }
+                        onValueChange={(value) =>
+                          updateFormData(
+                            'cooldownAfterDealStopTrigger',
+                            value as CooldownStopTriggerEnum
+                          )
+                        }
+                      >
+                        <SelectTrigger id="cooldown-close-trigger">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {COOLDOWN_STOP_TRIGGER_OPTIONS.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
                     <div className="space-y-xs">
                       <Label htmlFor="cooldown-close-interval">Interval</Label>
                       <FieldVariableBinding

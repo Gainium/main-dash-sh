@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.92.0] - 2026-10-12
+### Added
+- DCA and Combo bots: Cooldown after deal close has an **After** setting — Any close (as before), Stop loss only, or Losing deals only — so an ASAP bot can pause after a stop loss or a losing deal and still re-enter straight away after a win. Backtests apply it too.
+
 ## [2.91.9] - 2026-10-12
 ### Fixed
 - Tables: searching or filtering returns to page 1. A table left on a later page showed "no data" when the search narrowed it to fewer pages, even though the footer totals counted the matches.

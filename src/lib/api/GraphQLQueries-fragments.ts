@@ -425,6 +425,7 @@ kcRangeLength
                 cooldownAfterDealStopInterval
                 cooldownAfterDealStartOption
                 cooldownAfterDealStopOption
+                cooldownAfterDealStopTrigger
                 moveSL
                 moveSLTrigger
                 moveSLValue
@@ -724,6 +725,7 @@ kcRangeLength
                 cooldownAfterDealStopInterval
                 cooldownAfterDealStartOption
                 cooldownAfterDealStopOption
+                cooldownAfterDealStopTrigger
                 moveSL
                 moveSLTrigger
                 moveSLValue

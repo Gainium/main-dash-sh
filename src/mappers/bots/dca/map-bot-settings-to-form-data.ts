@@ -11,6 +11,7 @@ import {
   ComboTpBase,
   DCAConditionEnum,
   CooldownOptionsEnum,
+  CooldownStopTriggerEnum,
   CooldownUnits,
   DCATypeEnum,
   DcaVolumeRequiredChangeRef,
@@ -411,6 +412,16 @@ export const mapBotSettingsToFormData = (
     ),
     CooldownOptionsEnum.bot
   );
+
+  const rawCooldownStopTrigger = getValue<string | undefined>(
+    'cooldownAfterDealStopTrigger',
+    undefined
+  );
+  const cooldownStopTrigger = Object.values(CooldownStopTriggerEnum).includes(
+    rawCooldownStopTrigger as CooldownStopTriggerEnum
+  )
+    ? (rawCooldownStopTrigger as CooldownStopTriggerEnum)
+    : CooldownStopTriggerEnum.any;
 
   const cooldownAfterDealStart = determineCooldownToggle(
     cooldownStartInterval,
@@ -994,6 +1005,7 @@ export const mapBotSettingsToFormData = (
     cooldownAfterDealStopInterval: +cooldownStopInterval,
     cooldownAfterDealStopUnits: cooldownStopUnits,
     cooldownAfterDealStopOption: cooldownStopOption,
+    cooldownAfterDealStopTrigger: cooldownStopTrigger,
     startCondition: normalizeStartCondition(
       getString('startCondition', StartConditionEnum.asap)
     ),

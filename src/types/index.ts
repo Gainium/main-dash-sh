@@ -1792,6 +1792,13 @@ export enum CooldownOptionsEnum {
   bot = 'bot',
 }
 
+/** Which closed deals start the cooldown after deal stop. */
+export enum CooldownStopTriggerEnum {
+  any = 'any',
+  sl = 'sl',
+  loss = 'loss',
+}
+
 export enum BaseSlOnEnum {
   start = 'start',
   avg = 'avg',
@@ -1875,6 +1882,7 @@ export interface DCABotSettings extends BaseSettings {
   cooldownAfterDealStopUnits?: CooldownUnits | undefined;
   cooldownAfterDealStopInterval?: number | undefined;
   cooldownAfterDealStopOption?: CooldownOptionsEnum | undefined;
+  cooldownAfterDealStopTrigger?: CooldownStopTriggerEnum | undefined;
   moveSL?: boolean;
   moveSLTrigger?: string;
   moveSLValue?: string;
