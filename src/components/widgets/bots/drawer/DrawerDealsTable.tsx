@@ -31,6 +31,8 @@ import {
 /* import { useHedgeDeals } from '../../../../hooks/useHedgeDeals'; */
 import { formatNumber } from '@/utils/numberFormatter';
 import { formatPairPrice } from '@/utils/formatters';
+import { ResponsiveAmount } from '@/components/ui/ResponsiveAmount';
+import { getPrecision } from '@/features/trading-terminal/components/exchangeOrderColumns';
 import { findTradingPair } from '@/utils/pairs';
 import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { logger } from '../../../../lib/loggerInstance';
@@ -1094,14 +1096,24 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const columns = useMemo<
     ColumnDef<ReturnType<typeof transformDealToTradeWrapper>>[]
   >(() => {
-    const pricePrecisionOf = (
-      trade: ReturnType<typeof transformDealToTradeWrapper>
-    ) =>
+    const pairOf = (trade: ReturnType<typeof transformDealToTradeWrapper>) =>
       findTradingPair(
         pairsByProvider,
         trade.exchange || botExchange,
         typeof trade.symbol === 'string' ? trade.symbol : trade.symbol?.symbol
-      )?.priceAssetPrecision;
+      );
+    const pricePrecisionOf = (
+      trade: ReturnType<typeof transformDealToTradeWrapper>
+    ) => pairOf(trade)?.priceAssetPrecision;
+    // Balances render at the pair's base / quote precision (quote ≥ 2 decimals).
+    const amountPrecisionOf = (
+      trade: ReturnType<typeof transformDealToTradeWrapper>
+    ) => {
+      const pair = pairOf(trade);
+      if (!pair) return undefined;
+      const precision = getPrecision(pair);
+      return { base: precision.base, quote: Math.max(precision.quote, 2) };
+    };
     const baseColumns: ColumnDef<
       ReturnType<typeof transformDealToTradeWrapper>
     >[] = [
@@ -1587,14 +1599,22 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               : row.original.symbol?.quoteAsset || '';
           if (!balances)
             return <span className="text-muted-foreground">-</span>;
+          const precision = amountPrecisionOf(row.original);
           return (
             <div className="flex flex-col text-xs">
-              <span>
-                Base: {formatNumber(balances.base, false)} {baseAsset}
-              </span>
-              <span className="text-muted-foreground">
-                Quote: {formatNumber(balances.quote, false)} {quoteAsset}
-              </span>
+              <ResponsiveAmount
+                label="Base: "
+                value={balances.base}
+                precision={precision?.base}
+                asset={baseAsset}
+              />
+              <ResponsiveAmount
+                className="text-muted-foreground"
+                label="Quote: "
+                value={balances.quote}
+                precision={precision?.quote}
+                asset={quoteAsset}
+              />
             </div>
           );
         },
@@ -1616,14 +1636,22 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               : row.original.symbol?.quoteAsset || '';
           if (!balances)
             return <span className="text-muted-foreground">-</span>;
+          const precision = amountPrecisionOf(row.original);
           return (
             <div className="flex flex-col text-xs">
-              <span>
-                Base: {formatNumber(balances.base, false)} {baseAsset}
-              </span>
-              <span className="text-muted-foreground">
-                Quote: {formatNumber(balances.quote, false)} {quoteAsset}
-              </span>
+              <ResponsiveAmount
+                label="Base: "
+                value={balances.base}
+                precision={precision?.base}
+                asset={baseAsset}
+              />
+              <ResponsiveAmount
+                className="text-muted-foreground"
+                label="Quote: "
+                value={balances.quote}
+                precision={precision?.quote}
+                asset={quoteAsset}
+              />
             </div>
           );
         },

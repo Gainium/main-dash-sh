@@ -255,6 +255,22 @@ export function formatPairPrice(value: number, pricePrecision?: number): string 
 }
 
 /**
+ * A bare asset amount (a base or quote balance) for cells that print the
+ * asset themselves: rounded to `precision` decimals when known — `0` is a real
+ * precision here (a step-1 lot size), unlike a pair's price precision — and
+ * otherwise the exact value up to 8 decimals. Trailing zeros are dropped, as
+ * the legacy dashboard's `math.round` did. Thousands separators, never K/M or
+ * exponent notation.
+ */
+export function formatAssetAmount(value: number, precision?: number): string {
+  const known =
+    typeof precision === 'number' && Number.isFinite(precision) && precision >= 0;
+  return (Number.isFinite(value) ? value : 0).toLocaleString('en-US', {
+    maximumFractionDigits: known ? Math.min(precision, 20) : 8,
+  });
+}
+
+/**
  * Format percentage value
  */
 export function formatPercentage(value: number, decimals = 2): string {

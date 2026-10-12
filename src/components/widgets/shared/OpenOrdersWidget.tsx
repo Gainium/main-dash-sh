@@ -58,6 +58,8 @@ import {
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatDuration, formatPairPrice } from '@/utils/formatters';
+import { ResponsiveAmount } from '@/components/ui/ResponsiveAmount';
+import { getPrecision } from '@/features/trading-terminal/components/exchangeOrderColumns';
 import { formatNumber } from '@/utils/numberFormatter';
 import { extractPairAssets, findTradingPair } from '@/utils/pairs';
 import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
@@ -1469,9 +1471,17 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   // Avg / Initial price render at the pair's own price precision.
   const pairsByProvider = useTradingPairsDataStore((s) => s.pairsByProvider);
   const columns: ColumnDef<OpenTrade>[] = useMemo(() => {
+    const pairOf = (trade: OpenTrade) =>
+      findTradingPair(pairsByProvider, trade.exchange, trade.symbol);
     const pricePrecisionOf = (trade: OpenTrade) =>
-      findTradingPair(pairsByProvider, trade.exchange, trade.symbol)
-        ?.priceAssetPrecision;
+      pairOf(trade)?.priceAssetPrecision;
+    // Balances render at the pair's base / quote precision (quote ≥ 2 decimals).
+    const amountPrecisionOf = (trade: OpenTrade) => {
+      const pair = pairOf(trade);
+      if (!pair) return undefined;
+      const precision = getPrecision(pair);
+      return { base: precision.base, quote: Math.max(precision.quote, 2) };
+    };
     const comboTypes = new Set(['Combo', 'Hedge Combo']);
     const hasComboFilter = filteredBotTypes.some((type) =>
       comboTypes.has(type)
@@ -2154,14 +2164,22 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             return <span className="text-muted-foreground">-</span>;
           const baseAsset = row.original.baseAsset || '';
           const quoteAsset = row.original.quoteAsset || '';
+          const precision = amountPrecisionOf(row.original);
           return (
             <div className="flex flex-col text-xs">
-              <span>
-                Base: {formatNumber(balances.base, false)} {baseAsset}
-              </span>
-              <span className="text-muted-foreground">
-                Quote: {formatNumber(balances.quote, false)} {quoteAsset}
-              </span>
+              <ResponsiveAmount
+                label="Base: "
+                value={balances.base}
+                precision={precision?.base}
+                asset={baseAsset}
+              />
+              <ResponsiveAmount
+                className="text-muted-foreground"
+                label="Quote: "
+                value={balances.quote}
+                precision={precision?.quote}
+                asset={quoteAsset}
+              />
             </div>
           );
         },
@@ -2176,14 +2194,22 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
             return <span className="text-muted-foreground">-</span>;
           const baseAsset = row.original.baseAsset || '';
           const quoteAsset = row.original.quoteAsset || '';
+          const precision = amountPrecisionOf(row.original);
           return (
             <div className="flex flex-col text-xs">
-              <span>
-                Base: {formatNumber(balances.base, false)} {baseAsset}
-              </span>
-              <span className="text-muted-foreground">
-                Quote: {formatNumber(balances.quote, false)} {quoteAsset}
-              </span>
+              <ResponsiveAmount
+                label="Base: "
+                value={balances.base}
+                precision={precision?.base}
+                asset={baseAsset}
+              />
+              <ResponsiveAmount
+                className="text-muted-foreground"
+                label="Quote: "
+                value={balances.quote}
+                precision={precision?.quote}
+                asset={quoteAsset}
+              />
             </div>
           );
         },

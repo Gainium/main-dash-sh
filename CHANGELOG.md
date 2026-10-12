@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.93.3] - 2026-10-12
+### Fixed
+- Deals tables (deal lists and the bot drawer): Initial Balances and Current Balances show the exact base and quote amounts at the asset's precision with thousands separators when the column has room, and fall back to the compact K/M form only when it does not; hovering a compacted amount shows the exact value.
+
 ## [2.93.2] - 2026-10-12
 ### Fixed
 - Deals tables (deal lists and the bot drawer): Avg Price and Initial / Entry Price show the price at the pair's own precision instead of exponent notation for prices under 0.01 (e.g. "8.42e-3"), and both columns use the same number of decimals.
