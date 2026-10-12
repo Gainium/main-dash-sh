@@ -27,7 +27,7 @@ export const VideoThumbnail: React.FC<VideoThumbnailProps> = ({ url, title, clas
         onClick={() => setOpen(true)}
         aria-label={`Play video: ${title}`}
         className={cn(
-          'group relative block w-full aspect-video overflow-hidden rounded-xl border border-border bg-muted',
+          'group relative block w-full aspect-video overflow-hidden rounded-xl bg-muted',
           'shadow-[0_8px_30px_rgba(0,0,0,0.25)] cursor-pointer outline-none',
           'focus-visible:ring-2 focus-visible:ring-primary/40 ring-offset-background',
           className

@@ -47,9 +47,9 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-xl px-md py-lg md:py-xl">
         <section
           className={cn(
-            'relative grid items-center gap-lg overflow-hidden rounded-2xl border border-border',
+            'relative grid items-center gap-lg overflow-hidden rounded-2xl',
             'bg-gradient-to-br from-muted/60 via-muted/25 to-card p-lg md:p-xl',
-            'shadow-[0_1px_0_0_rgba(255,255,255,0.04)_inset,0_12px_40px_-12px_rgba(0,0,0,0.5)]',
+            'shadow-[0_1px_0_0_rgba(255,255,255,0.05)_inset,0_2px_6px_rgba(0,0,0,0.25),0_16px_48px_-12px_rgba(0,0,0,0.55)]',
             visual && 'lg:grid-cols-[minmax(0,1fr)_minmax(0,1.05fr)] lg:gap-xl'
           )}
         >
@@ -63,7 +63,7 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
               visual ? 'items-start text-left' : 'items-center text-center'
             )}
           >
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-primary/30 bg-primary/10 text-primary">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary shadow-[0_4px_14px_-4px_rgba(0,0,0,0.4)]">
               {icon}
             </div>
             <div className="flex flex-col gap-xs">
@@ -81,7 +81,7 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
                 {highlights.map((h) => (
                   <li
                     key={h.label}
-                    className="inline-flex items-center gap-1.5 rounded-full border border-border bg-muted/40 px-3 py-1 text-xs font-medium text-foreground [&_svg]:size-3.5 [&_svg]:text-primary"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-background/50 shadow-[0_1px_3px_rgba(0,0,0,0.25)] px-3 py-1 text-xs font-medium text-foreground [&_svg]:size-3.5 [&_svg]:text-primary"
                   >
                     {h.icon}
                     {h.label}
@@ -100,7 +100,7 @@ const FeatureEmptyState: React.FC<FeatureEmptyStateProps> = ({
                   </Button>
                 )}
                 {secondaryAction && (
-                  <Button size="lg" variant="outline" onClick={secondaryAction.onClick}>
+                  <Button size="lg" variant="ghost" onClick={secondaryAction.onClick}>
                     {secondaryAction.icon}
                     {secondaryAction.label}
                   </Button>
