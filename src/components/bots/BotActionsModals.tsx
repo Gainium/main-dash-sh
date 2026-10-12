@@ -8,6 +8,7 @@ import {
 import { getTargetStatus } from '@/utils/botStatusUtils';
 import { BotTypesEnum } from '@/types';
 import type { BotActionsModalProps } from '@/hooks/useBotActions';
+import { ReverseBotDialog } from '@/features/bots/actions/reverse/ReverseBotDialog';
 
 /**
  * The three confirmation/feedback modals every bot surface needs, driven
@@ -49,6 +50,7 @@ export const BotActionsModals: React.FC<BotActionsModalProps> = ({
   onSuccessModalOpenChange,
   successType,
   successNewItemId,
+  reverse,
 }) => {
   const isGrid = botType === BotTypesEnum.grid;
 
@@ -104,6 +106,18 @@ export const BotActionsModals: React.FC<BotActionsModalProps> = ({
             : undefined
         }
       />
+
+      {reverse?.open && (
+        <ReverseBotDialog
+          open={reverse.open}
+          onOpenChange={reverse.onOpenChange}
+          botId={reverse.botId}
+          botType={reverse.botType}
+          botName={botName}
+          {...(reverse.quoteAsset ? { quoteAsset: reverse.quoteAsset } : {})}
+          {...(reverse.baseAsset ? { baseAsset: reverse.baseAsset } : {})}
+        />
+      )}
     </>
   );
 };

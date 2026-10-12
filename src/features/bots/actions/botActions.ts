@@ -25,6 +25,7 @@ import {
   Archive,
   ArchiveRestore,
   ArrowLeftRight,
+  ArrowUpDown,
   Copy,
   Edit,
   ExternalLink,
@@ -71,6 +72,12 @@ export interface GridStopContext {
   isShort: boolean;
 }
 
+/** Reverse context (DCA / combo): only futures bots can flip direction in place. */
+export interface ReverseContext {
+  futures: boolean;
+  strategy: 'LONG' | 'SHORT';
+}
+
 /**
  * A bot, normalised for the action layer. Build it with the adapters in
  * `botRef.ts` — never by hand on a surface.
@@ -95,6 +102,8 @@ export interface BotRef {
   lastActivity: string;
   /** Present for grid bots only. */
   grid?: GridStopContext;
+  /** Present for DCA / combo bots only. */
+  reverse?: ReverseContext;
   /** Raw bot payload — what Share Configuration / Duplicate copy. */
   raw?: unknown;
 }
@@ -117,6 +126,8 @@ export interface BotActionContext {
   /** In-flight actions (spinner + disabled). */
   pending: Partial<Record<BotActionId, boolean>>;
   form?: BotFormActionContext;
+  /** The backend offers in-place reverse (cloud edition). */
+  reverseAvailable?: boolean;
 }
 
 export const BOT_ACTION_IDS = [
@@ -125,6 +136,7 @@ export const BOT_ACTION_IDS = [
   'start',
   'stop',
   'restart',
+  'reverse',
   'edit',
   'clone',
   'shareConfig',
@@ -190,6 +202,7 @@ const saved = (bot: BotRef) => bot.id !== '';
 const ARCHIVED_START_REASON = 'Unarchive the bot before starting it.';
 const ARCHIVED_EDIT_REASON = 'Unarchive the bot before editing it.';
 const RESTART_BLOCKED_REASON = 'Only running bots can be restarted.';
+const ARCHIVED_REVERSE_REASON = 'Unarchive the bot before reversing it.';
 const RESET_BLOCKED_REASON =
   'Reset to defaults is only available while creating a bot.';
 
@@ -264,6 +277,23 @@ export const botActions: readonly BotActionDef[] = [
       appliesTo: 'any',
       eligible: (bot) => isBotRestartable(bot.status),
     },
+  },
+  {
+    // Flip a futures DCA / combo bot LONG <-> SHORT in place: close at
+    // market, wait for a flat position, switch, restart. Spot bots keep
+    // their direction (the asset they hold depends on it).
+    id: 'reverse',
+    label: (bot) =>
+      `Reverse to ${bot.reverse?.strategy === 'SHORT' ? 'Long' : 'Short'}`,
+    pendingLabel: () => 'Reversing…',
+    icon: ArrowUpDown,
+    group: 'primary',
+    kinds: ['dca', 'combo'],
+    mutating: true,
+    handler: 'runner',
+    visible: (bot, ctx) =>
+      saved(bot) && !!ctx.reverseAvailable && !!bot.reverse?.futures,
+    blockedReason: (bot) => (bot.archived ? ARCHIVED_REVERSE_REASON : undefined),
   },
   {
     id: 'edit',
@@ -536,6 +566,7 @@ export const BOT_ACTION_SURFACES: Record<BotActionSurfaceId, BotActionSurface> =
       exclude: [
         'openNewTab',
         'star',
+        'reverse',
         'clone',
         'shareConfig',
         'duplicateToOtherMode',
@@ -550,6 +581,7 @@ export const BOT_ACTION_SURFACES: Record<BotActionSurfaceId, BotActionSurface> =
         'start',
         'stop',
         'restart',
+        'reverse',
         'edit',
         'clone',
         'shareConfig',
@@ -569,6 +601,7 @@ export const BOT_ACTION_SURFACES: Record<BotActionSurfaceId, BotActionSurface> =
         'start',
         'stop',
         'restart',
+        'reverse',
         'edit',
         'shareConfig',
         'duplicateToOtherMode',
@@ -600,6 +633,7 @@ export const BOT_ACTION_SURFACES: Record<BotActionSurfaceId, BotActionSurface> =
         'start',
         'stop',
         'restart',
+        'reverse',
         'edit',
         'clone',
         'shareConfig',

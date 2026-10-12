@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { IS_CLOUD } from '@/config/mode';
 import MarginTypeSelector from '@/components/widgets/bots/MarginTypeSelector';
 import OrderSizeReferenceSelector from '@/components/widgets/bots/OrderSizeReferenceSelector';
 import StrategySelector from '@/components/widgets/bots/StrategySelector';
@@ -46,6 +47,9 @@ import React, { useCallback, useMemo } from 'react';
 import { useStrategySettingsTab } from '../../bot-types/dca/form/hooks/useStrategySettignsTab';
 import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvider';
 import { formatNumericInput } from '../../bot-types/dca/form/hooks/useTerminalControls';
+
+const DIRECTION_TOOLTIP =
+  'Choose the direction of your trades. Long means buying low and selling high, while short means selling high and buying low.';
 import { PERCENTAGE_GUARD } from '../utils/order-guard';
 
 export interface StrategySettingsProps {
@@ -275,7 +279,11 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
         {shouldShowDirectionControl && (
           <SettingsRow
             name="Direction"
-            tooltip="Choose the direction of your trades. Long means buying low and selling high, while short means selling high and buying low."
+            tooltip={
+              directionDisabled && futures && IS_CLOUD
+                ? `${DIRECTION_TOOLTIP} To switch an existing futures bot, use Reverse in its ⋮ menu: it closes the open deal at market, then restarts the bot in the other direction.`
+                : DIRECTION_TOOLTIP
+            }
           >
             <StrategySelector
               strategy={strategy}

@@ -9,7 +9,12 @@ import { PositionSide, StrategyEnum } from '@/types';
 import { isBotActive, isBotArchived } from '@/utils/botStatusUtils';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 
-import type { BotKind, BotRef, GridStopContext } from './botActions';
+import type {
+  BotKind,
+  BotRef,
+  GridStopContext,
+  ReverseContext,
+} from './botActions';
 
 /** Structural view of the bot fields the adapters read. */
 interface BotLikeShape {
@@ -19,7 +24,7 @@ interface BotLikeShape {
   status?: string;
   created?: string | number;
   exchange?: string;
-  settings?: { name?: string; strategy?: string };
+  settings?: { name?: string; strategy?: string; futures?: boolean };
   dealsInBot?: { active?: number };
   usage?: { current?: { quote?: number } };
   value?: number;
@@ -51,6 +56,22 @@ export const gridStopContext = (bot: unknown): GridStopContext => {
     futures: isFuturesExchange(shape.exchange),
     hasOpenPosition: (shape.position?.price ?? 0) !== 0,
     isShort: shape.position?.side === PositionSide.SHORT,
+  };
+};
+
+/**
+ * Reverse context: `settings.futures` when the payload carries it, else the
+ * exchange's market type — the same rule the server applies.
+ */
+export const reverseContext = (bot: unknown): ReverseContext => {
+  const shape = asShape(bot);
+  const futures = shape.settings?.futures;
+  return {
+    futures:
+      futures === undefined || futures === null
+        ? isFuturesExchange(shape.exchange)
+        : !!futures,
+    strategy: shape.settings?.strategy === StrategyEnum.short ? 'SHORT' : 'LONG',
   };
 };
 
@@ -112,6 +133,9 @@ export function toBotRef(
         ? String(shape.created)
         : 'Unknown',
     ...(kind === 'grid' ? { grid: gridStopContext(shape) } : {}),
+    ...(kind === 'dca' || kind === 'combo'
+      ? { reverse: reverseContext(shape) }
+      : {}),
     raw: bot,
   };
 }

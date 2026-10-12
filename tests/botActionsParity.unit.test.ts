@@ -291,3 +291,68 @@ test.describe('bot bulk actions', () => {
     }
   });
 });
+
+test.describe('reverse (futures DCA / combo, in place)', () => {
+  const cloud: BotActionContext = { ...ctxVariants.normal, reverseAvailable: true };
+  const futures = (kind: BotKind, status = 'open', strategy = 'LONG') =>
+    toBotRef(
+      {
+        _id: 'bot-1',
+        status,
+        exchange: 'binanceUsdm',
+        settings: { name: 'Bot', strategy, futures: true },
+      },
+      kind
+    );
+  const spot = (kind: BotKind) =>
+    toBotRef(
+      { _id: 'bot-1', status: 'open', exchange: 'binance', settings: { name: 'Bot', strategy: 'LONG', futures: false } },
+      kind
+    );
+  const find = (surface: BotActionSurfaceId, bot: BotRef, ctx = cloud) =>
+    buildSurfaceItems(surface, bot, ctx).find((i) => i.id === 'reverse');
+
+  test('offered on the card, row and drawer menu of a futures DCA / combo bot', () => {
+    for (const kind of ['dca', 'combo'] as BotKind[]) {
+      for (const surface of ['card', 'tableRow', 'drawerMenu'] as BotActionSurfaceId[]) {
+        expect(find(surface, futures(kind)), `${kind} ${surface}`).toBeTruthy();
+      }
+    }
+  });
+
+  test('labels the direction it goes to', () => {
+    expect(find('card', futures('dca', 'open', 'LONG'))?.label).toBe('Reverse to Short');
+    expect(find('card', futures('dca', 'open', 'SHORT'))?.label).toBe('Reverse to Long');
+  });
+
+  test('also offered on a stopped bot (it may still hold deals)', () => {
+    expect(find('card', futures('dca', 'closed'))?.disabled).toBe(false);
+  });
+
+  test('never on spot, grid or hedge bots', () => {
+    expect(find('card', spot('dca'))).toBeUndefined();
+    expect(find('card', spot('combo'))).toBeUndefined();
+    expect(find('card', futures('grid'))).toBeUndefined();
+    expect(find('hedgeCard', futures('hedgeDca'))).toBeUndefined();
+  });
+
+  test('futures is read from the exchange when the payload has no settings.futures', () => {
+    const bot = toBotRef(
+      { _id: 'bot-1', status: 'open', exchange: 'binanceUsdm', settings: { name: 'Bot', strategy: 'LONG' } },
+      'dca'
+    );
+    expect(find('card', bot)).toBeTruthy();
+  });
+
+  test('hidden where the backend does not offer it (self-hosted)', () => {
+    expect(find('card', futures('dca'), ctxVariants.normal)).toBeUndefined();
+  });
+
+  test('archived bots show it disabled with the reason; demo mode locks it', () => {
+    const archived = find('card', futures('dca', 'archive'));
+    expect(archived?.disabled).toBe(true);
+    expect(archived?.disabledReason).toMatch(/Unarchive/);
+    const demo = find('card', futures('dca'), { ...ctxVariants.demo, reverseAvailable: true });
+    expect(demo?.disabledReason).toBe(DEMO_MODE_REASON);
+  });
+});

@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { toast } from '@/lib/toast';
 import { logger } from '@/lib/loggerInstance';
 import { isReadOnly } from '@/lib/demoMode';
+import { IS_CLOUD } from '@/config/mode';
 import { stageDuplicateToOtherMode } from '@/hooks/useBotConfigPreload';
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { useUIStore } from '@/stores/uiStore';
@@ -119,6 +120,16 @@ export interface BotActionsModalProps {
   onSuccessModalOpenChange: (open: boolean) => void;
   successType: 'clone' | 'delete';
   successNewItemId?: string;
+
+  /** Reverse (futures DCA / combo). Absent for other bots. */
+  reverse?: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    botId: string;
+    botType: 'dca' | 'combo';
+    quoteAsset?: string;
+    baseAsset?: string;
+  };
 }
 
 export interface BotActionsController {
@@ -133,6 +144,16 @@ export interface BotActionsController {
   statusPending: boolean;
   modalProps: BotActionsModalProps;
 }
+
+/** Base asset of a DCA / combo bot payload (raw or list-transformed). */
+const baseAssetOf = (raw: unknown): string | undefined => {
+  const symbol = (raw as { symbol?: unknown } | undefined)?.symbol;
+  if (Array.isArray(symbol)) {
+    return (symbol[0] as { value?: { baseAsset?: string } } | undefined)?.value
+      ?.baseAsset;
+  }
+  return (symbol as { baseAsset?: string } | undefined)?.baseAsset;
+};
 
 const HEDGE_DELETE_TITLE = 'Delete hedge bot';
 const HEDGE_DELETE_DESCRIPTION =
@@ -168,6 +189,7 @@ export function useBotActions(
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [reverseModalOpen, setReverseModalOpen] = useState(false);
 
   // Bots listed on a page always belong to the current trading mode, which
   // is what "Duplicate to live/paper" switches away from.
@@ -199,6 +221,7 @@ export function useBotActions(
         unarchive: archivePending,
       },
       ...(form ? { form } : {}),
+      reverseAvailable: IS_CLOUD,
     }),
     [
       readOnly,
@@ -355,6 +378,9 @@ export function useBotActions(
           }
         );
         return;
+      case 'reverse':
+        setReverseModalOpen(true);
+        return;
       case 'edit':
         go(buildBotEditRoute(type, target.id));
         return;
@@ -448,6 +474,18 @@ export function useBotActions(
     successModalOpen,
     onSuccessModalOpenChange: setSuccessModalOpen,
     successType: 'delete',
+    ...(bot.reverse && (bot.kind === 'dca' || bot.kind === 'combo')
+      ? {
+          reverse: {
+            open: reverseModalOpen,
+            onOpenChange: setReverseModalOpen,
+            botId: bot.id,
+            botType: bot.kind,
+            ...(bot.currency ? { quoteAsset: bot.currency } : {}),
+            ...(baseAssetOf(bot.raw) ? { baseAsset: baseAssetOf(bot.raw) } : {}),
+          },
+        }
+      : {}),
   };
 
   return { bot, ctx, run, changeStatus, statusPending, modalProps };

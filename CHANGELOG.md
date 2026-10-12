@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.93.0] - 2026-10-12
+### Added
+- Futures DCA and Combo bots: **Reverse to Short / Reverse to Long** in the bot menu (card, table row and bot page). It closes the open deals at market, waits until the position is flat, switches the direction and restarts the same bot with the same settings. The confirmation shows each deal's estimated P&L on close, what the bot restarts with, and which indicator conditions stay unchanged. Cloud only.
+- The Direction tooltip on an existing futures bot points to Reverse.
+
 ## [2.92.0] - 2026-10-12
 ### Added
 - DCA and Combo bots: Cooldown after deal close has an **After** setting — Any close (as before), Stop loss only, or Losing deals only — so an ASAP bot can pause after a stop loss or a losing deal and still re-enter straight away after a win. Backtests apply it too.
