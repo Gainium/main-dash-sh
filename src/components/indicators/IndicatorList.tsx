@@ -99,32 +99,26 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                 <div
                   data-indicator-row={indicator.type}
                   onClick={open}
+                  // Name and full summary on the first row; the actions get a
+                  // row of their own so they never cut the summary short.
                   className={cn(
-                    'flex flex-wrap items-center gap-sm px-md py-sm',
+                    'flex flex-col gap-sm px-md py-sm',
                     open && 'cursor-pointer rounded-lg hover:bg-accent/40'
                   )}
                 >
-                  <div
-                    className="min-w-0 flex-1 basis-32"
-                    title={definition.label}
-                  >
+                  <div className="min-w-0" title={definition.label}>
                     <div className="truncate text-sm font-semibold">
                       {definition.shortLabel || definition.label}
                     </div>
                     {summary.length > 0 ? (
-                      <div
-                        className={cn(
-                          'text-xs text-muted-foreground',
-                          !isOpen && 'truncate'
-                        )}
-                      >
+                      <div className="text-xs text-muted-foreground">
                         {summary.join(' · ')}
                       </div>
                     ) : null}
                   </div>
 
                   <div
-                    className="ml-auto flex shrink-0 items-center gap-xs"
+                    className="flex flex-wrap items-center justify-end gap-xs"
                     onClick={stop}
                   >
                     {isOpen && onSelectType ? (
