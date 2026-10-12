@@ -80,6 +80,8 @@ const DEFAULT_OUTGOING_PAYLOAD = JSON.stringify(
 
 const MAX_OUTGOING_PAYLOAD = 500;
 
+type FundsOrderType = 'market' | 'limit';
+
 interface BotWebhookSettingsProps {
   /**
    * Render the terminal-deal variant (legacy `WebhookData terminal`): one deal,
@@ -169,6 +171,10 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
   const [addQtyType, setAddQtyType] = React.useState<string>('perc');
   const [reduceQty, setReduceQty] = React.useState<string>('10');
   const [reduceQtyType, setReduceQtyType] = React.useState<string>('perc');
+  const [addOrderType, setAddOrderType] =
+    React.useState<FundsOrderType>('market');
+  const [reduceOrderType, setReduceOrderType] =
+    React.useState<FundsOrderType>('market');
   const [targetSymbol, setTargetSymbol] = React.useState<string>(sampleSymbol);
   const [exitsType, setExitsType] = React.useState<'perc' | 'price'>('perc');
 
@@ -372,25 +378,44 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
     }
   }
 
-  // A terminal deal is one deal on one pair: base amounts need no symbol.
-  const terminalFundsPayloads: WebhookPayloadEntry[] = (
-    [
-      ['addFunds', 'base', 'Add base amount to deal'],
-      ['addFunds', 'quote', 'Add quote amount to deal'],
-      ['reduceFunds', 'base', 'Reduce base amount in deal'],
-      ['reduceFunds', 'quote', 'Reduce quote amount in deal'],
-    ] as const
-  ).map(([action, asset, title]) => {
+  const fundsPayload = (
+    action: 'addFunds' | 'reduceFunds',
+    asset: 'base' | 'quote',
+    title: string,
+    withSymbol: boolean
+  ): WebhookPayloadEntry => {
     const isAdd = action === 'addFunds';
     const qty = isAdd ? addQty : reduceQty;
     const qtyType = isAdd ? addQtyType : reduceQtyType;
+    // One price is only right for one pair: on a multi-pair bot, a signal for
+    // all symbols cannot carry one (the API rejects it), so it stays market.
+    const canLimit = isTerminal || withSymbol || !useMulti;
+    const orderType: FundsOrderType = !canLimit
+      ? 'market'
+      : isAdd
+        ? addOrderType
+        : reduceOrderType;
+    const id = `${action}-${asset}-${withSymbol ? 'symbol' : 'all'}`;
     return {
       title,
+      tooltip:
+        orderType === 'limit'
+          ? 'price places a limit order at that price instead of a market order. Leave it out to fill at market.'
+          : undefined,
       payload: JSON.stringify(
-        { action, uuid: resolvedBotUuid, asset, qty, type: qtyType },
+        {
+          action,
+          uuid: resolvedBotUuid,
+          asset,
+          qty,
+          ...(withSymbol ? { symbol: sampleSymbol } : {}),
+          type: qtyType,
+          ...(orderType === 'limit' ? { price: '{{close}}' } : {}),
+        },
         null,
         2
       ),
+      optionalKeys: orderType === 'limit' ? ['price'] : undefined,
       copyLabel: 'Copy',
       headerControls: (
         <div className="flex items-center gap-xs">
@@ -399,7 +424,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
             value={qtyType}
             onValueChange={isAdd ? setAddQtyType : setReduceQtyType}
           >
-            <SelectTrigger id={`${action}-${asset}-type`} className="w-20">
+            <SelectTrigger id={`${id}-type`} className="w-20">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -415,226 +440,77 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
             }
             className="w-20"
           />
+          {canLimit && (
+            <>
+              <Label className="text-xs">order</Label>
+              <Select
+                value={orderType}
+                onValueChange={(v) =>
+                  (isAdd ? setAddOrderType : setReduceOrderType)(
+                    v as FundsOrderType
+                  )
+                }
+              >
+                <SelectTrigger id={`${id}-order`} className="w-24">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="market">market</SelectItem>
+                  <SelectItem value="limit">limit</SelectItem>
+                </SelectContent>
+              </Select>
+            </>
+          )}
         </div>
       ),
     };
-  });
+  };
+
+  // A terminal deal is one deal on one pair: base amounts need no symbol.
+  const terminalFundsPayloads: WebhookPayloadEntry[] = [
+    fundsPayload('addFunds', 'base', 'Add base amount to deal', false),
+    fundsPayload('addFunds', 'quote', 'Add quote amount to deal', false),
+    fundsPayload('reduceFunds', 'base', 'Reduce base amount in deal', false),
+    fundsPayload('reduceFunds', 'quote', 'Reduce quote amount in deal', false),
+  ];
 
   const botFundsPayloads: WebhookPayloadEntry[] = [
-    {
-      title: 'Add base amount to all deals for symbol (example)',
-      payload: JSON.stringify(
-        {
-          action: 'addFunds',
-          uuid: resolvedBotUuid,
-          asset: 'base',
-          qty: addQty,
-          symbol: sampleSymbol,
-          type: addQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={addQtyType} onValueChange={setAddQtyType}>
-            <SelectTrigger id="add-base-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={addQty}
-            onChange={(e) => setAddQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Add quote amount to all deals for all symbols',
-      payload: JSON.stringify(
-        {
-          action: 'addFunds',
-          uuid: resolvedBotUuid,
-          asset: 'quote',
-          qty: addQty,
-          type: addQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={addQtyType} onValueChange={setAddQtyType}>
-            <SelectTrigger id="add-quote-all-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={addQty}
-            onChange={(e) => setAddQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Add quote amount to all deals for symbol (example)',
-      payload: JSON.stringify(
-        {
-          action: 'addFunds',
-          uuid: resolvedBotUuid,
-          asset: 'quote',
-          qty: addQty,
-          symbol: sampleSymbol,
-          type: addQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={addQtyType} onValueChange={setAddQtyType}>
-            <SelectTrigger id="add-quote-symbol-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={addQty}
-            onChange={(e) => setAddQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Reduce base amount in all deals for symbol (example)',
-      payload: JSON.stringify(
-        {
-          action: 'reduceFunds',
-          uuid: resolvedBotUuid,
-          asset: 'base',
-          qty: reduceQty,
-          symbol: sampleSymbol,
-          type: reduceQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={reduceQtyType} onValueChange={setReduceQtyType}>
-            <SelectTrigger id="reduce-base-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={reduceQty}
-            onChange={(e) => setReduceQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Reduce quote amount in all deals for all symbols',
-      payload: JSON.stringify(
-        {
-          action: 'reduceFunds',
-          uuid: resolvedBotUuid,
-          asset: 'quote',
-          qty: reduceQty,
-          type: reduceQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={reduceQtyType} onValueChange={setReduceQtyType}>
-            <SelectTrigger id="reduce-quote-all-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={reduceQty}
-            onChange={(e) => setReduceQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
-    {
-      title: 'Reduce quote amount in all deals for symbol (example)',
-      payload: JSON.stringify(
-        {
-          action: 'reduceFunds',
-          uuid: resolvedBotUuid,
-          asset: 'quote',
-          qty: reduceQty,
-          symbol: sampleSymbol,
-          type: reduceQtyType,
-        },
-        null,
-        2
-      ),
-      copyLabel: 'Copy',
-      headerControls: (
-        <div className="flex items-center gap-xs">
-          <Label className="text-xs">type</Label>
-          <Select value={reduceQtyType} onValueChange={setReduceQtyType}>
-            <SelectTrigger id="reduce-quote-symbol-type" className="w-20">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="perc">perc</SelectItem>
-              <SelectItem value="fixed">fixed</SelectItem>
-            </SelectContent>
-          </Select>
-          <Label className="text-xs">qty</Label>
-          <Input
-            value={reduceQty}
-            onChange={(e) => setReduceQty(e.target.value)}
-            className="w-20"
-          />
-        </div>
-      ),
-    },
+    fundsPayload(
+      'addFunds',
+      'base',
+      'Add base amount to all deals for symbol (example)',
+      true
+    ),
+    fundsPayload(
+      'addFunds',
+      'quote',
+      'Add quote amount to all deals for all symbols',
+      false
+    ),
+    fundsPayload(
+      'addFunds',
+      'quote',
+      'Add quote amount to all deals for symbol (example)',
+      true
+    ),
+    fundsPayload(
+      'reduceFunds',
+      'base',
+      'Reduce base amount in all deals for symbol (example)',
+      true
+    ),
+    fundsPayload(
+      'reduceFunds',
+      'quote',
+      'Reduce quote amount in all deals for all symbols',
+      false
+    ),
+    fundsPayload(
+      'reduceFunds',
+      'quote',
+      'Reduce quote amount in all deals for symbol (example)',
+      true
+    ),
   ];
   const fundsPayloads = isTerminal ? terminalFundsPayloads : botFundsPayloads;
 

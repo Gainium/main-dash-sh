@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.91.8] - 2026-10-12
+### Added
+- Bot form and terminal webhooks: the add / reduce funds examples have an order selector. Choosing limit adds a `price` field to the payload, so the funds are added or reduced with a limit order at that price.
+
 ## [2.91.7] - 2026-10-12
 ### Changed
 - Bot form: DCA by indicators counts as one indicator, however many DCA levels it has. The credit estimate in the form footer and the 20-indicator limit shown in deal start, take profit, stop loss and bot controller count it once.
