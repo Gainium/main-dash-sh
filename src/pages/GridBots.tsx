@@ -12,8 +12,9 @@ import {
 } from '@/types';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import { Archive, Grid3x3, Plus } from 'lucide-react';
+import { Archive, ArrowLeftRight, Grid3x3, Layers, Plus, Repeat } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
+import FeatureEmptyState from '../components/ui/feature-empty-state';
 import React, {
   useCallback,
   useEffect,
@@ -1305,7 +1306,8 @@ const GridBots: React.FC = () => {
                   cardViewBreakpoints={CARD_VIEW_COLUMNS}
                   cardViewGap={16}
                   emptyContent={
-                    <EmptyState
+                    showArchived || readOnly || transformedBots.length > 0 ? (
+                      <EmptyState
                       size="page"
                       icon={<Grid3x3 className="w-6 h-6" />}
                       title={
@@ -1341,6 +1343,33 @@ const GridBots: React.FC = () => {
                             }
                       }
                     />
+                    ) : (
+                      <FeatureEmptyState
+                        className="text-foreground"
+                        icon={<Grid3x3 className="size-6" />}
+                        title="Profit from every swing"
+                        subtitle="Grid bots ladder buy and sell orders across a range and bank each bounce, day and night."
+                        highlights={[
+                          { icon: <ArrowLeftRight />, label: 'Built for sideways markets' },
+                          { icon: <Layers />, label: 'Automatic order ladder' },
+                          { icon: <Repeat />, label: 'Compounds every swing' },
+                        ]}
+                        action={{
+                          label: 'Create grid bot',
+                          onClick: () => navigate('/grid/new'),
+                          icon: <Plus />,
+                        }}
+                        secondaryAction={{
+                          label: 'View archived bots',
+                          onClick: () => setShowArchived((prev) => !prev),
+                          icon: <Archive />,
+                        }}
+                        video={{
+                          url: 'https://www.youtube.com/watch?v=qHkq8tbiDhY',
+                          title: 'How grid bots work',
+                        }}
+                      />
+                    )
                   }
                   className="h-full min-h-[400px]"
                   enableQuickFilterBar={true}

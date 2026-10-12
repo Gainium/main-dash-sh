@@ -16,8 +16,9 @@ import {
 import { comboDealToOpenTrade } from '@/lib/utils/comboDealToOpenTrade';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import { Archive, Boxes, Plus } from 'lucide-react';
+import { Archive, ArrowDownToLine, Boxes, Coins, Layers, Plus } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
+import FeatureEmptyState from '../components/ui/feature-empty-state';
 import React, {
   useCallback,
   useEffect,
@@ -1548,7 +1549,8 @@ const ComboBots: React.FC = () => {
                       cardViewBreakpoints={CARD_VIEW_COLUMNS}
                       cardViewGap={16}
                       emptyContent={
-                        <EmptyState
+                        showArchived || readOnly || transformedBots.length > 0 ? (
+                          <EmptyState
                           size="page"
                           icon={<Boxes className="w-6 h-6" />}
                           title={
@@ -1586,6 +1588,33 @@ const ComboBots: React.FC = () => {
                                 }
                           }
                         />
+                        ) : (
+                          <FeatureEmptyState
+                            className="text-foreground"
+                            icon={<Boxes className="size-6" />}
+                            title="DCA entries, grid exits"
+                            subtitle="Combo bots enter like a DCA bot and take profit through a grid, across many pairs at once."
+                            highlights={[
+                              { icon: <ArrowDownToLine />, label: 'DCA entries' },
+                              { icon: <Layers />, label: 'Grid take-profits' },
+                              { icon: <Coins />, label: 'Multi-pair' },
+                            ]}
+                            action={{
+                              label: 'Create combo bot',
+                              onClick: () => navigate('/combo/new'),
+                              icon: <Plus />,
+                            }}
+                            secondaryAction={{
+                              label: 'View archived bots',
+                              onClick: () => setShowArchived((prev) => !prev),
+                              icon: <Archive />,
+                            }}
+                            video={{
+                              url: 'https://www.youtube.com/watch?v=yRm69WT-L64',
+                              title: 'How combo bots work',
+                            }}
+                          />
+                        )
                       }
                       className="h-full min-h-[400px]"
                       enableQuickFilterBar={true}

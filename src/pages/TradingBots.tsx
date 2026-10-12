@@ -3,8 +3,9 @@ import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { type ColumnDef } from '@tanstack/react-table';
 import { motion, type Transition } from 'framer-motion';
-import { Archive, Bot, Plus } from 'lucide-react';
+import { Activity, Archive, ArrowDownToLine, Bot, Plus, Target } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
+import FeatureEmptyState from '../components/ui/feature-empty-state';
 import React, {
   useCallback,
   useContext,
@@ -1889,7 +1890,8 @@ const TradingBots: React.FC = () => {
                           }
                           cardViewGap={16}
                           emptyContent={
-                            <EmptyState
+                            showArchived || readOnly || transformedBots.length > 0 ? (
+                              <EmptyState
                               size="page"
                               icon={<Bot className="w-6 h-6" />}
                               title={
@@ -1925,6 +1927,33 @@ const TradingBots: React.FC = () => {
                                     }
                               }
                             />
+                            ) : (
+                              <FeatureEmptyState
+                                className="text-foreground"
+                                icon={<Bot className="size-6" />}
+                                title="Buy the dips, sell the rips"
+                                subtitle="DCA bots average into every dip with safety orders and close at your take-profit, around the clock."
+                                highlights={[
+                                  { icon: <ArrowDownToLine />, label: 'Safety orders on dips' },
+                                  { icon: <Target />, label: 'Take profit & stop loss' },
+                                  { icon: <Activity />, label: 'Indicator & webhook entries' },
+                                ]}
+                                action={{
+                                  label: 'Create DCA bot',
+                                  onClick: handleCreateBot,
+                                  icon: <Plus />,
+                                }}
+                                secondaryAction={{
+                                  label: 'View archived bots',
+                                  onClick: toggleArchived,
+                                  icon: <Archive />,
+                                }}
+                                video={{
+                                  url: 'https://www.youtube.com/watch?v=dKXa_PLhcbU',
+                                  title: 'How DCA bots work',
+                                }}
+                              />
+                            )
                           }
                           className="h-full min-h-[400px]"
                           onViewModeChange={setCurrentViewMode}

@@ -76,11 +76,13 @@ export const getStandaloneYouTubeHref = (
 interface YouTubeEmbedProps {
   url: string;
   className?: string;
+  autoplay?: boolean;
 }
 
 export const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
   url,
   className,
+  autoplay = false,
 }) => {
   const videoId = getYouTubeVideoId(url);
   if (!videoId) return null;
@@ -93,7 +95,7 @@ export const YouTubeEmbed: React.FC<YouTubeEmbedProps> = ({
       )}
     >
       <iframe
-        src={`https://www.youtube-nocookie.com/embed/${videoId}`}
+        src={`https://www.youtube-nocookie.com/embed/${videoId}${autoplay ? '?autoplay=1' : ''}`}
         title="YouTube video"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
         allowFullScreen

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.1] - 2026-10-12
+### Changed
+- DCA, grid and combo bot lists with no bots yet show what the bot type does, a create button and its tutorial video as a thumbnail that plays in a modal. A search or filter with no matches keeps the plain empty state.
+
 ## [2.95.0] - 2026-10-12
 ### Added
 - Indicator conditions (deal start, take profit, stop loss, bot controller) read as compact rows: indicator name and its full settings summary, with Edit to open the settings in place. A condition line above sums the section up, e.g. "((RSI or MACD) and BB) or SuperTrend".
