@@ -829,6 +829,41 @@ export const useBasicSettingsTab = (
     ]
   );
 
+  // The picker's single-pair "Change pair" swap. Routed through here rather
+  // than written by the picker itself so a fresh pick also clears the pair
+  // alert — otherwise a "Removed … unsupported" notice left by an exchange
+  // switch stays up after every later pick and reads as that pick failing.
+  const handleReplacePair = useCallback(
+    (previous: string, next: string) => {
+      if (pairLockState.locked) {
+        return;
+      }
+      const storedSymbol = resolveStoredPairSymbol(
+        next,
+        pairMetadata.bySelectionSymbol[next] ??
+          resolvePairMetadata(normalizePair(next))
+      );
+      const previousKey = normalizePair(previous);
+      updateFormData(
+        'pair',
+        pairs.some((item) => normalizePair(item) === previousKey)
+          ? pairs.map((item) =>
+              normalizePair(item) === previousKey ? storedSymbol : item
+            )
+          : [storedSymbol]
+      );
+      setPairError('');
+    },
+    [
+      normalizePair,
+      pairLockState.locked,
+      pairMetadata.bySelectionSymbol,
+      pairs,
+      resolvePairMetadata,
+      updateFormData,
+    ]
+  );
+
   const handlePairsPaste = useCallback(
     (raw: string) =>
       applyPairsInput(raw, { surfaceError: false })?.error || undefined,
@@ -1010,6 +1045,7 @@ export const useBasicSettingsTab = (
     pairSelectionFilter,
     applyPairsInput,
     handleCoinToggle,
+    handleReplacePair,
     handlePairsPaste,
     handleSelectAllMatching,
     handleClearPairs,

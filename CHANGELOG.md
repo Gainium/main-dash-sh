@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.5] - 2026-10-12
+### Fixed
+- Bot form: picking a pair with "Change pair" clears the "Removed … unsupported" notice left by an exchange switch, instead of keeping it up so the new pair looked rejected too.
+
 ## [2.95.4] - 2026-10-12
 ### Fixed
 - Backtests longer than a year load candles from the start of the selected period when the exchange has that history, instead of only the most recent year with a "Partial history" warning. A repeat backtest over the same pair, interval and period now reuses the cached candles instead of downloading another year each run.

@@ -83,6 +83,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
     activeQuickSelectOption,
     pairSelectionFilter,
     handleCoinToggle,
+    handleReplacePair,
     handlePairsPaste,
     handleSelectAllMatching,
     handleClearPairs,
@@ -345,6 +346,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   selectedCoins={selectedPairSymbols}
                   onCoinToggle={handleCoinToggle}
                   onRemoveCoin={handleRemovePair}
+                  onReplaceCoin={handleReplacePair}
                   mode="pairs"
                   {...(exchangeProvider ? { exchangeProvider } : {})}
                   onPairsPaste={handlePairsPaste}
