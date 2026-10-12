@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.91.9] - 2026-10-12
+### Fixed
+- Tables: searching or filtering returns to page 1. A table left on a later page showed "no data" when the search narrowed it to fewer pages, even though the footer totals counted the matches.
+
 ## [2.91.8] - 2026-10-12
 ### Added
 - Bot form and terminal webhooks: the add / reduce funds examples have an order selector. Choosing limit adds a `price` field to the payload, so the funds are added or reduced with a limit order at that price.

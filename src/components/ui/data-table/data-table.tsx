@@ -3302,6 +3302,23 @@ function DataTableComponent<TData, TValue>(
     pagination.pageSize,
   ]);
 
+  // Client mode: a search/filter change returns to page 1. autoResetPageIndex
+  // is off (live data must not jump pages), so without this a table left on
+  // page 3 keeps showing an empty page 3 when the filter narrows it to one row.
+  // Skips the first render so a persisted page index still restores.
+  const clientFilterKey = serverSide
+    ? ''
+    : JSON.stringify([columnFilters, globalFilter ?? '']);
+  const lastClientFilterKeyRef = useRef(clientFilterKey);
+  useEffect(() => {
+    if (lastClientFilterKeyRef.current === clientFilterKey) return;
+    lastClientFilterKeyRef.current = clientFilterKey;
+    if (pagination.pageIndex !== 0) {
+      setPagination({ ...pagination, pageIndex: 0 });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientFilterKey]);
+
   // Clamp pageIndex to a valid range whenever data length or pageSize changes
   useEffect(() => {
     try {
