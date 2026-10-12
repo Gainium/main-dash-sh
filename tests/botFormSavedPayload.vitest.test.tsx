@@ -13,12 +13,21 @@
  * not move: that work changes how and when the form reads its state, never
  * what it saves.
  */
-import { describe, expect, it, beforeEach, afterEach, vi } from 'vitest';
+import { describe, expect, it, beforeEach, afterEach, afterAll, vi } from 'vitest';
 import { act, createElement, useEffect, type ReactNode } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { MemoryRouter } from 'react-router-dom';
 
 import type { BotFormData } from '@/types/bots/form';
+
+// The DCA defaults compute `hodlNextBuy` (next local midnight) when the module
+// is imported, so the clock and timezone are pinned here — hoisted above the
+// imports — not in beforeEach, or the snapshot moves every day and per host.
+vi.hoisted(() => {
+  process.env.TZ = 'UTC';
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-01-15T12:00:00Z'));
+});
 
 const EXCHANGE = vi.hoisted(() => ({
   uuid: 'ex-uuid-1',
@@ -267,6 +276,9 @@ describe('bot form save payload (specs/066 §1.10)', () => {
     host = null;
     probe.save = null;
     probe.update = null;
+  });
+  afterAll(() => {
+    vi.useRealTimers();
   });
 
   const cases: Array<
