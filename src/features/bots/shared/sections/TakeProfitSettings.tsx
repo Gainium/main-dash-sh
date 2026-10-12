@@ -1,3 +1,4 @@
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
@@ -523,10 +524,8 @@ export const TakeProfitSettings: React.FC = () => {
     [indicatorGroups]
   );
 
-  const indicatorLimitReached = useMemo(
-    () => indicators.length >= indicatorsLimit,
-    [indicators]
-  );
+  const billableIndicatorCount = useBillableIndicatorCount();
+  const indicatorLimitReached = billableIndicatorCount >= indicatorsLimit;
 
   const syncCloseIndicatorGroups = useCallback(
     (nextGroups: IndicatorGroup[]) => {
@@ -861,9 +860,7 @@ export const TakeProfitSettings: React.FC = () => {
     isIndicatorMutating,
   } = useFavoriteIndicators();
 
-  const totalIndicatorsAcrossBot = useMemo(() => {
-    return indicators.length;
-  }, [indicators]);
+  const totalIndicatorsAcrossBot = useBillableIndicatorCount();
 
   // Reuse the earlier `indicatorLimitReached` computed above.
   const closeIndicatorErrorMessage = mergedErrors['indicatorsClose'];

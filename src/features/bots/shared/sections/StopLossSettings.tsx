@@ -1,3 +1,4 @@
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { Slider } from '@/components/ui';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -1734,9 +1735,7 @@ const IndicatorsSL: React.FC<
     [toggleFavorite]
   );
 
-  const totalIndicatorsAcrossBot = useMemo(() => {
-    return indicators.length;
-  }, [indicators]);
+  const totalIndicatorsAcrossBot = useBillableIndicatorCount();
 
   const indicatorLimitReached = totalIndicatorsAcrossBot >= indicatorsLimit;
 
@@ -2084,10 +2083,9 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
     [indicatorGroups]
   );
 
-  const currentIndicatorLimitReached = useMemo(
-    () => (indicators ?? []).length >= indicatorsLimit,
-    [indicators]
-  );
+  const billableIndicatorCount = useBillableIndicatorCount();
+  const currentIndicatorLimitReached =
+    billableIndicatorCount >= indicatorsLimit;
 
   const previousRiskRewardRef = useRef(riskRewardActive);
 

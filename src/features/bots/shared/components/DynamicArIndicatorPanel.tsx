@@ -11,6 +11,7 @@
  * The component owns its own indicator-selector instance and favorites,
  * so callers don't have to pass them in.
  */
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -128,10 +129,8 @@ export const DynamicArIndicatorPanel: React.FC<
     [indicators, section]
   );
 
-  const indicatorLimitReached = useMemo(
-    () => indicators.length >= indicatorsLimit,
-    [indicators.length]
-  );
+  const billableIndicatorCount = useBillableIndicatorCount();
+  const indicatorLimitReached = billableIndicatorCount >= indicatorsLimit;
 
   // ─── Per-section copy ───────────────────────────────────────────
   const isTp = section === IndicatorSection.tp;

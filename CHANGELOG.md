@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.91.7] - 2026-10-12
+### Changed
+- Bot form: DCA by indicators counts as one indicator, however many DCA levels it has. The credit estimate in the form footer and the 20-indicator limit shown in deal start, take profit, stop loss and bot controller count it once.
+
 ## [2.91.6] - 2026-10-12
 ### Fixed
 - Binance USDⓈ-M in Multi-Assets mode: USDT-quoted bots and terminal orders now count the account's pooled available margin. The balance shown on the bot form, the terminal balance check and the grid start dialog no longer read an account holding USDC and no USDT as having nothing to trade with.

@@ -1,3 +1,4 @@
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -417,9 +418,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
   const startGroups = getGroups('start');
   const stopGroups = getGroups('stop');
 
-  const totalIndicatorsAcrossBot = React.useMemo(() => {
-    return indicators.length;
-  }, [indicators.length]);
+  const totalIndicatorsAcrossBot = useBillableIndicatorCount();
 
   const indicatorLimitReached = totalIndicatorsAcrossBot >= indicatorsLimit;
   const remainingIndicators = Math.max(

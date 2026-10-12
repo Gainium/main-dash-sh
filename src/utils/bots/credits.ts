@@ -1,4 +1,9 @@
-import { BotTypesEnum, DCATypeEnum } from '@/types';
+import {
+  BotTypesEnum,
+  DCAConditionEnum,
+  DCATypeEnum,
+  IndicatorAction,
+} from '@/types';
 
 const coinFactor = 0.5;
 // Each coin a combo can trade at the same time is its own market, so it is
@@ -82,4 +87,25 @@ export const calculateCost = ({
     deals,
     total: Math.floor(base + indicators + pairs + deals),
   };
+};
+
+/**
+ * How many indicators a bot counts as, for its credits and for the
+ * `indicatorsLimit` cap. With DCA by indicators each `startDca` indicator is
+ * one ladder level, and a deal only listens to its next one, so the whole
+ * ladder counts as ONE indicator. Every other indicator counts once.
+ * Mirrors main-app-sh's `billableIndicators`.
+ */
+export const billableIndicators = (
+  indicators: { indicatorAction?: IndicatorAction }[] | null | undefined,
+  dcaCondition: DCAConditionEnum | string | null | undefined,
+): number => {
+  const all = indicators ?? [];
+  if (dcaCondition !== DCAConditionEnum.indicators) {
+    return all.length;
+  }
+  const ladder = all.filter(
+    (i) => i.indicatorAction === IndicatorAction.startDca,
+  ).length;
+  return all.length - ladder + (ladder > 0 ? 1 : 0);
 };

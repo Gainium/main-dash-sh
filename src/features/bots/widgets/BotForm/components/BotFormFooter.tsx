@@ -80,7 +80,7 @@ import {
   ExchangeIntervals,
 } from '@/types'
 import type { BotFormData, BotFormErrors } from '@/types/bots'
-import { calculateCost } from '@/utils/bots/credits'
+import { billableIndicators, calculateCost } from '@/utils/bots/credits'
 import CoinIcon from '@/components/widgets/shared/CoinIcon'
 import { useBotDealCapital } from '@/hooks/bots/dca/useBotDealCapital'
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext'
@@ -761,13 +761,14 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const formData = useTrackedBotFormData(givenFormData)
     const errors = useBotFormErrorsOr(givenErrors)
     const indicators = useBotFormSelector('indicators', [])
+    const dcaCondition = useBotFormSelector('dcaCondition')
     const maxNumberOfOpenDeals = useBotFormSelector('maxNumberOfOpenDeals')
     const type = useBotFormSelector('type')
     const credits = useMemo(() => {
       const computed = calculateCost({
         botType,
         pairs: formData.pair.length,
-        indicators: indicators.length,
+        indicators: billableIndicators(indicators, dcaCondition),
         deals: +(maxNumberOfOpenDeals ?? '0'),
         // Terminal deals cost a flat `terminalCost` (10) on the backend. The
         // `type` selector doesn't reliably resolve to `terminal` for the
@@ -788,7 +789,8 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       botType,
       formData.pair.length,
       formData.terminal,
-      indicators.length,
+      indicators,
+      dcaCondition,
       maxNumberOfOpenDeals,
       type,
       currentExchange?.affiliate,

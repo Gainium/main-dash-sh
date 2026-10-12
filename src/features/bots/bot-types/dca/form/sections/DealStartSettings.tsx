@@ -1,3 +1,4 @@
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { Button } from '@/components/ui/button';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
@@ -691,9 +692,7 @@ export const DealStartSettings: React.FC = () => {
   // the centralized validation (`hotValidateDcaFormData` / `validateDcaFormData`).
   // Remove component-local error mutations to keep a single source of truth.
 
-  const totalIndicators = React.useMemo(() => {
-    return indicators.length;
-  }, [indicators.length]);
+  const totalIndicators = useBillableIndicatorCount();
 
   const startIndicatorErrorMessage = errors['indicators'];
 
