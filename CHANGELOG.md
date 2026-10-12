@@ -3,6 +3,7 @@
 ## [2.95.1] - 2026-10-12
 ### Changed
 - DCA, grid and combo bot lists with no bots yet show what the bot type does, a create button and its tutorial video as a thumbnail that plays in a modal. A search or filter with no matches keeps the plain empty state.
+- New extension slot `bots.list.empty-strategies` under the empty bot-list hero for starter strategies.
 
 ## [2.95.0] - 2026-10-12
 ### Added

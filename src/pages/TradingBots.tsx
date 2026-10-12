@@ -1952,7 +1952,9 @@ const TradingBots: React.FC = () => {
                                   url: 'https://www.youtube.com/watch?v=dKXa_PLhcbU',
                                   title: 'How DCA bots work',
                                 }}
-                              />
+                              >
+                                <Slot name="bots.list.empty-strategies" botType="dca" />
+                              </FeatureEmptyState>
                             )
                           }
                           className="h-full min-h-[400px]"

@@ -15,6 +15,7 @@ import { motion } from 'framer-motion';
 import { Archive, ArrowLeftRight, Grid3x3, Layers, Plus, Repeat } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import FeatureEmptyState from '../components/ui/feature-empty-state';
+import { Slot } from '@/lib/extensions';
 import React, {
   useCallback,
   useEffect,
@@ -1365,10 +1366,12 @@ const GridBots: React.FC = () => {
                           icon: <Archive />,
                         }}
                         video={{
-                          url: 'https://www.youtube.com/watch?v=qHkq8tbiDhY',
+                          url: 'https://www.youtube.com/watch?v=oduu9VRAK60',
                           title: 'How grid bots work',
                         }}
-                      />
+                      >
+                        <Slot name="bots.list.empty-strategies" botType="grid" />
+                      </FeatureEmptyState>
                     )
                   }
                   className="h-full min-h-[400px]"

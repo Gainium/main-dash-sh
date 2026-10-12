@@ -19,6 +19,7 @@ import { motion } from 'framer-motion';
 import { Archive, ArrowDownToLine, Boxes, Coins, Layers, Plus } from 'lucide-react';
 import EmptyState from '../components/ui/empty-state';
 import FeatureEmptyState from '../components/ui/feature-empty-state';
+import { Slot } from '@/lib/extensions';
 import React, {
   useCallback,
   useEffect,
@@ -1610,10 +1611,12 @@ const ComboBots: React.FC = () => {
                               icon: <Archive />,
                             }}
                             video={{
-                              url: 'https://www.youtube.com/watch?v=yRm69WT-L64',
+                              url: 'https://www.youtube.com/watch?v=_quaIfDcO7A',
                               title: 'How combo bots work',
                             }}
-                          />
+                          >
+                            <Slot name="bots.list.empty-strategies" botType="combo" />
+                          </FeatureEmptyState>
                         )
                       }
                       className="h-full min-h-[400px]"

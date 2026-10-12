@@ -251,6 +251,16 @@ export interface SlotPropsMap {
   };
 
   /**
+   * Starter strategies under the empty-state hero of a bot list (DCA,
+   * grid, combo) when the account has no bots of that type. Cloud's
+   * filler shows the top curated presets for `botType`; Sh registers
+   * nothing and the hero stands alone.
+   */
+  'bots.list.empty-strategies': {
+    botType: string;
+  };
+
+  /**
    * Header bar shown when the all-strategies panel is open inside a
    * bot form. Cloud's filler renders a Back button + the leaderboard
    * row count. Sh registers nothing; the all-strategies panel is
