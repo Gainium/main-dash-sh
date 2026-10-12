@@ -22,6 +22,11 @@ interface IndicatorListProps {
   renderExtras?: (indicator: IndicatorConfig, index: number) => React.ReactNode;
   /** The AND/OR drawn between consecutive indicators. */
   connector?: { logic: string | undefined; onToggle?: () => void };
+  /**
+   * Row surface. 'raised' lifts rows one step above their container;
+   * 'inset' sinks them below it, for rows inside an already-raised group.
+   */
+  surface?: 'raised' | 'inset';
 }
 
 /**
@@ -39,6 +44,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   onToggleFavorite,
   isFavorite,
   connector,
+  surface = 'raised',
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -78,9 +84,13 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                 />
               ) : null}
               <div
+                // No border: the surface step separates the row from its
+                // container (DESIGN_SYSTEM §2-3).
                 className={cn(
-                  'min-w-0 rounded-lg border bg-card transition-colors',
-                  isOpen ? 'border-primary/60' : 'border-border'
+                  'min-w-0 rounded-lg transition-colors',
+                  surface === 'raised'
+                    ? 'bg-popover shadow-sm dark:shadow-none'
+                    : 'bg-muted'
                 )}
               >
                 {/* Mouse: anywhere on the row opens it. Keyboard and screen
@@ -121,7 +131,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => onSelectType(indicator)}
                       >
                         Change indicator
@@ -131,7 +141,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <Button
                         type="button"
                         size="sm"
-                        variant={isOpen ? 'default' : 'outline'}
+                        variant={isOpen ? 'default' : 'ghost'}
                         onClick={open}
                       >
                         {isOpen ? (
@@ -147,7 +157,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <Button
                         type="button"
                         size="sm"
-                        variant="outline"
+                        variant="ghost"
                         onClick={() => onSelectType(indicator)}
                       >
                         Change indicator
@@ -199,7 +209,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                 </div>
 
                 {isOpen ? (
-                  <div className="space-y-sm border-t border-border px-md py-md">
+                  <div className="space-y-sm px-md pb-md pt-xs">
                     {helpSlug ? (
                       <button
                         type="button"

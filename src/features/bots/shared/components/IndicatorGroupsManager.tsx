@@ -278,7 +278,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
       {!singleIndicator && formula ? (
         <div className="space-y-xs">
           <div className="text-xs text-muted-foreground">{formulaLabel}</div>
-          <div className="break-words rounded-md border border-border bg-card px-md py-sm font-mono text-sm">
+          <div className="break-words rounded-md bg-muted px-md py-sm font-mono text-sm">
             {formula}
           </div>
         </div>
@@ -405,9 +405,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
           <span className="inline-block">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               size="sm"
-              className="border-dashed"
               onClick={handleAddGroup}
               disabled={!!addGroupDisabledReason}
             >

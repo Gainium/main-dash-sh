@@ -72,12 +72,13 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   }, [_onRemoveGroup, indicators, onRemoveIndicator]);
 
   return (
-    // Framed only when it is one of several groups: the frame is the bracket
-    // around "(A or B)". A lone group renders straight in its host's flow.
+    // One of several groups: the group lifts a surface step (the bracket
+    // around "(A or B)") and its rows sink below it. A lone group renders
+    // straight in its host's flow with raised rows. No borders (§3).
     <div
       className={cn(
         'min-w-0 space-y-sm',
-        framed && 'rounded-xl border border-border bg-muted/30 p-sm'
+        framed && 'rounded-xl bg-popover p-sm shadow-sm dark:shadow-none'
       )}
     >
       {framed && !singleIndicator ? (
@@ -111,6 +112,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           ? { renderExtras: renderIndicatorExtras }
           : {})}
         {...(emptyState ? { emptyState } : {})}
+        surface={framed ? 'inset' : 'raised'}
         connector={{
           logic: group.logic,
           ...(disableControls
