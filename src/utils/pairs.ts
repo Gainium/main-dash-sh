@@ -1,3 +1,5 @@
+import type { TradingPair } from '@/stores/tradingPairsDataStore';
+
 export const COMMON_QUOTE_ASSETS = [
   'USDT',
   'USDC',
@@ -282,4 +284,38 @@ export const extractPairAssets = (symbol: string) => {
     baseAsset: symbol,
     quoteAsset: '',
   };
+};
+
+// Stricter than `normalizePairKey`: drops every non-alphanumeric (`:` too).
+const alphanumericKey = (value: string): string =>
+  value.replace(/[^a-z0-9]/gi, '').toUpperCase();
+
+/**
+ * Look up an exchange pair's metadata (step, price precision) in the pairs
+ * store's `{[exchange]: {[pair]: TradingPair}}` map. Tries the exact key
+ * first, then a normalized match so a dashed form ("BTC-USDT") resolves to
+ * the exchange pair ("BTCUSDT").
+ */
+export const findTradingPair = (
+  pairsByProvider: Record<string, Record<string, TradingPair>> | undefined,
+  exchange: string | undefined,
+  pair: string | undefined
+): TradingPair | undefined => {
+  if (!exchange || !pair) {
+    return undefined;
+  }
+  const byProvider = pairsByProvider?.[exchange];
+  if (!byProvider) {
+    return undefined;
+  }
+  if (byProvider[pair]) {
+    return byProvider[pair];
+  }
+  const target = alphanumericKey(pair);
+  for (const key in byProvider) {
+    if (alphanumericKey(key) === target) {
+      return byProvider[key];
+    }
+  }
+  return undefined;
 };

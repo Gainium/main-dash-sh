@@ -234,6 +234,27 @@ export function formatPriceInQuote(
 }
 
 /**
+ * A bare price for cells that print the quote asset themselves (`… USDT`): at
+ * the pair's price precision (its tick scale) when known, so every price of
+ * the pair has the same number of decimals; without one, the adaptive
+ * decimals of `formatPriceWithPrecision`. Never exponent notation.
+ */
+export function formatPairPrice(value: number, pricePrecision?: number): string {
+  if (
+    typeof pricePrecision === 'number' &&
+    pricePrecision > 0 &&
+    Number.isFinite(value)
+  ) {
+    const digits = Math.min(pricePrecision, 20);
+    return value.toLocaleString('en-US', {
+      minimumFractionDigits: digits,
+      maximumFractionDigits: digits,
+    });
+  }
+  return formatPriceWithPrecision(value, '', '');
+}
+
+/**
  * Format percentage value
  */
 export function formatPercentage(value: number, decimals = 2): string {

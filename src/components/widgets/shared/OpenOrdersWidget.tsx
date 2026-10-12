@@ -57,9 +57,10 @@ import {
 } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
-import { formatDuration } from '@/utils/formatters';
+import { formatDuration, formatPairPrice } from '@/utils/formatters';
 import { formatNumber } from '@/utils/numberFormatter';
-import { extractPairAssets } from '@/utils/pairs';
+import { extractPairAssets, findTradingPair } from '@/utils/pairs';
+import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { SYMBOL_COLUMN_FILTER_META } from '@/components/widgets/shared/symbolColumnFilterMeta';
 import { calculateExecutionsSummary } from '@/utils/tradeJournalMetrics';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -1465,7 +1466,12 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   // Date columns bucket and render their day in the ACCOUNT's zone, the same
   // boundary the daily-profit surfaces use — not the browser's.
   const accountTimeZone = useAccountTimeZone();
+  // Avg / Initial price render at the pair's own price precision.
+  const pairsByProvider = useTradingPairsDataStore((s) => s.pairsByProvider);
   const columns: ColumnDef<OpenTrade>[] = useMemo(() => {
+    const pricePrecisionOf = (trade: OpenTrade) =>
+      findTradingPair(pairsByProvider, trade.exchange, trade.symbol)
+        ?.priceAssetPrecision;
     const comboTypes = new Set(['Combo', 'Hedge Combo']);
     const hasComboFilter = filteredBotTypes.some((type) =>
       comboTypes.has(type)
@@ -1902,7 +1908,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           const value = Number(row.original.avgPrice || 0);
           const quoteAsset = row.original.quoteAsset || '';
           if (!value) return <span className="text-muted-foreground">-</span>;
-          return `${formatNumber(value, true)} ${quoteAsset}`;
+          return `${formatPairPrice(value, pricePrecisionOf(row.original))} ${quoteAsset}`;
         },
       },
       {
@@ -1916,7 +1922,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           const value = initialPrice || entryPrice || avgPrice;
           const quoteAsset = row.original.quoteAsset || '';
           if (!value) return <span className="text-muted-foreground">-</span>;
-          return `${formatNumber(value, true)} ${quoteAsset}`;
+          return `${formatPairPrice(value, pricePrecisionOf(row.original))} ${quoteAsset}`;
         },
       },
       {
@@ -2494,6 +2500,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
     noteOverrides,
     handleSaveNote,
     accountTimeZone,
+    pairsByProvider,
   ]);
   // Server-paged: only columns with a server field sort; others are greyed.
   const serverFields = effectiveServerPaging?.fields;

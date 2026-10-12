@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.93.2] - 2026-10-12
+### Fixed
+- Deals tables (deal lists and the bot drawer): Avg Price and Initial / Entry Price show the price at the pair's own precision instead of exponent notation for prices under 0.01 (e.g. "8.42e-3"), and both columns use the same number of decimals.
+
 ## [2.93.1] - 2026-10-12
 ### Fixed
 - Trading Terminal: the "Current price" line under Limit Price and the limit-price direction errors show the price at the pair's own precision and in its quote asset, instead of rounding to two decimals (a sub-cent pair read "$0.01").

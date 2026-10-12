@@ -30,6 +30,9 @@ import {
 } from '../../../../hooks/useComboDeals';
 /* import { useHedgeDeals } from '../../../../hooks/useHedgeDeals'; */
 import { formatNumber } from '@/utils/numberFormatter';
+import { formatPairPrice } from '@/utils/formatters';
+import { findTradingPair } from '@/utils/pairs';
+import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { logger } from '../../../../lib/loggerInstance';
 import { toast } from '../../../../lib/toast';
 import {
@@ -1085,9 +1088,20 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   // Date columns bucket and render their day in the ACCOUNT's zone, the same
   // boundary the daily-profit surfaces use — not the browser's.
   const accountTimeZone = useAccountTimeZone();
+  // Avg / Entry price render at the pair's own price precision.
+  const pairsByProvider = useTradingPairsDataStore((s) => s.pairsByProvider);
+  const botExchange = bot?.exchange;
   const columns = useMemo<
     ColumnDef<ReturnType<typeof transformDealToTradeWrapper>>[]
   >(() => {
+    const pricePrecisionOf = (
+      trade: ReturnType<typeof transformDealToTradeWrapper>
+    ) =>
+      findTradingPair(
+        pairsByProvider,
+        trade.exchange || botExchange,
+        typeof trade.symbol === 'string' ? trade.symbol : trade.symbol?.symbol
+      )?.priceAssetPrecision;
     const baseColumns: ColumnDef<
       ReturnType<typeof transformDealToTradeWrapper>
     >[] = [
@@ -1247,7 +1261,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           if (!value) return <span className="text-muted-foreground">-</span>;
           return (
             <div className="text-sm font-medium">
-              {formatNumber(value, true)} {quoteAsset}
+              {formatPairPrice(value, pricePrecisionOf(trade))} {quoteAsset}
             </div>
           );
         },
@@ -1272,7 +1286,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           if (!value) return <span className="text-muted-foreground">-</span>;
           return (
             <div className="text-sm font-medium">
-              {formatNumber(value, true)} {quoteAsset}
+              {formatPairPrice(value, pricePrecisionOf(trade))} {quoteAsset}
             </div>
           );
         },
@@ -2100,6 +2114,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     selectedTab,
     accountTimeZone,
     botId,
+    pairsByProvider,
+    botExchange,
   ]);
   // Server-paged drawer: only columns with a server field sort.
   const pagedFields = pagedDeals.serverPaging?.fields;

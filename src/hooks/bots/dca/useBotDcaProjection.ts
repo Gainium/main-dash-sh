@@ -4,7 +4,6 @@ import {
   OrderTypeEnum,
   type BotVars,
   type DCAGrid,
-  type ExchangeEnum,
   type Prices,
   type Symbols,
 } from '@/types';
@@ -25,6 +24,7 @@ import {
   type TradingPair,
 } from '@/stores/tradingPairsDataStore';
 import { getLocalPrices } from '@/helper/price';
+import { findTradingPair } from '@/utils/pairs';
 
 /** Minimal bot shape the projection needs — satisfied by both `DrawerBot`
  *  (drawer widget) and the form's query bot (read-only settings view). */
@@ -51,36 +51,15 @@ const norm = (value: string | undefined): string =>
   (value ?? '').replace(/[^a-z0-9]/gi, '').toUpperCase();
 
 // Look up the real exchange pair metadata (numeric step / price precision).
-// Tries the exact provider+pair key first, then a normalized match so the
-// dashed selection form ("BTC-USDT") resolves to the exchange pair ("BTCUSDT").
 const resolveSymbol = (
   exchange: string | undefined,
   pair: string | undefined
-): TradingPair | undefined => {
-  if (!exchange || !pair) {
-    return undefined;
-  }
-  const state = useTradingPairsDataStore.getState();
-  const byProvider = state.pairsByProvider?.[exchange];
-  if (byProvider) {
-    if (byProvider[pair]) {
-      return byProvider[pair];
-    }
-    const target = norm(pair);
-    for (const key in byProvider) {
-      if (norm(key) === target) {
-        return byProvider[key];
-      }
-    }
-  }
-  try {
-    const list = state.getPairsByExchange(exchange as ExchangeEnum) ?? [];
-    const target = norm(pair);
-    return list.find((p) => norm(p.pair) === target);
-  } catch {
-    return undefined;
-  }
-};
+): TradingPair | undefined =>
+  findTradingPair(
+    useTradingPairsDataStore.getState().pairsByProvider,
+    exchange,
+    pair
+  );
 
 const resolvePrice = (
   exchange: string | undefined,
