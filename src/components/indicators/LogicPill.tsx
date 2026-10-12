@@ -20,12 +20,8 @@ export const LogicPill: React.FC<LogicPillProps> = ({
 }) => {
   const isOr = logic === 'or';
   const label = isOr ? 'OR' : 'AND';
-  const pillClass = cn(
-    'inline-flex items-center gap-1 rounded-full px-sm py-0.5 text-xs font-semibold tracking-wide',
-    isOr
-      ? 'bg-primary/15 text-primary'
-      : 'bg-foreground/10 text-foreground'
-  );
+  const pillClass =
+    'inline-flex items-center gap-1 rounded-full bg-foreground/10 px-sm py-0.5 text-xs font-semibold tracking-wide text-foreground';
 
   return (
     <div className={cn('flex justify-center py-xs', className)}>
@@ -33,7 +29,7 @@ export const LogicPill: React.FC<LogicPillProps> = ({
         <Tooltip tooltip={`Switch to ${isOr ? 'AND' : 'OR'}`}>
           <button
             type="button"
-            className={cn(pillClass, 'hover:bg-primary/25')}
+            className={cn(pillClass, 'hover:bg-foreground/20')}
             onClick={onToggle}
             aria-label={`${label}, switch to ${isOr ? 'AND' : 'OR'}`}
           >
