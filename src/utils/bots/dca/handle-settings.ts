@@ -160,11 +160,11 @@ export const handleSettingsUpdate = (
     if (field === 'gridLevel' && verifyNumber(value as string)) {
       updates.dca.comboSmartGridsCount = `${+trimNumber(value as string, true) + 1}`;
     }
+    // Lowering DCA orders below the smart orders count does NOT rewrite the
+    // count: the form flags it (`activeOrdersCount` validation error) and the
+    // user decides. Silently following every keystroke here reset the count
+    // to 1 whenever the DCA orders field was cleared to retype it.
     if (field === 'ordersCount' && verifyNumber(value as string)) {
-      const v = trimNumber(value as string, true);
-      if (v < activeOrdersCount && v !== '') {
-        updates.dca.activeOrdersCount = v;
-      }
       if (activeOrdersCount === '0') {
         updates.dca.activeOrdersCount = '1';
       }

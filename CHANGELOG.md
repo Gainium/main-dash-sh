@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.91.5] - 2026-10-12
+
+### Fixed
+
+- DCA bot form: changing DCA orders no longer resets Smart orders count. If DCA orders drops below it, the count is kept and the field shows an error until one of them is changed.
+
 ## [2.91.4] - 2026-10-11
 
 ### Fixed

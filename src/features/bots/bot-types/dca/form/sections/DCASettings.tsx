@@ -353,11 +353,11 @@ interface SmartOrdersControlProps {
   tradingContext?: DcaTradingContext;
 }
 
-const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
+export const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
   idPrefix,
   //formData,
   updateFormData,
-  //errors,
+  errors,
   tradingContext,
 }) => {
   const useSmartOrders = useBotFormSelector('useSmartOrders');
@@ -443,12 +443,17 @@ const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
     [combinedSmartOrdersRange.max, combinedSmartOrdersRange.min]
   );
 
+  // Show the stored value as-is: it is what gets saved. An out-of-range count
+  // is reported by the form validator (`activeOrdersCount` error), never hidden
+  // behind a clamped stand-in.
   const smartOrdersCount = useMemo(() => {
-    if (!Number.isFinite(activeOrdersCount)) {
+    const numeric = Number(activeOrdersCount);
+    if (activeOrdersCount === '' || !Number.isFinite(numeric)) {
       return combinedSmartOrdersRange.min;
     }
-    return clampSmartOrders(Number(activeOrdersCount));
-  }, [clampSmartOrders, combinedSmartOrdersRange.min, activeOrdersCount]);
+    return numeric;
+  }, [combinedSmartOrdersRange.min, activeOrdersCount]);
+  const smartOrdersCountError = errors['activeOrdersCount'] ?? null;
 
   const helperMessage = useMemo(() => {
     const segments: string[] = [];
@@ -511,27 +516,6 @@ const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
     [clampSmartOrders, updateFormData]
   );
 
-  useEffect(() => {
-    if (!smartOrdersEnabled || isSmartOrdersVarBound) {
-      return;
-    }
-
-    if (!Number.isFinite(activeOrdersCount)) {
-      return;
-    }
-
-    const clamped = clampSmartOrders(Number(activeOrdersCount));
-    if (clamped !== +activeOrdersCount) {
-      updateFormData('activeOrdersCount', clamped);
-    }
-  }, [
-    clampSmartOrders,
-    activeOrdersCount,
-    isSmartOrdersVarBound,
-    smartOrdersEnabled,
-    updateFormData,
-  ]);
-
   return (
     <div className="space-y-sm">
       <div className="flex items-center justify-between gap-md">
@@ -573,11 +557,14 @@ const SmartOrdersControl: React.FC<SmartOrdersControlProps> = ({
                 max={combinedSmartOrdersRange.max}
                 step={1}
                 showControls={false}
-                className="w-full"
+                className={`w-full${smartOrdersCountError ? ' border-destructive' : ''}`}
                 disabled={isSmartOrdersVarBound}
               />
             </FieldVariableBinding>
           </div>
+          {smartOrdersCountError && (
+            <p className="text-xs text-destructive">{smartOrdersCountError}</p>
+          )}
           <p className="text-xs text-muted-foreground">{helperMessage}</p>
         </SettingsRowSurface>
       )}
