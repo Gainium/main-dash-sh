@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.93.4] - 2026-10-12
+### Fixed
+- Combo bots with multiple pairs: adding or removing pairs in the bot editor is saved. The save dropped the pair list, so the editor reported success and the bot kept its old pairs. A save that does not touch the pairs still leaves them as they are.
+
 ## [2.93.3] - 2026-10-12
 ### Fixed
 - Deals tables (deal lists and the bot drawer): Initial Balances and Current Balances show the exact base and quote amounts at the asset's precision with thousands separators when the column has room, and fall back to the compact K/M form only when it does not; hovering a compacted amount shows the exact value.

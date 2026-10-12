@@ -102,7 +102,8 @@ export interface StripUndeclaredOptions {
    * not a schema one: the DCA and combo resolvers reject a pair change on a
    * non-multi bot with "Cannot change pair for non-multi pairs bot", and that
    * rejection kills every sibling field in the same payload. DCA and combo
-   * callers pass `!useMulti`; grid passes `false`, because `changeBot` ignores
+   * callers pass `!useMulti` (combo also strips an unchanged multi-pair list,
+   * see `pairListChanged`); grid passes `false`, because `changeBot` ignores
    * `pair` entirely rather than rejecting it.
    */
   stripPair: boolean;
@@ -119,6 +120,28 @@ export const denylistFor = (
   ...(botType === 'grid' ? UNDECLARED_GRID_FORM_FIELDS : []),
   ...(stripPair ? ['pair'] : []),
 ];
+
+/**
+ * Whether the form's pair list is an edit of the stored one.
+ *
+ * Order-insensitive. The stored side is first narrowed to `listedKeys` when
+ * that set is non-empty, because the form already dropped stored pairs the
+ * venue no longer lists — that filtering is not the user's edit, and sending
+ * the filtered list on an untouched save would remove those pairs from the bot.
+ */
+export const pairListChanged = (
+  formPairs: string | readonly string[] | null | undefined,
+  storedPairs: string | readonly string[] | null | undefined,
+  listedKeys?: ReadonlySet<string>
+): boolean => {
+  const form = new Set([formPairs ?? []].flat().filter(Boolean));
+  const stored = new Set(
+    [storedPairs ?? []].flat().filter(Boolean).filter(
+      (p) => !listedKeys || listedKeys.size === 0 || listedKeys.has(p)
+    )
+  );
+  return form.size !== stored.size || [...form].some((p) => !stored.has(p));
+};
 
 /**
  * Remove every field the target change-input will not accept.

@@ -8,7 +8,10 @@ import {
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
-import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
+import {
+  listedPairKeys,
+  useBotFormQuery,
+} from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import {
   prepareBacktestInput,
   useRunBacktest,
@@ -31,7 +34,10 @@ import {
   type MapGridFormDataToPayloadResult,
   type UpdateDCABotPayload,
 } from '@/mappers/bots/dca/map-form-data-to-payload';
-import { stripUndeclaredUpdateFields } from '@/mappers/bots/dca/update-payload-denylist';
+import {
+  pairListChanged,
+  stripUndeclaredUpdateFields,
+} from '@/mappers/bots/dca/update-payload-denylist';
 import { formatGridInitialPrice } from '@/mappers/bots/grid/map-grid-bot-settings-to-form-data';
 import {
   BotTypesEnum,
@@ -488,12 +494,25 @@ export const useFormHandlers = (
       if (formData.type === BotTypesEnum.combo) {
         const upb = stripUndeclaredUpdateFields(
           updatePayloadBase as Record<string, unknown>,
-          // Combo strips `pair` on every save today, multi or not; only the
-          // emptied-bot repair above is exempted. Keyed on `hasStoredPair`
-          // alone rather than `!useMulti && hasStoredPair` so a multi-pair
-          // combo bot keeps sending nothing — starting to send its
-          // client-filtered pair list is a different change with its own risk.
-          { botType: 'combo', stripPair: hasStoredPair }
+          // A multi-pair combo bot sends its pair list only when the user
+          // changed it. The form's list is client-filtered (pairs the venue no
+          // longer lists are dropped on load), so an untouched save must not
+          // send it — `pairListChanged` compares against the stored list
+          // narrowed the same way. Single-pair bots keep the DCA rule above.
+          {
+            botType: 'combo',
+            stripPair:
+              hasStoredPair &&
+              !(
+                useMulti &&
+                pairListChanged(
+                  formData.pair,
+                  (bot.settings as { pair?: string | string[] } | undefined)
+                    ?.pair,
+                  listedPairKeys(formData.pairMetadata)
+                )
+              ),
+          }
         ) as UpdateDCABotPayload;
         sentSettings = upb as Record<string, unknown>;
         await updateMutation.mutateAsync({

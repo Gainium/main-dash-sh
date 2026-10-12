@@ -83,6 +83,20 @@ export const BotFormQueryContext = createContext<
  */
 const STABLE_QUOTES = ['USDT', 'USDC', 'USD', 'BUSD', 'USDP'];
 
+/**
+ * Every key a form pair may carry and still count as listed on the venue —
+ * the `byPair` key and the exchange-native `pair`. The pair filter below drops
+ * form pairs outside this set; the save path reuses it so a pair the filter
+ * dropped is not mistaken for one the user removed.
+ */
+export const listedPairKeys = (
+  byPair: Record<string, TradingPair> | null | undefined
+): Set<string> =>
+  new Set<string>([
+    ...Object.keys(byPair ?? {}),
+    ...Object.values(byPair ?? {}).map((p) => p.pair),
+  ]);
+
 export const pickDefaultPair = (
   byPair: Record<string, TradingPair>
 ): string | null => {
@@ -346,10 +360,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
 
   useEffect(() => {
     if (shouldCheckPairs && Object.keys(pairMetadata.byPair).length > 0) {
-      const validPairKeys = new Set<string>([
-        ...Object.keys(pairMetadata.byPair),
-        ...Object.values(pairMetadata.byPair).map((p) => p.pair),
-      ]);
+      const validPairKeys = listedPairKeys(pairMetadata.byPair);
       const currentPairs = [formPair].flat().filter(Boolean);
       const filteredPairs = currentPairs.filter((p) => validPairKeys.has(p));
 
