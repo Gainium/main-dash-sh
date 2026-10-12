@@ -15,6 +15,7 @@ import {
 import { useBotFormQuery } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import getLatestPrices from '@/helper/price';
 import { useBalanceStore } from '@/stores/live';
+import { useExchangesStore } from '@/stores/exchangesStore';
 import {
   poolCoversQuote,
   usePooledMarginUsd,
@@ -281,9 +282,15 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
   // multi_assets): a USD/USDC-quoted linear grid is margined from every coin
   // in the account, so an account holding EUR and no USDC can still fund it.
   // `null` for every other connection keeps the per-coin figures.
+  const provider = useExchangesStore(
+    (state) => state.exchanges[formData.exchangeUUID ?? '']?.provider
+  );
   const { pooledUsd } = usePooledMarginUsd(
     formData.exchangeUUID,
-    open && !!settings.futures && !settings.coinm && poolCoversQuote(quoteName)
+    open &&
+      !!settings.futures &&
+      !settings.coinm &&
+      poolCoversQuote(quoteName, provider)
   );
 
   useEffect(() => {

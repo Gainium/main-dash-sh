@@ -1025,11 +1025,15 @@ export const useStrategySettingsTab = ({
   // counts the pool converted to the base coin at the current price; a USD- or
   // USDC-quoted linear contract counts it as quote. The pool replaces the
   // funding balance only when larger; `null` keeps every figure as before.
+  const resolvedProvider = Array.isArray(exchanges)
+    ? exchanges.find((exchange) => exchange.uuid === resolvedExchangeUuid)
+        ?.provider
+    : undefined;
   const { pooledUsd: pooledMarginUsd } = usePooledMarginUsd(
     resolvedExchangeUuid,
     !!futures &&
       !isPaperTrading &&
-      (!!coinm || poolCoversQuote(resolvedQuoteAsset))
+      (!!coinm || poolCoversQuote(resolvedQuoteAsset, resolvedProvider))
   );
   const fundingBalances = useMemo(() => {
     if (pooledMarginUsd === null) {

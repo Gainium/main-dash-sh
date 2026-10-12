@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.91.6] - 2026-10-12
+### Fixed
+- Binance USDⓈ-M in Multi-Assets mode: USDT-quoted bots and terminal orders now count the account's pooled available margin. The balance shown on the bot form, the terminal balance check and the grid start dialog no longer read an account holding USDC and no USDT as having nothing to trade with.
+
 ## [2.91.5] - 2026-10-12
 
 ### Fixed

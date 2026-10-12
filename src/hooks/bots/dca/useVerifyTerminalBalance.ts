@@ -4,6 +4,7 @@ import { poolCoversQuote, usePooledMarginUsd } from './usePooledMarginUsd';
 import { BotMarginTypeEnum, StrategyEnum, TerminalDealTypeEnum } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { DcaTradingContext } from './useDcaTradingContext';
+import { useExchangesStore } from '@/stores/exchangesStore';
 
 /**
  * Client-side balance gate for the trading-terminal "place order" / import
@@ -46,6 +47,9 @@ export const useVerifyTerminalBalance = (
   // against the base coin, a USD/USDC-quoted linear order against the quote.
   // Isolated orders ask too (the terminal defaults to isolated): the venue,
   // not this gate, decides whether it funds an isolated position from it.
+  const provider = useExchangesStore(
+    (state) => state.exchanges[formData.exchangeUUID ?? '']?.provider
+  );
   const askPool =
     !dca?.skipBalanceCheck &&
     !!dca?.futures &&
@@ -53,7 +57,7 @@ export const useVerifyTerminalBalance = (
     (dca?.coinm
       ? (aggregated?.base?.free ?? 0) <
         (Number(summary?.totalCapitalBase) || 0) / marginDenom
-      : poolCoversQuote(tradingContext.quoteAsset) &&
+      : poolCoversQuote(tradingContext.quoteAsset, provider) &&
         (aggregated?.quote?.free ?? 0) <
           (Number(summary?.totalCapital) || 0) / marginDenom);
   // Not answered yet: can't judge, so don't block (the engine still checks).
