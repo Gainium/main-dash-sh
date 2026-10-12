@@ -1627,12 +1627,15 @@ export type SettingsIndicators = {
   percentile?: boolean;
   percentileLookback?: number;
   percentilePercentage?: number;
-  /** RSI only: moving average over the RSI line. Unset / 'none' = raw RSI. */
-  rsiSmoothing?: RsiSmoothing | null;
-  /** RSI only: candles of the smoothing average. Unset / 0 = raw RSI. */
-  rsiSmoothingLength?: number | null;
-  /** RSI only: what the condition tests while smoothing is on. Unset = 'value'. */
-  rsiSmoothingCompare?: RsiSmoothingCompare | null;
+  /**
+   * Single-line oscillators only (see `SMOOTHING_INDICATOR_TYPES`): moving
+   * average over the indicator's line. Unset / 'none' = the raw line.
+   */
+  smoothing?: IndicatorSmoothing | null;
+  /** Candles of the smoothing average, 1..1000. Unset / 0 = the raw line. */
+  smoothingLength?: number | null;
+  /** What the condition tests while smoothing is on. Unset = 'value'. */
+  smoothingCompare?: IndicatorSmoothingCompare | null;
   mar1length?: number;
   mar1type?: MAEnum;
   mar2length?: number;
@@ -1685,10 +1688,10 @@ export type SettingsIndicators = {
 };
 
 /**
- * Moving average that can smooth an RSI indicator. VWMA is not offered: an RSI
- * reading has no volume to weight by.
+ * Moving average that can smooth a single-line oscillator. VWMA is not
+ * offered: an oscillator reading has no volume to weight by.
  */
-export type RsiSmoothing =
+export type IndicatorSmoothing =
   | 'none'
   | 'sma'
   | 'ema'
@@ -1699,10 +1702,10 @@ export type RsiSmoothing =
   | 'rma';
 
 /**
- * With smoothing on: 'value' tests the smoothed RSI against the condition's
- * value (or its percentile); 'line' tests the RSI against the smoothed RSI.
+ * With smoothing on: 'value' tests the smoothed line against the condition's
+ * value (or its percentile); 'line' tests the raw line against the smoothed one.
  */
-export type RsiSmoothingCompare = 'value' | 'line';
+export type IndicatorSmoothingCompare = 'value' | 'line';
 
 export enum LWConditionEnum {
   onStart = 'onStart',
@@ -3925,9 +3928,9 @@ export type CommonIndicatorSettings = {
   percentileLookback?: number;
   percentilePercentage?: number;
   percentileCondition?: IndicatorStartConditionEnum;
-  rsiSmoothing?: RsiSmoothing | null;
-  rsiSmoothingLength?: number | null;
-  rsiSmoothingCompare?: RsiSmoothingCompare | null;
+  smoothing?: IndicatorSmoothing | null;
+  smoothingLength?: number | null;
+  smoothingCompare?: IndicatorSmoothingCompare | null;
   mar1length?: number;
   mar1type?: MAEnum;
   mar2length?: number;

@@ -28,10 +28,10 @@ import {
   type SettingsIndicators,
 } from '..';
 import {
-  resolveRsiSmoothingCompare,
-  resolveRsiSmoothingLength,
-  resolveRsiSmoothingType,
-} from '@/utils/indicators/rsiSmoothing';
+  resolveSmoothingCompare,
+  resolveSmoothingLength,
+  resolveSmoothingType,
+} from '@/utils/indicators/smoothing';
 
 const collectFields = (
   definition: IndicatorDefinition
@@ -236,20 +236,22 @@ export const validateIndicatorParams = (
       break;
   }
 
-  if (type === IndicatorEnum.rsi && resolveRsiSmoothingType(params)) {
-    if (resolveRsiSmoothingLength(params) === null) {
-      errors.push('rsiSmoothingLength');
-    }
+  // `type` is passed separately; read the smoothing fields as this type's.
+  const smoothingParams = { ...params, type };
+  if (
+    resolveSmoothingType(smoothingParams) &&
+    resolveSmoothingLength(smoothingParams) === null
+  ) {
+    errors.push('smoothingLength');
   }
 
   // "between" needs two numeric bounds; the API refuses it with percentile,
-  // and when an RSI compares against its own smoothed line there is no value
-  // to be between.
+  // and when an indicator compares against its own smoothed line there is no
+  // value to be between.
   if (getParam('indicatorCondition') === IndicatorStartConditionEnum.bw) {
     if (
       getParam('percentile') ||
-      (type === IndicatorEnum.rsi &&
-        resolveRsiSmoothingCompare(params) === 'line')
+      resolveSmoothingCompare(smoothingParams) === 'line'
     ) {
       errors.push('indicatorCondition');
     } else {

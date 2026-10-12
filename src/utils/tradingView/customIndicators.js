@@ -8,18 +8,6 @@ const divTeal = '#00897B';
 const divGreen = '#4CAF50';
 const divOrange = '#FF9800';
 
-// Averages that can smooth the RSI. VWMA needs candle volume, which an RSI
-// reading does not have, so it is left out (same list as the bot).
-export const RSI_SMOOTHING_TYPES = [
-  'SMA',
-  'EMA',
-  'WMA',
-  'DEMA',
-  'TEMA',
-  'HMA',
-  'RMA',
-];
-
 const percentileRank = (data, lookback, percentage, r) => {
   if (!data.get(lookback)) {
     return r.Std.na();
@@ -187,6 +175,151 @@ const percentileBand = (usePercentile, data, lookback, r, context) =>
         r.Std.lowest(data, lookback, context),
       ]
     : [r.Std.na(), r.Std.na()];
+
+// Optional smoothing of a single-line oscillator: the bot replaces the line R
+// with S = MA(R) (or, in "line vs smoothed line" mode, compares R against S).
+// `withSmoothing` adds that to a study without touching its own script:
+//   - appends the `smoothingMa` / `smoothingMaLength` inputs AFTER every input
+//     the study already has (scripts read inputs by position, so the existing
+//     indices stay where they are);
+//   - appends an orange `plot_smoothed` after the study's existing plots;
+//   - when smoothing is on, computes S from the study's main plot (`plot_0`)
+//     and re-ranks the percentile line on S, which is what the bot ranks.
+// With smoothing off ('None', the default) the study's own outputs are
+// returned untouched plus an empty smoothed plot.
+// VWMA is not offered: an oscillator reading carries no volume.
+export const SMOOTHING_STUDY_TYPES = [
+  'SMA',
+  'EMA',
+  'WMA',
+  'DEMA',
+  'TEMA',
+  'HMA',
+  'RMA',
+];
+
+const smoothedColor = '#FF9800';
+
+const plotValue = (output) =>
+  output !== null && typeof output === 'object' ? output.value : output;
+
+// Keep the output's own shape: some studies return `{ value }`, most numbers.
+const withPlotValue = (output, value) =>
+  output !== null && typeof output === 'object' ? { ...output, value } : value;
+
+export const withSmoothing =
+  (factory) =>
+  (r, ...rest) => {
+    const study = factory(r, ...rest);
+    const { metainfo } = study;
+    const inputIndex = (id) =>
+      metainfo.inputs.findIndex((input) => input.id === id);
+    const usePercentileIndex = inputIndex('usePercentile');
+    const lookbackIndex = inputIndex('percentileLookback');
+    const percentageIndex = inputIndex('percentilePercentage');
+    const smoothingMaIndex = metainfo.inputs.length;
+    const smoothingLengthIndex = smoothingMaIndex + 1;
+    const mainPlotIndex = metainfo.plots.findIndex(
+      (plot) => plot.id === 'plot_0'
+    );
+    const percentilePlotIndex = metainfo.plots.findIndex(
+      (plot) => plot.id === 'plot_percentile'
+    );
+
+    metainfo.inputs = [
+      ...metainfo.inputs,
+      {
+        id: 'smoothingMa',
+        name: 'Smoothing',
+        defval: 'None',
+        type: 'text',
+        options: ['None', ...SMOOTHING_STUDY_TYPES],
+      },
+      {
+        id: 'smoothingMaLength',
+        name: 'Smoothing length',
+        defval: 14,
+        type: 'integer',
+        min: 1,
+        max: 1e3,
+      },
+    ];
+    metainfo.plots = [...metainfo.plots, { id: 'plot_smoothed', type: 'line' }];
+    metainfo.styles = {
+      ...metainfo.styles,
+      plot_smoothed: {
+        title: 'Smoothed',
+        histogramBase: 0,
+        joinPoints: !1,
+      },
+    };
+    metainfo.defaults = {
+      ...metainfo.defaults,
+      styles: {
+        ...metainfo.defaults.styles,
+        plot_smoothed: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 0,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: smoothedColor,
+        },
+      },
+      inputs: {
+        ...metainfo.defaults.inputs,
+        smoothingMa: 'None',
+        smoothingMaLength: 14,
+      },
+    };
+
+    const StudyConstructor = study.constructor;
+    study.constructor = function () {
+      StudyConstructor.call(this);
+      const main = this.main;
+      this.main = function (context, input) {
+        const outputs = main.call(this, context, input);
+        if (!Array.isArray(outputs)) {
+          return outputs;
+        }
+        const smoothingMa = input(smoothingMaIndex);
+        const smoothingLength = input(smoothingLengthIndex);
+        if (
+          !SMOOTHING_STUDY_TYPES.includes(smoothingMa) ||
+          !(smoothingLength >= 1)
+        ) {
+          return [...outputs, r.Std.na()];
+        }
+        const rawVar = context.new_var(plotValue(outputs[mainPlotIndex]));
+        const smoothed = getMarValue(
+          smoothingMa,
+          r,
+          rawVar,
+          smoothingLength,
+          context
+        );
+        const result = [...outputs];
+        if (
+          percentilePlotIndex >= 0 &&
+          usePercentileIndex >= 0 &&
+          input(usePercentileIndex)
+        ) {
+          result[percentilePlotIndex] = withPlotValue(
+            outputs[percentilePlotIndex],
+            percentileRank(
+              context.new_var(smoothed),
+              input(lookbackIndex),
+              input(percentageIndex),
+              r
+            )
+          );
+        }
+        return [...result, smoothed];
+      };
+    };
+    return study;
+  };
 
 const stochCalc = (i, s, n, r, context) => {
   const o = r.Std.close(context);
@@ -656,7 +789,7 @@ const crossunder = (r, val1, val2) => {
   );
 };
 
-export const MFI = (r) => ({
+export const MFI = withSmoothing((r) => ({
   name: 'Money Flow Index (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -784,8 +917,8 @@ export const MFI = (r) => ({
       ];
     };
   },
-});
-export const ADX = (r) => ({
+}));
+export const ADX = withSmoothing((r) => ({
   name: 'Average Directional Index (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -924,7 +1057,7 @@ export const ADX = (r) => ({
       ];
     };
   },
-});
+}));
 
 // Getter used by TradingView.widget option `custom_indicators_getter`
 // Returns a Promise that resolves to an array of custom indicator definitions
@@ -1007,7 +1140,7 @@ export const custom_indicators_getter = (r, callback) => {
   }
 };
 
-export const BBW = (r) => ({
+export const BBW = withSmoothing((r) => ({
   name: 'Bollinger Bands Width (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -1181,7 +1314,7 @@ export const BBW = (r) => ({
       ];
     };
   },
-});
+}));
 
 export const MACD = (r) => ({
   name: 'MACD (Custom)',
@@ -2080,7 +2213,7 @@ export const HMA = (r, callback) => ({
   },
 });
 
-export const RSI = (r) => ({
+export const RSI = withSmoothing((r) => ({
   name: 'Relative Strength Index (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -2099,15 +2232,6 @@ export const RSI = (r) => ({
           transparency: 0,
           visible: !0,
           color: '#7E57C2',
-        },
-        plot_smoothed: {
-          linestyle: 0,
-          linewidth: 2,
-          plottype: 0,
-          trackPrice: !1,
-          transparency: 0,
-          visible: !0,
-          color: '#FF9800',
         },
         ...percentileDefaultStyles,
       },
@@ -2138,8 +2262,6 @@ export const RSI = (r) => ({
       inputs: {
         length: 14,
         ...percentileDefaultInputs,
-        smoothingMa: 'None',
-        smoothingMaLength: 14,
       },
     },
     plots: [
@@ -2148,10 +2270,6 @@ export const RSI = (r) => ({
         type: 'line',
       },
       ...percentilPlot,
-      {
-        id: 'plot_smoothed',
-        type: 'line',
-      },
     ],
     styles: {
       plot_0: {
@@ -2160,11 +2278,6 @@ export const RSI = (r) => ({
         joinPoints: !1,
       },
       ...percentileStyle,
-      plot_smoothed: {
-        title: 'Smoothed RSI',
-        histogramBase: 0,
-        joinPoints: !1,
-      },
     },
     description: 'Relative Strength Index (Custom)',
     shortDescription: 'RSI',
@@ -2199,22 +2312,6 @@ export const RSI = (r) => ({
         max: 2e3,
       },
       ...percentileInputs,
-      // Inputs are read by position: keep these after the percentile inputs.
-      {
-        id: 'smoothingMa',
-        name: 'Smoothing',
-        defval: 'None',
-        type: 'text',
-        options: ['None', ...RSI_SMOOTHING_TYPES],
-      },
-      {
-        id: 'smoothingMaLength',
-        name: 'Smoothing length',
-        defval: 14,
-        type: 'integer',
-        min: 1,
-        max: 1e3,
-      },
     ],
     id: 'Relative Strength Index Custom@tv-basicstudies-1',
     scriptIdPart: '',
@@ -2233,26 +2330,12 @@ export const RSI = (r) => ({
       const usePercentile = this._input(1);
       const percentileLookback = this._input(2);
       const percentilePercentage = this._input(3);
-      const smoothingMa = this._input(4);
-      const smoothingLength = this._input(5);
-      const smoothed = RSI_SMOOTHING_TYPES.includes(smoothingMa);
-      this._context.setMinimumAdditionalDepth(
-        s + percentileLookback + (smoothed ? smoothingLength * 3 : 0)
-      );
+      this._context.setMinimumAdditionalDepth(s + percentileLookback);
       const g = rsiCalc(r, this._context, s);
       const rsi = g;
       const rsiVar = this._context.new_var(rsi);
-      const smoothedRsi = smoothed
-        ? getMarValue(smoothingMa, r, rsiVar, smoothingLength, this._context)
-        : r.Std.na();
-      // The bot ranks the smoothed line when smoothing is set.
       const percentile = usePercentile
-        ? percentileRank(
-            smoothed ? this._context.new_var(smoothedRsi) : rsiVar,
-            percentileLookback,
-            percentilePercentage,
-            r
-          )
+        ? percentileRank(rsiVar, percentileLookback, percentilePercentage, r)
         : r.Std.na();
       return [
         {
@@ -2261,11 +2344,10 @@ export const RSI = (r) => ({
         { value: percentile },
         { value: usePercentile ? percentileHigh : r.Std.na() },
         { value: usePercentile ? percentileLow : r.Std.na() },
-        { value: smoothedRsi },
       ];
     };
   },
-});
+}));
 
 export const TVTA = (r) => ({
   name: 'Tradingview Technical Analysis',
@@ -3995,7 +4077,7 @@ export const SotchRSI = (r) => ({
   },
 });
 
-export const VO = (r) => ({
+export const VO = withSmoothing((r) => ({
   name: 'Volume Oscillator (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4140,9 +4222,9 @@ export const VO = (r) => ({
       ];
     };
   },
-});
+}));
 
-export const CCI = (r) => ({
+export const CCI = withSmoothing((r) => ({
   name: 'Commodity Channel Index (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4319,9 +4401,9 @@ export const CCI = (r) => ({
       );
     };
   },
-});
+}));
 
-export const AO = (r) => ({
+export const AO = withSmoothing((r) => ({
   name: 'Awesome Oscillator (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4482,9 +4564,9 @@ export const AO = (r) => ({
       ];
     };
   },
-});
+}));
 
-export const WR = (r) => ({
+export const WR = withSmoothing((r) => ({
   name: 'Williams %R (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4617,9 +4699,9 @@ export const WR = (r) => ({
       ];
     };
   },
-});
+}));
 
-export const UO = (r) => ({
+export const UO = withSmoothing((r) => ({
   name: 'Ultimate Oscillator (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4770,9 +4852,9 @@ export const UO = (r) => ({
       ];
     };
   },
-});
+}));
 
-export const MOM = (r) => ({
+export const MOM = withSmoothing((r) => ({
   name: 'Momentum (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -4913,7 +4995,7 @@ export const MOM = (r) => ({
       ];
     };
   },
-});
+}));
 
 export const BBWP = (r) => ({
   name: 'Bollinger Bands Width Percentile',
@@ -5475,7 +5557,7 @@ const getMarValue = (type1, r, closeVar, type1length, context) => {
   return result1;
 };
 
-export const MAR = (r) => ({
+export const MAR = withSmoothing((r) => ({
   name: 'Moving Average Ratio (MAR)',
   metainfo: {
     _metainfoVersion: 53,
@@ -5757,9 +5839,9 @@ export const MAR = (r) => ({
       ];
     };
   },
-});
+}));
 
-export const BBPB = (r) => ({
+export const BBPB = withSmoothing((r) => ({
   name: 'Bollinger Bands %B (Custom)',
   metainfo: {
     _metainfoVersion: 53,
@@ -5932,7 +6014,7 @@ export const BBPB = (r) => ({
       ];
     };
   },
-});
+}));
 
 const divBull = {
   plottype: 'shape_label_up',
@@ -10339,7 +10421,7 @@ export const KC = (r, callback) => ({
   },
 });
 
-export const KCPB = (r) => ({
+export const KCPB = withSmoothing((r) => ({
   name: 'Keltner Channel %B',
   metainfo: {
     _metainfoVersion: 53,
@@ -10523,7 +10605,7 @@ export const KCPB = (r) => ({
       ];
     };
   },
-});
+}));
 
 export const DC = (r) => ({
   name: 'Donchian Channels (Custom)',

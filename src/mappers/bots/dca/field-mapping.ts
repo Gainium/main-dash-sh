@@ -63,9 +63,9 @@ import {
 } from '@/utils/indicators/indicatorConfigUtils';
 import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
 import {
-  DEFAULT_RSI_SMOOTHING_LENGTH,
-  normalizeRsiSmoothingFields,
-} from '@/utils/indicators/rsiSmoothing';
+  DEFAULT_SMOOTHING_LENGTH,
+  normalizeSmoothingFields,
+} from '@/utils/indicators/smoothing';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 import {
@@ -138,7 +138,7 @@ const normalizeIndicatorParamsRecord = (
     'xOscillator2voLong',
     'percentileLookback',
     'percentilePercentage',
-    'rsiSmoothingLength',
+    'smoothingLength',
     'mar1length',
     'mar2length',
     'bbwMult',
@@ -272,19 +272,14 @@ const serializeIndicatorConfig = (
   const { params: _legacyParams, ...withoutLegacyParams } = filled as
     IndicatorConfig & { params?: unknown };
 
-  // RSI smoothing saves only while it is on (an unsmoothed RSI keeps the
-  // exact payload it had before the setting existed); other types never
-  // carry it.
-  const payload: IndicatorConfig = normalizeRsiSmoothingFields({
+  // Smoothing saves only while it is on (an unsmoothed indicator keeps the
+  // exact payload it had before the setting existed); a type outside the
+  // smoothing scope never carries it.
+  const payload: IndicatorConfig = normalizeSmoothingFields({
     ...withoutLegacyParams,
     ...paramsRecord,
     ...overrides,
   });
-  if (payload.type !== IndicatorEnum.rsi) {
-    delete payload.rsiSmoothing;
-    delete payload.rsiSmoothingLength;
-    delete payload.rsiSmoothingCompare;
-  }
 
   // Same "fill the structural holes" contract as `withFieldDefaults` above,
   // for the two ids that are NOT catalog fields. `buildIndicatorConfig` now
@@ -4606,16 +4601,15 @@ export const mapFormDataToBackend = (
         i.lwThreshold = `${i.lwThreshold || '2'}`.trim() || undefined;
       }
       // An entry no serializer claimed (see the merge above) still saves its
-      // RSI smoothing in the stored shape; the length the form showed is the
+      // smoothing in the stored shape; the length the form showed is the
       // default when the row never held one.
-      if (i.type === IndicatorEnum.rsi) {
-        return normalizeRsiSmoothingFields({
+      if (i.smoothing) {
+        return normalizeSmoothingFields({
           ...i,
-          rsiSmoothingLength:
-            i.rsiSmoothingLength ?? DEFAULT_RSI_SMOOTHING_LENGTH,
+          smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
         });
       }
-      return i;
+      return normalizeSmoothingFields(i);
     });
 
     if (result.errors) {

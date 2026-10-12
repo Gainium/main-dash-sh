@@ -1,9 +1,10 @@
 import { logger } from '@/lib/loggerInstance';
 import { IndicatorEnum, MAEnum, type ChartIndicatorConfig } from '@/types';
 import {
-  DEFAULT_RSI_SMOOTHING_LENGTH,
-  resolveRsiSmoothing,
-} from '@/utils/indicators/rsiSmoothing';
+  DEFAULT_SMOOTHING_LENGTH,
+  resolveSmoothing,
+  supportsSmoothing,
+} from '@/utils/indicators/smoothing';
 import {} from '@/types/indicators/indicatorTypes';
 import { OBFVGValueEnum } from '@gainium/backtester/dist/types';
 
@@ -237,6 +238,19 @@ const mergeInputs = (
   };
 };
 
+// The `smoothingMa` / `smoothingMaLength` inputs every smoothable study takes
+// (`withSmoothing` in customIndicators.js). Same on/off reading as the form
+// and the bot: an unknown average or an unusable length draws the raw line.
+const buildSmoothingInputs = (
+  indicator: ChartIndicatorConfig
+): TradingViewInput => {
+  const smoothing = resolveSmoothing(indicator);
+  return {
+    smoothingMa: smoothing ? smoothing.type.toUpperCase() : 'None',
+    smoothingMaLength: smoothing?.length ?? DEFAULT_SMOOTHING_LENGTH,
+  };
+};
+
 const buildInputs = (
   indicator: ChartIndicatorConfig,
   type: IndicatorEnum | string
@@ -256,19 +270,13 @@ const buildInputs = (
         showDown: condition === 'down',
       };
     }
-    case IndicatorEnum.rsi: {
-      // Same on/off reading as the form and the bot: an unknown average or a
-      // length below 1 draws the plain RSI.
-      const smoothing = resolveRsiSmoothing(indicator);
+    case IndicatorEnum.rsi:
       return mergeInputs(
         {
           length: toNumber(indicator.length, 14),
-          smoothingMa: smoothing ? smoothing.type.toUpperCase() : 'None',
-          smoothingMaLength: smoothing?.length ?? DEFAULT_RSI_SMOOTHING_LENGTH,
         },
         percentileInputs
       );
-    }
     case IndicatorEnum.ath:
       return { lookback: toNumber(indicator.athLookback, 100) };
     case IndicatorEnum.atr:
@@ -390,7 +398,7 @@ const buildInputs = (
     case IndicatorEnum.mfi:
       return mergeInputs(
         {
-          in_o: toNumber(indicator.length, 14),
+          in_0: toNumber(indicator.length, 14),
         },
         percentileInputs
       );
@@ -819,7 +827,11 @@ export function buildTradingViewStudyDescriptor(
     return null;
   }
 
-  const inputs = buildInputs(indicator, type);
+  const baseInputs = buildInputs(indicator, type);
+  const inputs =
+    baseInputs && supportsSmoothing(type)
+      ? { ...baseInputs, ...buildSmoothingInputs(indicator) }
+      : baseInputs;
   if (!inputs) {
     logger.warn('Unable to build TradingView inputs for indicator', {
       type,

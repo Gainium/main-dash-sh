@@ -2,9 +2,11 @@
 
 ## [2.94.0] - 2026-10-12
 ### Added
-- RSI indicator: optional **Smoothing** (SMA, EMA, WMA, DEMA, TEMA, HMA or RMA) with its own length. With smoothing on, the condition tests the smoothed RSI against Value (or its percentile), or, with **Compare: RSI vs smoothed RSI**, tests the RSI against its own smoothed line (crossing up/down, greater/lower than). The bot chart draws the smoothed line in orange. Available in every bot indicator section and in the client-side backtest.
+- Oscillator indicators (RSI, CCI, MFI, Williams %R, Ultimate Oscillator, Momentum, Awesome Oscillator, ADX, Bollinger Bands %B, Keltner Channel %B, Bollinger Band Width, Volume Oscillator and Moving Average Ratio): optional **Smoothing** (SMA, EMA, WMA, DEMA, TEMA, HMA or RMA) with its own length. With smoothing on, the condition tests the smoothed line against Value (or its percentile), or, with **Compare: Line vs smoothed line**, tests the indicator against its own smoothed line (crossing up/down, greater/lower than). The bot chart draws the smoothed line in orange. Available in every bot indicator section and in the client-side backtest.
 ### Changed
 - Indicator settings lay out in two columns when the panel has room: compact fields (lengths, intervals, short selects, condition and value) sit side by side, toggles and long selects take the full row. Phone-width screens keep one column.
+### Fixed
+- Money Flow Index on the bot chart now uses the indicator's Length instead of always drawing a 14-period MFI.
 
 ## [2.93.4] - 2026-10-12
 ### Fixed

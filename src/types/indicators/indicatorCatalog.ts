@@ -33,12 +33,14 @@ import {
   type IndicatorFieldDefinition,
 } from './indicatorTypes';
 import {
-  DEFAULT_RSI_SMOOTHING_LENGTH,
-  RSI_SMOOTHING_TYPES,
-  deriveRsiGatingParams,
-  resolveRsiSmoothing,
-  resolveRsiSmoothingCompare,
-} from '@/utils/indicators/rsiSmoothing';
+  DEFAULT_SMOOTHING_LENGTH,
+  MAX_SMOOTHING_LENGTH,
+  SMOOTHING_TYPES,
+  deriveSmoothingGatingParams,
+  resolveSmoothing,
+  resolveSmoothingCompare,
+  supportsSmoothing,
+} from '@/utils/indicators/smoothing';
 
 /**
  * Static catalog describing every supported indicator, ported from the legacy dashboard.
@@ -130,37 +132,35 @@ const MA_TYPE_OPTIONS = [
   { value: MAEnum.rma, label: 'RMA' },
 ];
 
-const RSI_SMOOTHING_OPTIONS = [
+const SMOOTHING_OPTIONS = [
   { value: 'none', label: 'None' },
   ...MA_TYPE_OPTIONS.filter((option) =>
-    (RSI_SMOOTHING_TYPES as readonly string[]).includes(option.value)
+    (SMOOTHING_TYPES as readonly string[]).includes(option.value)
   ),
 ];
 
-const RSI_SMOOTHING_COMPARE_OPTIONS = [
-  { value: 'value', label: 'Smoothed RSI vs value' },
-  { value: 'line', label: 'RSI vs smoothed RSI' },
+const SMOOTHING_COMPARE_OPTIONS = [
+  { value: 'value', label: 'Smoothed line vs value' },
+  { value: 'line', label: 'Line vs smoothed line' },
 ];
 
-// Card summary: "Smoothing: EMA 14", and "Compare: RSI vs smoothed RSI" only
-// when the condition tests the RSI against its smoothed line. Nothing while
+// Card summary: "Smoothing: EMA 14", and "Compare: Line vs smoothed line" only
+// when the condition tests the line against its smoothed copy. Nothing while
 // smoothing is off.
-const summarizeRsiSmoothing = (params: SettingsIndicators): string | null => {
-  const smoothing = resolveRsiSmoothing(params);
+const summarizeSmoothing = (params: SettingsIndicators): string | null => {
+  const smoothing = resolveSmoothing(params);
   if (!smoothing) {
     return null;
   }
   const label =
-    RSI_SMOOTHING_OPTIONS.find((option) => option.value === smoothing.type)
+    SMOOTHING_OPTIONS.find((option) => option.value === smoothing.type)
       ?.label ?? smoothing.type.toUpperCase();
   return `${label} ${smoothing.length}`;
 };
 
-const summarizeRsiSmoothingCompare = (
-  params: SettingsIndicators
-): string | null =>
-  resolveRsiSmoothingCompare(params) === 'line'
-    ? (RSI_SMOOTHING_COMPARE_OPTIONS.find((option) => option.value === 'line')
+const summarizeSmoothingCompare = (params: SettingsIndicators): string | null =>
+  resolveSmoothingCompare(params) === 'line'
+    ? (SMOOTHING_COMPARE_OPTIONS.find((option) => option.value === 'line')
         ?.label ?? null)
     : null;
 
@@ -477,6 +477,82 @@ const percentileFields: IndicatorDefinition['fields'] = [
   }),
 ];
 
+// Optional smoothing of a single-line oscillator (`SMOOTHING_INDICATOR_TYPES`),
+// spread after Length / Interval so the grid reads Smoothing | Smoothing
+// length, then Compare on its own row. The line-mode rules for the entry's
+// own Condition / Value fields are added by `withSmoothingGates` below.
+const smoothingFields: IndicatorDefinition['fields'] = [
+  makeSelectField({
+    key: 'smoothing',
+    label: 'Smoothing',
+    tooltip:
+      'Moving average applied to the indicator line. With smoothing on, the condition uses the smoothed line.',
+    defaultValue: 'none',
+    options: SMOOTHING_OPTIONS,
+    rowStart: true,
+    summary: summarizeSmoothing,
+  }),
+  makeNumberField({
+    key: 'smoothingLength',
+    label: 'Smoothing length',
+    defaultValue: DEFAULT_SMOOTHING_LENGTH,
+    min: 1,
+    max: MAX_SMOOTHING_LENGTH,
+    step: 1,
+    hiddenWhen: [{ field: 'smoothing', equals: 'none' }],
+    // Folded into the Smoothing item ("EMA 14").
+    summary: () => null,
+  }),
+  makeSelectField({
+    key: 'smoothingCompare',
+    label: 'Compare',
+    tooltip:
+      'Smoothed line vs value: the condition tests the smoothed line against Value. Line vs smoothed line: the condition tests the indicator against its own moving average, a momentum-turn signal. Percentile mode always compares against a value.',
+    defaultValue: 'value',
+    options: SMOOTHING_COMPARE_OPTIONS,
+    span: 'full',
+    hiddenWhen: [
+      { field: 'smoothing', equals: 'none' },
+      { field: 'percentile', equals: true },
+    ],
+    summary: summarizeSmoothingCompare,
+  }),
+];
+
+const SMOOTHING_LINE_CONDITION = {
+  field: 'smoothingCompare' as const,
+  equals: 'line',
+};
+
+// In "Line vs smoothed line" mode there is no value to test: the entry's
+// Value / Upper value hide and "Between" leaves the condition list. The gates
+// read the EFFECTIVE compare mode (`deriveSmoothingGatingParams`), so a stored
+// 'line' stops applying once smoothing is None or percentile is on.
+const withSmoothingGates = (
+  definition: IndicatorDefinition
+): IndicatorDefinition => ({
+  ...definition,
+  deriveGatingParams: deriveSmoothingGatingParams,
+  fields: definition.fields.map((field) => {
+    if (field.key === 'indicatorCondition') {
+      return {
+        ...field,
+        optionsWhen: [
+          ...(field.optionsWhen ?? []),
+          { ...SMOOTHING_LINE_CONDITION, options: INDICATOR_CONDITION_OPTIONS },
+        ],
+      };
+    }
+    if (field.key === 'indicatorValue' || field.key === 'indicatorValue2') {
+      return {
+        ...field,
+        hiddenWhen: [...(field.hiddenWhen ?? []), SMOOTHING_LINE_CONDITION],
+      };
+    }
+    return field;
+  }),
+});
+
 // Trend filter — legacy "Use Trend Filter" block, only exposed on MAR
 // (the sole entry in the legacy `trendIndicators` list). When enabled it
 // gates entries on the recent trend of the indicator over its own lookback.
@@ -536,7 +612,7 @@ const keepConditionBarsField: IndicatorFieldDefinition = makeNumberField({
  * NOTE: The legacy dashboard exposes many composite options (e.g., MA type select with nested defaults).
  * We keep the structure declarative so downstream editors can render controls dynamically.
  */
-export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
+const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
   [IndicatorEnum.adx]: {
     type: IndicatorEnum.adx,
     label: 'Average Directional Index (ADX)',
@@ -559,6 +635,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -858,6 +935,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -992,40 +1070,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
-      makeSelectField({
-        key: 'rsiSmoothing',
-        label: 'Smoothing',
-        tooltip:
-          'Moving average applied to the RSI line. With smoothing on, the condition uses the smoothed line.',
-        defaultValue: 'none',
-        options: RSI_SMOOTHING_OPTIONS,
-        summary: summarizeRsiSmoothing,
-      }),
-      makeNumberField({
-        key: 'rsiSmoothingLength',
-        label: 'Smoothing length',
-        defaultValue: DEFAULT_RSI_SMOOTHING_LENGTH,
-        min: 1,
-        max: 1000,
-        step: 1,
-        hiddenWhen: [{ field: 'rsiSmoothing', equals: 'none' }],
-        // Folded into the Smoothing item ("EMA 14").
-        summary: () => null,
-      }),
-      makeSelectField({
-        key: 'rsiSmoothingCompare',
-        label: 'Compare',
-        tooltip:
-          'Smoothed RSI vs value: the condition tests the smoothed line against Value. RSI vs smoothed RSI: the condition tests the RSI against its own moving average, a momentum-turn signal. Percentile mode always compares against a value.',
-        defaultValue: 'value',
-        options: RSI_SMOOTHING_COMPARE_OPTIONS,
-        span: 'full',
-        hiddenWhen: [
-          { field: 'rsiSmoothing', equals: 'none' },
-          { field: 'percentile', equals: true },
-        ],
-        summary: summarizeRsiSmoothingCompare,
-      }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -1035,11 +1080,6 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
           {
             field: 'percentile',
             equals: true,
-            options: INDICATOR_CONDITION_OPTIONS,
-          },
-          {
-            field: 'rsiSmoothingCompare',
-            equals: 'line',
             options: INDICATOR_CONDITION_OPTIONS,
           },
         ],
@@ -1052,10 +1092,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         max: 100,
         step: 1,
         allowVariables: true,
-        hiddenWhen: [
-          { field: 'percentile', equals: true },
-          { field: 'rsiSmoothingCompare', equals: 'line' },
-        ],
+        hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       makeNumberField({
         key: 'indicatorValue2',
@@ -1071,16 +1108,10 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
             equals: IndicatorStartConditionEnum.bw,
           },
         ],
-        hiddenWhen: [
-          { field: 'percentile', equals: true },
-          { field: 'rsiSmoothingCompare', equals: 'line' },
-        ],
+        hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
       keepConditionBarsField,
     ],
-    // `rsiSmoothingCompare: 'line'` only applies while smoothing is on and
-    // percentile is off; gate on the mode actually in effect.
-    deriveGatingParams: deriveRsiGatingParams,
   },
   [IndicatorEnum.cci]: {
     type: IndicatorEnum.cci,
@@ -1105,6 +1136,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -1171,6 +1203,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -1242,6 +1275,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -1840,6 +1874,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -1923,6 +1958,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -2021,6 +2057,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -2082,6 +2119,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -2141,6 +2179,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -2215,6 +2254,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -2281,6 +2321,7 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
       }),
+      ...smoothingFields,
       makeSelectField({
         key: 'indicatorCondition',
         label: 'Condition',
@@ -3061,6 +3102,14 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
     ],
   },
 };
+
+export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> =
+  Object.fromEntries(
+    Object.entries(BASE_INDICATOR_CATALOG).map(([type, definition]) => [
+      type,
+      supportsSmoothing(type) ? withSmoothingGates(definition) : definition,
+    ])
+  ) as Record<IndicatorEnum, IndicatorDefinition>;
 
 Object.entries(INDICATOR_DOCUMENTATION_URLS).forEach(([type, url]) => {
   if (!url) {

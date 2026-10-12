@@ -22,7 +22,7 @@ import {
   type ChartIndicatorConfig,
   type ChartIndicatorsConfig,
 } from '@/types';
-import { resolveRsiSmoothingCompare } from '@/utils/indicators/rsiSmoothing';
+import { resolveSmoothingCompare } from '@/utils/indicators/smoothing';
 
 // Type definitions for chart indicators based on old dashboard format
 /* export interface ChartIndicatorConfig {
@@ -342,10 +342,9 @@ function buildChartIndicator(
     i.type === IndicatorEnum.xo &&
     tvIntervalMap[i.xOscillator2Interval ?? i.indicatorInterval] ===
       chartInterval;
-  // An RSI tested against its own smoothed line has no value threshold, so
-  // there is no band to shade (the smoothed line itself is drawn instead).
-  const comparesSmoothedLine =
-    i.type === IndicatorEnum.rsi && resolveRsiSmoothingCompare(i) === 'line';
+  // An indicator tested against its own smoothed line has no value threshold,
+  // so there is no band to shade (the smoothed line itself is drawn instead).
+  const comparesSmoothedLine = resolveSmoothingCompare(i) === 'line';
   const chartIndicator: ChartIndicatorConfig = {
     length:
       (i.type !== IndicatorEnum.tv ? i.indicatorLength : i.checkLevel) ?? 1,
@@ -456,8 +455,8 @@ function buildChartIndicator(
     xOscillator2voShort: showXo ? (i.xOscillator2voShort ?? 5) : undefined,
     percentile: i.percentile,
     percentileLookback: i.percentileLookback,
-    rsiSmoothing: i.rsiSmoothing,
-    rsiSmoothingLength: i.rsiSmoothingLength,
+    smoothing: i.smoothing,
+    smoothingLength: i.smoothingLength,
     percentilePercentage: i.percentilePercentage,
     percentileCondition: i.indicatorCondition,
     mar1type: i.mar1type,

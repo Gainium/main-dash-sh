@@ -106,6 +106,12 @@ export interface IndicatorFieldDefinition {
    */
   span?: 'full' | 'half';
   /**
+   * Always begin a new row in the field grid: never paired as the second half
+   * with the field before it (e.g. Smoothing, which pairs with the Smoothing
+   * length after it, not with whatever precedes the block).
+   */
+  rowStart?: boolean;
+  /**
    * Custom text for the indicator card summary. Return `null` to leave the
    * field out of the summary (a setting that is off). Fields with a
    * `summary` do not count towards the summary's item cap: they only show
@@ -140,7 +146,7 @@ export interface IndicatorDefinition {
    * Map stored params to the EFFECTIVE values the `hiddenWhen` / `shownWhen`
    * / `disabledWhen` / `optionsWhen` directives compare against. The
    * directives are plain equality checks; when one setting only applies while
-   * others allow it (RSI's compare mode needs smoothing on and percentile
+   * others allow it (the smoothing compare mode needs smoothing on and percentile
    * off), the definition resolves that here instead of in every directive.
    * Gating only — never applied to what is saved.
    */

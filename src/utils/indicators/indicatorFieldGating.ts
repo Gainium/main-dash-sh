@@ -190,8 +190,8 @@ export const resolveFieldOptions = (
 // After an edit, move every conditional-option select whose value is no
 // longer offered to a valid one (its default when still valid, else the first
 // option), so it never shows an empty or stale selection — e.g. the Market
-// Structure value when the trigger type switches, or RSI's "Between" when the
-// compare mode becomes "RSI vs smoothed RSI". Runs when the edited key drives
+// Structure value when the trigger type switches, or an oscillator's "Between"
+// when the compare mode becomes "Line vs smoothed line". Runs when the edited key drives
 // the field's options OR when the resolved option list changed, because a
 // derived gate (`deriveGatingParams`) can change it from another key.
 export const resetInvalidConditionalSelects = (

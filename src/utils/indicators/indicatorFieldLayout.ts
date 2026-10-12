@@ -77,6 +77,7 @@ export const layoutFieldSpans = (
       requested[i] === 'half' &&
       partner &&
       requested[i + 1] === 'half' &&
+      !partner.rowStart &&
       !startsAnchoredPair(i + 1)
     ) {
       const both = isVisible(field) && isVisible(partner);
