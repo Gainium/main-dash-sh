@@ -194,6 +194,15 @@ export interface UseHedgeBacktestRunnerApi {
 
 const DEFAULT_FROM_MS = 365 * 24 * 60 * 60 * 1000;
 
+/** One leg's backtester settings. A Hedge Combo leg keeps its settings in
+ *  `formData.combo` (what save and the stored backtest map); `formData.dca`
+ *  is only the DCA slice. */
+export const hedgeLegBacktestSettings = (data: BotFormData, combo: boolean) => ({
+  ...(combo ? data.combo : data.dca),
+  name: data.name,
+  pair: Array.isArray(data.pair) ? data.pair : [data.pair].flat(),
+});
+
 export function useHedgeBacktestRunner({
   getSnapshot,
   hedgeBotType,
@@ -379,11 +388,8 @@ export function useHedgeBacktestRunner({
         lastDataTime: to,
       };
 
-      const buildLegSettings = (data: BotFormData) => ({
-        ...data.dca,
-        name: data.name,
-        pair: Array.isArray(data.pair) ? data.pair : [data.pair].flat(),
-      });
+      const buildLegSettings = (data: BotFormData) =>
+        hedgeLegBacktestSettings(data, combo);
 
       // The backtester package ships its own ExchangeEnum / Symbols /
       // DCABotSettings that diverge slightly from core's mirrors (extra

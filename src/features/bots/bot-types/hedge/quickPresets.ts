@@ -1,5 +1,17 @@
-import { DCA_FORM_DEFAULTS } from '@/contexts/bots/form/formDefaults';
-import { CloseConditionEnum, type HedgeBotSettings } from '@/types';
+import {
+  COMBO_FORM_DEFAULTS,
+  DCA_FORM_DEFAULTS,
+} from '@/contexts/bots/form/formDefaults';
+import { resolveOrderSizeDecimals } from '@/features/bots/shared/utils/order-guard';
+import {
+  computeInvestmentFromDca,
+  distributeInvestmentToDca,
+} from '@/features/bots/widgets/BotForm/components/quickSetupPresets';
+import {
+  BotTypesEnum,
+  CloseConditionEnum,
+  type HedgeBotSettings,
+} from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 
 export type HedgeQuickPresetId = 'conservative' | 'balanced' | 'aggressive';
@@ -104,3 +116,46 @@ export const getHedgeLegDcaState = (
     ...DCA_FORM_DEFAULTS,
     ...preset.legValues,
   }) as BotFormData['dca'];
+
+/**
+ * One Quick leg's formData after applying a preset. A Hedge DCA leg keeps its
+ * settings under `formData.dca`, a Hedge Combo leg under `formData.combo`
+ * (overlaid on the combo defaults), so the preset lands in the slice the leg's
+ * save and backtest read. The leg's total investment is preserved
+ * (redistributed over the preset's new orders ladder), and its pinned
+ * strategy / order-size denomination survive.
+ */
+export const applyHedgePresetToLeg = (
+  prev: BotFormData,
+  preset: HedgeQuickPreset
+): BotFormData => {
+  const slice = prev.type === BotTypesEnum.combo ? 'combo' : 'dca';
+  const prevDca = prev[slice];
+  const presetState =
+    slice === 'combo'
+      ? { ...COMBO_FORM_DEFAULTS, ...preset.legValues }
+      : getHedgeLegDcaState(preset);
+  const currentInvestment = computeInvestmentFromDca(prevDca);
+  // Derive from the pair's real order-size scale; the old base?8:2
+  // ternary rounded quote-denominated sizes to 2dp, zeroing sub-0.01
+  // sizes on BTC-/ETH-quoted pairs (bug #467).
+  const prevPair = Array.isArray(prev.pair) ? prev.pair[0] : prev.pair;
+  const precision = resolveOrderSizeDecimals(
+    prevDca.orderSizeType,
+    prevPair ? prev.pairPrecisionMap?.[prevPair] : undefined
+  );
+  const merged = {
+    ...presetState,
+    strategy: prevDca.strategy,
+    orderSizeType: prevDca.orderSizeType,
+  } as BotFormData['dca'];
+  const { baseOrderSize, orderSize } = distributeInvestmentToDca(
+    currentInvestment,
+    merged,
+    precision
+  );
+  return {
+    ...prev,
+    [slice]: { ...merged, baseOrderSize, orderSize },
+  };
+};

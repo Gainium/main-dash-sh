@@ -489,10 +489,10 @@ export const HedgeBotEditLayout: React.FC = () => {
   // place — no remount, so the scroll position is preserved and the form
   // doesn't flash. Mirrors the regular Quick form's in-provider applyPreset.
   const longPresetApplyRef = useRef<
-    ((nextDca: BotFormData['dca']) => void) | null
+    ((preset: HedgeQuickPreset) => void) | null
   >(null);
   const shortPresetApplyRef = useRef<
-    ((nextDca: BotFormData['dca']) => void) | null
+    ((preset: HedgeQuickPreset) => void) | null
   >(null);
 
   // Both-legs chart orders (legacy `chartView === 'both'` parity). In Quick
@@ -1690,9 +1690,8 @@ export const HedgeBotEditLayout: React.FC = () => {
   // (writeSeeds(null) on mode switch) both pick them up with no extra seeding.
   const applyHedgePreset = useCallback(
     (preset: HedgeQuickPreset) => {
-      const nextDca = getHedgeLegDcaState(preset);
-      longPresetApplyRef.current?.(nextDca);
-      shortPresetApplyRef.current?.(nextDca);
+      longPresetApplyRef.current?.(preset);
+      shortPresetApplyRef.current?.(preset);
       Object.entries(preset.shared).forEach(([key, value]) => {
         updateSharedSetting(key as keyof typeof preset.shared, value as never);
       });

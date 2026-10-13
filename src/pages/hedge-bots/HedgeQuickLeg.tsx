@@ -27,6 +27,10 @@ import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvid
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
 import { useExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { BasicSettings } from '@/features/bots/bot-types/dca/form/sections/BasicSettings';
+import {
+  applyHedgePresetToLeg,
+  type HedgeQuickPreset,
+} from '@/features/bots/bot-types/hedge/quickPresets';
 import { tryGetBotExperience } from '@/features/bots/catalog/BotExperienceCatalog';
 import {
   BotFormFooter,
@@ -168,37 +172,12 @@ const LegStrategyPinner: React.FC<{ strategy: StrategyEnum }> = ({
  * strategy / order-size denomination survive.
  */
 const LegPresetApplier: React.FC<{
-  targetRef: MutableRefObject<((nextDca: BotFormData['dca']) => void) | null>;
+  targetRef: MutableRefObject<((preset: HedgeQuickPreset) => void) | null>;
 }> = ({ targetRef }) => {
   const { setFormData } = useBotFormState();
   useEffect(() => {
-    targetRef.current = (nextDca: BotFormData['dca']) => {
-      setFormData((prev) => {
-        const prevDca = prev.dca;
-        const currentInvestment = computeInvestmentFromDca(prevDca);
-        // Derive from the pair's real order-size scale; the old base?8:2
-        // ternary rounded quote-denominated sizes to 2dp, zeroing sub-0.01
-        // sizes on BTC-/ETH-quoted pairs (bug #467).
-        const prevPair = Array.isArray(prev.pair) ? prev.pair[0] : prev.pair;
-        const precision = resolveOrderSizeDecimals(
-          prevDca.orderSizeType,
-          prevPair ? prev.pairPrecisionMap?.[prevPair] : undefined
-        );
-        const merged = {
-          ...nextDca,
-          strategy: prevDca.strategy,
-          orderSizeType: prevDca.orderSizeType,
-        } as BotFormData['dca'];
-        const { baseOrderSize, orderSize } = distributeInvestmentToDca(
-          currentInvestment,
-          merged,
-          precision
-        );
-        return {
-          ...prev,
-          dca: { ...merged, baseOrderSize, orderSize },
-        };
-      });
+    targetRef.current = (preset: HedgeQuickPreset) => {
+      setFormData((prev) => applyHedgePresetToLeg(prev, preset));
     };
     return () => {
       targetRef.current = null;
@@ -712,9 +691,7 @@ export interface HedgeQuickLegProps {
    * this leg without remounting it (avoids scroll reset / flash). Registered
    * by LegPresetApplier once the leg's provider is mounted.
    */
-  presetApplyRef?: MutableRefObject<
-    ((nextDca: BotFormData['dca']) => void) | null
-  >;
+  presetApplyRef?: MutableRefObject<((preset: HedgeQuickPreset) => void) | null>;
   /**
    * When set, this leg isolates its side-effect stores (example orders /
    * indicators) so two co-mounted Quick legs don't clobber the shared globals,
