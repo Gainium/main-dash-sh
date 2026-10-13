@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.8] - 2026-10-13
+### Fixed
+- Tables: a pick-list column filter opens under its filter cell after its operator is switched between "Is any of" and "Is none of", or reset to the default, instead of in the page's top-left corner until a reload.
+
 ## [2.95.7] - 2026-10-13
 ### Fixed
 - Tables: the vertical scrollbar stays visible at the right edge while a wide table is scrolled sideways; the "scroll right" arrow now sits beside it instead of on top of it. The arrows also keep following the scroll position after switching from card view to table view, instead of freezing until a page reload.
