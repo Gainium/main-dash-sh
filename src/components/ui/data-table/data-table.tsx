@@ -2519,6 +2519,9 @@ function DataTableComponent<TData, TValue>(
   // Scroll indicator states
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  // The right indicator sits left of the vertical scrollbar, not over it.
+  const [vScrollbarWidth, setVScrollbarWidth] = useState(0);
+  const [canScrollVertically, setCanScrollVertically] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // The scroller mounts after the first render (rows load later), so the
   // header pinning needs the node itself, not a ref read in an effect.
@@ -2573,14 +2576,19 @@ function DataTableComponent<TData, TValue>(
     const container = scrollContainerRef.current;
     if (!container) return;
 
-    const { scrollLeft, scrollWidth, clientWidth } = container;
+    const { scrollLeft, scrollWidth, clientWidth, scrollHeight, clientHeight } =
+      container;
     setCanScrollLeft(scrollLeft > 0);
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+    setVScrollbarWidth(container.offsetWidth - clientWidth);
+    setCanScrollVertically(scrollHeight > clientHeight + 1);
   }, []);
 
-  // Handle scroll events
+  // Handle scroll events. Keyed on the node: the scroller mounts after the
+  // first render (rows load later, or card view switches to table), and a
+  // listener bound only at mount would leave the indicators frozen.
   useEffect(() => {
-    const container = scrollContainerRef.current;
+    const container = scrollContainerNode;
     if (!container) return;
 
     const handleScroll = () => checkScrollPosition();
@@ -2591,6 +2599,14 @@ function DataTableComponent<TData, TValue>(
 
     container.addEventListener('scroll', handleScroll);
     window.addEventListener('resize', handleResize);
+    // Rows loading or expanding change the scroll extents without a scroll.
+    const ro =
+      typeof ResizeObserver === 'undefined'
+        ? null
+        : new ResizeObserver(checkScrollPosition);
+    ro?.observe(container);
+    const tableEl = container.querySelector('table');
+    if (tableEl) ro?.observe(tableEl);
 
     // Initial check
     checkScrollPosition();
@@ -2598,8 +2614,9 @@ function DataTableComponent<TData, TValue>(
     return () => {
       container.removeEventListener('scroll', handleScroll);
       window.removeEventListener('resize', handleResize);
+      ro?.disconnect();
     };
-  }, [checkScrollPosition]);
+  }, [checkScrollPosition, scrollContainerNode]);
 
   // Check scroll when data or columns change
   useEffect(() => {
@@ -4301,6 +4318,7 @@ function DataTableComponent<TData, TValue>(
           {canScrollRight && (
             <div
               className="absolute right-0 top-0 bottom-0 z-30 w-6 bg-background/95 flex items-center justify-center cursor-pointer hover:bg-background transition-all duration-200 border-l border-border/30"
+              style={{ right: vScrollbarWidth }}
               onClick={scrollRight}
               title="Scroll right"
             >
@@ -4319,7 +4337,12 @@ function DataTableComponent<TData, TValue>(
               // row.
               hasTotalsFooter ? 'pb-0' : 'pb-4',
               canScrollLeft ? 'pl-6' : 'pl-0',
-              canScrollRight ? 'pr-6' : 'pr-0'
+              canScrollRight ? 'pr-6' : 'pr-0',
+              // Desktop: wheel scrolling stops at the table's ends instead of
+              // moving the page. Only while it scrolls vertically — a table
+              // with sideways overflow alone would otherwise swallow the
+              // page's wheel scroll. Phones keep page-first scrolling.
+              canScrollVertically && 'md:overscroll-y-contain'
             )}
             onMouseDown={(e) => {
               // Check if this is a drag handle interaction

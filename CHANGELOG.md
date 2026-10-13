@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.95.7] - 2026-10-13
+### Fixed
+- Tables: the vertical scrollbar stays visible at the right edge while a wide table is scrolled sideways; the "scroll right" arrow now sits beside it instead of on top of it. The arrows also keep following the scroll position after switching from card view to table view, instead of freezing until a page reload.
+- Tables on desktop: wheel scrolling past the first or last row no longer carries on into the page. Tables that do not scroll vertically still pass the wheel to the page, and phones keep scrolling the page first.
+
 ## [2.95.6] - 2026-10-13
 ### Fixed
 - DCA deals with smart orders: a resting limit add-funds order no longer hides the projected safety orders priced between the placed ones and the add-funds price. An addition is not a level of the ladder, so it no longer marks where the projected levels begin. The bot itself was not affected; it still places those levels.
