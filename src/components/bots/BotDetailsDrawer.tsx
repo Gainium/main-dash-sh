@@ -1047,6 +1047,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
             sl: order.sl,
             clientOrderId: order.clientOrderId,
             reduceFundsId: order.reduceFundsId,
+            addFundsId: order.addFundsId,
             // The moment the order EXECUTED — what the chart plots its
             // buy/sell markers on. Placement time is wrong for a limit that
             // rested before filling, and `updateTime` is wrong for a partial

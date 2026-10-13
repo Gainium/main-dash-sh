@@ -49,6 +49,7 @@ const botSettings = `
 const orders = `
     clientOrderId
     reduceFundsId
+    addFundsId
     origQty
     executedQty
     price

@@ -2727,6 +2727,8 @@ export type OrderData = {
   acAfter?: number;
   acBefore?: number;
   reduceFundsId?: string;
+  /** Set on an add-funds order; such an order is not a ladder level. */
+  addFundsId?: string;
 };
 
 export type ProfitLossStats = {

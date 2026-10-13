@@ -50,6 +50,7 @@ export interface ViewOrder {
   sl?: boolean;
   clientOrderId: string;
   reduceFundsId?: string;
+  addFundsId?: string;
   time: number;
 }
 

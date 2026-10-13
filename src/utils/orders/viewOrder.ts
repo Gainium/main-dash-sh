@@ -57,6 +57,7 @@ export const orderDataToViewOrder = (
     sl: order.sl,
     clientOrderId: order.clientOrderId,
     reduceFundsId: order.reduceFundsId,
+    addFundsId: order.addFundsId,
     // Execution time, which chart markers are plotted on — see
     // `getOrderExecutionTime` for why neither placement time nor `updateTime`
     // is right for every order.

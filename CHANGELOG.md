@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.6] - 2026-10-13
+### Fixed
+- DCA deals with smart orders: a resting limit add-funds order no longer hides the projected safety orders priced between the placed ones and the add-funds price. An addition is not a level of the ladder, so it no longer marks where the projected levels begin. The bot itself was not affected; it still places those levels.
+
 ## [2.95.5] - 2026-10-12
 ### Fixed
 - Bot form: picking a pair with "Change pair" clears the "Removed … unsupported" notice left by an exchange switch, instead of keeping it up so the new pair looked rejected too.
