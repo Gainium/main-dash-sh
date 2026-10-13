@@ -11,6 +11,7 @@ import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
 import {
   calculateDealCost,
   calculateDealSize,
+  calculateDealValue,
   dealWorkingMs,
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
@@ -150,7 +151,10 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     initialPrice: deal.initialPrice,
     pnl: deal.profit?.totalUsd || 0,
     cost,
-    value: cost + (deal.profit?.totalUsd || 0),
+    // Notional = the position's value, NOT cost + profit: `cost` is already
+    // divided by leverage, so that repeated the margin on a leveraged futures
+    // deal. Same helper as Terminal deals and V1's bot deals table.
+    value: calculateDealValue(metricsInput),
     size: calculateDealSize(metricsInput),
     // SHORT spot / COIN-M usage lives on the base side; reading only the quote
     // side reported 0% usage for short deals (legacy parity with

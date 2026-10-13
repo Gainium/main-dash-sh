@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.9] - 2026-10-13
+### Fixed
+- Bot deals: the Notional Value column of a leveraged futures deal shows the full position value (cost × leverage), as Terminal deals do, instead of repeating its Cost.
+
 ## [2.95.8] - 2026-10-13
 ### Fixed
 - Tables: a pick-list column filter opens under its filter cell after its operator is switched between "Is any of" and "Is none of", or reset to the default, instead of in the page's top-left corner until a reload.
