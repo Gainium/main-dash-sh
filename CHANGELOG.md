@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.12] - 2026-10-14
+### Fixed
+- Combo bot deals table: a SHORT spot or COIN-M deal shows its real Cost, Notional Value, Size and usage. These were read from the quote side only, where such deals hold nothing, so Cost was blank, Notional Value showed just the deal's profit and Size showed the wallet's base balance instead of the position. Notional Value is now the position's value for every combo deal, not cost plus profit.
+
 ## [2.95.11] - 2026-10-14
 ### Fixed
 - Trading page, Trades tab: an open DCA or terminal deal's Unrealized P&L on its card is now calculated from the current price shown on the same card. Before, it showed the last value saved on the server, which could be much older than that price, so the figure and even its sign could disagree with the price next to it.

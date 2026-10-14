@@ -11,9 +11,17 @@
  */
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import { computeCompoundBreakdown } from '@/lib/utils/compoundBreakdown';
-import { dealWorkingMs } from '@/lib/utils/tradingMetrics';
+import {
+  calculateDealCost,
+  calculateDealSize,
+  calculateDealValue,
+  dealWorkingMs,
+  isLongStrategy,
+} from '@/lib/utils/tradingMetrics';
+import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { formatDuration } from '@/utils/formatters';
 import { extractPairAssets } from '@/utils/pairs';
+import { ExchangeEnum } from '@/types';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -30,7 +38,37 @@ export function comboDealToOpenTrade(
     deal.symbol?.baseAsset || extractPairAssets(symbol).baseAsset || symbol;
   const quoteSymbol = deal.symbol?.quoteAsset || 'USD';
   const pair = `${baseSymbol}/${quoteSymbol}`;
-  const cost = deal.usage?.current?.quote || 0;
+  // Usage lives on the QUOTE side for LONG spot / USD-M futures but on the
+  // BASE side for SHORT spot / COIN-M. Reading only `usage.current.quote` gave
+  // every SHORT spot combo deal a Cost of 0, so Notional (cost + profit) showed
+  // just the deal's profit, and Size showed the wallet balance instead of the
+  // position. Same short-aware helpers as `dcaDealToOpenTrade`.
+  const futures =
+    `${deal.settings?.futures}` !== 'null'
+      ? deal.settings?.futures
+      : isFuturesExchange(deal.exchange ?? ExchangeEnum.binance);
+  const coinm =
+    `${deal.settings?.coinm}` !== 'null'
+      ? deal.settings?.coinm
+      : isCoinmExchange(deal.exchange ?? ExchangeEnum.binance);
+  const metricsInput = {
+    strategy: deal.strategy,
+    status: deal.status,
+    avgPrice: deal.avgPrice,
+    usage: {
+      current: {
+        base: deal.usage?.current?.base || 0,
+        quote: deal.usage?.current?.quote || 0,
+      },
+    },
+    currentBalances: deal.currentBalances,
+    initialBalances: deal.initialBalances,
+    futures,
+    coinm,
+    leverage: deal.settings?.leverage,
+    marginType: deal.settings?.marginType,
+  };
+  const cost = calculateDealCost(metricsInput);
   const createdTime = deal.createTime ? new Date(deal.createTime) : new Date();
   // Closed/canceled deals stop at their close instead of counting on to now —
   // see `dealWorkingMs` (V1 parity, bug #567). Formatted through the shared
@@ -99,11 +137,16 @@ export function comboDealToOpenTrade(
     initialPrice: deal.initialPrice,
     pnl: deal.profit?.totalUsd || 0,
     cost,
-    value: cost + (deal.profit?.totalUsd || 0),
-    size: deal.currentBalances?.base || 0,
-    usagePercentage: deal.usage?.max?.quote
-      ? (deal.usage.current.quote / deal.usage.max.quote) * 100
-      : 0,
+    // Notional = the position's value, not cost + profit.
+    value: calculateDealValue(metricsInput),
+    size: calculateDealSize(metricsInput),
+    usagePercentage: (futures ? coinm : !isLongStrategy(deal.strategy))
+      ? deal.usage?.max?.base
+        ? ((deal.usage.current?.base || 0) / deal.usage.max.base) * 100
+        : 0
+      : deal.usage?.max?.quote
+        ? ((deal.usage.current?.quote || 0) / deal.usage.max.quote) * 100
+        : 0,
     createdTime,
     workingTime,
     drawdown: deal.stats?.drawdownPercent ? deal.stats.drawdownPercent * 100 : 0,
