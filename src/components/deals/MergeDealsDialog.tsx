@@ -159,7 +159,7 @@ function ExitOption({
   const disabled = exit.kind === 'none';
   const value =
     exit.kind === 'price'
-      ? `${fmt(exit.price)} (${exit.perc}%${exit.extra ? `, ${exit.extra}` : ''})`
+      ? `≈ ${fmt(exit.price)} (${exit.perc}%${exit.extra ? `, ${exit.extra}` : ''})`
       : exit.kind === 'other'
         ? exit.label
         : '';
@@ -375,7 +375,7 @@ export const MergeDealsDialog: React.FC<MergeDealsDialogProps> = ({
             <div className="space-y-xs rounded-lg border border-border p-sm">
               <div className="flex items-center gap-xs text-xs text-muted-foreground">
                 Merged deal exits
-                <Tooltip tooltip="By default the merged deal has no take profit or stop loss and is closed by you. Tick one to give it the bot's, priced from the merged average.">
+                <Tooltip tooltip="By default the merged deal has no take profit or stop loss and is closed by you. Tick one to give it the bot's, priced from the merged average. Prices are estimates: the placed take profit is adjusted slightly to cover trading fees.">
                   <InfoIcon />
                 </Tooltip>
               </div>
