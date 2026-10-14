@@ -359,6 +359,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   shouldShowAddButton={!isSinglePairOnly}
                   showAllOption={false}
                   onPairClick={handleChartPairSelect}
+                  pickerView="table"
                 />
                 {useMulti && (
                   <div className="space-y-1">

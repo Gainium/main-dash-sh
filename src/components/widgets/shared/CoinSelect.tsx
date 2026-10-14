@@ -17,6 +17,8 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import { ListModal, type ListModalSortOption } from './ListModal';
+import { PairPickerDialog, type PairPickerRow } from './PairPickerDialog';
+import { usePairPickerLimits } from './usePairPickerLimits';
 
 const NO_TOP_KEYS = [] as const;
 const NO_PAIR_ITEMS: CoinListItem[] = [];
@@ -95,6 +97,12 @@ export interface CoinFilterProps {
    * exchange pairs.
    */
   pairItems?: CoinListItem[];
+  /**
+   * Pairs mode: `'table'` opens the add-pairs dialog as a data table with
+   * card and table views and the exchange's trading limits (spec 115). The
+   * single-pair change dialog keeps the list. Default `'list'`.
+   */
+  pickerView?: 'list' | 'table';
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -114,6 +122,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   onReplaceCoin,
   modalZIndex,
   pairItems: pairItemsProp,
+  pickerView = 'list',
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -245,6 +254,18 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // should be enforced at submit time, not by hiding pairs from search.
   const botFormQuery = React.useContext(BotFormQueryContext);
   const pairItems = pairItemsProp ?? botFormQuery?.pairItems ?? NO_PAIR_ITEMS;
+
+  // Table view (spec 115) for adding pairs; replacing the only pair keeps the
+  // list dialog. Limits are computed whenever the table picker is in use so
+  // the leverage query is warm before the dialog opens.
+  const tablePicker = isPairsMode && pickerView === 'table';
+  const tableDialogOpen =
+    tablePicker && showCoinDialog && replacingSymbol === null;
+  const pairLimits = usePairPickerLimits(
+    tablePicker,
+    tableDialogOpen,
+    botFormQuery?.pairMetadata?.bySelectionSymbol
+  );
 
   const coinItems = useMemo(() => {
     if (isPairsMode || !pairsByExchange) {
@@ -415,6 +436,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
     assetCategoryByBase,
   ]);
 
+  const listModalItemsBySymbol = useMemo(
+    () => new Map(listModalItems.map((item) => [item.symbol, item])),
+    [listModalItems]
+  );
+
   // Asset classes actually present among the modal items (drives which filter
   // chips render). Missing class counts as crypto.
   const availableAssetClasses = useMemo<AssetClass[]>(() => {
@@ -437,6 +463,30 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
         item.baseAsset ? marketLookup(item.baseAsset) != null : false
       ),
     [isPairsMode, modalItems, marketLookup]
+  );
+
+  const pickerRows = useMemo<PairPickerRow[]>(() => {
+    if (!tablePicker) return [];
+    const rows: PairPickerRow[] = [];
+    for (const item of filteredPairItems) {
+      if (!item.baseAsset || !item.quoteAsset) continue;
+      const enriched = listModalItemsBySymbol.get(item.symbol);
+      if (!enriched) continue;
+      rows.push({
+        ...enriched,
+        baseAsset: item.baseAsset,
+        quoteAsset: item.quoteAsset,
+        ...(pairLimits(item.symbol) ?? {}),
+      });
+    }
+    return rows;
+  }, [tablePicker, filteredPairItems, listModalItemsBySymbol, pairLimits]);
+
+  // "Select all matching" goes through the form's bulk-add path, which owns
+  // the anchor and plan-limit rules and their messages.
+  const handleAddMany = useCallback(
+    (symbols: string[]) => onPairsPaste?.(symbols.join('\n')),
+    [onPairsPaste]
   );
 
   const isLastCoin = selectedCoins.length === 1;
@@ -752,7 +802,26 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       </div>
 
       {/* Selection Modal */}
-      <ListModal
+      {tableDialogOpen ? (
+        <PairPickerDialog
+          {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
+          isOpen
+          onClose={handleDialogClose}
+          title="Select Pairs"
+          rows={pickerRows}
+          selectedItems={selectedCoins}
+          onItemToggle={handleDialogToggle}
+          onToggleFavorite={toggleStarredPair}
+          onAddMany={handleAddMany}
+          anchor={
+            filterActive && pairFilter
+              ? { dimension: pairFilter.dimension, asset: pairFilter.anchor }
+              : null
+          }
+          isLoading={tradingPairsLoading}
+        />
+      ) : (
+        <ListModal
         {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
         isOpen={showCoinDialog}
         onClose={handleDialogClose}
@@ -806,7 +875,8 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
             // handler could only ever answer "Maximum pairs to choose is 1".
             { onPaste: onPairsPaste }
           : {})}
-      />
+        />
+      )}
     </>
   );
 };

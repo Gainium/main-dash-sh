@@ -11,6 +11,7 @@ import React, {
 import { createPortal } from 'react-dom';
 import { type AssetClass } from '../../../hooks/useTradingPairs';
 import { formatExchangeProvider } from '../../../utils/exchangeUtils';
+import { formatMinOrder } from '../../../utils/pairPicker';
 import {
   isPairSymbolReconstructable,
   normalizePairKey,
@@ -32,7 +33,7 @@ import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import ExchangeIcon from './ExchangeIcon';
 
-interface ListItem {
+export interface ListItem {
   symbol: string;
   name: string;
   icon: string;
@@ -76,6 +77,11 @@ interface ListItem {
   rsi?: number;
   roi?: number;
   isFavorite?: boolean;
+  // Exchange trading limits (pair picker table, spec 115): the smallest
+  // accepted order in the quote asset and the max leverage. Shown in the
+  // expanded detail only when known.
+  minOrder?: number;
+  maxLeverage?: number;
   /**
    * Why this item can't be picked right now (e.g. its quote asset doesn't
    * match the bot's already-anchored quote). Present => the row renders dimmed
@@ -515,7 +521,7 @@ const MeasuredRow: React.FC<{
   );
 };
 
-const ListModalRow = React.memo<ListModalRowProps>(
+export const ListModalRow = React.memo<ListModalRowProps>(
   ({ item, isSelected, enableFavorites, onToggle, onToggleFavorite }) => {
     const [expanded, setExpanded] = useState(false);
     const isPair = Boolean(item.baseAsset && item.quoteAsset);
@@ -557,6 +563,8 @@ const ListModalRow = React.memo<ListModalRowProps>(
         item.marketCap,
         item.rsi,
         item.volatility,
+        item.minOrder,
+        item.maxLeverage,
       ].some((v) => v != null);
     const icon = renderItemIcon(item);
 
@@ -805,6 +813,20 @@ const ListModalRow = React.memo<ListModalRowProps>(
                   <DetailRow
                     label="Volatility"
                     value={`${item.volatility.toFixed(1)}%`}
+                  />
+                )}
+                {item.minOrder != null && (
+                  <DetailRow
+                    label="Min order"
+                    value={`${formatMinOrder(item.minOrder)} ${
+                      item.quoteAsset ?? ''
+                    }`.trim()}
+                  />
+                )}
+                {item.maxLeverage != null && (
+                  <DetailRow
+                    label="Max leverage"
+                    value={`${item.maxLeverage}×`}
                   />
                 )}
               </div>

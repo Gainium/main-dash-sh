@@ -1057,6 +1057,19 @@ interface DataTableProps<TData, TValue> {
   onSortingChange?: (
     updater: SortingState | ((prev: SortingState) => SortingState)
   ) => void;
+  /**
+   * Caller-owned column filters. When passed, the table filters by these
+   * instead of its persisted ones (same contract as `sorting`) — for a table
+   * whose filters come from its context, e.g. a picker seeded with the asset
+   * every candidate has to share.
+   */
+  columnFilters?: ColumnFiltersState;
+  onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
+  /**
+   * Called with the rows passing every filter and the search (before
+   * pagination) whenever that set changes — for "act on what's shown".
+   */
+  onFilteredRowsChange?: (rows: TData[]) => void;
   enableColumnReordering?: boolean;
   enableColumnVisibility?: boolean;
   enableColumnResizing?: boolean;
@@ -2145,6 +2158,9 @@ function DataTableComponent<TData, TValue>(
     enableSorting,
     sorting: externalSorting,
     onSortingChange: externalOnSortingChange,
+    columnFilters: externalColumnFilters,
+    onColumnFiltersChange: externalOnColumnFiltersChange,
+    onFilteredRowsChange,
     //enableColumnReordering = true,
     enableColumnVisibility,
     enableColumnResizing,
@@ -2213,6 +2229,9 @@ function DataTableComponent<TData, TValue>(
       enableSorting: props.enableSorting ?? true,
       sorting: props.sorting,
       onSortingChange: props.onSortingChange,
+      columnFilters: props.columnFilters,
+      onColumnFiltersChange: props.onColumnFiltersChange,
+      onFilteredRowsChange: props.onFilteredRowsChange,
       enableColumnVisibility: props.enableColumnVisibility ?? true,
       enableColumnResizing: props.enableColumnResizing ?? true,
       enableGrouping: props.enableGrouping ?? false,
@@ -2404,8 +2423,11 @@ function DataTableComponent<TData, TValue>(
   // is marked "not applied" and left out of the query by the caller, never
   // dropped (see serverSide.filterStatus).
   const columnFilters = useMemo(
-    () => persistedColumnFilters,
-    [persistedColumnFilters]
+    () =>
+      externalColumnFilters !== undefined
+        ? externalColumnFilters
+        : persistedColumnFilters,
+    [externalColumnFilters, persistedColumnFilters]
   );
 
   // Handle column filters changes with persistence
@@ -2417,9 +2439,13 @@ function DataTableComponent<TData, TValue>(
     ) => {
       const newFilters =
         typeof updater === 'function' ? updater(columnFilters) : updater;
-      setPersistedColumnFilters(newFilters);
+      if (externalOnColumnFiltersChange) {
+        externalOnColumnFiltersChange(newFilters);
+      } else {
+        setPersistedColumnFilters(newFilters);
+      }
     },
-    [columnFilters, setPersistedColumnFilters]
+    [columnFilters, externalOnColumnFiltersChange, setPersistedColumnFilters]
   );
 
   // Global (search) filter is persisted per-tableId in the same store as
@@ -4036,6 +4062,14 @@ function DataTableComponent<TData, TValue>(
   // render is cheap and always reflects the current data.
   const tableState = table.getState();
   const tableFilter = table.getFilteredRowModel();
+  // Report the filtered set (pre-pagination) to a caller acting on "what's
+  // shown". The model is memoized on state, so this fires only when the set
+  // changes; the callback is read through a ref so an inline one can't loop.
+  const onFilteredRowsChangeRef = useRef(onFilteredRowsChange);
+  onFilteredRowsChangeRef.current = onFilteredRowsChange;
+  useEffect(() => {
+    onFilteredRowsChangeRef.current?.(tableFilter.rows.map((r) => r.original));
+  }, [tableFilter]);
   const { pageIndex, pageSize } = useMemo(
     () => tableState.pagination,
     [tableState?.pagination]

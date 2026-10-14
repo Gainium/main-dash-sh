@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.96.0] - 2026-10-14
+### Added
+- Bot form pair picker (DCA and Combo, adding pairs): card and table views. The table view has columns for each pair's minimum order on the exchange (in the quote asset) and, for futures, its maximum leverage, alongside favourites and market data. Every column sorts and filters.
+- "Fits this bot" switch, on by default: hides pairs the bot can't trade with its current settings — an order below the exchange minimum (unless raising orders to the minimum is on), or leverage above the pair's maximum. With it off, those pairs are shown greyed out with the reason.
+- "Select all matching" adds every pair passing the current filters and search, within the plan's pair limit.
+### Changed
+- In the pair picker, the bot's shared quote (or base) asset is now an ordinary table filter. Clearing it shows the other pairs, greyed out with the reason.
+### Removed
+- Pasting a list of pairs into the search box of the DCA and Combo pair picker.
+
 ## [2.95.17] - 2026-10-14
 ### Fixed
 - Hedge bots: after saving an existing hedge bot, the Long / Short leg forms now show the settings that were just saved. Before, they reloaded the settings from before the save, so a save that had worked looked as if it had not.
