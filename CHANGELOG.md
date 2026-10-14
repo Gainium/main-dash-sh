@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.15] - 2026-10-14
+### Changed
+- A deal's Unrealized P&L now shows only the position that is still open. What the deal has already banked — a Reduce Funds sale, a partial take profit, a combo's grid sells — is shown under Realized P&L only, so Realized + Unrealized equals the deal's Net P&L. Before, the banked amount was also included in Unrealized and counted twice when the two were added, including in the table's totals row. Applies to the Trading and Terminal deal tables (and their Unrealized P&L, % columns), the bot drawer's deals table, deal cards, the deal details panel, the smart-order merge dialog and the deals treemap. Net P&L is unchanged; grid bots already showed only the open position.
+
 ## [2.95.14] - 2026-10-14
 ### Changed
 - Unrealized P&L that is not calculated from a live price yet is shown dimmed, with a tooltip saying why. This covers the moments after a page load, when prices saved from the previous visit or the server's last saved value are shown, and pairs the price feed does not carry. Applies to trade cards and the Trading table, deal tables, bot cards and lists (DCA, Combo, Grid, Hedge), the bot drawer, and Top Deals.

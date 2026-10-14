@@ -15,6 +15,7 @@ import React from 'react';
 import { formatCurrency, formatPercentage } from '../../lib/utils';
 import { formatPriceWithPrecision } from '@/utils/formatters';
 import { formatNumber } from '../../utils/numberFormatter';
+import { calculateDealOpenPnl } from '@/lib/utils/tradingMetrics';
 import { Card } from '../ui/card';
 import {
   BotTypeChip,
@@ -155,6 +156,12 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
   const isClosedTrade = ['closed', 'cancelled', 'canceled'].includes(
     normalizedStatus
   );
+  // Open position only: what the deal already banked is under Realized.
+  const openUnrealized = calculateDealOpenPnl({
+    active: !isClosedTrade,
+    unrealizedProfit: trade.unrealizedProfit,
+    realizedProfit: trade.profit?.totalUsd,
+  });
 
   // Extract symbol string
   const symbolString =
@@ -281,17 +288,17 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
             </div>
           </Card>
 
-          {trade.unrealizedProfit !== undefined && !isClosedTrade && (
+          {openUnrealized !== undefined && !isClosedTrade && (
             <Card className="p-md">
               <div className="space-y-xs">
                 <div className="text-sm text-muted-foreground">
                   Unrealized Profit
                 </div>
                 <ProfitAndPerc
-                  value={trade.unrealizedProfit}
+                  value={openUnrealized}
                   percentage={
                     trade.usage.currentUsd
-                      ? (trade.unrealizedProfit / trade.usage.currentUsd) * 100
+                      ? (openUnrealized / trade.usage.currentUsd) * 100
                       : 0
                   }
                   privacyMode={privacyMode}

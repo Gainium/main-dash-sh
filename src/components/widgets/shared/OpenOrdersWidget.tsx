@@ -35,6 +35,7 @@ import { formatTradingPair } from '@/lib/utils';
 import {
     calculateDealCost,
     calculateDealNetPnl,
+    calculateDealOpenPnl,
     calculateDealSize,
     calculateDealValue,
     calculatePnlPercentage,
@@ -1741,7 +1742,14 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       },
       {
         id: 'unrealizedProfit',
-        accessorFn: (row) => toSortableMetricValue(row.unrealizedProfit),
+        accessorFn: (row) =>
+          toSortableMetricValue(
+            calculateDealOpenPnl({
+              active: row.active,
+              unrealizedProfit: row.unrealizedProfit,
+              realizedProfit: row.profit?.totalUsd,
+            })
+          ),
         header: 'Unrealized P&L',
         meta: {
           filterType: 'number',
@@ -1770,7 +1778,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (pricesLoading) {
             return <Skeleton className="h-4 w-16" />;
           }
-          const unrealizedProfit = row.original.unrealizedProfit;
+          const unrealizedProfit = calculateDealOpenPnl({
+            active: row.original.active,
+            unrealizedProfit: row.original.unrealizedProfit,
+            realizedProfit: row.original.profit?.totalUsd,
+          });
           if (isMetricUnavailable(unrealizedProfit)) {
             return (
               <span className="text-sm text-muted-foreground">
@@ -1799,7 +1811,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         id: 'unrealizedProfitPercentage',
         accessorFn: (row) => {
           const percentage = calculatePnlPercentageNullable(
-            row.unrealizedProfit,
+            calculateDealOpenPnl({
+              active: row.active,
+              unrealizedProfit: row.unrealizedProfit,
+              realizedProfit: row.profit?.totalUsd,
+            }),
             row.cost
           );
           return toSortableMetricValue(percentage);
@@ -1815,7 +1831,11 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (pricesLoading) {
             return <Skeleton className="h-4 w-12" />;
           }
-          const unrealizedProfit = row.original.unrealizedProfit;
+          const unrealizedProfit = calculateDealOpenPnl({
+            active: row.original.active,
+            unrealizedProfit: row.original.unrealizedProfit,
+            realizedProfit: row.original.profit?.totalUsd,
+          });
           if (isMetricUnavailable(unrealizedProfit)) {
             return (
               <ProfitLossPercChip

@@ -55,6 +55,7 @@ import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import {
     calculateDealNetPnl,
+    calculateDealOpenPnl,
     calculatePnlPercentage,
     calculatePnlPercentageNullable,
     dealGridProfitPercentageSortValue,
@@ -1897,7 +1898,14 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       ReturnType<typeof transformDealToTradeWrapper>
     > = {
       id: 'unrealizedPnl',
-      accessorFn: (row) => toSortableMetricValue(row.unrealizedProfit),
+      accessorFn: (row) =>
+        toSortableMetricValue(
+          calculateDealOpenPnl({
+            active: row.active,
+            unrealizedProfit: row.unrealizedProfit,
+            realizedProfit: row.profit?.totalUsd ?? row.pnl,
+          })
+        ),
       header: 'Unrealized P&L',
       meta: { filterType: 'number' },
       cell: ({ row }) => {
@@ -1909,7 +1917,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (pricesLoading) {
           return <Skeleton className="h-4 w-16" />;
         }
-        const unrealizedPnl = trade.unrealizedProfit;
+        const unrealizedPnl = calculateDealOpenPnl({
+          active: trade.active,
+          unrealizedProfit: trade.unrealizedProfit,
+          realizedProfit: trade.profit?.totalUsd ?? trade.pnl,
+        });
         if (isMetricUnavailable(unrealizedPnl)) {
           return (
             <span className="text-sm text-muted-foreground">
@@ -1942,7 +1954,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       id: 'unrealizedPnlPercentage',
       accessorFn: (row) => {
         const percentage = calculatePnlPercentageNullable(
-          row.unrealizedProfit,
+          calculateDealOpenPnl({
+            active: row.active,
+            unrealizedProfit: row.unrealizedProfit,
+            realizedProfit: row.profit?.totalUsd ?? row.pnl,
+          }),
           row.cost
         );
         return toSortableMetricValue(percentage);
@@ -1958,7 +1974,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (pricesLoading) {
           return <Skeleton className="h-4 w-12" />;
         }
-        const unrealizedPnl = trade.unrealizedProfit;
+        const unrealizedPnl = calculateDealOpenPnl({
+          active: trade.active,
+          unrealizedProfit: trade.unrealizedProfit,
+          realizedProfit: trade.profit?.totalUsd ?? trade.pnl,
+        });
         if (isMetricUnavailable(unrealizedPnl)) {
           return (
             <ProfitLossPercChip

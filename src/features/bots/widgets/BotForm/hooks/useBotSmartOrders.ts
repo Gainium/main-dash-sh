@@ -2,6 +2,8 @@ import { useMemo } from 'react';
 
 import type { SmartOrderMergeDeal } from '@/features/bots/bot-types/dca/form/dialogs/SmartOrderMergeDialog';
 import { useDcaDeals } from '@/hooks/useDcaDeals';
+import { isActiveDealStatus } from '@/lib/utils/dealUnrealizedPnl';
+import { calculateDealOpenPnl } from '@/lib/utils/tradingMetrics';
 import { DCADealStatusEnum } from '@/types';
 
 interface UseBotSmartOrdersOptions {
@@ -66,7 +68,12 @@ export function useBotSmartOrders({
         }
 
         if (typeof deal.stats.unrealizedProfit === 'number') {
-          next.profitUsd = deal.stats.unrealizedProfit;
+          // Open position only: what the deal already banked is realized.
+          next.profitUsd = calculateDealOpenPnl({
+            active: isActiveDealStatus(deal.status),
+            unrealizedProfit: deal.stats.unrealizedProfit,
+            realizedProfit: deal.profit?.totalUsd,
+          });
         } else if (typeof deal.profit?.totalUsd === 'number') {
           next.profitUsd = deal.profit.totalUsd;
         }

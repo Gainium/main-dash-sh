@@ -11,6 +11,7 @@ import { BotTypesEnum } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatNumber } from '@/utils/numberFormatter';
+import { calculateDealOpenPnl } from '@/lib/utils/tradingMetrics';
 import { formatPairPrice } from '@/utils/formatters';
 import { extractPairAssets, findTradingPair } from '@/utils/pairs';
 import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
@@ -597,11 +598,23 @@ const EnhancedCard = React.memo(
       }
       return 0;
     }, [investedAmount, trade.pnl, trade.profit?.totalUsd]);
+    // Open position only: what the deal already banked is under Realized.
+    const openUnrealized = useMemo(
+      () =>
+        Number(
+          calculateDealOpenPnl({
+            active: trade.active,
+            unrealizedProfit: trade.unrealizedProfit,
+            realizedProfit: trade.profit?.totalUsd,
+          }) || 0
+        ),
+      [trade.active, trade.unrealizedProfit, trade.profit?.totalUsd]
+    );
     const unrealizedRoi = useMemo(() => {
       const base = investedAmount || 0;
       if (base <= 0) return 0;
-      return ((trade.unrealizedProfit || 0) / base) * 100;
-    }, [investedAmount, trade.unrealizedProfit]);
+      return (openUnrealized / base) * 100;
+    }, [investedAmount, openUnrealized]);
 
     // A deal with a single order (just the base buy) has no DCA ladder, so its
     // usage gauge would always read ~100% — meaningless. Hide it in that case.
@@ -615,9 +628,7 @@ const EnhancedCard = React.memo(
     // The P/L summary box shows realized P/L for closed deals, unrealized for
     // open ones — exactly one applies per card.
     const isClosedDeal = !trade.active;
-    const pnlBoxValue = isClosedDeal
-      ? trade.pnl || 0
-      : trade.unrealizedProfit || 0;
+    const pnlBoxValue = isClosedDeal ? trade.pnl || 0 : openUnrealized;
     const pnlBoxRoi = isClosedDeal ? realizedRoi : unrealizedRoi;
     const pnlBoxLabel = isClosedDeal ? 'Realized' : 'Unrealized';
     const pnlPending = !isClosedDeal && !!trade.unrealizedPending;
@@ -1242,13 +1253,21 @@ const SimpleCard = React.memo(
             `${formatNumber(trade.profit?.totalUsd || 0, true)} USD`,
       [privacyMode, trade.profit]
     );
+    // Open position only: what the deal already banked is under Realized.
+    const openUnrealized = Number(
+      calculateDealOpenPnl({
+        active: trade.active,
+        unrealizedProfit: trade.unrealizedProfit,
+        realizedProfit: trade.profit?.totalUsd,
+      }) || 0
+    );
     const unrealizedProfitDisplay = useMemo(
       () =>
         privacyMode
           ? '***'
           : // The canonical fee-inclusive uPnL is in US dollars.
-            `${formatNumber(trade.unrealizedProfit || 0, true)} USD`,
-      [privacyMode, trade.unrealizedProfit]
+            `${formatNumber(openUnrealized, true)} USD`,
+      [privacyMode, openUnrealized]
     );
     const fundingDisplay = useMemo(
       () =>
@@ -1357,7 +1376,7 @@ const SimpleCard = React.memo(
             {trade.active && (
               <div
                 className={`p-1 rounded-md border text-center ${
-                  (trade.unrealizedProfit || 0) < 0
+                  openUnrealized < 0
                     ? 'bg-loss/10 border-loss/20'
                     : 'bg-profit/10 border-profit/20'
                 }`}
@@ -1365,7 +1384,7 @@ const SimpleCard = React.memo(
                 <div className="text-xs text-muted-foreground">Unrealized</div>
                 <div
                   className={`text-sm font-semibold ${
-                    (trade.unrealizedProfit || 0) < 0
+                    openUnrealized < 0
                       ? 'text-loss'
                       : 'text-profit'
                   }`}

@@ -5,6 +5,7 @@ import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api';
 import type { ReturnResult } from '@/lib/api/types';
 import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
+import { calculateDealOpenPnl } from '@/lib/utils/tradingMetrics';
 import {
   BotTypesEnum,
   StatusEnum,
@@ -761,9 +762,16 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
       return filteredDeals
         .map((deal) => {
           const metricKey = deal._id || deal.botId;
-          const unrealizedPnL =
-            externalDealMetrics?.[metricKey]?.unrealizedUsd ??
-            serverDealUnrealizedPnl(deal)?.unrealizedUsd;
+          // Open position only: what the deal already banked (reduce,
+          // partial TP) is realized, not part of its unrealized P&L.
+          const realizedUsd = deal.profit?.totalUsd || 0;
+          const unrealizedPnL = calculateDealOpenPnl({
+            active: true,
+            unrealizedProfit:
+              externalDealMetrics?.[metricKey]?.unrealizedUsd ??
+              serverDealUnrealizedPnl(deal)?.unrealizedUsd,
+            realizedProfit: realizedUsd,
+          });
 
           // Calculate value percentage using unrealized PnL
           // Match Trades page denominator: usage.currentUsd fallback to usage.current.quote
@@ -771,7 +779,10 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
             deal.usage?.currentUsd ?? deal.usage?.current?.quote ?? 0;
           let valuePercentage = 0;
           // If external metrics provided, prefer its percentage
+          // The external percentage is deal-wide, so it only applies while
+          // the deal has banked nothing.
           if (
+            !realizedUsd &&
             externalDealMetrics?.[metricKey] &&
             Number.isFinite(externalDealMetrics[metricKey].unrealizedPct)
           ) {

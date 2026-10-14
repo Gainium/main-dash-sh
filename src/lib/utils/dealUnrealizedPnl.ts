@@ -24,6 +24,12 @@
  * Combo: the whole deal's P&L (grid proceeds included — see
  * 0-knowledge/domain/pnl-accounting-policy.md), minus the fees actually paid
  * when the deal tracks them, else minus the closing fee.
+ *
+ * Both are DEAL-WIDE: whatever the deal has already banked (reduce, partial
+ * TP, grid sells) is inside the result. That is the deal's Net P&L while it is
+ * open, and it is what main-app stores in `stats.unrealizedProfit`. The figure
+ * the UI labels "Unrealized" is the open position only — subtract realized via
+ * `calculateDealOpenPnl` (tradingMetrics.ts) before displaying it as such.
  */
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { findPrice, findUSDRate, type PriceData } from './unrealizedPnL';
