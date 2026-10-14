@@ -244,6 +244,15 @@ export const RESOLUTION_TO_INTERVAL_MAP: Record<
   '1W': ExchangeIntervals.oneW,
 };
 
+// Bar length of the RESOLUTION_MAP entries that have no ExchangeIntervals
+// value (and so bypass the candle cache), for sizing their request window.
+const UNCACHED_RESOLUTION_MS: Record<string, number> = {
+  '360': 6 * 60 * 60 * 1000,
+  '720': 12 * 60 * 60 * 1000,
+  '3D': 3 * 24 * 60 * 60 * 1000,
+  '1M': 30 * 24 * 60 * 60 * 1000,
+};
+
 const MAX_SYNC_CHUNK_BARS = 1000;
 
 /**
@@ -296,7 +305,9 @@ export const getCandles = async (
   const interval = RESOLUTION_MAP[resolution] || RESOLUTION_MAP['1'];
   const exchangeInterval = RESOLUTION_TO_INTERVAL_MAP[resolution];
   const intervalMs =
-    (exchangeInterval && timeIntervalMap[exchangeInterval]) || 60 * 1000;
+    (exchangeInterval && timeIntervalMap[exchangeInterval]) ||
+    UNCACHED_RESOLUTION_MS[resolution] ||
+    60 * 1000;
   const maxSpanSeconds = Math.ceil((MAX_SYNC_CHUNK_BARS * intervalMs) / 1000);
 
   let allBars: Bar[] = [];

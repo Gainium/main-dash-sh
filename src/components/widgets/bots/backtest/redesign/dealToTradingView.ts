@@ -66,8 +66,11 @@ const RESOLUTION_SECONDS: Record<string, number> = {
   '60': 3600,
   '120': 7200,
   '240': 14400,
+  '360': 21600,
   '480': 28800,
+  '720': 43200,
   '1D': 86400,
+  '3D': 259200,
   '1W': 604800,
 };
 
@@ -110,6 +113,30 @@ function framingResolution(
     coarser.find((res) => barsToNow(res) <= COARSE_RESOLUTION_MAX_BARS) ??
     coarser[coarser.length - 1] ??
     runResolution
+  );
+}
+
+/**
+ * Whether a deal starting at `startMs` can be framed at `resolution`, a
+ * resolution picked on the chart: reaching it loads every bar from there up to
+ * now, so it gets the same budget {@link framingResolution} opens a deal with.
+ */
+export function dealFrameFits(
+  resolution: string,
+  runResolution: string,
+  startMs: number,
+  nowMs: number = Date.now(),
+): boolean {
+  const seconds =
+    RESOLUTION_SECONDS[resolution] ?? RESOLUTION_SECONDS[`1${resolution}`];
+  if (!seconds) return false;
+  const fromSec = Math.floor(startMs / 1000) - PAD_BARS * seconds;
+  const barsToNow = (nowMs / 1000 - fromSec) / seconds;
+  return (
+    barsToNow <=
+    (resolution === runResolution
+      ? RUN_RESOLUTION_MAX_BARS
+      : COARSE_RESOLUTION_MAX_BARS)
   );
 }
 

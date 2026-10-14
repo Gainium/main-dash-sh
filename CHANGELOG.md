@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.96.1] - 2026-10-14
+### Fixed
+- Charts: the 6h, 12h, 3D and 1M timeframes now load complete history. Before, each load asked for only the last ~17 hours of the range the chart needed, so the chart showed a few scattered candles stretched over several years.
+- Backtest results, Deals tab: picking another timeframe on the chart keeps the selected deal in view instead of jumping to the latest candles. A deal too far back to load at a much finer timeframe stays on the latest candles.
+
 ## [2.96.0] - 2026-10-14
 ### Added
 - Bot form pair picker (DCA and Combo, adding pairs): card and table views. The table view has columns for each pair's minimum order on the exchange (in the quote asset) and, for futures, its maximum leverage, alongside favourites and market data. Every column sorts and filters.

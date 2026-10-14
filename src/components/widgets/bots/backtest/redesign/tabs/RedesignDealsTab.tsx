@@ -52,6 +52,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 
 import {
   type ClipCandle,
+  dealFrameFits,
   dealToTradingView,
   intervalToResolution,
 } from '../dealToTradingView';
@@ -513,6 +514,8 @@ export function RedesignDealsTab({
   );
 
   const chartRef = useRef<TradingViewChartRef>(null);
+  // Cancels a deal reframe still waiting on a resolution's bars.
+  const reframeAfterLoadRef = useRef<(() => void) | null>(null);
 
   // Candles for the whole run window (symbol + interval are constant across
   // deals). They let `dealToTradingView` clip each order line at the real price
@@ -618,6 +621,7 @@ export function RedesignDealsTab({
   // span (open deals fall back to the run end) so short deals stay readable.
   // A focus request widens the frame to include its time.
   useEffect(() => {
+    reframeAfterLoadRef.current?.();
     if (!rawDeal?.startTime) return;
     const t = focusTimeRef.current;
     focusTimeRef.current = null;
@@ -627,6 +631,50 @@ export function RedesignDealsTab({
       t != null ? Math.max(end, t) : end,
     );
   }, [rawDeal?.startTime, rawDeal?.closedTime, sel, vm.to, focus?.nonce]);
+
+  // A resolution picked on the chart loads by scrolling to the latest bar.
+  // Frame the selected deal again once the new bars are in, unless reaching
+  // it at that resolution would load too far back. The chart core cannot
+  // defer this itself: `dataReady` still reports the previous resolution's
+  // bars as ready when the change fires, so wait for the data-loaded event.
+  const onChartIntervalChange = useCallback(
+    (resolution: string) => {
+      reframeAfterLoadRef.current?.();
+      const start = rawDeal?.startTime;
+      if (!start || !dealFrameFits(resolution, intervalResolution, start)) {
+        return;
+      }
+      const end = rawDeal.closedTime ?? vm.to;
+      const widget = chartRef.current?.getCoreRef()?.getWidget() as unknown as {
+        activeChart?: () => {
+          onDataLoaded?: () => {
+            subscribe: (obj: null, cb: () => void) => void;
+            unsubscribe: (obj: null, cb: () => void) => void;
+          };
+        };
+      } | null;
+      const loaded = widget?.activeChart?.().onDataLoaded?.();
+      if (!loaded) return;
+      const stop = () => {
+        if (reframeAfterLoadRef.current === stop) {
+          reframeAfterLoadRef.current = null;
+        }
+        try {
+          loaded.unsubscribe(null, reframe);
+        } catch {
+          /* the widget is already gone */
+        }
+      };
+      const reframe = () => {
+        stop();
+        chartRef.current?.centerAtTimestampMs(start, end);
+      };
+      loaded.subscribe(null, reframe);
+      reframeAfterLoadRef.current = stop;
+    },
+    [rawDeal?.startTime, rawDeal?.closedTime, intervalResolution, vm.to],
+  );
+  useEffect(() => () => reframeAfterLoadRef.current?.(), []);
 
   // A click on the chart near a marker's bar picks that marker.
   const onMarkerClick = extension?.onMarkerClick;
@@ -821,6 +869,7 @@ export function RedesignDealsTab({
             availableSymbols={chartProps.availableSymbols}
             interval={chartProps.interval}
             initialTimeframe={chartProps.initialTimeframe}
+            onIntervalChange={onChartIntervalChange}
             transactions={chartTransactions}
             ordersForDrawing={chartProps.ordersForDrawing}
             enableAutoSave={false}
