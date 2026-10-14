@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.10] - 2026-10-14
+### Fixed
+- Bot drawer: Net P&L and Net P&L, % of an open deal show the deal's total P&L. Before, they added the realized profit or loss from reduces, partial take-profits and grid sales on top of Unrealized P&L, which already includes it, so the result was too high or too low.
+
 ## [2.95.9] - 2026-10-13
 ### Fixed
 - Bot deals: the Notional Value column of a leveraged futures deal shows the full position value (cost × leverage), as Terminal deals do, instead of repeating its Cost.

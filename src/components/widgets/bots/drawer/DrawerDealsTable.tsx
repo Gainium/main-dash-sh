@@ -54,6 +54,7 @@ import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import {
+    calculateDealNetPnl,
     calculatePnlPercentage,
     calculatePnlPercentageNullable,
     dealGridProfitPercentageSortValue,
@@ -2040,11 +2041,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       ReturnType<typeof transformDealToTradeWrapper>
     > = {
       id: 'netPnl',
-      accessorFn: (row) => {
-        const unrealizedPnl = row.unrealizedProfit || 0;
-        const realizedPnl = row.profit?.totalUsd || row.pnl || 0;
-        return unrealizedPnl + realizedPnl;
-      },
+      accessorFn: (row) =>
+        calculateDealNetPnl({
+          active: row.active,
+          unrealizedProfit: row.unrealizedProfit,
+          realizedProfit: row.profit?.totalUsd ?? row.pnl,
+        }),
       header: 'Net P&L',
       meta: { filterType: 'number' },
       cell: ({ row }) => {
@@ -2052,9 +2054,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (trade.active && pricesLoading) {
           return <Skeleton className="h-4 w-16" />;
         }
-        const unrealizedPnl = trade.unrealizedProfit || 0;
-        const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
-        const netPnl = unrealizedPnl + realizedPnl;
+        const netPnl = calculateDealNetPnl({
+          active: trade.active,
+          unrealizedProfit: trade.unrealizedProfit,
+          realizedProfit: trade.profit?.totalUsd ?? trade.pnl,
+        });
         const cost = trade.cost || 0;
         const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
         return (
@@ -2077,9 +2081,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     > = {
       id: 'netPnlPercentage',
       accessorFn: (row) => {
-        const unrealizedPnl = row.unrealizedProfit || 0;
-        const realizedPnl = row.profit?.totalUsd || row.pnl || 0;
-        const netPnl = unrealizedPnl + realizedPnl;
+        const netPnl = calculateDealNetPnl({
+          active: row.active,
+          unrealizedProfit: row.unrealizedProfit,
+          realizedProfit: row.profit?.totalUsd ?? row.pnl,
+        });
         const cost = row.cost || 0;
         return cost > 0 ? (netPnl / cost) * 100 : 0;
       },
@@ -2090,9 +2096,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (trade.active && pricesLoading) {
           return <Skeleton className="h-4 w-12" />;
         }
-        const unrealizedPnl = trade.unrealizedProfit || 0;
-        const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
-        const netPnl = unrealizedPnl + realizedPnl;
+        const netPnl = calculateDealNetPnl({
+          active: trade.active,
+          unrealizedProfit: trade.unrealizedProfit,
+          realizedProfit: trade.profit?.totalUsd ?? trade.pnl,
+        });
         const cost = trade.cost || 0;
         const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
         if (privacyMode) {
