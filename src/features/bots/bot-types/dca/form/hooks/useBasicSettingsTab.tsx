@@ -729,6 +729,23 @@ export const useBasicSettingsTab = (
     [pairLockState.locked, normalizePair, pairs, updateFormData]
   );
 
+  // Bulk remove from the pair dialog (its select-all, unticked) — one write,
+  // since removing pair by pair would each start from the same stale list.
+  const handleRemovePairs = useCallback(
+    (symbols: string[]) => {
+      if (pairLockState.locked || !symbols.length) {
+        return;
+      }
+      const drop = new Set(symbols.map((s) => normalizePair(s)));
+      updateFormData(
+        'pair',
+        pairs.filter((item) => !drop.has(normalizePair(item)))
+      );
+      setPairError('');
+    },
+    [pairLockState.locked, normalizePair, pairs, updateFormData]
+  );
+
   const handleCoinToggle = useCallback(
     (pairSymbol: string) => {
       if (pairLockState.locked) {
@@ -1097,6 +1114,7 @@ export const useBasicSettingsTab = (
     handleReplacePair,
     handlePairsPaste,
     handleAddPairs,
+    handleRemovePairs,
     planMaxPairs,
     handleSelectAllMatching,
     handleClearPairs,

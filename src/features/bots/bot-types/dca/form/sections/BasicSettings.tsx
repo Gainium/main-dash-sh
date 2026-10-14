@@ -92,6 +92,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
     pairs,
     selectedPairSymbols,
     handleAddPairs,
+    handleRemovePairs,
     planMaxPairs,
   } = useBasicSettingsTab({
     currentExchange,
@@ -363,6 +364,7 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   onPairClick={handleChartPairSelect}
                   maxPairs={planMaxPairs}
                   onAddPairs={handleAddPairs}
+                  onRemovePairs={handleRemovePairs}
                 />
                 {useMulti && (
                   <div className="space-y-1">

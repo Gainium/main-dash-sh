@@ -104,6 +104,8 @@ export interface CoinFilterProps {
    * to show in the dialog. Falls back to `onPairsPaste`.
    */
   onAddPairs?: (symbols: string[]) => string | undefined;
+  /** Removes several pairs at once (the table picker's select-all, unticked). */
+  onRemovePairs?: (symbols: string[]) => void;
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -125,6 +127,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   pairItems: pairItemsProp,
   maxPairs,
   onAddPairs,
+  onRemovePairs,
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -499,10 +502,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   const isLastCoin = selectedCoins.length === 1;
   const changeLabel = isPairsMode ? 'Change pair' : 'Change coin';
 
-  // Pairs: the change icon opens the same dialog as "Add pairs". Coins
-  // mode keeps its replace-in-place list.
+  // The change icon opens the same dialog as "Add pairs", as a replace:
+  // no quote/base anchor (the pick becomes the only pair, so there is
+  // nothing to stay consistent with) and a pick swaps the pair.
   const openChangeDialog = (symbol: string) => {
-    if (!isPairsMode) setReplacingSymbol(symbol);
+    setReplacingSymbol(symbol);
     setShowCoinDialog(true);
   };
 
@@ -823,8 +827,13 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
           isOpen
           onClose={handleDialogClose}
-          title={singlePick ? 'Select Pair' : 'Select Pairs'}
-          singlePick={singlePick}
+          title={
+            singlePick || replacingSymbol !== null
+              ? 'Select Pair'
+              : 'Select Pairs'
+          }
+          singlePick={singlePick || replacingSymbol !== null}
+          {...(onRemovePairs ? { onRemoveMany: onRemovePairs } : {})}
           rows={pickerRows}
           selectedItems={selectedCoins}
           onItemToggle={handleDialogToggle}

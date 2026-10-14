@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.96.6] - 2026-10-14
+### Changed
+- Pair picker: "Select all matching" is a checkbox — in the selection column's header in the table, in the toolbar in card view. It is ticked when every shown pair is selected and partly ticked when some are; unticking removes the shown pairs.
+- Pair picker: "Fits this bot" sits in the table toolbar. The table sorts from its column headers; the sort menu and favourites-first stay in card view, which has no headers.
+### Fixed
+- Changing a pair (the swap icon) applied the bot's quote filter and greyed out pairs with a different quote, so the bot could not be moved to another quote. Changing a pair has no quote filter again; the pick replaces the pair.
+
 ## [2.96.5] - 2026-10-14
 ### Changed
 - One pair picker: the change icon on a pair opens the same dialog as “Add pairs”, and Grid bots and the trading terminal use it too. Where a bot holds a single pair, picking a pair swaps it.

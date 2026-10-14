@@ -26,7 +26,6 @@ import React, {
   useState,
 } from 'react';
 import { createPortal } from 'react-dom';
-import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Chip } from '@/components/ui/chip';
 import { DataTable } from '@/components/ui/data-table/data-table';
@@ -70,6 +69,8 @@ export interface PairPickerDialogProps {
   onToggleFavorite: (symbol: string) => void;
   /** Adds several pairs through the form's bulk-add path; returns a message. */
   onAddMany: (symbols: string[]) => string | undefined;
+  /** Removes several pairs at once (the select-all checkbox, unticked). */
+  onRemoveMany?: (symbols: string[]) => void;
   /** The asset every candidate has to share — seeded as a column filter. */
   anchor?: PairPickerAnchor | null;
   /** The plan's pair limit; "Select all matching" never offers more. */
@@ -91,6 +92,16 @@ interface PickerRowContextValue {
   selected: ReadonlySet<string>;
   onToggle: (symbol: string) => void;
   onToggleFavorite: (symbol: string) => void;
+  /** The select-all checkbox; null where a pick swaps the one pair. */
+  selectAll: SelectAllState | null;
+}
+
+interface SelectAllState {
+  checked: boolean | 'indeterminate';
+  /** What a tick would add (capped at the plan's slots left). */
+  addCount: number;
+  label: string;
+  onToggle: () => void;
 }
 const PickerRowContext = createContext<PickerRowContextValue | null>(null);
 
@@ -167,6 +178,32 @@ const SelectCell: React.FC<{ row: PairPickerRow }> = ({ row }) => {
     </Tooltip>
   ) : (
     box
+  );
+};
+
+/**
+ * §6.2 — "Select all matching" as a checkbox: in the select column's header
+ * (table view) and in the toolbar (card view, which has no header).
+ */
+const SelectAllCheckbox: React.FC = () => {
+  const ctx = useContext(PickerRowContext);
+  const all = ctx?.selectAll;
+  if (!all) return null;
+  return (
+    <Tooltip tooltip={all.label} side="bottom">
+      <span
+        className="inline-flex"
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
+      >
+        <Checkbox
+          checked={all.checked}
+          onCheckedChange={all.onToggle}
+          aria-label={all.label}
+          className="data-[state=indeterminate]:bg-primary/40"
+        />
+      </span>
+    </Tooltip>
   );
 };
 
@@ -426,7 +463,7 @@ const buildColumns = (
   ...NUMERIC_COLUMNS.filter((c) => present.has(c.field)).map((c) => c.col),
   {
     id: 'select',
-    header: '',
+    header: () => <SelectAllCheckbox />,
     cell: ({ row }) => <SelectCell row={row.original} />,
     enableSorting: false,
     enableColumnFilter: false,
@@ -531,6 +568,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   onItemToggle,
   onToggleFavorite,
   onAddMany,
+  onRemoveMany,
   anchor,
   maxSelectable,
   singlePick = false,
@@ -665,10 +703,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   const columns = useMemo(() => buildColumns(present), [present]);
 
   const selected = useMemo(() => new Set(selectedItems), [selectedItems]);
-  const ctx = useMemo<PickerRowContextValue>(
-    () => ({ selected, onToggle: onItemToggle, onToggleFavorite }),
-    [selected, onItemToggle, onToggleFavorite]
-  );
 
   const handleRowClick = useCallback(
     (row: PairPickerRow) => {
@@ -697,34 +731,153 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
         .map((r) => r.symbol),
     [filteredRows, selected, slotsLeft]
   );
-  const handleSelectAll = useCallback(() => {
-    if (!toAdd.length) return;
+  // Ticked when every shown pickable pair is selected, partly when some are.
+  // Ticking adds the rest (capped); unticking a full tick removes them.
+  const shownPickable = useMemo(
+    () => filteredRows.filter((r) => !blockedReason(r)).map((r) => r.symbol),
+    [filteredRows]
+  );
+  const shownSelected = shownPickable.filter((sym) => selected.has(sym));
+  const allShownSelected =
+    shownPickable.length > 0 && shownSelected.length === shownPickable.length;
+  const handleToggleAll = useCallback(() => {
+    if (allShownSelected) {
+      onRemoveMany?.(shownSelected);
+      setNotice(null);
+      return;
+    }
+    if (!toAdd.length) {
+      if (maxSelectable !== undefined && slotsLeft === 0) {
+        setNotice(`Your plan allows ${maxSelectable} pairs per bot.`);
+      }
+      return;
+    }
     setNotice(onAddMany(toAdd) ?? null);
-  }, [toAdd, onAddMany]);
+  }, [
+    allShownSelected,
+    onRemoveMany,
+    shownSelected,
+    toAdd,
+    maxSelectable,
+    slotsLeft,
+    onAddMany,
+  ]);
+  const selectAll = useMemo<SelectAllState | null>(
+    () =>
+      singlePick
+        ? null
+        : {
+            checked: allShownSelected
+              ? true
+              : shownSelected.length > 0
+                ? 'indeterminate'
+                : false,
+            addCount: toAdd.length,
+            label: allShownSelected
+              ? 'Unselect all shown'
+              : `Select all matching (${toAdd.length})`,
+            onToggle: handleToggleAll,
+          },
+    [
+      singlePick,
+      allShownSelected,
+      shownSelected.length,
+      toAdd.length,
+      handleToggleAll,
+    ]
+  );
+  const ctx = useMemo<PickerRowContextValue>(
+    () => ({ selected, onToggle: onItemToggle, onToggleFavorite, selectAll }),
+    [selected, onItemToggle, onToggleFavorite, selectAll]
+  );
 
   if (!isOpen) return null;
 
-  const limitReached = slotsLeft === 0;
-  const selectAllButton = (
-    <Button
-      type="button"
-      variant="outline"
-      size="sm"
-      onClick={handleSelectAll}
-      disabled={toAdd.length === 0}
-    >
-      Select all matching{toAdd.length ? ` (${toAdd.length})` : ''}
-    </Button>
-  );
+  const isCards = viewMode !== 'table';
+  // §2.4 — the table sorts from its headers; cards have none, so they keep
+  // the list picker's sort menu and favourites-first.
+  const cardSortControls = isCards ? (
+    <>
+      <Select
+        value={
+          headerSorting
+            ? undefined
+            : sortModes.some((m) => m.value === effectiveSortMode)
+              ? effectiveSortMode
+              : undefined
+        }
+        onValueChange={handleSortMode}
+      >
+        <SelectTrigger
+          size="sm"
+          className="w-auto min-w-0 shrink"
+          aria-label="Sort pairs"
+        >
+          <SelectValue placeholder="Sort" />
+        </SelectTrigger>
+        <SelectContent>
+          {sortModes.map((m) => (
+            <SelectItem key={m.value} value={m.value}>
+              {m.label}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <button
+        type="button"
+        onClick={toggleFavoritesFirst}
+        aria-pressed={favoritesFirst}
+        aria-label="Show favorites first"
+        title="Show favorites first"
+        className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+          favoritesFirst
+            ? 'bg-primary/10 text-primary'
+            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+        }`}
+      >
+        <Star
+          className="h-4 w-4"
+          fill={favoritesFirst ? 'currentColor' : 'none'}
+        />
+      </button>
+    </>
+  ) : null;
 
-  // Single-pair pickers have nothing to "select all" into.
-  const selectAllAction = singlePick ? undefined : limitReached &&
-    maxSelectable !== undefined ? (
-    <Tooltip tooltip={`Your plan allows ${maxSelectable} pairs per bot.`}>
-      <span>{selectAllButton}</span>
-    </Tooltip>
-  ) : (
-    selectAllButton
+  const toolbar = (
+    <div className="flex flex-nowrap items-center gap-sm">
+      <label className="flex items-center gap-2 text-sm text-foreground whitespace-nowrap">
+        <Switch
+          checked={fitsOnly}
+          onCheckedChange={setFitsOnly}
+          aria-label="Fits this bot"
+        />
+        Fits this bot
+        <Tooltip
+          side="bottom"
+          tooltip="Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, or leverage above the pair's maximum."
+        >
+          <InfoIcon />
+        </Tooltip>
+      </label>
+      {hasNonCanonical && (
+        <label className="flex items-center gap-2 text-sm text-foreground whitespace-nowrap">
+          <Switch
+            checked={canonicalOnly}
+            onCheckedChange={setCanonicalOnly}
+            aria-label="Canonical only"
+          />
+          Canonical only
+          <Tooltip
+            side="bottom"
+            tooltip="Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them."
+          >
+            <InfoIcon />
+          </Tooltip>
+        </label>
+      )}
+      {cardSortControls}
+      {isCards && <SelectAllCheckbox />}
+    </div>
   );
 
   const content = (
@@ -789,80 +942,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
             </div>
           )}
 
-          <div className="flex flex-wrap items-center gap-sm">
-            <Select
-              value={
-                headerSorting
-                  ? undefined
-                  : sortModes.some((m) => m.value === effectiveSortMode)
-                    ? effectiveSortMode
-                    : undefined
-              }
-              onValueChange={handleSortMode}
-            >
-              <SelectTrigger
-                size="sm"
-                className="w-auto min-w-0 shrink"
-                aria-label="Sort pairs"
-              >
-                <SelectValue placeholder="Sort" />
-              </SelectTrigger>
-              <SelectContent>
-                {sortModes.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>
-                    {m.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <button
-              type="button"
-              onClick={toggleFavoritesFirst}
-              aria-pressed={favoritesFirst}
-              aria-label="Show favorites first"
-              title="Show favorites first"
-              className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-                favoritesFirst
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-              }`}
-            >
-              <Star
-                className="h-4 w-4"
-                fill={favoritesFirst ? 'currentColor' : 'none'}
-              />
-            </button>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <Switch
-                checked={fitsOnly}
-                onCheckedChange={setFitsOnly}
-                aria-label="Fits this bot"
-              />
-              Fits this bot
-              <Tooltip
-                side="bottom"
-                tooltip="Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, or leverage above the pair's maximum."
-              >
-                <InfoIcon />
-              </Tooltip>
-            </label>
-            {hasNonCanonical && (
-              <label className="flex items-center gap-2 text-sm text-foreground">
-                <Switch
-                  checked={canonicalOnly}
-                  onCheckedChange={setCanonicalOnly}
-                  aria-label="Canonical only"
-                />
-                Canonical only
-                <Tooltip
-                  side="bottom"
-                  tooltip="Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them."
-                >
-                  <InfoIcon />
-                </Tooltip>
-              </label>
-            )}
-          </div>
         </div>
         {notice && (
           <p role="status" className="px-md pt-xs text-xs text-destructive">
@@ -902,7 +981,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 onFilteredRowsChange={setFilteredRows}
                 onRowClick={handleRowClick}
                 getRowIsSelected={getRowIsSelected}
-                firstToolbarActions={selectAllAction}
+                firstToolbarActions={toolbar}
                 initialPageSize={50}
                 enableExport={false}
                 enableColumnReordering={false}
