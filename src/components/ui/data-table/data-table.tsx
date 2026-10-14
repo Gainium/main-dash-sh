@@ -1137,6 +1137,11 @@ interface DataTableProps<TData, TValue> {
   betweenToolbarAndContent?: React.ReactNode;
   // Card view props
   enableCardView?: boolean;
+  /**
+   * Keep the table/cards toggle in the toolbar ahead of the caller's
+   * `firstToolbarActions` when space runs out (it normally overflows first).
+   */
+  prioritizeViewToggle?: boolean;
   defaultView?: 'table' | 'cards';
   /**
    * Component used to render each row in card view.
@@ -1364,6 +1369,7 @@ const TOOLBAR_PRIORITIES = {
 
 // Internal toolbar button row component using ResponsiveButtonRow
 interface ToolbarButtonRowProps<TData> {
+  prioritizeViewToggle?: boolean;
   enableColumnFilters: boolean;
   enableColumnResizing: boolean;
   enableColumnVisibility: boolean;
@@ -1405,6 +1411,7 @@ interface ToolbarButtonRowProps<TData> {
 }
 
 function ToolbarButtonRow<TData>({
+  prioritizeViewToggle,
   enableColumnFilters,
   enableColumnResizing,
   enableColumnVisibility,
@@ -1705,7 +1712,9 @@ function ToolbarButtonRow<TData>({
     if (enableCardView) {
       configs.push({
         id: 'view-toggle',
-        priority: TOOLBAR_PRIORITIES.VIEW_TOGGLE,
+        priority: prioritizeViewToggle
+          ? TOOLBAR_PRIORITIES.FIRST_ACTIONS + 5
+          : TOOLBAR_PRIORITIES.VIEW_TOGGLE,
         fullContent: (
           <Button
             variant="ghost"
@@ -1958,6 +1967,7 @@ function ToolbarButtonRow<TData>({
     enableColumnResizing,
     enableColumnVisibility,
     enableCardView,
+    prioritizeViewToggle,
     viewMode,
     showColumnFilters,
     showQuickFilters,
@@ -2224,6 +2234,7 @@ function DataTableComponent<TData, TValue>(
     onColumnFiltersVisibilityChange,
     // Card view props
     enableCardView,
+    prioritizeViewToggle,
     defaultView,
     cardComponent: CardComponent,
     cardViewBreakpoints,
@@ -2297,6 +2308,7 @@ function DataTableComponent<TData, TValue>(
       betweenToolbarAndContent: props.betweenToolbarAndContent,
       onColumnFiltersVisibilityChange: props.onColumnFiltersVisibilityChange,
       enableCardView: props.enableCardView ?? false,
+      prioritizeViewToggle: props.prioritizeViewToggle ?? false,
       defaultView: props.defaultView ?? 'table',
       cardComponent: props.cardComponent,
       cardViewBreakpoints: props.cardViewBreakpoints ?? {
@@ -4285,6 +4297,7 @@ function DataTableComponent<TData, TValue>(
             enableColumnVisibility={enableColumnVisibility}
             enableExport={enableExport}
             enableCardView={enableCardView}
+            prioritizeViewToggle={prioritizeViewToggle}
             enableQuickFilterBar={enableQuickFilterBar}
             viewMode={viewMode}
             setViewMode={setViewMode}

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.96.11] - 2026-10-14
+### Changed
+- Pair picker: the table/card view toggle stays in the toolbar instead of moving into the overflow menu, and card view is wider.
+### Fixed
+- Pair picker: changing a pair and then selecting more pairs could add pairs with a different quote asset to the same bot.
+
 ## [2.96.10] - 2026-10-14
 ### Added
 - Pair picker: a Clear selection button next to Done removes every selected pair.

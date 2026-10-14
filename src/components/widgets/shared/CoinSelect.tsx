@@ -194,7 +194,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // than hidden (each row explains itself on hover) — a hidden row is
   // indistinguishable from a pair the venue doesn't offer. To change the
   // anchored asset the user clears the selection via the chip's ✕.
-  const filterActive = Boolean(pairFilter) && replacingSymbol === null;
+  // Replacing is anchor-free only while it really is a swap of the bot's one
+  // pair. Once the dialog has added more (select all), the anchor is back: a
+  // later pick is an add like any other, so a second quote can't slip in.
+  const replaceActive = replacingSymbol !== null && selectedCoins.length <= 1;
+  const filterActive = Boolean(pairFilter) && !replaceActive;
 
   const {
     pairsByExchange,
@@ -527,9 +531,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   const handleDialogToggle = useCallback(
     (symbol: string) => {
       // Single-pair pickers swap the current pair for the picked one.
-      const replaceFrom =
-        replacingSymbol ??
-        (singlePick && selectedCoins.length === 1 ? selectedCoins[0] : null);
+      const replaceFrom = replaceActive
+        ? replacingSymbol
+        : singlePick && selectedCoins.length === 1
+          ? selectedCoins[0]
+          : null;
       if (replaceFrom != null) {
         if (symbol === replaceFrom) {
           handleDialogClose();
@@ -575,6 +581,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       if (singlePick) handleDialogClose();
     },
     [
+      replaceActive,
       replacingSymbol,
       singlePick,
       selectedCoins,

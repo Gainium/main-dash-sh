@@ -954,7 +954,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
         className={`bg-popover rounded-2xl shadow-xl @container h-[85vh] flex flex-col ${
           viewMode === 'table'
             ? 'w-[min(100%,calc(var(--base-font-size)*72))]'
-            : 'w-[min(100%,calc(var(--base-font-size)*30))] md:w-[min(90vw,calc(var(--base-font-size)*36))] xl:w-[min(90vw,calc(var(--base-font-size)*42))]'
+            : 'w-[min(100%,calc(var(--base-font-size)*30))] md:w-[min(90vw,calc(var(--base-font-size)*44))] xl:w-[min(90vw,calc(var(--base-font-size)*50))]'
         }`}
         role="dialog"
         aria-modal="true"
@@ -1031,6 +1031,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 data={data}
                 getRowId={(r) => r.symbol}
                 enableCardView
+                prioritizeViewToggle
                 defaultView="cards"
                 cardComponent={PairCard}
                 cardViewBreakpoints={{ default: 1 }}
