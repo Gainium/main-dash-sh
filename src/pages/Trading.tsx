@@ -55,6 +55,8 @@ import { useComboDeals } from '../hooks/useComboDeals';
 import { useDcaBots } from '../hooks/useDcaBots';
 import { useDcaDeals } from '../hooks/useDcaDeals';
 import { useGridBots } from '../hooks/useGridBots';
+import { useLiveDealPnl } from '../hooks/useLiveDealPnl';
+import { isActiveDealStatus } from '../lib/utils/dealUnrealizedPnl';
 /* import { useHedgeComboBots } from '../hooks/useHedgeComboBots';
 import { useHedgeComboDeals } from '../hooks/useHedgeComboDeals';
 import { useHedgeDcaBots } from '../hooks/useHedgeDcaBots';
@@ -286,6 +288,20 @@ const Trading: React.FC = () => {
     });
   }, [dcaDeals, terminalDealIds]);
 
+  // Live, fee-inclusive unrealized P&L for the open DCA and terminal deals,
+  // priced from the same feed the trade cards show their Current Price from.
+  // `useDcaDeals` only carries the server's stored value, which can be far
+  // older than that price — a card showed a loss at a price well above its
+  // average entry.
+  const openDcaLikeDeals = useMemo(
+    () =>
+      [...dcaDealsOnly, ...(terminalDeals || [])].filter((deal) =>
+        isActiveDealStatus(deal.status)
+      ),
+    [dcaDealsOnly, terminalDeals]
+  );
+  const liveDealPnl = useLiveDealPnl(openDcaLikeDeals);
+
   // Fetch grid bots (these are different from deals)
   // Use dynamic status based on showClosedTrades state
   const gridBotStatus: BotStatus[] | undefined = showClosedTrades
@@ -473,9 +489,10 @@ const Trading: React.FC = () => {
         try {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
-          // Use hook-provided unrealizedUsd for parity with Treemap and single source of truth
-          const hookUnrealized = (deal as { unrealizedUsd?: number })
-            .unrealizedUsd;
+          // Live value when the deal is priced; else the hook's stored one.
+          const hookUnrealized =
+            liveDealPnl.get(deal._id)?.unrealizedUsd ??
+            (deal as { unrealizedUsd?: number }).unrealizedUsd;
           const unrealizedProfit =
             typeof hookUnrealized === 'number'
               ? hookUnrealized
@@ -862,8 +879,9 @@ const Trading: React.FC = () => {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
           // Terminal deals are typically closed; hook returns undefined for inactive -> default to 0
-          const hookUnrealized = (deal as { unrealizedUsd?: number })
-            .unrealizedUsd;
+          const hookUnrealized =
+            liveDealPnl.get(deal._id)?.unrealizedUsd ??
+            (deal as { unrealizedUsd?: number }).unrealizedUsd;
           const unrealizedProfit =
             typeof hookUnrealized === 'number'
               ? hookUnrealized
@@ -1079,6 +1097,7 @@ const Trading: React.FC = () => {
     /*  hedgeComboDeals,
     hedgeDcaDeals, */
     terminalDeals,
+    liveDealPnl,
     gridBotsForDeals,
     calculateDealGaugeValues,
     // Note: showClosedTrades is intentionally not included as dependency

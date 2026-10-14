@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.11] - 2026-10-14
+### Fixed
+- Trading page, Trades tab: an open DCA or terminal deal's Unrealized P&L on its card is now calculated from the current price shown on the same card. Before, it showed the last value saved on the server, which could be much older than that price, so the figure and even its sign could disagree with the price next to it.
+
 ## [2.95.10] - 2026-10-14
 ### Fixed
 - Bot drawer: Net P&L and Net P&L, % of an open deal show the deal's total P&L. Before, they added the realized profit or loss from reduces, partial take-profits and grid sales on top of Unrealized P&L, which already includes it, so the result was too high or too low.
