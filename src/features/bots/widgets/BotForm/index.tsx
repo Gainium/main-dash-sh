@@ -566,6 +566,7 @@ const BotForm: React.FC<BotFormProps> = ({
   hideFooter = false,
   footerOverride,
   initialBot,
+  skipInitialBotHydration,
   onPanelMenuChange,
   onFormDataChange,
   tabDescriptorsFilter,
@@ -1159,6 +1160,7 @@ const BotForm: React.FC<BotFormProps> = ({
     botSettings: singlePosition.botSettings,
     ...(initializationMapper ? { mapper: initializationMapper } : {}),
     debug: debugEnabled,
+    skipHydration: skipInitialBotHydration === true,
   });
 
   // Silently raise persisted amount fields up to the exchange/pair

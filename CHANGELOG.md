@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.96.4] - 2026-10-14
+### Fixed
+- Hedge bots, Edit (Manual): changes made on the Long or Short leg are kept when you switch to the other leg and back, and are saved together by one "Save hedge bot". Before, a leg reloaded its last saved settings each time you returned to it, so only the leg open at save time kept its changes.
+
 ## [2.96.3] - 2026-10-14
 ### Changed
 - The Merge deals dialog can give the merged deal the bot's DCA. When ticked it lists every safety order the merged deal would place (price and distance from the merged average, size, running total and the average after it fills), shows what the deal holds now, what the safety orders add and the most it can use in total, lets you place fewer levels than the bot, draws the levels on the chart and warns when the free balance does not cover them all. The deal list and the level list scroll when they are long.

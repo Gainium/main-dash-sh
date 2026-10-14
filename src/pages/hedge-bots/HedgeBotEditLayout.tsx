@@ -400,14 +400,38 @@ export const HedgeBotEditLayout: React.FC = () => {
   const shortSeedRef = useRef<Partial<BotFormData> | undefined>(
     shortInitialFormData
   );
+  // The snapshot handleTabChange last took per leg. While a leg's seed is
+  // still that object it holds unsaved edits: the loader must not replace it
+  // and the remounted leg must not re-map its saved bot over it. Any other
+  // seed writer replaces the object, which ends the protection.
+  const longSnapshotRef = useRef<Partial<BotFormData> | undefined>(undefined);
+  const shortSnapshotRef = useRef<Partial<BotFormData> | undefined>(undefined);
+  const longSeedIsSnapshot =
+    !!longSnapshotRef.current &&
+    longSeedRef.current === longSnapshotRef.current;
+  const shortSeedIsSnapshot =
+    !!shortSnapshotRef.current &&
+    shortSeedRef.current === shortSnapshotRef.current;
   // Keep seed refs in sync with the loader as it produces new initial
   // form data — important on first edit-mode load where the hedge fetch
   // resolves AFTER the initial render of this layout.
   useEffect(() => {
-    if (longInitialFormData) longSeedRef.current = longInitialFormData;
+    if (!longInitialFormData) return;
+    if (
+      longSnapshotRef.current &&
+      longSeedRef.current === longSnapshotRef.current
+    )
+      return;
+    longSeedRef.current = longInitialFormData;
   }, [longInitialFormData]);
   useEffect(() => {
-    if (shortInitialFormData) shortSeedRef.current = shortInitialFormData;
+    if (!shortInitialFormData) return;
+    if (
+      shortSnapshotRef.current &&
+      shortSeedRef.current === shortSnapshotRef.current
+    )
+      return;
+    shortSeedRef.current = shortInitialFormData;
   }, [shortInitialFormData]);
 
   const handleTabChange = useCallback(
@@ -417,8 +441,10 @@ export const HedgeBotEditLayout: React.FC = () => {
       // these refs current up to this point.
       if (activeTab === 'long' && longFormDataRef.current) {
         longSeedRef.current = longFormDataRef.current;
+        longSnapshotRef.current = longFormDataRef.current;
       } else if (activeTab === 'short' && shortFormDataRef.current) {
         shortSeedRef.current = shortFormDataRef.current;
+        shortSnapshotRef.current = shortFormDataRef.current;
       }
       setActiveTab(next);
     },
@@ -1054,6 +1080,9 @@ export const HedgeBotEditLayout: React.FC = () => {
         // Bindings, like settings, come back from the refetched legs.
         longVarsRef.current = undefined;
         shortVarsRef.current = undefined;
+        // The snapshots are saved now: let the refetch replace the seeds.
+        longSnapshotRef.current = undefined;
+        shortSnapshotRef.current = undefined;
         await remountAfterRefetch(savedBots, refetchHedgeBot);
       }
     } catch (error) {
@@ -2209,6 +2238,7 @@ export const HedgeBotEditLayout: React.FC = () => {
                 isNestedLeg
                 footerOverride={footerOverrideWithMenu}
                 initialBot={longLegBot}
+                skipInitialBotHydration={longSeedIsSnapshot}
                 innerSlot={
                   <>
                     <HedgeLegActiveChartPublisher leg="long" />
@@ -2234,6 +2264,7 @@ export const HedgeBotEditLayout: React.FC = () => {
                 isNestedLeg
                 footerOverride={footerOverrideWithMenu}
                 initialBot={shortLegBot}
+                skipInitialBotHydration={shortSeedIsSnapshot}
                 innerSlot={
                   <>
                     <HedgeLegActiveChartPublisher leg="short" />

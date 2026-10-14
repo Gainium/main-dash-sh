@@ -36,6 +36,12 @@ export interface UseBotFormInitializationOptions {
   botSettings?: unknown;
   mapper?: BotSettingsMapper;
   debug?: boolean;
+  /**
+   * Keep the provider's `initialFormData` / `initialBotVars` as the form state
+   * and never map `bot` over them. For a form remounted with unsaved edits it
+   * already holds (the hedge legs' tab-switch snapshot). Read once, on mount.
+   */
+  skipHydration?: boolean;
 }
 
 const defaultMapper: BotSettingsMapper = (botType, settings, context) => {
@@ -133,6 +139,7 @@ export const useBotFormInitialization = (
   options: UseBotFormInitializationOptions
 ): void => {
   const { mode, bot, botSettings, mapper, debug, botType } = options;
+  const skipHydrationRef = useRef(options.skipHydration === true);
 
   // Stable setters only — no store subscription, so this hook never
   // re-renders the form shell. `isDirty` is read from the store when the
@@ -148,7 +155,7 @@ export const useBotFormInitialization = (
   const lastHydratedVersionRef = useRef<string>('');
 
   useEffect(() => {
-    if (mode === 'create') {
+    if (mode === 'create' || skipHydrationRef.current) {
       // Bindings in create mode come only from the provider's
       // `initialBotVars` (a clone's source bot); leave them in place.
       setIsLoading(false);

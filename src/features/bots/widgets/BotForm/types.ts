@@ -61,6 +61,12 @@ export interface BotFormProps {
    */
   initialBot?: DCABot | ComboBot | null;
   /**
+   * The provider's `initialFormData` already holds this bot's form state with
+   * unsaved edits (a hedge leg remounted after a tab switch): finish loading
+   * without mapping `initialBot` over it. Read once, on mount.
+   */
+  skipInitialBotHydration?: boolean;
+  /**
    * Override applied to the form's BotFormFooter. Used by the hedge edit
    * layout so each leg's BotFormShell still renders the standard footer UI
    * (look & feel, credits widget, layout) but the Save/Backtest buttons
