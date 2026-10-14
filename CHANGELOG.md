@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.13] - 2026-10-14
+### Removed
+- Unused combo bot list transform that valued a SHORT combo bot's cost and usage from the quote side only. No screen used it; removing it keeps that calculation from being revived.
+
 ## [2.95.12] - 2026-10-14
 ### Fixed
 - Combo bot deals table: a SHORT spot or COIN-M deal shows its real Cost, Notional Value, Size and usage. These were read from the quote side only, where such deals hold nothing, so Cost was blank, Notional Value showed just the deal's profit and Size showed the wallet's base balance instead of the position. Notional Value is now the position's value for every combo deal, not cost plus profit.

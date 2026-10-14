@@ -12,9 +12,8 @@ import { useGraphQL } from './useGraphQL';
  * Mirrors main-dash/components/dcabot/hooks/useDCAPage.ts:154-180 where
  * the `'demo'` token + shareId path replaces the regular getBot call.
  *
- * Returns the raw bot shape — callers transform it with the matching
- * `transformDcaBotToBot` / `transformComboBotToBot` adapter before
- * passing it to the drawer.
+ * Returns the raw bot shape — callers transform it with their own
+ * per-type adapter before passing it to the drawer.
  */
 export interface UseSharedBotOptions {
   botId: string;
