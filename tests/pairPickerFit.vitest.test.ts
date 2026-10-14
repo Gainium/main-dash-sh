@@ -8,6 +8,7 @@ import { describe, expect, test } from 'vitest';
 import {
   pairMinOrderQuote,
   pairFitReason,
+  resolveBotFirstOrderQuote,
   resolveBotSmallestOrderQuote,
 } from '@/utils/pairPicker';
 
@@ -103,6 +104,39 @@ describe('§4.1 pairFitReason', () => {
         { minOrder: 50, maxLeverage: 10, quote: 'USDT' },
         { smallestOrderQuote: null, leverage: null }
       )
+    ).toBeNull();
+  });
+});
+
+describe('§4.1(c) not enough balance for the base order', () => {
+  const bot = { smallestOrderQuote: null, leverage: null, firstOrderQuote: 10 };
+  test('free quote balance below the base order → reason', () => {
+    expect(
+      pairFitReason(
+        { minOrder: null, maxLeverage: null, quote: 'USDC', freeQuote: 3.2 },
+        bot
+      )
+    ).toMatch(/Not enough USDC/);
+  });
+  test('enough balance → fits', () => {
+    expect(
+      pairFitReason(
+        { minOrder: null, maxLeverage: null, quote: 'USDT', freeQuote: 50 },
+        bot
+      )
+    ).toBeNull();
+  });
+  test('unknown balance never makes a pair unfit', () => {
+    expect(
+      pairFitReason({ minOrder: null, maxLeverage: null, quote: 'USDT' }, bot)
+    ).toBeNull();
+  });
+  test('first order is the base order, quote-denominated only', () => {
+    expect(
+      resolveBotFirstOrderQuote({ orderSizeType: 'quote', baseOrderSize: '25' })
+    ).toBe(25);
+    expect(
+      resolveBotFirstOrderQuote({ orderSizeType: 'base', baseOrderSize: '25' })
     ).toBeNull();
   });
 });

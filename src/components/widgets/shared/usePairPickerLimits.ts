@@ -7,11 +7,13 @@ import type { TradingPair } from '@/hooks/useTradingPairs';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useLatestPrices } from '@/hooks/useLatestPrices';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { useBalanceStore } from '@/stores/live/balanceStore';
 import { useUIStore } from '@/stores/uiStore';
 import { BotTypesEnum } from '@/types';
 import {
   pairFitReason,
   pairMinOrderQuote,
+  resolveBotFirstOrderQuote,
   resolveBotSmallestOrderQuote,
   type FitOrderSettings,
 } from '@/utils/pairPicker';
@@ -22,6 +24,7 @@ interface LeverageBracketRow {
 }
 
 const NO_TOP_KEYS = [] as const;
+const NO_BALANCES: ReturnType<typeof useBalanceStore.getState>['balances'] = [];
 const SLICE_KEYS = [
   'futures',
   'leverage',
@@ -111,8 +114,32 @@ export const usePairPickerLimits = (
     return map;
   }, [prices]);
 
+  // Free balance per asset on this account (spot only: futures margin can be
+  // pooled across coins, so a per-asset figure would hide tradable pairs).
+  // Read only while the dialog is open; until the account's balances have
+  // loaded the check is skipped rather than treating every asset as 0.
+  const balances = useBalanceStore((st) =>
+    enabled && open ? st.balances : NO_BALANCES
+  );
+  const freeByAsset = useMemo(() => {
+    if (futures || !uuid) return null;
+    const rows = balances.filter((b) => b.exchangeUUID === uuid);
+    if (!rows.length) return null;
+    const map = new Map<string, number>();
+    for (const b of rows) {
+      const asset = b.asset?.toUpperCase();
+      if (!asset) continue;
+      map.set(asset, (map.get(asset) ?? 0) + (Number(b.free) || 0));
+    }
+    return map;
+  }, [balances, futures, uuid]);
+
   const bot = useMemo(
     () => ({
+      firstOrderQuote:
+        form.type === BotTypesEnum.grid || !slice
+          ? null
+          : resolveBotFirstOrderQuote(slice),
       // Grid bots size per level from a budget, not a base order — the
       // order-size check is DCA / Combo only.
       smallestOrderQuote:
@@ -138,8 +165,16 @@ export const usePairPickerLimits = (
       );
       const maxLeverage =
         leverageBySymbol.get(pair.pair?.toUpperCase?.() ?? '') ?? null;
+      const quote = pair.quoteAsset?.name ?? '';
       const fitReason = pairFitReason(
-        { minOrder, maxLeverage, quote: pair.quoteAsset?.name ?? '' },
+        {
+          minOrder,
+          maxLeverage,
+          quote,
+          ...(freeByAsset
+            ? { freeQuote: freeByAsset.get(quote.toUpperCase()) ?? 0 }
+            : {}),
+        },
         bot
       );
       return {
@@ -148,6 +183,6 @@ export const usePairPickerLimits = (
         ...(fitReason ? { fitReason } : {}),
       };
     },
-    [enabled, pairsBySelection, priceIndex, leverageBySymbol, bot]
+    [enabled, pairsBySelection, priceIndex, leverageBySymbol, freeByAsset, bot]
   );
 };

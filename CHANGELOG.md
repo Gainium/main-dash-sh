@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.96.9] - 2026-10-14
+### Changed
+- Pair picker: "Fits this bot" also hides pairs whose quote asset doesn’t have enough free balance for the bot’s base order (spot accounts).
+### Fixed
+- Pair picker: the select-all checkbox in the table header was covered by the column’s menu button.
+
 ## [2.96.8] - 2026-10-14
 ### Changed
 - Pair picker: cards show the pair’s minimum order and maximum leverage under its name. Columns in the table can be resized, and the asset-class column is called Asset class.

@@ -171,3 +171,34 @@ describe('spec 115 §7.5 auto-resize measures the right columns', () => {
     expect(widths).toEqual(['60px', '200px']);
   });
 });
+
+describe('spec 115 §7.7 a header that is a control has no overlay', () => {
+  test('meta.headerControls: false hides the drag / menu overlay', async () => {
+    mockViewport(false);
+    const cols: ColumnDef<Row, unknown>[] = [
+      { accessorKey: 'id', header: 'ID' },
+      {
+        id: 'select',
+        header: () => <input type="checkbox" aria-label="all" />,
+        meta: { headerControls: false },
+      },
+    ];
+    render(
+      <DataTable
+        columns={cols}
+        data={rows}
+        tableId="header-controls"
+        defaultView="table"
+        getRowId={(r) => r.id}
+      />
+    );
+    await settle();
+    const ths = [...document.querySelectorAll('thead tr:first-child th')];
+    const overlays = (th: Element) =>
+      [...th.querySelectorAll('.absolute')].filter(
+        (el) => !el.classList.contains('hidden') && el.querySelector('button')
+      ).length;
+    expect(overlays(ths[0])).toBeGreaterThan(0);
+    expect(overlays(ths[1])).toBe(0);
+  });
+});

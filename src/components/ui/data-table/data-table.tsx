@@ -402,6 +402,9 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
   const thRef = useRef<HTMLTableCellElement>(null);
 
   const showControls = isHovered || controlsVisible;
+  const noHeaderControls =
+    (header.column.columnDef.meta as { headerControls?: boolean } | undefined)
+      ?.headerControls === false;
 
   const { description, descriptionUrl } = getColumnDescription(
     header.column.columnDef
@@ -557,8 +560,15 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
       }
     >
       <div className="relative flex items-center w-full h-6 px-2">
-        {/* Left controls: always overlay, shown on hover/tap */}
-        <div className="absolute left-1 top-1/2 -translate-y-1/2 z-10 flex items-center gap-0.5">
+        {/* Left controls: always overlay, shown on hover/tap. A column whose
+            header IS a control (a select-all checkbox) opts out with
+            `meta.headerControls: false` — the overlay sat on top of it. */}
+        <div
+          className={clsx(
+            'absolute left-1 top-1/2 -translate-y-1/2 z-10 flex items-center gap-0.5',
+            noHeaderControls && 'hidden'
+          )}
+        >
           {/* Only show drag handle for unpinned columns, left side */}
           {!isPinned && (
             <Button
@@ -654,6 +664,7 @@ const DraggableColumnHeader: React.FC<DraggableColumnHeaderProps> = ({
         <div
           className={clsx(
             'absolute right-1 top-1/2 -translate-y-1/2 z-10 flex items-center gap-0.5 transition-opacity',
+            noHeaderControls && 'hidden',
             showControls ? 'opacity-100' : 'opacity-0'
           )}
         >

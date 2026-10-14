@@ -466,6 +466,8 @@ const buildColumns = (
   {
     id: 'select',
     header: () => <SelectAllCheckbox />,
+    // The header is the select-all checkbox: no menu / drag overlay on it.
+    meta: { headerControls: false },
     cell: ({ row }) => <SelectCell row={row.original} />,
     enableSorting: false,
     enableColumnFilter: false,
@@ -912,7 +914,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
         Fits this bot
         <Tooltip
           side="bottom"
-          tooltip="Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, or leverage above the pair's maximum."
+          tooltip="Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, leverage above the pair's maximum, or not enough free balance in the pair's quote asset for the base order."
         >
           <InfoIcon />
         </Tooltip>

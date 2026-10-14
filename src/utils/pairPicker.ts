@@ -79,17 +79,31 @@ export const resolveBotSmallestOrderQuote = (
   return sizes.length ? Math.min(...sizes) : null;
 };
 
+/**
+ * The bot's first order (the base order) in its quote asset — what the free
+ * balance has to cover for a deal to open — or null when sizes aren't set in
+ * the quote asset.
+ */
+export const resolveBotFirstOrderQuote = (
+  dca: Pick<FitOrderSettings, 'orderSizeType' | 'baseOrderSize'>
+): number | null =>
+  dca.orderSizeType === 'quote' ? positive(dca.baseOrderSize) : null;
+
 export interface PairFitBot {
   /** From `resolveBotSmallestOrderQuote`; null skips the order check. */
   smallestOrderQuote: number | null;
   /** The bot's leverage on a futures account; null skips the check. */
   leverage: number | null;
+  /** From `resolveBotFirstOrderQuote`; null/absent skips the balance check. */
+  firstOrderQuote?: number | null;
 }
 
 export interface PairFitFacts {
   minOrder: number | null;
   maxLeverage: number | null;
   quote: string;
+  /** Free balance of the pair's quote asset; absent = unknown (no check). */
+  freeQuote?: number | null;
 }
 
 /** An exchange minimum for display, trimmed: 5, 0.0001, 12.35. */
@@ -128,6 +142,15 @@ export const pairFitReason = (
     return `Max leverage ${fmt(pair.maxLeverage)}× is below your bot's ${fmt(
       bot.leverage
     )}×`;
+  }
+  if (
+    bot.firstOrderQuote != null &&
+    pair.freeQuote != null &&
+    pair.freeQuote < bot.firstOrderQuote
+  ) {
+    return `Not enough ${pair.quote}: ${fmt(pair.freeQuote)} free, the base order needs ${fmt(
+      bot.firstOrderQuote
+    )}`;
   }
   return null;
 };
