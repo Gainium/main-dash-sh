@@ -97,12 +97,6 @@ export interface CoinFilterProps {
    * exchange pairs.
    */
   pairItems?: CoinListItem[];
-  /**
-   * Pairs mode: `'table'` opens the add-pairs dialog as a data table with
-   * card and table views and the exchange's trading limits (spec 115). The
-   * single-pair change dialog keeps the list. Default `'list'`.
-   */
-  pickerView?: 'list' | 'table';
   /** The plan's pair limit — caps the table picker's "Select all matching". */
   maxPairs?: number;
   /**
@@ -129,7 +123,6 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   onReplaceCoin,
   modalZIndex,
   pairItems: pairItemsProp,
-  pickerView = 'list',
   maxPairs,
   onAddPairs,
 }) => {
@@ -264,12 +257,14 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   const botFormQuery = React.useContext(BotFormQueryContext);
   const pairItems = pairItemsProp ?? botFormQuery?.pairItems ?? NO_PAIR_ITEMS;
 
-  // Table view (spec 115) for adding pairs; replacing the only pair keeps the
-  // list dialog. Limits are computed whenever the table picker is in use so
-  // the leverage query is warm before the dialog opens.
-  const tablePicker = isPairsMode && pickerView === 'table';
-  const tableDialogOpen =
-    tablePicker && showCoinDialog && replacingSymbol === null;
+  // Pairs mode has ONE picker (spec 115): the pair dialog, for adding and for
+  // changing a pair alike. Where the bot holds a single pair (no add button:
+  // grid, terminal, single-pair-only bots) picking a row swaps the pair.
+  // Limits are computed whenever it's mounted so the leverage query is warm
+  // before the dialog opens.
+  const tablePicker = isPairsMode;
+  const singlePick = isPairsMode && !shouldShowAddButton;
+  const tableDialogOpen = isPairsMode && showCoinDialog;
   const pairLimits = usePairPickerLimits(
     tablePicker,
     tableDialogOpen,
@@ -504,8 +499,10 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   const isLastCoin = selectedCoins.length === 1;
   const changeLabel = isPairsMode ? 'Change pair' : 'Change coin';
 
+  // Pairs: the change icon opens the same dialog as "Add pairs". Coins
+  // mode keeps its replace-in-place list.
   const openChangeDialog = (symbol: string) => {
-    setReplacingSymbol(symbol);
+    if (!isPairsMode) setReplacingSymbol(symbol);
     setShowCoinDialog(true);
   };
 
@@ -525,13 +522,17 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // every selection toggle — only the row whose selected state changed.
   const handleDialogToggle = useCallback(
     (symbol: string) => {
-      if (replacingSymbol !== null) {
-        if (symbol === replacingSymbol) {
+      // Single-pair pickers swap the current pair for the picked one.
+      const replaceFrom =
+        replacingSymbol ??
+        (singlePick && selectedCoins.length === 1 ? selectedCoins[0] : null);
+      if (replaceFrom != null) {
+        if (symbol === replaceFrom) {
           handleDialogClose();
           return;
         }
         if (onReplaceCoin) {
-          onReplaceCoin(replacingSymbol, symbol);
+          onReplaceCoin(replaceFrom, symbol);
           handleDialogClose();
           return;
         }
@@ -567,9 +568,12 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
         return;
       }
       onCoinToggle(symbol);
+      if (singlePick) handleDialogClose();
     },
     [
       replacingSymbol,
+      singlePick,
+      selectedCoins,
       handleDialogClose,
       updateFormData,
       onCoinToggle,
@@ -819,7 +823,8 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
           isOpen
           onClose={handleDialogClose}
-          title="Select Pairs"
+          title={singlePick ? 'Select Pair' : 'Select Pairs'}
+          singlePick={singlePick}
           rows={pickerRows}
           selectedItems={selectedCoins}
           onItemToggle={handleDialogToggle}
@@ -836,7 +841,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       ) : (
         <ListModal
         {...(modalZIndex !== undefined ? { zIndex: modalZIndex } : {})}
-        isOpen={showCoinDialog}
+        isOpen={showCoinDialog && !isPairsMode}
         onClose={handleDialogClose}
         title={
           replacingSymbol !== null

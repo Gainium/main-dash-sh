@@ -20,4 +20,3 @@ export const ASSET_CLASS_LABELS: Record<AssetClass | 'all', string> = {
   forex: 'Forex',
   index: 'Indices',
 };
-

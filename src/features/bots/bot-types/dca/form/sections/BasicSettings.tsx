@@ -361,7 +361,6 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   shouldShowAddButton={!isSinglePairOnly}
                   showAllOption={false}
                   onPairClick={handleChartPairSelect}
-                  pickerView="table"
                   maxPairs={planMaxPairs}
                   onAddPairs={handleAddPairs}
                 />

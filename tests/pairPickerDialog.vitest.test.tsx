@@ -214,3 +214,51 @@ describe('spec 115 §2.2 each opening starts fresh', () => {
     expect(shownBases()).toEqual(['BTC', 'ETH']);
   });
 });
+
+describe('spec 115 §6.1 a tap on a row or a card selects it', () => {
+  test('card view: tapping the card toggles the pair', async () => {
+    const { onItemToggle } = renderDialog();
+    await settle();
+    fireEvent.click(screen.getByText('ETH'));
+    expect(onItemToggle).toHaveBeenCalledWith('ETH-USDT');
+  });
+
+  test('table view: tapping any cell of the row toggles the pair', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    const { onItemToggle } = renderDialog({
+      rows: [row('ETH', 'USDT', { minOrder: 5, volume24h: 9 })],
+    });
+    await settle();
+    const cells = [...document.querySelectorAll('tbody tr td')];
+    expect(cells.length).toBeGreaterThan(2);
+    cells.forEach((td) => fireEvent.click(td));
+    // every cell except the favourite star's own button counts
+    expect(onItemToggle.mock.calls.length).toBe(cells.length);
+  });
+});
+
+describe('spec 115 §1.1 single-pair pickers use the same dialog', () => {
+  test('no "Select all matching" when the bot holds one pair', async () => {
+    const { onItemToggle } = renderDialog({ singlePick: true, anchor: null });
+    await settle();
+    expect(screen.queryByRole('button', { name: /Select all matching/ })).toBeNull();
+    fireEvent.click(screen.getByText('ETH'));
+    expect(onItemToggle).toHaveBeenCalledWith('ETH-USDT');
+  });
+});
+
+describe('spec 115 §3.4 column naming', () => {
+  test('the ROI column is Curated Strat. ROI', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({ rows: [row('ETH', 'USDT', { roi: 12 })], anchor: null });
+    await settle();
+    const headers = [...document.querySelectorAll('thead th')].map((t) =>
+      t.textContent?.trim()
+    );
+    expect(headers).toContain('Curated Strat. ROI');
+  });
+});

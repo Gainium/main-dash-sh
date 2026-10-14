@@ -74,6 +74,11 @@ export interface PairPickerDialogProps {
   anchor?: PairPickerAnchor | null;
   /** The plan's pair limit; "Select all matching" never offers more. */
   maxSelectable?: number;
+  /**
+   * The bot holds one pair: a pick swaps it (the caller closes the dialog),
+   * so there is no "Select all matching".
+   */
+  singlePick?: boolean;
   /** Sort mode on first open (one of the sort menu's values). */
   initialSortMode?: string;
   isLoading?: boolean;
@@ -167,7 +172,11 @@ const SelectCell: React.FC<{ row: PairPickerRow }> = ({ row }) => {
 
 const PairCell: React.FC<{ row: PairPickerRow }> = ({ row }) => {
   const reason = blockedReason(row);
-  const contract = pairContractSymbol(row.symbol, row.baseAsset, row.quoteAsset);
+  const contract = pairContractSymbol(
+    row.symbol,
+    row.baseAsset,
+    row.quoteAsset
+  );
   return (
     <div
       className={`flex items-center gap-sm min-w-0 ${reason ? 'opacity-50' : ''}`}
@@ -263,10 +272,15 @@ const numericColumn = (
   meta: { filterType: 'number' },
   sortUndefined: 'last',
   sortDescFirst: opts.descFirst ?? false,
+  size: 110,
+  minSize: 80,
 });
 
 /** Every numeric field the rows can carry, in column order. */
-const NUMERIC_COLUMNS: Array<{ field: NumericField; col: ColumnDef<PairPickerRow, unknown> }> = [
+const NUMERIC_COLUMNS: Array<{
+  field: NumericField;
+  col: ColumnDef<PairPickerRow, unknown>;
+}> = [
   { field: 'price', col: numericColumn('price', 'Price', formatPrice) },
   {
     field: 'change1h',
@@ -320,8 +334,10 @@ const NUMERIC_COLUMNS: Array<{ field: NumericField; col: ColumnDef<PairPickerRow
     field: 'roi',
     col: numericColumn(
       'roi',
-      'ROI',
-      (v) => <span className="text-success">+{v.toFixed(v >= 100 ? 0 : 1)}%</span>,
+      'Curated Strat. ROI',
+      (v) => (
+        <span className="text-success">+{v.toFixed(v >= 100 ? 0 : 1)}%</span>
+      ),
       { descFirst: true }
     ),
   },
@@ -374,7 +390,8 @@ const buildColumns = (
     cell: ({ row }) => <FavoriteCell row={row.original} />,
     enableColumnFilter: false,
     sortDescFirst: true,
-    size: 48,
+    size: 44,
+    minSize: 40,
   },
   {
     id: 'pair',
@@ -386,6 +403,7 @@ const buildColumns = (
         [r.symbol, r.baseAsset, r.baseDisplayName ?? ''].filter(Boolean),
     },
     size: 200,
+    minSize: 140,
   },
   {
     id: 'quote',
@@ -413,7 +431,8 @@ const buildColumns = (
     enableSorting: false,
     enableColumnFilter: false,
     enableHiding: false,
-    size: 40,
+    size: 44,
+    minSize: 40,
   },
 ];
 
@@ -434,7 +453,12 @@ const SORT_MODES: Array<{
     sort: { id: 'marketCapRank', desc: false },
     needs: 'marketCapRank',
   },
-  { value: 'roi', label: 'By ROI', sort: { id: 'roi', desc: true }, needs: 'roi' },
+  {
+    value: 'roi',
+    label: 'By Curated Strat. ROI',
+    sort: { id: 'roi', desc: true },
+    needs: 'roi',
+  },
   {
     value: 'volume',
     label: 'By 24h volume',
@@ -453,7 +477,12 @@ const SORT_MODES: Array<{
     sort: { id: 'volatility', desc: true },
     needs: 'volatility',
   },
-  { value: 'rsi', label: 'By RSI', sort: { id: 'rsi', desc: true }, needs: 'rsi' },
+  {
+    value: 'rsi',
+    label: 'By RSI',
+    sort: { id: 'rsi', desc: true },
+    needs: 'rsi',
+  },
   {
     value: 'minOrder',
     label: 'By min order',
@@ -490,6 +519,9 @@ const anchorFilter = (anchor: PairPickerAnchor): ColumnFiltersState => [
 
 const ASSET_CLASS_COLUMN = 'assetCategory';
 
+// §2.5 — the select checkbox never scrolls out of view, on any screen.
+const LOCKED_PINS = { right: ['select'] };
+
 export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   isOpen,
   onClose,
@@ -501,6 +533,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   onAddMany,
   anchor,
   maxSelectable,
+  singlePick = false,
   initialSortMode,
   isLoading = false,
   loadingMessage = 'Fetching trading pairs from your exchange…',
@@ -542,9 +575,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   // list picker's default), else A–Z.
   const effectiveSortMode =
     sortMode ?? (present.has('marketCapRank') ? 'marketcap' : 'alpha');
-  const [headerSorting, setHeaderSorting] = useState<SortingState | null>(
-    null
-  );
+  const [headerSorting, setHeaderSorting] = useState<SortingState | null>(null);
   const sorting = useMemo(
     () => headerSorting ?? buildSorting(effectiveSortMode, favoritesFirst),
     [headerSorting, effectiveSortMode, favoritesFirst]
@@ -574,7 +605,9 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
     if (!isOpen) return;
     setColumnFilters(anchor ? anchorFilter(anchor) : []);
     // The search is per opening too, like the list picker's.
-    useTablePreferencesStore.getState().setGlobalFilter(PAIR_PICKER_TABLE_ID, '');
+    useTablePreferencesStore
+      .getState()
+      .setGlobalFilter(PAIR_PICKER_TABLE_ID, '');
     setNotice(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps -- re-seed per open / anchor
   }, [isOpen, anchorKey]);
@@ -597,8 +630,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   }, [rows]);
   const activeAssetClass = useMemo(() => {
     const f = columnFilters.find((c) => c.id === ASSET_CLASS_COLUMN)?.value as
-      | { value?: unknown }
-      | undefined;
+      { value?: unknown } | undefined;
     const v = Array.isArray(f?.value) ? f.value[0] : undefined;
     return (typeof v === 'string' ? v : 'all') as AssetClass | 'all';
   }, [columnFilters]);
@@ -685,6 +717,16 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
     </Button>
   );
 
+  // Single-pair pickers have nothing to "select all" into.
+  const selectAllAction = singlePick ? undefined : limitReached &&
+    maxSelectable !== undefined ? (
+    <Tooltip tooltip={`Your plan allows ${maxSelectable} pairs per bot.`}>
+      <span>{selectAllButton}</span>
+    </Tooltip>
+  ) : (
+    selectAllButton
+  );
+
   const content = (
     <div
       className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-xs"
@@ -696,7 +738,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
           its columns, so it widens (sized off --base-font-size, like
           ListModal, so the shell tracks the type). */}
       <div
-        className={`bg-popover rounded-2xl shadow-xl @container max-h-[85vh] flex flex-col ${
+        className={`bg-popover rounded-2xl shadow-xl @container h-[85vh] flex flex-col ${
           viewMode === 'table'
             ? 'w-[min(100%,calc(var(--base-font-size)*72))]'
             : 'w-[min(100%,calc(var(--base-font-size)*30))] md:w-[min(90vw,calc(var(--base-font-size)*36))] xl:w-[min(90vw,calc(var(--base-font-size)*42))]'
@@ -827,7 +869,9 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
             {notice}
           </p>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto px-md py-sm">
+        {/* The table scrolls itself (so its header and toolbar stay put):
+            give it the remaining height rather than scrolling this box. */}
+        <div className="flex-1 min-h-0 flex flex-col px-md py-sm">
           {isLoading ? (
             <div className="flex flex-col items-center justify-center gap-sm py-12">
               <div className="w-8 h-8 border-2 border-muted-foreground/30 border-t-primary rounded-full animate-spin" />
@@ -839,6 +883,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
             <PickerRowContext.Provider value={ctx}>
               <DataTable<PairPickerRow, unknown>
                 tableId={PAIR_PICKER_TABLE_ID}
+                className="[&_.data-table-container]:flex-1 [&_.data-table-container]:min-h-0"
                 columns={columns}
                 data={data}
                 getRowId={(r) => r.symbol}
@@ -849,6 +894,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 cardViewGap={4}
                 onViewModeChange={setViewMode}
                 defaultColumnVisibility={HIDDEN_BY_DEFAULT}
+                lockedPinnedColumns={LOCKED_PINS}
                 sorting={sorting}
                 onSortingChange={handleSortingChange}
                 columnFilters={columnFilters}
@@ -856,17 +902,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 onFilteredRowsChange={setFilteredRows}
                 onRowClick={handleRowClick}
                 getRowIsSelected={getRowIsSelected}
-                firstToolbarActions={
-                  limitReached && maxSelectable !== undefined ? (
-                    <Tooltip
-                      tooltip={`Your plan allows ${maxSelectable} pairs per bot.`}
-                    >
-                      <span>{selectAllButton}</span>
-                    </Tooltip>
-                  ) : (
-                    selectAllButton
-                  )
-                }
+                firstToolbarActions={selectAllAction}
                 initialPageSize={50}
                 enableExport={false}
                 enableColumnReordering={false}

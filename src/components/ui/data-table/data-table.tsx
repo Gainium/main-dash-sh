@@ -1098,6 +1098,12 @@ interface DataTableProps<TData, TValue> {
   emptyReplacesBody?: boolean;
   defaultColumnVisibility?: Record<string, boolean>;
   defaultPinnedColumns?: { left: string[]; right: string[] };
+  /**
+   * Columns that are always pinned to a side — over saved preferences and on
+   * phones, where every other pin is dropped. For a column that must never
+   * scroll out of view (a picker's select checkbox).
+   */
+  lockedPinnedColumns?: { left?: string[]; right?: string[] };
   initialPageSize?: number; // Initial page size for new tables (defaults to 5)
   firstToolbarActions?: React.ReactNode; // Rendered first, before all other buttons
   /**
@@ -2173,6 +2179,7 @@ function DataTableComponent<TData, TValue>(
     emptyMessage,
     defaultColumnVisibility,
     defaultPinnedColumns,
+    lockedPinnedColumns,
     initialPageSize,
     firstToolbarActions,
     firstToolbarActionsCompact,
@@ -2242,6 +2249,7 @@ function DataTableComponent<TData, TValue>(
       emptyMessage: props.emptyMessage ?? 'No results.',
       emptyContent: props.emptyContent,
       defaultColumnVisibility: props.defaultColumnVisibility ?? {},
+      lockedPinnedColumns: props.lockedPinnedColumns,
       defaultPinnedColumns: props.defaultPinnedColumns ?? {
         left: [],
         right: [],
@@ -2394,10 +2402,20 @@ function DataTableComponent<TData, TValue>(
     : stableDefaultColumnVisibility;
 
   // On mobile, never pin any columns regardless of persisted preferences
-  const effectivePinnedColumns = useMemo(
-    () => (isMobile ? { left: [], right: [] } : pinnedColumns),
-    [isMobile, pinnedColumns]
-  );
+  // …except locked pins, which apply everywhere and win over saved ones.
+  const lockedPinsKey = JSON.stringify(lockedPinnedColumns ?? null);
+  const effectivePinnedColumns = useMemo(() => {
+    const base = isMobile ? { left: [], right: [] } : pinnedColumns;
+    if (!lockedPinnedColumns) return base;
+    const lockedLeft = lockedPinnedColumns.left ?? [];
+    const lockedRight = lockedPinnedColumns.right ?? [];
+    const locked = new Set([...lockedLeft, ...lockedRight]);
+    return {
+      left: [...base.left.filter((c) => !locked.has(c)), ...lockedLeft],
+      right: [...lockedRight, ...base.right.filter((c) => !locked.has(c))],
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- keyed by value
+  }, [isMobile, pinnedColumns, lockedPinsKey]);
 
   // Sorting state - use external, persisted, or internal state
   const sorting = useMemo(
@@ -3804,9 +3822,14 @@ function DataTableComponent<TData, TValue>(
         return COMPACT_ACTIONS_COLUMN_WIDTH;
       }
 
-      return columnWidths[columnId] ?? getColumnDefaultWidth(columnId);
+      // Saved widths only exist through resizing; a table that can't be
+      // resized uses its declared sizes (a stale saved width would stick).
+      return (
+        (enableColumnResizing ? columnWidths[columnId] : undefined) ??
+        getColumnDefaultWidth(columnId)
+      );
     },
-    [columnWidths, getColumnDefaultWidth]
+    [columnWidths, getColumnDefaultWidth, enableColumnResizing]
   );
 
   // Auto-resize columns to fit content (including header)
@@ -4473,11 +4496,17 @@ function DataTableComponent<TData, TValue>(
                                 columnId,
                                 pinnedState
                               )}
+                              // The header sets the column's width (fixed table
+                              // layout), so it always gets the column's size —
+                              // with resizing off it used to fall back to 192px
+                              // and every declared `size` was ignored.
+                              columnWidth={getColumnWidth(columnId)}
+                              minColumnWidth={getColumnMinWidth(columnId)}
+                              {...(getColumnMaxWidth(columnId) !== undefined && {
+                                maxColumnWidth: getColumnMaxWidth(columnId),
+                              })}
                               {...(enableColumnResizing && {
                                 onResize: handleColumnResize,
-                                columnWidth: getColumnWidth(columnId),
-                                minColumnWidth: getColumnMinWidth(columnId),
-                                maxColumnWidth: getColumnMaxWidth(columnId),
                                 enableColumnResizing: true,
                               })}
                             >

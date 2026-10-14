@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.96.5] - 2026-10-14
+### Changed
+- One pair picker: the change icon on a pair opens the same dialog as “Add pairs”, and Grid bots and the trading terminal use it too. Where a bot holds a single pair, picking a pair swaps it.
+- The pair picker’s ROI column and sort are named Curated Strat. ROI.
+### Fixed
+- Pair picker table: the header row stays in place while the list scrolls, and the selection column stays pinned to the right on every screen size.
+- Tables that can’t be resized now use their columns’ declared widths instead of giving every column the same width.
+
 ## [2.96.4] - 2026-10-14
 ### Fixed
 - Hedge bots, Edit (Manual): changes made on the Long or Short leg are kept when you switch to the other leg and back, and are saved together by one "Save hedge bot". Before, a leg reloaded its last saved settings each time you returned to it, so only the leg open at save time kept its changes.
