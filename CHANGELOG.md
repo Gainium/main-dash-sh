@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.96.7] - 2026-10-14
+### Changed
+- Pair picker: the select-all checkbox works on the current page. Once the whole page is selected and more pairs match, a bar offers to select all matching pairs (up to the plan limit) or, when they are all selected, to clear the selection. The checkbox is also shown when changing a pair on a bot that can hold several pairs.
+
 ## [2.96.6] - 2026-10-14
 ### Changed
 - Pair picker: "Select all matching" is a checkbox — in the selection column's header in the table, in the toolbar in card view. It is ticked when every shown pair is selected and partly ticked when some are; unticking removes the shown pairs.

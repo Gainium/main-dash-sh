@@ -1071,6 +1071,8 @@ interface DataTableProps<TData, TValue> {
    * "act on what's shown".
    */
   onFilteredRowsChange?: (rows: TData[]) => void;
+  /** Called with the rows on the current page, in display order. */
+  onPageRowsChange?: (rows: TData[]) => void;
   enableColumnReordering?: boolean;
   enableColumnVisibility?: boolean;
   enableColumnResizing?: boolean;
@@ -2168,6 +2170,7 @@ function DataTableComponent<TData, TValue>(
     columnFilters: externalColumnFilters,
     onColumnFiltersChange: externalOnColumnFiltersChange,
     onFilteredRowsChange,
+    onPageRowsChange,
     //enableColumnReordering = true,
     enableColumnVisibility,
     enableColumnResizing,
@@ -2240,6 +2243,7 @@ function DataTableComponent<TData, TValue>(
       columnFilters: props.columnFilters,
       onColumnFiltersChange: props.onColumnFiltersChange,
       onFilteredRowsChange: props.onFilteredRowsChange,
+      onPageRowsChange: props.onPageRowsChange,
       enableColumnVisibility: props.enableColumnVisibility ?? true,
       enableColumnResizing: props.enableColumnResizing ?? true,
       enableGrouping: props.enableGrouping ?? false,
@@ -4096,6 +4100,13 @@ function DataTableComponent<TData, TValue>(
   useEffect(() => {
     onFilteredRowsChangeRef.current?.(tableSorted.rows.map((r) => r.original));
   }, [tableSorted]);
+  // Same for the current page (what a page-level "select all" acts on).
+  const tablePage = table.getRowModel();
+  const onPageRowsChangeRef = useRef(onPageRowsChange);
+  onPageRowsChangeRef.current = onPageRowsChange;
+  useEffect(() => {
+    onPageRowsChangeRef.current?.(tablePage.rows.map((r) => r.original));
+  }, [tablePage]);
   const { pageIndex, pageSize } = useMemo(
     () => tableState.pagination,
     [tableState?.pagination]

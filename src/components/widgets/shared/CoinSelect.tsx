@@ -832,7 +832,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
               ? 'Select Pair'
               : 'Select Pairs'
           }
-          singlePick={singlePick || replacingSymbol !== null}
+          singlePick={singlePick}
           {...(onRemovePairs ? { onRemoveMany: onRemovePairs } : {})}
           rows={pickerRows}
           selectedItems={selectedCoins}

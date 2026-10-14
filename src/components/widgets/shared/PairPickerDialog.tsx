@@ -584,6 +584,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
     anchor ? anchorFilter(anchor) : []
   );
   const [filteredRows, setFilteredRows] = useState<PairPickerRow[]>([]);
+  const [pageRows, setPageRows] = useState<PairPickerRow[]>([]);
   const [viewMode, setViewMode] = useState<'table' | 'cards'>(
     () =>
       useTablePreferencesStore.getState().preferences[PAIR_PICKER_TABLE_ID]
@@ -731,8 +732,17 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
         .map((r) => r.symbol),
     [filteredRows, selected, slotsLeft]
   );
-  // Ticked when every shown pickable pair is selected, partly when some are.
-  // Ticking adds the rest (capped); unticking a full tick removes them.
+  // §6.2 — the header checkbox acts on the current PAGE (Gmail-style):
+  // ticked when every pickable pair on it is selected, partly when some are.
+  // Ticking adds the page's rest (capped); unticking a full page removes it.
+  // Past the page, the bar offers "Select all N matching" (or "Clear").
+  const pagePickable = useMemo(
+    () => pageRows.filter((r) => !blockedReason(r)).map((r) => r.symbol),
+    [pageRows]
+  );
+  const pageSelected = pagePickable.filter((sym) => selected.has(sym));
+  const pageAllSelected =
+    pagePickable.length > 0 && pageSelected.length === pagePickable.length;
   const shownPickable = useMemo(
     () => filteredRows.filter((r) => !blockedReason(r)).map((r) => r.symbol),
     [filteredRows]
@@ -740,52 +750,97 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   const shownSelected = shownPickable.filter((sym) => selected.has(sym));
   const allShownSelected =
     shownPickable.length > 0 && shownSelected.length === shownPickable.length;
-  const handleToggleAll = useCallback(() => {
-    if (allShownSelected) {
-      onRemoveMany?.(shownSelected);
-      setNotice(null);
-      return;
-    }
-    if (!toAdd.length) {
-      if (maxSelectable !== undefined && slotsLeft === 0) {
-        setNotice(`Your plan allows ${maxSelectable} pairs per bot.`);
+
+  const addCapped = useCallback(
+    (symbols: string[]) => {
+      const add = symbols
+        .filter((sym) => !selected.has(sym))
+        .slice(0, slotsLeft);
+      if (!add.length) {
+        if (maxSelectable !== undefined && slotsLeft === 0) {
+          setNotice(`Your plan allows ${maxSelectable} pairs per bot.`);
+        }
+        return;
       }
-      return;
-    }
-    setNotice(onAddMany(toAdd) ?? null);
-  }, [
-    allShownSelected,
-    onRemoveMany,
-    shownSelected,
-    toAdd,
-    maxSelectable,
-    slotsLeft,
-    onAddMany,
-  ]);
+      setNotice(onAddMany(add) ?? null);
+    },
+    [selected, slotsLeft, maxSelectable, onAddMany]
+  );
+  const removeMany = useCallback(
+    (symbols: string[]) => {
+      if (!symbols.length) return;
+      onRemoveMany?.(symbols);
+      setNotice(null);
+    },
+    [onRemoveMany]
+  );
+  const handleTogglePage = useCallback(() => {
+    if (pageAllSelected) removeMany(pageSelected);
+    else addCapped(pagePickable);
+  }, [pageAllSelected, removeMany, pageSelected, addCapped, pagePickable]);
+
   const selectAll = useMemo<SelectAllState | null>(
     () =>
       singlePick
         ? null
         : {
-            checked: allShownSelected
+            checked: pageAllSelected
               ? true
-              : shownSelected.length > 0
+              : pageSelected.length > 0
                 ? 'indeterminate'
                 : false,
-            addCount: toAdd.length,
-            label: allShownSelected
-              ? 'Unselect all shown'
-              : `Select all matching (${toAdd.length})`,
-            onToggle: handleToggleAll,
+            addCount: Math.min(
+              pagePickable.length - pageSelected.length,
+              slotsLeft
+            ),
+            label: pageAllSelected
+              ? 'Unselect this page'
+              : 'Select all on this page',
+            onToggle: handleTogglePage,
           },
     [
       singlePick,
-      allShownSelected,
-      shownSelected.length,
-      toAdd.length,
-      handleToggleAll,
+      pageAllSelected,
+      pageSelected.length,
+      pagePickable.length,
+      slotsLeft,
+      handleTogglePage,
     ]
   );
+
+  // The "select all matching" bar: only once the page is fully ticked and
+  // more pairs match than the page shows.
+  const moreThanPage = shownPickable.length > pagePickable.length;
+  const selectAllBar =
+    !singlePick && pageAllSelected && moreThanPage ? (
+      <div className="flex flex-wrap items-center justify-center gap-xs rounded-md bg-muted/50 px-sm py-1.5 text-sm">
+        {allShownSelected ? (
+          <>
+            <span>All {shownPickable.length} matching pairs are selected.</span>
+            <button
+              type="button"
+              className="font-semibold text-primary hover:underline"
+              onClick={() => removeMany(shownSelected)}
+            >
+              Clear selection
+            </button>
+          </>
+        ) : (
+          <>
+            <span>All {pagePickable.length} pairs on this page are selected.</span>
+            <button
+              type="button"
+              className="font-semibold text-primary hover:underline"
+              onClick={() => addCapped(shownPickable)}
+            >
+              {toAdd.length < shownPickable.length - shownSelected.length
+                ? `Select ${toAdd.length} more (plan limit ${maxSelectable})`
+                : `Select all ${shownPickable.length} matching`}
+            </button>
+          </>
+        )}
+      </div>
+    ) : null;
   const ctx = useMemo<PickerRowContextValue>(
     () => ({ selected, onToggle: onItemToggle, onToggleFavorite, selectAll }),
     [selected, onItemToggle, onToggleFavorite, selectAll]
@@ -979,6 +1034,8 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 columnFilters={columnFilters}
                 onColumnFiltersChange={setColumnFilters}
                 onFilteredRowsChange={setFilteredRows}
+                onPageRowsChange={setPageRows}
+                betweenToolbarAndContent={selectAllBar}
                 onRowClick={handleRowClick}
                 getRowIsSelected={getRowIsSelected}
                 firstToolbarActions={toolbar}

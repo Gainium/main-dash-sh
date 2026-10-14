@@ -127,69 +127,82 @@ describe('spec 115 pair picker dialog', () => {
   test('§6.2 select all matching adds only shown, pickable, unselected pairs', async () => {
     const { onAddMany } = renderDialog();
     await settle();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Select all matching/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all on this page' }));
     expect(onAddMany).toHaveBeenCalledWith(['ETH-USDT']);
   });
 
   test('§6.2 the bulk-add message is shown in the dialog', async () => {
     renderDialog({ onAddMany: () => 'Maximum pairs to choose is 1.' });
     await settle();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Select all matching/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all on this page' }));
     await settle();
     expect(screen.getByRole('status').textContent).toMatch(/Maximum pairs/);
   });
 });
 
-describe('spec 115 §6.2 plan limit and order', () => {
-  const many: PairPickerRow[] = [
-    row('AAA', 'USDT', { volume24h: 1 }),
-    row('BBB', 'USDT', { volume24h: 300 }),
-    row('CCC', 'USDT', { volume24h: 200 }),
-    row('DDD', 'USDT', { volume24h: 100 }),
-  ];
+describe('spec 115 §6.2 select all: the page, then all matching', () => {
+  const many = (n: number): PairPickerRow[] =>
+    Array.from({ length: n }, (_, i) =>
+      row(`C${String(i).padStart(3, '0')}`, 'USDT', { volume24h: n - i })
+    );
 
-  test('the count is capped at the slots left, and the first shown pairs are added', async () => {
+  test('the header checkbox adds the page, capped at the slots left', async () => {
     const { onAddMany } = renderDialog({
-      rows: many,
-      selectedItems: ['AAA-USDT'],
+      rows: many(4),
+      selectedItems: ['C000-USDT'],
       maxSelectable: 3,
-      initialSortMode: 'volume',
+      anchor: null,
     });
     await settle();
-    const button = screen.getByRole('checkbox', { name: /Select all matching/ });
-    expect(button.getAttribute('aria-label')).toMatch(/\(2\)/);
-    fireEvent.click(button);
-    expect(onAddMany).toHaveBeenCalledWith(['BBB-USDT', 'CCC-USDT']);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all on this page' }));
+    expect(onAddMany).toHaveBeenCalledWith(['C001-USDT', 'C002-USDT']);
   });
 
   test('with no slots left a tick says so instead of adding', async () => {
     const { onAddMany } = renderDialog({
-      rows: many,
-      selectedItems: ['AAA-USDT', 'BBB-USDT'],
+      rows: many(4),
+      selectedItems: ['C000-USDT', 'C001-USDT'],
       maxSelectable: 2,
+      anchor: null,
     });
     await settle();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Select all matching/ }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all on this page' }));
     await settle();
     expect(onAddMany).not.toHaveBeenCalled();
     expect(screen.getByRole('status').textContent).toMatch(/allows 2 pairs/);
   });
 
-  test('unticking when every shown pair is selected removes them', async () => {
+  test('unticking a fully selected page removes it', async () => {
     const onRemoveMany = vi.fn();
+    const rows = many(3);
     renderDialog({
-      rows: many,
-      selectedItems: ['AAA-USDT', 'BBB-USDT', 'CCC-USDT', 'DDD-USDT'],
+      rows,
+      selectedItems: rows.map((r) => r.symbol),
       onRemoveMany,
+      anchor: null,
     });
     await settle();
-    fireEvent.click(screen.getByRole('checkbox', { name: /Unselect all shown/ }));
-    expect(onRemoveMany.mock.calls[0][0].sort()).toEqual([
-      'AAA-USDT',
-      'BBB-USDT',
-      'CCC-USDT',
-      'DDD-USDT',
-    ]);
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Unselect this page' }));
+    expect(onRemoveMany.mock.calls[0][0].sort()).toEqual(
+      rows.map((r) => r.symbol).sort()
+    );
+  });
+
+  test('past the page, the bar selects all matching (in display order)', async () => {
+    const rows = many(60); // page size 50
+    const onAddMany = vi.fn(() => undefined);
+    renderDialog({
+      rows,
+      selectedItems: rows.slice(0, 50).map((r) => r.symbol),
+      onAddMany,
+      anchor: null,
+      initialSortMode: 'volume',
+    });
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Select all 60 matching' }));
+    expect(onAddMany).toHaveBeenCalledWith(
+      rows.slice(50).map((r) => r.symbol)
+    );
   });
 });
 
@@ -260,7 +273,7 @@ describe('spec 115 §1.1 single-pair pickers use the same dialog', () => {
   test('no "Select all matching" when the bot holds one pair', async () => {
     const { onItemToggle } = renderDialog({ singlePick: true, anchor: null });
     await settle();
-    expect(screen.queryByRole('checkbox', { name: /Select all matching/ })).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /Select all/ })).toBeNull();
     fireEvent.click(screen.getByText('ETH'));
     expect(onItemToggle).toHaveBeenCalledWith('ETH-USDT');
   });
