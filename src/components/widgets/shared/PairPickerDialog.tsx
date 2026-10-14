@@ -1058,11 +1058,25 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
           )}
         </div>
         {!isLoading && (
-          <div className="px-md py-md">
+          <div className="px-md py-md flex gap-sm">
+            {/* Clear everything picked so far (multi-pair bots only — a
+                single-pair bot always keeps its one pair). */}
+            {!singlePick && onRemoveMany && selectedCount > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  onRemoveMany(selectedItems.filter((sym) => sym !== 'ALL'));
+                  setNotice(null);
+                }}
+                className="shrink-0 rounded-lg border border-border px-4 py-2 text-sm font-semibold text-foreground transition-colors hover:bg-muted"
+              >
+                Clear selection
+              </button>
+            )}
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+              className="flex-1 rounded-lg bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
             >
               {selectedCount > 0 ? `Done (${selectedCount})` : 'Done'}
             </button>

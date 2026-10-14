@@ -320,3 +320,19 @@ describe('spec 115 §3 column names match the headers', () => {
     expect(headers).toContain('Asset class');
   });
 });
+
+describe('spec 115 §6.3 clear selection', () => {
+  test('removes every selected pair in one call', async () => {
+    const onRemoveMany = vi.fn();
+    renderDialog({ selectedItems: ['BTC-USDT', 'ETH-USDT'], onRemoveMany });
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Clear selection' }));
+    expect(onRemoveMany).toHaveBeenCalledWith(['BTC-USDT', 'ETH-USDT']);
+  });
+
+  test('not offered on a single-pair picker', async () => {
+    renderDialog({ singlePick: true, onRemoveMany: vi.fn() });
+    await settle();
+    expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
+  });
+});

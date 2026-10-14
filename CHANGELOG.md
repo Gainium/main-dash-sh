@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.96.10] - 2026-10-14
+### Added
+- Pair picker: a Clear selection button next to Done removes every selected pair.
+
 ## [2.96.9] - 2026-10-14
 ### Changed
 - Pair picker: "Fits this bot" also hides pairs whose quote asset doesn’t have enough free balance for the bot’s base order (spot accounts).
