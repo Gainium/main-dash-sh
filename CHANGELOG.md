@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.17] - 2026-10-14
+### Fixed
+- Hedge bots: after saving an existing hedge bot, the Long / Short leg forms now show the settings that were just saved. Before, they reloaded the settings from before the save, so a save that had worked looked as if it had not.
+
 ## [2.95.16] - 2026-10-14
 ### Changed
 - The Merge deals dialog previews the merge: each deal's size and average entry price, the merged deal's, and a small chart of those levels with the market price. It also asks whether the merged deal should use the bot's take profit and stop loss; by default it uses neither. The chosen exits are drawn on the chart with their prices, and an exit the market price has already passed is flagged.

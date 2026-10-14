@@ -137,6 +137,7 @@ import { validateDcaFormData } from '@/utils/bots/dca/validation';
 import { buildBotListRoute, buildBotViewRoute } from '@/utils/bots/navigation';
 import HedgeChartPanel from './HedgeChartPanel';
 import { HedgeNameInput } from './HedgeNameInput';
+import { usePostSaveRemount } from './usePostSaveRemount';
 import HedgeQuickLeg, {
   HedgeFooterShell,
   HedgeLegAlertPublisher,
@@ -342,7 +343,9 @@ export const HedgeBotEditLayout: React.FC = () => {
   // server's confirmed state. Without the remount, the leg's existing
   // BotFormProvider keeps its (now stale) `isDirty` flag and
   // `useBotFormInitialization` skips re-mapping.
-  const [postSaveSeq, setPostSaveSeq] = useState(0);
+  const { seq: postSaveSeq, remountAfterRefetch } = usePostSaveRemount(
+    hedgeBot?.bots
+  );
 
   // Hedge backtest is local-only (no SSB hedge variant). We open the
   // settings dialog from the footer's onBacktest hook, run via the
@@ -1045,11 +1048,13 @@ export const HedgeBotEditLayout: React.FC = () => {
         // bump the post-save counter — the seedRef sync effects pick up
         // the fresh formData and the leg widgets remount keyed off the
         // new seq, replacing user-edited state with the persisted state.
-        refetchHedgeBot();
+        // The bump waits for a render that carries the refetched legs: a
+        // remount before that seeds the forms with the pre-save settings.
+        const savedBots = hedgeBot?.bots;
         // Bindings, like settings, come back from the refetched legs.
         longVarsRef.current = undefined;
         shortVarsRef.current = undefined;
-        setPostSaveSeq((n) => n + 1);
+        await remountAfterRefetch(savedBots, refetchHedgeBot);
       }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -1074,6 +1079,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     hedgeName,
     exchanges,
     refetchHedgeBot,
+    remountAfterRefetch,
     activeTab,
     longLegBot,
     shortLegBot,

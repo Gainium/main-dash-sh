@@ -150,8 +150,9 @@ export interface HedgeBotFormApi {
   loadError: Error | null;
   /** Refetch the hedge bot from the server. Call after a successful
    *  hedge save so the per-leg `initialBot` references update and the
-   *  forms re-initialize from the latest persisted state. */
-  refetchHedgeBot: () => void;
+   *  forms re-initialize from the latest persisted state. Resolves with the
+   *  refetched bot (null when the read failed). */
+  refetchHedgeBot: () => Promise<HedgeBot | null>;
 }
 
 const HedgeBotFormContext = createContext<HedgeBotFormApi | undefined>(
@@ -361,8 +362,9 @@ export const HedgeBotFormProvider: React.FC<HedgeBotFormProviderProps> = ({
   ]);
 
   const refetchHedgeBot = useMemo(
-    () => () => {
-      void queryResult.refetch();
+    () => async (): Promise<HedgeBot | null> => {
+      const result = await queryResult.refetch();
+      return result.data?.status === 'OK' ? (result.data.data ?? null) : null;
     },
     [queryResult]
   );
