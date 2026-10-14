@@ -142,3 +142,32 @@ describe('spec 115 §7.4 column sizes apply with resizing off', () => {
     expect(widths()).toEqual(['120px', '300px']);
   });
 });
+
+describe('spec 115 §7.5 auto-resize measures the right columns', () => {
+  type R = { id: string; h: string; a: string; b: string };
+  const data: R[] = [{ id: '1', h: 'h', a: 'a', b: 'b' }];
+  const cols: ColumnDef<R, unknown>[] = [
+    { accessorKey: 'h', header: 'H', minSize: 300 },
+    { accessorKey: 'a', header: 'A', minSize: 40, maxSize: 60 },
+    { accessorKey: 'b', header: 'B', minSize: 200 },
+  ];
+
+  test('a hidden column does not shift widths onto its neighbours, and max sizes hold', async () => {
+    mockViewport(false);
+    render(
+      <DataTable
+        columns={cols}
+        data={data}
+        tableId="autosize"
+        defaultView="table"
+        getRowId={(r) => r.id}
+        defaultColumnVisibility={{ h: false }}
+      />
+    );
+    await settle(400); // auto-resize runs 150ms after data changes
+    const widths = [...document.querySelectorAll('thead tr:first-child th')].map(
+      (t) => (t as HTMLElement).style.width
+    );
+    expect(widths).toEqual(['60px', '200px']);
+  });
+});

@@ -292,3 +292,31 @@ describe('spec 115 §3.4 column naming', () => {
     expect(headers).toContain('Curated Strat. ROI');
   });
 });
+
+describe('spec 115 §2.1 cards show the exchange limits', () => {
+  test('a card carries min order and max leverage', async () => {
+    renderDialog({
+      rows: [row('ETH', 'USDT', { minOrder: 5, maxLeverage: 50 })],
+      anchor: null,
+    });
+    await settle();
+    expect(screen.getByText('Min 5 USDT · Max 50×')).toBeTruthy();
+  });
+});
+
+describe('spec 115 §3 column names match the headers', () => {
+  test('the class column is Asset class', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    useTablePreferencesStore
+      .getState()
+      .setColumnVisibility('bot-form-pair-picker', { assetCategory: true });
+    renderDialog({ anchor: null });
+    await settle();
+    const headers = [...document.querySelectorAll('thead th')].map((t) =>
+      t.textContent?.trim()
+    );
+    expect(headers).toContain('Asset class');
+  });
+});

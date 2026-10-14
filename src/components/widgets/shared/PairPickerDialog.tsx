@@ -427,8 +427,10 @@ const buildColumns = (
     cell: ({ row }) => <FavoriteCell row={row.original} />,
     enableColumnFilter: false,
     sortDescFirst: true,
+    meta: { label: 'Favorite' },
     size: 44,
     minSize: 40,
+    maxSize: 56,
   },
   {
     id: 'pair',
@@ -457,7 +459,7 @@ const buildColumns = (
   {
     id: 'assetCategory',
     accessorFn: (r) => r.assetCategory ?? 'crypto',
-    header: 'Class',
+    header: 'Asset class',
     meta: { filterType: 'array' },
   },
   ...NUMERIC_COLUMNS.filter((c) => present.has(c.field)).map((c) => c.col),
@@ -470,6 +472,7 @@ const buildColumns = (
     enableHiding: false,
     size: 44,
     minSize: 40,
+    maxSize: 56,
   },
 ];
 
@@ -1017,7 +1020,11 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
             <PickerRowContext.Provider value={ctx}>
               <DataTable<PairPickerRow, unknown>
                 tableId={PAIR_PICKER_TABLE_ID}
-                className="[&_.data-table-container]:flex-1 [&_.data-table-container]:min-h-0"
+                // The table area takes the remaining height (so its header can
+                // stick); the one-column card grid drops masonry's gap
+                // compensation (negative margins + wider width), which
+                // otherwise scrolls the cards sideways inside this box.
+                className="[&_.data-table-container]:flex-1 [&_.data-table-container]:min-h-0 [&_.masonry-grid]:mx-0! [&_.masonry-grid]:w-full!"
                 columns={columns}
                 data={data}
                 getRowId={(r) => r.symbol}
@@ -1042,7 +1049,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 initialPageSize={50}
                 enableExport={false}
                 enableColumnReordering={false}
-                enableColumnResizing={false}
                 enableUrlSync={false}
                 emptyMessage="No pairs match these filters."
               />

@@ -1617,7 +1617,7 @@ function ToolbarButtonRow<TData>({
                 .map((column: any) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="capitalize"
+                    className={columnMenuLabel(column).fromId ? 'capitalize' : ''}
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => {
                       column.toggleVisibility(!!value);
@@ -1626,7 +1626,7 @@ function ToolbarButtonRow<TData>({
                       e.preventDefault();
                     }}
                   >
-                    {column.id}
+                    {columnMenuLabel(column).text}
                   </DropdownMenuCheckboxItem>
                 ))}
               <DropdownMenuSeparator />
@@ -1664,7 +1664,7 @@ function ToolbarButtonRow<TData>({
                 .map((column: any) => (
                   <DropdownMenuCheckboxItem
                     key={column.id}
-                    className="capitalize"
+                    className={columnMenuLabel(column).fromId ? 'capitalize' : ''}
                     checked={column.getIsVisible()}
                     onCheckedChange={(value) => {
                       column.toggleVisibility(!!value);
@@ -1673,7 +1673,7 @@ function ToolbarButtonRow<TData>({
                       e.preventDefault();
                     }}
                   >
-                    {column.id}
+                    {columnMenuLabel(column).text}
                   </DropdownMenuCheckboxItem>
                 ))}
               <DropdownMenuSeparator />
@@ -2029,6 +2029,24 @@ const touchConfig = {
 const DEFAULT_COLUMN_WIDTH = 192;
 const DEFAULT_MIN_COLUMN_WIDTH = 80;
 const COMPACT_ACTIONS_COLUMN_WIDTH = 56;
+
+/**
+ * The name a column goes by in the Columns menu: what its header says (or
+ * `meta.label` for an icon-only header), so the menu and the table use the
+ * same words. Falls back to the column id.
+ */
+const columnMenuLabel = (column: {
+  id: string;
+  columnDef: { header?: unknown; meta?: unknown };
+}): { text: string; fromId: boolean } => {
+  const label = (column.columnDef.meta as { label?: unknown } | undefined)
+    ?.label;
+  if (typeof label === 'string' && label) return { text: label, fromId: false };
+  const header = column.columnDef.header;
+  if (typeof header === 'string' && header)
+    return { text: header, fromId: false };
+  return { text: column.id, fromId: true };
+};
 
 /**
  * Re-insert the columns the user currently has HIDDEN into a reordered list of
@@ -3828,12 +3846,23 @@ function DataTableComponent<TData, TValue>(
 
       // Saved widths only exist through resizing; a table that can't be
       // resized uses its declared sizes (a stale saved width would stick).
-      return (
+      const width =
         (enableColumnResizing ? columnWidths[columnId] : undefined) ??
-        getColumnDefaultWidth(columnId)
+        getColumnDefaultWidth(columnId);
+      // Within the column's declared bounds, whatever was saved.
+      const max = getColumnMaxWidth(columnId);
+      return Math.max(
+        getColumnMinWidth(columnId),
+        max !== undefined ? Math.min(width, max) : width
       );
     },
-    [columnWidths, getColumnDefaultWidth, enableColumnResizing]
+    [
+      columnWidths,
+      getColumnDefaultWidth,
+      enableColumnResizing,
+      getColumnMaxWidth,
+      getColumnMinWidth,
+    ]
   );
 
   // Auto-resize columns to fit content (including header)
@@ -3845,13 +3874,18 @@ function DataTableComponent<TData, TValue>(
       if (!tableElement) return;
 
       const newWidths: Record<string, number> = {};
-      const headers = tableElement.querySelectorAll('thead th');
+      // The first header row only (the second is the filter row), mapped to
+      // the columns actually rendered: indexing ALL columns shifted every
+      // measurement onto the wrong column whenever one was hidden.
+      const headers = tableElement.querySelectorAll('thead tr:first-child th');
       const rows = tableElement.querySelectorAll(
         'tbody tr:not([data-placeholder])'
       );
+      const renderedColumnIds =
+        table.getHeaderGroups()[0]?.headers.map((h) => h.column.id) ?? [];
 
       headers.forEach((header, colIndex) => {
-        const columnId = table.getAllColumns()[colIndex]?.id;
+        const columnId = renderedColumnIds[colIndex];
         if (!columnId) return;
 
         if (columnId === 'actions') {
@@ -3912,8 +3946,8 @@ function DataTableComponent<TData, TValue>(
           }
         }
 
-        // Cap at reasonable maximum
-        maxWidth = Math.min(maxWidth, 400);
+        // Cap at reasonable maximum, and at the column's own maxSize
+        maxWidth = Math.min(maxWidth, 400, getColumnMaxWidth(columnId) ?? 400);
         newWidths[columnId] = maxWidth;
       });
 
@@ -3945,6 +3979,7 @@ function DataTableComponent<TData, TValue>(
       setColumnWidths,
       table,
       getColumnMinWidth,
+      getColumnMaxWidth,
     ]
   );
 

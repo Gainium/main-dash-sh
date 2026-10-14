@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.96.8] - 2026-10-14
+### Changed
+- Pair picker: cards show the pair’s minimum order and maximum leverage under its name. Columns in the table can be resized, and the asset-class column is called Asset class.
+- Tables: the Columns menu lists columns by the name shown in their header.
+### Fixed
+- Pair picker: card view no longer scrolls sideways.
+- Tables: automatic column sizing measured the wrong columns when one was hidden, and could save a width outside a column’s limits.
+
 ## [2.96.7] - 2026-10-14
 ### Changed
 - Pair picker: the select-all checkbox works on the current page. Once the whole page is selected and more pairs match, a bar offers to select all matching pairs (up to the plan limit) or, when they are all selected, to clear the selection. The checkbox is also shown when changing a pair on a bot that can hold several pairs.

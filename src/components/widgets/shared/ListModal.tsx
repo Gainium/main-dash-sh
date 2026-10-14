@@ -632,6 +632,21 @@ export const ListModalRow = React.memo<ListModalRowProps>(
                         ? `${item.baseDisplayName} · ${item.quoteAsset}`
                         : item.quoteAsset}
                     </div>
+                    {/* Exchange limits (pair picker), only when known. */}
+                    {(item.minOrder != null || item.maxLeverage != null) && (
+                      <div className="text-muted-foreground text-xs truncate leading-tight tabular-nums">
+                        {[
+                          item.minOrder != null
+                            ? `Min ${formatMinOrder(item.minOrder)} ${item.quoteAsset ?? ''}`.trim()
+                            : null,
+                          item.maxLeverage != null
+                            ? `Max ${item.maxLeverage}×`
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(' · ')}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
