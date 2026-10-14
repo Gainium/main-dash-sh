@@ -1,5 +1,8 @@
 import { useSyncExternalStore } from 'react';
-import getLatestPrices, { getLocalPrices } from '@/helper/price';
+import getLatestPrices, {
+  getLocalPrices,
+  getPricesFetchedAt,
+} from '@/helper/price';
 import type { Prices } from '@/types';
 
 /**
@@ -22,9 +25,14 @@ let pendingTimer: ReturnType<typeof setTimeout> | null = null;
 let unsubscribeFeed: (() => void) | null = null;
 const listeners = new Set<() => void>();
 
+// Whether the published snapshot came from a network fetch this session, as
+// opposed to the persisted snapshot seeded at startup for a fast first paint.
+let snapshotIsLive = false;
+
 const publish = (next: Prices) => {
   if (next === snapshot) return;
   snapshot = next;
+  snapshotIsLive = getPricesFetchedAt() > 0;
   lastPublish = Date.now();
   for (const l of listeners) l();
 };
@@ -72,6 +80,7 @@ const subscribe = (listener: () => void) => {
 };
 
 const getSnapshot = () => snapshot;
+const getIsLive = () => snapshotIsLive;
 
 /**
  * The latest price snapshot (throttled to one update per 10 s). Pass
@@ -85,6 +94,41 @@ export function useLatestPrices(enabled = true): Prices {
   );
 }
 
+/**
+ * False while `useLatestPrices` still serves the persisted snapshot from a
+ * previous session; true once a network fetch has been published. Figures
+ * priced from the snapshot should be shown as pending (`PendingLiveValue`).
+ */
+export function usePricesLive(enabled = true): boolean {
+  return useSyncExternalStore(
+    enabled ? subscribe : noopSubscribe,
+    enabled ? getIsLive : notLive,
+    enabled ? getIsLive : notLive
+  );
+}
+
+const notLive = () => false;
+
+/**
+ * One pair's price from the shared feed, and whether it is live (fetched this
+ * session). `price` is undefined when the feed does not carry the pair.
+ */
+export function useLivePairPrice(
+  exchange: string | undefined,
+  pair: string | undefined
+): { price: number | undefined; live: boolean } {
+  const enabled = !!exchange && !!pair;
+  const prices = useLatestPrices(enabled);
+  const live = usePricesLive(enabled);
+  const hit = enabled
+    ? prices.find((p) => p.symbol === pair && p.exchange === exchange)
+    : undefined;
+  const price = hit ? Number(hit.price) : undefined;
+  return {
+    price: price !== undefined && Number.isFinite(price) ? price : undefined,
+    live: live && hit !== undefined,
+  };
+}
 const EMPTY: Prices = [];
 const noopSubscribe = () => () => {};
 const emptySnapshot = () => EMPTY;

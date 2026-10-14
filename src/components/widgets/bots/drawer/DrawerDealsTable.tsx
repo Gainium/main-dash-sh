@@ -75,6 +75,7 @@ import {
     StatusChip,
     StrategyChip,
 } from '../../../ui/chip';
+import { PendingLiveValue } from '../../../ui/pending-live-value';
 import { DataTable, type BulkAction } from '../../../ui/data-table/data-table';
 import {
     Dialog,
@@ -1925,6 +1926,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
             privacyMode={privacyMode}
             chipPosition="right"
             size="sm"
+
+            pending={trade.active && trade.unrealizedPending}
           />
         );
       },
@@ -1970,7 +1973,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (privacyMode) {
           return <ProfitLossPercChip value={0} size="sm" textValue="***" />;
         }
-        return <ProfitLossPercChip value={percentage} size="sm" />;
+        return (
+          <PendingLiveValue pending={trade.active && trade.unrealizedPending}>
+            <ProfitLossPercChip value={percentage} size="sm" />
+          </PendingLiveValue>
+        );
       },
       enableSorting: true,
       enableColumnFilter: true,
@@ -2068,6 +2075,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
             privacyMode={privacyMode}
             chipPosition="right"
             size="sm"
+
+            pending={trade.active && trade.unrealizedPending}
           />
         );
       },
@@ -2106,7 +2115,11 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         if (privacyMode) {
           return <ProfitLossPercChip value={0} size="sm" textValue="***" />;
         }
-        return <ProfitLossPercChip value={percentage} size="sm" />;
+        return (
+          <PendingLiveValue pending={trade.active && trade.unrealizedPending}>
+            <ProfitLossPercChip value={percentage} size="sm" />
+          </PendingLiveValue>
+        );
       },
       enableSorting: true,
       enableColumnFilter: true,

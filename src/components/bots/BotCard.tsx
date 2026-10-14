@@ -339,14 +339,12 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
       +((type === BotTypesEnum.grid ? bot.valueChange : bot.unPnlPerc) || 0),
     [bot.valueChange, bot.unPnlPerc, type]
   );
-  // True while the page is still waiting for a fresh price snapshot for this
-  // bot's exchange. The displayed value during this window is a server-side
-  // liveStats fallback (or 0 if the bot has no liveStats), and will refresh
-  // to the locally-computed number once `latestPrices` populates.
-  const valuePending = useMemo(
-    () => Boolean(bot.isActive) && bot.loadedPrices === false,
-    [bot.isActive, bot.loadedPrices]
-  );
+  // True while the value is not live yet: no price for this bot's exchange
+  // (a server-side liveStats fallback is shown), or prices still from the
+  // persisted previous-session snapshot. See `unPnlPending` in the transforms.
+  const valuePending =
+    (Boolean(bot.isActive) && bot.loadedPrices === false) ||
+    !!bot.unPnlPending;
   const avgDaily = useMemo(() => bot.avgDaily || 0, [bot.avgDaily]);
   const avgDailyPerc = useMemo(() => bot.avgDailyPerc || 0, [bot.avgDailyPerc]);
   const annualizedReturn = useMemo(
@@ -589,17 +587,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                   {/* Middle - same figure the table's second money column
                       shows: grid bots put their absolute worth here, every
                       other type puts the open PnL. */}
-                  <div
-                    className={cn(
-                      'flex-1 min-w-0 transition-opacity',
-                      valuePending && 'opacity-50 animate-pulse'
-                    )}
-                    title={
-                      valuePending
-                        ? 'Updating value with latest prices…'
-                        : undefined
-                    }
-                  >
+                  <div className="flex-1 min-w-0">
                     <div className="text-xs text-muted-foreground mb-1">
                       {type === BotTypesEnum.grid
                         ? 'Current Value'
@@ -611,6 +599,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                       privacyMode={privacyMode}
                       chipPosition="bottom"
                       size="md"
+                      pending={valuePending}
                     />
                   </div>
 
@@ -934,7 +923,8 @@ export const BotCard = React.memo(BotCardBase, (prevProps, nextProps) => {
   // Toggling the price-loaded flag drives the "Updating value…" pending tint,
   // so the card has to re-render when it flips.
   const loadedPricesChanged =
-    prevProps.item.loadedPrices !== nextProps.item.loadedPrices;
+    prevProps.item.loadedPrices !== nextProps.item.loadedPrices ||
+    prevProps.item.unPnlPending !== nextProps.item.unPnlPending;
 
   if (
     statusChanged ||

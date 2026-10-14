@@ -129,6 +129,8 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     },
     ...(deal.funding && { funding: deal.funding }),
     unrealizedProfit,
+    unrealizedPending:
+      active && !!(deal as { unrealizedPending?: boolean }).unrealizedPending,
     avgPrice: deal.avgPrice || 0,
     // The Add/Reduce funds dialog needs this to resolve a percentage and to
     // cap a reduce at the position. `transformDealToTrade` has always

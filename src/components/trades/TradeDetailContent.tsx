@@ -83,6 +83,7 @@ interface TradeDetailContentProps {
         }
       | undefined;
     unrealizedProfit?: number | undefined;
+    unrealizedPending?: boolean | undefined;
     avgPrice?: number | undefined;
     levels: {
       complete: number;
@@ -296,6 +297,7 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
                   privacyMode={privacyMode}
                   chipPosition="right"
                   size="lg"
+                  pending={trade.unrealizedPending}
                 />
               </div>
             </Card>

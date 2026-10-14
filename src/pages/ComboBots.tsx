@@ -47,6 +47,7 @@ import {
   StatusChip,
   StrategyChip,
 } from '../components/ui/chip';
+import { PendingLiveValue } from '../components/ui/pending-live-value';
 import { DataTable } from '../components/ui/data-table/data-table';
 import {
   Tabs,
@@ -99,6 +100,7 @@ import { withServerFields } from '../components/ui/data-table/serverSide';
 import { PartialCount } from '../components/ui/large-account';
 import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 import { useComboDeals } from '../hooks/useComboDeals';
+import { useDealsWithLivePnl } from '../hooks/useLiveDealPnl';
 
 const COMBO_BOT_TYPE_ID = 'combo';
 
@@ -849,6 +851,7 @@ const ComboBots: React.FC = () => {
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.unPnlPending}
             />
           );
         },
@@ -938,6 +941,7 @@ const ComboBots: React.FC = () => {
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.unPnlPending}
             />
           );
         },
@@ -978,7 +982,11 @@ const ComboBots: React.FC = () => {
           const netPnl = totalProfit + unrealized;
           const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
-          return <ProfitLossPercChip value={percentage} size="sm" />;
+          return (
+            <PendingLiveValue pending={row.original.unPnlPending}>
+              <ProfitLossPercChip value={percentage} size="sm" />
+            </PendingLiveValue>
+          );
         },
       },
       {
@@ -1303,13 +1311,18 @@ const ComboBots: React.FC = () => {
         : DCADealStatusEnum.open,
   });
 
+  const comboDealsLive = useDealsWithLivePnl(comboDealsForTab, {
+    combo: true,
+    enabled: dealsStatus === 'open',
+  });
+
   // Transform Combo deals to OpenTrade[] for the OpenOrdersWidget
   const comboDealsAsOpenTrades = useMemo(
     () =>
-      comboDealsForTab.map((deal) =>
+      comboDealsLive.map((deal) =>
         comboDealToOpenTrade(deal, (id) => botDataMap.get(id)?.name)
       ),
-    [comboDealsForTab, botDataMap]
+    [comboDealsLive, botDataMap]
   );
 
   // Only show the loading skeleton when we don't have any cached data yet

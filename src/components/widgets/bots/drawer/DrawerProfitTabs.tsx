@@ -779,6 +779,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
+                pending={transformedBot?.unPnlPending}
               />
             ),
             tooltip: BOT_METRIC_DESCRIPTIONS.grid.unrealizedPnl,
@@ -793,6 +794,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
+                pending={transformedBot?.unPnlPending}
               />
             ),
             tooltip: BOT_METRIC_DESCRIPTIONS.grid.netPnl,
@@ -846,6 +848,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
+                pending={transformedBot?.unPnlPending}
               />
             ),
             tooltip: BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl,
@@ -871,6 +874,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
+                pending={transformedBot?.unPnlPending}
               />
             ),
             tooltip: BOT_METRIC_DESCRIPTIONS.dca.netPnl,

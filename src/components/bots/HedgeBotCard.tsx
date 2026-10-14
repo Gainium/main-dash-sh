@@ -79,6 +79,9 @@ interface HedgeBotCardProps {
   /** Per-leg unrealized PnL (USD) and percentage. */
   legUnPnl?: { long?: number; short?: number };
   legUnPnlPerc?: { long?: number; short?: number };
+  /** Combined / per-leg unrealized not live yet (see PendingLiveValue). */
+  unPnlPending?: boolean | undefined;
+  legUnPnlPending?: { long?: boolean; short?: boolean };
 }
 
 const findLeg = (
@@ -115,6 +118,7 @@ const HedgeLegTile: React.FC<{
    *  own max value. */
   unPnl?: number;
   unPnlPerc?: number;
+  unPnlPending?: boolean | undefined;
 }> = ({
   leg,
   legLabel,
@@ -124,6 +128,7 @@ const HedgeLegTile: React.FC<{
   maxCost,
   unPnl,
   unPnlPerc,
+  unPnlPending,
 }) => {
   const dealsActive = leg?.dealsInBot?.active ?? 0;
   const dealsAll = leg?.dealsInBot?.all ?? 0;
@@ -212,6 +217,7 @@ const HedgeLegTile: React.FC<{
           privacyMode={privacyMode}
           chipPosition="right"
           size="xs"
+          pending={unPnlPending}
         />
       </div>
     </div>
@@ -236,6 +242,8 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
   legMaxCost,
   legUnPnl,
   legUnPnlPerc,
+  unPnlPending,
+  legUnPnlPending,
 }) => {
   const navigate = useNavigate();
   const resolvePairAsset = useResolvePairAsset();
@@ -443,6 +451,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
                 privacyMode={privacyMode}
                 chipPosition="bottom"
                 size="md"
+                pending={unPnlPending}
               />
             </div>
           </div>
@@ -523,6 +532,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
               maxCost={legMaxCost?.long}
               unPnl={legUnPnl?.long}
               unPnlPerc={legUnPnlPerc?.long}
+              unPnlPending={legUnPnlPending?.long}
             />
             <HedgeLegTile
               leg={shortLeg}
@@ -533,6 +543,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
               maxCost={legMaxCost?.short}
               unPnl={legUnPnl?.short}
               unPnlPerc={legUnPnlPerc?.short}
+              unPnlPending={legUnPnlPending?.short}
             />
           </div>
         </div>
@@ -555,6 +566,10 @@ export const HedgeBotCard = React.memo(HedgeBotCardComponent, (prev, next) => {
   if (prev.botType !== next.botType) return false;
   if (prev.unPnl !== next.unPnl) return false;
   if (prev.unPnlPerc !== next.unPnlPerc) return false;
+  if (prev.unPnlPending !== next.unPnlPending) return false;
+  if (prev.legUnPnlPending?.long !== next.legUnPnlPending?.long) return false;
+  if (prev.legUnPnlPending?.short !== next.legUnPnlPending?.short)
+    return false;
   if (prev.totalProfitUsd !== next.totalProfitUsd) return false;
   if (prev.currentCost !== next.currentCost) return false;
   if (prev.maxCost !== next.maxCost) return false;

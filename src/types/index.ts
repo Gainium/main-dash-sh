@@ -3734,6 +3734,8 @@ export type AdditionalBotData = {
   fullProfitPerc?: number;
   unPnl?: number;
   unPnlPerc?: number;
+  /** Open bot whose unPnl is the server's saved value or priced from the persisted price snapshot, not a live price yet. */
+  unPnlPending?: boolean;
   maxValue?: number;
   currentValue?: number;
   exchangeName?: string;

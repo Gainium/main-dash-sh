@@ -42,7 +42,7 @@ import {
 import { DCADealStatusEnum, type DCADeals, type DataGridFilterInput } from '../types';
 import { fetchAllDcaDeals, useDcaDeals } from './useDcaDeals';
 import { useLargeAccount } from './useLargeAccount';
-import { useLiveDealPnl } from './useLiveDealPnl';
+import { useDealsWithLivePnl } from './useLiveDealPnl';
 
 
 /** Session/local flag: this deal list was capped on an earlier visit. */
@@ -340,16 +340,11 @@ export function useDealTablePaging(opts: {
     [serverPaged, windowResult.deals, pagedReady, paged.deals, windowPage]
   );
 
-  const live = useLiveDealPnl(serverPaged ? rawDeals : [], {
-    enabled: serverPaged && status === 'open',
+  // Open deals only: their count is small even when the window is not, and
+  // every row the table can show then gets a live value or a pending mark.
+  const deals = useDealsWithLivePnl(rawDeals, {
+    enabled: status === 'open',
   });
-  const deals = useMemo(() => {
-    if (!serverPaged || live.size === 0) return rawDeals;
-    return rawDeals.map((d) => {
-      const r = live.get(d._id);
-      return r ? ({ ...d, unrealizedUsd: r.unrealizedUsd } as DCADeals) : d;
-    });
-  }, [serverPaged, live, rawDeals]);
 
   const total = !serverPaged
     ? windowResult.total

@@ -8,7 +8,7 @@ import {
 } from '@/lib/utils/dealUnrealizedPnl';
 import type { PriceData } from '@/lib/utils/unrealizedPnL';
 import type { AllFees } from '@/types';
-import { useLatestPrices } from './useLatestPrices';
+import { useLatestPrices, usePricesLive } from './useLatestPrices';
 import { useUserFees } from './useUserFeesService';
 
 type FeeTargetDeal = {
@@ -113,14 +113,15 @@ export function useDealFees(
 export function useLiveDealPnl<T extends DealPnlInput & { _id?: string }>(
   visibleDeals: readonly T[],
   options: { combo?: boolean | ((deal: T) => boolean); enabled?: boolean } = {}
-): Map<string, DealPnlResult> {
+): Map<string, LiveDealPnl> {
   const enabled = options.enabled !== false && visibleDeals.length > 0;
   const prices = useLatestPrices(enabled);
+  const pricesLive = usePricesLive(enabled);
   const fees = useDealFees(visibleDeals as unknown as FeeTargetDeal[], enabled);
   const combo = options.combo;
 
   return useMemo(() => {
-    const out = new Map<string, DealPnlResult>();
+    const out = new Map<string, LiveDealPnl>();
     if (!enabled || prices.length === 0 || fees.length === 0) return out;
     for (const deal of visibleDeals) {
       if (!deal._id) continue;
@@ -131,8 +132,61 @@ export function useLiveDealPnl<T extends DealPnlInput & { _id?: string }>(
         fees,
         { combo: isCombo }
       );
-      if (r) out.set(deal._id, r);
+      if (r) out.set(deal._id, { ...r, fromSnapshot: !pricesLive });
     }
     return out;
-  }, [enabled, visibleDeals, prices, fees, combo]);
+  }, [enabled, visibleDeals, prices, fees, combo, pricesLive]);
+}
+
+/**
+ * A live result; `fromSnapshot` while it was priced from the persisted
+ * previous-session price snapshot rather than a fetch from this session.
+ */
+export type LiveDealPnl = DealPnlResult & { fromSnapshot: boolean };
+
+/**
+ * True when an open deal's unrealized P&L on screen is not live yet: no live
+ * result (the server's saved value is shown), or one priced from the
+ * persisted price snapshot. Render it with `PendingLiveValue` /
+ * `ProfitAndPerc pending`.
+ */
+export const isDealPnlPending = (
+  deal: { _id?: string; status?: string | null },
+  live: ReadonlyMap<string, LiveDealPnl>
+): boolean => {
+  if (!isActiveDealStatus(deal.status)) return false;
+  const r = deal._id ? live.get(deal._id) : undefined;
+  return !r || r.fromSnapshot;
+};
+
+/**
+ * `deals` with each OPEN deal's live unrealized P&L overlaid as
+ * `unrealizedUsd`, and `unrealizedPending` set while that value is not live
+ * yet (see {@link isDealPnlPending}). Closed deals pass through untouched.
+ * Pass only deals a view can show — open deals, or the visible page.
+ */
+export function useDealsWithLivePnl<
+  T extends DealPnlInput & { _id?: string; status?: string | null },
+>(
+  deals: readonly T[],
+  options: { combo?: boolean | ((deal: T) => boolean); enabled?: boolean } = {}
+): T[] {
+  const open = useMemo(
+    () => deals.filter((d) => isActiveDealStatus(d.status)),
+    [deals]
+  );
+  const live = useLiveDealPnl(open, options);
+  return useMemo(
+    () =>
+      deals.map((d) => {
+        if (!isActiveDealStatus(d.status)) return d;
+        const r = d._id ? live.get(d._id) : undefined;
+        return {
+          ...d,
+          ...(r ? { unrealizedUsd: r.unrealizedUsd } : {}),
+          unrealizedPending: isDealPnlPending(d, live),
+        };
+      }),
+    [deals, live]
+  );
 }

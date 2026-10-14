@@ -1,6 +1,7 @@
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { math } from '@/utils/math';
+import { getPricesFetchedAt } from '@/helper/price';
 import { extractPairAssets } from '@/utils/pairs';
 import {
   BotMarginTypeEnum,
@@ -621,6 +622,10 @@ export function transformGridBotToBot(
       userExchanges?.find((e) => e.uuid === res.exchangeUUID)?.name ||
       res.exchange,
     loadedPrices: !!findPrice,
+    unPnlPending:
+      res.status !== 'closed' &&
+      res.status !== 'archive' &&
+      (useLiveStats || !findPrice || getPricesFetchedAt() === 0),
     cost: res.cost && res.cost > 0 ? res.cost : undefined,
     isActive: res.status !== 'closed' && res.status !== 'archive',
     createdAt: new Date(res.created).getTime(),

@@ -127,6 +127,8 @@ export interface HedgeOverviewPanelProps {
    * to summing the leg bots when undefined.
    */
   unrealizedUsd?: number;
+  /** Some open deal's unrealized is not live yet (see PendingLiveValue). */
+  unrealizedPending?: boolean;
   privacyMode?: boolean;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   onTradeSelect?: (trade: any) => void;
@@ -137,6 +139,7 @@ const HedgeOverviewPanel: React.FC<HedgeOverviewPanelProps> = ({
   shortBot,
   totalProfitUsd,
   unrealizedUsd,
+  unrealizedPending,
   privacyMode = false,
   onTradeSelect,
 }) => {
@@ -177,6 +180,11 @@ const HedgeOverviewPanel: React.FC<HedgeOverviewPanelProps> = ({
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+
+              pending={
+                unrealizedPending ??
+                (!!longBot?.unPnlPending || !!shortBot?.unPnlPending)
+              }
             />
           </StatTile>
           <StatTile label="Realized PnL" tooltip={BOT_METRIC_DESCRIPTIONS.hedge.realizedPnl}>

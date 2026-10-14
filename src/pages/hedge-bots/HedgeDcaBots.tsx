@@ -149,6 +149,8 @@ type EnrichedHedgeBot = HedgeBot & {
   __legCost?: { long?: number; short?: number };
   __legMaxCost?: { long?: number; short?: number };
   __legUnPnl?: { long?: number; short?: number };
+  __unPnlPending?: boolean;
+  __legUnPnlPending?: { long?: boolean; short?: boolean };
   __legUnPnlPerc?: { long?: number; short?: number };
 };
 
@@ -181,6 +183,10 @@ const HedgeDcaBotCardWrapper = ({
     {...(item.__legCost ? { legCost: item.__legCost } : {})}
     {...(item.__legMaxCost ? { legMaxCost: item.__legMaxCost } : {})}
     {...(item.__legUnPnl ? { legUnPnl: item.__legUnPnl } : {})}
+    unPnlPending={item.__unPnlPending}
+    {...(item.__legUnPnlPending
+      ? { legUnPnlPending: item.__legUnPnlPending }
+      : {})}
     {...(item.__legUnPnlPerc ? { legUnPnlPerc: item.__legUnPnlPerc } : {})}
   />
   );
@@ -314,9 +320,12 @@ const HedgeDcaBots = () => {
         const shortLeg = (bot.bots ?? []).find(
           (l) => l.settings?.strategy === StrategyEnum.short
         );
-        const longUn = longLeg ? (legUnrealized.get(longLeg._id) ?? 0) : 0;
-        const shortUn = shortLeg ? (legUnrealized.get(shortLeg._id) ?? 0) : 0;
+        const longUn = longLeg ? (legUnrealized.byLeg.get(longLeg._id) ?? 0) : 0;
+        const shortUn = shortLeg ? (legUnrealized.byLeg.get(shortLeg._id) ?? 0) : 0;
         const combinedUn = longUn + shortUn;
+        const longPending = !!longLeg && legUnrealized.pending.has(longLeg._id);
+        const shortPending =
+          !!shortLeg && legUnrealized.pending.has(shortLeg._id);
         const longCost = u?.legCost?.long ?? 0;
         const shortCost = u?.legCost?.short ?? 0;
         const currentCost = u?.currentValue ?? 0;
@@ -335,6 +344,8 @@ const HedgeDcaBots = () => {
           ...(u?.legCost ? { __legCost: u.legCost } : {}),
           ...(u?.legMaxCost ? { __legMaxCost: u.legMaxCost } : {}),
           __legUnPnl: { long: longUn, short: shortUn },
+          __unPnlPending: longPending || shortPending,
+          __legUnPnlPending: { long: longPending, short: shortPending },
           __legUnPnlPerc: {
             long: longCost > 0 ? (longUn / longCost) * 100 : 0,
             short: shortCost > 0 ? (shortUn / shortCost) * 100 : 0,
@@ -733,6 +744,7 @@ const HedgeDcaBots = () => {
             percentage={row.original.__unPnlPerc ?? 0}
             privacyMode={privacyMode}
             size="sm"
+            pending={row.original.__unPnlPending}
           />
         ),
         meta: {
@@ -777,6 +789,7 @@ const HedgeDcaBots = () => {
               percentage={cost > 0 ? (net / cost) * 100 : 0}
               privacyMode={privacyMode}
               size="sm"
+              pending={row.original.__unPnlPending}
             />
           );
         },

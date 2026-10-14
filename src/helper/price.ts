@@ -523,4 +523,10 @@ export const getSymbolPrice = async (
  */
 export const getLocalPrices = () => pricesStorage;
 
+/**
+ * When prices were last fetched from the network; 0 while only the persisted
+ * (previous-session) snapshot is loaded.
+ */
+export const getPricesFetchedAt = () => lastUpdate;
+
 export default getLatestPrices;

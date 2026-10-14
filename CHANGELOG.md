@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.95.14] - 2026-10-14
+### Changed
+- Unrealized P&L that is not calculated from a live price yet is shown dimmed, with a tooltip saying why. This covers the moments after a page load, when prices saved from the previous visit or the server's last saved value are shown, and pairs the price feed does not carry. Applies to trade cards and the Trading table, deal tables, bot cards and lists (DCA, Combo, Grid, Hedge), the bot drawer, and Top Deals.
+- Combo and hedge deals, and every open deal in the deal tables, now show live unrealized P&L instead of only the server's saved value.
+- The grid bot drawer shows the live current price when the price feed carries the pair.
 ## [2.95.13] - 2026-10-14
 ### Removed
 - Unused combo bot list transform that valued a SHORT combo bot's cost and usage from the quote side only. No screen used it; removing it keeps that calculation from being revived.

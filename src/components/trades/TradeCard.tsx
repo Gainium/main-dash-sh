@@ -43,6 +43,7 @@ import {
     StrategyChip,
     TimeChip,
 } from '../ui/chip';
+import { PendingLiveValue } from '../ui/pending-live-value';
 import { Tooltip as HelpTooltip } from '../ui/tooltip';
 import { DealStartBlockedNotice } from '../deals/DealStartBlockedNotice';
 import CoinPair from '../widgets/shared/CoinPair';
@@ -619,6 +620,7 @@ const EnhancedCard = React.memo(
       : trade.unrealizedProfit || 0;
     const pnlBoxRoi = isClosedDeal ? realizedRoi : unrealizedRoi;
     const pnlBoxLabel = isClosedDeal ? 'Realized' : 'Unrealized';
+    const pnlPending = !isClosedDeal && !!trade.unrealizedPending;
     const symbolString = useMemo(
       () =>
         typeof trade.symbol === 'string' ? trade.symbol : trade.symbol.symbol,
@@ -832,6 +834,7 @@ const EnhancedCard = React.memo(
                       privacyMode={privacyMode}
                       chipPosition="right"
                       size="md"
+                      pending={pnlPending}
                     />
                     <PnlRangeTrack
                       current={pnlBoxRoi}
@@ -1367,7 +1370,9 @@ const SimpleCard = React.memo(
                       : 'text-profit'
                   }`}
                 >
-                  {unrealizedProfitDisplay}
+                  <PendingLiveValue pending={trade.unrealizedPending}>
+                    {unrealizedProfitDisplay}
+                  </PendingLiveValue>
                 </div>
               </div>
             )}

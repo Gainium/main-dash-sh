@@ -125,6 +125,8 @@ export function comboDealToOpenTrade(
       pureQuote: deal.profit?.pureQuote || 0,
     },
     unrealizedProfit,
+    unrealizedPending: !!(deal as { unrealizedPending?: boolean })
+      .unrealizedPending,
     avgPrice: deal.avgPrice || 0,
     levels: deal.levels || { complete: 0, all: 0 },
     created: +createdTime,

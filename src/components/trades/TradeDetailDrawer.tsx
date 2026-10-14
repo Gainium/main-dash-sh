@@ -103,6 +103,7 @@ interface TradeDetailDrawerProps {
         }
       | undefined;
     unrealizedProfit?: number | undefined;
+    unrealizedPending?: boolean | undefined;
     avgPrice?: number | undefined;
     levels: {
       complete: number;

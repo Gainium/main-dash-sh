@@ -1,5 +1,6 @@
 import type { DrawerBot } from '@/types/bots/drawer';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { PendingLiveValue } from '@/components/ui/pending-live-value';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
 import {
   Activity,
@@ -197,7 +198,9 @@ export const DrawerBotSummary: React.FC<DrawerBotSummaryProps> = ({
               </Tooltip>
             </div>
             <div className="text-sm font-semibold text-foreground">
-              {formatMaybeCurrency(bot.unPnl)}
+              <PendingLiveValue pending={bot.unPnlPending}>
+                {formatMaybeCurrency(bot.unPnl)}
+              </PendingLiveValue>
             </div>
           </div>
         </div>

@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils';
 import React from 'react';
+import { PendingLiveValue } from '../pending-live-value';
 import { ProfitLossPercChip } from './ProfitLossPercChip';
 
 export interface ProfitAndPercProps {
@@ -23,6 +24,12 @@ export interface ProfitAndPercProps {
   valueClassName?: string;
   /** Additional className for the chip */
   chipClassName?: string;
+  /**
+   * The figure is not live (the server's saved value, or priced from the
+   * previous session's snapshot): dimmed, with a tooltip. See
+   * `PendingLiveValue`.
+   */
+  pending?: boolean | undefined;
 }
 
 /**
@@ -56,6 +63,7 @@ export const ProfitAndPerc: React.FC<ProfitAndPercProps> = ({
   className = '',
   valueClassName = '',
   chipClassName = '',
+  pending = false,
 }) => {
   // Size configuration
   const sizeConfig = {
@@ -113,38 +121,40 @@ export const ProfitAndPerc: React.FC<ProfitAndPercProps> = ({
   const displayValue = formatValue(value);
 
   return (
-    <div
-      className={cn(
-        'inline-flex items-center',
-        chipPosition === 'right' ? 'flex-row' : 'flex-col',
-        config.gap,
-        className
-      )}
-    >
-      {/* Absolute value */}
-      <span
+    <PendingLiveValue pending={pending}>
+      <div
         className={cn(
-          'font-semibold',
-          config.valueText,
-          getColorClass(),
-          valueClassName
+          'inline-flex items-center',
+          chipPosition === 'right' ? 'flex-row' : 'flex-col',
+          config.gap,
+          className
         )}
       >
-        {sign}
-        {displayValue}
-      </span>
+        {/* Absolute value */}
+        <span
+          className={cn(
+            'font-semibold',
+            config.valueText,
+            getColorClass(),
+            valueClassName
+          )}
+        >
+          {sign}
+          {displayValue}
+        </span>
 
-      {/* Percentage chip */}
-      {!hidePercentage && (
-        <ProfitLossPercChip
-          value={percentage}
-          size={config.chipSize}
-          showSign={true}
-          showPercent={true}
-          className={chipClassName}
-        />
-      )}
-    </div>
+        {/* Percentage chip */}
+        {!hidePercentage && (
+          <ProfitLossPercChip
+            value={percentage}
+            size={config.chipSize}
+            showSign={true}
+            showPercent={true}
+            className={chipClassName}
+          />
+        )}
+      </div>
+    </PendingLiveValue>
   );
 };
 

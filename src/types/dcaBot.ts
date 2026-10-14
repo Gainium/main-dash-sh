@@ -7,6 +7,7 @@ import { logger } from '@/lib/loggerInstance';
 /* import { calculateBotValue } from '../utils/botValueCalculation'; */
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { math } from '@/utils/math';
+import { getPricesFetchedAt } from '@/helper/price';
 import { extractPairAssets } from '@/utils/pairs';
 import type { DrawerBot } from './bots/drawer';
 import {
@@ -779,6 +780,9 @@ export function transformDcaBotToBot(
     workingTimeNumber: workingTime,
     workingTime: resWork,
     unPnl,
+    unPnlPending:
+      active &&
+      (useLiveStats || !botHasUsablePrices || getPricesFetchedAt() === 0),
     unPnlFriendly:
       (unPnl || 0) < 0
         ? `-$${math.friendly((unPnl || -0) * -1)}`

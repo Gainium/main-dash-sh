@@ -94,6 +94,7 @@ import {
     StatusChip,
     StrategyChip,
 } from '../../ui/chip';
+import { PendingLiveValue } from '../../ui/pending-live-value';
 import { DataTable, type BulkAction } from '../../ui/data-table/data-table';
 import { DealUsageGauge } from '@/components/deals/DealUsageGauge';
 import EmptyState from '../../ui/empty-state';
@@ -244,6 +245,8 @@ export interface OpenTrade {
     lastTime?: number;
   };
   unrealizedProfit?: number;
+  /** Open deal shown with its saved P&L until the live price arrives. */
+  unrealizedPending?: boolean | undefined;
   avgPrice?: number;
   levels: {
     complete: number;
@@ -998,6 +1001,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           pureQuote: Number(deal.profit?.pureQuote || 0),
         },
         unrealizedProfit: unrealizedPnl,
+        unrealizedPending: (deal as { unrealizedPending?: boolean })
+          .unrealizedPending,
         // The backend's `deal.avgPrice` is the authoritative running average and
         // is what every other deal table shows (see `dcaDealToOpenTrade` /
         // `comboDealToOpenTrade`). Do NOT derive it from `executionSummary`
@@ -1785,6 +1790,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.unrealizedPending}
             />
           );
         },
@@ -1827,7 +1833,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (privacyMode) {
             return <ProfitLossPercChip value={0} size="sm" textValue="***" />;
           }
-          return <ProfitLossPercChip value={percentage} size="sm" />;
+          return (
+            <PendingLiveValue
+              pending={row.original.active && row.original.unrealizedPending}
+            >
+              <ProfitLossPercChip value={percentage} size="sm" />
+            </PendingLiveValue>
+          );
         },
       },
       {
@@ -1876,6 +1888,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.active && row.original.unrealizedPending}
             />
           );
         },
@@ -1907,7 +1920,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           if (privacyMode) {
             return <ProfitLossPercChip value={0} size="sm" textValue="***" />;
           }
-          return <ProfitLossPercChip value={percentage} size="sm" />;
+          return (
+            <PendingLiveValue
+              pending={row.original.active && row.original.unrealizedPending}
+            >
+              <ProfitLossPercChip value={percentage} size="sm" />
+            </PendingLiveValue>
+          );
         },
       },
       {

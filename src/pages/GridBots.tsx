@@ -583,6 +583,7 @@ const GridBots: React.FC = () => {
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
+                pending={bot.unPnlPending}
               />
             );
           },

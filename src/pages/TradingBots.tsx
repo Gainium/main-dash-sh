@@ -76,6 +76,7 @@ import {
   StatusChip,
   StrategyChip,
 } from '../components/ui/chip';
+import { PendingLiveValue } from '../components/ui/pending-live-value';
 import BotListStatsBoxes from '../components/ui/BotListStatsBoxes';
 import CoinPair from '../components/widgets/shared/CoinPair';
 import StaleIndicator from '../components/widgets/shared/StaleIndicator';
@@ -1031,6 +1032,7 @@ const TradingBots: React.FC = () => {
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.unPnlPending}
             />
           );
         },
@@ -1147,6 +1149,7 @@ const TradingBots: React.FC = () => {
               privacyMode={privacyMode}
               chipPosition="right"
               size="sm"
+              pending={row.original.unPnlPending}
             />
           );
         },
@@ -1187,7 +1190,11 @@ const TradingBots: React.FC = () => {
           const netPnl = totalProfit + unrealized;
           const cost = row.original.currentValue || row.original.maxValue || 0;
           const percentage = cost > 0 ? (netPnl / cost) * 100 : 0;
-          return <ProfitLossPercChip value={percentage} size="sm" />;
+          return (
+            <PendingLiveValue pending={row.original.unPnlPending}>
+              <ProfitLossPercChip value={percentage} size="sm" />
+            </PendingLiveValue>
+          );
         },
       },
       {

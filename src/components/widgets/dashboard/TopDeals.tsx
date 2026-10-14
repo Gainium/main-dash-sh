@@ -339,6 +339,7 @@ const TopDeals: React.FC<TopDealsProps> = ({
               percentage={cost > 0 ? (pnl / cost) * 100 : 0}
               privacyMode={privacyMode}
               size="sm"
+              pending={row.original.unrealizedPending}
             />
           );
         },

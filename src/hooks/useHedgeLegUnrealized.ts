@@ -14,20 +14,33 @@
  */
 import { useMemo } from 'react';
 
+import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
 import { DCADealStatusEnum } from '@/types';
 import { useHedgeDeals } from './useHedgeDeals';
+import { useDealsWithLivePnl } from './useLiveDealPnl';
+
+export type HedgeLegUnrealized = {
+  /** Unrealized USD per leg bot id. */
+  byLeg: Map<string, number>;
+  /** Leg bot ids with at least one open deal whose value is not live. */
+  pending: Set<string>;
+};
 
 export function useHedgeLegUnrealized(
   isCombo: boolean,
   enabled = true
-): Map<string, number> {
-  const { deals } = useHedgeDeals(isCombo, {
+): HedgeLegUnrealized {
+  const { deals: storedDeals } = useHedgeDeals(isCombo, {
     status: DCADealStatusEnum.open,
     enabled,
   });
+  // Live where the price feed carries the pair; the server's stored value,
+  // marked pending, where it does not.
+  const deals = useDealsWithLivePnl(storedDeals, { combo: isCombo, enabled });
 
   return useMemo(() => {
-    const map = new Map<string, number>();
+    const byLeg = new Map<string, number>();
+    const pending = new Set<string>();
     for (const deal of deals) {
       // Only open deals carry a meaningful unrealized; the backend leaves a
       // stale value on closed ones.
@@ -35,9 +48,18 @@ export function useHedgeLegUnrealized(
         String(deal.status).toLowerCase()
       );
       if (!active || !deal.botId) continue;
-      const u = deal.stats?.unrealizedProfit ?? 0;
-      map.set(deal.botId, (map.get(deal.botId) ?? 0) + u);
+      const withLive = deal as typeof deal & {
+        unrealizedUsd?: number;
+        unrealizedPending?: boolean;
+      };
+      const u =
+        withLive.unrealizedUsd ??
+        serverDealUnrealizedPnl(deal)?.unrealizedUsd ??
+        deal.stats?.unrealizedProfit ??
+        0;
+      byLeg.set(deal.botId, (byLeg.get(deal.botId) ?? 0) + u);
+      if (withLive.unrealizedPending) pending.add(deal.botId);
     }
-    return map;
+    return { byLeg, pending };
   }, [deals]);
 }

@@ -55,7 +55,11 @@ import { useComboDeals } from '../hooks/useComboDeals';
 import { useDcaBots } from '../hooks/useDcaBots';
 import { useDcaDeals } from '../hooks/useDcaDeals';
 import { useGridBots } from '../hooks/useGridBots';
-import { useLiveDealPnl } from '../hooks/useLiveDealPnl';
+import {
+  isDealPnlPending,
+  useDealsWithLivePnl,
+  useLiveDealPnl,
+} from '../hooks/useLiveDealPnl';
 import { isActiveDealStatus } from '../lib/utils/dealUnrealizedPnl';
 /* import { useHedgeComboBots } from '../hooks/useHedgeComboBots';
 import { useHedgeComboDeals } from '../hooks/useHedgeComboDeals';
@@ -142,6 +146,8 @@ interface TradeItem {
       }
     | undefined;
   unrealizedProfit?: number | undefined;
+  /** Open deal whose live price has not arrived yet: unrealizedProfit is the server's last saved value. */
+  unrealizedPending?: boolean | undefined;
   avgPrice?: number | undefined;
   levels: {
     complete: number;
@@ -225,10 +231,13 @@ const Trading: React.FC = () => {
   } = useDcaDeals({ terminal: false, paperContext: currentPaperContext });
 
   const {
-    deals: comboDeals,
+    deals: comboDealsStored,
     isLoading: comboLoading,
     isError: comboError,
   } = useComboDeals({ paperContext: currentPaperContext });
+  // Live, fee-inclusive unrealized P&L for the open combo deals; the stored
+  // value with a pending mark until it is live.
+  const comboDeals = useDealsWithLivePnl(comboDealsStored, { combo: true });
 
   /* const {
     deals: hedgeComboDeals,
@@ -490,8 +499,10 @@ const Trading: React.FC = () => {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
           // Live value when the deal is priced; else the hook's stored one.
+          const liveUnrealized = liveDealPnl.get(deal._id)?.unrealizedUsd;
+          const unrealizedPending = isDealPnlPending(deal, liveDealPnl);
           const hookUnrealized =
-            liveDealPnl.get(deal._id)?.unrealizedUsd ??
+            liveUnrealized ??
             (deal as { unrealizedUsd?: number }).unrealizedUsd;
           const unrealizedProfit =
             typeof hookUnrealized === 'number'
@@ -563,6 +574,7 @@ const Trading: React.FC = () => {
               maxUsd: deal.usage?.maxUsd,
             },
             unrealizedProfit,
+            unrealizedPending,
             avgPrice,
             levels: {
               complete: deal.levels?.complete || 0,
@@ -679,6 +691,8 @@ const Trading: React.FC = () => {
               pureQuote: deal.profit?.pureQuote || 0,
             },
             unrealizedProfit,
+            unrealizedPending: (deal as { unrealizedPending?: boolean })
+              .unrealizedPending,
             avgPrice: deal.avgPrice,
             levels: {
               complete: deal.levels?.complete || 0,
@@ -879,8 +893,10 @@ const Trading: React.FC = () => {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
           // Terminal deals are typically closed; hook returns undefined for inactive -> default to 0
+          const liveUnrealized = liveDealPnl.get(deal._id)?.unrealizedUsd;
+          const unrealizedPending = isDealPnlPending(deal, liveDealPnl);
           const hookUnrealized =
-            liveDealPnl.get(deal._id)?.unrealizedUsd ??
+            liveUnrealized ??
             (deal as { unrealizedUsd?: number }).unrealizedUsd;
           const unrealizedProfit =
             typeof hookUnrealized === 'number'
@@ -947,6 +963,7 @@ const Trading: React.FC = () => {
                 }
               : undefined,
             unrealizedProfit,
+            unrealizedPending,
             avgPrice,
             levels: {
               complete: deal.levels?.complete || 0,
@@ -1209,6 +1226,7 @@ const Trading: React.FC = () => {
       },
       funding: trade.funding,
       unrealizedProfit: trade.unrealizedProfit || 0,
+      ...(trade.unrealizedPending && { unrealizedPending: true }),
       avgPrice: trade.avgPrice || 0,
       levels: trade.levels,
       created: createdTime,
@@ -2113,6 +2131,7 @@ const Trading: React.FC = () => {
                   ) &&
                     originalTrade.unrealizedProfit !== undefined && {
                       unrealizedProfit: originalTrade.unrealizedProfit,
+                      unrealizedPending: originalTrade.unrealizedPending,
                     }),
                   ...(originalTrade.avgPrice !== undefined && {
                     avgPrice: originalTrade.avgPrice,

@@ -19,6 +19,7 @@ import {
 } from '@/types';
 /* import type { DrawerBot } from '@/types/bots/drawer'; */
 import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
+import { useDealsWithLivePnl } from '@/hooks/useLiveDealPnl';
 import { indicatorStore } from '@/stores/indicatorStore';
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
@@ -561,13 +562,19 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       if (hedge?.shortBot?._id) ids.add(hedge.shortBot._id);
       return ids;
     }, [hedge?.wrapperId, hedge?.longBot?._id, hedge?.shortBot?._id]);
-    const hedgeRawDeals = useMemo(
+    const hedgeRawDealsStored = useMemo(
       () =>
         allHedgeDeals.filter(
           (d) => !d.botId || hedgeLegIds.size === 0 || hedgeLegIds.has(d.botId)
         ),
       [allHedgeDeals, hedgeLegIds]
     );
+    // Live unrealized for the open hedge deals where the price feed carries
+    // the pair; elsewhere the server's value, marked pending.
+    const hedgeRawDeals = useDealsWithLivePnl(hedgeRawDealsStored, {
+      combo: !!hedge?.isCombo,
+      enabled: isHedge,
+    });
     const hedgeDealsAsOpenTrades = useMemo(() => {
       if (!isHedge) return [];
       // Leg deals keep their leg's plain type for display; `hedge` makes the
@@ -596,6 +603,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
           : 0,
       [hedgeDealsAsOpenTrades, hedgeDealsStatus]
     );
+    const hedgeCombinedPending =
+      hedgeDealsStatus === 'open' &&
+      hedgeDealsAsOpenTrades.some((t) => t.active && t.unrealizedPending);
 
     // Enrich each leg bot with server-accurate cost / value / unrealized
     // derived from its deals. The client price calc reads 0 for bots on
@@ -631,6 +641,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
           value: cost + unrealized,
           unPnl: unrealized,
           unPnlPerc: cost > 0 ? (unrealized / cost) * 100 : 0,
+          unPnlPending: legDeals.some(
+            (d) => (d as { unrealizedPending?: boolean }).unrealizedPending
+          ),
           usage: {
             ...leg.usage,
             currentUsd: cost,
@@ -1775,6 +1788,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                         shortBot={enrichedShortBot ?? hedge.shortBot}
                         totalProfitUsd={hedge.totalProfitUsd}
                         unrealizedUsd={hedgeCombinedUnrealized}
+                        unrealizedPending={hedgeCombinedPending}
                         privacyMode={privacyMode}
                         onTradeSelect={handleTradeSelect}
                       />

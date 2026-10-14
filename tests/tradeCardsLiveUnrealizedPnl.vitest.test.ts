@@ -17,6 +17,7 @@ import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
+import { isDealPnlPending } from '@/hooks/useLiveDealPnl';
 import { computeDealUnrealizedPnlFromPrices } from '@/lib/utils/dealUnrealizedPnl';
 
 const pageSource = readFileSync(
@@ -77,8 +78,37 @@ describe('trade cards price unrealized P&L live (spec 112)', () => {
     (list) => {
       const block = transformBlock(list);
       expect(block).toMatch(
-        /liveDealPnl\.get\(deal\._id\)\?\.unrealizedUsd \?\?\s*\(deal as \{ unrealizedUsd\?: number \}\)\.unrealizedUsd/
+        /const liveUnrealized = liveDealPnl\.get\(deal\._id\)\?\.unrealizedUsd;/
+      );
+      expect(block).toMatch(
+        /liveUnrealized \?\?\s*\(deal as \{ unrealizedUsd\?: number \}\)\.unrealizedUsd/
+      );
+      // The stored fallback is marked as not live, never passed off as live.
+      expect(block).toMatch(
+        /const unrealizedPending = isDealPnlPending\(deal, liveDealPnl\);/
       );
     }
   );
+});
+
+describe('isDealPnlPending', () => {
+  const live = new Map([
+    ['live', { unrealizedUsd: 1, percent: 1, fromSnapshot: false }],
+    ['snap', { unrealizedUsd: 1, percent: 1, fromSnapshot: true }],
+  ]) as unknown as Parameters<typeof isDealPnlPending>[1];
+
+  it('is never pending for a closed deal', () => {
+    expect(isDealPnlPending({ _id: 'none', status: 'closed' }, live)).toBe(
+      false
+    );
+  });
+  it('is pending for an open deal with no live value (stored shown)', () => {
+    expect(isDealPnlPending({ _id: 'none', status: 'open' }, live)).toBe(true);
+  });
+  it('is pending when priced from the previous session snapshot', () => {
+    expect(isDealPnlPending({ _id: 'snap', status: 'open' }, live)).toBe(true);
+  });
+  it('is not pending once priced from a fetch this session', () => {
+    expect(isDealPnlPending({ _id: 'live', status: 'open' }, live)).toBe(false);
+  });
 });
