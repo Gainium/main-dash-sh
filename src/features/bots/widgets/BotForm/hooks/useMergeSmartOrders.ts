@@ -23,6 +23,9 @@ export interface MergeSmartOrdersInput {
    * merged into a new deal (spec 139 §5.2.1).
    */
   symbol?: string | undefined;
+  /** The merged deal takes the bot's take profit / stop loss. */
+  useTp?: boolean | undefined;
+  useSl?: boolean | undefined;
 }
 
 export type MergeSmartOrdersResult = ReturnResult<string> & {
@@ -53,7 +56,7 @@ export function useMergeSmartOrders() {
 
   return useMutation<MergeSmartOrdersResult, Error, MergeSmartOrdersInput>({
     mutationKey: ['merge-smart-orders'],
-    mutationFn: async ({ botId, dealIds, symbol }) => {
+    mutationFn: async ({ botId, dealIds, symbol, useTp, useSl }) => {
       if (!tokens?.accessToken) {
         throw new Error('Authentication required to merge smart orders.');
       }
@@ -107,6 +110,8 @@ export function useMergeSmartOrders() {
       const { query, variables } = dealQueries.mergeDeals({
         botId,
         dealIds,
+        ...(useTp !== undefined ? { useTp } : {}),
+        ...(useSl !== undefined ? { useSl } : {}),
       });
 
       const response = await client.request<{

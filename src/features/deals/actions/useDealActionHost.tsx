@@ -4,6 +4,10 @@
 // others wrap their content in <DealActionsProvider>.
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
+import {
+  MergeDealsDialog,
+  type MergeDealsOptions,
+} from '@/components/deals/MergeDealsDialog';
 import { useBulkAdjustFunds } from '@/components/deals/actions/useBulkAdjustFunds';
 import {
   AdjustFundsDialog,
@@ -134,14 +138,6 @@ function confirmCopy(id: DealActionId, deals: DealRef[]) {
         title: 'Move deal to terminal',
         description: `Are you sure you want to move ${many ? `${n} deals` : `the deal (${first?.id})`} to the terminal? ${MOVE_TO_TERMINAL_WARNING}`,
         confirmText: 'Confirm',
-        cancelText: 'Cancel',
-        variant: 'default' as const,
-      };
-    case 'merge':
-      return {
-        title: `Merge ${n} deals`,
-        description: `Combine ${n} deals on ${first?.exchange ?? ''} ${first?.symbol ?? ''} into a single deal. Their executed orders and balances will be consolidated.`,
-        confirmText: 'Merge deals',
         cancelText: 'Cancel',
         variant: 'default' as const,
       };
@@ -548,26 +544,6 @@ export function useDealActionHost({
         reportBulk(outcome, 'Moved to terminal', 'move to terminal', skipped, undefined);
         return;
       }
-      case 'merge': {
-        if (!first.botId) {
-          toast.error('Cannot merge deals - missing bot ID');
-          return;
-        }
-        try {
-          // The merged deal lands in the first selected deal's bot.
-          await mergeDeals.mutateAsync({
-            botId: first.botId,
-            dealIds: deals.map((deal) => deal.dealId),
-            // A single-position target bot adopts the deals into its open
-            // position on this pair instead (spec 139 §5.2.1).
-            ...(first.kind === 'dca' ? { symbol: first.symbol } : {}),
-          });
-        } catch (error) {
-          // The mutation reports its own failure.
-          logger.error(`${LOG_PREFIX} Merge failed`, { error });
-        }
-        return;
-      }
       default:
         return;
     }
@@ -581,7 +557,6 @@ export function useDealActionHost({
     restartDealSilent,
     restoreDeal,
     moveDealToTerminal,
-    mergeDeals,
   ]);
 
   const pendingId = pending?.id;
@@ -604,6 +579,34 @@ export function useDealActionHost({
     // Stable `mutate`, not the react-query result object (new every render).
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [adjustFunds.mutate, pendingDeal, pendingId]
+  );
+
+  const handleMergeConfirm = useCallback(
+    async (options: MergeDealsOptions) => {
+      const deals = pending?.deals ?? [];
+      const first = deals[0];
+      setPending(null);
+      if (!first?.botId) {
+        toast.error('Cannot merge deals - missing bot ID');
+        return;
+      }
+      try {
+        // The merged deal lands in the first selected deal's bot.
+        await mergeDeals.mutateAsync({
+          botId: first.botId,
+          dealIds: deals.map((deal) => deal.dealId),
+          // A single-position target bot adopts the deals into its open
+          // position on this pair instead (spec 139 §5.2.1).
+          ...(first.kind === 'dca' ? { symbol: first.symbol } : {}),
+          ...options,
+        });
+      } catch (error) {
+        // The mutation reports its own failure.
+        logger.error(`${LOG_PREFIX} Merge failed`, { error });
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mergeDeals.mutateAsync, pending]
   );
 
   const handleExecuteNextDcaConfirm = useCallback(
@@ -714,6 +717,15 @@ export function useDealActionHost({
           }
           onConfirm={handleExecuteNextDcaConfirm}
           isProcessing={executeNextDca.isPending}
+        />
+      )}
+      {pendingId === 'merge' && pending && (
+        <MergeDealsDialog
+          open
+          onOpenChange={onOpenChange}
+          deals={pending.deals}
+          onConfirm={(options) => void handleMergeConfirm(options)}
+          isProcessing={mergeDeals.isPending}
         />
       )}
       {pendingId === 'changeDcaLevels' && pendingDeal && (

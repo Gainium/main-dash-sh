@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.95.16] - 2026-10-14
+### Changed
+- The Merge deals dialog previews the merge: each deal's size and average entry price, the merged deal's, and a small chart of those levels with the market price. It also asks whether the merged deal should use the bot's take profit and stop loss; by default it uses neither. The chosen exits are drawn on the chart with their prices, and an exit the market price has already passed is flagged.
+
 ## [2.95.15] - 2026-10-14
 ### Changed
 - A deal's Unrealized P&L now shows only the position that is still open. What the deal has already banked — a Reduce Funds sale, a partial take profit, a combo's grid sells — is shown under Realized P&L only, so Realized + Unrealized equals the deal's Net P&L. Before, the banked amount was also included in Unrealized and counted twice when the two were added, including in the table's totals row. Applies to the Trading and Terminal deal tables (and their Unrealized P&L, % columns), the bot drawer's deals table, deal cards, the deal details panel, the smart-order merge dialog and the deals treemap. Net P&L is unchanged; grid bots already showed only the open position.

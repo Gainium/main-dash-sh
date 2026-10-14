@@ -1179,7 +1179,13 @@ export const dealQueries = {
     return { query, variables };
   },
 
-  mergeDeals: (input: { botId: string; dealIds: string[] }) => {
+  mergeDeals: (input: {
+    botId: string;
+    dealIds: string[];
+    /** Merged deal takes the bot's TP / SL. Omitted: the engine's default. */
+    useTp?: boolean | undefined;
+    useSl?: boolean | undefined;
+  }) => {
     const query = `mutation mergeDeals($input: mergeDealsInput!) {
   mergeDeals(input: $input) {
   status
