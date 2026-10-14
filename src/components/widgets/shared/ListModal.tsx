@@ -11,12 +11,11 @@ import React, {
 import { createPortal } from 'react-dom';
 import { type AssetClass } from '../../../hooks/useTradingPairs';
 import { formatExchangeProvider } from '../../../utils/exchangeUtils';
-import { formatMinOrder } from '../../../utils/pairPicker';
 import {
-  isPairSymbolReconstructable,
-  normalizePairKey,
-  splitPastedPairTokens,
-} from '../../../utils/pairs';
+  formatMinOrder,
+  pairContractSymbol,
+} from '../../../utils/pairPicker';
+import { normalizePairKey, splitPastedPairTokens } from '../../../utils/pairs';
 import { Chip } from '../../ui/chip';
 import { Checkbox } from '../../ui/checkbox';
 import ProfitLossPercChip from '../../ui/chip/ProfitLossPercChip';
@@ -29,6 +28,7 @@ import {
 } from '../../ui/select';
 import { Switch } from '../../ui/switch';
 import { Tooltip, InfoIcon } from '../../ui/tooltip';
+import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
 import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import ExchangeIcon from './ExchangeIcon';
@@ -92,26 +92,8 @@ export interface ListItem {
   disabledReason?: string;
 }
 
-/**
- * The exchange-native symbol to show next to the base ticker, or null when the
- * row's identity is fully described by `BASE / QUOTE`.
- *
- * Contract markets put the distinguishing component in the symbol alone — a
- * COIN-M venue lists `BTCUSD_PERP`, `BTCUSD_260925` and `BTCUSD_261225`, all
- * of which are BTC/USD. Rendering only base + quote collapsed every expiry
- * into visually identical rows, so the picker looked like it was repeating
- * itself and the user had no way to tell which contract they were selecting.
- */
-const contractSymbolFor = (item: ListItem): string | null => {
-  if (!item.baseAsset || !item.quoteAsset) return null;
-  return isPairSymbolReconstructable(
-    item.symbol,
-    item.baseAsset,
-    item.quoteAsset
-  )
-    ? null
-    : item.symbol;
-};
+const contractSymbolFor = (item: ListItem): string | null =>
+  pairContractSymbol(item.symbol, item.baseAsset, item.quoteAsset);
 
 export interface ListModalSortOption {
   value: string;
@@ -161,27 +143,6 @@ interface ListModalProps {
   selectedAssetClass?: AssetClass | 'all';
   onAssetClassChange?: (cls: AssetClass | 'all') => void;
 }
-
-/** Canonical order + labels for the asset-class filter chips. */
-const ASSET_CLASS_ORDER: AssetClass[] = [
-  'crypto',
-  'stock',
-  'etf',
-  'commodity',
-  'metal',
-  'forex',
-  'index',
-];
-const ASSET_CLASS_LABELS: Record<AssetClass | 'all', string> = {
-  all: 'All',
-  crypto: 'Crypto',
-  stock: 'Stocks',
-  etf: 'ETFs',
-  commodity: 'Commodities',
-  metal: 'Metals',
-  forex: 'Forex',
-  index: 'Indices',
-};
 
 const renderItemIcon = (item: ListItem) => {
   if (item.isHelper) {

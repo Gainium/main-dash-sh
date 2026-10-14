@@ -189,6 +189,17 @@ export const useBasicSettingsTab = (
     [isUseMultiLocked, planRestrictsMulti]
   );
 
+  // The most pairs this bot can hold once it is multi-pair (the plan limit),
+  // or 1 when it can't become multi-pair. Bulk add caps at this, not at single
+  // mode's 1, because adding a second pair switches the bot to multi-pair.
+  const planMaxPairs = useMemo(
+    () =>
+      !useMulti && multiToggleState.disabled
+        ? 1
+        : resolveMaxAllowedPairs({ isFreePlan, useMulti: true }),
+    [useMulti, multiToggleState.disabled, isFreePlan]
+  );
+
   const multiToggleDescriptor = useMemo(
     () => resolveMultiToggleMessageDescriptor(multiToggleState),
     [multiToggleState]
@@ -632,7 +643,12 @@ export const useBasicSettingsTab = (
   const applyPairsInput = useCallback(
     // `surfaceError: false` for input coming from the pair dialog: the form's
     // error slot is behind that modal, so the dialog shows the message itself.
-    (rawValue: string, options?: { surfaceError?: boolean }) => {
+    // `multi: true` adds as a multi-pair bot (the caller switches the bot to
+    // multi-pair), capped at the plan limit instead of single mode's 1.
+    (
+      rawValue: string,
+      options?: { surfaceError?: boolean; multi?: boolean }
+    ) => {
       if (pairLockState.locked) {
         return null;
       }
@@ -640,8 +656,8 @@ export const useBasicSettingsTab = (
       const context: ProcessPairsPasteContext = {
         raw: rawValue,
         existingPairs: pairs,
-        maxAllowedPairs,
-        useMulti: Boolean(useMulti),
+        maxAllowedPairs: options?.multi ? planMaxPairs : maxAllowedPairs,
+        useMulti: options?.multi ? true : Boolean(useMulti),
         isPairsLocked: pairLockState.locked,
         multiAssetAnchor,
         multiAssetConstraintLabel,
@@ -667,6 +683,7 @@ export const useBasicSettingsTab = (
       useMulti,
       pairLockState.locked,
       maxAllowedPairs,
+      planMaxPairs,
       multiAssetAnchor,
       multiAssetConstraintLabel,
       pairs,
@@ -864,6 +881,38 @@ export const useBasicSettingsTab = (
     ]
   );
 
+  // Bulk add from the pair dialog ("Select all matching"). Adding a second
+  // pair switches a single-pair bot to multi-pair, exactly as clicking a
+  // second pair does; where multi-pair isn't allowed it stays capped at 1.
+  const handleAddPairs = useCallback(
+    (symbols: string[]) => {
+      if (pairLockState.locked || !symbols.length) {
+        return undefined;
+      }
+      const canGoMulti = Boolean(useMulti) || !multiToggleState.disabled;
+      const result = applyPairsInput(symbols.join('\n'), {
+        surfaceError: false,
+        multi: canGoMulti,
+      });
+      if (
+        canGoMulti &&
+        !useMulti &&
+        result?.shouldUpdatePairs &&
+        (result.nextPairs?.length ?? 0) > 1
+      ) {
+        updateFormData('useMulti', true);
+      }
+      return result?.error || undefined;
+    },
+    [
+      applyPairsInput,
+      multiToggleState.disabled,
+      pairLockState.locked,
+      updateFormData,
+      useMulti,
+    ]
+  );
+
   const handlePairsPaste = useCallback(
     (raw: string) =>
       applyPairsInput(raw, { surfaceError: false })?.error || undefined,
@@ -1047,6 +1096,8 @@ export const useBasicSettingsTab = (
     handleCoinToggle,
     handleReplacePair,
     handlePairsPaste,
+    handleAddPairs,
+    planMaxPairs,
     handleSelectAllMatching,
     handleClearPairs,
     precisionMap,

@@ -147,3 +147,26 @@ describe('spec 115 §7.2 onFilteredRowsChange', () => {
     expect(last()).toEqual(['BTC-USDT']);
   });
 });
+
+describe('spec 115 §7.2 rows are reported in display order', () => {
+  test('a sort is reflected in the reported order', async () => {
+    const onFilteredRowsChange = vi.fn();
+    render(
+      <DataTable
+        columns={columns}
+        data={rows}
+        tableId={TABLE_ID}
+        defaultView="table"
+        getRowId={(r) => r.id}
+        sorting={[{ id: 'minOrder', desc: true }]}
+        onSortingChange={() => {}}
+        onFilteredRowsChange={onFilteredRowsChange}
+      />
+    );
+    await settle();
+    const ids = (onFilteredRowsChange.mock.calls.at(-1)?.[0] as Pair[]).map(
+      (r) => r.id
+    );
+    expect(ids[0]).toBe('XAUT-USDT');
+  });
+});

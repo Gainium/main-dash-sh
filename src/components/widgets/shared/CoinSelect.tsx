@@ -103,6 +103,13 @@ export interface CoinFilterProps {
    * single-pair change dialog keeps the list. Default `'list'`.
    */
   pickerView?: 'list' | 'table';
+  /** The plan's pair limit — caps the table picker's "Select all matching". */
+  maxPairs?: number;
+  /**
+   * Bulk add for the table picker's "Select all matching"; returns a message
+   * to show in the dialog. Falls back to `onPairsPaste`.
+   */
+  onAddPairs?: (symbols: string[]) => string | undefined;
 }
 
 export const CoinFilter: React.FC<CoinFilterProps> = ({
@@ -123,6 +130,8 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   modalZIndex,
   pairItems: pairItemsProp,
   pickerView = 'list',
+  maxPairs,
+  onAddPairs,
 }) => {
   const [showCoinDialog, setShowCoinDialog] = useState(false);
   // When the dialog is opened via the change/swap icon on the only chip,
@@ -485,8 +494,11 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
   // "Select all matching" goes through the form's bulk-add path, which owns
   // the anchor and plan-limit rules and their messages.
   const handleAddMany = useCallback(
-    (symbols: string[]) => onPairsPaste?.(symbols.join('\n')),
-    [onPairsPaste]
+    (symbols: string[]) =>
+      onAddPairs
+        ? onAddPairs(symbols)
+        : onPairsPaste?.(symbols.join('\n')),
+    [onAddPairs, onPairsPaste]
   );
 
   const isLastCoin = selectedCoins.length === 1;
@@ -813,6 +825,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
           onItemToggle={handleDialogToggle}
           onToggleFavorite={toggleStarredPair}
           onAddMany={handleAddMany}
+          {...(maxPairs !== undefined ? { maxSelectable: maxPairs } : {})}
           anchor={
             filterActive && pairFilter
               ? { dimension: pairFilter.dimension, asset: pairFilter.anchor }

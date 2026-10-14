@@ -139,3 +139,78 @@ describe('spec 115 pair picker dialog', () => {
     expect(screen.getByRole('status').textContent).toMatch(/Maximum pairs/);
   });
 });
+
+describe('spec 115 §6.2 plan limit and order', () => {
+  const many: PairPickerRow[] = [
+    row('AAA', 'USDT', { volume24h: 1 }),
+    row('BBB', 'USDT', { volume24h: 300 }),
+    row('CCC', 'USDT', { volume24h: 200 }),
+    row('DDD', 'USDT', { volume24h: 100 }),
+  ];
+
+  test('the count is capped at the slots left, and the first shown pairs are added', async () => {
+    const { onAddMany } = renderDialog({
+      rows: many,
+      selectedItems: ['AAA-USDT'],
+      maxSelectable: 3,
+      initialSortMode: 'volume',
+    });
+    await settle();
+    const button = screen.getByRole('button', { name: /Select all matching/ });
+    expect(button.textContent).toMatch(/\(2\)/);
+    fireEvent.click(button);
+    expect(onAddMany).toHaveBeenCalledWith(['BBB-USDT', 'CCC-USDT']);
+  });
+
+  test('with no slots left it is disabled', async () => {
+    renderDialog({
+      rows: many,
+      selectedItems: ['AAA-USDT', 'BBB-USDT'],
+      maxSelectable: 2,
+    });
+    await settle();
+    expect(
+      (screen.getByRole('button', { name: /Select all matching/ }) as HTMLButtonElement)
+        .disabled
+    ).toBe(true);
+  });
+});
+
+describe('spec 115 §2.4 the list picker controls stay', () => {
+  test('sort menu, favourites-first and asset-class chips are present', async () => {
+    renderDialog({
+      rows: [
+        row('BTC', 'USDT', { marketCapRank: 1, volume24h: 9 }),
+        row('AAPL', 'USDT', { assetCategory: 'stock' }),
+      ],
+      anchor: null,
+    });
+    await settle();
+    expect(screen.getByRole('combobox', { name: 'Sort pairs' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Show favorites first' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Stocks' })).toBeTruthy();
+  });
+
+  test('§2.4 an asset-class chip filters the list', async () => {
+    renderDialog({
+      rows: [row('BTC', 'USDT'), row('AAPL', 'USDT', { assetCategory: 'stock' })],
+      anchor: null,
+    });
+    await settle();
+    fireEvent.click(screen.getByRole('button', { name: 'Stocks' }));
+    await settle();
+    expect(screen.queryByText('BTC')).toBeNull();
+    expect(screen.queryByText('AAPL')).not.toBeNull();
+  });
+});
+
+describe('spec 115 §2.2 each opening starts fresh', () => {
+  test('a search left from the last opening is cleared', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setGlobalFilter('bot-form-pair-picker', 'ETH');
+    renderDialog();
+    await settle();
+    expect(shownBases()).toEqual(['BTC', 'ETH']);
+  });
+});

@@ -91,6 +91,8 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
     isExchangeLocked,
     pairs,
     selectedPairSymbols,
+    handleAddPairs,
+    planMaxPairs,
   } = useBasicSettingsTab({
     currentExchange,
     formData: basicTabFormData,
@@ -360,6 +362,8 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   showAllOption={false}
                   onPairClick={handleChartPairSelect}
                   pickerView="table"
+                  maxPairs={planMaxPairs}
+                  onAddPairs={handleAddPairs}
                 />
                 {useMulti && (
                   <div className="space-y-1">

@@ -1066,8 +1066,9 @@ interface DataTableProps<TData, TValue> {
   columnFilters?: ColumnFiltersState;
   onColumnFiltersChange?: (filters: ColumnFiltersState) => void;
   /**
-   * Called with the rows passing every filter and the search (before
-   * pagination) whenever that set changes — for "act on what's shown".
+   * Called with the rows passing every filter and the search, in display
+   * (sorted) order before pagination, whenever that list changes — for
+   * "act on what's shown".
    */
   onFilteredRowsChange?: (rows: TData[]) => void;
   enableColumnReordering?: boolean;
@@ -4062,14 +4063,16 @@ function DataTableComponent<TData, TValue>(
   // render is cheap and always reflects the current data.
   const tableState = table.getState();
   const tableFilter = table.getFilteredRowModel();
-  // Report the filtered set (pre-pagination) to a caller acting on "what's
-  // shown". The model is memoized on state, so this fires only when the set
-  // changes; the callback is read through a ref so an inline one can't loop.
+  // Report the filtered rows in display order (sorted, pre-pagination) to a
+  // caller acting on "what's shown". The model is memoized on state, so this
+  // fires only when that list changes; the callback is read through a ref so
+  // an inline one can't loop.
+  const tableSorted = table.getSortedRowModel();
   const onFilteredRowsChangeRef = useRef(onFilteredRowsChange);
   onFilteredRowsChangeRef.current = onFilteredRowsChange;
   useEffect(() => {
-    onFilteredRowsChangeRef.current?.(tableFilter.rows.map((r) => r.original));
-  }, [tableFilter]);
+    onFilteredRowsChangeRef.current?.(tableSorted.rows.map((r) => r.original));
+  }, [tableSorted]);
   const { pageIndex, pageSize } = useMemo(
     () => tableState.pagination,
     [tableState?.pagination]

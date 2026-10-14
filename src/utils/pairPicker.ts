@@ -1,4 +1,22 @@
 import { isCoinmExchange } from '@/utils/exchangeUtils';
+import { isPairSymbolReconstructable } from '@/utils/pairs';
+
+/**
+ * The exchange-native symbol to show next to the base ticker, or null when
+ * the pair is plainly `BASE/QUOTE`. Contract markets (`BTCUSD_261225`,
+ * `BTCUSDT-25SEP26`) all read `BASE / QUOTE`; without the native symbol
+ * every expiry on the venue renders as the same row.
+ */
+export const pairContractSymbol = (
+  symbol: string,
+  baseAsset: string | undefined,
+  quoteAsset: string | undefined
+): string | null => {
+  if (!baseAsset || !quoteAsset) return null;
+  return isPairSymbolReconstructable(symbol, baseAsset, quoteAsset)
+    ? null
+    : symbol;
+};
 
 /** The pair fields the min-order rule reads (a `TradingPair` satisfies it). */
 export interface MinOrderPair {

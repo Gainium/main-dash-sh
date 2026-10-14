@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.96.2] - 2026-10-14
+### Changed
+- Pair picker (DCA and Combo): the list picker’s controls and data are back alongside the table — asset-class chips, the sort menu (market cap, ROI, 24h volume, 24h change, volatility, RSI, A–Z, plus min order and max leverage), favourites first and every market-data column (price, 1h / 24h / 7d / 30d change, volume, market cap, rank, volatility, RSI, ROI). Pairs the bot can’t take sink below the others.
+- Dated futures contracts show their contract symbol in the table view, so each expiry is its own recognisable row.
+### Fixed
+- “Select all matching” counted and offered more pairs than the plan allows; it now adds at most the slots left, in the order shown, and switches a single-pair bot to multi-pair the way picking a second pair does.
+- The pair picker’s search is cleared each time it opens.
+
 ## [2.96.1] - 2026-10-14
 ### Fixed
 - Charts: the 6h, 12h, 3D and 1M timeframes now load complete history. Before, each load asked for only the last ~17 hours of the range the chart needed, so the chart showed a few scattered candles stretched over several years.
