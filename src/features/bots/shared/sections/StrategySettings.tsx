@@ -16,6 +16,7 @@ import OrderSizeReferenceSelector from '@/components/widgets/bots/OrderSizeRefer
 import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
 import LiquidationSummary from '@/components/widgets/bots/LiquidationSummary';
+import { AllowRaiseToExchangeMinRow } from './AllowRaiseToExchangeMinRow';
 import SettingsRow, {
   SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
@@ -167,7 +168,6 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
   const reinvestValue = useBotFormSelector('reinvestValue');
   const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
-  const allowRaiseToExchangeMin = useBotFormSelector('allowRaiseToExchangeMin');
   const reduceToAvailableBalance = useBotFormSelector(
     'reduceToAvailableBalance'
   );
@@ -794,21 +794,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
           )}
         </SettingsRow>
 
-        {!isComboBot && !isHedgeContext && (
-          <SettingsRow
-            name="Allow increasing orders to exchange minimum"
-            tooltip="If a Base or Safety Order is smaller than the exchange's minimum order size for a pair, the bot won't open a deal on that pair and will notify you, so your configured sizes are never exceeded. Turn this on to let the bot increase those orders to the exchange minimum instead. Increases of up to 10% (rounding) are always allowed."
-            trailing={
-              <Switch
-                id="allow-raise-to-exchange-min"
-                checked={!!allowRaiseToExchangeMin}
-                onCheckedChange={(checked) =>
-                  updateFormData('allowRaiseToExchangeMin', checked)
-                }
-              />
-            }
-          />
-        )}
+        <AllowRaiseToExchangeMinRow updateFormData={updateFormData} />
 
         {/* Regular DCA with a fixed order size only: a balance-percentage size
             already follows the balance, risk/reward sizes by risk, and the

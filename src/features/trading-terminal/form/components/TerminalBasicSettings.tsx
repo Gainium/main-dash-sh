@@ -14,6 +14,7 @@ import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import { CoinFilter } from '@/components/widgets/shared/CoinSelect';
 import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
+import { AllowRaiseToExchangeMinRow } from '@/features/bots/shared/sections/AllowRaiseToExchangeMinRow';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
 import {
   useBotFormErrorsOr,
@@ -1005,6 +1006,10 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                 </p>
               ) : null}
             </SettingsRow>
+          )}
+
+          {!isImport && (
+            <AllowRaiseToExchangeMinRow updateFormData={updateFormData} />
           )}
         </SettingsLoadMore>
       </MasonryLayout>

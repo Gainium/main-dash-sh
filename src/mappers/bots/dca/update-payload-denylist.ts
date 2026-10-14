@@ -68,7 +68,6 @@ export const DECLARED_BY_COMBO_ONLY = [
  * so a combo form carries them anyway and a combo save has to drop them.
  */
 export const DECLARED_BY_DCA_ONLY = [
-  'allowRaiseToExchangeMin',
   'reduceToAvailableBalance',
   'reduceToAvailableMinSize',
   'singlePosition',

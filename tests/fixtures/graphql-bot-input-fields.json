@@ -1,15 +1,15 @@
 {
-  "$comment": "GENERATED \u2014 do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. Declared input fields of the bot change/create and deal-edit mutations in main-app. Consumed by tests/botSavePayloadSchema.unit.test.ts, tests/botFormCreateMode.unit.test.ts and tests/dealEditPayloadSchema.unit.test.ts to prove no save, create or deal-edit payload carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).",
+  "$comment": "GENERATED — do not hand-edit. Run scripts/refresh-graphql-input-snapshot.mjs. Declared input fields of the bot change/create and deal-edit mutations in main-app. Consumed by tests/botSavePayloadSchema.unit.test.ts, tests/botFormCreateMode.unit.test.ts and tests/dealEditPayloadSchema.unit.test.ts to prove no save, create or deal-edit payload carries an undeclared field (prod Apollo rejects those with BAD_USER_INPUT).",
   "source": {
     "repo": "main-app",
     "path": "core/src/graphql/schema.ts",
-    "commit": "6ffe03e43b87891ec06b0f1ac182e54c77d26d55",
-    "commitShort": "6ffe03e"
+    "commit": "bfa8bde5d2d6e2b92c2c945fb151ba3bb6bfe766",
+    "commitShort": "bfa8bde"
   },
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 174,
+      "fieldCount": 175,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -48,6 +48,7 @@
         "cooldownAfterDealStop",
         "cooldownAfterDealStopInterval",
         "cooldownAfterDealStopOption",
+        "cooldownAfterDealStopTrigger",
         "cooldownAfterDealStopUnits",
         "dcaByMarket",
         "dcaCondition",
@@ -189,10 +190,11 @@
     },
     "changeComboBotInput": {
       "mutation": "changeComboBot",
-      "fieldCount": 179,
+      "fieldCount": 181,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
+        "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
         "baseGridLevels",
@@ -229,6 +231,7 @@
         "cooldownAfterDealStop",
         "cooldownAfterDealStopInterval",
         "cooldownAfterDealStopOption",
+        "cooldownAfterDealStopTrigger",
         "cooldownAfterDealStopUnits",
         "dcaByMarket",
         "dcaCondition",
@@ -422,7 +425,7 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 185,
+      "fieldCount": 186,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -463,6 +466,7 @@
         "cooldownAfterDealStop",
         "cooldownAfterDealStopInterval",
         "cooldownAfterDealStopOption",
+        "cooldownAfterDealStopTrigger",
         "cooldownAfterDealStopUnits",
         "dcaByMarket",
         "dcaCondition",
@@ -613,10 +617,11 @@
     },
     "createComboBotInput": {
       "mutation": "createComboBot",
-      "fieldCount": 178,
+      "fieldCount": 180,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
+        "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
         "baseGridLevels",
@@ -653,6 +658,7 @@
         "cooldownAfterDealStop",
         "cooldownAfterDealStopInterval",
         "cooldownAfterDealStopOption",
+        "cooldownAfterDealStopTrigger",
         "cooldownAfterDealStopUnits",
         "dcaByMarket",
         "dcaCondition",

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.97.0] - 2026-10-14
+### Added
+- "Allow increasing orders to exchange minimum" switch on combo bots, both sides of hedge DCA and hedge combo bots, and terminal deals, the same switch DCA bots already have.
+
 ## [2.96.11] - 2026-10-14
 ### Changed
 - Pair picker: the table/card view toggle stays in the toolbar instead of moving into the overflow menu, and card view is wider.

@@ -875,7 +875,6 @@ export const HedgeBotEditLayout: React.FC = () => {
           string,
           unknown
         >[]) {
-          delete payload['allowRaiseToExchangeMin'];
           delete payload['reduceToAvailableBalance'];
           delete payload['reduceToAvailableMinSize'];
           delete payload['singlePosition'];

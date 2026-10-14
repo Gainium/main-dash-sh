@@ -819,7 +819,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     ? formData.combo.dcaByMarket
     : formData.dca.dcaByMarket;
   const allowRaiseToExchangeMin = isComboBot
-    ? false
+    ? formData.combo.allowRaiseToExchangeMin
     : formData.dca.allowRaiseToExchangeMin;
   const reduceToAvailableBalance = isComboBot
     ? false
@@ -1026,13 +1026,13 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     dcaFields['dcaByMarket'] = Boolean(dcaByMarket);
     fieldsMapped.push('dcaByMarket');
 
-    // DCA bots only — the combo engine does not implement the refusal. Always
-    // written explicitly so a new bot stores `false` rather than relying on
-    // the engine's missing-means-refuse.
-    if (!isComboBot) {
-      dcaFields['allowRaiseToExchangeMin'] = Boolean(allowRaiseToExchangeMin);
-      fieldsMapped.push('allowRaiseToExchangeMin');
+    // DCA and combo bots (and hedge sides). Always written explicitly so a
+    // new bot stores `false` rather than relying on the engine's
+    // missing-means-refuse.
+    dcaFields['allowRaiseToExchangeMin'] = Boolean(allowRaiseToExchangeMin);
+    fieldsMapped.push('allowRaiseToExchangeMin');
 
+    if (!isComboBot) {
       // DCA bots only — open a smaller deal on a balance shortfall.
       dcaFields['reduceToAvailableBalance'] = Boolean(reduceToAvailableBalance);
       fieldsMapped.push('reduceToAvailableBalance');

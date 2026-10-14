@@ -589,7 +589,6 @@ export const mapFormDataToPayload = (
   // DCA-only settings (DECLARED_BY_DCA_ONLY) reach a combo form through the
   // DCA_FORM_DEFAULTS spread; the combo inputs do not declare them.
   if (isComboBot) {
-    delete updatePayload.allowRaiseToExchangeMin;
     delete updatePayload.reduceToAvailableBalance;
     delete updatePayload.reduceToAvailableMinSize;
   }
@@ -674,7 +673,6 @@ export const mapFormDataToPayload = (
   if (createPayload) {
     if (isComboBot) {
       delete createPayload.importFrom;
-      delete createPayload.allowRaiseToExchangeMin;
       delete createPayload.reduceToAvailableBalance;
       delete createPayload.reduceToAvailableMinSize;
     }

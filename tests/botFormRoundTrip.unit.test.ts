@@ -519,7 +519,6 @@ const VERDICT: Record<string, string> = {
   comboSlLimit: 'gated:combo bot — guard read, not executed',
   fixedTpPrice: 'gated:useFixedTPPrices (combo list only)',
   remainderFullAmount: 'gated:combo remainder handling — guard read, not executed',
-  allowRaiseToExchangeMin: 'gated:DCA only — the combo engine does not implement the exchange-minimum refusal',
   reduceToAvailableBalance: 'gated:DCA only — the combo form does not offer a reduced deal',
   reduceToAvailableMinSize: 'gated:DCA only — the combo form does not offer a reduced deal',
   singlePosition: 'gated:DCA only — combo bots are excluded from single position per pair',
@@ -543,7 +542,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'tpSlTargetFilled', 'useExperimental', 'useRiskReward', 'volumeTop',
   ].sort(),
   combo: [
-    'allowRaiseToExchangeMin', 'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
+    'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
     'dcaCustom', 'dynamicArLockValue', 'dynamicPriceFilterOverValue',
     'fixedSlPrice', 'fixedTpPrice', 'hodlAt', 'hodlDay', 'hodlHourly',
     'hodlNextBuy', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal', 'minOpenDeal',
@@ -584,7 +583,6 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
   // Plus the DCA-only settings the combo inputs do not declare
   // (DECLARED_BY_DCA_ONLY), which the mapper strips for combo.
   combo: [
-    'allowRaiseToExchangeMin',
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',

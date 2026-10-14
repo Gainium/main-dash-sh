@@ -6,6 +6,7 @@ exports[`bot form save payload (specs/066 §1.10) > Combo create 1`] = `
     {
       "activeOrdersCount": 5,
       "adaptiveClose": false,
+      "allowRaiseToExchangeMin": false,
       "autoRebalancing": false,
       "baseAsset": [
         "BTC",
@@ -216,6 +217,7 @@ exports[`bot form save payload (specs/066 §1.10) > Combo edit 1`] = `
       "settings": {
         "activeOrdersCount": 5,
         "adaptiveClose": false,
+        "allowRaiseToExchangeMin": false,
         "autoRebalancing": false,
         "baseGridLevels": "5",
         "baseOrderPrice": "0",
