@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.97.1] - 2026-10-14
+### Fixed
+- Pair picker on narrow screens: the select-all checkbox, Fits this bot and the sort controls disappeared from the toolbar. They now stay, in a compact form.
+
 ## [2.97.0] - 2026-10-14
 ### Added
 - "Allow increasing orders to exchange minimum" switch on combo bots, both sides of hedge DCA and hedge combo bots, and terminal deals, the same switch DCA bots already have.

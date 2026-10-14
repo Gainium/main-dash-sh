@@ -16,7 +16,7 @@ import type {
   ColumnFiltersState,
   SortingState,
 } from '@tanstack/react-table';
-import { Star, X as CloseIcon } from 'lucide-react';
+import { ArrowUpDown, Star, X as CloseIcon } from 'lucide-react';
 import React, {
   createContext,
   useCallback,
@@ -854,91 +854,106 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   if (!isOpen) return null;
 
   const isCards = viewMode !== 'table';
-  // §2.4 — the table sorts from its headers; cards have none, so they keep
-  // the list picker's sort menu and favourites-first.
-  const cardSortControls = isCards ? (
-    <>
-      <Select
-        value={
-          headerSorting
-            ? undefined
-            : sortModes.some((m) => m.value === effectiveSortMode)
-              ? effectiveSortMode
-              : undefined
-        }
-        onValueChange={handleSortMode}
-      >
-        <SelectTrigger
-          size="sm"
-          className="w-auto min-w-0 shrink"
-          aria-label="Sort pairs"
-        >
-          <SelectValue placeholder="Sort" />
-        </SelectTrigger>
-        <SelectContent>
-          {sortModes.map((m) => (
-            <SelectItem key={m.value} value={m.value}>
-              {m.label}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-      <button
-        type="button"
-        onClick={toggleFavoritesFirst}
-        aria-pressed={favoritesFirst}
-        aria-label="Show favorites first"
-        title="Show favorites first"
-        className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
-          favoritesFirst
-            ? 'bg-primary/10 text-primary'
-            : 'text-muted-foreground hover:bg-muted hover:text-foreground'
-        }`}
-      >
-        <Star
-          className="h-4 w-4"
-          fill={favoritesFirst ? 'currentColor' : 'none'}
-        />
-      </button>
-    </>
-  ) : null;
+  const fitsTooltip =
+    "Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, leverage above the pair's maximum, or not enough free balance in the pair's quote asset for the base order.";
+  const canonicalTooltip =
+    'Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them.';
+  const sortValue = headerSorting
+    ? undefined
+    : sortModes.some((m) => m.value === effectiveSortMode)
+      ? effectiveSortMode
+      : undefined;
 
-  const toolbar = (
-    <div className="flex flex-nowrap items-center gap-sm">
-      <label className="flex items-center gap-2 text-sm text-foreground whitespace-nowrap">
-        <Switch
-          checked={fitsOnly}
-          onCheckedChange={setFitsOnly}
-          aria-label="Fits this bot"
-        />
-        Fits this bot
-        <Tooltip
-          side="bottom"
-          tooltip="Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, leverage above the pair's maximum, or not enough free balance in the pair's quote asset for the base order."
-        >
-          <InfoIcon />
+  // The toolbar's controls, full-size or compact (icon-only, names in
+  // tooltips). DataTable keeps the compact set on narrow screens instead of
+  // hiding the controls altogether (phones lost select-all and Fits).
+  const renderToolbar = (compact: boolean) => {
+    const labelled = (
+      label: string,
+      tooltip: string,
+      control: React.ReactNode
+    ) =>
+      compact ? (
+        <Tooltip side="bottom" tooltip={`${label}. ${tooltip}`}>
+          <span className="inline-flex">{control}</span>
         </Tooltip>
-      </label>
-      {hasNonCanonical && (
+      ) : (
         <label className="flex items-center gap-2 text-sm text-foreground whitespace-nowrap">
-          <Switch
-            checked={canonicalOnly}
-            onCheckedChange={setCanonicalOnly}
-            aria-label="Canonical only"
-          />
-          Canonical only
-          <Tooltip
-            side="bottom"
-            tooltip="Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them."
-          >
+          {control}
+          {label}
+          <Tooltip side="bottom" tooltip={tooltip}>
             <InfoIcon />
           </Tooltip>
         </label>
-      )}
-      {cardSortControls}
-      {isCards && <SelectAllCheckbox />}
-    </div>
-  );
+      );
+    return (
+      <div className="flex flex-nowrap items-center gap-sm">
+        {labelled(
+          'Fits this bot',
+          fitsTooltip,
+          <Switch
+            checked={fitsOnly}
+            onCheckedChange={setFitsOnly}
+            aria-label="Fits this bot"
+          />
+        )}
+        {hasNonCanonical &&
+          labelled(
+            'Canonical only',
+            canonicalTooltip,
+            <Switch
+              checked={canonicalOnly}
+              onCheckedChange={setCanonicalOnly}
+              aria-label="Canonical only"
+            />
+          )}
+        {/* §2.4 — the table sorts from its headers; cards have none, so
+            they keep the list picker's sort menu and favourites-first. */}
+        {isCards && (
+          <>
+            <Select value={sortValue} onValueChange={handleSortMode}>
+              <SelectTrigger
+                size="sm"
+                className="w-auto min-w-0 shrink"
+                aria-label="Sort pairs"
+              >
+                {compact ? (
+                  <ArrowUpDown className="h-4 w-4" />
+                ) : (
+                  <SelectValue placeholder="Sort" />
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                {sortModes.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <button
+              type="button"
+              onClick={toggleFavoritesFirst}
+              aria-pressed={favoritesFirst}
+              aria-label="Show favorites first"
+              title="Show favorites first"
+              className={`shrink-0 inline-flex h-8 w-8 items-center justify-center rounded-md transition-colors ${
+                favoritesFirst
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground'
+              }`}
+            >
+              <Star
+                className="h-4 w-4"
+                fill={favoritesFirst ? 'currentColor' : 'none'}
+              />
+            </button>
+            <SelectAllCheckbox />
+          </>
+        )}
+      </div>
+    );
+  };
 
   const content = (
     <div
@@ -1048,7 +1063,8 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 betweenToolbarAndContent={selectAllBar}
                 onRowClick={handleRowClick}
                 getRowIsSelected={getRowIsSelected}
-                firstToolbarActions={toolbar}
+                firstToolbarActions={renderToolbar(false)}
+                firstToolbarActionsCompact={renderToolbar(true)}
                 initialPageSize={50}
                 enableExport={false}
                 enableColumnReordering={false}
