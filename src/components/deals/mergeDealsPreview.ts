@@ -165,3 +165,93 @@ export function exitAlreadyReached(
   const above = market >= exitPrice;
   return which === 'tp' ? above === isLong : above !== isLong;
 }
+
+type DcaSettings = Pick<
+  DCABotSettings,
+  | 'useDca'
+  | 'dcaCondition'
+  | 'scaleDcaType'
+  | 'dcaVolumeBaseOn'
+  | 'orderSizeType'
+  | 'useRiskReward'
+  | 'ordersCount'
+  | 'orderSize'
+  | 'step'
+  | 'stepScale'
+  | 'volumeScale'
+>;
+
+/**
+ * Whether the engine carries this bot's DCA ladder to a merged deal: a plain
+ * percentage ladder sized in quote or base. Same rule as `mergeDcaSupported`
+ * in the engine.
+ */
+export function mergeDcaSupported(
+  settings: Partial<DcaSettings> | undefined
+): boolean {
+  if (!settings?.useDca || settings.useRiskReward) return false;
+  const condition = settings.dcaCondition as string | undefined;
+  const scale = settings.scaleDcaType as string | undefined;
+  return (
+    (!condition || condition === 'percentage') &&
+    (!scale || scale === 'percentage') &&
+    (settings.dcaVolumeBaseOn as string | undefined) !== 'change' &&
+    (settings.orderSizeType === 'quote' || settings.orderSizeType === 'base')
+  );
+}
+
+export interface MergeDcaLevel {
+  price: number;
+  /** Distance from the merged average, in percent. */
+  deviation: number;
+  /** Order value in quote. */
+  cost: number;
+  qty: number;
+  /** Quote the deal holds once this level has filled. */
+  total: number;
+  /** Average entry price once this level has filled. */
+  avgAfter: number;
+}
+
+/**
+ * The ladder the merged deal would place: the bot's percentage ladder started
+ * from the merged average (each level `step × stepScale^(i-1)` of it beyond
+ * the one before), sized `orderSize × volumeScale^(i-1)`. The engine rounds
+ * prices to the tick, so these are estimates.
+ */
+export function mergeDcaLadder(
+  settings: Partial<DcaSettings>,
+  merged: Pick<DealMergeFigures, 'avg' | 'position'>,
+  isLong: boolean,
+  levels: number
+): MergeDcaLevel[] {
+  const avg = merged.avg;
+  const step = Number(settings.step ?? '1') / 100;
+  const stepScale = Number(settings.stepScale ?? '1');
+  const volumeScale = Number(settings.volumeScale ?? '1');
+  const size = Number(settings.orderSize ?? '0');
+  if (!avg || !(step > 0) || !(size > 0)) return [];
+  const sizeInBase = settings.orderSizeType === 'base';
+  const out: MergeDcaLevel[] = [];
+  let level = avg;
+  let base = merged.position;
+  let quote = merged.position * avg;
+  for (let i = 1; i <= levels; i++) {
+    level -= (isLong ? 1 : -1) * avg * step * stepScale ** (i - 1);
+    if (level <= 0) break;
+    const scaled = size * volumeScale ** (i - 1);
+    const qty = sizeInBase ? scaled : scaled / level;
+    const cost = qty * level;
+    base += qty;
+    quote += cost;
+    out.push({
+      price: level,
+      deviation: (Math.abs(level - avg) / avg) * 100,
+      cost,
+      qty,
+      total: quote,
+      avgAfter: quote / base,
+    });
+  }
+  return out;
+}

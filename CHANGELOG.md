@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.96.3] - 2026-10-14
+### Changed
+- The Merge deals dialog can give the merged deal the bot's DCA. When ticked it lists every safety order the merged deal would place (price and distance from the merged average, size, running total and the average after it fills), shows what the deal holds now, what the safety orders add and the most it can use in total, lets you place fewer levels than the bot, draws the levels on the chart and warns when the free balance does not cover them all. The deal list and the level list scroll when they are long.
+
 ## [2.96.2] - 2026-10-14
 ### Changed
 - Pair picker (DCA and Combo): the list picker’s controls and data are back alongside the table — asset-class chips, the sort menu (market cap, ROI, 24h volume, 24h change, volatility, RSI, A–Z, plus min order and max leverage), favourites first and every market-data column (price, 1h / 24h / 7d / 30d change, volume, market cap, rank, volatility, RSI, ROI). Pairs the bot can’t take sink below the others.

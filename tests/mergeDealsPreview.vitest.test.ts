@@ -3,6 +3,8 @@ import { describe, expect, it } from 'vitest';
 import {
   dealMergeFigures,
   exitAlreadyReached,
+  mergeDcaLadder,
+  mergeDcaSupported,
   mergedFigures,
   mergeExit,
 } from '../src/components/deals/mergeDealsPreview';
@@ -84,5 +86,55 @@ describe('merge deals preview', () => {
     expect(exitAlreadyReached('sl', 95, 94, true)).toBe(true);
     expect(exitAlreadyReached('tp', 98, 97, false)).toBe(true);
     expect(exitAlreadyReached('sl', 105, 106, false)).toBe(true);
+  });
+
+  const ladder = {
+    useDca: true,
+    orderSizeType: 'quote' as never,
+    ordersCount: '5' as never,
+    orderSize: '100',
+    step: '2',
+    stepScale: '1.2',
+    volumeScale: '1.5',
+  };
+
+  it('restarts the bot ladder from the merged average, as the engine does', () => {
+    const l = mergeDcaLadder(ladder, { avg: 100, position: 1 }, true, 3);
+    expect(l.map((x) => +x.price.toFixed(4))).toEqual([98, 95.6, 92.72]);
+    expect(l.map((x) => x.cost)).toEqual([100, 150, 225]);
+    expect(l[2]?.total).toBeCloseTo(100 + 475);
+    expect(l[0]?.avgAfter).toBeCloseTo(200 / (1 + 100 / 98));
+  });
+
+  it('a short ladder goes up', () => {
+    const l = mergeDcaLadder(ladder, { avg: 100, position: 1 }, false, 2);
+    expect(l.map((x) => +x.price.toFixed(4))).toEqual([102, 104.4]);
+    expect(l[1]?.deviation).toBeCloseTo(4.4);
+  });
+
+  it('base-sized levels keep their quantity', () => {
+    const l = mergeDcaLadder(
+      { ...ladder, orderSizeType: 'base' as never, orderSize: '2' },
+      { avg: 100, position: 1 },
+      true,
+      1
+    );
+    expect(l[0]?.qty).toBe(2);
+    expect(l[0]?.cost).toBeCloseTo(196);
+  });
+
+  it('carries only what the engine carries', () => {
+    expect(mergeDcaSupported(ladder)).toBe(true);
+    for (const over of [
+      { useDca: false },
+      { dcaCondition: 'indicators' },
+      { dcaCondition: 'custom' },
+      { scaleDcaType: 'atr' },
+      { dcaVolumeBaseOn: 'change' },
+      { orderSizeType: 'percFree' },
+      { useRiskReward: true },
+    ]) {
+      expect(mergeDcaSupported({ ...ladder, ...(over as never) })).toBe(false);
+    }
   });
 });

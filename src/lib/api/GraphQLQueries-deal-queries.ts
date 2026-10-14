@@ -1185,6 +1185,9 @@ export const dealQueries = {
     /** Merged deal takes the bot's TP / SL. Omitted: the engine's default. */
     useTp?: boolean | undefined;
     useSl?: boolean | undefined;
+    /** Restart the bot's DCA ladder from the merged average. */
+    useDca?: boolean | undefined;
+    dcaOrders?: number | undefined;
   }) => {
     const query = `mutation mergeDeals($input: mergeDealsInput!) {
   mergeDeals(input: $input) {
