@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.98.3] - 2026-10-15
+### Changed
+- Pair picker: the table view is wider, so the leverage columns fit alongside market data and minimum order.
+
 ## [2.98.2] - 2026-10-15
 ### Changed
 - Futures DCA and combo bots: the deal overview shows Nominal (full position size once every order fills) and Margin (nominal ÷ leverage) instead of a single Total Funds figure, in the bot form and the bot's DCA Analysis. Margin is left out when the bot inherits the exchange's margin settings. Spot bots are unchanged.
