@@ -28,6 +28,7 @@ import {
   type Prices,
 } from '.';
 import type { DrawerBot } from './bots/drawer';
+import type { DealPositionValue } from '@/hooks/useDealPositionValues';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import {
   percentBasis,
@@ -39,7 +40,7 @@ export type TradeChartPoint = {
   price: number;
 };
 
-export type TransformedTrade = {
+export type TransformedTrade = DealPositionValue & {
   active: boolean;
   id: string;
   type: 'DCA' | 'Combo' | 'Hedge DCA' | 'Hedge Combo' | 'Grid' | 'Terminal';

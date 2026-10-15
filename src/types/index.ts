@@ -3738,6 +3738,8 @@ export type AdditionalBotData = {
   unPnlPending?: boolean;
   maxValue?: number;
   currentValue?: number;
+  /** Open position at the current price (|size| × price), USD. */
+  positionValue?: number | undefined;
   exchangeName?: string;
   currentValueFriendly?: string;
   maxValueFriendly?: string;

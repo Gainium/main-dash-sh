@@ -96,6 +96,10 @@ import {
     SelectValue,
 } from '../../../ui/select';
 import { Skeleton } from '../../../ui/skeleton';
+import {
+  useDealPositionValues,
+  type DealPositionRef,
+} from '@/hooks/useDealPositionValues';
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { Slot } from '../../../../lib/extensions';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
@@ -170,6 +174,14 @@ const TradeCardWrapper = React.memo<TradeCardWrapperProps>(
 );
 
 TradeCardWrapper.displayName = 'TradeCardWrapper';
+
+const transformedTradePosition = (t: TransformedTrade): DealPositionRef => ({
+  active: t.active,
+  size: Number(t.size || 0),
+  symbol: typeof t.symbol === 'string' ? t.symbol : t.symbol.symbol,
+  exchange: t.exchange,
+  quoteAsset: typeof t.symbol === 'string' ? '' : t.symbol.quoteAsset,
+});
 
 export interface DrawerDealsTableProps {
   widgetId: string;
@@ -1492,6 +1504,49 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         sortingFn: 'basic',
       },
       {
+        id: 'positionValue',
+        accessorKey: 'positionValue',
+        header: 'Current Value',
+        meta: {
+          description: 'Position size × current price',
+          filterType: 'number',
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+          totalsValueFn: (trade: TransformedTrade) =>
+            trade.positionValueUsd ?? NaN,
+        },
+        aggregationFn: 'sum',
+        sortUndefined: 'last',
+        cell: ({ row }) => {
+          const trade = row.original;
+          const value = trade.positionValue;
+          if (trade.active && value === undefined && pricesLoading) {
+            return <Skeleton className="h-4 w-16" />;
+          }
+          if (!value) {
+            return <span className="text-muted-foreground">-</span>;
+          }
+          const quoteAsset =
+            typeof trade.symbol === 'string' ? '' : trade.symbol.quoteAsset;
+          return (
+            <PendingLiveValue pending={trade.positionValuePending}>
+              <div className="text-sm font-medium">
+                {privacyMode
+                  ? '***'
+                  : `${formatNumber(value, false)} ${quoteAsset}`}
+              </div>
+            </PendingLiveValue>
+          );
+        },
+        footerValue: (value: number) => (
+          <span className="font-bold">
+            {privacyMode ? '***' : `$${formatNumber(value, true)}`}
+          </span>
+        ),
+        enableSorting: true,
+        enableColumnFilter: true,
+      },
+      {
         id: 'drawdown',
         accessorKey: 'drawdown',
         header: 'Drawdown',
@@ -2197,6 +2252,10 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     () => (selectedTab === 'active' ? activeDeals : closedDeals),
     [selectedTab, activeDeals, closedDeals]
   );
+  const pricedDealsData = useDealPositionValues(
+    dealsData,
+    transformedTradePosition
+  );
 
   const ordersForDealDialog = useMemo(
     () =>
@@ -2223,6 +2282,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       netPnl: false,
       netPnlPercentage: false,
       dealId: false,
+      positionValue: false,
     }),
     []
   );
@@ -2384,7 +2444,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               tableId={`${widgetId}-${selectedTab}-deals`}
               columns={drawerColumns}
               serverSide={pagedDeals.serverPaging?.serverSide}
-              data={dealsData}
+              data={pricedDealsData}
               enableGlobalFilter
               enableColumnFilters
               enableSorting

@@ -24,6 +24,9 @@ export interface HedgeUnPnlResult {
   unPnl: number;
   unPnlPerc: number;
   currentValue: number;
+  /** Both legs' open positions at the current price, USD; undefined while a
+   *  leg with an open position cannot be priced. */
+  positionValue: number | undefined;
   maxValue: number;
   /** Combined daily profit in USD across both legs. */
   avgDaily: number;
@@ -60,6 +63,7 @@ export function computeHedgeUnPnl(
 ): HedgeUnPnlResult {
   let unPnl = 0;
   let currentValue = 0;
+  let positionValue: number | undefined = 0;
   let maxValue = 0;
   let avgDaily = 0;
   const legUsage: { long?: number; short?: number } = {};
@@ -79,6 +83,10 @@ export function computeHedgeUnPnl(
       );
       unPnl += transformed.unPnl ?? 0;
       currentValue += transformed.currentValue ?? 0;
+      positionValue =
+        positionValue === undefined || transformed.positionValue === undefined
+          ? undefined
+          : positionValue + transformed.positionValue;
       maxValue += transformed.maxValue ?? 0;
       avgDaily += transformed.avgDaily ?? 0;
       const usage = transformed.usageTotal ?? 0;
@@ -120,6 +128,7 @@ export function computeHedgeUnPnl(
     unPnl,
     unPnlPerc,
     currentValue,
+    positionValue,
     maxValue,
     avgDaily,
     avgDailyPerc,

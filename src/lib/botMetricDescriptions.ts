@@ -39,6 +39,8 @@ const DCA = {
   ...SHARED,
   currentCost:
     "How much money is deployed in this bot's open deals right now, converted to USD.",
+  currentValue:
+    "What the open deals' positions are worth at the current price (position size × price), converted to USD. On spot it is roughly what closing them would return.",
   maxCost:
     'The most this bot can have deployed at once — base order plus every safety order — converted to USD.',
   realizedPnl:
@@ -111,6 +113,8 @@ const HEDGE = {
   deals: 'Deals currently open across both legs, and deals run in total.',
   currentCost:
     'Money deployed in the open deals right now, both legs added together, in USD.',
+  currentValue:
+    "What the open deals' positions are worth at the current price (position size × price), both legs added together, in USD.",
   maxCost:
     'The most this hedge can have deployed at once — base order plus every safety order on both legs, in USD.',
   realizedPnl:

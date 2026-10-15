@@ -102,6 +102,7 @@ import { PartialCount } from '../components/ui/large-account';
 import type { CalculatedBotStats } from '../services/metrics/BotMetricsCalculator';
 
 const TRADING_BOTS_DEFAULT_COLUMN_VISIBILITY = {
+  positionValue: false,
   profitPerc: false,
   unPnlPerc: false,
   avgDailyPerc: false,
@@ -933,6 +934,37 @@ const TradingBots: React.FC = () => {
         cell: ({ getValue }) => {
           const cost = getValue() as number;
           return <span>{privacyMode ? '***' : `$${cost.toFixed(2)}`}</span>;
+        },
+        footerValue: (value: number) => (
+          <span className="font-bold">
+            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+          </span>
+        ),
+      },
+      {
+        accessorKey: 'positionValue',
+        header: 'CURRENT VALUE',
+        meta: {
+          description: BOT_METRIC_DESCRIPTIONS.dca.currentValue,
+          filterType: 'number',
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        sortUndefined: 'last',
+        cell: ({ row }) => {
+          if (row.original.isActive && row.original.loadedPrices === false) {
+            return <Skeleton className="h-4 w-16" />;
+          }
+          const value = row.original.positionValue;
+          if (value === undefined) {
+            return <span className="text-muted-foreground">-</span>;
+          }
+          return (
+            <PendingLiveValue pending={row.original.unPnlPending}>
+              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            </PendingLiveValue>
+          );
         },
         footerValue: (value: number) => (
           <span className="font-bold">

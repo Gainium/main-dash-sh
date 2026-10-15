@@ -23,6 +23,11 @@ import type { PercentBasis } from '@/features/bots/shared/runtime/dialogs/adjust
 import { DealEditDrawer } from '@/components/deals/DealEditDrawer';
 import { TradeDetailDrawer } from '@/components/trades/TradeDetailDrawer';
 import { useDealTablePaging } from '@/hooks/useDealTablePaging';
+import {
+  useDealPositionValues,
+  type DealPositionRef,
+  type DealPositionValue,
+} from '@/hooks/useDealPositionValues';
 import { PartialCount } from '@/components/ui/large-account';
 import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
 import {
@@ -198,7 +203,7 @@ export interface GetDCADealsData {
 }
 
 // Interface for transformed trade data
-export interface OpenTrade {
+export interface OpenTrade extends DealPositionValue {
   id: string;
   dealId?: string;
   active: boolean;
@@ -461,6 +466,7 @@ export interface OpenTradesWidgetProps {
 // and can drive a "Maximum update depth exceeded" remount loop (React #185).
 const EMPTY_STRING_LIST: string[] = [];
 const TRADES_DEFAULT_COLUMN_VISIBILITY = {
+  positionValue: false,
   unrealizedProfitPercentage: false,
   realizedProfitPercentage: false,
   netPnl: false,
@@ -468,6 +474,14 @@ const TRADES_DEFAULT_COLUMN_VISIBILITY = {
   gridProfitPercentage: false,
 };
 const TRADES_DEFAULT_PINNED_COLUMNS = { left: [], right: ['actions'] };
+
+const openTradePosition = (t: OpenTrade): DealPositionRef => ({
+  active: t.active,
+  size: Number(t.size || 0),
+  symbol: t.symbol,
+  exchange: t.exchange,
+  quoteAsset: t.quoteAsset,
+});
 
 const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   widgetId = 'open-trades',
@@ -1230,6 +1244,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
 
     return filtered;
   }, [baseTrades, enableStatusToggle, effectiveShowClosedTrades]);
+  const pricedTrades = useDealPositionValues(trades, openTradePosition);
 
   // Server mode: the table holds only the page on screen, so exports fetch
   // every deal matching the current status, filters, search and sort.
@@ -2019,6 +2034,38 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         ),
       },
       {
+        accessorKey: 'positionValue',
+        header: 'Current Value',
+        meta: {
+          description: 'Position size × current price',
+          filterType: 'number',
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+          totalsValueFn: (row: OpenTrade) => row.positionValueUsd ?? NaN,
+        },
+        aggregationFn: 'sum',
+        sortUndefined: 'last',
+        cell: ({ row }) => {
+          const value = row.original.positionValue;
+          if (row.original.active && value === undefined && pricesLoading) {
+            return <Skeleton className="h-4 w-16" />;
+          }
+          if (!value) return <span className="text-muted-foreground">-</span>;
+          return (
+            <PendingLiveValue pending={row.original.positionValuePending}>
+              {privacyMode
+                ? '***'
+                : `${formatNumber(value, true)} ${row.original.quoteAsset || ''}`}
+            </PendingLiveValue>
+          );
+        },
+        footerValue: (value: number) => (
+          <span className="font-bold">
+            {privacyMode ? '***' : `$${formatNumber(value, true)}`}
+          </span>
+        ),
+      },
+      {
         accessorKey: 'size',
         header: 'Size',
         meta: { filterType: 'number' },
@@ -2688,7 +2735,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               : `${widgetId}-trades`
           }
           columns={serverColumns}
-          data={trades}
+          data={pricedTrades}
           serverSide={effectiveServerPaging?.serverSide}
           pinHeaderOnPageScroll={pinHeaderOnPageScroll}
           getExportData={getExportData}

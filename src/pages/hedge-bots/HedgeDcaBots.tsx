@@ -10,6 +10,7 @@
  *
  * Routes: `/hedge/bot`.
  */
+import { PendingLiveValue } from '@/components/ui/pending-live-value';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Archive, Bot, Plus } from 'lucide-react';
@@ -141,6 +142,7 @@ type EnrichedHedgeBot = HedgeBot & {
   __unPnlPerc?: number;
   __totalProfitUsd?: number;
   __currentCost?: number;
+  __positionValue?: number | undefined;
   __maxCost?: number;
   __avgDaily?: number;
   __avgDailyPerc?: number;
@@ -336,6 +338,7 @@ const HedgeDcaBots = () => {
             currentCost > 0 ? (combinedUn / currentCost) * 100 : 0,
           __totalProfitUsd: totalProfitUsd,
           __currentCost: u?.currentValue,
+          __positionValue: u?.positionValue,
           __maxCost: u?.maxValue,
           __avgDaily: u?.avgDaily,
           __avgDailyPerc: u?.avgDailyPerc,
@@ -638,6 +641,37 @@ const HedgeDcaBots = () => {
         aggregationFn: 'sum',
         footerValue: (value: number) => (
           <span className="text-sm font-bold">${value.toFixed(2)}</span>
+        ),
+      },
+      {
+        id: 'positionValue',
+        header: 'Current value',
+        accessorFn: (row) => row.__positionValue,
+        sortUndefined: 'last',
+        cell: ({ row }) => {
+          const value = row.original.__positionValue;
+          if (value === undefined) {
+            return <span className="text-sm text-muted-foreground">-</span>;
+          }
+          return (
+            <PendingLiveValue pending={row.original.__unPnlPending}>
+              <span className="text-sm">
+                {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              </span>
+            </PendingLiveValue>
+          );
+        },
+        meta: {
+          description: BOT_METRIC_DESCRIPTIONS.hedge.currentValue,
+          filterType: 'number' as const,
+          enableTotalsRow: true,
+          totalsDefaultAggregation: 'sum',
+        },
+        aggregationFn: 'sum',
+        footerValue: (value: number) => (
+          <span className="text-sm font-bold">
+            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+          </span>
         ),
       },
       {
@@ -1098,7 +1132,7 @@ const HedgeDcaBots = () => {
                       enableQuickFilterBar
                       quickFilterBarStorageKey="hedge-dca-bots-filters"
                       enableColumnVisibility
-                      defaultColumnVisibility={{ botId: false }}
+                      defaultColumnVisibility={{ botId: false, positionValue: false }}
                       enableSorting
                       enableCardView
                       defaultView="cards"

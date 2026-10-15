@@ -11,6 +11,7 @@ import { getPricesFetchedAt } from '@/helper/price';
 import { extractPairAssets } from '@/utils/pairs';
 import type { DrawerBot } from './bots/drawer';
 import {
+  BotMarginTypeEnum,
   BotTypesEnum,
   ComboTpBase,
   OrderSizeTypeEnum,
@@ -370,6 +371,8 @@ export function transformDcaBotToBot(
   let unPnl = 0;
   let unPnlPerc = 0;
   let currentValues = 0;
+  // Open position at the current price, USD; undefined until it can be priced.
+  let positionValue: number | undefined;
   let comboDealCurrentValues = 0;
   const long = res.settings.strategy === StrategyEnum.long;
   const usdRate = res.settings.futures
@@ -527,6 +530,19 @@ export function transformDcaBotToBot(
               : res.usage.current.base) * usdRate
         );
     if (botHasUsablePrices && !useLiveStats) {
+      // |size| × price, the same position the bot's deals report as Size.
+      const leverage =
+        res.settings.marginType === BotMarginTypeEnum.inherit
+          ? 1
+          : (res.settings.leverage ?? 1);
+      positionValue =
+        res.settings.futures && res.settings.coinm
+          ? res.usage.current.base * leverage * usdRate
+          : (long
+              ? sumBalances(res.currentBalances.base, findRates, botSymbols)
+              : sumBalances(res.initialBalances.base, findRates, botSymbols) -
+                sumBalances(res.currentBalances.base, findRates, botSymbols)) *
+            (usdRatesQuote[res.symbol[0].key] ?? 0);
       unPnl = useLiveStats
         ? res.liveStats?.value || 0
         : long
@@ -812,6 +828,11 @@ export function transformDcaBotToBot(
     unPnlPerc,
     maxValue,
     currentValue: currentValues,
+    positionValue: active
+      ? positionValue === undefined
+        ? undefined
+        : math.round(Math.abs(positionValue), 2)
+      : 0,
     exchangeName: ex?.name ?? ex?.provider ?? res.exchange,
     currentValueFriendly: !currentValues
       ? 'N/A'
