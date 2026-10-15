@@ -17,6 +17,8 @@ export type StatBox = {
 export type StatsBoxesProps = {
   boxes: StatBox[];
   className?: string;
+  /** Wrap onto more lines instead of cycling overflowing boxes in a carousel. */
+  wrap?: boolean;
 };
 
 type StatCardProps = StatBox & { expand?: boolean };
@@ -80,6 +82,7 @@ const StatCard: React.FC<StatCardProps> = ({
 export const StatsBoxes: React.FC<StatsBoxesProps> = ({
   boxes,
   className = '',
+  wrap = false,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,10 @@ export const StatsBoxes: React.FC<StatsBoxesProps> = ({
 
   useEffect(() => {
     const checkOverflow = () => {
+      if (wrap) {
+        setNeedsCarousel(false);
+        return;
+      }
       if (!containerRef.current || !contentRef.current) return;
 
       const container = containerRef.current;
@@ -161,7 +168,7 @@ export const StatsBoxes: React.FC<StatsBoxesProps> = ({
       ro.disconnect();
       window.removeEventListener('resize', checkOverflow);
     };
-  }, [boxes]);
+  }, [boxes, wrap]);
 
   useEffect(() => {
     if (!needsCarousel || !contentRef.current || !containerRef.current) {
@@ -269,12 +276,12 @@ export const StatsBoxes: React.FC<StatsBoxesProps> = ({
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
       onPointerCancel={handlePointerUp}
-      className={`min-w-0 max-w-full bg-inner-container rounded-md px-3 py-1 overflow-hidden h-[45px] flex items-center ${className}`}
+      className={`min-w-0 max-w-full bg-inner-container rounded-md px-3 overflow-hidden flex items-center ${wrap ? 'min-h-[45px] py-[5px]' : 'h-[45px] py-1'} ${className}`}
     >
       <motion.div
         ref={contentRef}
         animate={controls}
-        className={`flex gap-3 items-center w-fit`}
+        className={`flex gap-3 items-center ${wrap ? 'flex-wrap gap-y-1' : 'w-fit'}`}
         initial={{ x: 0 }}
       >
         {boxes.map((box, idx) => (

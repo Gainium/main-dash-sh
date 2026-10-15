@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.98.4] - 2026-10-15
+### Fixed
+- Bot form deal overview: the figures wrap onto a second line when they don't fit, instead of scrolling past one at a time.
+
 ## [2.98.3] - 2026-10-15
 ### Changed
 - Pair picker: the table view is wider, so the leverage columns fit alongside market data and minimum order.

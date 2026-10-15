@@ -2010,6 +2010,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
 
               <div className="md:pt-0">
                 <StatsBoxes
+                  wrap
                   boxes={[
                     {
                       title: 'Coverage',
@@ -2481,6 +2482,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
 
             <div className="md:pt-0">
               <StatsBoxes
+                wrap
                 boxes={[
                   {
                     title: 'Coverage',
@@ -3625,6 +3627,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
 
             <div className="md:pt-0">
               <StatsBoxes
+                wrap
                 boxes={[
                   {
                     title: 'Coverage',
