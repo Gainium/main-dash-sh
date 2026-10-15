@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.0] - 2026-10-15
+### Added
+- Profit over time and Accumulated Profit widgets: filter by exchange, following the page's exchange selection on Overview and Portfolio.
+
 ## [2.99.0] - 2026-10-15
 ### Added
 - Deals and bots tables: a Current Value column (position size × current price) with a total, for Terminal and bot deals, the bot drawer's deals, and DCA, Combo and Hedge bot lists. Hidden by default; turn it on from Columns.

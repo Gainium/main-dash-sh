@@ -29,6 +29,10 @@ import CustomTooltip from '../../charts/CustomTooltip';
 import WidgetWrapper from '../WidgetWrapper';
 import { TimeframeButtons } from '../shared/TimeframeButtons';
 import WidgetStats from '../shared/WidgetStats';
+import {
+  PROFIT_EXCHANGE_FILTER_TOOLTIP,
+  useWidgetExchangeFilter,
+} from '../shared/useWidgetExchangeFilter';
 import { getWidgetMetadata } from './index';
 
 type ProfitData_API = ProfitQuery;
@@ -102,6 +106,16 @@ export const Profit: React.FC<ProfitProps> = ({
   // Persisted settings for this widget instance
   const [timeFilter, setTimeFilter] = usePersistedState('timeFilter', 'Daily');
   const [customName, setCustomName] = usePersistedState('customName', '');
+  const [selectedExchanges, setSelectedExchanges] = usePersistedState(
+    'selectedExchanges',
+    ['ALL']
+  );
+  const { exchangeUUIDs, filtersActive, clearFilters, filterContent } =
+    useWidgetExchangeFilter({
+      selectedExchanges,
+      setSelectedExchanges,
+      tooltip: PROFIT_EXCHANGE_FILTER_TOOLTIP,
+    });
 
   // Local UI state (not persisted)
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
@@ -118,10 +132,11 @@ export const Profit: React.FC<ProfitProps> = ({
         {
           timezone: userTimezone,
           timeframe,
+          ...(exchangeUUIDs ? { exchangeUUIDs } : {}),
         },
         'quote\ndate'
       ),
-    [timeframe, userTimezone]
+    [timeframe, userTimezone, exchangeUUIDs]
   );
 
   const { data: profitResponse, isLoading: profitLoading } =
@@ -921,8 +936,20 @@ export const Profit: React.FC<ProfitProps> = ({
       displayName: customName || 'Profit over time',
       ...(hideHeaderValue ? {} : { value: profitValue }),
       hasOptions: true,
+      hasFilters: true,
+      filterContent,
+      filtersActive,
+      onClearFilters: clearFilters,
     }),
-    [widgetId, customName, hideHeaderValue, profitValue]
+    [
+      widgetId,
+      customName,
+      hideHeaderValue,
+      profitValue,
+      filterContent,
+      filtersActive,
+      clearFilters,
+    ]
   );
 
   const renderOptionsContent = useCallback(

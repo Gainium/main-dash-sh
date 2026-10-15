@@ -1,5 +1,6 @@
 import { clsx } from 'clsx';
 import React from 'react';
+import { InfoIcon, Tooltip } from '../../ui/tooltip';
 import CoinIcon from './CoinIcon';
 import ExchangeIcon from './ExchangeIcon';
 
@@ -30,6 +31,7 @@ export interface FilterSectionProps {
   addButtonText?: string;
   showAllOption?: boolean;
   renderIcon?: (item: FilterItem) => React.ReactNode; // Custom icon renderer
+  tooltip?: string; // Shown on an info icon next to the title
 }
 
 // Generic filter section component
@@ -42,10 +44,18 @@ export const FilterSection: React.FC<FilterSectionProps> = ({
   addButtonText = 'Add items',
   showAllOption = true,
   renderIcon,
+  tooltip,
 }) => {
   return (
     <div>
-      <h4 className="text-sm font-medium text-foreground mb-3">{title}</h4>
+      <div className="flex items-center gap-xs mb-3">
+        <h4 className="text-sm font-medium text-foreground">{title}</h4>
+        {tooltip && (
+          <Tooltip tooltip={tooltip} side="right">
+            <InfoIcon />
+          </Tooltip>
+        )}
+      </div>
       <div className="flex flex-wrap gap-xs">
         {/* Display all selected items including "ALL" */}
         {selectedItems.map((itemId) => {

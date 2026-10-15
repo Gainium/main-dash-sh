@@ -528,6 +528,7 @@ export const userQueries = {
       timeframe?: number;
       botType?: BotTypesEnum;
       terminal?: boolean;
+      exchangeUUIDs?: string[];
     },
     fields?: string
   ) => {

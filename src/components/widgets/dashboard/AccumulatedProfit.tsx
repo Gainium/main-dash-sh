@@ -20,6 +20,10 @@ import {
 import { useUIStore } from '../../../stores/uiStore';
 import CustomTooltip from '../../charts/CustomTooltip';
 import WidgetStats from '../shared/WidgetStats';
+import {
+  PROFIT_EXCHANGE_FILTER_TOOLTIP,
+  useWidgetExchangeFilter,
+} from '../shared/useWidgetExchangeFilter';
 import WidgetWrapper from '../WidgetWrapper';
 import { getWidgetMetadata } from './index';
 
@@ -119,6 +123,16 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
   // Persisted settings for this widget instance
   const [timeFilter, setTimeFilter] = usePersistedState('timeFilter', '30D');
   const [customName, setCustomName] = usePersistedState('customName', '');
+  const [selectedExchanges, setSelectedExchanges] = usePersistedState(
+    'selectedExchanges',
+    ['ALL']
+  );
+  const { exchangeUUIDs, filtersActive, clearFilters, filterContent } =
+    useWidgetExchangeFilter({
+      selectedExchanges,
+      setSelectedExchanges,
+      tooltip: PROFIT_EXCHANGE_FILTER_TOOLTIP,
+    });
 
   // Local UI state (not persisted)
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
@@ -134,8 +148,9 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       GraphQlQuery.getProfitByUser({
         timezone: userTimezone,
         timeframe,
+        ...(exchangeUUIDs ? { exchangeUUIDs } : {}),
       }),
-    [timeframe, userTimezone]
+    [timeframe, userTimezone, exchangeUUIDs]
   );
 
   // Use the same GraphQL approach as the Profit widget
@@ -154,8 +169,9 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       GraphQlQuery.getProfitByUser({
         timezone: 'UTC',
         timeframe: TOTAL_TIMEFRAME,
+        ...(exchangeUUIDs ? { exchangeUUIDs } : {}),
       }),
-    []
+    [exchangeUUIDs]
   );
 
   const { data: totalProfitResponse, isLoading: isTotalLoading } =
@@ -479,6 +495,10 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
       displayName: customName || 'Accumulated Profit',
       value: accumulatedProfitValue,
       hasOptions: true,
+      hasFilters: true,
+      filterContent,
+      filtersActive,
+      onClearFilters: clearFilters,
     },
     isEditable,
     isCollapsible,
