@@ -356,3 +356,54 @@ describe('spec 115 §6.3 clear selection', () => {
     expect(screen.queryByRole('button', { name: 'Clear selection' })).toBeNull();
   });
 });
+
+describe('spec 115 §3.7 columns do not wait for their data', () => {
+  const headers = () =>
+    [...document.querySelectorAll('thead tr:first-child th')].map((t) =>
+      t.textContent?.trim()
+    );
+
+  test('market columns exist before the data, and say Loading… meanwhile', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({
+      rows: [row('ETH', 'USDT', { loading: { volume24h: true } })],
+      anchor: null,
+      hasMarketData: true,
+    });
+    await settle();
+    expect(headers()).toContain('Volume');
+    expect(screen.getAllByText('Loading…').length).toBeGreaterThan(0);
+  });
+
+  test('a value that does not apply stays empty (no Loading…)', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({
+      rows: [row('ETH', 'USDT')],
+      anchor: null,
+      hasMarketData: true,
+    });
+    await settle();
+    expect(headers()).toContain('Volume');
+    expect(screen.queryByText('Loading…')).toBeNull();
+  });
+
+  test('leverage columns exist for futures pairs, not for spot', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({
+      rows: [row('ETH', 'USDT', { exchange: 'bybitLinear' })],
+      anchor: null,
+    });
+    await settle();
+    expect(headers()).toContain('Max leverage');
+    cleanup();
+    renderDialog({ rows: [row('ETH', 'USDT', { exchange: 'bybit' })], anchor: null });
+    await settle();
+    expect(headers()).not.toContain('Max leverage');
+  });
+});

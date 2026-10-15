@@ -5,10 +5,11 @@ import {
 } from '@/contexts/bots/form/BotFormProvider';
 import type { TradingPair } from '@/hooks/useTradingPairs';
 import { useGraphQL } from '@/hooks/useGraphQL';
-import { useLatestPrices } from '@/hooks/useLatestPrices';
+import { useLatestPrices, usePricesLive } from '@/hooks/useLatestPrices';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { useBalanceStore } from '@/stores/live/balanceStore';
 import { useUIStore } from '@/stores/uiStore';
+import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { BotTypesEnum } from '@/types';
 import {
   pairFitReason,
@@ -36,6 +37,8 @@ const SLICE_KEYS = [
 ] as const;
 
 export interface PairLimits {
+  /** Values whose source is still loading (shown as "Loading…"). */
+  pending?: { minOrder?: boolean; maxLeverage?: boolean };
   minOrder?: number;
   minLeverage?: number;
   maxLeverage?: number;
@@ -86,6 +89,8 @@ export const usePairPickerLimits = (
     leverageInput,
     { enabled: fetchLeverage, staleTime: 5 * 60 * 1000 }
   );
+  const leverageLoading =
+    fetchLeverage && (leverageQuery.isLoading || leverageQuery.isFetching);
   const leverageBySymbol = useMemo(() => {
     const map = new Map<string, number>();
     const res = leverageQuery.data;
@@ -106,6 +111,7 @@ export const usePairPickerLimits = (
   }, [leverageQuery.data, fetchLeverage]);
 
   const prices = useLatestPrices(enabled && open);
+  const pricesLive = usePricesLive(enabled && open);
   const priceIndex = useMemo(() => {
     const map = new Map<string, number>();
     for (const p of prices) {
@@ -170,10 +176,23 @@ export const usePairPickerLimits = (
       // Min: the published limit only.
       const pos = (v: unknown) =>
         typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
-      const maxLeverage =
-        leverageBySymbol.get(pair.pair?.toUpperCase?.() ?? '') ??
-        pos(pair.maxLeverage);
-      const minLeverage = pos(pair.minLeverage);
+      // Spot venues publish margin leverage (OKX spot) that spot bots never
+      // use — leverage is shown for futures pairs only.
+      const isFuturesPair = isFuturesExchange(pair.exchange);
+      const maxLeverage = isFuturesPair
+        ? (leverageBySymbol.get(pair.pair?.toUpperCase?.() ?? '') ??
+          pos(pair.maxLeverage))
+        : null;
+      const minLeverage = isFuturesPair ? pos(pair.minLeverage) : null;
+      // Still loading: a min order that needs a price before the price feed
+      // is live, and a max leverage while the account's brackets load.
+      const minOrderPending =
+        minOrder === null &&
+        !isCoinmExchange(pair.exchange) &&
+        (pair.baseAsset?.minAmount ?? 0) > 0 &&
+        !pricesLive;
+      const maxLeveragePending =
+        maxLeverage === null && isFuturesPair && leverageLoading;
       const quote = pair.quoteAsset?.name ?? '';
       const fitReason = pairFitReason(
         {
@@ -187,12 +206,29 @@ export const usePairPickerLimits = (
         bot
       );
       return {
+        ...(minOrderPending || maxLeveragePending
+          ? {
+              pending: {
+                ...(minOrderPending ? { minOrder: true } : {}),
+                ...(maxLeveragePending ? { maxLeverage: true } : {}),
+              },
+            }
+          : {}),
         ...(minOrder !== null ? { minOrder } : {}),
         ...(minLeverage !== null ? { minLeverage } : {}),
         ...(maxLeverage !== null ? { maxLeverage } : {}),
         ...(fitReason ? { fitReason } : {}),
       };
     },
-    [enabled, pairsBySelection, priceIndex, leverageBySymbol, freeByAsset, bot]
+    [
+      enabled,
+      pairsBySelection,
+      priceIndex,
+      pricesLive,
+      leverageBySymbol,
+      leverageLoading,
+      freeByAsset,
+      bot,
+    ]
   );
 };

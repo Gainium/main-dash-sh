@@ -47,6 +47,12 @@ export interface PairMarketDataResult {
   /** Lookup keyed on the uppercased base asset (e.g. `"BTC"`). */
   lookup: (baseAsset: string) => PairMarketDatum | null;
   isLoading: boolean;
+  /**
+   * Which sources are still loading (optional, per source): the market
+   * fields (screener), the curated ROI, the RSI. A consumer shows "Loading…"
+   * for a missing value while its source loads, and nothing once it has.
+   */
+  loading?: { market?: boolean; roi?: boolean; rsi?: boolean };
 }
 
 /**
@@ -87,6 +93,15 @@ export function registerPairMarketDataProvider(
   hook: UsePairMarketDataHook,
 ): void {
   providerHook = hook;
+}
+
+/**
+ * Whether this build has a market-data provider (cloud does; self-hosted
+ * doesn't). Decides whether market-data columns exist at all — a column
+ * must not appear and disappear with its data.
+ */
+export function hasPairMarketDataProvider(): boolean {
+  return providerHook !== noopHook;
 }
 
 /**

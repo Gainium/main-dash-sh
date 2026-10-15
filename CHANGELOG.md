@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.98.1] - 2026-10-15
+### Fixed
+- Pair picker: columns no longer appear only once their data has loaded. Market-data columns (where available), Min order and, for futures, the leverage columns are always there, and their cells say Loading… until the data arrives.
+- Pair picker: leverage is shown for futures pairs only (spot margin leverage was shown on some spot pairs).
+
 ## [2.98.0] - 2026-10-15
 ### Added
 - Pair picker: Min leverage and Max leverage columns, and the leverage range on each card (for example 1–100×), from the exchange's published limits — including on paper accounts and before an account is chosen. Needs a backend that provides the fields; older ones load pairs without them.

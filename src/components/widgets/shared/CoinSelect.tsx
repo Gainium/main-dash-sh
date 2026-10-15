@@ -6,6 +6,7 @@ import {
 import { BotFormQueryContext } from '@/features/bots/widgets/BotForm/providers/BotFormQueryProvider';
 import { type AssetClass, type TradingPair } from '@/hooks/useTradingPairs';
 import {
+  hasPairMarketDataProvider,
   usePairMarketData,
   type PairRoiContext,
 } from '@/lib/pairMarketData';
@@ -18,6 +19,19 @@ import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import { ListModal, type ListModalSortOption } from './ListModal';
 import { PairPickerDialog, type PairPickerRow } from './PairPickerDialog';
+
+// The screener-backed fields (loading together).
+const MARKET_FIELDS = [
+  'price',
+  'change1h',
+  'change24h',
+  'change7d',
+  'change30d',
+  'volume24h',
+  'marketCap',
+  'marketCapRank',
+  'volatility',
+] as const;
 import { usePairPickerLimits } from './usePairPickerLimits';
 
 const NO_TOP_KEYS = [] as const;
@@ -176,7 +190,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
 
   // Only fetch market data while the dialog is open (non-blocking for the
   // bot form); the underlying queries are cached so reopening is instant.
-  const { lookup: marketLookup } = usePairMarketData(
+  const { lookup: marketLookup, loading: marketLoading } = usePairMarketData(
     showCoinDialog,
     roiContext
   );
@@ -483,15 +497,33 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
       if (!item.baseAsset || !item.quoteAsset) continue;
       const enriched = listModalItemsBySymbol.get(item.symbol);
       if (!enriched) continue;
+      const { pending, ...limits } = pairLimits(item.symbol) ?? {};
+      // "Loading…" for a value whose source hasn't answered yet.
+      const loading: PairPickerRow['loading'] = { ...(pending ?? {}) };
+      const datum = enriched as Partial<Record<string, unknown>>;
+      if (marketLoading?.market) {
+        for (const f of MARKET_FIELDS) {
+          if (datum[f] == null) loading[f] = true;
+        }
+      }
+      if (marketLoading?.roi && datum['roi'] == null) loading['roi'] = true;
+      if (marketLoading?.rsi && datum['rsi'] == null) loading['rsi'] = true;
       rows.push({
         ...enriched,
         baseAsset: item.baseAsset,
         quoteAsset: item.quoteAsset,
-        ...(pairLimits(item.symbol) ?? {}),
+        ...limits,
+        ...(Object.keys(loading).length ? { loading } : {}),
       });
     }
     return rows;
-  }, [tablePicker, filteredPairItems, listModalItemsBySymbol, pairLimits]);
+  }, [
+    tablePicker,
+    filteredPairItems,
+    listModalItemsBySymbol,
+    pairLimits,
+    marketLoading,
+  ]);
 
   // "Select all matching" goes through the form's bulk-add path, which owns
   // the anchor and plan-limit rules and their messages.
@@ -840,6 +872,7 @@ export const CoinFilter: React.FC<CoinFilterProps> = ({
               : 'Select Pairs'
           }
           singlePick={singlePick}
+          hasMarketData={hasPairMarketDataProvider()}
           {...(onRemovePairs ? { onRemoveMany: onRemovePairs } : {})}
           rows={pickerRows}
           selectedItems={selectedCoins}

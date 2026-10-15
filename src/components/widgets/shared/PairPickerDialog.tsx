@@ -41,6 +41,7 @@ import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import type { AssetClass } from '@/hooks/useTradingPairs';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
 import { formatMinOrder, pairContractSymbol } from '@/utils/pairPicker';
+import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
 import CoinPair from './CoinPair';
 import { ListModalRow, type ListItem } from './ListModal';
@@ -52,6 +53,8 @@ export interface PairPickerRow extends ListItem {
   baseAsset: string;
   quoteAsset: string;
   fitReason?: string;
+  /** Fields whose source is still loading — their cells say "Loading…". */
+  loading?: Partial<Record<string, boolean>>;
 }
 
 export interface PairPickerAnchor {
@@ -80,6 +83,11 @@ export interface PairPickerDialogProps {
    * so there is no "Select all matching".
    */
   singlePick?: boolean;
+  /**
+   * The build has a market-data provider (cloud). Market columns exist only
+   * then — never depending on whether the data has arrived yet.
+   */
+  hasMarketData?: boolean;
   /** Sort mode on first open (one of the sort menu's values). */
   initialSortMode?: string;
   isLoading?: boolean;
@@ -303,9 +311,13 @@ const numericColumn = (
   header,
   cell: ({ row }) => {
     const v = row.original[field];
-    return v == null ? null : (
-      <span className="tabular-nums">{render(v, row.original)}</span>
-    );
+    if (v == null) {
+      // A value still on its way says so; one that doesn't apply stays empty.
+      return row.original.loading?.[field] ? (
+        <span className="text-xs text-muted-foreground">Loading…</span>
+      ) : null;
+    }
+    return <span className="tabular-nums">{render(v, row.original)}</span>;
   },
   meta: { filterType: 'number' },
   sortUndefined: 'last',
@@ -582,6 +594,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   anchor,
   maxSelectable,
   singlePick = false,
+  hasMarketData = false,
   initialSortMode,
   isLoading = false,
   loadingMessage = 'Fetching trading pairs from your exchange…',
@@ -602,15 +615,40 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   );
 
   // Fields any row carries → which columns and sort modes exist.
+  // Which columns exist: by capability, not by whether the data has arrived
+  // (a column that appears only once loaded reads as a bug — its cells say
+  // "Loading…" meanwhile). Market data where the build has a provider; min
+  // order always; leverage on futures accounts. Data already present adds
+  // its column too.
   const present = useMemo(() => {
-    const set = new Set<NumericField>();
+    const set = new Set<NumericField>(['minOrder']);
+    if (hasMarketData) {
+      for (const f of [
+        'price',
+        'change1h',
+        'change24h',
+        'change7d',
+        'change30d',
+        'volume24h',
+        'marketCap',
+        'marketCapRank',
+        'volatility',
+        'rsi',
+        'roi',
+      ] as const)
+        set.add(f);
+    }
+    if (rows.some((r) => isFuturesExchange(r.exchange))) {
+      set.add('minLeverage');
+      set.add('maxLeverage');
+    }
     for (const r of rows) {
       for (const c of NUMERIC_COLUMNS) {
         if (r[c.field] != null) set.add(c.field);
       }
     }
     return set as ReadonlySet<NumericField>;
-  }, [rows]);
+  }, [rows, hasMarketData]);
   const sortModes = useMemo(
     () => SORT_MODES.filter((m) => !m.needs || present.has(m.needs)),
     [present]
