@@ -1,4 +1,4 @@
-import { StrategyEnum, type DCAGrid } from '@/types';
+import { BotMarginTypeEnum, StrategyEnum, type DCAGrid } from '@/types';
 
 const trimTrailingZeros = (value: string): string =>
   value.includes('.') ? value.replace(/\.?0+$/, '') : value;
@@ -30,6 +30,58 @@ export const formatTotalFunds = (
   }
 
   return `$${(summary.totalCapital || 0).toFixed(2)}`;
+};
+
+export interface FundsTile {
+  title: string;
+  value: string;
+  tooltip?: string;
+}
+
+export interface FundsTilesContext extends TotalFundsContext {
+  leverage?: number;
+  marginType?: string;
+}
+
+// The deal overview's funds tiles. Order sizes on a futures bot are position
+// sizes, so the deal total is the nominal value and the collateral it ties up
+// is that divided by the leverage. Spot keeps the single "Total Funds" tile.
+// With inherited margin the bot doesn't set the leverage, so only the nominal
+// figure is known.
+export const fundsTiles = (
+  summary: { totalCapital: number; totalCapitalBase: number },
+  ctx: FundsTilesContext,
+  spotTitle = 'Total Funds'
+): FundsTile[] => {
+  if (!ctx.futures) {
+    return [{ title: spotTitle, value: formatTotalFunds(summary, ctx) }];
+  }
+
+  const tiles: FundsTile[] = [
+    {
+      title: 'Nominal',
+      value: formatTotalFunds(summary, ctx),
+      tooltip:
+        'Full position size of one deal once every order has filled, before leverage.',
+    },
+  ];
+
+  const leverage = Number(ctx.leverage) || 0;
+  if (ctx.marginType !== BotMarginTypeEnum.inherit && leverage > 0) {
+    tiles.push({
+      title: 'Margin',
+      value: formatTotalFunds(
+        {
+          totalCapital: summary.totalCapital / leverage,
+          totalCapitalBase: summary.totalCapitalBase / leverage,
+        },
+        ctx
+      ),
+      tooltip: `Collateral one deal needs once every order has filled: nominal ÷ ${leverage}x leverage.`,
+    });
+  }
+
+  return tiles;
 };
 
 export interface DealOverviewSummary {

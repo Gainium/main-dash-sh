@@ -3,7 +3,7 @@ import {
   type DcaUsageBucket,
 } from '@/hooks/bots/dca/useBotDcaUsage';
 import { useBotDcaProjection } from '@/hooks/bots/dca/useBotDcaProjection';
-import { formatTotalFunds } from '@/utils/bots/dca/deal-summary';
+import { fundsTiles } from '@/utils/bots/dca/deal-summary';
 import { BotTypesEnum, DCAOrderTypeEnum, type StrategyEnum } from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import {
@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { ProgressBar } from '../../../ui/ProgressBar';
+import { InfoIcon, Tooltip } from '../../../ui/tooltip';
 import { DrawerSection } from './DrawerSection';
 
 export interface DrawerDCAMetricsProps {
@@ -72,10 +73,21 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
   );
   const projectionTiles = useMemo(() => {
     const settings = bot?.settings as
-      | { strategy?: StrategyEnum; futures?: boolean; coinm?: boolean }
+      | {
+          strategy?: StrategyEnum;
+          futures?: boolean;
+          coinm?: boolean;
+          leverage?: number;
+          marginType?: string;
+        }
       | undefined;
     const [baseAsset = '', quoteAsset = ''] = (bot?.pair ?? '').split(/[/-]/);
-    return [
+    const tiles: {
+      label: string;
+      value: string;
+      tooltip?: string;
+      icon: typeof DollarSign;
+    }[] = [
       {
         label: 'Deviation Covered',
         value: `${projection.coverage}%`,
@@ -86,18 +98,26 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
         value: `${parseFloat(projection.avgDownPower || '0').toFixed(1)}%`,
         icon: TrendingUp,
       },
-      {
-        label: 'Capital Needed',
-        value: formatTotalFunds(projection, {
+      ...fundsTiles(
+        projection,
+        {
           strategy: settings?.strategy,
           futures: settings?.futures,
           coinm: settings?.coinm,
+          leverage: Number(settings?.leverage) || 0,
+          marginType: settings?.marginType,
           baseAsset,
           quoteAsset,
-        }),
+        },
+        'Capital Needed'
+      ).map((tile) => ({
+        label: tile.title,
+        value: tile.value,
+        tooltip: tile.tooltip,
         icon: DollarSign,
-      },
+      })),
     ];
+    return tiles;
   }, [projection, bot?.settings, bot?.pair]);
 
   // Deal-derived half: one server-side histogram instead of paging every deal
@@ -197,7 +217,9 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
     >
       <div className="p-sm space-y-md">
         {/* Configured projection — coverage / avg down power / capital needed */}
-        <div className="grid grid-cols-3 gap-sm">
+        <div
+          className={`grid gap-sm ${projectionTiles.length > 3 ? 'grid-cols-2' : 'grid-cols-3'}`}
+        >
           {projectionTiles.map((tile) => {
             const Icon = tile.icon;
             return (
@@ -207,6 +229,11 @@ export const DrawerDCAMetrics: React.FC<DrawerDCAMetricsProps> = ({
               >
                 <div className="flex items-center gap-xs text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   <Icon className="h-3 w-3" /> {tile.label}
+                  {tile.tooltip && (
+                    <Tooltip tooltip={tile.tooltip} side="bottom">
+                      <InfoIcon className="h-3 w-3" />
+                    </Tooltip>
+                  )}
                 </div>
                 <div className="mt-1 text-sm font-semibold text-foreground">
                   {tile.value}

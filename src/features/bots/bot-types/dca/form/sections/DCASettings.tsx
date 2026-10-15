@@ -26,9 +26,9 @@ import SettingsRow, {
 import {
     DealOverviewGraphTab,
     DealOverviewTableTab,
-    formatTotalFunds,
     useDealOverviewData,
 } from '@/components/widgets/trading/DealOverview';
+import { fundsTiles } from '@/utils/bots/dca/deal-summary';
 import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
   useBotFormSelector,
@@ -601,7 +601,8 @@ interface DCASectionProps {
 // numbers without depending on the shared, form-owned store.
 const useDcaOverviewSource = (
   mode: BotFormMode,
-  projection: BotDcaProjection
+  projection: BotDcaProjection,
+  tradingContext: Pick<DcaTradingContext, 'baseAsset' | 'quoteAsset'>
 ) => {
   const { summary: storeSummary } = useDealOverviewData();
   const isReadonly = mode === 'settings-readonly';
@@ -625,9 +626,38 @@ const useDcaOverviewSource = (
     ordersOverride
   );
 
+  const coinm = useBotFormSelector('coinm');
+  const summary = isReadonly ? projection.summary : storeSummary;
+  const fundsBoxes = useMemo(
+    () =>
+      fundsTiles(summary, {
+        strategy: strategy as string | undefined,
+        futures,
+        coinm,
+        leverage: Number(leverage) || 0,
+        marginType: marginType as string | undefined,
+        baseAsset: tradingContext.baseAsset,
+        quoteAsset: tradingContext.quoteAsset,
+      }).map((tile) => ({
+        ...tile,
+        icon: <DollarSign className="w-4 h-4" />,
+      })),
+    [
+      summary,
+      strategy,
+      futures,
+      coinm,
+      leverage,
+      marginType,
+      tradingContext.baseAsset,
+      tradingContext.quoteAsset,
+    ]
+  );
+
   return {
     isReadonly,
-    summary: isReadonly ? projection.summary : storeSummary,
+    summary,
+    fundsBoxes,
     // Passed to the table/graph as an override only in read-only mode; the live
     // form leaves it undefined so those components read the store.
     ordersOverride,
@@ -665,8 +695,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
   const comboActiveMinigrids = useBotFormSelector('comboActiveMinigrids');
   const comboSmartGridsCount = useBotFormSelector('comboSmartGridsCount');
   const futures = useBotFormSelector('futures');
-  const coinm = useBotFormSelector('coinm');
-  const strategy = useBotFormSelector('strategy');
   const useActiveMinigrids = useBotFormSelector('useActiveMinigrids');
   const comboUseSmartGrids = useBotFormSelector('comboUseSmartGrids');
   const useDca = useBotFormSelector('useDca');
@@ -756,10 +784,8 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
     summary: dealOverviewSummary,
     ordersOverride,
     liquidation: ladderLiquidation,
-  } = useDcaOverviewSource(
-    mode,
-    projection
-  );
+    fundsBoxes,
+  } = useDcaOverviewSource(mode, projection, tradingContext);
   const showTpLines = useTp === true || useMultiTp === true;
 
   const clampOrdersCount = useCallback(
@@ -1995,17 +2021,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                       value: `${parseFloat(dealOverviewSummary.avgDownPower || '0').toFixed(1)}%`,
                       icon: <TrendingUp className="w-4 h-4" />,
                     },
-                    {
-                      title: 'Total Funds',
-                      value: formatTotalFunds(dealOverviewSummary, {
-                        strategy,
-                        futures,
-                        coinm,
-                        baseAsset: tradingContext.baseAsset,
-                        quoteAsset: tradingContext.quoteAsset,
-                      }),
-                      icon: <DollarSign className="w-4 h-4" />,
-                    },
+                    ...fundsBoxes,
                   ]}
                 />
               </div>
@@ -2069,8 +2085,6 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
   const orderSizeType = useBotFormSelector('orderSizeType');
   const dcaVolumeBaseOn = useBotFormSelector('dcaVolumeBaseOn');
   const indicators = useBotFormSelector('indicators');
-  const futures = useBotFormSelector('futures');
-  const coinm = useBotFormSelector('coinm');
   const orderSize = useBotFormSelector('orderSize');
   const dcaCustom = useBotFormSelector('dcaCustom');
   const strategy = useBotFormSelector('strategy');
@@ -2307,10 +2321,8 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     summary: dealOverviewSummary,
     ordersOverride,
     liquidation: ladderLiquidation,
-  } = useDcaOverviewSource(
-    mode,
-    projection
-  );
+    fundsBoxes,
+  } = useDcaOverviewSource(mode, projection, tradingContext);
   const showTpLines = useTp === true || useMultiTp === true;
 
   // Compute a fallback TP % for the graph when deal close is not fixed TP
@@ -2480,17 +2492,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
                     value: `${parseFloat(dealOverviewSummary.avgDownPower || '0').toFixed(1)}%`,
                     icon: <TrendingUp className="w-4 h-4" />,
                   },
-                  {
-                    title: 'Total Funds',
-                    value: formatTotalFunds(dealOverviewSummary, {
-                      strategy,
-                      futures,
-                      coinm,
-                      baseAsset: tradingContext.baseAsset,
-                      quoteAsset: tradingContext.quoteAsset,
-                    }),
-                    icon: <DollarSign className="w-4 h-4" />,
-                  },
+                  ...fundsBoxes,
                 ]}
               />
             </div>
@@ -3490,10 +3492,8 @@ const CustomDCA: React.FC<DCASectionProps> = ({
     summary: dealOverviewSummary,
     ordersOverride,
     liquidation: ladderLiquidation,
-  } = useDcaOverviewSource(
-    mode,
-    projection
-  );
+    fundsBoxes,
+  } = useDcaOverviewSource(mode, projection, tradingContext);
   const showTpLines = useTp === true || useMultiTp === true;
 
   const addCustomOrder = () => {
@@ -3636,17 +3636,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
                     value: `${parseFloat(dealOverviewSummary.avgDownPower || '0').toFixed(1)}%`,
                     icon: <TrendingUp className="w-4 h-4" />,
                   },
-                  {
-                    title: 'Total Funds',
-                    value: formatTotalFunds(dealOverviewSummary, {
-                      strategy,
-                      futures,
-                      coinm,
-                      baseAsset: tradingContext.baseAsset,
-                      quoteAsset: tradingContext.quoteAsset,
-                    }),
-                    icon: <DollarSign className="w-4 h-4" />,
-                  },
+                  ...fundsBoxes,
                 ]}
               />
             </div>
