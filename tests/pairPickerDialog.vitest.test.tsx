@@ -294,13 +294,33 @@ describe('spec 115 §3.4 column naming', () => {
 });
 
 describe('spec 115 §2.1 cards show the exchange limits', () => {
-  test('a card carries min order and max leverage', async () => {
+  test('a card carries min order and the leverage range (min–max×)', async () => {
     renderDialog({
-      rows: [row('ETH', 'USDT', { minOrder: 5, maxLeverage: 50 })],
+      rows: [
+        row('ETH', 'USDT', { minOrder: 5, minLeverage: 1, maxLeverage: 100 }),
+        row('SOL', 'USDT', { minOrder: 5, maxLeverage: 50 }),
+      ],
       anchor: null,
     });
     await settle();
-    expect(screen.getByText('Min 5 USDT · Max 50×')).toBeTruthy();
+    expect(screen.getByText('Min 5 USDT · 1–100×')).toBeTruthy();
+    expect(screen.getByText('Min 5 USDT · Up to 50×')).toBeTruthy();
+  });
+
+  test('the table has a Min leverage and a Max leverage column', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({
+      rows: [row('ETH', 'USDT', { minLeverage: 1, maxLeverage: 100 })],
+      anchor: null,
+    });
+    await settle();
+    const headers = [...document.querySelectorAll('thead th')].map((t) =>
+      t.textContent?.trim()
+    );
+    expect(headers).toContain('Min leverage');
+    expect(headers).toContain('Max leverage');
   });
 });
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.98.0] - 2026-10-15
+### Added
+- Pair picker: Min leverage and Max leverage columns, and the leverage range on each card (for example 1–100×), from the exchange's published limits — including on paper accounts and before an account is chosen. Needs a backend that provides the fields; older ones load pairs without them.
+
 ## [2.97.1] - 2026-10-14
 ### Fixed
 - Pair picker on narrow screens: the select-all checkbox, Fits this bot and the sort controls disappeared from the toolbar. They now stay, in a compact form.

@@ -106,6 +106,21 @@ export interface PairFitFacts {
   freeQuote?: number | null;
 }
 
+/**
+ * A pair's leverage limits as the card shows them: `1–100×`, or the one
+ * limit known (`Up to 50×` / `From 2×`); null when neither is.
+ */
+export const formatLeverageRange = (
+  min: number | null | undefined,
+  max: number | null | undefined
+): string | null => {
+  const n = (v: number) => Number(v.toPrecision(6)).toString();
+  if (min != null && max != null) return `${n(min)}–${n(max)}×`;
+  if (max != null) return `Up to ${n(max)}×`;
+  if (min != null) return `From ${n(min)}×`;
+  return null;
+};
+
 /** An exchange minimum for display, trimmed: 5, 0.0001, 12.35. */
 export const formatMinOrder = (n: number): string =>
   Number(n.toPrecision(4)).toLocaleString('en-US', {

@@ -288,6 +288,7 @@ type NumericField =
   | 'rsi'
   | 'roi'
   | 'minOrder'
+  | 'minLeverage'
   | 'maxLeverage';
 
 /** A numeric column; the cell is empty when the pair has no value. */
@@ -385,6 +386,10 @@ const NUMERIC_COLUMNS: Array<{
       'Min order',
       (v, r) => `${formatMinOrder(v)} ${r.quoteAsset}`
     ),
+  },
+  {
+    field: 'minLeverage',
+    col: numericColumn('minLeverage', 'Min leverage', (v) => `${v}×`),
   },
   {
     field: 'maxLeverage',

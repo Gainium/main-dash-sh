@@ -37,6 +37,7 @@ const SLICE_KEYS = [
 
 export interface PairLimits {
   minOrder?: number;
+  minLeverage?: number;
   maxLeverage?: number;
   fitReason?: string;
 }
@@ -163,8 +164,16 @@ export const usePairPickerLimits = (
         pair,
         priceIndex.get(`${pair.exchange}:${pair.pair}`)
       );
+      // Max: the account's own bracket when we have it (live futures —
+      // account-specific), else the exchange's published per-pair limit
+      // (spec 115 phase 2: on paper and before an account is chosen too).
+      // Min: the published limit only.
+      const pos = (v: unknown) =>
+        typeof v === 'number' && Number.isFinite(v) && v > 0 ? v : null;
       const maxLeverage =
-        leverageBySymbol.get(pair.pair?.toUpperCase?.() ?? '') ?? null;
+        leverageBySymbol.get(pair.pair?.toUpperCase?.() ?? '') ??
+        pos(pair.maxLeverage);
+      const minLeverage = pos(pair.minLeverage);
       const quote = pair.quoteAsset?.name ?? '';
       const fitReason = pairFitReason(
         {
@@ -179,6 +188,7 @@ export const usePairPickerLimits = (
       );
       return {
         ...(minOrder !== null ? { minOrder } : {}),
+        ...(minLeverage !== null ? { minLeverage } : {}),
         ...(maxLeverage !== null ? { maxLeverage } : {}),
         ...(fitReason ? { fitReason } : {}),
       };

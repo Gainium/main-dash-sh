@@ -63,6 +63,10 @@ export interface TradingPair {
   // Bitget's `rAAPL`), set by the backend from the exchange's own flag or a
   // hand-checked map. Absent => the base name is the ticker.
   underlying?: string;
+  // Leverage limits from the exchange's instrument info (futures), where the
+  // exchange publishes them. Absent = unknown.
+  minLeverage?: number;
+  maxLeverage?: number;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // scopes an account's pairs by matching this to the account's okxSource.
@@ -161,8 +165,8 @@ export function useTradingPairs() {
     },
     {
       enabled: shouldFetch,
-      // An older backend has no `underlying` on pairs; without the fallback
-      // that one unknown field would fail the whole pairs load.
+      // An older backend has no `underlying` / leverage on pairs; without the
+      // fallback one unknown field would fail the whole pairs load.
       fallbackQuery: GraphQlQuery.getAllPairs(undefined, false),
     }
   );

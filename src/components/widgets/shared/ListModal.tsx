@@ -12,6 +12,7 @@ import { createPortal } from 'react-dom';
 import { type AssetClass } from '../../../hooks/useTradingPairs';
 import { formatExchangeProvider } from '../../../utils/exchangeUtils';
 import {
+  formatLeverageRange,
   formatMinOrder,
   pairContractSymbol,
 } from '../../../utils/pairPicker';
@@ -81,6 +82,7 @@ export interface ListItem {
   // accepted order in the quote asset and the max leverage. Shown in the
   // expanded detail only when known.
   minOrder?: number;
+  minLeverage?: number;
   maxLeverage?: number;
   /**
    * Why this item can't be picked right now (e.g. its quote asset doesn't
@@ -525,6 +527,7 @@ export const ListModalRow = React.memo<ListModalRowProps>(
         item.rsi,
         item.volatility,
         item.minOrder,
+        item.minLeverage,
         item.maxLeverage,
       ].some((v) => v != null);
     const icon = renderItemIcon(item);
@@ -633,15 +636,18 @@ export const ListModalRow = React.memo<ListModalRowProps>(
                         : item.quoteAsset}
                     </div>
                     {/* Exchange limits (pair picker), only when known. */}
-                    {(item.minOrder != null || item.maxLeverage != null) && (
+                    {(item.minOrder != null ||
+                      item.minLeverage != null ||
+                      item.maxLeverage != null) && (
                       <div className="text-muted-foreground text-xs truncate leading-tight tabular-nums">
                         {[
                           item.minOrder != null
                             ? `Min ${formatMinOrder(item.minOrder)} ${item.quoteAsset ?? ''}`.trim()
                             : null,
-                          item.maxLeverage != null
-                            ? `Max ${item.maxLeverage}×`
-                            : null,
+                          formatLeverageRange(
+                            item.minLeverage,
+                            item.maxLeverage
+                          ),
                         ]
                           .filter(Boolean)
                           .join(' · ')}
@@ -799,10 +805,13 @@ export const ListModalRow = React.memo<ListModalRowProps>(
                     }`.trim()}
                   />
                 )}
-                {item.maxLeverage != null && (
+                {(item.minLeverage != null || item.maxLeverage != null) && (
                   <DetailRow
-                    label="Max leverage"
-                    value={`${item.maxLeverage}×`}
+                    label="Leverage"
+                    value={
+                      formatLeverageRange(item.minLeverage, item.maxLeverage) ??
+                      ''
+                    }
                   />
                 )}
               </div>

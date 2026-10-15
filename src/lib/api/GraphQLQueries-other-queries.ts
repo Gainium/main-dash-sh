@@ -581,9 +581,10 @@ export const otherQueries = {
     return { query };
   },
 
-  // `withUnderlying: false` builds the same query without `underlying`, for
-  // `useGraphQL`'s `fallbackQuery` against a backend that predates the field.
-  getAllPairs: (fields?: string, withUnderlying = true) => {
+  // `withNewerFields: false` builds the same query without the fields older
+  // backends lack (`underlying`, `minLeverage`, `maxLeverage`), for
+  // `useGraphQL`'s `fallbackQuery` — one unknown field fails the whole query.
+  getAllPairs: (fields?: string, withNewerFields = true) => {
     const query = `query getAllPairs{
             getAllPairs{
                 status
@@ -611,7 +612,13 @@ export const otherQueries = {
                         crossAvailable
                         assetCategory
                         isCanonical
-                        ${withUnderlying ? 'underlying' : ''}
+                        ${
+                          withNewerFields
+                            ? `underlying
+                        minLeverage
+                        maxLeverage`
+                            : ''
+                        }
                         source`
                         }
                     }

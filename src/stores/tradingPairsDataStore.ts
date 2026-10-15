@@ -31,6 +31,8 @@ export interface TradingPair {
   // Bitget's `rAAPL`), set by the backend from the exchange's own flag or a
   // hand-checked map. Absent => the base name is the ticker.
   underlying?: string;
+  minLeverage?: number;
+  maxLeverage?: number;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // serves an account its pairs by matching this to the account's okxSource.

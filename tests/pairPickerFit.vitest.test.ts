@@ -6,6 +6,7 @@
  */
 import { describe, expect, test } from 'vitest';
 import {
+  formatLeverageRange,
   pairMinOrderQuote,
   pairFitReason,
   resolveBotFirstOrderQuote,
@@ -138,5 +139,19 @@ describe('§4.1(c) not enough balance for the base order', () => {
     expect(
       resolveBotFirstOrderQuote({ orderSizeType: 'base', baseOrderSize: '25' })
     ).toBeNull();
+  });
+});
+
+describe('§2.1 card leverage text: min–max×', () => {
+  test('both limits', () => {
+    expect(formatLeverageRange(1, 100)).toBe('1–100×');
+    expect(formatLeverageRange(0.01, 12.5)).toBe('0.01–12.5×');
+  });
+  test('one limit', () => {
+    expect(formatLeverageRange(undefined, 50)).toBe('Up to 50×');
+    expect(formatLeverageRange(2, undefined)).toBe('From 2×');
+  });
+  test('none → null (nothing rendered)', () => {
+    expect(formatLeverageRange(undefined, undefined)).toBeNull();
   });
 });
