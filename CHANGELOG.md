@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.1] - 2026-10-15
+### Changed
+- Bot form pair selection: "Select all …" and the pair picker's select-page / select-all-matching no longer add dated futures contracts (quarterly or weekly contracts with a delivery date). They can still be picked one by one.
+
 ## [2.100.0] - 2026-10-15
 ### Added
 - Profit over time and Accumulated Profit widgets: filter by exchange, following the page's exchange selection on Overview and Portfolio.

@@ -40,7 +40,11 @@ import { Switch } from '@/components/ui/switch';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import type { AssetClass } from '@/hooks/useTradingPairs';
 import { useTablePreferencesStore } from '@/stores/tablePreferencesStore';
-import { formatMinOrder, pairContractSymbol } from '@/utils/pairPicker';
+import {
+  formatMinOrder,
+  isDatedContract,
+  pairContractSymbol,
+} from '@/utils/pairPicker';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
 import CoinPair from './CoinPair';
@@ -53,6 +57,8 @@ export interface PairPickerRow extends ListItem {
   baseAsset: string;
   quoteAsset: string;
   fitReason?: string;
+  /** Delivery time of a dated futures contract (absent for perpetuals). */
+  deliveryTime?: number;
   /** Fields whose source is still loading — their cells say "Loading…". */
   loading?: Partial<Record<string, boolean>>;
 }
@@ -115,6 +121,15 @@ const PickerRowContext = createContext<PickerRowContextValue | null>(null);
 
 const blockedReason = (row: PairPickerRow) =>
   row.disabledReason ?? row.fitReason;
+
+/**
+ * What the bulk controls (page checkbox, "Select all N matching") add: a
+ * pickable row that isn't a dated futures contract. Dated contracts deliver
+ * on a fixed date, so a select-all must not sweep them into a bot; they stay
+ * selectable one by one.
+ */
+const bulkPickable = (row: PairPickerRow) =>
+  !blockedReason(row) && !isDatedContract(row);
 
 /**
  * Card view: the picker's own row. Module-scoped so DataTable never sees a
@@ -775,7 +790,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   const toAdd = useMemo(
     () =>
       filteredRows
-        .filter((r) => !blockedReason(r) && !selected.has(r.symbol))
+        .filter((r) => bulkPickable(r) && !selected.has(r.symbol))
         .slice(0, slotsLeft)
         .map((r) => r.symbol),
     [filteredRows, selected, slotsLeft]
@@ -785,14 +800,14 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   // Ticking adds the page's rest (capped); unticking a full page removes it.
   // Past the page, the bar offers "Select all N matching" (or "Clear").
   const pagePickable = useMemo(
-    () => pageRows.filter((r) => !blockedReason(r)).map((r) => r.symbol),
+    () => pageRows.filter(bulkPickable).map((r) => r.symbol),
     [pageRows]
   );
   const pageSelected = pagePickable.filter((sym) => selected.has(sym));
   const pageAllSelected =
     pagePickable.length > 0 && pageSelected.length === pagePickable.length;
   const shownPickable = useMemo(
-    () => filteredRows.filter((r) => !blockedReason(r)).map((r) => r.symbol),
+    () => filteredRows.filter(bulkPickable).map((r) => r.symbol),
     [filteredRows]
   );
   const shownSelected = shownPickable.filter((sym) => selected.has(sym));

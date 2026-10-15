@@ -407,3 +407,45 @@ describe('spec 115 §3.7 columns do not wait for their data', () => {
     expect(headers()).not.toContain('Max leverage');
   });
 });
+
+describe('dated futures contracts stay out of bulk selection', () => {
+  // `deliveryTime` comes from the exchange's instrument info; perpetuals have none.
+  const datedRows: PairPickerRow[] = [
+    row('BTC', 'USDT', { volume24h: 4 }),
+    row('DOGE', 'USDT', {
+      symbol: 'DOGE-USDT-16OCT26',
+      volume24h: 3,
+      deliveryTime: Date.UTC(2026, 9, 16, 8),
+    }),
+    row('ETH', 'USDT', { volume24h: 2 }),
+    row('XAUT', 'USDT', {
+      symbol: 'XAUT-USDT-27NOV26',
+      volume24h: 1,
+      deliveryTime: Date.UTC(2026, 10, 27, 8),
+    }),
+  ];
+
+  test('the page checkbox adds perpetuals only', async () => {
+    const { onAddMany } = renderDialog({
+      rows: datedRows,
+      selectedItems: [],
+      anchor: null,
+    });
+    await settle();
+    fireEvent.click(
+      screen.getByRole('checkbox', { name: 'Select all on this page' })
+    );
+    expect(onAddMany).toHaveBeenCalledWith(['BTC-USDT', 'ETH-USDT']);
+  });
+
+  test('a dated contract can still be picked by hand', async () => {
+    const { onItemToggle } = renderDialog({
+      rows: datedRows,
+      selectedItems: [],
+      anchor: null,
+    });
+    await settle();
+    fireEvent.click(screen.getByText('DOGE'));
+    expect(onItemToggle).toHaveBeenCalledWith('DOGE-USDT-16OCT26');
+  });
+});

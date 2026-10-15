@@ -169,3 +169,15 @@ export const pairFitReason = (
   }
   return null;
 };
+
+/**
+ * A dated futures contract (it delivers on a fixed date, e.g. Bybit
+ * `DOGEUSDT-16OCT26`), from the backend's `deliveryTime` — the exchange's own
+ * instrument field, never the symbol's shape. Bulk selection ("Select all…")
+ * skips these so a multi-pair bot doesn't sweep up contracts that settle
+ * under its deals; picking one by hand still works.
+ */
+export const isDatedContract = (pair: { deliveryTime?: unknown }): boolean =>
+  typeof pair.deliveryTime === 'number' &&
+  Number.isFinite(pair.deliveryTime) &&
+  pair.deliveryTime > 0;

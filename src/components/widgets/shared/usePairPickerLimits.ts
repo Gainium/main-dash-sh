@@ -12,6 +12,7 @@ import { useUIStore } from '@/stores/uiStore';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { BotTypesEnum } from '@/types';
 import {
+  isDatedContract,
   pairFitReason,
   pairMinOrderQuote,
   resolveBotFirstOrderQuote,
@@ -42,6 +43,8 @@ export interface PairLimits {
   minOrder?: number;
   minLeverage?: number;
   maxLeverage?: number;
+  /** Delivery time of a dated futures contract (absent for perpetuals). */
+  deliveryTime?: number;
   fitReason?: string;
 }
 
@@ -217,6 +220,7 @@ export const usePairPickerLimits = (
         ...(minOrder !== null ? { minOrder } : {}),
         ...(minLeverage !== null ? { minLeverage } : {}),
         ...(maxLeverage !== null ? { maxLeverage } : {}),
+        ...(isDatedContract(pair) ? { deliveryTime: pair.deliveryTime } : {}),
         ...(fitReason ? { fitReason } : {}),
       };
     },

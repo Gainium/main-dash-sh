@@ -27,6 +27,7 @@ import {
   resolvePairSelectionSymbol,
   resolveStoredPairSymbol,
 } from '@/utils/pairs';
+import { isDatedContract } from '@/utils/pairPicker';
 
 const HELPER_TOKEN_PATTERN = /^[A-Z0-9]+_ALL$/u;
 
@@ -544,6 +545,11 @@ export const useBasicSettingsTab = (
 
       return Object.entries(pairMetadata.byPair)
         .filter(([, metadata]) => {
+          // "Select all" never adds dated futures contracts (they deliver
+          // on a fixed date); they can still be picked one by one.
+          if (isDatedContract(metadata)) {
+            return false;
+          }
           const pairExchange = metadata.exchange?.toUpperCase?.();
           if (
             normalizedExchangeProvider &&

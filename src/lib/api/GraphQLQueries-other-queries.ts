@@ -582,7 +582,8 @@ export const otherQueries = {
   },
 
   // `withNewerFields: false` builds the same query without the fields older
-  // backends lack (`underlying`, `minLeverage`, `maxLeverage`), for
+  // backends lack (`underlying`, `minLeverage`, `maxLeverage`,
+  // `deliveryTime`), for
   // `useGraphQL`'s `fallbackQuery` — one unknown field fails the whole query.
   getAllPairs: (fields?: string, withNewerFields = true) => {
     const query = `query getAllPairs{
@@ -616,7 +617,8 @@ export const otherQueries = {
                           withNewerFields
                             ? `underlying
                         minLeverage
-                        maxLeverage`
+                        maxLeverage
+                        deliveryTime`
                             : ''
                         }
                         source`

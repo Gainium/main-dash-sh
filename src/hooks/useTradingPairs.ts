@@ -67,6 +67,9 @@ export interface TradingPair {
   // exchange publishes them. Absent = unknown.
   minLeverage?: number;
   maxLeverage?: number;
+  // Delivery time (ms epoch) of a dated futures contract, from the exchange's
+  // instrument info. Absent for perpetuals and spot.
+  deliveryTime?: number;
   // OKX account-origin owning this pair. `my` = OKX Europe (eea.okx.com) USDC/EUR
   // spot universe; unset for the global feed + all other exchanges. The bot form
   // scopes an account's pairs by matching this to the account's okxSource.
