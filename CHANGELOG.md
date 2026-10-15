@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.2] - 2026-10-15
+### Fixed
+- Custom DCA orders: the Order size field could be covered by its coin label, balance and variable button on wide screens, so clicking it only opened the variables picker. Step and Order size now stack until the order card is wide enough to fit both.
+
 ## [2.100.1] - 2026-10-15
 ### Changed
 - Bot form pair selection: "Select all …" and the pair picker's select-page / select-all-matching no longer add dated futures contracts (quarterly or weekly contracts with a delivery date). They can still be picked one by one.

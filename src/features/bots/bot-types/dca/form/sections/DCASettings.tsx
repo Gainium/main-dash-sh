@@ -2733,133 +2733,140 @@ const CustomDcaOrderRow = React.memo<CustomDcaOrderRowProps>(({
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-sm">
-        <div className="space-y-xs">
-          <Label htmlFor={`step-${order.uuid}`}>
-            Step % from previous order
-          </Label>
-          <Slider
-            value={sliderValue}
-            onChange={handleSliderChange}
-            min={stepRangeMin}
-            max={stepSliderMax}
-            step={0.01}
-            disabled={isStepVarBound}
-          />
-          <FieldVariableBinding
-            path={stepVariablePath}
-            varType="float"
-            tooltip="Bind step %"
-            variant="inline"
-            onVariableSelected={applyStepVariable}
-            onVariableResolved={applyStepVariable}
-          >
-            <NumberInput
-              id={`step-${order.uuid}`}
-              value={order.step}
-              onChange={handleNumberInputChange}
-              min={stepRangeMin}
-              {...(typeof stepRangeMax === 'number' &&
-              Number.isFinite(stepRangeMax)
-                ? { max: stepRangeMax }
-                : {})}
-              step={0.01}
-              precision={2}
-              disabled={isStepVarBound}
-              className={`w-full${stepError ? ' border-destructive' : ''}`}
-              showControls={false}
-              endAdornment={unitAdornment('%')}
-            />
-          </FieldVariableBinding>
-          <p className="text-xs text-muted-foreground">{stepHelperMessage}</p>
-        </div>
-
-        {isTerminal && (
+      {/* Sized by the card, not the viewport: this card sits in a 1–3 column
+          masonry, so a wide screen can still give it little room. The order
+          size field overlays its coin label, balance and binding button on
+          the input, and side by side in a narrow card those cover the whole
+          input — so the columns only split once the card is wide enough. */}
+      <div className="@container">
+        <div className="grid grid-cols-1 @2xl:grid-cols-2 gap-sm">
           <div className="space-y-xs">
-            <Label htmlFor={`fixed-${order.uuid}`}>Fixed Price</Label>
-            <NumberInput
-              id={`fixed-${order.uuid}`}
-              value={order.fixed || ''}
-              onChange={(value) =>
-                onUpdateOrder(order.uuid, 'fixed', String(value))
-              }
-              min={0}
-              max={currentPrice * 10}
+            <Label htmlFor={`step-${order.uuid}`}>
+              Step % from previous order
+            </Label>
+            <Slider
+              value={sliderValue}
+              onChange={handleSliderChange}
+              min={stepRangeMin}
+              max={stepSliderMax}
               step={0.01}
-              precision={8}
-              placeholder={currentPrice > 0 ? currentPrice.toFixed(2) : '0.00'}
-              disabled={false}
-              showControls={false}
-              endAdornment={
-                <span className="inline-flex items-center gap-2">
-                  {unitAdornment(
-                    (() => {
-                      const pairKey = Array.isArray(formData.pair)
-                        ? formData.pair[0]
-                        : formData.pair;
-                      const pairMeta = pairKey
-                        ? formData.pairMetadata?.[pairKey]
-                        : undefined;
-                      const base =
-                        pairMeta?.baseAsset?.name ??
-                        (typeof pairKey === 'string'
-                          ? pairKey.split('/')[0]
-                          : undefined);
-                      const quote =
-                        pairMeta?.quoteAsset?.name ??
-                        (typeof pairKey === 'string'
-                          ? pairKey.split('/')[1]
-                          : undefined);
-                      return strategy === StrategyEnum.short
-                        ? (base ?? 'Price')
-                        : (quote ?? 'Price');
-                    })()
-                  )}
-
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => {
-                      // Toggle picker for this specific custom order fixed field
-                      setActivePickerField?.((prev: string | false) =>
-                        prev === `dcaCustom.${order.uuid}.fixed`
-                          ? false
-                          : `dcaCustom.${order.uuid}.fixed`
-                      );
-                    }}
-                    className={
-                      activePickerField === `dcaCustom.${order.uuid}.fixed`
-                        ? 'bg-primary/10 text-primary h-6 w-6'
-                        : 'h-6 w-6'
-                    }
-                    aria-label="Pick price from chart"
-                    title="Pick price from chart"
-                  >
-                    <Crosshair className="h-4 w-4" />
-                  </Button>
-                </span>
-              }
+              disabled={isStepVarBound}
             />
+            <FieldVariableBinding
+              path={stepVariablePath}
+              varType="float"
+              tooltip="Bind step %"
+              variant="inline"
+              onVariableSelected={applyStepVariable}
+              onVariableResolved={applyStepVariable}
+            >
+              <NumberInput
+                id={`step-${order.uuid}`}
+                value={order.step}
+                onChange={handleNumberInputChange}
+                min={stepRangeMin}
+                {...(typeof stepRangeMax === 'number' &&
+                Number.isFinite(stepRangeMax)
+                  ? { max: stepRangeMax }
+                  : {})}
+                step={0.01}
+                precision={2}
+                disabled={isStepVarBound}
+                className={`w-full${stepError ? ' border-destructive' : ''}`}
+                showControls={false}
+                endAdornment={unitAdornment('%')}
+              />
+            </FieldVariableBinding>
+            <p className="text-xs text-muted-foreground">{stepHelperMessage}</p>
           </div>
-        )}
 
-        <DcaOrderSizingControl
-          formData={formData}
-          updateFormData={updateFormData}
-          errors={errors}
-          tradingContext={tradingContext}
-          idPrefix={`custom-${order.uuid}`}
-          label="Order size"
-          variablePath={`dcaCustom.${order.uuid}.size`}
-          value={order.size}
-          onValueChange={(next: string) =>
-            onUpdateOrder(order.uuid, 'size', next)
-          }
-          onRefreshBalance={onRefreshBalances}
-          showRefreshButton={canTriggerBalanceRefresh}
-          mode={mode}
-        />
+          {isTerminal && (
+            <div className="space-y-xs">
+              <Label htmlFor={`fixed-${order.uuid}`}>Fixed Price</Label>
+              <NumberInput
+                id={`fixed-${order.uuid}`}
+                value={order.fixed || ''}
+                onChange={(value) =>
+                  onUpdateOrder(order.uuid, 'fixed', String(value))
+                }
+                min={0}
+                max={currentPrice * 10}
+                step={0.01}
+                precision={8}
+                placeholder={currentPrice > 0 ? currentPrice.toFixed(2) : '0.00'}
+                disabled={false}
+                showControls={false}
+                endAdornment={
+                  <span className="inline-flex items-center gap-2">
+                    {unitAdornment(
+                      (() => {
+                        const pairKey = Array.isArray(formData.pair)
+                          ? formData.pair[0]
+                          : formData.pair;
+                        const pairMeta = pairKey
+                          ? formData.pairMetadata?.[pairKey]
+                          : undefined;
+                        const base =
+                          pairMeta?.baseAsset?.name ??
+                          (typeof pairKey === 'string'
+                            ? pairKey.split('/')[0]
+                            : undefined);
+                        const quote =
+                          pairMeta?.quoteAsset?.name ??
+                          (typeof pairKey === 'string'
+                            ? pairKey.split('/')[1]
+                            : undefined);
+                        return strategy === StrategyEnum.short
+                          ? (base ?? 'Price')
+                          : (quote ?? 'Price');
+                      })()
+                    )}
+
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => {
+                        // Toggle picker for this specific custom order fixed field
+                        setActivePickerField?.((prev: string | false) =>
+                          prev === `dcaCustom.${order.uuid}.fixed`
+                            ? false
+                            : `dcaCustom.${order.uuid}.fixed`
+                        );
+                      }}
+                      className={
+                        activePickerField === `dcaCustom.${order.uuid}.fixed`
+                          ? 'bg-primary/10 text-primary h-6 w-6'
+                          : 'h-6 w-6'
+                      }
+                      aria-label="Pick price from chart"
+                      title="Pick price from chart"
+                    >
+                      <Crosshair className="h-4 w-4" />
+                    </Button>
+                  </span>
+                }
+              />
+            </div>
+          )}
+
+          <DcaOrderSizingControl
+            formData={formData}
+            updateFormData={updateFormData}
+            errors={errors}
+            tradingContext={tradingContext}
+            idPrefix={`custom-${order.uuid}`}
+            label="Order size"
+            variablePath={`dcaCustom.${order.uuid}.size`}
+            value={order.size}
+            onValueChange={(next: string) =>
+              onUpdateOrder(order.uuid, 'size', next)
+            }
+            onRefreshBalance={onRefreshBalances}
+            showRefreshButton={canTriggerBalanceRefresh}
+            mode={mode}
+          />
+        </div>
       </div>
     </Card>
   );
