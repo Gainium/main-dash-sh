@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.3] - 2026-10-15
+### Fixed
+- Deal orders: the rest of a base order that filled in two parts is labelled "Base order (remainder)" instead of "DCA order (Add funds order)", so the deal no longer appears to have had funds added.
+
 ## [2.100.2] - 2026-10-15
 ### Fixed
 - Custom DCA orders: the Order size field could be covered by its coin label, balance and variable button on wide screens, so clicking it only opened the variables picker. Step and Order size now stack until the order card is wide enough to fit both.

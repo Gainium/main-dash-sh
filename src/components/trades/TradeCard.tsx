@@ -33,6 +33,7 @@ import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
 import { TrailingBadge } from './TrailingBadge';
 import { Slot } from '@/lib/extensions';
 import { orderDataToViewOrder } from '@/utils/orders/viewOrder';
+import { baseRemainderAddFundsIds } from '@/utils/mapOrderName';
 import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import { Button } from '../ui/button';
 import { Card, CardContent } from '../ui/card';
@@ -329,7 +330,12 @@ const EnhancedCard = React.memo(
     const ordersForDialog = useMemo(
       () =>
         ordersDialogOpen
-          ? orders.map((o) => orderDataToViewOrder(o, trade.exchange))
+          ? (() => {
+              const baseRemainderIds = baseRemainderAddFundsIds(orders);
+              return orders.map((o) =>
+                orderDataToViewOrder(o, trade.exchange, baseRemainderIds)
+              );
+            })()
           : [],
       [ordersDialogOpen, orders, trade.exchange]
     );

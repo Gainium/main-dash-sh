@@ -134,11 +134,6 @@ export function useBotPageDealChart({
     isCombo ? BotTypesEnum.combo : BotTypesEnum.dca
   );
 
-  const { pendingOrders, completedOrders } = useMemo(
-    () => splitDealOrders(dealOrders, selectedDeal?.exchange),
-    [dealOrders, selectedDeal?.exchange]
-  );
-
   // The deal off the shared store rather than the list copy: it carries the
   // live `lastPrice` / `levels` the socket keeps fresh, which is what the
   // indicator-DCA re-anchoring in useDealSmartOrders measures from.
@@ -146,6 +141,11 @@ export function useBotPageDealChart({
     dealId ? (s.deals[botId]?.[dealId] ?? null) : null
   );
   const deal = storeDeal ?? selectedDeal;
+
+  const { pendingOrders, completedOrders } = useMemo(
+    () => splitDealOrders(dealOrders, selectedDeal?.exchange, deal),
+    [dealOrders, selectedDeal?.exchange, deal]
+  );
 
   // Settings come from the SAVED bot (both the form's `useDcaBots`/`useComboBots`
   // queries populate these stores), not the in-progress form state: the overlay

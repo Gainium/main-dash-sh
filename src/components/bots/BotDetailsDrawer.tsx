@@ -33,7 +33,10 @@ import {
   BotStatsTab,
   type BotStatsTabProps,
 } from '@/components/widgets/bots/stats';
-import { getOrderTypeLabel } from '@/utils/mapOrderName';
+import {
+  baseRemainderAddFundsIds,
+  getOrderTypeLabel,
+} from '@/utils/mapOrderName';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -1014,6 +1017,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
 
     const transformOrders = useMemo(() => {
       return (backendOrders: typeof pendingBotOrders): ViewOrder[] => {
+        const baseRemainderIds = baseRemainderAddFundsIds(backendOrders);
         return backendOrders.map((order) => {
           const formatted = formatOrderForDisplay(order);
 
@@ -1030,7 +1034,8 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
             order.sl || false,
             order.clientOrderId,
             order.reduceFundsId,
-            true // Real orders
+            true, // Real orders
+            !!order.addFundsId && baseRemainderIds.has(order.addFundsId)
           );
 
           return {

@@ -3451,6 +3451,10 @@ export type DCADeals = {
   funds?: {
     price: number;
     qty: number;
+    /** Set on the fill of a base-order remainder: its add-funds entry id. */
+    id?: string | null;
+    /** The fill is the rest of a part-filled base order. */
+    baseRemainder?: boolean | null;
   }[];
   reduceFunds?: {
     price: number;

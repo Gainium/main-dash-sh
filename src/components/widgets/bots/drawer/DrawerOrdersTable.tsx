@@ -33,7 +33,11 @@ import { useGridBots } from '../../../../hooks/useGridBots';
 import { useHedgeComboBots } from '../../../../hooks/useHedgeComboBots';
 import { useHedgeDcaBots } from '../../../../hooks/useHedgeDcaBots'; */
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
-import { getOrderTypeLabel, mapOrderName } from '@/utils/mapOrderName';
+import {
+  baseRemainderAddFundsIds,
+  getOrderTypeLabel,
+  mapOrderName,
+} from '@/utils/mapOrderName';
 import { useCancelOrder } from '../../../../hooks/useOrderActions';
 import logger from '../../../../lib/loggerInstance';
 import { cn, formatCurrency } from '../../../../lib/utils';
@@ -291,6 +295,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         `[${source}] Raw orders from backend:`,
         backendOrders.map((o) => ({ id: o.clientOrderId, status: o.status }))
       );
+      const baseRemainderIds = baseRemainderAddFundsIds(backendOrders);
 
       return backendOrders.map((order) => {
         const formatted = formatOrderForDisplay(order);
@@ -310,7 +315,8 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
           order.sl || false,
           order.clientOrderId,
           order.reduceFundsId,
-          isRealOrder
+          isRealOrder,
+          !!order.addFundsId && baseRemainderIds.has(order.addFundsId)
         );
 
         return {
