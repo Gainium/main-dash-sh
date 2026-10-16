@@ -62,6 +62,16 @@ export const formatIndicatorParamValue = (
   return String(value);
 };
 
+// The condition an indicator fires on. Always summarized, even past the cap:
+// without them the card can't say what the indicator waits
+// for (RSI's Use percentile / Length / Interval / Condition filled all four
+// slots, so "Value: 40" never showed and the editor had to be opened to see it).
+const TRIGGER_FIELD_KEYS = new Set([
+  'indicatorCondition',
+  'indicatorValue',
+  'indicatorValue2',
+]);
+
 export const buildIndicatorSummary = (
   definition: IndicatorDefinition,
   params: SettingsIndicators,
@@ -86,7 +96,11 @@ export const buildIndicatorSummary = (
   for (const field of fields) {
     // A field with its own `summary` only shows while its setting is in use,
     // so it does not count towards (or stop at) the cap.
-    if (!field.summary && baseItems >= maxItems) {
+    if (
+      !field.summary &&
+      !TRIGGER_FIELD_KEYS.has(field.key) &&
+      baseItems >= maxItems
+    ) {
       continue;
     }
     if (shouldHideField(field, effectiveParams)) {

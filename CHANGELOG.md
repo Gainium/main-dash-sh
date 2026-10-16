@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.4] - 2026-10-16
+### Fixed
+- Indicator cards: the summary always shows the trigger Value (and Upper value for "Between"), so an RSI set to "Lower than 40" reads "Condition: Lower than · Value: 40" without opening the editor.
+
 ## [2.100.3] - 2026-10-15
 ### Fixed
 - Deal orders: the rest of a base order that filled in two parts is labelled "Base order (remainder)" instead of "DCA order (Add funds order)", so the deal no longer appears to have had funds added.
