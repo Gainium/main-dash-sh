@@ -1,4 +1,5 @@
 import {
+  BaseSlOnEnum,
   CloseConditionEnum,
   StrategyEnum,
   TrailingModeEnum,
@@ -291,11 +292,19 @@ export function getDealTrailing(
  */
 export function getDealSl(
   deal:
-    | Pick<DCADeals, 'avgPrice' | 'settings' | 'moveSlActivated' | 'strategy'>
+    | Pick<
+        DCADeals,
+        | 'avgPrice'
+        | 'initialPrice'
+        | 'settings'
+        | 'moveSlActivated'
+        | 'strategy'
+      >
     | null
     | undefined,
   settings: Partial<DCABotSettings>,
-  takerFee = 0
+  takerFee = 0,
+  { isCombo = false }: { isCombo?: boolean } = {}
 ): DealSlInfo {
   if (!deal || !settings.useSl) return EMPTY_SL;
   // A trailing stop is drawn from `trailingLevel` instead — see getDealTrailing.
@@ -305,6 +314,16 @@ export function getDealSl(
   const long = isLong ? 1 : -1;
   const avg = dealAvgPrice(deal);
   if (avg <= 0) return EMPTY_SL;
+  // The engine's `getDealSlRefPrice` / `baseSlOn`: a percentage stop is
+  // measured from the deal's start price when `baseSlOn` is `start`, except
+  // for combo bots and under trailing SL or move SL, which always use the
+  // average.
+  const fromStart =
+    !isCombo &&
+    !(settings.trailingSl && !settings.useMultiSl) &&
+    !settings.moveSL &&
+    settings.baseSlOn === BaseSlOnEnum.start;
+  const slRef = fromStart ? num(deal.initialPrice) || avg : avg;
 
   const moveSlEnabled = Boolean(
     settings.moveSL &&
@@ -326,7 +345,7 @@ export function getDealSl(
       ? num(settings.fixedSlPrice)
       : slPerc <= -100
         ? 0
-        : avg * (1 + long * (slPerc / 100 + fee));
+        : slRef * (1 + long * (slPerc / 100 + fee));
 
   const moveSlTriggerPrice =
     moveSlEnabled && !moveSlActivated

@@ -218,9 +218,10 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
         rawDeal,
         (chartBot as { settings?: DCABotSettings } | null)?.settings,
         takerFee,
-        pendingOrders.map((o) => +o.price)
+        pendingOrders.map((o) => +o.price),
+        { isCombo }
       ),
-    [rawDeal, chartBot, takerFee, pendingOrders]
+    [rawDeal, chartBot, takerFee, pendingOrders, isCombo]
   );
 
   // Position + leverage behind the estimated liquidation line on the chart.

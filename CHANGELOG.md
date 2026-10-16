@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.5] - 2026-10-16
+### Fixed
+- Deal chart: the Stop loss line of a bot whose stop is based on the start price is drawn from the deal's start price, as the bot measures it, instead of from the average price.
+
 ## [2.100.4] - 2026-10-16
 ### Fixed
 - Indicator cards: the summary always shows the trigger Value (and Upper value for "Between"), so an RSI set to "Lower than 40" reads "Condition: Lower than · Value: 40" without opening the editor.

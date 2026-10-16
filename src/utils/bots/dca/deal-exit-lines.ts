@@ -38,12 +38,14 @@ import {
  *                    to every threshold as the round-trip displacement.
  * @param existingPrices prices already drawn from real resting orders, so a
  *                    computed line never doubles up on one the exchange holds.
+ * @param options.isCombo combo deals always measure the stop from the average.
  */
 export function buildDealExitLines(
   deal: DCADeals | null | undefined,
   botSettings: Partial<DCABotSettings> | undefined,
   takerFee = 0,
-  existingPrices: number[] = []
+  existingPrices: number[] = [],
+  { isCombo = false }: { isCombo?: boolean } = {}
 ): DCAGrid[] {
   if (!deal || deal.status !== DCADealStatusEnum.open) return [];
 
@@ -102,7 +104,7 @@ export function buildDealExitLines(
     );
   }
 
-  const sl = getDealSl(deal, settings, takerFee);
+  const sl = getDealSl(deal, settings, takerFee, { isCombo });
   if (sl.price > 0) {
     push(sl.price, sl.label, DCAOrderTypeEnum.sl, sl.moveSlActivated);
   }

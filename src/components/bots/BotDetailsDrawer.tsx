@@ -1303,9 +1303,10 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               chartRawDeal,
               bot?.settings as DCABotSettings | undefined,
               chartDealTakerFee,
-              chartDealOrders.pending.map((o) => +o.price)
+              chartDealOrders.pending.map((o) => +o.price),
+              { isCombo: type === BotTypesEnum.combo }
             ),
-      [isGrid, chartRawDeal, bot?.settings, chartDealTakerFee, chartDealOrders.pending]
+      [isGrid, chartRawDeal, bot?.settings, chartDealTakerFee, chartDealOrders.pending, type]
     );
 
     const chartOrders = useMemo(
