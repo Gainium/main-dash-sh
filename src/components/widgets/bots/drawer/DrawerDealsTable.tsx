@@ -7,12 +7,10 @@ import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
-    Check,
     Handshake,
     MoreHorizontal,
     PauseCircle,
     Plus,
-    Search,
     Square,
 } from 'lucide-react';
 import React, {
@@ -51,7 +49,6 @@ import { DealActionsMenu } from '@/features/deals/actions/DealActionsMenu';
 import { dealRefFromTrade } from '@/features/deals/actions/dealRef';
 import { useDealActionHost } from '@/features/deals/actions/useDealActionHost';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
-import { useOpenDeal } from '@/hooks/useOpenDeal';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import {
     calculateDealNetPnl,
@@ -78,16 +75,7 @@ import {
 } from '../../../ui/chip';
 import { PendingLiveValue } from '../../../ui/pending-live-value';
 import { DataTable, type BulkAction } from '../../../ui/data-table/data-table';
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '../../../ui/dialog';
 import { DualArcProgressGauge } from '../../../ui/DualArcProgressGauge';
-import { Input } from '../../../ui/input';
 import {
     Select,
     SelectContent,
@@ -109,6 +97,7 @@ import { DrawerSection } from './DrawerSection';
 import { useLargeAccount } from '../../../../hooks/useLargeAccount';
 import { useShareContext } from '../../../../hooks/useShareContext';
 import { DealLevelsText } from '@/components/deals/DealLevelsText';
+import { useOpenBotDeal } from '@/components/deals/useOpenBotDeal';
 import { useDealTablePaging } from '../../../../hooks/useDealTablePaging';
 import {
   DRAWER_CLOSED_DEAL_SERVER_FIELDS,
@@ -291,64 +280,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     [isComboBot, isHedgeCombo]
   );
 
-  // Hook for opening new deals
-  const { openDeal, isPending: isOpenDealPending } = useOpenDeal(
-    isComboBot ? BotTypesEnum.combo : BotTypesEnum.dca
-  );
-
-  // State for pair selection dialog (for multi-coin bots)
-  const [pairSelectDialogOpen, setPairSelectDialogOpen] = useState(false);
-  const [selectedPairForDeal, setSelectedPairForDeal] = useState<string | null>(
-    null
-  );
-  const [pairSearchQuery, setPairSearchQuery] = useState('');
-
-  // State for max active deals validation dialog
-  const [maxActiveDialog, setMaxActiveDialog] = useState<
-    'bot' | 'symbol' | null
-  >(null);
-
-  // Determine if bot is multi-coin and get available pairs
-  const isMultiCoin = useMemo(() => {
-    const dcaBot = bot as DCABot | undefined;
-    return dcaBot?.settings?.useMulti === true;
-  }, [bot]);
-
-  const availablePairs = useMemo(() => {
-    const dcaBot = bot as DCABot | undefined;
-    // Get pairs from bot settings or symbol array
-    const settingsPairs = dcaBot?.settings?.pair;
-    if (
-      settingsPairs &&
-      Array.isArray(settingsPairs) &&
-      settingsPairs.length > 0
-    ) {
-      return settingsPairs;
-    }
-    // Fallback to symbol array
-    const symbolPairs = dcaBot?.symbol?.map((s) => s.value?.symbol || s.key);
-    return symbolPairs || [];
-  }, [bot]);
-
-  // Filter pairs based on search query
-  const filteredPairs = useMemo(() => {
-    if (!pairSearchQuery.trim()) {
-      return availablePairs;
-    }
-    const query = pairSearchQuery.toLowerCase();
-    return availablePairs.filter((pair) => pair.toLowerCase().includes(query));
-  }, [availablePairs, pairSearchQuery]);
-
-  // Initialize selected pair when dialog opens and reset search
-  useEffect(() => {
-    if (pairSelectDialogOpen) {
-      setPairSearchQuery('');
-      if (availablePairs.length > 0 && !selectedPairForDeal) {
-        setSelectedPairForDeal(availablePairs[0]);
-      }
-    }
-  }, [pairSelectDialogOpen, availablePairs, selectedPairForDeal]);
-
   // Helper function to check if a deal is active
   /* const isActiveDeal = useCallback((deal: DCADeals): boolean => {
     return [
@@ -369,82 +300,16 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     return (dcaBot?.dealsInBot?.all || 0) - (dcaBot?.dealsInBot?.active || 0);
   }, [bot]);
 
-  // Handler for opening a new deal - shows dialog for multi-coin bots
-  const handleOpenNewDeal = useCallback(() => {
-    if (!botId) {
-      logger.error(`${LOG_PREFIX}: Cannot open deal - missing botId`);
-      toast.error('Cannot open deal - missing bot ID');
-      return;
-    }
-
-    const dcaBot = bot as DCABot | undefined;
-    const maxNumberOfOpenDeals = dcaBot?.settings?.maxNumberOfOpenDeals;
-
-    // Check max deals per bot validation (for single-pair bots)
-    if (
-      !isMultiCoin &&
-      maxNumberOfOpenDeals &&
-      maxNumberOfOpenDeals !== '' &&
-      maxNumberOfOpenDeals !== '0' &&
-      activeDealsCount >= parseFloat(maxNumberOfOpenDeals)
-    ) {
-      logger.info(`${LOG_PREFIX}: Max active deals reached for bot`, {
-        botId,
-        activeDealsCount,
-        maxNumberOfOpenDeals,
-      });
-      setMaxActiveDialog('bot');
-      return;
-    }
-
-    // For multi-coin bots, show the pair selection dialog
-    if (isMultiCoin && availablePairs.length > 1) {
-      // Also check max deals per bot for multi-coin
-      if (
-        maxNumberOfOpenDeals &&
-        maxNumberOfOpenDeals !== '' &&
-        maxNumberOfOpenDeals !== '0' &&
-        activeDealsCount >= parseFloat(maxNumberOfOpenDeals)
-      ) {
-        logger.info(
-          `${LOG_PREFIX}: Max active deals reached for multi-coin bot`,
-          {
-            botId,
-            activeDealsCount,
-            maxNumberOfOpenDeals,
-          }
-        );
-        setMaxActiveDialog('bot');
-        return;
-      }
-
-      logger.info(
-        `${LOG_PREFIX}: Multi-coin bot - opening pair selection dialog`,
-        {
-          botId,
-          availablePairs,
-        }
-      );
-      setPairSelectDialogOpen(true);
-      return;
-    }
-
-    // For single-pair bots, open deal directly
-    logger.info(`${LOG_PREFIX}: Opening new deal`, {
-      botId,
-      isComboBot,
-    });
-
-    openDeal({ botId });
-  }, [
+  const {
+    openNewDeal: handleOpenNewDeal,
+    isPending: isOpenDealPending,
+    dialogs: openDealDialogs,
+  } = useOpenBotDeal({
     botId,
-    bot,
+    bot: bot as DCABot | undefined,
     isComboBot,
-    isMultiCoin,
-    availablePairs,
     activeDealsCount,
-    openDeal,
-  ]);
+  });
 
   const useDealsOpenInput = useMemo(
     () => ({
@@ -515,63 +380,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   const dealsServerTotal = drawerServerPaged
     ? pagedDeals.total
     : specificServerTotal;
-
-  // Handler for confirming deal opening with selected pair (defined after activeDealsData)
-  const handleConfirmOpenDeal = useCallback(() => {
-    if (!botId) {
-      toast.error('Cannot open deal - missing bot ID');
-      return;
-    }
-
-    /* const dcaBot = bot as DCABot | undefined;
-    const maxDealsPerPair = dcaBot?.settings?.maxDealsPerPair;
-
-    // Check max deals per symbol validation for multi-coin bots
-    if (
-      isMultiCoin &&
-      selectedPairForDeal &&
-      maxDealsPerPair &&
-      maxDealsPerPair !== '' &&
-      String(maxDealsPerPair) !== '0'
-    ) {
-      // Count active deals for this specific symbol
-      const activeDealsForSymbol = (activeDealsData || []).filter(
-        (deal) =>
-          deal.symbol?.symbol === selectedPairForDeal && isActiveDeal(deal)
-      ).length;
-
-      if (activeDealsForSymbol >= Number(maxDealsPerPair)) {
-        logger.info(`${LOG_PREFIX}: Max active deals reached for symbol`, {
-          botId,
-          selectedPair: selectedPairForDeal,
-          activeDealsForSymbol,
-          maxDealsPerPair,
-        });
-        setPairSelectDialogOpen(false);
-        setMaxActiveDialog('symbol');
-        return;
-      }
-    } */
-
-    logger.info(`${LOG_PREFIX}: Opening deal for selected pair`, {
-      botId,
-      selectedPair: selectedPairForDeal,
-      isComboBot,
-    });
-
-    openDeal({ botId, symbol: selectedPairForDeal || undefined });
-    setPairSelectDialogOpen(false);
-    setSelectedPairForDeal(null);
-  }, [
-    botId,
-    /*  bot, */
-    selectedPairForDeal,
-    isComboBot,
-    /* isMultiCoin, */
-    /*  activeDealsData, */
-    /* isActiveDeal, */
-    openDeal,
-  ]);
 
   // Combo deals: fetch all combo deals and filter locally for resilience
   /* const {
@@ -2583,103 +2391,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         </TradeDetailDrawer>
       )} */}
 
-      {/* Pair Selection Dialog for Multi-Coin Bots */}
-      <Dialog
-        open={pairSelectDialogOpen}
-        onOpenChange={setPairSelectDialogOpen}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Select Trading Pair</DialogTitle>
-            <DialogDescription>
-              Choose which trading pair to open a new deal for.
-              {availablePairs.length > 10 && (
-                <span className="text-xs ml-1">
-                  ({availablePairs.length} pairs available)
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
-            {/* Search Input */}
-            <div className="mb-3">
-              <Input
-                placeholder="Search pairs..."
-                value={pairSearchQuery}
-                onChange={(e) => setPairSearchQuery(e.target.value)}
-                startAdornment={
-                  <Search className="w-4 h-4 text-muted-foreground" />
-                }
-                className="w-full"
-              />
-            </div>
-            {/* Pair List */}
-            <div className="max-h-64 overflow-y-auto border rounded-md">
-              {filteredPairs.length > 0 ? (
-                filteredPairs.map((pair) => (
-                  <div
-                    key={pair}
-                    className={`flex items-center justify-between px-3 py-2 cursor-pointer hover:bg-accent transition-colors ${
-                      selectedPairForDeal === pair ? 'bg-accent' : ''
-                    }`}
-                    onClick={() => setSelectedPairForDeal(pair)}
-                  >
-                    <span className="font-medium text-sm">{pair}</span>
-                    {selectedPairForDeal === pair && (
-                      <Check className="w-4 h-4 text-primary" />
-                    )}
-                  </div>
-                ))
-              ) : (
-                <div className="px-3 py-4 text-center text-muted-foreground text-sm">
-                  No pairs found matching "{pairSearchQuery}"
-                </div>
-              )}
-            </div>
-          </div>
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => {
-                setPairSelectDialogOpen(false);
-                setSelectedPairForDeal(null);
-                setPairSearchQuery('');
-              }}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleConfirmOpenDeal}
-              disabled={!selectedPairForDeal || isOpenDealPending}
-            >
-              {isOpenDealPending ? 'Opening...' : 'Open Deal'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Max Active Deals Reached Dialog */}
-      <Dialog
-        open={!!maxActiveDialog}
-        onOpenChange={() => setMaxActiveDialog(null)}
-      >
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Information</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-sm text-muted-foreground">
-              Maximum active deals reached for this {maxActiveDialog}. You can
-              update settings to open more deals.
-            </p>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setMaxActiveDialog(null)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {openDealDialogs}
     </DealActionsContext.Provider>
   );
 };

@@ -8,6 +8,7 @@ import {
 import BotChartPanel from '@/components/bots/panels/contents/chart/BotChartPanel';
 import BotFormPanel from '@/components/bots/panels/contents/form/BotFormPanel';
 import { BotBacktestPanel } from '@/components/bots/panels/contents/insights/BotBacktestPanel';
+import { BotEditDealsTab } from '@/components/bots/workbench/BotEditDealsTab';
 import { usePanelMenuBridge } from '@/components/bots/panels/hooks/usePanelMenuBridge';
 import { type PanelContentConfig } from '@/components/bots/panels/PanelContainer';
 import type {
@@ -17,7 +18,6 @@ import type {
 import MainLayout from '@/components/layout/MainLayout';
 import WidgetContainer from '@/components/layout/WidgetContainer';
 import { Badge } from '@/components/ui/badge';
-import OpenOrdersWidget from '@/components/widgets/shared/OpenOrdersWidget';
 import { TVChartPicker } from '@/components/widgets/shared/TradingViewChart';
 import type { TradingViewChartRef } from '@/components/widgets/shared/TradingViewChart/TradingViewChart';
 import { useTradingTerminalUtils } from '@/context/TradingTerminalUtilsContext';
@@ -261,14 +261,10 @@ export function BotWorkbench<
         title: 'Deals',
         bodyClassName: 'p-0',
         content: (
-          <div className="h-full overflow-hidden">
-            <OpenOrdersWidget
-              widgetId={`edit-bot-deals-${descriptor.layoutType}`}
-              botId={editBotId}
-              hideBotName
-              enableStatusToggle
-            />
-          </div>
+          <BotEditDealsTab
+            widgetId={`edit-bot-deals-${descriptor.layoutType}`}
+            botId={editBotId}
+          />
         ),
       },
     ];

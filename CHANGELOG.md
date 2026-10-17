@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.101.1] - 2026-10-17
+### Added
+- DCA bot edit page: the Deals tab has the bot drawer's Open Deal button, with the same pair picker for multi-pair bots and the same max-open-deals check.
+
 ## [2.101.0] - 2026-10-17
 ### Added
 - DCA bot edit page: a Deals tab with the bot's open and closed deals, the same list as the Trading Terminal's. The edit page opens on it; a new bot still opens on Backtests.

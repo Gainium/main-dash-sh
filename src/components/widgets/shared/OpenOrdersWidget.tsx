@@ -461,6 +461,10 @@ export interface OpenTradesWidgetProps {
   /** The supplied trades are a capped subset: render "N of M" beside the
    *  status toggle so the list never reads as complete. */
   partial?: { shown: number; total: number } | null;
+  /** Rendered after the status toggle (e.g. a bot's "Open Deal" button);
+   *  the compact form is used when the toolbar is tight. Pass memoised nodes. */
+  toolbarAction?: React.ReactNode;
+  toolbarActionCompact?: React.ReactNode;
 }
 
 // Stable module-level defaults. Using inline `= []` / `= {}` defaults in the
@@ -513,6 +517,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   serverPaging,
   exportDealToTrade,
   partial,
+  toolbarAction,
+  toolbarActionCompact,
 }) => {
   const navigate = useNavigate();
   const colors = useChartColors();
@@ -1412,6 +1418,31 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       openOptionLabel,
       closedOptionLabel,
     ]
+  );
+
+  const toolbarActionFull = useMemo(
+    () =>
+      toolbarAction ? (
+        <div className="flex items-center gap-sm">
+          {statusToggleFull}
+          {toolbarAction}
+        </div>
+      ) : (
+        statusToggleFull
+      ),
+    [statusToggleFull, toolbarAction]
+  );
+  const toolbarActionCompactNode = useMemo(
+    () =>
+      toolbarActionCompact ? (
+        <div className="flex items-center gap-1">
+          {statusToggleCompact}
+          {toolbarActionCompact}
+        </div>
+      ) : (
+        statusToggleCompact
+      ),
+    [statusToggleCompact, toolbarActionCompact]
   );
 
   // Per-deal and bulk actions: one runner for this table's row menus, its
@@ -2762,12 +2793,13 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                   total={partial.total}
                   noun={statusFilter === 'closed' ? 'closed deals' : 'open deals'}
                 />
+                {toolbarAction}
               </div>
             ) : (
-              statusToggleFull
+              toolbarActionFull
             )
           }
-          firstToolbarActionsCompact={statusToggleCompact}
+          firstToolbarActionsCompact={toolbarActionCompactNode}
           enableGlobalFilter={true}
           enableColumnFilters={true}
           enableSorting={true}
