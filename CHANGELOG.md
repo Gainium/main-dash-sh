@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.101.2] - 2026-10-17
+### Fixed
+- Combo bots: the deal overview's Nominal / Margin (and Total Funds) no longer add the minigrid orders on top of the base order and DCA ladder. Closing-side minigrids nearly doubled the figure on short bots, and active minigrids were counted twice on long bots.
+
 ## [2.101.1] - 2026-10-17
 ### Added
 - DCA bot edit page: the Deals tab has the bot drawer's Open Deal button, with the same pair picker for multi-pair bots and the same max-open-deals check.
