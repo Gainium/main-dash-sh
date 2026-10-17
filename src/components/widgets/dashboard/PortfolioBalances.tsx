@@ -36,6 +36,7 @@ import {
   type FilterItem,
 } from '../shared/WidgetFilterArea';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
+import { useFiatCurrencies } from '@/hooks/useFiatCurrencies';
 
 export interface PortfolioBalancesProps {
   widgetId?: string;
@@ -474,25 +475,10 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     });
   }, [data, selectedCoins, selectedExchanges]);
 
-  // Available currencies (simplified for this widget)
-  const availableCurrencies = useMemo(
-    () => [
-      { code: 'USD', name: 'US Dollar', symbol: '$', rate: 1 },
-      { code: 'EUR', name: 'Euro', symbol: '€', rate: 0.85 },
-      { code: 'GBP', name: 'British Pound', symbol: '£', rate: 0.73 },
-      { code: 'JPY', name: 'Japanese Yen', symbol: '¥', rate: 110.0 },
-    ],
-    []
-  );
-
-  // Get currency conversion rate and formatting
-  const getCurrencyInfo = useCallback(
-    (currencyCode: string) => {
-      const currency = availableCurrencies.find((c) => c.code === currencyCode);
-      return currency || availableCurrencies[0];
-    },
-    [availableCurrencies]
-  );
+  // USD plus each fiat with a live rate; an unknown or not-yet-loaded code
+  // resolves to USD.
+  const { currencies: availableCurrencies, getCurrencyInfo } =
+    useFiatCurrencies();
 
   // Format value in selected currency
   const formatValueInCurrency = useCallback(
@@ -782,7 +768,7 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
   };
   const portfolioValue = {
     primary: privacyMode ? '***' : totalPortfolioValue,
-    secondary: selectedCurrency,
+    secondary: getCurrencyInfo(selectedCurrency).code,
     change: privacyMode
       ? {
           value: '***',

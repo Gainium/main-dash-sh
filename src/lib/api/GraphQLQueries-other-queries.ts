@@ -581,6 +581,20 @@ export const otherQueries = {
     return { query };
   },
 
+  getFiatRates: () => {
+    const query = `query getFiatRates{
+                        getFiatRates{
+                            status
+                            reason
+                            data {
+                                asset
+                                usdRate
+                            }
+                        }
+                    }`;
+    return { query };
+  },
+
   // `withNewerFields: false` builds the same query without the fields older
   // backends lack (`underlying`, `minLeverage`, `maxLeverage`,
   // `deliveryTime`), for

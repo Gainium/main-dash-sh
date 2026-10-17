@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.9] - 2026-10-17
+### Fixed
+- Portfolio display currency: values shown in EUR, GBP, CHF, CAD, AUD or JPY are converted at the platform's live fiat rates instead of a fixed table that was years out of date. A currency is offered only once its live rate has loaded; until then, or on a backend without live rates, values stay in USD. CNY, which has no live rate, is no longer offered.
+
 ## [2.100.8] - 2026-10-17
 ### Fixed
 - Settings → Login & Security: self-hosted no longer shows a Two-Factor Authentication card. The self-hosted server has no two-factor backend, so turning the switch on always failed with an error.

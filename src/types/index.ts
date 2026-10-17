@@ -2858,6 +2858,7 @@ export type QueryNames =
   | 'userSettings'
   | 'getLatestOrders'
   | 'getUsdRate'
+  | 'getFiatRates'
   | 'getPairInfo'
   | 'getAllPairs'
   | 'createDCABot'

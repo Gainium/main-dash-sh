@@ -12,7 +12,7 @@ import { LineChart } from 'lucide-react';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
 import { useNowTick } from '@/hooks/useNowTick';
-import { currencies, getCurrencyInfo } from '@/utils/currencyUtils';
+import { useFiatCurrencies } from '@/hooks/useFiatCurrencies';
 import { GraphQlQuery } from '@/lib/api';
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { logger } from '@/lib/loggerInstance';
@@ -64,8 +64,8 @@ interface PortfolioSnapshotWithExchanges {
   assets: PortfolioAssetWithExchanges[];
 }
 
-// Currency reference data + lookup live in `@/utils/currencyUtils` (imported
-// above as `currencies` / `getCurrencyInfo`) — do not duplicate them here.
+// Currency list + live-rate lookup come from `useFiatCurrencies` — do not
+// duplicate them here.
 
 // Backend asset names are already the display symbol, bar one legacy alias.
 // Single source of truth so the chart series, the picker list and the filter
@@ -206,6 +206,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     'selectedCurrency',
     'USD'
   );
+  const { currencies, getCurrencyInfo } = useFiatCurrencies();
   const [customName, setCustomName] = usePersistedState('customName', '');
   const [startYAxisAtZero, setStartYAxisAtZero] = usePersistedState(
     'startYAxisAtZero',
@@ -824,18 +825,18 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [getPortfolioDataForExchanges, selectedExchanges]
   );
 
-  // Calculate portfolio value and change for header. `getCurrencyInfo` is now a
-  // stable module-level import, so it is not a dependency.
+  // Calculate portfolio value and change for header. An unknown or not-yet-
+  // loaded currency resolves to USD, so label with the resolved code.
   const currencyInfo = useMemo(
     () => getCurrencyInfo(selectedCurrency),
-    [selectedCurrency]
+    [getCurrencyInfo, selectedCurrency]
   );
   const portfolioValue = useMemo(
     () => ({
       primary: privacyMode
         ? '***'
         : portfolioData.currentValue * currencyInfo.rate,
-      secondary: `${currencyInfo.symbol} ${selectedCurrency}`,
+      secondary: `${currencyInfo.symbol} ${currencyInfo.code}`,
       change: {
         value: privacyMode
           ? '***'
@@ -846,7 +847,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
         isPositive: portfolioData.changeValue >= 0,
       },
     }),
-    [privacyMode, portfolioData, currencyInfo, selectedCurrency]
+    [privacyMode, portfolioData, currencyInfo]
   );
 
   // Whether any filter is active (not the default state) is the same question as
@@ -1089,7 +1090,6 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
                     if (privacyMode) {
                       return '***';
                     }
-                    const currencyInfo = getCurrencyInfo(selectedCurrency);
                     const convertedValue = value * currencyInfo.rate;
                     return `${currencyInfo.symbol}${(convertedValue / 1000).toFixed(0)}k`;
                   }}
@@ -1187,7 +1187,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
       portfolioLoading, // drives the chart loading overlay
       fixedTimeframe, // chips are hidden when a fixed range is forced
       privacyMode,
-      selectedCurrency,
+      currencyInfo,
       startYAxisAtZero,
       setTimeFilter,
       widgetId,
@@ -1220,7 +1220,7 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
             Display Currency
           </label>
           <Select
-            value={selectedCurrency}
+            value={currencyInfo.code}
             onValueChange={(v) => setSelectedCurrency(v)}
           >
             <SelectTrigger className="w-full">
@@ -1280,7 +1280,8 @@ export const PortfolioValue: React.FC<PortfolioValueProps> = ({
     [
       customName,
       setCustomName,
-      selectedCurrency,
+      currencies,
+      currencyInfo,
       setSelectedCurrency,
       startYAxisAtZero,
       setStartYAxisAtZero,
