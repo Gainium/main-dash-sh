@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.10] - 2026-10-17
+### Fixed
+- Dropdowns, popovers and menus opened inside a widget's options dialog or a fullscreen widget render above it. They used to open underneath, so options below the dialog's edge could not be clicked (e.g. most of the Display Currency list).
+
 ## [2.100.9] - 2026-10-17
 ### Fixed
 - Portfolio display currency: values shown in EUR, GBP, CHF, CAD, AUD or JPY are converted at the platform's live fiat rates instead of a fixed table that was years out of date. A currency is offered only once its live rate has loaded; until then, or on a backend without live rates, values stay in USD. CNY, which has no live rate, is no longer offered.

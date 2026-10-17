@@ -30,7 +30,7 @@ function PopoverContent({
         sideOffset={sideOffset}
         className={cn(
           // Consistent styling with dropdown menus and selects - explicit dark styling
-          'glass-surface z-70 w-72 origin-(--radix-popover-content-transform-origin) rounded-xl p-3 md:p-4 text-card-foreground shadow-2xl ring-1 ring-border/60 outline-hidden',
+          'glass-surface z-[10010] w-72 origin-(--radix-popover-content-transform-origin) rounded-xl p-3 md:p-4 text-card-foreground shadow-2xl ring-1 ring-border/60 outline-hidden',
           // Prevent popping off-screen on narrow viewports and allow scrolling for long content
           'max-w-[calc(100vw-3.5rem)] max-h-[calc(100vh-4rem)] overflow-auto',
           // Animation classes
@@ -62,7 +62,7 @@ const StyledPopoverContent = React.forwardRef<
     ref={ref}
     className={cn(
       // Base styling consistent with DropdownMenuContent - explicit dark styling
-      `glass-surface z-70 min-w-[${minWidth}] rounded-xl p-1 text-card-foreground shadow-2xl ring-1 ring-border/60`,
+      `glass-surface z-[10010] min-w-[${minWidth}] rounded-xl p-1 text-card-foreground shadow-2xl ring-1 ring-border/60`,
       // Prevent popping off-screen on narrow viewports and allow scrolling for long content
       'max-w-[calc(100vw-3.5rem)] max-h-[calc(100vh-4rem)] overflow-auto',
       // Animation classes

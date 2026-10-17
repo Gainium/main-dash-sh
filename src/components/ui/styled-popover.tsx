@@ -10,7 +10,7 @@ export const StyledPopoverContent = React.forwardRef<
     ref={ref}
     className={cn(
       // Base styling consistent with DropdownMenuContent
-      'glass-surface z-[70] min-w-[8rem] overflow-hidden rounded-xl p-1 text-popover-foreground shadow-2xl ring-1 ring-border/60',
+      'glass-surface z-[10010] min-w-[8rem] overflow-hidden rounded-xl p-1 text-popover-foreground shadow-2xl ring-1 ring-border/60',
       // Animation classes
       'data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95',
       // Direction-based slide animations
