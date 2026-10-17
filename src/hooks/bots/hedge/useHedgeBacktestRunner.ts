@@ -35,6 +35,7 @@ import {
   type BacktestProgress,
   type BacktestingSettings,
   type ExchangeInUser,
+  type BotVars,
   type HedgeBotSettings,
   type HedgeBacktestingResult,
   type HedgeComboBacktestingResultHistory,
@@ -82,6 +83,10 @@ export interface HedgeBacktestSnapshot {
   sharedSettings: HedgeBotSettings;
   /** Hedge bot type — hedgeDca runs DCA strategies, hedgeCombo combo. */
   hedgeBotType: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo;
+  /** Each leg's variable bindings — the mapper skips range checks on
+   *  bound fields, exactly as the live hedge save does. */
+  longVars?: BotVars | null;
+  shortVars?: BotVars | null;
 }
 
 export type HedgeBacktestHistoryItem =
@@ -360,6 +365,8 @@ export function useHedgeBacktestRunner({
         shortExchange,
         sharedSettings,
         hedgeBotType,
+        longVars,
+        shortVars,
       } = snapshot;
       const combo = hedgeBotType === BotTypesEnum.hedgeCombo;
 
@@ -445,6 +452,50 @@ export function useHedgeBacktestRunner({
         sharedSettings,
       };
 
+      // Map both legs with the create-bot mapper the live save uses BEFORE
+      // running: the server save needs these settings, and a leg the mapper
+      // rejects (e.g. a Quick investment that rounds the base order to 0)
+      // would otherwise only fail after the whole backtest has run.
+      const mapLeg = (
+        legData: BotFormData,
+        legVars: BotVars | null | undefined,
+        exchange: ExchangeInUser
+      ) => {
+        const mapping = mapFormDataToPayload(
+          legData,
+          { mode: 'create' },
+          legVars ?? null,
+          exchange
+        );
+        if (!mapping.createPayload) {
+          return {
+            settings: null,
+            error: mapping.errors?.[0] ?? 'invalid settings',
+          };
+        }
+        // Both hedge variants validate each leg's `settings` as
+        // `createComboBotInput` server-side; the DCA mapper only drops
+        // `importFrom` for a combo-typed form, so strip it regardless.
+        const settings = { ...mapping.createPayload } as Record<
+          string,
+          unknown
+        >;
+        delete settings['importFrom'];
+        return { settings, error: null };
+      };
+      const longMapped = mapLeg(longFormData, longVars, longExchange);
+      const shortMapped = mapLeg(shortFormData, shortVars, shortExchange);
+      const longSettings = longMapped.settings;
+      const shortSettings = shortMapped.settings;
+      if (!longSettings || !shortSettings) {
+        const legError = !longSettings
+          ? `Long leg: ${longMapped.error}`
+          : `Short leg: ${shortMapped.error}`;
+        setError(legError);
+        toast.error(legError);
+        return;
+      }
+
       cancelledRef.current = false;
       setError(null);
       setResult(null);
@@ -487,37 +538,11 @@ export function useHedgeBacktestRunner({
         const longSymbol = longSymbols[0];
         const shortSymbol = shortSymbols[0];
         const buildSideConfig = (
-          legData: BotFormData,
+          settings: Record<string, unknown>,
           exchange: ExchangeInUser,
           symbol: Symbols,
           duration: HedgeBacktestingResult['longResult']['duration']
         ) => {
-          // Use the same create-bot payload mapper the real save flow
-          // uses — server's `saveHedge*Backtest` expects `settings` to
-          // match `createDCABotInput` / `createComboBotInput`. Sending
-          // the raw `formData.dca` (our previous approach) drops
-          // required fields and trips schema validation, so the save
-          // silently fails. Mode 'create' so the mapper produces the
-          // create-style payload.
-          const mapping = mapFormDataToPayload(
-            legData,
-            { mode: 'create' },
-            null,
-            exchange
-          );
-          const createPayload = mapping.createPayload ?? null;
-          if (!createPayload) {
-            const reason = mapping.errors?.join('; ') ?? 'unknown';
-            throw new Error(`Failed to map leg settings: ${reason}`);
-          }
-          // Both hedge variants validate each leg's `settings` as
-          // `createComboBotInput` server-side (see HedgeBotEditLayout's
-          // create path). The DCA mapper only drops `importFrom` when
-          // `formData.type === combo`; hedge legs always carry `type:
-          // 'dca'` so the field survives and the mutation 400s. Strip
-          // it here regardless of variant for parity with the live save.
-          const settings = { ...createPayload } as Record<string, unknown>;
-          delete settings['importFrom'];
           return {
             symbol: symbol.pair,
             baseAsset: symbol.baseAsset.name,
@@ -546,13 +571,13 @@ export function useHedgeBacktestRunner({
           ? ({
               ...baseSavePayload,
               long: buildSideConfig(
-                longFormData,
+                longSettings,
                 longExchange,
                 longSymbol,
                 testResult.longResult.duration
               ),
               short: buildSideConfig(
-                shortFormData,
+                shortSettings,
                 shortExchange,
                 shortSymbol,
                 testResult.shortResult.duration
@@ -561,13 +586,13 @@ export function useHedgeBacktestRunner({
           : ({
               ...baseSavePayload,
               long: buildSideConfig(
-                longFormData,
+                longSettings,
                 longExchange,
                 longSymbol,
                 testResult.longResult.duration
               ),
               short: buildSideConfig(
-                shortFormData,
+                shortSettings,
                 shortExchange,
                 shortSymbol,
                 testResult.shortResult.duration

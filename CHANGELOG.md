@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.101.3] - 2026-10-17
+### Fixed
+- Hedge bots: a backtest whose leg settings are invalid (for example a base order of 0) now stops before running and names the leg, instead of failing with "Failed to map leg settings" after the run.
+- Hedge bots Quick setup: an investment that rounds a leg's base order to 0 is flagged; the investment slider starts at the minimum to run and always reaches it.
+- Hedge bots Quick setup: coin-sized legs (spot short, COIN-M) include the exchange's minimum order value in the minimum to run.
+- Hedge bots: backtests use the hedge name and each leg's variable bindings, like saving the bot does.
+
 ## [2.101.2] - 2026-10-17
 ### Fixed
 - Combo bots: the deal overview's Nominal / Margin (and Total Funds) no longer add the minigrid orders on top of the base order and DCA ladder. Closing-side minigrids nearly doubled the figure on short bots, and active minigrids were counted twice on long bots.

@@ -1308,7 +1308,13 @@ export const HedgeBotEditLayout: React.FC = () => {
           enrichedMeta[pair] = match as BotFormData['pairMetadata'][string];
         }
       }
-      return { ...data, pairMetadata: enrichedMeta };
+      // The hedge name lives at hedge level; the legs can be blank, which the
+      // mapper rejects. handleSave fans it out the same way.
+      return {
+        ...data,
+        name: hedgeName || data.name,
+        pairMetadata: enrichedMeta,
+      };
     };
 
     return {
@@ -1318,8 +1324,18 @@ export const HedgeBotEditLayout: React.FC = () => {
       shortExchange,
       sharedSettings,
       hedgeBotType: botType,
+      longVars: resolveLegVars(longVarsRef.current, longLegBot),
+      shortVars: resolveLegVars(shortVarsRef.current, shortLegBot),
     };
-  }, [exchanges, sharedSettings, botType, pairsByExchange]);
+  }, [
+    exchanges,
+    sharedSettings,
+    botType,
+    pairsByExchange,
+    hedgeName,
+    longLegBot,
+    shortLegBot,
+  ]);
 
   const backtestRunner = useHedgeBacktestRunner({
     getSnapshot: getBacktestSnapshot,
