@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.7] - 2026-10-17
+### Fixed
+- Grid bot form: moving from a futures exchange to a spot exchange resets Order fixed in to the quote asset. It used to keep the base asset that futures had forced, so starting the bot asked for a base-asset balance.
+
 ## [2.100.6] - 2026-10-17
 ### Fixed
 - Bot form pair picker: searching a pair typed without its slash (`ETHBTC`, `eth-btc`) or a stock's company name finds it again, as the previous pair list did.

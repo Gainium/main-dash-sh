@@ -27,7 +27,12 @@ import {
   resolvePairSelectionSymbol,
 } from '@/utils/pairs';
 import { useUserFee } from '@/hooks/useUserFee';
-import type { Asset, CoinListItem, ExchangeInUser } from '@/types';
+import {
+  BotTypesEnum,
+  type Asset,
+  type CoinListItem,
+  type ExchangeInUser,
+} from '@/types';
 import { OKXSource } from '@/types/exchange.types';
 
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
@@ -443,6 +448,7 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
   const exchangeProviderRef = useRef<string | null>(null);
   const formFutures = useBotFormSelector('futures');
   const formCoinm = useBotFormSelector('coinm');
+  const formType = useBotFormTopLevelSelector('type');
 
   useEffect(() => {
     const provider = currentExchange?.provider;
@@ -462,14 +468,28 @@ export const BotFormQueryProvider: React.FC<BotFormQueryProviderProps> = ({
     // only re-derive it when the exchange actually changes, never on a
     // drift-correcting pass, or we'd clobber the user's choice.
     if (exchangeProviderRef.current !== provider) {
+      const previousProvider = exchangeProviderRef.current;
       exchangeProviderRef.current = provider;
       updateFormData('profitCurrency', coinm ? 'base' : 'quote');
+      // A futures exchange forces a grid's `orderFixedIn` to the margin asset
+      // (`base` on linear), and nothing put it back when the user moved to a
+      // spot exchange: the spot form then sized every level in base coin,
+      // so starting the bot demanded a balance of the base asset. Re-derive
+      // it like legacy does on exchange change — but only on a real change,
+      // so the first pass doesn't overwrite a cloned bot's saved choice.
+      if (previousProvider !== null && formType === BotTypesEnum.grid) {
+        updateFormData(
+          'orderFixedIn',
+          futures && !coinm ? 'base' : 'quote'
+        );
+      }
     }
   }, [
     currentExchange?.provider,
     mode,
     formFutures,
     formCoinm,
+    formType,
     updateFormData,
   ]);
 
