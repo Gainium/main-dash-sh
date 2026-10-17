@@ -1436,187 +1436,189 @@ const Settings: React.FC = () => {
             </CardContent>
           </Card>
 
-          {/* Two-Factor Authentication Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-xs text-primary">
-                <Shield className="w-4 h-4" />
-                Two-Factor Authentication (2FA)
-                {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-md">
-              <div className="flex items-center justify-between">
-                <div className="space-y-xs">
-                  <Label className="text-muted-foreground uppercase text-xs tracking-wider">
-                    TWO-FACTOR AUTHENTICATION (2FA)
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Add an extra layer of security to your account
-                  </p>
+          {/* Two-Factor Authentication Card — cloud-only (app-sh has no OTP backend) */}
+          {IS_CLOUD && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-xs text-primary">
+                  <Shield className="w-4 h-4" />
+                  Two-Factor Authentication (2FA)
+                  {isLoading && <Loader2 className="w-4 h-4 animate-spin" />}
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-md">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-xs">
+                    <Label className="text-muted-foreground uppercase text-xs tracking-wider">
+                      TWO-FACTOR AUTHENTICATION (2FA)
+                    </Label>
+                    <p className="text-sm text-muted-foreground">
+                      Add an extra layer of security to your account
+                    </p>
+                  </div>
+                  <Switch
+                    checked={is2FAEnabled}
+                    onCheckedChange={handleToggle2FA}
+                    disabled={
+                      isLoading ||
+                      twoFAOps.isGeneratingOTP ||
+                      twoFAOps.isDisablingOTP
+                    }
+                  />
                 </div>
-                <Switch
-                  checked={is2FAEnabled}
-                  onCheckedChange={handleToggle2FA}
-                  disabled={
-                    isLoading ||
-                    twoFAOps.isGeneratingOTP ||
-                    twoFAOps.isDisablingOTP
-                  }
-                />
-              </div>
 
-              {/* 2FA Setup Flow */}
-              {twoFAOps.otpData && !is2FAEnabled && (
-                <div className="bg-muted rounded-lg p-sm space-y-xs">
-                  <h3 className="font-semibold text-foreground">
-                    Setup Two-Factor Authentication
-                  </h3>
+                {/* 2FA Setup Flow */}
+                {twoFAOps.otpData && !is2FAEnabled && (
+                  <div className="bg-muted rounded-lg p-sm space-y-xs">
+                    <h3 className="font-semibold text-foreground">
+                      Setup Two-Factor Authentication
+                    </h3>
 
-                  <div className="space-y-sm">
-                    <p className="text-sm text-muted-foreground">
-                      1. Install an authenticator app like Google Authenticator
-                      or Authy
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      2. Scan this QR code or enter the secret key manually:
-                    </p>
+                    <div className="space-y-sm">
+                      <p className="text-sm text-muted-foreground">
+                        1. Install an authenticator app like Google Authenticator
+                        or Authy
+                      </p>
+                      <p className="text-sm text-muted-foreground">
+                        2. Scan this QR code or enter the secret key manually:
+                      </p>
 
-                    {twoFAOps.otpData.otp_auth_url && (
-                      <div className="flex justify-center">
-                        {/* White backdrop + quiet zone so the code scans in
-                            both light and dark themes. */}
-                        <div className="bg-white p-md rounded-lg">
-                          <QRCode
-                            value={twoFAOps.otpData.otp_auth_url}
-                            size={176}
+                      {twoFAOps.otpData.otp_auth_url && (
+                        <div className="flex justify-center">
+                          {/* White backdrop + quiet zone so the code scans in
+                              both light and dark themes. */}
+                          <div className="bg-white p-md rounded-lg">
+                            <QRCode
+                              value={twoFAOps.otpData.otp_auth_url}
+                              size={176}
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="bg-background p-sm rounded-lg">
+                        <p className="text-xs font-mono break-all">
+                          {twoFAOps.otpData.otp_base32}
+                        </p>
+                      </div>
+
+                      <div className="space-y-xs">
+                        <Label htmlFor="otp-token" className="text-sm">
+                          Enter the 6-digit code from your authenticator app:
+                        </Label>
+                        <div className="flex gap-xs">
+                          <Input
+                            id="otp-token"
+                            placeholder="000000"
+                            maxLength={6}
+                            className="w-32"
+                            onChange={(e) => {
+                              if (e.target.value.length === 6) {
+                                twoFAOps.verifyOTP({ otpToken: e.target.value });
+                              }
+                            }}
                           />
+                          <Button
+                            variant="outline"
+                            disabled={twoFAOps.isVerifyingOTP}
+                          >
+                            {twoFAOps.isVerifyingOTP && (
+                              <Loader2 className="w-4 h-4 animate-spin" />
+                            )}
+                            Verify
+                          </Button>
                         </div>
                       </div>
-                    )}
-
-                    <div className="bg-background p-sm rounded-lg">
-                      <p className="text-xs font-mono break-all">
-                        {twoFAOps.otpData.otp_base32}
-                      </p>
                     </div>
+                  </div>
+                )}
 
-                    <div className="space-y-xs">
-                      <Label htmlFor="otp-token" className="text-sm">
-                        Enter the 6-digit code from your authenticator app:
-                      </Label>
-                      <div className="flex gap-xs">
-                        <Input
-                          id="otp-token"
-                          placeholder="000000"
-                          maxLength={6}
-                          className="w-32"
-                          onChange={(e) => {
-                            if (e.target.value.length === 6) {
-                              twoFAOps.verifyOTP({ otpToken: e.target.value });
-                            }
-                          }}
-                        />
-                        <Button
-                          variant="outline"
-                          disabled={twoFAOps.isVerifyingOTP}
+                {/* Recovery Codes Display */}
+                {twoFAOps.recoveryCodes && twoFAOps.recoveryCodes.length > 0 && (
+                  <div className="rounded-lg p-sm space-y-xs bg-warning/10 border border-warning/20">
+                    <h3 className="font-semibold text-foreground flex items-center gap-xs">
+                      <AlertTriangle className="w-4 h-4 text-warning" />
+                      Recovery Codes
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      Save these recovery codes in a safe place. You can use them
+                      to access your account if you lose your authenticator
+                      device.
+                    </p>
+                    <div className="grid grid-cols-2 gap-xs">
+                      {twoFAOps.recoveryCodes.map((code, index) => (
+                        <div
+                          key={index}
+                          className="bg-background p-xs rounded font-mono text-sm"
                         >
-                          {twoFAOps.isVerifyingOTP && (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          )}
-                          Verify
-                        </Button>
-                      </div>
+                          {code}
+                        </div>
+                      ))}
                     </div>
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Recovery Codes Display */}
-              {twoFAOps.recoveryCodes && twoFAOps.recoveryCodes.length > 0 && (
-                <div className="rounded-lg p-sm space-y-xs bg-warning/10 border border-warning/20">
-                  <h3 className="font-semibold text-foreground flex items-center gap-xs">
-                    <AlertTriangle className="w-4 h-4 text-warning" />
-                    Recovery Codes
-                  </h3>
-                  <p className="text-sm text-muted-foreground">
-                    Save these recovery codes in a safe place. You can use them
-                    to access your account if you lose your authenticator
-                    device.
-                  </p>
-                  <div className="grid grid-cols-2 gap-xs">
-                    {twoFAOps.recoveryCodes.map((code, index) => (
-                      <div
-                        key={index}
-                        className="bg-background p-xs rounded font-mono text-sm"
+                {/* Loading States */}
+                {twoFAOps.isGeneratingOTP && (
+                  <div className="flex items-center gap-xs text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Setting up 2FA...</span>
+                  </div>
+                )}
+
+                {twoFAOps.isDisablingOTP && (
+                  <div className="flex items-center gap-xs text-muted-foreground">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Disabling 2FA...</span>
+                  </div>
+                )}
+
+                {/* Error Messages */}
+                {twoFAOps.generateOTPError && (
+                  <div className="text-sm text-red-500">
+                    Error setting up 2FA: {twoFAOps.generateOTPError.message}
+                  </div>
+                )}
+
+                {twoFAOps.verifyOTPError && (
+                  <div className="text-sm text-red-500">
+                    Error verifying code: {twoFAOps.verifyOTPError.message}
+                  </div>
+                )}
+
+                {twoFAOps.disableOTPError && (
+                  <div className="text-sm text-red-500">
+                    Error disabling 2FA: {twoFAOps.disableOTPError.message}
+                  </div>
+                )}
+
+                {/* Regenerate recovery codes (cloud-only; app-sh lacks the mutation) */}
+                {IS_CLOUD && is2FAEnabled && (
+                  <div className="border-t border-border">
+                    <div className="flex items-center justify-between gap-md">
+                      <div className="space-y-xs">
+                        <Label className="text-muted-foreground uppercase text-xs tracking-wider">
+                          RECOVERY CODES
+                        </Label>
+                        <p className="text-sm text-muted-foreground">
+                          Generate a fresh set of recovery codes. Old codes stop
+                          working immediately.
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        onClick={openRegenDialog}
+                        disabled={regenerateRecoveryCodes.isPending}
                       >
-                        {code}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Loading States */}
-              {twoFAOps.isGeneratingOTP && (
-                <div className="flex items-center gap-xs text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Setting up 2FA...</span>
-                </div>
-              )}
-
-              {twoFAOps.isDisablingOTP && (
-                <div className="flex items-center gap-xs text-muted-foreground">
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>Disabling 2FA...</span>
-                </div>
-              )}
-
-              {/* Error Messages */}
-              {twoFAOps.generateOTPError && (
-                <div className="text-sm text-red-500">
-                  Error setting up 2FA: {twoFAOps.generateOTPError.message}
-                </div>
-              )}
-
-              {twoFAOps.verifyOTPError && (
-                <div className="text-sm text-red-500">
-                  Error verifying code: {twoFAOps.verifyOTPError.message}
-                </div>
-              )}
-
-              {twoFAOps.disableOTPError && (
-                <div className="text-sm text-red-500">
-                  Error disabling 2FA: {twoFAOps.disableOTPError.message}
-                </div>
-              )}
-
-              {/* Regenerate recovery codes (cloud-only; app-sh lacks the mutation) */}
-              {IS_CLOUD && is2FAEnabled && (
-                <div className="border-t border-border">
-                  <div className="flex items-center justify-between gap-md">
-                    <div className="space-y-xs">
-                      <Label className="text-muted-foreground uppercase text-xs tracking-wider">
-                        RECOVERY CODES
-                      </Label>
-                      <p className="text-sm text-muted-foreground">
-                        Generate a fresh set of recovery codes. Old codes stop
-                        working immediately.
-                      </p>
+                        <RotateCcw className="w-4 h-4" />
+                        Regenerate
+                      </Button>
                     </div>
-                    <Button
-                      variant="outline"
-                      onClick={openRegenDialog}
-                      disabled={regenerateRecoveryCodes.isPending}
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Regenerate
-                    </Button>
                   </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                )}
+              </CardContent>
+            </Card>
+          )}
 
           {/* Passkeys Card — cloud-only (app-sh has no webauthn backend) */}
           {IS_CLOUD && (

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.8] - 2026-10-17
+### Fixed
+- Settings → Login & Security: self-hosted no longer shows a Two-Factor Authentication card. The self-hosted server has no two-factor backend, so turning the switch on always failed with an error.
+
 ## [2.100.7] - 2026-10-17
 ### Fixed
 - Grid bot form: moving from a futures exchange to a spot exchange resets Order fixed in to the quote asset. It used to keep the base asset that futures had forced, so starting the bot asked for a base-asset balance.
