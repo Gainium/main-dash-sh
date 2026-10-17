@@ -33,6 +33,7 @@ export const dcaPageDescriptor: BotPageDescriptor<DCABacktestingResultHistory> =
     loadingDelayMs: { create: 1200, edit: 1000 },
     // dca resets both indicator + example-orders stores on page unmount.
     resetStores: [indicatorStore, exampleOrdersStore],
+    editDealsTab: true,
     backtests: {
       kind: 'dca',
       noteType: BotTypesEnum.dca,

@@ -132,6 +132,9 @@ export interface BotBacktestPanelProps<TResult extends BacktestRowBase> {
   activeInsightsTab: string;
   onActiveInsightsTabChange: (tab: string) => void;
 
+  /** Tabs rendered before the backtests tab (edit: the bot's Deals). */
+  leadingTabs?: BotPanelInsightsTab[];
+
   /** Passed to useBacktests({ enabled }). New: omit/true. Edit: hasBotId. */
   backtestsEnabled?: boolean;
 
@@ -164,6 +167,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
   mode,
   activeInsightsTab,
   onActiveInsightsTabChange,
+  leadingTabs,
   backtestsEnabled,
   summaryMessages,
   onLoadBacktestIntoForm,
@@ -741,6 +745,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     ];
 
     const tabs: BotPanelInsightsTab[] = [
+      ...(leadingTabs ?? []),
       {
         key: descriptor.tabKey,
         title: descriptor.tabTitle,
@@ -781,6 +786,7 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
 
     return tabs;
   }, [
+    leadingTabs,
     backtestsBadge,
     tableId,
     rows,

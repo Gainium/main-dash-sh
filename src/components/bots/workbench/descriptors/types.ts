@@ -203,6 +203,12 @@ export interface BotPageDescriptor<
    * (dca/combo do; grid does not). Defaults to true when absent.
    */
   loadingHasStatsTab?: boolean;
+  /**
+   * EDIT shows a "Deals" tab (the Trading Terminal's deal list scoped to this
+   * bot) ahead of the backtests and opens on it. Create never does: a new bot
+   * has no deals.
+   */
+  editDealsTab?: boolean;
 }
 
 // Layout key derivation (done in BotWorkbench, NOT stored on the descriptor):

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.101.0] - 2026-10-17
+### Added
+- DCA bot edit page: a Deals tab with the bot's open and closed deals, the same list as the Trading Terminal's. The edit page opens on it; a new bot still opens on Backtests.
+
 ## [2.100.10] - 2026-10-17
 ### Fixed
 - Dropdowns, popovers and menus opened inside a widget's options dialog or a fullscreen widget render above it. They used to open underneath, so options below the dialog's edge could not be clicked (e.g. most of the Display Currency list).

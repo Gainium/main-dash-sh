@@ -393,6 +393,9 @@ export interface OpenTradesWidgetProps {
   settings?: Record<string, unknown>;
 
   // Filtering props
+  /** Scope the widget's own deal list to one bot's deals instead of the
+   *  Trading Terminal's. */
+  botId?: string;
   showClosedTrades?: boolean;
   enableStatusToggle?: boolean;
   defaultStatusFilter?: 'open' | 'closed';
@@ -487,6 +490,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   widgetId = 'open-trades',
   data: _data,
   settings: _settings,
+  botId,
   showClosedTrades: _showClosedTrades = false,
   enableStatusToggle: _enableStatusToggle = false,
   defaultStatusFilter,
@@ -660,7 +664,8 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
   // accounts, or once its first window comes back capped.
   const internalDeals = useDealTablePaging({
     status: effectiveShowClosedTrades ? 'closed' : 'open',
-    terminal: true,
+    terminal: !botId,
+    ...(botId ? { botId } : {}),
     tableId: enableStatusToggle
       ? `${widgetId}-trades-${statusFilter}`
       : `${widgetId}-trades`,
