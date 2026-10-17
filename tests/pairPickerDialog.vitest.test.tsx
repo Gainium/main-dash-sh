@@ -449,3 +449,61 @@ describe('dated futures contracts stay out of bulk selection', () => {
     expect(onItemToggle).toHaveBeenCalledWith('DOGE-USDT-16OCT26');
   });
 });
+
+describe('spec 119 the search finds a pair typed without its separator', () => {
+  const searchRows: PairPickerRow[] = [
+    row('US', 'USDT', { symbol: 'USUSDT', minOrder: 5 }),
+    row('USUAL', 'USDT', { symbol: 'USUALUSDT', minOrder: 5 }),
+    row('BTC', 'USDT', { symbol: 'BTCUSDT', minOrder: 5 }),
+    row('BTC', 'USDT', {
+      symbol: 'BTCUSDT-25DEC26',
+      name: 'BTC/USDT 25 Dec 26',
+      deliveryTime: 1798156800000,
+      minOrder: 5,
+    }),
+    row('RAAPL', 'USDT', {
+      symbol: 'RAAPLUSDT',
+      baseDisplayName: 'Apple Inc.',
+      minOrder: 5,
+    }),
+  ];
+
+  const shownNames = () =>
+    [...document.querySelectorAll('button[aria-label^="Favorite "]')].map(
+      (b) => (b.getAttribute('aria-label') ?? '').slice('Favorite '.length)
+    );
+
+  const search = async (query: string) => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog({ rows: searchRows, selectedItems: [], anchor: null });
+    await settle();
+    act(() => {
+      useTablePreferencesStore
+        .getState()
+        .setGlobalFilter('bot-form-pair-picker', query);
+    });
+    await settle();
+    return shownNames();
+  };
+
+  test.each(['ususdt', 'USUSDT', 'us/usdt', 'us-usdt'])(
+    '§1.1 "%s" finds US/USDT and not USUAL/USDT',
+    async (query) => {
+      expect(await search(query)).toEqual(['US/USDT']);
+    }
+  );
+
+  test('§1.2 "BTCUSDT" keeps the perpetual, not only the dated contract', async () => {
+    expect(await search('BTCUSDT')).toContain('BTC/USDT');
+  });
+
+  test('§1.3 every word of a multi-word query must match', async () => {
+    expect(await search('btc dec')).toEqual(['BTC/USDT 25 Dec 26']);
+  });
+
+  test('§1.4 a stock is found by its display name', async () => {
+    expect(await search('apple')).toEqual(['RAAPL/USDT']);
+  });
+});

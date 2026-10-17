@@ -33,6 +33,7 @@ import {
   type ColumnDef,
   type ColumnFiltersState,
   type ExpandedState,
+  type FilterFn,
   type GroupingState,
   type Row,
   type RowSelectionState,
@@ -1061,6 +1062,12 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   enableGlobalFilter?: boolean;
+  /**
+   * Replaces the search box's matcher (default: `fuzzyFilter`, a contains-match
+   * per column value) for a table whose rows need a different notion of "this
+   * row matches what was typed".
+   */
+  globalFilterFn?: FilterFn<TData>;
   enableColumnFilters?: boolean;
   enableSorting?: boolean;
   // External sorting state (for persistence)
@@ -3340,7 +3347,7 @@ function DataTableComponent<TData, TValue>(
     getExpandedRowModel: getExpandedRowModel(),
     getFacetedRowModel: getFacetedRowModel(),
     getFacetedUniqueValues: getFacetedUniqueValues(),
-    globalFilterFn: fuzzyFilter,
+    globalFilterFn: props.globalFilterFn ?? fuzzyFilter,
     filterFns: {
       enhancedColumnFilter: enhancedColumnFilter,
     },

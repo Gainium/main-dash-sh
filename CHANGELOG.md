@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.100.6] - 2026-10-17
+### Fixed
+- Bot form pair picker: searching a pair typed without its slash (`ETHBTC`, `eth-btc`) or a stock's company name finds it again, as the previous pair list did.
+
 ## [2.100.5] - 2026-10-16
 ### Fixed
 - Deal chart: the Stop loss line of a bot whose stop is based on the start price is drawn from the deal's start price, as the bot measures it, instead of from the average price.

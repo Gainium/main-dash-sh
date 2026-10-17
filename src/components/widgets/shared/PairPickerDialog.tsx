@@ -14,6 +14,7 @@
 import type {
   ColumnDef,
   ColumnFiltersState,
+  FilterFn,
   SortingState,
 } from '@tanstack/react-table';
 import { ArrowUpDown, Star, X as CloseIcon } from 'lucide-react';
@@ -49,6 +50,11 @@ import { isFuturesExchange } from '@/utils/exchangeUtils';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
 import CoinPair from './CoinPair';
 import { ListModalRow, type ListItem } from './ListModal';
+import {
+  matchesPairSearch,
+  pairSearchWordForms,
+  searchableTextFor,
+} from './pairSearch';
 
 export const PAIR_PICKER_TABLE_ID = 'bot-form-pair-picker';
 
@@ -596,6 +602,26 @@ const ASSET_CLASS_COLUMN = 'assetCategory';
 // §2.5 — the select checkbox never scrolls out of view, on any screen.
 const LOCKED_PINS = { right: ['select'] };
 
+// The search box matches what the list picker matched — name, symbol, their
+// separator-stripped forms and the display name — so `ususdt` finds US/USDT.
+// The table's default matcher only sees each column's own value (`us/usdt`).
+// TanStack asks once per column; the answer is per row, so cache its text.
+const searchTextCache = new WeakMap<PairPickerRow, string>();
+const pairSearchFilter: FilterFn<PairPickerRow> = (
+  row,
+  _columnId,
+  wordForms: [string, string][]
+) => {
+  let text = searchTextCache.get(row.original);
+  if (text === undefined) {
+    text = searchableTextFor(row.original);
+    searchTextCache.set(row.original, text);
+  }
+  return matchesPairSearch(text, wordForms);
+};
+pairSearchFilter.resolveFilterValue = (query: string) =>
+  pairSearchWordForms(String(query ?? ''));
+
 export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   isOpen,
   onClose,
@@ -1102,6 +1128,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
                 className="[&_.data-table-container]:flex-1 [&_.data-table-container]:min-h-0 [&_.masonry-grid]:mx-0! [&_.masonry-grid]:w-full!"
                 columns={columns}
                 data={data}
+                globalFilterFn={pairSearchFilter}
                 getRowId={(r) => r.symbol}
                 enableCardView
                 prioritizeViewToggle

@@ -16,7 +16,7 @@ import {
   formatMinOrder,
   pairContractSymbol,
 } from '../../../utils/pairPicker';
-import { normalizePairKey, splitPastedPairTokens } from '../../../utils/pairs';
+import { splitPastedPairTokens } from '../../../utils/pairs';
 import { Chip } from '../../ui/chip';
 import { Checkbox } from '../../ui/checkbox';
 import ProfitLossPercChip from '../../ui/chip/ProfitLossPercChip';
@@ -30,6 +30,11 @@ import {
 import { Switch } from '../../ui/switch';
 import { Tooltip, InfoIcon } from '../../ui/tooltip';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
+import {
+  matchesPairSearch,
+  pairSearchWordForms,
+  searchableTextFor,
+} from './pairSearch';
 import CoinIcon from './CoinIcon';
 import CoinPair from './CoinPair';
 import ExchangeIcon from './ExchangeIcon';
@@ -320,28 +325,6 @@ const DetailRow: React.FC<{
  * `onToggleFavorite` identities and stable `item` references. The
  * expand/collapse state is local to the row.
  */
-/**
- * Searchable text of one item. The separator-stripped forms matter: a pair is
- * displayed as `ETH/BTC` and identified as `ETH-BTC`, but users type — and the
- * bot form STORES — the concatenated `ETHBTC`, which matches neither. Before
- * this, searching `BTCUSDT` on a venue with dated futures returned the eight
- * `BTCUSDT-<expiry>` contracts (whose native symbol contains that literal
- * string) and hid the actual BTCUSDT perpetual.
- */
-const searchableTextFor = (item: ListItem): string =>
-  [
-    item.name,
-    item.symbol,
-    normalizePairKey(item.name),
-    normalizePairKey(item.symbol),
-    item.subtitle || '',
-    // The company name shown under a stock's ticker (`Apple Inc.` for RAAPL),
-    // so a stock can be found by its name, not only its ticker.
-    item.baseDisplayName || '',
-  ]
-    .join(' ')
-    .toLowerCase();
-
 /** Row height used before a row has been measured (a collapsed pair row). */
 const ESTIMATED_ROW_HEIGHT = 60;
 /** Gap between rows (the former `space-y-1`). */
@@ -922,30 +905,15 @@ export const ListModal: React.FC<ListModalProps> = ({
 
     if (!deferredSearchTerm.trim()) return classFiltered;
 
-    const searchLower = deferredSearchTerm.toLowerCase().trim();
-
-    // Split search term into words for multi-term search
-    const searchWords = searchLower
-      .split(/\s+/)
-      .filter((word) => word.length > 0);
-
     // Normalize the query words once, not once per item.
-    const wordForms = searchWords.map((word) => [
-      word,
-      normalizePairKey(word).toLowerCase(),
-    ]);
+    const wordForms = pairSearchWordForms(deferredSearchTerm);
 
-    return classFiltered.filter((item) => {
-      const searchableText = searchIndex.get(item) ?? searchableTextFor(item);
-
-      // All search words must appear somewhere in the combined text. Each word
-      // is also tried separator-stripped, so `eth/btc`, `eth-btc` and `ethbtc`
-      // are interchangeable in the query as well as in the haystack.
-      return wordForms.every(
-        ([word, stripped]) =>
-          searchableText.includes(word) || searchableText.includes(stripped)
-      );
-    });
+    return classFiltered.filter((item) =>
+      matchesPairSearch(
+        searchIndex.get(item) ?? searchableTextFor(item),
+        wordForms
+      )
+    );
   }, [
     deferredItems,
     searchIndex,
