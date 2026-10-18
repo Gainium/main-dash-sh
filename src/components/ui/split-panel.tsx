@@ -77,42 +77,10 @@ const layoutsEqual = (first: number[], second: number[]) => {
   });
 };
 
-type PanelConstraintSignature = {
-  defaultSize?: number;
-  minSize?: number;
-  collapsible?: boolean;
-};
-
-const buildConstraintsSignature = (
-  panelCount: number,
-  getPanelIsCollapsible: (index: number) => boolean,
-  minSizes?: number[],
-  defaultSizes?: number[]
-) => {
-  const signatures = Array.from({ length: panelCount }, (_, index) => {
-    const signature: PanelConstraintSignature = {};
-    const defaultSizeValue = defaultSizes?.[index];
-    if (typeof defaultSizeValue === 'number') {
-      signature.defaultSize = defaultSizeValue;
-    }
-
-    const minSizeValue =
-      minSizes?.[index] != null
-        ? minSizes[index]
-        : getPanelIsCollapsible(index)
-          ? 0
-          : 5;
-    signature.minSize = minSizeValue;
-
-    if (getPanelIsCollapsible(index)) {
-      signature.collapsible = true;
-    }
-
-    return JSON.stringify(signature);
-  });
-
-  return signatures.sort((a, b) => a.localeCompare(b)).join(',');
-};
+// The key react-resizable-panels stores a layout under when every panel has an
+// `id` prop: the ids, sorted, joined by ",". Mirrors the library's getPanelKey.
+const buildPanelKey = (panelIds: string[]) =>
+  [...panelIds].sort((a, b) => a.localeCompare(b)).join(',');
 
 export function SplitPanel({
   direction,
@@ -316,17 +284,22 @@ export function SplitPanel({
     return map;
   }, [collapsibleConfigs]);
 
-  const constraintsSignature = React.useMemo(() => {
+  // With an autoSaveId the panel ids come from it, not from useId: the library
+  // keys the saved layout by the ids, and useId changes with where the group
+  // sits in the tree (a direct load vs in-app navigation), which stranded every
+  // layout saved on the other path.
+  const panelIdBase = autoSaveId || groupId;
+  const savedPanelKey = React.useMemo(() => {
     if (!autoSaveId) {
       return null;
     }
-    return buildConstraintsSignature(
-      childrenCount,
-      (index) => configByIndex.has(index),
-      minSizes,
-      defaultSizes
+    return buildPanelKey(
+      Array.from(
+        { length: childrenCount },
+        (_, index) => `${panelIdBase}-panel-${index}`
+      )
     );
-  }, [autoSaveId, childrenCount, configByIndex, minSizes, defaultSizes]);
+  }, [autoSaveId, childrenCount, panelIdBase]);
 
   const [uncontrolledCollapsedState, setUncontrolledCollapsedState] =
     React.useState<Record<number, boolean>>(() => {
@@ -575,13 +548,16 @@ export function SplitPanel({
         return null;
       }
 
-      if (constraintsSignature) {
-        const direct = parsed[constraintsSignature];
+      if (savedPanelKey) {
+        const direct = parsed[savedPanelKey];
         if (direct && Array.isArray(direct.layout)) {
           return direct.layout;
         }
       }
 
+      // No entry under the library's key yet: carry over a layout saved under
+      // an older key (before the ids were stable). The library then saves it
+      // under its key, so this runs once.
       const fallbackEntry = Object.values(parsed).find((entry) => {
         if (!entry || typeof entry !== 'object') {
           return false;
@@ -601,18 +577,18 @@ export function SplitPanel({
     }
 
     return null;
-  }, [autoSaveId, constraintsSignature, childrenCount]);
+  }, [autoSaveId, savedPanelKey, childrenCount]);
 
   React.useEffect(() => {
     appliedLayoutKeyRef.current = null;
-  }, [autoSaveId, constraintsSignature, childrenCount]);
+  }, [autoSaveId, savedPanelKey, childrenCount]);
 
   React.useEffect(() => {
     if (!autoSaveId || typeof window === 'undefined') {
       return;
     }
 
-    const signatureKey = constraintsSignature ?? 'unknown';
+    const signatureKey = savedPanelKey ?? 'unknown';
     const appliedKey = `${autoSaveId}:${signatureKey}`;
     if (appliedLayoutKeyRef.current === appliedKey) {
       return;
@@ -654,7 +630,7 @@ export function SplitPanel({
         ref.setLayout(savedLayout);
         logger.debug('[SplitPanel] Applied saved layout', {
           autoSaveId,
-          panelKey: constraintsSignature,
+          panelKey: savedPanelKey,
         });
       }
 
@@ -669,7 +645,7 @@ export function SplitPanel({
         window.cancelAnimationFrame(raf);
       }
     };
-  }, [autoSaveId, constraintsSignature, loadSavedLayout]);
+  }, [autoSaveId, savedPanelKey, loadSavedLayout]);
 
   const getButtonLabel = React.useCallback(
     (index: number, relativePosition: 'leading' | 'trailing') => {
@@ -758,7 +734,7 @@ export function SplitPanel({
               panelRefs.current[index] = el;
             }}
             onResize={(size) => handlePanelResize(size, index)}
-            id={`${groupId}-panel-${index}`}
+            id={`${panelIdBase}-panel-${index}`}
             data-collapsed={collapsedState}
             className={cn(
               'transition-all duration-300 ease-in-out overflow-hidden',
@@ -796,7 +772,7 @@ export function SplitPanel({
                 onClick={() => togglePanel(index)}
                 aria-label={getButtonLabel(index, 'leading')}
                 aria-expanded={!isPanelCollapsed(index)}
-                aria-controls={`${groupId}-panel-${index}`}
+                aria-controls={`${panelIdBase}-panel-${index}`}
                 className={cn(
                   'absolute z-10 flex h-4 w-4 items-center justify-center rounded-sm border bg-background/90 text-xs text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-opacity',
                   gappedHandle &&
@@ -821,7 +797,7 @@ export function SplitPanel({
                 onClick={() => togglePanel(index + 1)}
                 aria-label={getButtonLabel(index + 1, 'trailing')}
                 aria-expanded={!isPanelCollapsed(index + 1)}
-                aria-controls={`${groupId}-panel-${index + 1}`}
+                aria-controls={`${panelIdBase}-panel-${index + 1}`}
                 className={cn(
                   'absolute z-10 flex h-4 w-4 items-center justify-center rounded-sm border bg-background/90 text-xs text-muted-foreground shadow-sm hover:bg-accent hover:text-foreground focus:outline-none focus:ring-1 focus:ring-ring transition-opacity',
                   gappedHandle &&

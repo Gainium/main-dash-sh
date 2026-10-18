@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.101.5] - 2026-10-18
+### Fixed
+- Terminal and bot pages: a resized chart/table divider is restored after a refresh, however the page was opened, instead of returning to the default or to an older saved size.
+
+## [2.101.4] - 2026-10-17
+### Fixed
+- Hedge bots: in the backtest results, a leg's Deals tab keeps the deal header and chart in view and scrolls only the deal list, instead of stretching the chart to the length of the list.
+
 ## [2.101.3] - 2026-10-17
 ### Fixed
 - Hedge bots: a backtest whose leg settings are invalid (for example a base order of 0) now stops before running and names the leg, instead of failing with "Failed to map leg settings" after the run.
