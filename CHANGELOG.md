@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.101.6] - 2026-10-18
+### Changed
+- Hedge bots: the hedge take profit and stop loss tooltips say they apply to each pair's combined P&L, so on a multi-pair hedge a pair closes on its own while the other pairs keep running.
+
 ## [2.101.5] - 2026-10-18
 ### Fixed
 - Terminal and bot pages: a resized chart/table divider is restored after a refresh, however the page was opened, instead of returning to the default or to an older saved size.
