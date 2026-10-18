@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.104.1] - 2026-10-18
+### Fixed
+- Grid bot form (manual mode): pairs whose symbol ends in another quote's name, such as QNT/USD, were read with the wrong assets (QN / TUSD), so the investment field looked for a balance in the wrong currency. The form now uses the pair's own base and quote.
+
 ## [2.104.0] - 2026-10-18
 ### Added
 - Hedge DCA and Hedge Combo bots on spot: Start opens a dialog to choose each leg's start action (use the held balance, buy or sell the difference, buy or sell for all, use the opposite balance), from the bot list, the bot drawer, the edit page and right after creating the bot. With a backend that supports it, each leg shows what the bot would buy or sell at market, the amount kept aside for the virtual entry and the balance it uses, planned for both legs together on the shared account; Start is available once that estimate has loaded, and stays disabled while a leg cannot be funded (the reason is shown). Bulk Start skips these bots and names them, since each one needs its own choice. Futures hedge bots start as before.
