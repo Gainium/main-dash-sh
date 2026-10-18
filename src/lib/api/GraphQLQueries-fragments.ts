@@ -293,6 +293,7 @@ pair
                 useDca
                 hodlAt
                 hodlHourly
+                hodlWeekdays
                 hodlDay
                 hodlNextBuy
                 maxNumberOfOpenDeals
@@ -598,6 +599,7 @@ pair
                 useDca
                 hodlAt
                 hodlHourly
+                hodlWeekdays
                 hodlDay
                 hodlNextBuy
                 maxNumberOfOpenDeals
@@ -850,6 +852,7 @@ pairs
                 useDca
                 hodlAt
                 hodlHourly
+                hodlWeekdays
                 hodlDay
                 hodlNextBuy
                 maxNumberOfOpenDeals

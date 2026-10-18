@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.102.0] - 2026-10-18
+### Added
+- DCA bots with a time-based start can be limited to chosen days of the week ("Open deal on", Mon–Sun, in your profile timezone). A run that falls on an unselected day opens no deal and moves to the next selected day; the execution preview shows the moved date. Selecting every day keeps the previous behaviour. Needs an API that knows `hodlWeekdays`.
+
 ## [2.101.6] - 2026-10-18
 ### Changed
 - Hedge bots: the hedge take profit and stop loss tooltips say they apply to each pair's combined P&L, so on a multi-pair hedge a pair closes on its own while the other pairs keep running.

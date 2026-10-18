@@ -379,6 +379,7 @@ export const mapBasicFields = (formData: BotFormData): FieldMappingResult => {
     ? formData.combo.hodlHourly
     : formData.dca.hodlHourly;
   const hodlAt = isComboBot ? formData.combo.hodlAt : formData.dca.hodlAt;
+  const hodlWeekdays = isComboBot ? undefined : formData.dca.hodlWeekdays;
   const hodlNextBuy = isComboBot
     ? formData.combo.hodlNextBuy
     : formData.dca.hodlNextBuy;
@@ -471,6 +472,7 @@ export const mapBasicFields = (formData: BotFormData): FieldMappingResult => {
         | 'useLimitTimeout'
         | 'hodlDay'
         | 'hodlHourly'
+        | 'hodlWeekdays'
         | 'hodlAt'
         | 'hodlNextBuy'
         | 'terminalDealType'
@@ -571,6 +573,14 @@ export const mapBasicFields = (formData: BotFormData): FieldMappingResult => {
 
     if (resolvedStartCondition === StartConditionEnum.timer) {
       fieldsProcessed.push('hodlDay', 'hodlHourly', 'hodlAt', 'hodlNextBuy');
+
+      // always sent for a DCA timer, so clearing every day is saved too
+      if (!isComboBot) {
+        basicFields['hodlWeekdays'] = Array.isArray(hodlWeekdays)
+          ? [...hodlWeekdays]
+          : [];
+        fieldsMapped.push('hodlWeekdays');
+      }
 
       const parsedInterval = parseFloat(hodlDay);
       if (!hodlDay || Number.isNaN(parsedInterval) || parsedInterval <= 0) {

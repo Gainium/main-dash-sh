@@ -236,6 +236,58 @@ const toLocalDateTimeInputValue = (date: Date): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
 };
 
+/** Timer weekdays, Monday first; values are JS weekdays (0 = Sunday). */
+const TIMER_WEEKDAYS = [
+  { value: 1, label: 'Mon' },
+  { value: 2, label: 'Tue' },
+  { value: 3, label: 'Wed' },
+  { value: 4, label: 'Thu' },
+  { value: 5, label: 'Fri' },
+  { value: 6, label: 'Sat' },
+  { value: 0, label: 'Sun' },
+];
+
+/** The days a timer may run on; an empty setting means every day. */
+const selectedTimerWeekdays = (weekdays?: number[] | null): number[] => {
+  const days = (weekdays ?? []).filter((d) => d >= 0 && d <= 6);
+  return days.length ? days : TIMER_WEEKDAYS.map((d) => d.value);
+};
+
+/** Toggles one day; all seven is stored as empty (every day). */
+const toggleTimerWeekday = (days: number[], day: number): number[] => {
+  const next = days.includes(day)
+    ? days.filter((d) => d !== day)
+    : [...days, day];
+  return next.length === 7 ? [] : [...next].sort((a, b) => a - b);
+};
+
+/**
+ * The run the bot actually makes for `nextBuy`: the same, or the first one
+ * after it on a selected weekday (a daily timer's date is read as a UTC date,
+ * an hourly one in the profile timezone — as the bot engine reads them).
+ */
+const shiftNextBuyToWeekday = (
+  nextBuy: number,
+  hourly: boolean,
+  timeZone: string,
+  days: number[]
+): number => {
+  const weekday = (t: number) =>
+    hourly
+      ? ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(
+          new Date(t).toLocaleDateString('en-US', {
+            timeZone,
+            weekday: 'short',
+          })
+        )
+      : new Date(t).getUTCDay();
+  let next = nextBuy;
+  for (let i = 0; i < 7 * 24 && !days.includes(weekday(next)); i++) {
+    next += hourly ? 3600e3 : 86400e3;
+  }
+  return next;
+};
+
 // Daily timers: the bot engine reads only the UTC calendar date of
 // hodlNextBuy and runs at hodlAt in the user's profile timezone. So the
 // date is stored at UTC noon and shown/edited as a plain date — reading it
@@ -431,6 +483,7 @@ export const DealStartSettings: React.FC = () => {
   const hodlDay = useBotFormSelector('hodlDay');
   const hodlAt = useBotFormSelector('hodlAt');
   const hodlHourly = useBotFormSelector('hodlHourly');
+  const hodlWeekdays = useBotFormSelector('hodlWeekdays');
   const startDealLogic = useBotFormSelector('startDealLogic');
   const maxNumberOfOpenDeals = useBotFormSelector('maxNumberOfOpenDeals');
   const pairPrioritization = useBotFormSelector('pairPrioritization');
@@ -1032,19 +1085,34 @@ export const DealStartSettings: React.FC = () => {
 
     let nextRun: string | null = null;
     if (hodlNextBuy && !Number.isNaN(new Date(hodlNextBuy).getTime())) {
+      // the bot moves a run on an unselected weekday to the next selected one
+      const next = shiftNextBuyToWeekday(
+        hodlNextBuy,
+        isHourly,
+        timezone,
+        selectedTimerWeekdays(hodlWeekdays)
+      );
       nextRun = isHourly
-        ? `${new Date(hodlNextBuy).toLocaleString()} (${timezone} timezone)`
-        : `${nextBuyToDateValue(hodlNextBuy)} ${hodlAt} (${timezone} timezone)`;
+        ? `${new Date(next).toLocaleString()} (${timezone} timezone)`
+        : `${nextBuyToDateValue(next)} ${hodlAt} (${timezone} timezone)`;
     }
 
     const nextRunText = nextRun
       ? `Next deal will start on ${nextRun}.`
       : 'Next deal timing will be determined after saving the bot.';
 
+    const days = selectedTimerWeekdays(hodlWeekdays);
+    const daysText =
+      days.length < 7
+        ? ` Only on ${TIMER_WEEKDAYS.filter((d) => days.includes(d.value))
+            .map((d) => d.label)
+            .join(', ')}; a run on another day moves to the next of these.`
+        : '';
+
     return {
-      message: `${introWithTime} ${nextRunText}`,
+      message: `${introWithTime}${daysText} ${nextRunText}`,
     };
-  }, [hodlAt, hodlDay, hodlHourly, hodlNextBuy, timezone]);
+  }, [hodlAt, hodlDay, hodlHourly, hodlNextBuy, hodlWeekdays, timezone]);
 
   const isTerminal = useMemo(() => !!formTerminal, [formTerminal]);
 
@@ -1169,6 +1237,43 @@ export const DealStartSettings: React.FC = () => {
                           ))}
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div className="space-y-xs">
+                      <Label>Open deal on</Label>
+                      <div
+                        className="flex flex-wrap gap-xs"
+                        role="group"
+                        aria-label="Open deal on"
+                      >
+                        {TIMER_WEEKDAYS.map((day) => {
+                          const days = selectedTimerWeekdays(hodlWeekdays);
+                          const active = days.includes(day.value);
+                          return (
+                            <Button
+                              key={day.value}
+                              type="button"
+                              size="sm"
+                              variant={active ? 'default' : 'outline'}
+                              aria-pressed={active}
+                              disabled={active && days.length === 1}
+                              onClick={() =>
+                                updateFormData(
+                                  'hodlWeekdays',
+                                  toggleTimerWeekday(days, day.value)
+                                )
+                              }
+                            >
+                              {day.label}
+                            </Button>
+                          );
+                        })}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Days of the week the bot may open deals, in your
+                        profile timezone ({timezone}). A run on an unselected
+                        day moves to the next selected one.
+                      </p>
                     </div>
 
                     <div className="space-y-xs">

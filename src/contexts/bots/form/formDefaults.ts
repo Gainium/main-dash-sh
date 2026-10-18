@@ -195,6 +195,7 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   baseOrderPrice: '0',
   useLimitPrice: false,
   hodlHourly: false,
+  hodlWeekdays: [],
   notUseLimitReposition: false,
   stopStatus: 'closed',
   terminalDealType: TerminalDealTypeEnum.smart,

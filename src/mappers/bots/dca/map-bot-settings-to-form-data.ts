@@ -483,6 +483,13 @@ export const mapBotSettingsToFormData = (
     return '00:00';
   };
 
+  const normalizeHodlWeekdays = (raw: unknown): number[] =>
+    Array.isArray(raw)
+      ? [...new Set(raw.map(Number))]
+          .filter((d) => Number.isInteger(d) && d >= 0 && d <= 6)
+          .sort((a, b) => a - b)
+      : [];
+
   const normalizeNextBuy = (raw: unknown): number => {
     if (typeof raw === 'number' && Number.isFinite(raw) && raw > 0) {
       return raw;
@@ -1011,6 +1018,7 @@ export const mapBotSettingsToFormData = (
     ),
     hodlDay: getString('hodlDay', '7'),
     hodlHourly: getBoolean('hodlHourly', false),
+    hodlWeekdays: normalizeHodlWeekdays(getValue('hodlWeekdays', [])),
     hodlAt: normalizeHodlAt(getValue('hodlAt', '')),
     hodlNextBuy: normalizeNextBuy(getValue('hodlNextBuy', '')),
     useStaticPriceFilter: getBoolean('useStaticPriceFilter', false),

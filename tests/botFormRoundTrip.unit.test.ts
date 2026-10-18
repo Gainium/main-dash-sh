@@ -153,6 +153,7 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   tpSlAction: 'close',
   slAction: 'close',
   hodlAt: '18:30',
+  hodlWeekdays: [1, 3, 5],
   name: 'Round Trip Probe',
   pair: ['ETHUSDT'],
   // 'gt' appears in several enums; the generic sibling lookup picks the wrong
@@ -507,6 +508,7 @@ const VERDICT: Record<string, string> = {
   hodlDay: 'gated:scheduled start condition — guard read, not executed',
   hodlHourly: 'gated:scheduled start condition — guard read, not executed',
   hodlNextBuy: 'gated:scheduled start condition — guard read, not executed',
+  hodlWeekdays: 'gated:scheduled start condition (DCA only) — guard read, not executed',
   gridLevel: 'gated:combo/smart-grid bot — guard read, not executed',
   baseStep: 'gated:combo/smart-grid bot — guard read, not executed',
   baseGridLevels: 'gated:combo/smart-grid bot — guard read, not executed',
@@ -532,7 +534,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'comboSmartGridsCount', 'comboTpBase', 'comboTpLimit', 'comboUseSmartGrids',
     'dcaCustom', 'dynamicArLockValue', 'dynamicPriceFilterOverValue',
     'fixedSlPrice', 'fixedTpPrice', 'gridLevel', 'hodlAt', 'hodlDay',
-    'hodlHourly', 'hodlNextBuy', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal',
+    'hodlHourly', 'hodlNextBuy', 'hodlWeekdays', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal',
     'minOpenDeal', 'multiSl', 'multiTp', 'relativeVolumeTop', 'riskMaxPositionSize',
     'riskMaxSl', 'riskMinPositionSize', 'riskMinSl', 'riskSlAmountPerc',
     'riskSlAmountValue', 'riskSlType', 'riskTpRatio', 'riskUseTpRatio',
@@ -545,7 +547,7 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
     'avgPrice', 'baseOrderPrice', 'closeDealType', 'comboSmartGridsCount',
     'dcaCustom', 'dynamicArLockValue', 'dynamicPriceFilterOverValue',
     'fixedSlPrice', 'fixedTpPrice', 'hodlAt', 'hodlDay', 'hodlHourly',
-    'hodlNextBuy', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal', 'minOpenDeal',
+    'hodlNextBuy', 'hodlWeekdays', 'ignoreStartDeals', 'importFrom', 'maxOpenDeal', 'minOpenDeal',
     'multiSl', 'multiTp', 'relativeVolumeTop', 'remainderFullAmount',
     'riskMaxPositionSize', 'riskMaxSl', 'riskMinPositionSize', 'riskMinSl',
     'riskSlAmountPerc', 'riskSlAmountValue', 'riskSlType', 'riskTpRatio',
@@ -569,10 +571,13 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
   // gate is on (useMultiTp/useMultiSl, dcaCondition=custom). All nine are
   // absent because this baseline leaves them unset, not because they cannot be
   // sent: each is probed with a fixture in the round-trip test above.
+  // hodlWeekdays is sent only with the Timer start condition, which this
+  // baseline does not use.
   dca: [
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
+    'hodlWeekdays',
     'maxOpenDeal',
     'minOpenDeal',
     'multiSl',
@@ -586,6 +591,7 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
+    'hodlWeekdays',
     'maxOpenDeal',
     'minOpenDeal',
     'multiSl',
