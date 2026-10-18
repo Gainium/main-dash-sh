@@ -111,6 +111,7 @@ import {
 } from '@/features/bots/actions/botActions';
 import { HedgeStartDialog } from '@/features/bots/shared/runtime/dialogs/HedgeStartDialog';
 import { isSpotHedge } from '@/lib/baseFunding/hedgeFunding';
+import { useBaseFundingAccess } from '@/hooks/useBaseFundingAccess';
 import { botKindFromType, formBotRef } from '@/features/bots/actions/botRef';
 import { useShortcutStore } from '@/stores/shortcutStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -1146,6 +1147,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     form: HEDGE_FORM_CONTEXT[mode === 'edit' ? 'edit' : 'create'],
   });
   const togglingStatus = hedgeActions.statusPending;
+  const baseFundingAccess = useBaseFundingAccess();
   const changeHedgeStatus = hedgeActions.changeStatus;
   const runHedgeAction = hedgeActions.run;
   const [showCelebration, setShowCelebration] = useState(false);
@@ -1223,12 +1225,12 @@ export const HedgeBotEditLayout: React.FC = () => {
   const handleHedgeCelebrationStartBot = useCallback(() => {
     if (!createdBotId) return;
     celebrationActionRef.current = true;
-    if (createdHedge && isSpotHedge(createdHedge)) {
+    if (baseFundingAccess && createdHedge && isSpotHedge(createdHedge)) {
       setCreatedStart({ id: createdBotId, hedge: createdHedge });
       return;
     }
     startCreatedHedge(createdBotId);
-  }, [createdBotId, createdHedge, startCreatedHedge]);
+  }, [createdBotId, createdHedge, startCreatedHedge, baseFundingAccess]);
 
   const handleCreatedStartOpenChange = useCallback(
     (open: boolean) => {
@@ -1282,7 +1284,8 @@ export const HedgeBotEditLayout: React.FC = () => {
       // A spot hedge starts through the hedge start dialog (per-leg action).
       if (
         payload.nextStatus === 'open' &&
-        chooseStatusDialog(hedgeBotRef, 'form') === 'hedgeStart'
+        // The runner's ref: spot only with base funding access.
+        chooseStatusDialog(hedgeActions.bot, 'form') === 'hedgeStart'
       ) {
         runHedgeAction('start');
         return;
@@ -1294,7 +1297,7 @@ export const HedgeBotEditLayout: React.FC = () => {
           : {}),
       });
     },
-    [hedgeBotRef, hedgeBot, changeHedgeStatus, runHedgeAction]
+    [hedgeBotRef, hedgeBot, changeHedgeStatus, runHedgeAction, hedgeActions.bot]
   );
 
   // The unified footer is the regular BotFormFooter rendered by each leg's

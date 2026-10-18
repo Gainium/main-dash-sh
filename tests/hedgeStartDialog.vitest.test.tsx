@@ -29,6 +29,12 @@ const captured = vi.hoisted(() => ({
   calls: [] as Array<{ mutation: string; type?: string; input: Record<string, unknown> }>,
   requests: [] as Array<{ query: string; variables: Record<string, unknown> }>,
   respond: (() => ({})) as (variables: Record<string, unknown>) => unknown,
+  /** Base funding access for the session user (beta gate). */
+  access: true,
+}));
+
+vi.mock('../src/hooks/useBaseFundingAccess', () => ({
+  useBaseFundingAccess: () => captured.access,
 }));
 
 vi.mock('../src/hooks/useBotMutations', () => {
@@ -85,6 +91,7 @@ vi.mock('../src/helper/price', () => {
 
 import { useBotActions } from '../src/hooks/useBotActions';
 import { useBulkBotRunner } from '../src/hooks/useBulkBotRunner';
+import { useBaseFundingSettings, useFundingPreview } from '../src/hooks/useBaseFunding';
 import { toast } from '../src/lib/toast';
 import type { BotRef } from '../src/features/bots/actions/botActions';
 import { toBotRef } from '../src/features/bots/actions/botRef';
@@ -100,7 +107,13 @@ import {
   createDCAOrders,
   defaultContext,
 } from '../src/utils/bots/dca/example-orders-core';
-import { ActionsEnum, BotTypesEnum, DCAOrderTypeEnum, StrategyEnum } from '../src/types';
+import {
+  ActionsEnum,
+  BaseFundingEnum,
+  BotTypesEnum,
+  DCAOrderTypeEnum,
+  StrategyEnum,
+} from '../src/types';
 
 beforeAll(() => {
   if (!('ResizeObserver' in globalThis)) {
@@ -113,6 +126,7 @@ beforeAll(() => {
 });
 
 afterEach(() => {
+  captured.access = true;
   cleanup();
   resetHedgeFundingFieldSupport();
   vi.mocked(toast.info).mockClear();
@@ -607,5 +621,82 @@ describe('ForAll legs (fix round 3)', () => {
     const short = screen.getByTestId(`hedge-start-leg-${StrategyEnum.short}`);
     expect(long.textContent).not.toContain('Held used');
     expect(short.textContent).toContain('Held used');
+  });
+});
+
+describe('without base funding access (beta gate)', () => {
+  it('a spot hedge starts as before: confirmation modal, no dialog, no hedgeConfig', () => {
+    captured.access = false;
+    const { result } = renderHook(
+      () => useBotActions(toBotRef(hedge('binance'), 'hedgeDca')),
+      { wrapper: routerWrapper }
+    );
+    act(() => result.current.run('start'));
+    expect(result.current.modalProps.statusModalOpen).toBe(true);
+    expect(result.current.modalProps.hedgeStart).toBeUndefined();
+    act(() => result.current.modalProps.onConfirmStatusChange());
+    expect(statusCalls()).toEqual([
+      {
+        mutation: 'changeStatus',
+        type: BotTypesEnum.hedgeDca,
+        input: { id: 'hedge-1', status: 'open' },
+      },
+    ]);
+  });
+
+  it('bulk start does not skip spot hedge bots', () => {
+    captured.access = false;
+    const spot = toBotRef(hedge('binance'), 'hedgeDca', { name: 'Spot hedge' });
+    const { result } = renderHook(() => useBulkBotRunner<BotRef>((b) => b), {
+      wrapper: routerWrapper,
+    });
+    act(() => result.current.bulkActions.find((a) => a.id === 'start')?.onAction([spot]));
+    render(createElement(MemoryRouter, null, result.current.dialogs));
+    expect(vi.mocked(toast.info)).not.toHaveBeenCalled();
+    expect(screen.queryByRole('dialog')).not.toBeNull();
+  });
+
+  it('base funding settings read as an API without them, and no preview is asked', async () => {
+    captured.access = false;
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children);
+    const { result } = renderHook(
+      () => ({
+        settings: useBaseFundingSettings('bot-1', 'dca'),
+        preview: useFundingPreview({
+          exchangeUUID: 'acc-1',
+          exchange: 'binance',
+          pair: 'BTCUSDT',
+          mode: BaseFundingEnum.auto,
+          baseOrderQty: 1,
+          safetyQty: 2,
+          price: 100,
+        }),
+      }),
+      { wrapper }
+    );
+    await new Promise((r) => setTimeout(r, 50));
+    expect(result.current.settings.backend).toBe('old');
+    expect(result.current.settings.settings).toBeUndefined();
+    expect(result.current.preview.preview).toBeNull();
+    expect(captured.requests).toEqual([]);
+  });
+
+  it('with access the same hooks ask the API', async () => {
+    captured.access = true;
+    captured.respond = () => ({
+      settings: {
+        data: {
+          settings: { baseFunding: 'auto', orderSize: '1', orderSizeType: 'base', volumeScale: '1' },
+        },
+      },
+    });
+    const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    const wrapper = ({ children }: { children: ReactNode }) =>
+      createElement(QueryClientProvider, { client }, children);
+    const { result } = renderHook(() => useBaseFundingSettings('bot-1', 'dca'), { wrapper });
+    await waitFor(() => expect(result.current.backend).toBe('new'));
+    expect(result.current.settings?.baseFunding).toBe(BaseFundingEnum.auto);
   });
 });

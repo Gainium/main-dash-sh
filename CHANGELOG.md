@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.105.0] - 2026-10-18
+### Changed
+- Base funding (the Base funding setting, the funding estimates on the capital chip and in Change DCA levels, and the hedge start dialog for spot hedge bots) is shown only to accounts the backend enables it for, through a new `baseFundingAccess` query. For other accounts, and with an API that predates the query, the dashboard behaves as before these features: spot hedge bots start without the dialog, including from bulk Start.
+
 ## [2.104.1] - 2026-10-18
 ### Fixed
 - Grid bot form (manual mode): pairs whose symbol ends in another quote's name, such as QNT/USD, were read with the wrong assets (QN / TUSD), so the investment field looked for a balance in the wrong currency. The form now uses the pair's own base and quote.

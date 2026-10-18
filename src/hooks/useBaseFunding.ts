@@ -3,6 +3,7 @@
 // travels in its own document).
 import { useQuery } from '@tanstack/react-query';
 
+import { useBaseFundingAccess } from '@/hooks/useBaseFundingAccess';
 import { useSinglePositionClient } from '@/hooks/useSinglePosition';
 import {
   fetchBaseFundingSettings,
@@ -37,9 +38,12 @@ export function useBaseFundingSettings(
   fresh = false
 ): UseBaseFundingSettingsResult {
   const { make, enabled, paperContext } = useSinglePositionClient();
+  // Without access the setting does not exist for this user: reported as an
+  // API without it, so every surface hides it and never sends it.
+  const access = useBaseFundingAccess();
   const q = useQuery({
     queryKey: [BASE_FUNDING_QUERY_KEY, paperContext, kind, botId ?? ''],
-    enabled: enabled && active,
+    enabled: enabled && active && access,
     retry: false,
     staleTime: !botId ? Infinity : fresh ? 0 : 30_000,
     ...(fresh
@@ -47,6 +51,7 @@ export function useBaseFundingSettings(
       : {}),
     queryFn: () => fetchBaseFundingSettings(make(), botId, kind),
   });
+  if (!access) return { backend: 'old', settings: undefined, isFetching: false };
   return {
     backend: q.data?.backend ?? 'unknown',
     settings: q.data?.settings,
@@ -74,7 +79,9 @@ export function useFundingPreview(input: PreviewFundingInput | null): {
   isFetching: boolean;
 } {
   const { make, enabled, paperContext } = useSinglePositionClient();
+  const access = useBaseFundingAccess();
   const valid =
+    access &&
     !!input &&
     !!input.exchangeUUID &&
     !!input.pair &&

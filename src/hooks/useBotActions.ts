@@ -7,6 +7,7 @@ import { isReadOnly } from '@/lib/demoMode';
 import { IS_CLOUD } from '@/config/mode';
 import { stageDuplicateToOtherMode } from '@/hooks/useBotConfigPreload';
 import { usePaperContext } from '@/hooks/usePaperContext';
+import { useBaseFundingAccess } from '@/hooks/useBaseFundingAccess';
 import { useUIStore } from '@/stores/uiStore';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -210,15 +211,21 @@ export function useBotActions(
   const [reverseModalOpen, setReverseModalOpen] = useState(false);
   const [hedgeStartOpen, setHedgeStartOpen] = useState(false);
 
+  // Without base funding access a spot hedge starts as it always did (no
+  // hedge start dialog): the ref is resolved as a plain hedge.
+  const baseFundingAccess = useBaseFundingAccess();
+
   // Bots listed on a page always belong to the current trading mode, which
   // is what "Duplicate to live/paper" switches away from.
-  const bot = useMemo<BotRef>(
-    () =>
+  const bot = useMemo<BotRef>(() => {
+    const moded =
       inputBot.paper === isPaperTrading
         ? inputBot
-        : { ...inputBot, paper: isPaperTrading },
-    [inputBot, isPaperTrading]
-  );
+        : { ...inputBot, paper: isPaperTrading };
+    return moded.hedge?.spot && !baseFundingAccess
+      ? { ...moded, hedge: { spot: false } }
+      : moded;
+  }, [inputBot, isPaperTrading, baseFundingAccess]);
 
   const statusPending = statusToggleMutation.isPending;
   const restartPending = restartMutation.isPending;

@@ -12,6 +12,7 @@ import {
   type BotRef,
 } from '@/features/bots/actions/botActions';
 import { isReadOnly } from '@/lib/demoMode';
+import { useBaseFundingAccess } from '@/hooks/useBaseFundingAccess';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import {
@@ -96,6 +97,12 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
   const remove = useBotDelete().mutateAsync;
   const archive = useBotArchive().mutateAsync;
 
+  // Spot hedges are skipped only where they start through the hedge start
+  // dialog (base funding access); otherwise bulk start sends them as before.
+  const baseFundingAccess = useBaseFundingAccess();
+  const accessRef = useRef(baseFundingAccess);
+  accessRef.current = baseFundingAccess;
+
   const [pending, setPending] = useState<PendingBulk | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -113,7 +120,7 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
     let targets = bulkTargets(id, bots);
     // A hedge bot with a spot leg starts with a per-leg funding action chosen
     // in its own start dialog; a bulk start would send none. Skip it, by name.
-    if (id === 'start') {
+    if (id === 'start' && accessRef.current) {
       const dialogOnly = targets.filter(
         (bot) => chooseStatusDialog(bot, 'confirm') === 'hedgeStart'
       );
