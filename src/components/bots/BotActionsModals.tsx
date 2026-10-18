@@ -9,6 +9,7 @@ import { getTargetStatus } from '@/utils/botStatusUtils';
 import { BotTypesEnum } from '@/types';
 import type { BotActionsModalProps } from '@/hooks/useBotActions';
 import { ReverseBotDialog } from '@/features/bots/actions/reverse/ReverseBotDialog';
+import { HedgeStartDialog } from '@/features/bots/shared/runtime/dialogs/HedgeStartDialog';
 
 /**
  * The three confirmation/feedback modals every bot surface needs, driven
@@ -50,6 +51,7 @@ export const BotActionsModals: React.FC<BotActionsModalProps> = ({
   onSuccessModalOpenChange,
   successType,
   successNewItemId,
+  hedgeStart,
   reverse,
 }) => {
   const isGrid = botType === BotTypesEnum.grid;
@@ -106,6 +108,18 @@ export const BotActionsModals: React.FC<BotActionsModalProps> = ({
             : undefined
         }
       />
+
+      {hedgeStart?.open && (
+        <HedgeStartDialog
+          open={hedgeStart.open}
+          onOpenChange={hedgeStart.onOpenChange}
+          botName={botName}
+          combo={hedgeStart.combo}
+          hedge={hedgeStart.hedge}
+          onConfirm={hedgeStart.onConfirm}
+          isProcessing={statusPending}
+        />
+      )}
 
       {reverse?.open && (
         <ReverseBotDialog

@@ -55,6 +55,14 @@ vi.mock('../src/features/bots/widgets/BotForm/hooks/useMergeSmartOrders', () => 
   useMergeSmartOrders: () => ({ mutateAsync: record('mergeDeals') }),
 }));
 
+// Base funding's settings read (react-query); no query client here.
+vi.mock('../src/hooks/useBaseFunding', () => ({
+  useBaseFundingSettings: () => ({
+    backend: 'unknown',
+    settings: undefined,
+    isFetching: false,
+  }),
+}));
 vi.mock('../src/components/deals/actions/useBulkAdjustFunds', () => ({
   useBulkAdjustFunds: () => ({ open: vi.fn(), dialog: null }),
 }));

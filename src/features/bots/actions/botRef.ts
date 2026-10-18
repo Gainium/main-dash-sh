@@ -8,6 +8,7 @@
 import { PositionSide, StrategyEnum } from '@/types';
 import { isBotActive, isBotArchived } from '@/utils/botStatusUtils';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
+import { isSpotHedge } from '@/lib/baseFunding/hedgeFunding';
 
 import type {
   BotKind,
@@ -136,6 +137,7 @@ export function toBotRef(
     ...(kind === 'dca' || kind === 'combo'
       ? { reverse: reverseContext(shape) }
       : {}),
+    ...(isHedge ? { hedge: { spot: isSpotHedge(shape) } } : {}),
     raw: bot,
   };
 }

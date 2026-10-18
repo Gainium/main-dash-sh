@@ -23,6 +23,7 @@ import {
   type VarBindingPath,
 } from '@/hooks/bots/global-variables/useBotVarBinding';
 import { BotTypesEnum, StrategyEnum } from '@/types';
+import { useBaseFundingState } from '@/features/bots/shared/sections/useBaseFundingState';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
 
@@ -125,6 +126,7 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
   );
   const strategy = useBotFormSelector('strategy');
   const futures = useBotFormSelector('futures');
+  const { active: baseFundingActive } = useBaseFundingState();
   const coinm = useBotFormSelector('coinm');
   const orderSizeType = useBotFormSelector('orderSizeType');
   const baseOrderSize = useBotFormSelector('baseOrderSize');
@@ -459,7 +461,9 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
             // false "exceeds available balance" error on the hedge-combo edit
             // form (forum #4921 / bug #94). Skip the wallet-based cap for
             // futures; the balance still displays.
-            disableBalanceValidation={Boolean(futures)}
+            // With base funding on, a short spot deal does not need the
+            // base coin in the account (main-app spec 044).
+            disableBalanceValidation={Boolean(futures) || baseFundingActive}
             errorField={errorField}
             navId={navId}
             endAdornment={

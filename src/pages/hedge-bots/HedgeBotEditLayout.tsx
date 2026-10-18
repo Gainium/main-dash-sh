@@ -105,9 +105,12 @@ import {
 import { useBotActions } from '@/hooks/useBotActions';
 import {
   buildSurfaceItems,
+  chooseStatusDialog,
   type BotActionId,
   type BotFormActionContext,
 } from '@/features/bots/actions/botActions';
+import { HedgeStartDialog } from '@/features/bots/shared/runtime/dialogs/HedgeStartDialog';
+import { isSpotHedge } from '@/lib/baseFunding/hedgeFunding';
 import { botKindFromType, formBotRef } from '@/features/bots/actions/botRef';
 import { useShortcutStore } from '@/stores/shortcutStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -115,6 +118,7 @@ import {
   BotTypesEnum,
   CloseDCATypeEnum,
   ComboTpBase,
+  type ActionsEnum,
   ExchangeIntervals,
   StrategyEnum,
   type BotVars,
@@ -1066,6 +1070,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       const newBotId = payload.data?._id;
       if (mode === 'create' && newBotId) {
         setCreatedBotId(newBotId);
+        setCreatedHedge(payload.data);
         setShowCelebration(true);
       } else if (mode === 'edit') {
         // Refetch first so the mapped longInitialFormData /
@@ -1145,6 +1150,12 @@ export const HedgeBotEditLayout: React.FC = () => {
   const runHedgeAction = hedgeActions.run;
   const [showCelebration, setShowCelebration] = useState(false);
   const [createdBotId, setCreatedBotId] = useState<string | undefined>();
+  // The hedge just created (create mode): a spot one starts through the
+  // hedge start dialog, like a saved one does.
+  const [createdHedge, setCreatedHedge] = useState<HedgeBot | undefined>();
+  const [createdStart, setCreatedStart] = useState<
+    { id: string; hedge: HedgeBot } | undefined
+  >();
 
   // Set by the dialog's buttons so the onClose that Celebration fires right
   // after them doesn't override their navigation with the edit page.
@@ -1158,52 +1169,86 @@ export const HedgeBotEditLayout: React.FC = () => {
     [botType]
   );
 
+  // Fire-and-forget: navigate immediately, let the start mutation resolve in
+  // the background. Matches the DCA/Combo/Grid pattern in BotForm/index.tsx →
+  // handleCelebrationStartBot.
+  const startCreatedHedge = useCallback(
+    (
+      idToStart: string,
+      hedgeConfig?: { [x in StrategyEnum]: ActionsEnum }
+    ) => {
+      (async () => {
+        if (!tokens?.accessToken) {
+          toast.error('Not authenticated.');
+          return;
+        }
+        try {
+          const endpoint =
+            import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
+          const config = getGraphQLConfig(tokens, isLiveTrading);
+          const client = new GraphQLClient(
+            endpoint,
+            config.token,
+            config.paperContext
+          );
+          const { query, variables } = otherQueries.changeStatus({
+            id: idToStart,
+            status: 'open',
+            type: botType,
+            ...(hedgeConfig ? { hedgeConfig } : {}),
+          });
+          const response = await client.request<{
+            changeStatus: { status: string; reason?: string };
+          }>(query, variables);
+          if (response.changeStatus.status !== 'OK') {
+            throw new Error(
+              response.changeStatus.reason || 'Failed to start hedge bot'
+            );
+          }
+          toast.success('Hedge bot started');
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error);
+          logger.error('[HedgeBotEditLayout] Post-create start failed', {
+            error: message,
+          });
+          toast.error(`Failed to start hedge bot: ${message}`);
+        }
+      })();
+      // `{base}/view/:id` is the list page with the bot open in its sidebar.
+      navigate(buildBotViewRoute(botType, idToStart));
+    },
+    [botType, tokens, isLiveTrading, navigate]
+  );
+
   const handleHedgeCelebrationStartBot = useCallback(() => {
     if (!createdBotId) return;
     celebrationActionRef.current = true;
-    const idToStart = createdBotId;
-    // Fire-and-forget: navigate immediately, let the start mutation
-    // resolve in the background. Matches the DCA/Combo/Grid pattern in
-    // BotForm/index.tsx → handleCelebrationStartBot.
-    (async () => {
-      if (!tokens?.accessToken) {
-        toast.error('Not authenticated.');
-        return;
-      }
-      try {
-        const endpoint =
-          import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
-        const config = getGraphQLConfig(tokens, isLiveTrading);
-        const client = new GraphQLClient(
-          endpoint,
-          config.token,
-          config.paperContext
-        );
-        const { query, variables } = otherQueries.changeStatus({
-          id: idToStart,
-          status: 'open',
-          type: botType,
-        });
-        const response = await client.request<{
-          changeStatus: { status: string; reason?: string };
-        }>(query, variables);
-        if (response.changeStatus.status !== 'OK') {
-          throw new Error(
-            response.changeStatus.reason || 'Failed to start hedge bot'
-          );
-        }
-        toast.success('Hedge bot started');
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        logger.error('[HedgeBotEditLayout] Post-create start failed', {
-          error: message,
-        });
-        toast.error(`Failed to start hedge bot: ${message}`);
-      }
-    })();
-    // `{base}/view/:id` is the list page with the bot open in its sidebar.
-    navigate(buildBotViewRoute(botType, idToStart));
-  }, [createdBotId, botType, tokens, isLiveTrading, navigate]);
+    if (createdHedge && isSpotHedge(createdHedge)) {
+      setCreatedStart({ id: createdBotId, hedge: createdHedge });
+      return;
+    }
+    startCreatedHedge(createdBotId);
+  }, [createdBotId, createdHedge, startCreatedHedge]);
+
+  const handleCreatedStartOpenChange = useCallback(
+    (open: boolean) => {
+      if (open || !createdStart) return;
+      // Dismissed without starting: the new bot's edit page, as when the
+      // celebration itself is dismissed.
+      setCreatedStart(undefined);
+      navigate(buildHedgeEditPath(createdStart.id));
+    },
+    [createdStart, navigate, buildHedgeEditPath]
+  );
+
+  const handleCreatedStartConfirm = useCallback(
+    (hedgeConfig: { [x in StrategyEnum]: ActionsEnum }) => {
+      if (!createdStart) return;
+      setCreatedStart(undefined);
+      startCreatedHedge(createdStart.id, hedgeConfig);
+    },
+    [createdStart, startCreatedHedge]
+  );
 
   const handleHedgeCelebrationAllBots = useCallback(() => {
     celebrationActionRef.current = true;
@@ -1226,11 +1271,20 @@ export const HedgeBotEditLayout: React.FC = () => {
       navigate(buildHedgeEditPath(createdBotId));
     }
     setCreatedBotId(undefined);
+    setCreatedHedge(undefined);
   }, [createdBotId, navigate, buildHedgeEditPath]);
   const handleHedgeToggleStatus = useCallback(
     (payload: { nextStatus: string; closeType?: string }) => {
       if (!hedgeBotRef.id || !hedgeBot) {
         toast.error('Hedge bot context is missing.');
+        return;
+      }
+      // A spot hedge starts through the hedge start dialog (per-leg action).
+      if (
+        payload.nextStatus === 'open' &&
+        chooseStatusDialog(hedgeBotRef, 'form') === 'hedgeStart'
+      ) {
+        runHedgeAction('start');
         return;
       }
       changeHedgeStatus({
@@ -1240,7 +1294,7 @@ export const HedgeBotEditLayout: React.FC = () => {
           : {}),
       });
     },
-    [hedgeBotRef.id, hedgeBot, changeHedgeStatus]
+    [hedgeBotRef, hedgeBot, changeHedgeStatus, runHedgeAction]
   );
 
   // The unified footer is the regular BotFormFooter rendered by each leg's
@@ -2518,6 +2572,34 @@ export const HedgeBotEditLayout: React.FC = () => {
         variant="destructive"
         onConfirm={handleHedgeReset}
       />
+
+      {hedgeActions.modalProps.hedgeStart?.open && (
+        <HedgeStartDialog
+          open
+          onOpenChange={hedgeActions.modalProps.hedgeStart.onOpenChange}
+          botName={hedgeActions.modalProps.botName}
+          combo={hedgeActions.modalProps.hedgeStart.combo}
+          hedge={hedgeActions.modalProps.hedgeStart.hedge}
+          onConfirm={hedgeActions.modalProps.hedgeStart.onConfirm}
+          isProcessing={togglingStatus}
+        />
+      )}
+
+      {createdStart && (
+        <HedgeStartDialog
+          open
+          onOpenChange={handleCreatedStartOpenChange}
+          botName={formBotRef({
+            bot: createdStart.hedge,
+            kind: botKindFromType(botType),
+            mode: 'edit',
+            botId: createdStart.id,
+          }).name}
+          combo={botType === BotTypesEnum.hedgeCombo}
+          hedge={createdStart.hedge}
+          onConfirm={handleCreatedStartConfirm}
+        />
+      )}
 
       <Celebration
         open={showCelebration}

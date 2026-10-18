@@ -32,7 +32,9 @@ import { fetchDealOrders } from '@/hooks/useDealOrders';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
-import { CloseDCATypeEnum, type AddFundsSettings } from '@/types';
+import { BaseFundingEnum, CloseDCATypeEnum, type AddFundsSettings } from '@/types';
+import { useBaseFundingSettings } from '@/hooks/useBaseFunding';
+import { estimateLevelsBase } from '@/lib/baseFunding/estimateLevelsBase';
 import type { ViewOrder } from '@/types/bots';
 import { isDealInJournal } from '@/utils/journalDealDedupe';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
@@ -563,6 +565,64 @@ export function useDealActionHost({
   const pendingDeal = pending?.deals[0];
   const copy = pending ? confirmCopy(pending.id, pending.deals) : null;
 
+  // Base funding (main-app spec 044): adding levels to a short spot deal of a
+  // bot-funded bot buys their base first, so the dialog previews it.
+  const fundingKind =
+    pendingDeal?.kind === 'dca' || pendingDeal?.kind === 'combo'
+      ? pendingDeal.kind
+      : undefined;
+  const fundingCandidate =
+    pendingId === 'changeDcaLevels' &&
+    !!fundingKind &&
+    !!pendingDeal?.botId &&
+    !pendingDeal.long &&
+    !pendingDeal.futures;
+  const { settings: fundingSettings } = useBaseFundingSettings(
+    fundingCandidate ? pendingDeal?.botId : undefined,
+    fundingKind ?? 'dca',
+    fundingCandidate
+  );
+  const fundingInputFor = useMemo(() => {
+    const deal = pendingDeal;
+    const settings = fundingSettings;
+    // The deal's average price: on a short it is at or below the levels
+    // being added, so a quote-sized estimate errs on the high side.
+    const price = Number(deal?.trade?.avgPrice ?? deal?.trade?.initialPrice ?? 0);
+    if (
+      !fundingCandidate ||
+      !deal ||
+      !settings ||
+      settings.baseFunding === BaseFundingEnum.require ||
+      !deal.exchangeUUID ||
+      !deal.exchange ||
+      !(price > 0)
+    ) {
+      return undefined;
+    }
+    const filled = Math.max(0, (deal.levels?.complete || 1) - 1);
+    return (newMax: number) => {
+      const safetyQty = estimateLevelsBase({
+        fromLevel: filled + 1,
+        toLevel: newMax,
+        orderSize: Number(settings.orderSize),
+        orderSizeType: settings.orderSizeType,
+        volumeScale: Number(settings.volumeScale),
+        price,
+      });
+      if (safetyQty === null) return null;
+      return {
+        exchangeUUID: deal.exchangeUUID as string,
+        exchange: deal.exchange as string,
+        pair: deal.symbol,
+        mode: settings.baseFunding,
+        baseOrderQty: 0,
+        safetyQty,
+        price,
+        dealId: deal.dealId || deal.id,
+      };
+    };
+  }, [fundingCandidate, pendingDeal, fundingSettings]);
+
   const handleAdjustFundsConfirm = useCallback(
     (settings: AddFundsSettings) => {
       if (!pendingDeal?.botId) return;
@@ -736,6 +796,7 @@ export function useDealActionHost({
           maxLevel={(pendingDeal.levels?.all || 1) - 1}
           onConfirm={handleChangeDcaConfirm}
           isProcessing={editDeal.isPending}
+          {...(fundingInputFor ? { fundingInputFor } : {})}
         />
       )}
       <MoveDealToBotDialog

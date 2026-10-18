@@ -18,6 +18,7 @@ import { Celebration } from '@/components/onboarding/Celebration';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSinglePositionFormBridge } from '@/features/bots/bot-types/dca/form/hooks/useSinglePositionFormBridge';
+import { useBaseFundingFormBridge } from '@/features/bots/bot-types/dca/form/hooks/useBaseFundingFormBridge';
 // Dialog and input/label components are not used here; render logic moved to footer menu
 import { Button } from '@/components/ui/button';
 import {
@@ -764,6 +765,21 @@ const BotForm: React.FC<BotFormProps> = ({
     save: (extra) => singlePositionSaveRef.current(extra),
   });
   const { interceptSave: interceptSinglePositionSave } = singlePosition;
+  // Base funding (short spot DCA / combo): backend capability and the saved
+  // value, merged into the settings the form initializes from.
+  const baseFunding = useBaseFundingFormBridge({
+    enabled:
+      !isGridBot &&
+      !isNestedLeg &&
+      !formTerminal &&
+      (mode === 'create' || mode === 'edit'),
+    kind: isComboBot ? 'combo' : 'dca',
+    mode,
+    botId: _botId ?? (bot as { _id?: string } | null | undefined)?._id,
+    bot: singlePosition.bot,
+    botSettings: singlePosition.botSettings,
+    setFormData,
+  });
 
   const navigate = useNavigate();
 
@@ -1156,8 +1172,8 @@ const BotForm: React.FC<BotFormProps> = ({
         ? BotTypesEnum.combo
         : BotTypesEnum.dca,
     mode,
-    bot: singlePosition.bot,
-    botSettings: singlePosition.botSettings,
+    bot: baseFunding.bot,
+    botSettings: baseFunding.botSettings,
     ...(initializationMapper ? { mapper: initializationMapper } : {}),
     debug: debugEnabled,
     skipHydration: skipInitialBotHydration === true,

@@ -3,13 +3,13 @@
   "source": {
     "repo": "main-app",
     "path": "core/src/graphql/schema.ts",
-    "commit": "bfa8bde5d2d6e2b92c2c945fb151ba3bb6bfe766",
-    "commitShort": "bfa8bde"
+    "commit": "c375e980121c190f472f6bc75ccb9af64666d031",
+    "commitShort": "c375e98"
   },
   "inputs": {
     "changeDCABotInput": {
       "mutation": "changeDCABot",
-      "fieldCount": 175,
+      "fieldCount": 177,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
@@ -17,6 +17,7 @@
         "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
+        "baseFunding",
         "baseOrderPrice",
         "baseOrderSize",
         "baseSlOn",
@@ -72,6 +73,7 @@
         "hodlDay",
         "hodlHourly",
         "hodlNextBuy",
+        "hodlWeekdays",
         "id",
         "ignoreStartDeals",
         "indicatorGroups",
@@ -190,13 +192,14 @@
     },
     "changeComboBotInput": {
       "mutation": "changeComboBot",
-      "fieldCount": 181,
+      "fieldCount": 183,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
         "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
+        "baseFunding",
         "baseGridLevels",
         "baseOrderPrice",
         "baseOrderSize",
@@ -257,6 +260,7 @@
         "hodlDay",
         "hodlHourly",
         "hodlNextBuy",
+        "hodlWeekdays",
         "id",
         "ignoreStartDeals",
         "indicatorGroups",
@@ -425,13 +429,14 @@
     },
     "createDCABotInput": {
       "mutation": "createDCABot",
-      "fieldCount": 186,
+      "fieldCount": 188,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
         "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
+        "baseFunding",
         "baseGridLevels",
         "baseOrderPrice",
         "baseOrderSize",
@@ -494,6 +499,7 @@
         "hodlDay",
         "hodlHourly",
         "hodlNextBuy",
+        "hodlWeekdays",
         "ignoreStartDeals",
         "importFrom",
         "indicatorGroups",
@@ -617,13 +623,14 @@
     },
     "createComboBotInput": {
       "mutation": "createComboBot",
-      "fieldCount": 180,
+      "fieldCount": 182,
       "fields": [
         "activeOrdersCount",
         "adaptiveClose",
         "allowRaiseToExchangeMin",
         "autoRebalancing",
         "baseAsset",
+        "baseFunding",
         "baseGridLevels",
         "baseOrderPrice",
         "baseOrderSize",
@@ -686,6 +693,7 @@
         "hodlDay",
         "hodlHourly",
         "hodlNextBuy",
+        "hodlWeekdays",
         "ignoreStartDeals",
         "indicatorGroups",
         "indicators",

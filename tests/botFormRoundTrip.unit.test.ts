@@ -349,6 +349,8 @@ const buildFormData = (section: Section, overrides: Record<string, unknown>) => 
     // A backend that has single position per pair, so those fields are
     // exercised; on an older one they are stripped (singlePosition.vitest).
     singlePositionSupported: true,
+    // Same for base funding (DCA and combo); stripped on an older backend.
+    baseFundingSupported: true,
     type,
     exchangeUUID: 'exchange-uuid',
     dca,

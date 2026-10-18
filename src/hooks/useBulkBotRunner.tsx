@@ -5,6 +5,7 @@ import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   buildBotBulkActions,
   bulkTargets,
+  chooseStatusDialog,
   type BotActionId,
   type BotBulkActionItem,
   type BotKind,
@@ -109,7 +110,23 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
       toast.info('Bulk edit coming soon');
       return;
     }
-    const targets = bulkTargets(id, bots);
+    let targets = bulkTargets(id, bots);
+    // A hedge bot with a spot leg starts with a per-leg funding action chosen
+    // in its own start dialog; a bulk start would send none. Skip it, by name.
+    if (id === 'start') {
+      const dialogOnly = targets.filter(
+        (bot) => chooseStatusDialog(bot, 'confirm') === 'hedgeStart'
+      );
+      for (const bot of dialogOnly) {
+        toast.info(
+          `"${bot.name}" was not started: start it individually to choose how each leg is funded`
+        );
+      }
+      if (dialogOnly.length > 0) {
+        targets = targets.filter((bot) => !dialogOnly.includes(bot));
+        if (targets.length === 0) return;
+      }
+    }
     const emptyMessage = NONE_ELIGIBLE[id];
     if (targets.length === 0 || (id === 'delete' && targets.length < bots.length)) {
       if (emptyMessage) toast.info(emptyMessage);

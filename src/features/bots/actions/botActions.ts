@@ -79,6 +79,14 @@ export interface ReverseContext {
 }
 
 /**
+ * Hedge start context: a spot leg starts with a per-leg action (buy / sell
+ * the difference, use a balance), chosen in the hedge start dialog.
+ */
+export interface HedgeStartContext {
+  spot: boolean;
+}
+
+/**
  * A bot, normalised for the action layer. Build it with the adapters in
  * `botRef.ts` — never by hand on a surface.
  */
@@ -104,6 +112,8 @@ export interface BotRef {
   grid?: GridStopContext;
   /** Present for DCA / combo bots only. */
   reverse?: ReverseContext;
+  /** Present for hedge bots only. */
+  hedge?: HedgeStartContext;
   /** Raw bot payload — what Share Configuration / Duplicate copy. */
   raw?: unknown;
 }
@@ -678,6 +688,7 @@ export const buildSurfaceItems = (
 
 export type BotStatusDialog =
   | 'confirm'
+  | 'hedgeStart'
   | 'gridStart'
   | 'gridStop'
   | 'closeOptions'
@@ -690,11 +701,17 @@ export type BotStatusDialog =
  *  - `form` flow (the bot form footer): grid bots get the dedicated grid
  *    start dialog (balance check + buy type) / grid stop dialog; other bots
  *    get the close-options dialog only when stopping with open deals.
+ * Starting a hedge bot with a spot leg opens the hedge start dialog in both
+ * flows (per-leg start action + funding preview); a futures hedge keeps the
+ * plain start.
  */
 export const chooseStatusDialog = (
-  bot: Pick<BotRef, 'kind' | 'active' | 'activeDeals'>,
+  bot: Pick<BotRef, 'kind' | 'active' | 'activeDeals' | 'hedge'>,
   flow: 'confirm' | 'form'
 ): BotStatusDialog => {
+  if (isHedgeKind(bot.kind) && !bot.active && bot.hedge?.spot) {
+    return 'hedgeStart';
+  }
   if (flow === 'confirm') return 'confirm';
   if (bot.kind === 'grid') return bot.active ? 'gridStop' : 'gridStart';
   if (bot.active && bot.activeDeals > 0) return 'closeOptions';

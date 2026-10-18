@@ -10,6 +10,7 @@ import { usePaperContext } from '@/hooks/usePaperContext';
 import { useUIStore } from '@/stores/uiStore';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
+  chooseStatusDialog,
   isHedgeKind,
   type BotActionContext,
   type BotActionId,
@@ -28,8 +29,10 @@ import {
   BotTypesEnum,
   CloseDCATypeEnum,
   CloseGRIDTypeEnum,
+  type ActionsEnum,
   type BotStatus,
   type BuyTypeEnum,
+  type StrategyEnum,
 } from '@/types';
 import {
   useBotArchive,
@@ -81,6 +84,8 @@ export interface BotStatusChangePayload {
   buyType?: BuyTypeEnum;
   buyCount?: string;
   buyAmount?: number;
+  /** Hedge start: the action each leg starts with (hedge start dialog). */
+  hedgeConfig?: { [x in StrategyEnum]: ActionsEnum };
   /**
    * No success toast (the bot form, whose footer reflects the new status
    * itself). Failures still toast — from the mutation.
@@ -120,6 +125,19 @@ export interface BotActionsModalProps {
   onSuccessModalOpenChange: (open: boolean) => void;
   successType: 'clone' | 'delete';
   successNewItemId?: string;
+
+  /**
+   * Hedge start dialog (a hedge bot with a spot leg): the per-leg start
+   * action. Absent for other bots, and for futures hedges (plain start).
+   */
+  hedgeStart?: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    combo: boolean;
+    /** The hedge wrapper (`{ bots: [long, short] }`). */
+    hedge: unknown;
+    onConfirm: (hedgeConfig: { [x in StrategyEnum]: ActionsEnum }) => void;
+  };
 
   /** Reverse (futures DCA / combo). Absent for other bots. */
   reverse?: {
@@ -190,6 +208,7 @@ export function useBotActions(
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [reverseModalOpen, setReverseModalOpen] = useState(false);
+  const [hedgeStartOpen, setHedgeStartOpen] = useState(false);
 
   // Bots listed on a page always belong to the current trading mode, which
   // is what "Duplicate to live/paper" switches away from.
@@ -286,12 +305,16 @@ export function useBotActions(
         ...(payload.buyAmount !== undefined
           ? { buyAmount: payload.buyAmount }
           : {}),
+        ...(starting && payload.hedgeConfig
+          ? { hedgeConfig: payload.hedgeConfig }
+          : {}),
       },
       // Failures are toasted once, by the mutation itself (with the
       // backend's reason); a second toast here doubled every error.
       {
         onSuccess: () => {
           setStatusModalOpen(false);
+          setHedgeStartOpen(false);
           if (payload.silent) return;
           toast.success(
             `Bot "${target.name}" ${starting ? 'started' : 'stopped'} successfully`
@@ -366,6 +389,15 @@ export function useBotActions(
         return;
       case 'start':
       case 'stop':
+        // A hedge with a spot leg starts through the hedge start dialog
+        // (per-leg action); everything else through the confirmation modal.
+        if (
+          id === 'start' &&
+          chooseStatusDialog(target, 'confirm') === 'hedgeStart'
+        ) {
+          setHedgeStartOpen(true);
+          return;
+        }
         setStatusModalOpen(true);
         return;
       case 'restart':
@@ -445,6 +477,11 @@ export function useBotActions(
   }, []);
 
   const hedge = isHedgeKind(bot.kind);
+  const confirmHedgeStart = useCallback(
+    (hedgeConfig: { [x in StrategyEnum]: ActionsEnum }) =>
+      changeStatus({ nextStatus: 'open', hedgeConfig }),
+    [changeStatus]
+  );
   const modalProps: BotActionsModalProps = {
     botName: bot.name,
     status: bot.status as BotStatus,
@@ -474,6 +511,17 @@ export function useBotActions(
     successModalOpen,
     onSuccessModalOpenChange: setSuccessModalOpen,
     successType: 'delete',
+    ...(hedge && bot.hedge?.spot
+      ? {
+          hedgeStart: {
+            open: hedgeStartOpen,
+            onOpenChange: setHedgeStartOpen,
+            combo: bot.kind === 'hedgeCombo',
+            hedge: bot.raw,
+            onConfirm: confirmHedgeStart,
+          },
+        }
+      : {}),
     ...(bot.reverse && (bot.kind === 'dca' || bot.kind === 'combo')
       ? {
           reverse: {

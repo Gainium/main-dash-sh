@@ -140,6 +140,8 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   multiTp: MULTI_TARGETS,
   multiSl: MULTI_TARGETS,
   dcaCustom: DCA_CUSTOM_STEPS,
+  // Same probe as the round-trip suite.
+  hodlWeekdays: [1, 3, 5],
   fixedTpPrice: '31000',
   fixedSlPrice: '25000',
   minOpenDeal: '100',
@@ -258,6 +260,8 @@ const CREATE_ONLY_EMPTY: Record<Section, string[]> = {
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
+    // `[]` = every weekday; edit omits the empty array.
+    'hodlWeekdays',
     'importFrom',
     'maxOpenDeal',
     'minOpenDeal',
@@ -269,6 +273,7 @@ const CREATE_ONLY_EMPTY: Record<Section, string[]> = {
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
+    'hodlWeekdays',
     'maxOpenDeal',
     'minOpenDeal',
     'startBotPriceValue',

@@ -601,6 +601,10 @@ export const mapFormDataToPayload = (
     delete updatePayload.singlePosition;
     delete updatePayload.maxPositionEntries;
   }
+  // Base funding: same rule, DCA and combo. See `baseFundingSupported`.
+  if (!formData.baseFundingSupported) {
+    delete updatePayload.baseFunding;
+  }
 
   const sanitizedUpdatePayload = sanitizeSettingsForApi(
     sanitizeUpdateSettings(updatePayload)
@@ -679,6 +683,9 @@ export const mapFormDataToPayload = (
     if (!sendSinglePosition) {
       delete createPayload.singlePosition;
       delete createPayload.maxPositionEntries;
+    }
+    if (!formData.baseFundingSupported) {
+      delete createPayload.baseFunding;
     }
     successResult.createPayload = createPayload;
   }

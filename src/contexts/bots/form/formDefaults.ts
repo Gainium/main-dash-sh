@@ -20,6 +20,7 @@ import {
   InitialPriceFromEnum,
   OrderSizeTypeEnum,
   OrderTypeEnum,
+  BaseFundingEnum,
   PairPrioritizationEnum,
   RiskSlTypeEnum,
   RRSlTypeEnum,
@@ -48,6 +49,7 @@ export const SHARED_FORM_DEFAULTS: Readonly<
   dcaOrderGuard: null,
   terminal: false,
   singlePositionSupported: false,
+  baseFundingSupported: false,
 };
 
 export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
@@ -75,6 +77,7 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   allowRaiseToExchangeMin: false,
   reduceToAvailableBalance: false,
   reduceToAvailableMinSize: '',
+  baseFunding: BaseFundingEnum.require,
   singlePosition: false,
   maxPositionEntries: '',
   minOpenDeal: '',

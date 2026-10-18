@@ -58,6 +58,8 @@ export interface BotStatusUpdate {
   buyAmount?: number;
   cancelPartiallyFilled?: boolean;
   closeGridType?: CloseGRIDTypeEnum;
+  /** Hedge start: the action each leg starts with (the hedge start dialog). */
+  hedgeConfig?: ChangeStatusInput['hedgeConfig'];
 }
 
 export interface BotArchiveParams {
@@ -183,6 +185,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
       buyCount,
       cancelPartiallyFilled,
       closeGridType,
+      hedgeConfig,
     }: BotStatusUpdate) => {
       if (!tokens?.accessToken) {
         throw new Error('Authentication required');
@@ -245,6 +248,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         buyCount,
         cancelPartiallyFilled,
         closeGridType,
+        ...(status === 'open' && hedgeConfig ? { hedgeConfig } : {}),
       };
 
       const { query: mutation, variables } = GraphQlQuery.changeStatus(input);

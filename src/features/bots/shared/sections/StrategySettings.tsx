@@ -17,6 +17,8 @@ import StrategySelector from '@/components/widgets/bots/StrategySelector';
 import LeverageSlider from '@/components/widgets/shared/LeverageSlider';
 import LiquidationSummary from '@/components/widgets/bots/LiquidationSummary';
 import { AllowRaiseToExchangeMinRow } from './AllowRaiseToExchangeMinRow';
+import { BaseFundingRow } from './BaseFundingRow';
+import { useBaseFundingState } from './useBaseFundingState';
 import SettingsRow, {
   SettingsRowSurface,
 } from '@/components/widgets/shared/SettingsRow';
@@ -178,6 +180,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
   // Hedge-DCA legs render this form too, but the engine never refuses on a
   // hedge leg, so the switch would do nothing there.
   const isHedgeContext = useHedgeBotFormOptional() !== undefined;
+  const { active: baseFundingActive } = useBaseFundingState();
   const futures = useBotFormSelector('futures');
   // Estimated liquidation price for the ladder this form describes. Null for
   // spot bots and leverage <= 1, in which case nothing renders.
@@ -471,7 +474,11 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                     // capital is committed to an open position). Validating
                     // against it produced a false "exceeds available balance"
                     // error on the hedge-combo edit form (forum #4921 / bug #94).
-                    disableBalanceValidation={Boolean(futures)}
+                    // With base funding on, a short spot deal does not need the
+                    // base coin in the account (main-app spec 044).
+                    disableBalanceValidation={
+                      Boolean(futures) || baseFundingActive
+                    }
                     {...(typeof baseOrderGuard?.min === 'number'
                       ? { min: baseOrderGuard.min }
                       : {})}
@@ -795,6 +802,8 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
         </SettingsRow>
 
         <AllowRaiseToExchangeMinRow updateFormData={updateFormData} />
+
+        <BaseFundingRow updateFormData={updateFormData} />
 
         {/* Regular DCA with a fixed order size only: a balance-percentage size
             already follows the balance, risk/reward sizes by risk, and the

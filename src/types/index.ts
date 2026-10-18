@@ -1750,6 +1750,16 @@ export enum StochRangeEnum {
   none = 'none',
 }
 
+/** Short spot DCA / combo — what a deal does when the free base does not cover it. */
+export enum BaseFundingEnum {
+  /** Skip the deal (the default). */
+  require = 'require',
+  /** Use the free base, buy only what is missing. */
+  auto = 'auto',
+  /** Never use the free base; the bot buys what it needs. */
+  botOnly = 'botOnly',
+}
+
 export enum OrderSizeTypeEnum {
   base = 'base',
   quote = 'quote',
@@ -1871,6 +1881,8 @@ export interface DCABotSettings extends BaseSettings {
   reduceToAvailableBalance?: boolean;
   /** Smallest base order a reduced deal may open with, in the base order size unit. Empty/0: no floor. */
   reduceToAvailableMinSize?: string;
+  /** Short spot: what a deal does when the free base does not cover it. Missing = require. */
+  baseFunding?: BaseFundingEnum;
   /** At most one open deal per pair: start signals add entries to it, other deals are adopted. Missing = off. */
   singlePosition?: boolean;
   /** Most entries a position may hold, counting the base order. ''/'0' = no limit. */

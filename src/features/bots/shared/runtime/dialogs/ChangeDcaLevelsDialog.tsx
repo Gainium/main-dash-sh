@@ -11,6 +11,9 @@ import {
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { useFundingPreview } from '@/hooks/useBaseFunding';
+import type { PreviewFundingInput } from '@/lib/baseFunding/baseFundingApi';
 
 export interface ChangeDcaLevelsDialogProps {
   /** Dialog visibility flag controlled by the parent */
@@ -28,7 +31,18 @@ export interface ChangeDcaLevelsDialogProps {
   onConfirm: (newMax: number) => void;
   /** Controls loading state while the confirm action is busy */
   isProcessing?: boolean;
+  /**
+   * A bot-funded short spot deal (main-app spec 044): the preview input for a
+   * new max, or null when that max needs no funding preview.
+   */
+  fundingInputFor?: (newMax: number) => PreviewFundingInput | null;
 }
+
+const fmt = (n: number) =>
+  n.toLocaleString(undefined, { maximumFractionDigits: n >= 1 ? 4 : 8 });
+
+const FUNDING_TOOLTIP =
+  'Estimated from the order size. The bot buys this at market when you save, before the new levels are placed. If your free quote cannot cover it, the change is refused and the deal is left as it was.';
 
 /**
  * Adjust the maximum number of DCA safety orders on an open deal — the V2
@@ -43,6 +57,7 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
   maxLevel,
   onConfirm,
   isProcessing = false,
+  fundingInputFor,
 }) => {
   const minValue = Math.max(0, currentLevel);
   const [value, setValue] = React.useState<number>(maxLevel);
@@ -58,6 +73,12 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
       ? `DCA levels cannot be lower than the ${currentLevel} already completed.`
       : null;
   const unchanged = value === maxLevel;
+  const fundingInput = React.useMemo(
+    () =>
+      fundingInputFor && value > maxLevel ? fundingInputFor(value) : null,
+    [fundingInputFor, value, maxLevel]
+  );
+  const { preview } = useFundingPreview(fundingInput);
 
   const handleConfirm = () => {
     if (error || unchanged) {
@@ -135,6 +156,28 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
               <div className="text-sm text-destructive">{error}</div>
             ) : null}
           </div>
+
+          {preview?.kind === 'fund' && preview.buyQty > 0 ? (
+            <div className="flex items-center justify-between gap-sm rounded-lg bg-muted/20 p-sm text-sm">
+              <span className="flex items-center gap-xs text-muted-foreground">
+                Bot buys at market
+                <Tooltip tooltip={FUNDING_TOOLTIP}>
+                  <InfoIcon />
+                </Tooltip>
+              </span>
+              <span className="font-medium tabular-nums">
+                ≈ {fmt(preview.buyQty)} {preview.baseAsset} ({fmt(preview.buyQuote)}{' '}
+                {preview.quoteAsset})
+              </span>
+            </div>
+          ) : null}
+          {preview?.kind === 'refuse' ? (
+            <div className="text-sm text-destructive">
+              Not enough {preview.quoteAsset}: ≈ {fmt(preview.buyQuote)}{' '}
+              needed, {fmt(Math.max(0, preview.freeQuote - preview.reservedQuote))}{' '}
+              available
+            </div>
+          ) : null}
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

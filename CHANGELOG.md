@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.104.0] - 2026-10-18
+### Added
+- Hedge DCA and Hedge Combo bots on spot: Start opens a dialog to choose each leg's start action (use the held balance, buy or sell the difference, buy or sell for all, use the opposite balance), from the bot list, the bot drawer, the edit page and right after creating the bot. With a backend that supports it, each leg shows what the bot would buy or sell at market, the amount kept aside for the virtual entry and the balance it uses, planned for both legs together on the shared account; Start is available once that estimate has loaded, and stays disabled while a leg cannot be funded (the reason is shown). Bulk Start skips these bots and names them, since each one needs its own choice. Futures hedge bots start as before.
+
+## [2.103.0] - 2026-10-18
+### Added
+- DCA and Combo bots, short on spot: a Base funding setting (Require / Auto / Bot only) in Strategy settings, shown when the backend supports it. The Capital required chip shows what the bot would buy and the quote it would hold, instead of a base coin shortfall.
+- Change DCA levels on such a deal shows the estimated purchase the new levels need, or that the change would be refused for lack of quote.
+- Backtest limitations list Base funding as not simulated.
+### Fixed
+- An order size above your free base coin is no longer flagged when Base funding is on: the bot buys what the deal needs.
+
 ## [2.102.0] - 2026-10-18
 ### Added
 - DCA bots with a time-based start can be limited to chosen days of the week ("Open deal on", Mon–Sun, in your profile timezone). A run that falls on an unselected day opens no deal and moves to the next selected day; the execution preview shows the moved date. Selecting every day keeps the previous behaviour. Needs an API that knows `hodlWeekdays`.

@@ -123,6 +123,11 @@ export interface BotFormData {
    * shown nor sent, because an older backend rejects the whole save.
    */
   singlePositionSupported?: boolean;
+  /**
+   * Bookkeeping, never sent: the backend knows `baseFunding`. Off until the
+   * capability probe says so; while off the setting is neither shown nor sent.
+   */
+  baseFundingSupported?: boolean;
 }
 
 /* export type HedgeLegFormDraft = Partial<

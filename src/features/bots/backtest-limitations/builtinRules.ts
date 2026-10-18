@@ -87,6 +87,14 @@ export const BUILTIN_BACKTEST_LIMITATION_RULES: readonly BacktestLimitationRule[
       explanation: 'Deals are never scaled down to the balance that is free.',
     },
     {
+      key: 'baseFunding',
+      label: 'Base funding',
+      status: 'ignored',
+      when: (s: S) => eq(s['baseFunding'], 'auto') || eq(s['baseFunding'], 'botOnly'),
+      explanation:
+        'A backtest does not check the coin you hold, so every short deal opens; the purchase the bot would make for the safety orders is not simulated.',
+    },
+    {
       key: 'startOrder:limit',
       label: 'Limit base order',
       status: 'ignored',

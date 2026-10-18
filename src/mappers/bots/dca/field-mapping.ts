@@ -1,3 +1,4 @@
+import { toBaseFundingMode } from '@/lib/baseFunding/baseFundingApi';
 /**
  * Modular field mapping utilities for DCA bot forms.
  * Provides organized, debuggable field mapping for bot settings.
@@ -837,6 +838,9 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
   const reduceToAvailableMinSize = isComboBot
     ? ''
     : formData.dca.reduceToAvailableMinSize;
+  const baseFunding = isComboBot
+    ? formData.combo.baseFunding
+    : formData.dca.baseFunding;
   const _activeOrdersCount = isComboBot
     ? formData.combo.activeOrdersCount
     : formData.dca.activeOrdersCount;
@@ -963,6 +967,7 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
         | 'allowRaiseToExchangeMin'
         | 'reduceToAvailableBalance'
         | 'reduceToAvailableMinSize'
+        | 'baseFunding'
         | 'singlePosition'
         | 'maxPositionEntries'
         | 'activeOrdersCount'
@@ -1041,6 +1046,14 @@ export const mapDcaFields = (formData: BotFormData): FieldMappingResult => {
     // missing-means-refuse.
     dcaFields['allowRaiseToExchangeMin'] = Boolean(allowRaiseToExchangeMin);
     fieldsMapped.push('allowRaiseToExchangeMin');
+
+    // DCA and combo bots, once the backend is known to have it (an older one
+    // rejects the whole save on an unknown input field). map-form-data-to-
+    // payload strips it otherwise.
+    if (formData.baseFundingSupported) {
+      dcaFields['baseFunding'] = toBaseFundingMode(baseFunding);
+      fieldsMapped.push('baseFunding');
+    }
 
     if (!isComboBot) {
       // DCA bots only — open a smaller deal on a balance shortfall.

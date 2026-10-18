@@ -1,3 +1,4 @@
+import { toBaseFundingMode } from '@/lib/baseFunding/baseFundingApi';
 import type { BotFormData } from '@/types/bots/form';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { maxPositionEntriesToForm } from '@/lib/singlePosition/singlePosition';
@@ -901,6 +902,9 @@ export const mapBotSettingsToFormData = (
       getString('reduceToAvailableMinSize', '') === '0'
         ? ''
         : getString('reduceToAvailableMinSize', ''),
+    // Absent on an older backend (and in the shared fragments, which do not
+    // select it — the form bridge merges the saved value in): reads require.
+    baseFunding: toBaseFundingMode(getString('baseFunding', '')),
     // Single position per pair. Absent on an older backend (and in the shared
     // fragments, which do not select it): reads as off. Stored '0' = no limit,
     // shown as an empty field.

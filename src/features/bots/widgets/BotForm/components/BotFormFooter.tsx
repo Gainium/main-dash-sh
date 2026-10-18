@@ -68,9 +68,17 @@ import {
   useBotTemplatesStore,
   type BotTemplate,
 } from '@/stores/botTemplatesStore'
+import { useFundingPreview } from '@/hooks/useBaseFunding'
 import {
+  toBaseFundingMode,
+  type PreviewFundingInput,
+} from '@/lib/baseFunding/baseFundingApi'
+import {
+  BaseFundingEnum,
   BotTypesEnum,
   BuyTypeEnum,
+  OrderTypeEnum,
+  StrategyEnum,
   CloseDCATypeEnum,
   CloseGRIDTypeEnum,
   DCATypeEnum,
@@ -884,6 +892,46 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const dealCapital = useBotDealCapital(formData, dcaTradingContext, {
       creditsMultiplier: creditsMultiplier || 1,
     })
+    // Base funding (short spot): whatever the free base is, the deal opens if
+    // the bot can fund it, so the chip shows what the bot would buy and the
+    // quote it would hold instead of a base shortfall (main-app spec 044).
+    const fundingInput = useMemo<PreviewFundingInput | null>(() => {
+      if (botType !== BotTypesEnum.dca && botType !== BotTypesEnum.combo) {
+        return null
+      }
+      const slice =
+        botType === BotTypesEnum.combo ? formData.combo : formData.dca
+      const mode = toBaseFundingMode(slice.baseFunding)
+      const pair = dcaTradingContext.activePair
+      const price = dcaTradingContext.marketPrice ?? dcaTradingContext.latestPrice
+      if (
+        !formData.baseFundingSupported ||
+        formData.terminal ||
+        mode === BaseFundingEnum.require ||
+        slice.strategy !== StrategyEnum.short ||
+        slice.futures ||
+        slice.useRiskReward ||
+        // Combo always enters at market, whatever it carries here.
+        (botType !== BotTypesEnum.combo &&
+          slice.startOrderType !== OrderTypeEnum.market) ||
+        !dealCapital?.useBase ||
+        !formData.exchangeUUID ||
+        !pair ||
+        !price
+      ) {
+        return null
+      }
+      return {
+        exchangeUUID: formData.exchangeUUID,
+        exchange: pair.exchange,
+        pair: pair.pair,
+        mode,
+        baseOrderQty: dealCapital.baseOrders,
+        safetyQty: dealCapital.dcaOrders,
+        price,
+      }
+    }, [botType, formData, dcaTradingContext, dealCapital])
+    const { preview: fundingPreview } = useFundingPreview(fundingInput)
     const computedFundsInfo = useMemo<FundsInfo | null>(() => {
       const quote = dcaTradingContext.quoteAsset
 
@@ -910,6 +958,51 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       }
 
       if (!dealCapital) return null
+
+      if (fundingPreview && fundingPreview.kind !== 'held') {
+        const base = fundingPreview.baseAsset
+        const quote = fundingPreview.quoteAsset
+        const available = Math.max(
+          0,
+          fundingPreview.freeQuote - fundingPreview.reservedQuote,
+        )
+        const needed =
+          fundingPreview.kind === 'refuse'
+            ? (fundingPreview.required ?? 0)
+            : (fundingPreview.quoteNeeded ?? 0)
+        const rows: ChipRow[] = []
+        if (fundingPreview.buyQty > 0) {
+          rows.push({
+            label: 'Bought by the bot',
+            value: `${fmtCurrency(fundingPreview.buyQty, base, true)} ≈ ${fmtCurrency(fundingPreview.buyQuote, quote, false)}`,
+          })
+        }
+        if ((fundingPreview.quoteReserved ?? 0) > 0) {
+          rows.push({
+            label: 'Held for take profit',
+            value: fmtCurrency(fundingPreview.quoteReserved ?? 0, quote, false),
+          })
+        }
+        if ((fundingPreview.heldUsed ?? 0) > 0) {
+          rows.push({
+            label: `Your ${base} used`,
+            value: fmtCurrency(fundingPreview.heldUsed ?? 0, base, true),
+          })
+        }
+        const pct = available > 0 ? (needed / available) * 100 : null
+        return {
+          title: 'Capital required',
+          symbol: quote,
+          amountLabel: fmtAmount(needed, false),
+          totalLabel: fmtCurrency(needed, quote, false),
+          rows,
+          dca: null,
+          availableLabel:
+            available > 0 ? fmtCurrency(available, quote, false) : null,
+          pctRequired: pct,
+          overspend: fundingPreview.kind === 'refuse',
+        }
+      }
 
       const {
         useBase,
@@ -963,7 +1056,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
         pctRequired,
         overspend,
       }
-    }, [botType, budget, dcaTradingContext, dealCapital])
+    }, [botType, budget, dcaTradingContext, dealCapital, fundingPreview])
 
     // `computedFundsInfo` is a pure DISPLAY value, but the live trading context
     // it derives from hands us a new `dcaTradingContext`/`dealCapital` object on
