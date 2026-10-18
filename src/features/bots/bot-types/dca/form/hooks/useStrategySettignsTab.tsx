@@ -1136,19 +1136,25 @@ export const useStrategySettingsTab = ({
   // (pair query failed, or nothing picked yet) they degenerate to a 1:1 echo of
   // the canonical figure — a 10 USDT total rendered as "10 BTC". Show nothing
   // rather than a number that is wrong by five orders of magnitude.
+  //
+  // Both fields show the size through `convertNotionalToDisplay`, like the bot
+  // form's `baseOrderDisplayValue`: under the futures "Cost" reference they read
+  // notional ÷ leverage, the inverse of what the change handlers below store.
   const hasUsablePrice = effectivePrice > 0;
-  const amountFieldValue =
+  const amountFieldValue = convertNotionalToDisplay(
     orderSizeType === OrderSizeTypeEnum.base
       ? +(baseOrderSize ?? 0)
       : hasUsablePrice
         ? amountInBaseDisplay
-        : 0;
-  const totalFieldValue =
+        : 0
+  );
+  const totalFieldValue = convertNotionalToDisplay(
     orderSizeType === OrderSizeTypeEnum.quote
       ? +(baseOrderSize ?? 0)
       : hasUsablePrice
         ? totalInQuote
-        : 0;
+        : 0
+  );
 
   // Amount USD adornment: USD of the value SHOWN in the Amount field, not the
   // derived base figure (legacy computes from `orderSizeType===base ?
@@ -1225,6 +1231,35 @@ export const useStrategySettingsTab = ({
       precisionQuote,
     ]
   );
+
+  // The max figures as the fields show them. Anything typed under "Cost" is
+  // stored × leverage, so the typeable ceiling is the notional max ÷ leverage.
+  // `setPercent` / `updatePercent` keep working off the notional maxes above.
+  const maxAmountDisplay = useMemo(() => {
+    if (!isCostReference) {
+      return maxAmount;
+    }
+    return math.convertFromExponential(
+      math.round(convertNotionalToDisplay(+maxAmount), precisionBase, true),
+      precisionBase
+    );
+  }, [isCostReference, convertNotionalToDisplay, maxAmount, precisionBase]);
+  const maxTotalDisplay = useMemo(() => {
+    if (!isCostReference) {
+      return maxTotal;
+    }
+    const decimals = coinm ? 0 : precisionQuote;
+    return math.convertFromExponential(
+      math.round(convertNotionalToDisplay(+maxTotal), decimals, true),
+      decimals
+    );
+  }, [
+    isCostReference,
+    convertNotionalToDisplay,
+    maxTotal,
+    coinm,
+    precisionQuote,
+  ]);
 
   const [activePerc, setActivePerc] = useState<string>('');
 
@@ -1364,8 +1399,9 @@ export const useStrategySettingsTab = ({
       if (!Number.isFinite(n)) {
         return;
       }
-      updateFormData('baseOrderSize', String(convertDisplayToNotional(n)));
-      updatePercent(String(n));
+      const notional = convertDisplayToNotional(n);
+      updateFormData('baseOrderSize', String(notional));
+      updatePercent(String(notional));
     },
     [baseOrderLocked, convertDisplayToNotional, updateFormData, updatePercent]
   );
@@ -1379,8 +1415,9 @@ export const useStrategySettingsTab = ({
       if (!Number.isFinite(n)) {
         return;
       }
-      updateFormData('baseOrderSize', String(convertDisplayToNotional(n)));
-      updatePercent(String(n));
+      const notional = convertDisplayToNotional(n);
+      updateFormData('baseOrderSize', String(notional));
+      updatePercent(String(notional));
     },
     [baseOrderLocked, convertDisplayToNotional, updateFormData, updatePercent]
   );
@@ -1641,8 +1678,8 @@ export const useStrategySettingsTab = ({
     amountFieldValue,
     totalFieldValue,
     amountUsdEquivalent,
-    maxAmount,
-    maxTotal,
+    maxAmount: maxAmountDisplay,
+    maxTotal: maxTotalDisplay,
     // USD pool on a pooled-collateral COIN-M connection, else null.
     pooledMarginUsd,
     // Decimals for whichever of the Amount/Total pair is currently DERIVED.

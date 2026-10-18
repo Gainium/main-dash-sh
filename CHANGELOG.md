@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.105.1] - 2026-10-18
+### Fixed
+- Trading Terminal on futures: with Order Size Reference set to Cost, the Amount and Total fields and their Max figures now show the cost (position value divided by leverage), as the bot forms do. Previously they kept showing the position value, so a cost typed in was redisplayed multiplied by leverage, and leaving the field without editing it multiplied the order size by leverage again. The position placed for a typed cost is unchanged.
+
 ## [2.105.0] - 2026-10-18
 ### Changed
 - Base funding (the Base funding setting, the funding estimates on the capital chip and in Change DCA levels, and the hedge start dialog for spot hedge bots) is shown only to accounts the backend enables it for, through a new `baseFundingAccess` query. For other accounts, and with an API that predates the query, the dashboard behaves as before these features: spot hedge bots start without the dialog, including from bulk Start.
