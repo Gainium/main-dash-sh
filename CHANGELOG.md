@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.106.3] - 2026-10-19
+### Fixed
+- Bot Profit chart: switching between Daily, Weekly, Monthly and Total briefly drew the previous view's bars under the new label (for example a "Total" figure over daily bars). The chart now shows its loading state until the selected view's data arrives.
+
 ## [2.106.2] - 2026-10-19
 ### Changed
 - Backtest results → Analysis → Periodic stats: the 14-column table is replaced by a grid of month cards under each year's summary. Each card leads with the month's net result, coloured by profit or loss, with drawdown, run-up and winning/losing deals below. Cards wrap to the screen width, so the stats read without horizontal scrolling on a phone; months outside the backtest range are no longer shown as empty columns.
