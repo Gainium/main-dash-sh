@@ -47,17 +47,19 @@ export const sharedTargetValue = (
   return only || undefined;
 };
 
-/** Combo legs are managed by the combo engine, not the deal funds mutation. */
-const COMBO_TYPES = new Set(['Combo', 'Hedge Combo']);
+/**
+ * Hedge combo legs are managed by the hedge engine, which has no funds path.
+ * Plain combo deals do take funds: every DCA level is scaled by one factor.
+ */
+const COMBO_TYPES = new Set(['Hedge Combo']);
 const COMBO_BOT_TYPES = new Set<BotTypesEnum>([
-  BotTypesEnum.combo,
   BotTypesEnum.hedgeCombo,
 ]);
 
 /**
- * Whether a deal belongs to a combo bot, and so cannot take a funds
- * adjustment: the mutation behind Add/Reduce Funds resolves the bot out of the
- * DCA bots only, and answers "Bot not found" for a combo one.
+ * Whether a deal belongs to a hedge combo bot, and so cannot take a funds
+ * adjustment: the funds mutations resolve DCA and combo bots, not hedge combo
+ * legs.
  *
  * Deal rows carry their bot type in one of two shapes and both are read here,
  * because neither is present everywhere. `type` is the string the tables render
@@ -77,7 +79,7 @@ export function isComboFundsTarget(
 
 /**
  * Same rule the per-row Add/Reduce Funds menu items apply: the deal must be
- * open, belong to a bot, and not be a combo deal.
+ * open, belong to a bot, and not be a hedge combo leg.
  */
 export function canAdjustDealFunds(target: BulkAdjustFundsTarget): boolean {
   return (

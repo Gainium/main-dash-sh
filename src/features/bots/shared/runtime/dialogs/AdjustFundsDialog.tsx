@@ -22,6 +22,7 @@ import { BalanceInput } from '@/components/ui/balance-input';
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
   ADD_AMOUNT_MODE_ORDER,
@@ -37,6 +38,12 @@ import {
   type PercentBasis,
 } from './adjustFundsAmount';
 import { useDealFreeBalance } from './useDealFreeBalance';
+import {
+  comboFundsOutcome,
+  dcaFundsOutcome,
+  type FundsOutcome,
+  type PendingLevels,
+} from './fundsOutcome';
 import {
   AddFundsTypeEnum,
   ExchangeEnum,
@@ -125,6 +132,13 @@ interface AdjustFundsDialogBaseProps {
    * entered here is applied to EACH selected deal, not split between them.
    */
   targetCount?: number;
+  /**
+   * Combo deals scale every DCA level by one factor instead of placing a
+   * single order: market only, and the preview explains the scaling.
+   */
+  dealKind?: 'dca' | 'combo' | undefined;
+  /** Combo: the deal's DCA levels still resting, which the scaling resizes. */
+  pendingLevels?: PendingLevels | undefined;
 }
 
 export type AdjustFundsDialogMode = 'add' | 'reduce';
@@ -176,6 +190,38 @@ const BULK_FOOTNOTES: Record<AdjustFundsDialogMode, (count: number) => string> =
   reduce: (count) =>
     `The selected amount is withdrawn from each of the ${count} deals — it is not split between them.`,
 };
+
+const COMBO_SCALE_TOOLTIP =
+  'Every DCA level of the deal is scaled by this factor. Filled levels are topped up at market now and their minigrid orders grow with them; levels still pending are resized. No new level is added.';
+
+const COMBO_REDUCE_SCALE_TOOLTIP =
+  'Every DCA level of the deal is scaled by this factor. Part of the filled position is sold at market now and its minigrid orders shrink with it; levels still pending are resized.';
+
+const COMBO_AMOUNT_TOOLTIP =
+  'An amount is spread over every DCA level: what the filled levels cost at today’s price plus what the pending levels will spend.';
+
+const formatPrice = (value: number) =>
+  value.toLocaleString(undefined, {
+    maximumFractionDigits: value >= 100 ? 2 : value >= 1 ? 4 : 8,
+  });
+
+const OutcomeRow: React.FC<{
+  label: string;
+  tooltip?: string;
+  children: React.ReactNode;
+}> = ({ label, tooltip, children }) => (
+  <div className="flex items-center justify-between gap-sm">
+    <span className="flex items-center gap-xs text-muted-foreground">
+      {label}
+      {tooltip ? (
+        <Tooltip tooltip={tooltip}>
+          <InfoIcon />
+        </Tooltip>
+      ) : null}
+    </span>
+    <span className="font-medium tabular-nums text-right">{children}</span>
+  </div>
+);
 
 const RESET_PAYLOAD = {
   qty: '',
@@ -281,8 +327,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   futures = false,
   long = true,
   targetCount = 1,
+  dealKind = 'dca',
+  pendingLevels,
 }) => {
   const isBulk = targetCount > 1;
+  const isCombo = dealKind === 'combo';
   const [quantity, setQuantity] = React.useState<string>(RESET_PAYLOAD.qty);
   const [asset, setAsset] = React.useState<OrderSizeTypeEnum>(
     defaultSettings?.asset ?? RESET_PAYLOAD.asset
@@ -290,9 +339,10 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   const [type, setType] = React.useState<AddFundsTypeEnum>(
     defaultSettings?.type ?? RESET_PAYLOAD.type
   );
-  const [useLimitPrice, setUseLimitPrice] = React.useState<boolean>(
+  const [useLimitPriceState, setUseLimitPrice] = React.useState<boolean>(
     defaultSettings?.useLimitPrice ?? RESET_PAYLOAD.useLimitPrice
   );
+  const useLimitPrice = !isCombo && useLimitPriceState;
   const [limitPrice, setLimitPrice] = React.useState<string>(
     defaultSettings?.limitPrice ?? RESET_PAYLOAD.limitPrice
   );
@@ -560,6 +610,42 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     return null;
   }, [limitPrice, quantity, type, useLimitPrice, percentOfAvailable]);
 
+  const outcome = React.useMemo<FundsOutcome | null>(() => {
+    if (isBulk || !percentBasis || !conversionPrice || percentOfAvailable) {
+      return null;
+    }
+    const qty = toNumber(sanitizeQuantity(quantity));
+    if (!qty) return null;
+    const req = {
+      qty,
+      asset: asset === OrderSizeTypeEnum.base ? ('base' as const) : ('quote' as const),
+      perc: isPercentOfPosition,
+      price: conversionPrice,
+    };
+    return isCombo
+      ? comboFundsOutcome(
+          mode,
+          percentBasis,
+          req,
+          pendingLevels ?? { base: 0, quote: 0 },
+          long
+        )
+      : dcaFundsOutcome(mode, percentBasis, req, long);
+  }, [
+    isBulk,
+    percentBasis,
+    conversionPrice,
+    percentOfAvailable,
+    quantity,
+    asset,
+    isPercentOfPosition,
+    isCombo,
+    mode,
+    pendingLevels,
+    long,
+  ]);
+  const buysNow = (mode === 'add') === long;
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-w-[95vw]">
@@ -703,7 +789,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    {(mode === 'add' && !futures
+                    {(mode === 'add' && !futures && !isCombo
                       ? ADD_AMOUNT_MODE_ORDER
                       : AMOUNT_MODE_ORDER
                     ).map((option) => (
@@ -725,6 +811,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 grows a line taller when the market-price hint is showing, and
                 bottom alignment pushed its label out of line with "Order
                 type". */}
+            {isCombo ? null : (
             <div className="grid gap-md sm:grid-cols-2 sm:items-start">
               <div className="space-y-xs">
                 <Label htmlFor="adjust-funds-order-type">Order type</Label>
@@ -770,6 +857,74 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 <div />
               )}
             </div>
+            )}
+
+            {outcome ? (
+              <div
+                className="space-y-xs rounded-lg bg-muted/20 p-sm text-sm"
+                data-testid="adjust-funds-outcome"
+              >
+                {outcome.scale !== null && !outcome.closesDeal ? (
+                  <OutcomeRow
+                    label="Every DCA level"
+                    tooltip={
+                      mode === 'add'
+                        ? COMBO_SCALE_TOOLTIP
+                        : COMBO_REDUCE_SCALE_TOOLTIP
+                    }
+                  >
+                    ×{outcome.scale.toFixed(outcome.scale < 10 ? 3 : 1).replace(/0+$/, '').replace(/\.$/, '')}
+                  </OutcomeRow>
+                ) : null}
+                <OutcomeRow
+                  label={
+                    buysNow
+                      ? 'Buys now'
+                      : 'Sells now'
+                  }
+                  {...(isCombo && !isPercent
+                    ? { tooltip: COMBO_AMOUNT_TOOLTIP }
+                    : {})}
+                >
+                  ≈ {formatQty(outcome.orderBase)} {baseAsset ?? ''} (
+                  {formatPrice(outcome.orderQuote)} {quoteAsset ?? ''})
+                </OutcomeRow>
+                {outcome.pendingQuoteDelta ? (
+                  <OutcomeRow label="Pending levels">
+                    {outcome.pendingQuoteDelta > 0 ? '+' : '−'}
+                    {formatPrice(Math.abs(outcome.pendingQuoteDelta))}{' '}
+                    {quoteAsset ?? ''}
+                  </OutcomeRow>
+                ) : null}
+                <OutcomeRow label="Position">
+                  {formatQty(outcome.positionBefore)} →{' '}
+                  {formatQty(outcome.positionAfter)} {baseAsset ?? ''}
+                </OutcomeRow>
+                {!outcome.closesDeal ? (
+                  <OutcomeRow label="Average price">
+                    {formatPrice(outcome.avgBefore)}
+                    {outcome.avgAfter !== outcome.avgBefore
+                      ? ` → ${formatPrice(outcome.avgAfter)}`
+                      : ''}
+                  </OutcomeRow>
+                ) : null}
+                {outcome.realized !== null ? (
+                  <OutcomeRow label="Realized P&L">
+                    <span
+                      className={
+                        outcome.realized >= 0 ? 'text-success' : 'text-destructive'
+                      }
+                    >
+                      {outcome.realized >= 0 ? '+' : '−'}
+                      {formatPrice(Math.abs(outcome.realized))} {quoteAsset ?? ''}
+                    </span>
+                  </OutcomeRow>
+                ) : null}
+                {outcome.closesDeal ? (
+                  <div className="text-warning">Closes the deal</div>
+                ) : null}
+              </div>
+            ) : null}
 
             {/* {scopeOptions.length > 1 ? (
               <div className="space-y-xs">

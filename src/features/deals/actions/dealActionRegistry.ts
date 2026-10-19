@@ -113,7 +113,7 @@ const never: Check = () => null;
 const needsBot: Check = (deal) => (deal.botId ? null : NO_BOT_REASON);
 const needsOpen: Check = (deal) => (isDealOpen(deal) ? null : NOT_OPEN_REASON);
 const needsLive: Check = (deal) => (isDealLive(deal) ? null : ENDED_REASON);
-/** Not a combo deal: the funds mutations resolve the bot among DCA bots only. */
+/** Not a hedge combo leg: the funds mutations resolve DCA and combo bots only. */
 const takesFunds = (deal: DealRef): boolean =>
   !isComboFundsTarget(dealKindLabel(deal.kind));
 
@@ -126,9 +126,9 @@ const onePairOneExchange = (deals: DealRef[]): boolean =>
 
 /**
  * Ordered as the menus show them. Engine rules each gate mirrors:
- * - funds, execute next DCA: the engine resolves the bot among DCA bots only
- *   (regular, terminal and hedge-DCA legs, never combo) and acts on `open`
- *   deals only;
+ * - funds: DCA (regular, terminal, hedge-DCA legs) and combo deals, never
+ *   hedge combo legs; `open` deals only. A combo deal scales every DCA level;
+ * - execute next DCA: DCA bots only (never combo), `open` deals only;
  * - restart: `open` or `error`, DCA and combo deals including hedge legs;
  * - move to terminal: DCA or combo bot deals only (no grid, no hedge);
  * - restore: canceled DCA, hedge-DCA or terminal deals (the engine restores

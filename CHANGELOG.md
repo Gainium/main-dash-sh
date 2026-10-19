@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.107.0] - 2026-10-19
+### Added
+- Combo deals: Add funds and Reduce funds. The change is spread over every DCA level of the deal: filled levels are topped up (or trimmed) at market and their minigrid orders grow (or shrink) with them, and pending levels are resized. No new level is added. Market orders only.
+
+### Changed
+- Add / Reduce funds (DCA and Combo): the dialog shows what the order does before you confirm: the amount bought or sold now, the position and average price before → after, the realized P&L of a reduce, and for Combo the factor every DCA level is scaled by and the change to pending levels.
+
 ## [2.106.6] - 2026-10-19
 ### Changed
 - Change DCA levels (DCA and Combo deals): raising the max lists each new level with its price and size. A level the price has already passed is marked "Fills now", because its order fills at once at about the market price; on a Combo deal, that level's minigrid still starts at the level's own price.

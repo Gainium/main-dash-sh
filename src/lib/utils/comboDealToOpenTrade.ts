@@ -22,6 +22,7 @@ import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { formatDuration } from '@/utils/formatters';
 import { extractPairAssets } from '@/utils/pairs';
 import { ExchangeEnum } from '@/types';
+import { percentBasisFromDeal } from '@/types/dcaDeal';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -128,11 +129,18 @@ export function comboDealToOpenTrade(
     unrealizedPending: !!(deal as { unrealizedPending?: boolean })
       .unrealizedPending,
     avgPrice: deal.avgPrice || 0,
+    // The Add/Reduce funds dialog resolves a percentage and previews the
+    // outcome from this, as it does for DCA rows.
+    ...(() => {
+      const basis = percentBasisFromDeal(deal);
+      return basis ? { percentBasis: basis } : {};
+    })(),
     levels: deal.levels || { complete: 0, all: 0 },
     created: +createdTime,
     notes: deal.note || '',
     pair,
     dealType: deal.settings?.futures ? 'FUTURES' : 'SPOT',
+    futures: !!futures,
     side: (deal.strategy === 'SHORT' ? 'SELL' : 'BUY') as 'BUY' | 'SELL',
     orders: deal.levels?.complete || 0,
     entryPrice: deal.initialPrice || deal.avgPrice || 0,

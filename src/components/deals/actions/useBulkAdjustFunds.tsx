@@ -171,6 +171,9 @@ export function useBulkAdjustFunds(): UseBulkAdjustFundsResult {
       symbol={symbol}
       exchange={exchange}
       percentBasis={percentBasis}
+      // A combo deal takes market orders only, so one in the selection takes
+      // the limit option away for all of them.
+      dealKind={targets.some((t) => t.type === 'Combo') ? 'combo' : 'dca'}
     />
   ) : null;
 

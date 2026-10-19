@@ -28,11 +28,16 @@ import {
   useRestartDeal,
   useRestoreDeal,
 } from '@/hooks/useDealActions';
-import { fetchDealOrders } from '@/hooks/useDealOrders';
+import { fetchDealOrders, useDealOrders } from '@/hooks/useDealOrders';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
-import { BaseFundingEnum, CloseDCATypeEnum, type AddFundsSettings } from '@/types';
+import {
+  BaseFundingEnum,
+  BotTypesEnum,
+  CloseDCATypeEnum,
+  type AddFundsSettings,
+} from '@/types';
 import { useBaseFundingSettings } from '@/hooks/useBaseFunding';
 import { estimateLevelsBase } from '@/lib/baseFunding/estimateLevelsBase';
 import type { ViewOrder } from '@/types/bots';
@@ -565,6 +570,37 @@ export function useDealActionHost({
   const pendingDeal = pending?.deals[0];
   const copy = pending ? confirmCopy(pending.id, pending.deals) : null;
 
+  // A combo funds adjustment scales the deal's pending DCA levels too, so its
+  // preview needs what they hold. Only fetched while that dialog is open.
+  const comboFundsDeal =
+    (pendingId === 'addFunds' || pendingId === 'reduceFunds') &&
+    pendingDeal?.kind === 'combo'
+      ? pendingDeal
+      : undefined;
+  const { orders: comboFundsOrders } = useDealOrders(
+    comboFundsDeal?.botId ?? '',
+    comboFundsDeal?.dealId ?? '',
+    BotTypesEnum.combo
+  );
+  const comboPendingLevels = useMemo(() => {
+    if (!comboFundsDeal) return undefined;
+    return comboFundsOrders
+      .filter(
+        (o) =>
+          o.typeOrder === 'dealRegular' &&
+          (o.status === 'NEW' || o.status === 'PARTIALLY_FILLED')
+      )
+      .reduce(
+        (acc, o) => {
+          const qty = parseFloat(o.origQty) - parseFloat(o.executedQty || '0');
+          const price = parseFloat(o.price);
+          if (!(qty > 0) || !(price > 0)) return acc;
+          return { base: acc.base + qty, quote: acc.quote + qty * price };
+        },
+        { base: 0, quote: 0 }
+      );
+  }, [comboFundsDeal, comboFundsOrders]);
+
   // Base funding (main-app spec 044): adding levels to a short spot deal of a
   // bot-funded bot buys their base first, so the dialog previews it.
   const fundingKind =
@@ -759,6 +795,8 @@ export function useDealActionHost({
             exchangeUUID={pendingDeal.exchangeUUID}
             futures={pendingDeal.futures}
             long={pendingDeal.long}
+            dealKind={pendingDeal.kind === 'combo' ? 'combo' : 'dca'}
+            pendingLevels={comboPendingLevels}
           />
         )}
       {pendingId === 'executeNextDca' && pendingDeal && (

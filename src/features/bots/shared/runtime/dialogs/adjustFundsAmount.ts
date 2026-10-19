@@ -154,6 +154,8 @@ export interface PercentBasis {
    * sourced number that could disagree with it.
    */
   perHundredQuote: number;
+  /** The price `perHundred` was derived at: the deal's average, else its last fill. */
+  avgPrice: number;
 }
 
 /**
@@ -216,6 +218,7 @@ export const percentBasis = (
     perHundred,
     remainingBase: input.remainingBase,
     perHundredQuote: perHundred * costPrice,
+    avgPrice: costPrice,
   };
 };
 
