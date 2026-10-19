@@ -135,7 +135,7 @@ export function useTradingPairs() {
   }, [tradingMode, markStale]);
 
   // Pairs restored from IndexedDB for the same trading context and not past
-  // the hourly refresh boundary are used as-is: a reload no longer re-downloads
+  // their refresh time are used as-is: a reload no longer re-downloads
   // the whole pair list (several MB with many exchanges).
   const savedPairsFresh = useMemo(
     () =>
@@ -146,7 +146,7 @@ export function useTradingPairs() {
     [_hasHydrated, timestamp, pairsContext, tradingMode]
   );
 
-  // Only fetch if we haven't loaded yet (timer will clear expired data automatically).
+  // Only fetch if we haven't loaded yet (the store's timer marks expired data stale).
   // Wait for IDB rehydration to finish first — otherwise we'd fire a network
   // request even when cached pairs are about to arrive from IndexedDB, and the
   // brief pre-hydration empty state would leak into UI consumers.
@@ -176,8 +176,8 @@ export function useTradingPairs() {
 
   // Update store when API data arrives.
   // Also include `initialLoaded` in deps so that when the store is emptied or
-  // marked stale (initialLoaded: false) — e.g. by the hourly `clearExpiredPairs`
-  // cleanup or a trading-context switch — while TanStack Query still holds the
+  // marked stale (initialLoaded: false) — e.g. by the store's refresh timer or
+  // a trading-context switch — while TanStack Query still holds the
   // same cached `getAllPairs` data reference, we immediately repopulate the
   // store from that cached data instead of leaving it stuck empty until a hard
   // refresh. This mirrors the identical guard in useExchanges; without it the

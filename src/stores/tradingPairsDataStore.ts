@@ -79,9 +79,21 @@ export interface TradingPairsDataState {
   hasData: () => boolean;
 }
 
-// Backend updates pairs every hour at :20 (00:20, 01:20, 02:20, etc.)
-// Clear cache at :25 of each hour (5 minutes after backend updates)
-const CLEANUP_TARGET_MINUTE = 25; // Clear at :25 of each hour
+// A saved pair list is refreshed 45–75 min (60 on average) after it was
+// loaded. The point inside that window is drawn once per tab, so tabs do not
+// refresh in step: a refresh aligned to the wall clock made every open tab
+// request the full pair list in the same second.
+export const PAIRS_REFRESH_MIN_MS = 45 * 60 * 1000;
+export const PAIRS_REFRESH_JITTER_MS = 30 * 60 * 1000;
+const TAB_REFRESH_JITTER_MS = Math.random() * PAIRS_REFRESH_JITTER_MS;
+const REFRESH_CHECK_INTERVAL_MS = 60 * 1000;
+
+export const isPairsRefreshDue = (
+  timestamp: number,
+  now: number,
+  jitterMs: number
+): boolean =>
+  !timestamp || now - timestamp >= PAIRS_REFRESH_MIN_MS + jitterMs;
 
 // Helper function to organize pairs by provider in nested structure
 const organizePairsByProvider = (
@@ -161,49 +173,8 @@ export const useTradingPairsDataStore = create<TradingPairsDataState>()(
         return convertToFlatPairsByExchange(state.pairsByProvider);
       },
 
-      isExpired: () => {
-        const state = get();
-        if (!state.timestamp) return true; // No data = needs fetch
-
-        const now = new Date();
-        const lastUpdate = new Date(state.timestamp);
-
-        // Get the most recent :25 boundary
-        const currentHour = now.getHours();
-        const currentMinute = now.getMinutes();
-
-        // Calculate the most recent :25 time
-        let most25Recent;
-        if (currentMinute >= CLEANUP_TARGET_MINUTE) {
-          // Current hour's :25 has passed, so the most recent :25 is this hour
-          most25Recent = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            currentHour,
-            CLEANUP_TARGET_MINUTE,
-            0,
-            0
-          );
-        } else {
-          // Current hour's :25 hasn't come yet, so the most recent :25 is previous hour
-          most25Recent = new Date(
-            now.getFullYear(),
-            now.getMonth(),
-            now.getDate(),
-            currentHour - 1,
-            CLEANUP_TARGET_MINUTE,
-            0,
-            0
-          );
-        }
-
-        // If last update was before the most recent :25 and now is after it, then expired
-        const wasBeforeLast25 = lastUpdate.getTime() < most25Recent.getTime();
-        const nowIsAfterLast25 = now.getTime() >= most25Recent.getTime();
-
-        return wasBeforeLast25 && nowIsAfterLast25;
-      },
+      isExpired: () =>
+        isPairsRefreshDue(get().timestamp, Date.now(), TAB_REFRESH_JITTER_MS),
 
       clearExpiredPairs: () => {
         set(() => ({
@@ -286,64 +257,17 @@ export const useTradingPairsDataStore = create<TradingPairsDataState>()(
   )
 );
 
-// Auto-cleanup timer: Clear cache at :25 of each hour (after backend updates at :20)
+// Refresh timer: once the saved list is due, mark it stale so useTradingPairs
+// refetches it. The old list stays on screen until the new one arrives.
 if (typeof window !== 'undefined') {
-  // Calculate time until next :25 minute mark
-  const now = new Date();
-  const currentMinute = now.getMinutes();
-  const currentSecond = now.getSeconds();
-
-  // Calculate milliseconds until next :25
-  let msUntilNextCleanup;
-  if (currentMinute < CLEANUP_TARGET_MINUTE) {
-    // Same hour, wait until :25
-    msUntilNextCleanup =
-      (CLEANUP_TARGET_MINUTE - currentMinute) * 60 * 1000 -
-      currentSecond * 1000;
-  } else {
-    // Next hour, wait until next :25
-    msUntilNextCleanup =
-      (60 - currentMinute + CLEANUP_TARGET_MINUTE) * 60 * 1000 -
-      currentSecond * 1000;
-  }
-
-  // Set initial timeout to align with :25 minute mark
-  setTimeout(() => {
-    // Run cleanup immediately when we hit :25
+  setInterval(() => {
     try {
       const state = useTradingPairsDataStore.getState();
-      if (state.isExpired()) {
-        state.clearExpiredPairs();
-        logger.debug(
-          '[TradingPairsDataStore] Automatically cleared expired trading pairs cache at :25'
-        );
+      if (state.timestamp && state.isExpired()) {
+        state.markStale();
       }
     } catch (error) {
-      logger.error(
-        '[TradingPairsDataStore] Error during automatic cleanup:',
-        error
-      );
+      logger.error('[TradingPairsDataStore] Error during refresh check:', error);
     }
-
-    // Then set up hourly interval to run at :25 of each hour
-    setInterval(
-      () => {
-        try {
-          const state = useTradingPairsDataStore.getState();
-          if (state.isExpired()) {
-            state.clearExpiredPairs();
-            logger.debug(
-              '[TradingPairsDataStore] Automatically cleared expired trading pairs cache at :25'
-            );
-          }
-        } catch (error) {
-          logger.error(
-            '[TradingPairsDataStore] Error during automatic cleanup:',
-            error
-          );
-        }
-      },
-      60 * 60 * 1000
-    ); // Run every hour
-  }, msUntilNextCleanup);
+  }, REFRESH_CHECK_INTERVAL_MS);
 }

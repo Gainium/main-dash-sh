@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.105.2] - 2026-10-19
+### Fixed
+- The trading-pair list is refreshed in the background about an hour after each tab loaded it, at a time that differs per tab, instead of every open tab discarding its list and re-downloading it at minute 25 of each hour. The list stays on screen while the new one loads.
+
 ## [2.105.1] - 2026-10-18
 ### Fixed
 - Trading Terminal on futures: with Order Size Reference set to Cost, the Amount and Total fields and their Max figures now show the cost (position value divided by leverage), as the bot forms do. Previously they kept showing the position value, so a cost typed in was redisplayed multiplied by leverage, and leaving the field without editing it multiplied the order size by leverage again. The position placed for a typed cost is unchanged.
