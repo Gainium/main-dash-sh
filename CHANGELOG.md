@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.106.2] - 2026-10-19
+### Changed
+- Backtest results → Analysis → Periodic stats: the 14-column table is replaced by a grid of month cards under each year's summary. Each card leads with the month's net result, coloured by profit or loss, with drawdown, run-up and winning/losing deals below. Cards wrap to the screen width, so the stats read without horizontal scrolling on a phone; months outside the backtest range are no longer shown as empty columns.
+
 ## [2.106.1] - 2026-10-19
 ### Added
 - DCA, Combo, Hedge DCA, Hedge Combo and terminal bots: the bot's Overview tab shows the Profit chart again (daily, weekly, monthly or total profit from closed deals, in USD), as grid bots already did.

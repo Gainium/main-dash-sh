@@ -7,6 +7,7 @@ import { math } from '@/lib/utils/math';
 import {
   MAX_DEALS_IN_BACKTEST,
   type DCABacktestingResultHistory,
+  type PeriodicStats,
 } from '@/types';
 import CustomTooltip from '@/components/charts/CustomTooltip';
 
@@ -24,22 +25,74 @@ interface BacktestAnalysisTabProps {
   backtest: DCABacktestingResultHistory;
 }
 
-const statCells = [
-  '',
-  'JAN',
-  'FEB',
-  'MAR',
-  'APR',
-  'MAY',
-  'JUN',
-  'JUL',
-  'AUG',
-  'SEP',
-  'OCT',
-  'NOV',
-  'DEC',
-  'Year',
+const MONTHS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ];
+
+const netClass = (net: number) =>
+  net > 0 ? 'text-profit' : net < 0 ? 'text-loss' : 'text-muted-foreground';
+
+const formatNet = (net: number) => `${net > 0 ? '+' : ''}${net}%`;
+
+/** DD / RU / deal counts — the secondary figures, kept on one muted line. */
+function PeriodDetails({ stats }: { stats: PeriodicStats }) {
+  const { profit, loss } = stats.deals;
+  return (
+    <span className="text-xs text-muted-foreground tabular-nums">
+      DD {stats.drawdown}% · RU {stats.runup}% · {profit + loss} deals (
+      <span className="text-profit">{profit}W</span>/
+      <span className="text-loss">{loss}L</span>)
+    </span>
+  );
+}
+
+function MonthCell({ stats }: { stats: PeriodicStats }) {
+  const net = stats.netResult;
+  const tint =
+    net > 0
+      ? 'bg-profit/10 border-profit/20'
+      : net < 0
+        ? 'bg-loss/10 border-loss/20'
+        : 'border-border/40';
+  const { profit, loss } = stats.deals;
+  return (
+    <div className={`rounded-md border p-xs tabular-nums ${tint}`}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-xs">
+        <span className="text-xs font-medium text-muted-foreground">
+          {MONTHS[new Date(stats.startTime).getMonth()]}
+        </span>
+        <span className={`text-sm font-semibold ${netClass(net)}`}>
+          {formatNet(net)}
+        </span>
+      </div>
+      <div className="mt-0.5 flex flex-wrap gap-x-sm text-xs leading-tight text-muted-foreground">
+        <span className="whitespace-nowrap">DD {stats.drawdown}%</span>
+        <span className="whitespace-nowrap">RU {stats.runup}%</span>
+        <span className="whitespace-nowrap">
+          {profit + loss} deals
+          {profit + loss > 0 ? (
+            <>
+              {' '}
+              (<span className="text-profit">{profit}</span>/
+              <span className="text-loss">{loss}</span>)
+            </>
+          ) : null}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
   const chartColors = useChartColors();
@@ -171,94 +224,40 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
             <CardTitle>Periodic stats</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="w-full overflow-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border/40">
-                    {statCells.map((s) => (
-                      <th
-                        key={`${s || 'empty'}-header`}
-                        className="p-xs text-left font-medium text-muted-foreground whitespace-nowrap"
+            <div className="space-y-lg">
+              {yearStats.map((year) => {
+                const yearStart = year.startTime;
+                const yearEnd = year.startTime + 365 * 24 * 60 * 60 * 1000 - 1;
+                const months = periodicStats
+                  .filter(
+                    (p) =>
+                      p.period === 'month' &&
+                      p.startTime >= yearStart &&
+                      p.startTime <= yearEnd
+                  )
+                  .sort((a, b) => a.startTime - b.startTime);
+
+                return (
+                  <div key={`${year.startTime}-year`} className="space-y-sm">
+                    <div className="flex flex-wrap items-baseline gap-x-md gap-y-xs">
+                      <span className="text-base font-semibold">
+                        {new Date(year.startTime).getFullYear()}
+                      </span>
+                      <span
+                        className={`text-base font-semibold tabular-nums ${netClass(year.netResult)}`}
                       >
-                        {s}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {yearStats.map((year) => (
-                    <tr
-                      key={`${year.startTime}-row`}
-                      className="border-b border-border/20 align-top"
-                    >
-                      {statCells.map((sc, i) => {
-                        const yearStart = year.startTime;
-                        const yearEnd =
-                          year.startTime + 365 * 24 * 60 * 60 * 1000 - 1;
-
-                        if (sc === '') {
-                          return (
-                            <td
-                              key="year-label"
-                              className="p-xs whitespace-nowrap"
-                            >
-                              {new Date(year.startTime).getFullYear()}
-                            </td>
-                          );
-                        }
-
-                        if (sc === 'Year') {
-                          return (
-                            <td key="year-summary" className="p-xs min-w-40">
-                              <div className="space-y-1">
-                                <div>Net: {year.netResult}%</div>
-                                <div>DD: {year.drawdown}%</div>
-                                <div>RU: {year.runup}%</div>
-                                <div>
-                                  Deals: {year.deals.loss + year.deals.profit}{' '}
-                                  (p - {year.deals.profit}, l -{' '}
-                                  {year.deals.loss})
-                                </div>
-                              </div>
-                            </td>
-                          );
-                        }
-
-                        const monthStats = periodicStats.filter(
-                          (p) =>
-                            p.period === 'month' &&
-                            new Date(p.startTime).getMonth() + 1 === i &&
-                            p.startTime >= yearStart &&
-                            p.startTime <= yearEnd
-                        );
-
-                        if (!monthStats.length) {
-                          return <td key={`${sc}-empty`} className="p-xs" />;
-                        }
-
-                        return (
-                          <td key={`${sc}-month`} className="p-xs min-w-40">
-                            {monthStats.map((m) => (
-                              <div
-                                key={`${m.startTime}-month`}
-                                className="space-y-1"
-                              >
-                                <div>Net: {m.netResult}%</div>
-                                <div>DD: {m.drawdown}%</div>
-                                <div>RU: {m.runup}%</div>
-                                <div>
-                                  Deals: {m.deals.loss + m.deals.profit} (p -{' '}
-                                  {m.deals.profit}, l - {m.deals.loss})
-                                </div>
-                              </div>
-                            ))}
-                          </td>
-                        );
-                      })}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                        {formatNet(year.netResult)}
+                      </span>
+                      <PeriodDetails stats={year} />
+                    </div>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(6rem,1fr))] gap-xs">
+                      {months.map((m) => (
+                        <MonthCell key={`${m.startTime}-month`} stats={m} />
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
           </CardContent>
         </Card>
