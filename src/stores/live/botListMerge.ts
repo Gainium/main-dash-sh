@@ -1,3 +1,7 @@
+import {
+  isBotStatusHeld,
+  resolveFetchedBotStatus,
+} from './botStatusTransitions';
 import { consultBotTombstone, isIncomingBotStale } from './staleWriteGuard';
 
 /**
@@ -43,6 +47,10 @@ function updatedMs(bot: MergeableBot): number | undefined {
  *   leaves the store without a differently-filtered or partial list wiping
  *   bots it never covered.
  * - With no `scope`, nothing is removed (upsert only).
+ * - A bot with a pending (or just-confirmed) Start/Stop keeps its held status
+ *   until a response carries the requested one: the API accepts a status
+ *   change before the engine acts, so a refetch right after it can still
+ *   report the old status.
  *
  * Returns the SAME record object when nothing changed, so a no-op response
  * doesn't wake every subscriber.
@@ -56,8 +64,9 @@ export function mergeBotListSnapshot<B extends MergeableBot>(
   const removals = new Set<string>();
   const seen = new Set<string>();
 
-  for (const bot of incoming) {
-    if (!bot || !bot._id) continue;
+  for (const received of incoming) {
+    if (!received || !received._id) continue;
+    let bot = received;
     seen.add(bot._id);
     const prior = existing[bot._id];
     if (prior && isIncomingBotStale(prior as never, bot as never)) continue;
@@ -65,6 +74,8 @@ export function mergeBotListSnapshot<B extends MergeableBot>(
       if (prior) removals.add(bot._id);
       continue;
     }
+    const status = resolveFetchedBotStatus(bot._id, bot.status, prior?.status);
+    if (status !== bot.status) bot = { ...bot, status };
     if (prior !== bot) upserts.set(bot._id, bot);
   }
 
@@ -72,6 +83,8 @@ export function mergeBotListSnapshot<B extends MergeableBot>(
     const statuses = new Set(scope.statuses);
     for (const id of Object.keys(existing)) {
       if (seen.has(id)) continue;
+      // Its absence may only mean the list predates the pending status.
+      if (isBotStatusHeld(id)) continue;
       const held = existing[id];
       const inContext =
         typeof held.paperContext !== 'boolean' ||

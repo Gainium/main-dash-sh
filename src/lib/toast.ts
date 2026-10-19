@@ -2,8 +2,15 @@
 export type ToastType = 'success' | 'error' | 'info' | 'warning';
 
 interface ToastOptions {
+  /** Auto-dismiss delay in ms; `Infinity` keeps it until dismissed. */
   duration?: number;
   type?: ToastType;
+}
+
+/** A shown toast whose text can change until it is dismissed. */
+export interface ToastHandle {
+  update: (message: string) => void;
+  dismiss: () => void;
 }
 
 const defaultOptions: ToastOptions = {
@@ -61,16 +68,20 @@ const getToastStyles = (type: ToastType): string => {
   return baseStyles + typeStyles[type];
 };
 
+const NOOP_HANDLE: ToastHandle = { update: () => {}, dismiss: () => {} };
+
 export const showToast = (
   message: string,
   options: ToastOptions = {}
-): void => {
+): ToastHandle => {
   const { duration, type } = { ...defaultOptions, ...options };
-  if (!type) return;
+  if (!type) return NOOP_HANDLE;
   const container = createToastContainer();
 
   const toast = document.createElement('div');
-  toast.textContent = message;
+  const text = document.createElement('span');
+  text.textContent = message;
+  toast.appendChild(text);
   toast.style.cssText = getToastStyles(type);
 
   // Close button
@@ -101,17 +112,34 @@ export const showToast = (
     toast.style.transform = 'translateX(0)';
   });
 
-  // Auto dismiss
-  const timeoutId = setTimeout(() => {
+  // Auto dismiss (setTimeout treats Infinity as 0, so skip it)
+  const timeoutId =
+    duration !== undefined && Number.isFinite(duration)
+      ? setTimeout(() => {
+          dismissToast(toast);
+        }, duration)
+      : undefined;
+
+  let dismissed = false;
+  const dismiss = () => {
+    if (dismissed) return;
+    dismissed = true;
+    if (timeoutId !== undefined) clearTimeout(timeoutId);
     dismissToast(toast);
-  }, duration);
+  };
 
   // Click close button to dismiss
   closeBtn.addEventListener('click', (e) => {
     e.stopPropagation();
-    clearTimeout(timeoutId);
-    dismissToast(toast);
+    dismiss();
   });
+
+  return {
+    update: (next: string) => {
+      text.textContent = next;
+    },
+    dismiss,
+  };
 };
 
 const dismissToast = (toast: HTMLElement): void => {
@@ -130,4 +158,7 @@ export const toast = {
     showToast(message, { ...options, type: 'info' }),
   warning: (message: string, options?: Omit<ToastOptions, 'type'>) =>
     showToast(message, { ...options, type: 'warning' }),
+  /** An info toast that stays until `dismiss()`; `update()` changes its text. */
+  progress: (message: string): ToastHandle =>
+    showToast(message, { type: 'info', duration: Infinity }),
 };

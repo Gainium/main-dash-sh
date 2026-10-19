@@ -88,8 +88,14 @@ const wrapper = ({ children }: { children: ReactNode }) =>
 const mountActions = (ref: BotRef) =>
   renderHook(() => useBotActions(ref), { wrapper });
 
+// Routing only: the toast fields (`name`, `notify`) are checked on their own.
 const statusCalls = () =>
-  captured.calls.filter((c) => c.mutation === 'changeStatus');
+  captured.calls
+    .filter((c) => c.mutation === 'changeStatus')
+    .map((c) => {
+      const { name: _name, notify: _notify, ...input } = c.input;
+      return { ...c, input };
+    });
 
 afterEach(() => {
   captured.calls = [];
@@ -232,6 +238,8 @@ describe('bot action runner routing', () => {
             id: 'hedge-1',
             status: 'closed',
             closeType: CloseDCATypeEnum.cancel,
+            name: 'Hedge one',
+            notify: true,
           },
         },
         { mutation: 'restart', input: { id: 'hedge-1', type: kind } },
@@ -241,17 +249,22 @@ describe('bot action runner routing', () => {
     }
   );
 
-  it('toasts a status change, unless the caller asks for silence', () => {
+  it('confirms a status change when the server reports it, not when the API accepts it', () => {
     const { result } = mountActions(toBotRef(dcaBot, 'dca'));
     act(() => result.current.changeStatus({ nextStatus: 'closed' }));
-    expect(captured.toasts).toEqual([
-      { kind: 'success', message: 'Bot "DCA one" stopped successfully' },
-    ]);
-    captured.toasts = [];
+    // The confirmation toast comes from botStatusTransitions on the server's
+    // report; accepting the request toasts nothing.
+    expect(captured.toasts).toEqual([]);
     act(() =>
       result.current.changeStatus({ nextStatus: 'closed', silent: true })
     );
-    expect(captured.toasts).toEqual([]);
+    const sent = captured.calls
+      .filter((c) => c.mutation === 'changeStatus')
+      .map((c) => ({ name: c.input['name'], notify: c.input['notify'] }));
+    expect(sent).toEqual([
+      { name: 'DCA one', notify: true },
+      { name: 'DCA one', notify: false },
+    ]);
   });
 
   it('copies the full hedge bot from the drawer, shared settings included', async () => {

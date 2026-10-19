@@ -454,8 +454,12 @@ const HedgeComboBots = () => {
           description: BOT_METRIC_DESCRIPTIONS.hedge.status,
         },
         accessorFn: (row) => row.status,
-        cell: ({ getValue }) => (
-          <StatusChip status={getValue() as string} size="sm" />
+        cell: ({ getValue, row }) => (
+          <StatusChip
+            status={getValue() as string}
+            size="sm"
+            botId={row.original._id}
+          />
         ),
       },
       {

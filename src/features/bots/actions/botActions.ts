@@ -135,6 +135,12 @@ export interface BotActionContext {
   starred: boolean;
   /** In-flight actions (spinner + disabled). */
   pending: Partial<Record<BotActionId, boolean>>;
+  /**
+   * "Starting…" / "Stopping…" while a status change awaits the server. The
+   * Start/Stop item shown follows the optimistic status, so its own pending
+   * label would name the wrong direction.
+   */
+  statusPendingLabel?: string;
   form?: BotFormActionContext;
   /** The backend offers in-place reverse (cloud edition). */
   reverseAvailable?: boolean;
@@ -190,7 +196,7 @@ export interface BotBulkSpec {
 export interface BotActionDef {
   id: BotActionId;
   label: (bot: BotRef, ctx: BotActionContext) => string;
-  pendingLabel?: (bot: BotRef) => string;
+  pendingLabel?: (bot: BotRef, ctx: BotActionContext) => string;
   icon: ComponentType<{ className?: string }>;
   group: BotActionGroup;
   kinds: readonly BotKind[];
@@ -243,7 +249,7 @@ export const botActions: readonly BotActionDef[] = [
   {
     id: 'start',
     label: () => 'Start',
-    pendingLabel: () => 'Starting…',
+    pendingLabel: (_bot, ctx) => ctx.statusPendingLabel ?? 'Starting…',
     icon: Play,
     group: 'primary',
     kinds: ALL_BOT_KINDS,
@@ -260,7 +266,7 @@ export const botActions: readonly BotActionDef[] = [
   {
     id: 'stop',
     label: () => 'Stop',
-    pendingLabel: () => 'Stopping…',
+    pendingLabel: (_bot, ctx) => ctx.statusPendingLabel ?? 'Stopping…',
     icon: Square,
     group: 'primary',
     kinds: ALL_BOT_KINDS,
@@ -506,7 +512,7 @@ export const resolveBotAction = (
     def.blockedReason?.(bot, ctx);
   return {
     id: def.id,
-    label: pending && def.pendingLabel ? def.pendingLabel(bot) : def.label(bot, ctx),
+    label: pending && def.pendingLabel ? def.pendingLabel(bot, ctx) : def.label(bot, ctx),
     icon: def.icon,
     group: def.group,
     lifecycle: !!def.lifecycle,

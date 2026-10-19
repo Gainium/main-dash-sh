@@ -2566,9 +2566,9 @@ const BotForm: React.FC<BotFormProps> = ({
         toast.error('Bot ID missing. Unable to update status.');
         return;
       }
-      // The form reflects the new status itself; no success toast (as
-      // before the runner), failures still toast from the mutation.
-      formChangeStatus({ ...payload, silent: true });
+      // The footer shows "Starting…"/"Stopping…" until the server reports
+      // the new status, then a toast confirms it (failures toast too).
+      formChangeStatus(payload);
     },
     [formBotSaved, formChangeStatus]
   );
@@ -3976,6 +3976,10 @@ const BotForm: React.FC<BotFormProps> = ({
                   footerOverride?.togglePending ??
                   formActions.statusPending
                 }
+                {...(footerOverride?.togglePending === undefined &&
+                formActions.statusPendingLabel
+                  ? { togglePendingLabel: formActions.statusPendingLabel }
+                  : {})}
                 botStatus={footerOverride?.botStatus ?? bot?.status ?? null}
                 bot={botForOperations}
                 menuConfig={
@@ -4459,6 +4463,10 @@ const BotForm: React.FC<BotFormProps> = ({
             togglePending={
               footerOverride?.togglePending ?? formActions.statusPending
             }
+            {...(footerOverride?.togglePending === undefined &&
+            formActions.statusPendingLabel
+              ? { togglePendingLabel: formActions.statusPendingLabel }
+              : {})}
             botStatus={footerOverride?.botStatus ?? bot?.status ?? null}
             bot={botForOperations}
             menuConfig={

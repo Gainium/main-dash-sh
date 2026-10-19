@@ -1588,6 +1588,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                     <div className="flex flex-1 min-w-0 items-center gap-2 pr-4">
                       <StatusChip
                         status={bot.status}
+                        botId={bot._id}
                         size="md"
                         chipStyle="solid"
                         dotOnly

@@ -847,6 +847,7 @@ const GridBots: React.FC = () => {
                 size="xs"
                 chipStyle="soft"
                 tooltip={tooltip}
+                botId={row.original._id}
               />
             );
           },

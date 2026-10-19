@@ -173,7 +173,14 @@ const hedge = (exchange: string, status = 'closed') => ({
 const routerWrapper = ({ children }: { children: ReactNode }) =>
   createElement(MemoryRouter, null, children);
 
-const statusCalls = () => captured.calls.filter((c) => c.mutation === 'changeStatus');
+// Routing only: the confirmation-toast fields (`name`, `notify`) are dropped.
+const statusCalls = () =>
+  captured.calls
+    .filter((c) => c.mutation === 'changeStatus')
+    .map((c) => {
+      const { name: _name, notify: _notify, ...input } = c.input;
+      return { ...c, input };
+    });
 
 describe('hedge start routing', () => {
   it('spot hedge: Start opens the hedge start dialog, confirm sends hedgeConfig', () => {

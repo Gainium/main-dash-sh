@@ -11,6 +11,10 @@ import { useBaseFundingAccess } from '@/hooks/useBaseFundingAccess';
 import { useUIStore } from '@/stores/uiStore';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
+  transitionLabel,
+  useBotTransition,
+} from '@/stores/live/botStatusTransitions';
+import {
   chooseStatusDialog,
   isHedgeKind,
   type BotActionContext,
@@ -88,8 +92,8 @@ export interface BotStatusChangePayload {
   /** Hedge start: the action each leg starts with (hedge start dialog). */
   hedgeConfig?: { [x in StrategyEnum]: ActionsEnum };
   /**
-   * No success toast (the bot form, whose footer reflects the new status
-   * itself). Failures still toast — from the mutation.
+   * No confirmation toast when the server reports the new status. Failures
+   * and timeouts still toast.
    */
   silent?: boolean;
 }
@@ -160,7 +164,10 @@ export interface BotActionsController {
   run: (id: BotActionId) => void;
   /** Start/stop without a dialog (the caller already collected options). */
   changeStatus: (payload: BotStatusChangePayload) => void;
+  /** A status request is in flight, or the server has not confirmed it yet. */
   statusPending: boolean;
+  /** "Starting…" / "Stopping…" while the server has not confirmed. */
+  statusPendingLabel?: string;
   modalProps: BotActionsModalProps;
 }
 
@@ -206,6 +213,9 @@ export function useBotActions(
   const archiveMutation = useBotArchive();
 
   const [statusModalOpen, setStatusModalOpen] = useState(false);
+  const [statusModalStatus, setStatusModalStatus] = useState<string | null>(
+    null
+  );
   const [deleteModalOpen, setDeleteModalOpen] = useState(false);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [reverseModalOpen, setReverseModalOpen] = useState(false);
@@ -227,7 +237,19 @@ export function useBotActions(
       : moded;
   }, [inputBot, isPaperTrading, baseFundingAccess]);
 
-  const statusPending = statusToggleMutation.isPending;
+  // Pending from the click until the server reports the requested status
+  // (not just until the API accepts it): Start/Stop stay disabled meanwhile.
+  const transition = useBotTransition(bot.id);
+  const requestPending = statusToggleMutation.isPending;
+  const statusPending = requestPending || !!transition;
+  // The engine's confirmation can beat the API response; the request's own
+  // target names the direction until it returns.
+  const requestTarget = statusToggleMutation.variables?.status;
+  const statusPendingLabel = transition
+    ? transitionLabel(transition.target)
+    : requestPending && requestTarget
+      ? transitionLabel(requestTarget === 'open' ? 'open' : 'closed')
+      : undefined;
   const restartPending = restartMutation.isPending;
   const deletePending = deleteMutation.isPending;
   const archivePending = archiveMutation.isPending;
@@ -246,6 +268,7 @@ export function useBotActions(
         archive: archivePending,
         unarchive: archivePending,
       },
+      ...(statusPendingLabel ? { statusPendingLabel } : {}),
       ...(form ? { form } : {}),
       reverseAvailable: IS_CLOUD,
     }),
@@ -254,6 +277,7 @@ export function useBotActions(
       viewOnly,
       starred,
       statusPending,
+      statusPendingLabel,
       restartPending,
       deletePending,
       archivePending,
@@ -315,20 +339,25 @@ export function useBotActions(
         ...(starting && payload.hedgeConfig
           ? { hedgeConfig: payload.hedgeConfig }
           : {}),
+        ...(target.name ? { name: target.name } : {}),
+        notify: !payload.silent,
       },
       // Failures are toasted once, by the mutation itself (with the
-      // backend's reason); a second toast here doubled every error.
+      // backend's reason); a second toast here doubled every error. Success
+      // is toasted when the server reports the new status
+      // (botStatusTransitions), not when the API accepts the request.
       {
         onSuccess: () => {
           setStatusModalOpen(false);
           setHedgeStartOpen(false);
-          if (payload.silent) return;
-          toast.success(
-            `Bot "${target.name}" ${starting ? 'started' : 'stopped'} successfully`
-          );
         },
       }
     );
+  }, []);
+
+  const openStatusModal = useCallback((open: boolean) => {
+    if (open) setStatusModalStatus(latest.current.bot.status);
+    setStatusModalOpen(open);
   }, []);
 
   const confirmStatusChange = useCallback(
@@ -405,6 +434,7 @@ export function useBotActions(
           setHedgeStartOpen(true);
           return;
         }
+        setStatusModalStatus(target.status);
         setStatusModalOpen(true);
         return;
       case 'restart':
@@ -491,13 +521,16 @@ export function useBotActions(
   );
   const modalProps: BotActionsModalProps = {
     botName: bot.name,
-    status: bot.status as BotStatus,
+    // The optimistic flip (and often the server's confirmation) lands while
+    // the confirmation modal is still closing; keep it on the status it was
+    // opened for, so a Start does not briefly read "Stop the bot … Stopping…".
+    status: (statusModalStatus ?? bot.status) as BotStatus,
     botType,
     statusModalOpen,
-    onStatusModalOpenChange: setStatusModalOpen,
+    onStatusModalOpenChange: openStatusModal,
     onConfirmStatusChange: confirmStatusChange,
     hasActiveDeals: bot.activeDeals > 0,
-    statusPending,
+    statusPending: requestPending,
     ...(bot.grid
       ? {
           gridFutures: bot.grid.futures,
@@ -543,5 +576,13 @@ export function useBotActions(
       : {}),
   };
 
-  return { bot, ctx, run, changeStatus, statusPending, modalProps };
+  return {
+    bot,
+    ctx,
+    run,
+    changeStatus,
+    statusPending,
+    ...(statusPendingLabel ? { statusPendingLabel } : {}),
+    modalProps,
+  };
 }

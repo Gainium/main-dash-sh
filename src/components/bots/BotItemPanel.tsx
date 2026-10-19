@@ -177,6 +177,7 @@ export const BotItemPanel: React.FC<BotItemPanelProps> = ({
           <div className="text-sm font-medium truncate">{name}</div>
           <StatusChip
             status={bot.status || 'inactive'}
+            botId={bot._id}
             size="xs"
             dotOnly
             className="ml-1"

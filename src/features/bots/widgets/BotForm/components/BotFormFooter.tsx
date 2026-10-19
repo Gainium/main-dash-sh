@@ -124,6 +124,8 @@ export interface BotFormFooterProps {
   onToggleStatus?: ((payload: ToggleStatusPayload) => void) | undefined
   toggleDisabled?: boolean
   togglePending?: boolean
+  /** Toggle text while pending ("Starting…" / "Stopping…"). */
+  togglePendingLabel?: string
   botStatus?: string | null
   bot?: DCABot | null
   showErrorSummary?: boolean
@@ -746,6 +748,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     onToggleStatus,
     toggleDisabled,
     togglePending,
+    togglePendingLabel,
     botStatus,
     bot,
     showErrorSummary = true,
@@ -1400,6 +1403,9 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               onClick={handleToggle}
               active={isBotActive}
               pending={Boolean(togglePending)}
+              {...(togglePendingLabel
+                ? { pendingLabel: togglePendingLabel }
+                : {})}
               disabled={toggleDisabled || readOnly}
             />
           ),
@@ -1411,10 +1417,15 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               onClick={handleToggle}
               active={isBotActive}
               pending={Boolean(togglePending)}
+              {...(togglePendingLabel
+                ? { pendingLabel: togglePendingLabel }
+                : {})}
               disabled={toggleDisabled || readOnly}
             />
           ),
-          menuLabel: togglePending ? 'Updating...' : startButtonLabel,
+          menuLabel: togglePending
+            ? (togglePendingLabel ?? 'Updating...')
+            : startButtonLabel,
           menuIcon: isBotActive ? Square : Play,
           onMenuClick: handleToggle,
           disabled: toggleDisabled || readOnly,
@@ -1445,6 +1456,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       handleToggle,
       toggleDisabled,
       togglePending,
+      togglePendingLabel,
       isBotActive,
       startButtonLabel,
     ])

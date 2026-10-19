@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.106.4] - 2026-10-19
+### Fixed
+- Bot Start/Stop: the bot shows "Starting…" / "Stopping…" (status badge, Start/Stop button, action menus) from the click until the bot reports the new status, and Start/Stop stay disabled meanwhile. A bot list refreshed in that window no longer flips the status back to the old one. A toast confirms when the bot has started or stopped, including Start on the bot page, which showed nothing before; if the bot doesn't confirm within 90 seconds an error toast says so.
+- Bulk Start, Stop and Restart: the summary says the action was requested ("Start requested for 3 bots") instead of reporting it done, and bulk runs show a progress toast while they go through the selected bots.
+- Bot Start/Stop confirmation dialog no longer flips to the opposite action while it closes.
+
 ## [2.106.3] - 2026-10-19
 ### Fixed
 - Bot Profit chart: switching between Daily, Weekly, Monthly and Total briefly drew the previous view's bars under the new label (for example a "Total" figure over daily bars). The chart now shows its loading state until the selected view's data arrives.

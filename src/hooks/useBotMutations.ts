@@ -23,6 +23,10 @@ import {
   clearBotTombstone,
 } from '@/stores/live/staleWriteGuard';
 import {
+  beginBotTransition,
+  clearBotTransition,
+} from '@/stores/live/botStatusTransitions';
+import {
   removeBotFromListCaches,
   patchBotInListCaches,
   invalidateListCaches,
@@ -60,6 +64,13 @@ export interface BotStatusUpdate {
   closeGridType?: CloseGRIDTypeEnum;
   /** Hedge start: the action each leg starts with (the hedge start dialog). */
   hedgeConfig?: ChangeStatusInput['hedgeConfig'];
+  /**
+   * Toast when the server confirms the new status (default true). Bulk runs
+   * turn it off and toast one summary instead. Never sent to the API.
+   */
+  notify?: boolean;
+  /** Bot name for the confirmation toasts. Never sent to the API. */
+  name?: string;
 }
 
 export interface BotArchiveParams {
@@ -165,6 +176,9 @@ const botUpdatedMsFor = (type: BotTypesEnum, id: string): number => {
 // completes. On timeout the request rejects → the mutation's onError shows a
 // toast and React Query flips isPending back, resetting the button.
 const BOT_COMMAND_TIMEOUT_MS = 60_000;
+
+const settingsName = (bot: unknown): string | undefined =>
+  (bot as { settings?: { name?: string } }).settings?.name || undefined;
 
 /**
  * Hook for toggling bot status (start/pause/stop)
@@ -274,7 +288,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         throw error;
       }
     },
-    onMutate: async ({ id, status }) => {
+    onMutate: async ({ id, status, notify, name }) => {
       const key =
         type === BotTypesEnum.dca
           ? 'dcaBotList'
@@ -290,6 +304,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
       // Optimistic update: immediately update bot status in Zustand store
       const targetStatus = status === 'open' ? 'open' : 'closed';
       let previousStatus: string | undefined;
+      let botName: string | undefined = name;
 
       // Optimistically flip the badge in whichever live store holds this bot
       // type. Hedge wrappers live in their own stores, so a hedge toggle gets
@@ -303,6 +318,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
+          botName ??= settingsName(bot);
           store.updateBot({ ...bot, status: nextStatus });
         }
       } else if (type === BotTypesEnum.combo) {
@@ -310,6 +326,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
+          botName ??= settingsName(bot);
           store.updateBot({ ...bot, status: nextStatus });
         }
       } else if (type === BotTypesEnum.hedgeDca) {
@@ -317,6 +334,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
+          botName ??= settingsName(bot);
           store.updateBot({ ...bot, status: nextStatus });
         }
       } else if (type === BotTypesEnum.hedgeCombo) {
@@ -324,6 +342,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
+          botName ??= settingsName(bot);
           store.updateBot({ ...bot, status: nextStatus });
         }
       } else {
@@ -331,6 +350,7 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         const bot = store.bots[id];
         if (bot) {
           previousStatus = bot.status;
+          botName ??= settingsName(bot);
           store.updateBot({ ...bot, status: nextStatus });
         }
       }
@@ -343,11 +363,21 @@ export function useBotStatusToggle(type: BotTypesEnum) {
         botListKeysFor(type)
       );
 
+      // The API accepts the request before the engine acts on it. Until the
+      // server reports the target status the bot is "Starting…"/"Stopping…"
+      // and list refetches can't flip the badge back (botStatusTransitions).
+      beginBotTransition(id, targetStatus, {
+        ...(botName ? { name: botName } : {}),
+        notify: notify ?? true,
+        onTimeout: () => invalidateListCaches(botListKeysFor(type)),
+      });
+
       return { previousStatus } as MutationContext;
     },
     onError: (err, { id }, context: MutationContext | undefined) => {
       logger.error('[BotMutations] Status update failed:', err);
       toast.error(`Failed to update bot status: ${err.message}`);
+      clearBotTransition(id);
 
       // Rollback optimistic update
       if (context?.previousStatus) {

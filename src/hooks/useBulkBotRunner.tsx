@@ -59,15 +59,64 @@ const SKIPPED_REASON: Record<ConfirmAction, string> = {
   unarchive: 'not archived',
 };
 
-const VERB: Record<StatusAction | ConfirmAction | 'delete', [string, string]> =
-  {
-    start: ['start', 'Started'],
-    stop: ['stop', 'Stopped'],
-    restart: ['restart', 'Restarted'],
-    archive: ['archive', 'Archived'],
-    unarchive: ['unarchive', 'Unarchived'],
-    delete: ['delete', 'Deleted'],
+type BulkAction = StatusAction | ConfirmAction | 'delete';
+
+const VERB: Record<BulkAction, [string, string]> = {
+  start: ['start', 'Started'],
+  stop: ['stop', 'Stopped'],
+  restart: ['restart', 'Restarted'],
+  archive: ['archive', 'Archived'],
+  unarchive: ['unarchive', 'Unarchived'],
+  delete: ['delete', 'Deleted'],
+};
+
+/** Progress toast text while a bulk run goes bot by bot. */
+const PROGRESS: Record<BulkAction, string> = {
+  start: 'Requesting start',
+  stop: 'Requesting stop',
+  restart: 'Requesting restart',
+  archive: 'Archiving',
+  unarchive: 'Unarchiving',
+  delete: 'Deleting',
+};
+
+/**
+ * Start, stop and restart are accepted by the API before the bot engine acts
+ * on them; their summary says they were requested, not done. Each bot's own
+ * badge reads "Starting…"/"Stopping…" until the engine reports the change.
+ */
+const REQUESTED: Partial<Record<BulkAction, string>> = {
+  start: 'Start requested for',
+  stop: 'Stop requested for',
+  restart: 'Restart requested for',
+};
+
+export function bulkSummary(
+  action: BulkAction,
+  total: number,
+  failed: number
+): { ok: boolean; message: string } {
+  const [verb, past] = VERB[action];
+  const done = total - failed;
+  const requested = REQUESTED[action];
+  if (failed === 0) {
+    return {
+      ok: true,
+      message: requested
+        ? `${requested} ${botsLabel(done)}`
+        : `${past} ${botsLabel(done)}`,
+    };
+  }
+  if (done === 0) {
+    return { ok: false, message: `Failed to ${verb} the selected bots` };
+  }
+  return {
+    ok: false,
+    message: requested
+      ? `${requested} ${done} of ${botsLabel(total)} — ${failed} failed`
+      : `${past} ${done} of ${botsLabel(total)} — ${failed} failed`,
   };
+}
 
 /**
  * Bulk bot actions for a bot table: the toolbar entries (from the registry's
@@ -152,33 +201,38 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
 
   const runEach = useCallback(
     async (
-      action: StatusAction | ConfirmAction | 'delete',
+      action: BulkAction,
       targets: BotRef[],
       runOne: (bot: BotRef) => Promise<unknown>
     ) => {
       setLoading(true);
+      // Bots go one by one; a long selection takes a while, so show where
+      // the run is instead of nothing until the end.
+      const progressText = (n: number) =>
+        `${PROGRESS[action]}: ${n} of ${botsLabel(targets.length)}…`;
+      const progress = targets.length > 1 ? toast.progress(progressText(0)) : null;
       let failed = 0;
-      for (const bot of targets) {
-        try {
-          await runOne(bot);
-        } catch (error) {
-          failed += 1;
-          logger.error(`[useBulkBotRunner] ${action} failed for ${bot.id}`, error);
+      try {
+        for (const [index, bot] of targets.entries()) {
+          try {
+            await runOne(bot);
+          } catch (error) {
+            failed += 1;
+            logger.error(
+              `[useBulkBotRunner] ${action} failed for ${bot.id}`,
+              error
+            );
+          }
+          progress?.update(progressText(index + 1));
         }
+      } finally {
+        progress?.dismiss();
+        setLoading(false);
+        setPending(null);
       }
-      setLoading(false);
-      setPending(null);
-      const [verb, past] = VERB[action];
-      const done = targets.length - failed;
-      if (failed === 0) {
-        toast.success(`${past} ${botsLabel(done)}`);
-      } else if (done === 0) {
-        toast.error(`Failed to ${verb} the selected bots`);
-      } else {
-        toast.error(
-          `${past} ${done} of ${botsLabel(targets.length)} — ${failed} failed`
-        );
-      }
+      const summary = bulkSummary(action, targets.length, failed);
+      if (summary.ok) toast.success(summary.message);
+      else toast.error(summary.message);
     },
     []
   );
@@ -206,6 +260,8 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
           return toggle({
             id: bot.id,
             status: nextStatus,
+            name: bot.name,
+            notify: false,
             closeGridType: isStop
               ? allGrid
                 ? (closeType as CloseGRIDTypeEnum | undefined)
@@ -221,6 +277,8 @@ export function useBulkBotRunner<T>(toRef: (row: T) => BotRef): {
         return toggle({
           id: bot.id,
           status: nextStatus,
+          name: bot.name,
+          notify: false,
           closeType: isStop
             ? (closeType as CloseDCATypeEnum | undefined)
             : undefined,

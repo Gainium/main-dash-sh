@@ -1681,7 +1681,14 @@ const Trading: React.FC = () => {
         meta: { filterType: 'array' },
         cell: ({ row }) => {
           const status = (row.getValue('status') as string) || 'unknown';
-          return <StatusChip status={status} size="xs" chipStyle="soft" />;
+          return (
+            <StatusChip
+              status={status}
+              size="xs"
+              chipStyle="soft"
+              botId={row.original.id}
+            />
+          );
         },
       },
       {

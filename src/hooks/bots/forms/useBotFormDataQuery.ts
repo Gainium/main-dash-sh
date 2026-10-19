@@ -6,6 +6,7 @@ import { useBotSettings } from '@/hooks/useBotSettings';
 import { useSharedBot } from '@/hooks/useSharedBot';
 import { useComboBotsStore } from '@/stores/live/comboBotsStore';
 import { useDcaBotsStore } from '@/stores/live/dcaBotsStore';
+import { resolveFetchedBotStatus } from '@/stores/live/botStatusTransitions';
 import { useGridBotsStore } from '@/stores/live/gridBotsStore';
 import {
   BotTypesEnum,
@@ -97,12 +98,24 @@ export const useBotFormDataQuery = (
           ? useGridBotsStore
           : useDcaBotsStore;
     const state = store.getState() as {
-      bots: Record<string, unknown>;
+      bots: Record<string, { status?: string } | undefined>;
       addBot: (b: never) => void;
       updateBot: (b: never) => void;
     };
-    if (state.bots[botId]) {
-      state.updateBot(fetchedBot as never);
+    const held = state.bots[botId];
+    if (held) {
+      // A fetch read before the engine acted on a Start/Stop must not undo
+      // the status it has since reported.
+      const status = resolveFetchedBotStatus(
+        botId,
+        fetchedBot.status as string | undefined,
+        held.status
+      );
+      state.updateBot(
+        (status === fetchedBot.status
+          ? fetchedBot
+          : { ...fetchedBot, status }) as never
+      );
     } else {
       state.addBot(fetchedBot as never);
     }

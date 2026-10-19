@@ -479,6 +479,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
               <div className="flex items-center gap-2 min-w-0">
                 <StatusChip
                   status={bot.status}
+                  botId={bot._id}
                   size="xs"
                   dotOnly
                   className="shrink-0"

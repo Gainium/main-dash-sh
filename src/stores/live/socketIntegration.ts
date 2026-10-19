@@ -27,6 +27,7 @@ import { useOrderStore } from './orderStore';
 import { useTransactionsStore } from './transactionsStore';
 import { useMinigridsStore, type ComboMinigrid } from './minigridsStore';
 import { startDealResyncTriggers, stopDealResyncTriggers } from './dealResync';
+import { reportBotStatus } from './botStatusTransitions';
 import logger from '@/lib/loggerInstance';
 import type { Transaction } from '@/types';
 
@@ -64,6 +65,13 @@ export function initializeSocketIntegration() {
       const { botType, botId, data, parentBotId } = event;
       if (!botType || !botId || !data) {
         return;
+      }
+
+      // The engine's own status report ends a pending Start/Stop. A hedge
+      // leg's status stands for its wrapper's.
+      const reportedStatus = (data as { status?: unknown }).status;
+      if (typeof reportedStatus === 'string') {
+        reportBotStatus(parentBotId || botId, reportedStatus, 'socket');
       }
 
       // Hedge leg update: the worker emits 'bot sends settings' for each
