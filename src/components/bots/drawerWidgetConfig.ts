@@ -103,6 +103,14 @@ const GENERAL_INFO_DEFINITION: LayoutDefinition = {
 
 const BOT_EVENTS_DEFINITION: LayoutDefinition = { type: 'drawer-bot-events' };
 
+// Daily/weekly/monthly/total profit bars from getProfitByBot — the legacy
+// TotalProfit chart every bot page had. Grid layout uses it bare (grid is the
+// widget's default and gets the base/quote/USD toggle).
+const PROFIT_CHART_DEFINITION: LayoutDefinition = {
+  type: 'drawer-grid-profit-chart',
+  buildProps: (bot) => ({ botType: bot.type }),
+};
+
 const GRID_LAYOUT: LayoutDefinition[] = [
   // General Information at the top
   GENERAL_INFO_DEFINITION,
@@ -138,6 +146,7 @@ const COMBO_LAYOUT: LayoutDefinition[] = [
   // widget on a shared time axis (they were two widgets with independent
   // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
+  PROFIT_CHART_DEFINITION,
 
   // Trading Activity (Combo has deals like DCA + minigrids)
   { type: 'drawer-deals-table' },
@@ -167,6 +176,7 @@ const DCA_LAYOUT: LayoutDefinition[] = [
   // widget on a shared time axis (they were two widgets with independent
   // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
+  PROFIT_CHART_DEFINITION,
   { type: 'drawer-deals-table' },
   { type: 'drawer-balance-info' },
   { type: 'drawer-orders-table' },
@@ -191,6 +201,7 @@ const HEDGE_DCA_LAYOUT: LayoutDefinition[] = [
   // widget on a shared time axis (they were two widgets with independent
   // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
+  PROFIT_CHART_DEFINITION,
 
   // Trading Activity
   // Deals table now aggregates child bot deals (long/short legs)
@@ -218,6 +229,7 @@ const HEDGE_COMBO_LAYOUT: LayoutDefinition[] = [
   // widget on a shared time axis (they were two widgets with independent
   // axes and different history depths, which made them unreadable together).
   PERFORMANCE_CHART_DEFINITION,
+  PROFIT_CHART_DEFINITION,
 
   // Trading Activity (Hedge Combo has minigrids)
   // Deals table now aggregates child bot deals (long/short legs)

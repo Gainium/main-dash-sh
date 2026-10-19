@@ -1,5 +1,6 @@
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
-import type { DrawerBot } from '@/types/bots/drawer';
+import type { DrawerBot, DrawerBotType } from '@/types/bots/drawer';
+import { BotTypesEnum } from '@/types';
 import type { GridBot } from '@/types/gridBot';
 import type { GridCurrency } from '@/types/bots/grid/data';
 import { BarChart3 } from 'lucide-react';
@@ -225,25 +226,46 @@ const buildChartData = (
   return list;
 };
 
+/**
+ * getProfitByBot source per drawer bot type. Terminal deals live in the DCA
+ * deals collection, like the legacy dashboard queried them.
+ */
+const PROFIT_BOT_TYPE: Partial<Record<DrawerBotType, BotTypesEnum>> = {
+  grid: BotTypesEnum.grid,
+  dca: BotTypesEnum.dca,
+  terminal: BotTypesEnum.dca,
+  combo: BotTypesEnum.combo,
+  hedgeDca: BotTypesEnum.hedgeDca,
+  hedgeCombo: BotTypesEnum.hedgeCombo,
+};
+
 // ---------- widget ----------
 
 export interface DrawerGridProfitChartProps {
   widgetId: string;
   botId?: string;
   bot?: DrawerBot;
+  /** Drawer bot type; non-grid bots chart closed-deal profit in USD only. */
+  botType?: DrawerBotType;
 }
 
 const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
   widgetId,
   botId,
   bot: botProp,
+  botType = 'grid',
 }) => {
+  const isGrid = botType === 'grid';
   const gridBot = botProp as unknown as GridBot | undefined;
   const actualBotId = botId || gridBot?._id || '';
 
   // State
   const [timeframe, setTimeframe] = useState<Timeframe>('Daily');
-  const [currency, setCurrency] = useState<GridCurrency>('usd');
+  const [selectedCurrency, setCurrency] = useState<GridCurrency>('usd');
+  // For DCA/Combo/Hedge the backend's base/quote are both the deal's raw
+  // profit.total (in whatever currency the deal booked it), so only USD is
+  // meaningful there — the legacy deal-bot chart was USD-only too.
+  const currency: GridCurrency = isGrid ? selectedCurrency : 'usd';
 
   const baseAsset = gridBot?.symbol?.baseAsset ?? 'BASE';
   const quoteAsset = gridBot?.symbol?.quoteAsset ?? 'QUOTE';
@@ -254,6 +276,7 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
   const { profitEntries, isLoading } = useGridBotProfit({
     botId: actualBotId,
     timeframe: TIMEFRAME_MAP[timeframe],
+    botType: PROFIT_BOT_TYPE[botType] ?? BotTypesEnum.grid,
     enabled: !!actualBotId,
   });
 
@@ -368,21 +391,23 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
       maxSize={{ w: 12, h: 16 }}
       hasOptions
       headerActions={
-        <div className="flex items-center rounded-lg border border-border/40 bg-background/40 p-0.5">
-          {currencyTabs.map((tab) => (
-            <button
-              key={tab.value}
-              onClick={() => setCurrency(tab.value)}
-              className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
-                currency === tab.value
-                  ? 'bg-muted text-foreground shadow-sm'
-                  : 'text-muted-foreground hover:text-foreground'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+        isGrid && (
+          <div className="flex items-center rounded-lg border border-border/40 bg-background/40 p-0.5">
+            {currencyTabs.map((tab) => (
+              <button
+                key={tab.value}
+                onClick={() => setCurrency(tab.value)}
+                className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
+                  currency === tab.value
+                    ? 'bg-muted text-foreground shadow-sm'
+                    : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        )
       }
     >
       <div className="space-y-md">

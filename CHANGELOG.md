@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.106.1] - 2026-10-19
+### Added
+- DCA, Combo, Hedge DCA, Hedge Combo and terminal bots: the bot's Overview tab shows the Profit chart again (daily, weekly, monthly or total profit from closed deals, in USD), as grid bots already did.
+
 ## [2.106.0] - 2026-10-19
 ### Added
 - Hedge DCA and Hedge Combo bots: a "Copy pairs from short leg" / "Copy pairs from long leg" button under each leg's trading pairs replaces the leg's pair list with the other leg's. Each leg keeps its own exchange: pairs this leg's exchange doesn't list are not copied, and a warning names them.
