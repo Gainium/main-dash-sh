@@ -321,6 +321,7 @@ export const HedgeBotEditLayout: React.FC = () => {
     hedgeBot,
     refetchHedgeBot,
     setActiveLegBotId,
+    legFormDataReaderRef,
   } = useHedgeBotForm();
 
   const navigate = useNavigate();
@@ -613,6 +614,17 @@ export const HedgeBotEditLayout: React.FC = () => {
   useEffect(() => {
     setActiveLegBotId(activeLegBotId);
   }, [activeLegBotId, setActiveLegBotId]);
+
+  // Lets a leg's pair picker copy the other leg's pairs. Quick mounts both
+  // legs; Manual mounts one, so the other is read from its last snapshot.
+  legFormDataReaderRef.current = (leg) =>
+    leg === 'long'
+      ? hedgeMode === 'quick'
+        ? longQuickRef.current
+        : (longFormDataRef.current ?? longSeedRef.current)
+      : hedgeMode === 'quick'
+        ? shortQuickRef.current
+        : (shortFormDataRef.current ?? shortSeedRef.current);
 
   const handleSave = useCallback(async () => {
     if (saving) return;

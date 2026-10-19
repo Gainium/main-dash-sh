@@ -253,7 +253,7 @@ function RailRow({ deal, active, onSelect, badge }: RailRowProps) {
             —
           </span>
         )}
-        <span className="flex items-center gap-1.5 text-xs tabular-nums text-muted-foreground/70">
+        <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-xs tabular-nums text-muted-foreground/70">
           {deal.filled}/{deal.maxSo} DCA · {fmtDur(deal.durationH)}
           {badge}
         </span>
@@ -821,7 +821,7 @@ export function RedesignDealsTab({
               />
               Icons
             </label>
-            {extension && (
+            {!!extension?.markers.length && (
               <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs text-muted-foreground">
                 <Checkbox
                   checked={showMarkers}

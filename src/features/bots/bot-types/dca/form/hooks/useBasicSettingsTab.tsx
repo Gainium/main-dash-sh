@@ -651,9 +651,10 @@ export const useBasicSettingsTab = (
     // error slot is behind that modal, so the dialog shows the message itself.
     // `multi: true` adds as a multi-pair bot (the caller switches the bot to
     // multi-pair), capped at the plan limit instead of single mode's 1.
+    // `replace: true` swaps the whole list instead of adding to it.
     (
       rawValue: string,
-      options?: { surfaceError?: boolean; multi?: boolean }
+      options?: { surfaceError?: boolean; multi?: boolean; replace?: boolean }
     ) => {
       if (pairLockState.locked) {
         return null;
@@ -661,7 +662,7 @@ export const useBasicSettingsTab = (
 
       const context: ProcessPairsPasteContext = {
         raw: rawValue,
-        existingPairs: pairs,
+        existingPairs: options?.replace ? [] : pairs,
         maxAllowedPairs: options?.multi ? planMaxPairs : maxAllowedPairs,
         useMulti: options?.multi ? true : Boolean(useMulti),
         isPairsLocked: pairLockState.locked,
@@ -936,6 +937,39 @@ export const useBasicSettingsTab = (
     ]
   );
 
+  // Replace the list with another one (a hedge leg copying the opposite
+  // leg's pairs). Symbols this leg's exchange doesn't list come back in
+  // `invalidPairs`; the rest are resolved to this exchange's own symbols.
+  const handleCopyPairs = useCallback(
+    (symbols: string[]) => {
+      if (pairLockState.locked || !symbols.length) {
+        return null;
+      }
+      const canGoMulti = Boolean(useMulti) || !multiToggleState.disabled;
+      const result = applyPairsInput(symbols.join('\n'), {
+        surfaceError: false,
+        multi: canGoMulti,
+        replace: true,
+      });
+      if (
+        canGoMulti &&
+        !useMulti &&
+        result?.shouldUpdatePairs &&
+        (result.nextPairs?.length ?? 0) > 1
+      ) {
+        updateFormData('useMulti', true);
+      }
+      return result;
+    },
+    [
+      applyPairsInput,
+      multiToggleState.disabled,
+      pairLockState.locked,
+      updateFormData,
+      useMulti,
+    ]
+  );
+
   const handlePairsPaste = useCallback(
     (raw: string) =>
       applyPairsInput(raw, { surfaceError: false })?.error || undefined,
@@ -1124,6 +1158,7 @@ export const useBasicSettingsTab = (
     planMaxPairs,
     handleSelectAllMatching,
     handleClearPairs,
+    handleCopyPairs,
     precisionMap,
     handleRemovePair,
     isExchangeLocked,

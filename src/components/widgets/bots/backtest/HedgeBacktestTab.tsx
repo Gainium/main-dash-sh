@@ -40,7 +40,14 @@ import {
   RedesignDealsTab,
   buildBacktestViewModel,
 } from '@/components/widgets/bots/backtest/redesign';
+import {
+  buildHedgeCloseIndex,
+  HedgeClosesTab,
+  hedgeDealBadge,
+  type HedgeCloseIndex,
+} from '@/components/widgets/bots/backtest/HedgeClosesTab';
 import { useSetBacktestNote } from '@/hooks/useSetBacktestNote';
+import type { BacktestDealsExtension } from '@/lib/extensions/backtestSources';
 import type {
   DCABacktestingResultHistory,
   DCABotSettings,
@@ -87,6 +94,14 @@ const buildLegHistory = (
     ...(meta.settings ? { settings: meta.settings } : {}),
   }) as unknown as DCABacktestingResultHistory;
 
+// The Deals tab's root is `lg:h-full`, so every level between it and the
+// sized modal body must pass a definite height down — otherwise the deal
+// rail grows to the full list and the chart stretches with it. Panes that
+// can outgrow the modal scroll inside themselves instead.
+const SIDE_PANE = 'flex min-h-0 flex-1 flex-col';
+const SCROLL_PANE = 'min-h-0 flex-1 overflow-auto';
+const DEALS_PANE = 'min-h-0 flex-1 overflow-auto lg:overflow-hidden';
+
 /** Sub-tabs that render a leg (or the combined aggregate) using the
  *  same DCA backtest components the rest of the app uses. Deals is
  *  hidden when the underlying data has no deals array (Combined
@@ -94,7 +109,11 @@ const buildLegHistory = (
 const LegSubTabs: React.FC<{
   backtest: DCABacktestingResultHistory;
   hideDeals?: boolean;
-}> = ({ backtest, hideDeals }) => {
+  /** Deal-rail badges (which deals the hedge TP/SL closed together). */
+  dealsExtension?: BacktestDealsExtension | undefined;
+  /** Combined only: the "Hedge closes" tab. */
+  hedgeCloses?: HedgeCloseIndex | null;
+}> = ({ backtest, hideDeals, dealsExtension, hedgeCloses }) => {
   // Build the view-model once per leg. `meta` is omitted: buildLegHistory
   // sets symbol/exchange/baseAsset/quoteAsset on the synthesized history, and
   // buildBacktestViewModel falls back to those for the header. Leg settings
@@ -111,25 +130,33 @@ const LegSubTabs: React.FC<{
   );
 
   return (
-    <Tabs defaultValue="overview">
+    <Tabs defaultValue="overview" className="flex min-h-0 flex-1 flex-col">
       <TabsList>
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="stats">Stats</TabsTrigger>
         <TabsTrigger value="analysis">Analysis</TabsTrigger>
         {!hideDeals && <TabsTrigger value="deals">Deals</TabsTrigger>}
+        {hedgeCloses && (
+          <TabsTrigger value="hedge-closes">Hedge closes</TabsTrigger>
+        )}
       </TabsList>
-      <TabsContent value="overview" className="">
+      <TabsContent value="overview" className={SCROLL_PANE}>
         <RedesignOverviewTab vm={vm} />
       </TabsContent>
-      <TabsContent value="stats" className="">
+      <TabsContent value="stats" className={SCROLL_PANE}>
         <BacktestStatsTab backtest={backtest} />
       </TabsContent>
-      <TabsContent value="analysis" className="">
+      <TabsContent value="analysis" className={SCROLL_PANE}>
         <BacktestAnalysisTab backtest={backtest} />
       </TabsContent>
       {!hideDeals && (
-        <TabsContent value="deals" className="">
-          <RedesignDealsTab vm={vm} />
+        <TabsContent value="deals" className={DEALS_PANE}>
+          <RedesignDealsTab vm={vm} extension={dealsExtension} />
+        </TabsContent>
+      )}
+      {hedgeCloses && (
+        <TabsContent value="hedge-closes" className={SCROLL_PANE}>
+          <HedgeClosesTab index={hedgeCloses} />
         </TabsContent>
       )}
     </Tabs>
@@ -222,6 +249,15 @@ export const HedgeBacktestActiveView: React.FC<
   // Per-leg Deals only available locally.
   const dealsAvailableLocally = !!result;
 
+  const closeIndex = useMemo(() => buildHedgeCloseIndex(result), [result]);
+  const dealsExtension = useMemo<BacktestDealsExtension | undefined>(
+    () =>
+      closeIndex
+        ? { markersLabel: '', markers: [], dealBadge: hedgeDealBadge(closeIndex) }
+        : undefined,
+    [closeIndex]
+  );
+
   return (
     <div className="flex h-full flex-col">
       {!dealsAvailableLocally && (
@@ -235,35 +271,41 @@ export const HedgeBacktestActiveView: React.FC<
         onValueChange={(v: string) =>
           setSide(v as 'long' | 'short' | 'combined')
         }
-        className="flex-1"
+        className="flex min-h-0 flex-1 flex-col"
       >
         <TabsList>
           <TabsTrigger value="combined">Combined</TabsTrigger>
           <TabsTrigger value="long">Long leg</TabsTrigger>
           <TabsTrigger value="short">Short leg</TabsTrigger>
         </TabsList>
-        <TabsContent value="combined" className="">
+        <TabsContent value="combined" className={SIDE_PANE}>
           {combinedHistory ? (
-            <LegSubTabs backtest={combinedHistory} hideDeals />
+            <LegSubTabs
+              backtest={combinedHistory}
+              hideDeals
+              hedgeCloses={closeIndex}
+            />
           ) : (
             <p className="text-sm text-muted-foreground">No data.</p>
           )}
         </TabsContent>
-        <TabsContent value="long" className="">
+        <TabsContent value="long" className={SIDE_PANE}>
           {longHistory ? (
             <LegSubTabs
               backtest={longHistory}
               hideDeals={!dealsAvailableLocally}
+              dealsExtension={dealsExtension}
             />
           ) : (
             <p className="text-sm text-muted-foreground">No leg data.</p>
           )}
         </TabsContent>
-        <TabsContent value="short" className="">
+        <TabsContent value="short" className={SIDE_PANE}>
           {shortHistory ? (
             <LegSubTabs
               backtest={shortHistory}
               hideDeals={!dealsAvailableLocally}
+              dealsExtension={dealsExtension}
             />
           ) : (
             <p className="text-sm text-muted-foreground">No leg data.</p>

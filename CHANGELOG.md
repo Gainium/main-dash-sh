@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.106.0] - 2026-10-19
+### Added
+- Hedge DCA and Hedge Combo bots: a "Copy pairs from short leg" / "Copy pairs from long leg" button under each leg's trading pairs replaces the leg's pair list with the other leg's. Each leg keeps its own exchange: pairs this leg's exchange doesn't list are not copied, and a warning names them.
+- Hedge backtest results: a "Hedge closes" tab under Combined lists every pair the hedge take profit or stop loss closed, with the long and short deals that closed together (by their number in the Deals list), their results, the pair's combined result and the reason. In a leg's Deals list, a deal the hedge closed shows "Hedge TP" or "Hedge SL" and the other leg's deals it closed with. Needs backtester 1.17.0; older saved results don't have this.
+### Fixed
+- Hedge backtest results, Long leg / Short leg → Deals: with many deals the chart stretched to the height of the whole deal list and the deal header scrolled out of view. The chart and header now keep a fixed size and only the deal list scrolls, as in DCA and Combo backtests.
+
 ## [2.105.2] - 2026-10-19
 ### Fixed
 - The trading-pair list is refreshed in the background about an hour after each tab loaded it, at a time that differs per tab, instead of every open tab discarding its list and re-downloading it at minute 25 of each hour. The list stays on screen while the new one loads.

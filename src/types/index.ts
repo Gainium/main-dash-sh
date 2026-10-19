@@ -4835,6 +4835,18 @@ export type StoreHedgeBacktest = {
  * re-exporting from the package) to keep `types/index.ts` self-contained,
  * matching the existing pattern with `DCABacktestingResult`.
  */
+/** One pair the hedge take profit / stop loss closed: the long and short
+ *  deals that closed together (ids into longResult/shortResult deals). */
+export interface HedgeClose {
+  pair: string;
+  time: number;
+  reason: 'tp' | 'sl';
+  /** The pair's combined unrealized PnL at the close, % of its usage. */
+  perc: number;
+  longDealIds: string[];
+  shortDealIds: string[];
+}
+
 export interface HedgeBacktestingResult {
   longResult: DCABacktestingResult;
   shortResult: DCABacktestingResult;
@@ -4842,6 +4854,8 @@ export interface HedgeBacktestingResult {
     DCABacktestingResult,
     'financial' | 'duration' | 'usage' | 'numerical' | 'ratios'
   >;
+  /** Absent on results from backtester versions before 1.17.0. */
+  hedgeCloses?: HedgeClose[];
 }
 
 export type InputDCABotSettings = Omit<
