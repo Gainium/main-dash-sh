@@ -16,6 +16,7 @@ import {
   ExecuteNextDcaDialog,
   type AdjustFundsDialogMode,
 } from '@/features/bots/shared/runtime';
+import type { PendingLevels } from '@/features/bots/shared/runtime/dialogs/fundsOutcome';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
 import {
   isDealNotOpenError,
@@ -582,14 +583,13 @@ export function useDealActionHost({
     comboFundsDeal?.dealId ?? '',
     BotTypesEnum.combo
   );
-  const comboPendingLevels = useMemo(() => {
+  const comboPendingLevels = useMemo<PendingLevels | undefined>(() => {
     if (!comboFundsDeal) return undefined;
-    return comboFundsOrders
-      .filter(
-        (o) =>
-          o.typeOrder === 'dealRegular' &&
-          (o.status === 'NEW' || o.status === 'PARTIALLY_FILLED')
-      )
+    const resting = comboFundsOrders.filter(
+      (o) => o.status === 'NEW' || o.status === 'PARTIALLY_FILLED'
+    );
+    const levels = resting
+      .filter((o) => o.typeOrder === 'dealRegular')
       .reduce(
         (acc, o) => {
           const qty = parseFloat(o.origQty) - parseFloat(o.executedQty || '0');
@@ -599,6 +599,13 @@ export function useDealActionHost({
         },
         { base: 0, quote: 0 }
       );
+    // Every resting DCA level and minigrid line: a reduce scales them all
+    // down, and the engine refuses one that leaves any below the minimum.
+    const lines = resting
+      .filter((o) => o.typeOrder !== 'dealTP')
+      .map((o) => ({ qty: parseFloat(o.origQty), price: parseFloat(o.price) }))
+      .filter((l) => l.qty > 0 && l.price > 0);
+    return { ...levels, lines };
   }, [comboFundsDeal, comboFundsOrders]);
 
   // Base funding (main-app spec 044): adding levels to a short spot deal of a

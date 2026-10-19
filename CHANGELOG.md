@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.107.1] - 2026-10-19
+### Fixed
+- Add / Reduce funds (DCA and Combo): the preview rounds the order to the pair's lot step the way the order is placed, and shows when a percentage is raised to the exchange minimum.
+- Add / Reduce funds: an order below the exchange minimum, or a Combo reduce that would leave a grid line or DCA level below it (with the largest reduction still possible), is flagged in the dialog and not sent.
+- Add / Reduce funds: when the bot refuses a request after it was scheduled, the reason is shown as an error toast for that request instead of a brief bot notification.
+
 ## [2.107.0] - 2026-10-19
 ### Added
 - Combo deals: Add funds and Reduce funds. The change is spread over every DCA level of the deal: filled levels are topped up (or trimmed) at market and their minigrid orders grow (or shrink) with them, and pending levels are resized. No new level is added. Market orders only.

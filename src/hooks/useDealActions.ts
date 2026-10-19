@@ -15,6 +15,7 @@ import {
 } from '@/lib/api/GraphQLQueries-deal-queries';
 import { toast } from '@/lib/toast';
 import type { AdjustFundsDialogMode } from '@/features/bots/shared/runtime';
+import { watchFundsRequest } from '@/features/bots/shared/runtime/dialogs/fundsRefusalWatch';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { useDealStore } from '@/stores/live';
@@ -338,6 +339,11 @@ export function useAdjustFunds(options?: UseAdjustFundsOptions) {
 
       return { status: 'NOTOK', reason: 'Invalid operation' };
     },
+    // Before the request: a refusal the engine makes at once can be pushed
+    // over the socket before this request's own response arrives.
+    onMutate: (variables) => {
+      watchFundsRequest(variables.botId, variables.mode);
+    },
     onSuccess: (response, variables) => {
       logger.info('[useAdjustFunds] Adjust-funds request accepted:', {
         dealId: variables.dealId,
@@ -349,8 +355,8 @@ export function useAdjustFunds(options?: UseAdjustFundsOptions) {
       }
       // The OK response only means the request was QUEUED — the order is
       // placed on the exchange later and may still be rejected there (that
-      // rejection arrives asynchronously as a `bot sends message` error,
-      // surfaced by LiveMessageToaster). So echo the backend's "scheduled"
+      // rejection arrives asynchronously as a `bot sends message`, which
+      // LiveMessageToaster shows as this request's outcome). So echo the backend's "scheduled"
       // message instead of implying the funds already moved.
       const scheduledMsg =
         typeof response?.data === 'string' && response.data.trim()

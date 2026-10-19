@@ -1,6 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useMessageStore } from '@/stores/live';
 import { toast } from '@/lib/toast';
+import { claimFundsMessage } from '@/features/bots/shared/runtime/dialogs/fundsRefusalWatch';
+
+/** Long enough to read a refusal that explains what to do instead. */
+const FUNDS_TOAST_MS = 12_000;
 
 /**
  * Headless listener that surfaces live bot error/warning messages as toasts.
@@ -35,6 +39,15 @@ export function LiveMessageToaster(): null {
       if (seenIds.current.has(msg.id)) continue;
       seenIds.current.add(msg.id);
       if (msg.dismissed) continue;
+      // The outcome of an add / reduce funds request the user just made: shown
+      // as that request's result, long enough to read, whatever its severity.
+      const funds = claimFundsMessage(msg.botId, msg.message);
+      if (funds) {
+        toast[funds.refused ? 'error' : 'warning'](msg.message, {
+          duration: FUNDS_TOAST_MS,
+        });
+        continue;
+      }
       // Only surface actionable severities as toasts. Routine info/success
       // bot chatter (SO fills, TP hits, ...) would be noisy — it still lands
       // in the message store for a notification panel to render. Errors and

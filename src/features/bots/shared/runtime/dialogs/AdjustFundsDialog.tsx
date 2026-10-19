@@ -39,11 +39,16 @@ import {
 } from './adjustFundsAmount';
 import { useDealFreeBalance } from './useDealFreeBalance';
 import {
+  basePrecisionFromStep,
   comboFundsOutcome,
   dcaFundsOutcome,
   type FundsOutcome,
+  type PairLimits,
   type PendingLevels,
 } from './fundsOutcome';
+import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
+import { isCoinmExchange, removePaperPrefix } from '@/utils/exchangeUtils';
+import { math } from '@/utils/math';
 import {
   AddFundsTypeEnum,
   ExchangeEnum,
@@ -200,6 +205,9 @@ const COMBO_REDUCE_SCALE_TOOLTIP =
 const COMBO_AMOUNT_TOOLTIP =
   'An amount is spread over every DCA level: what the filled levels cost at today’s price plus what the pending levels will spend.';
 
+const RAISED_TO_MINIMUM_TOOLTIP =
+  'Below the exchange minimum order size, so the order is raised to it.';
+
 const formatPrice = (value: number) =>
   value.toLocaleString(undefined, {
     maximumFractionDigits: value >= 100 ? 2 : value >= 1 ? 4 : 8,
@@ -254,9 +262,9 @@ const normalizeNumberString = (value: string) => {
 
 /**
  * Enough digits to be useful for both a ~1900-XPL position and a 0.0024-BTC
- * one, without implying a precision the exchange will honour: the engine
- * rounds to the pair's own base precision, which this dialog does not have.
- * Every number built from this is therefore prefixed with "≈".
+ * one. The order itself is rounded to the pair's lot step when the pair's
+ * filters are known (`usePairLimits`); the price it fills at is not, so every
+ * number built from this is prefixed with "≈".
  */
 const formatQty = (value: number) =>
   value
@@ -306,6 +314,50 @@ const useMarketPrice = (symbol?: string, exchange?: string) => {
   }, [symbol, exchange]);
 
   return price;
+};
+
+/**
+ * The pair's lot step and exchange minimums, which the engine rounds and
+ * checks the order against. Null when the pair is not in the loaded list, or
+ * on a coin-margined deal, whose orders the engine sizes in contracts.
+ */
+const usePairLimits = (
+  symbol?: string,
+  exchange?: string,
+  baseAsset?: string,
+  quoteAsset?: string
+): PairLimits | null => {
+  const { pairsByExchange } = useTradingPairsFromContext();
+  return React.useMemo(() => {
+    if (!symbol || !exchange || !pairsByExchange || isCoinmExchange(exchange)) {
+      return null;
+    }
+    const base = (baseAsset ?? '').toUpperCase();
+    const quote = (quoteAsset ?? '').toUpperCase();
+    const venues = [
+      exchange,
+      removePaperPrefix(exchange as ExchangeEnum),
+    ].map((e) => e.toUpperCase());
+    for (const venue of venues) {
+      const entry = Object.entries(pairsByExchange).find(
+        ([name]) => name.toUpperCase() === venue
+      );
+      const match = entry?.[1].find((p) =>
+        base && quote
+          ? (p.baseAsset?.name ?? '').toUpperCase() === base &&
+            (p.quoteAsset?.name ?? '').toUpperCase() === quote
+          : p.pair === symbol
+      );
+      if (match && match.baseAsset.step > 0) {
+        return {
+          step: match.baseAsset.step,
+          minBase: match.baseAsset.minAmount ?? 0,
+          minQuote: match.quoteAsset.minAmount ?? 0,
+        };
+      }
+    }
+    return null;
+  }, [symbol, exchange, baseAsset, quoteAsset, pairsByExchange]);
 };
 
 export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
@@ -379,13 +431,19 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   };
 
   const marketPrice = useMarketPrice(symbol, exchange);
+  const pairLimits = usePairLimits(symbol, exchange, baseAsset, quoteAsset);
 
   // The base amount behind the percentage, computed exactly as the engine
-  // computes it — see `percentBasis`. Rendered only when every input was
-  // available; a confident "0" would read as "this order does nothing".
-  const resolvedQty = isPercentOfPosition
+  // computes it — see `percentBasis` — and rounded to the lot step as the
+  // engine rounds it. Rendered only when every input was available; a
+  // confident "0" would read as "this order does nothing".
+  const rawResolvedQty = isPercentOfPosition
     ? resolvePercentQuantity(percentBasis, quantity)
     : null;
+  const resolvedQty =
+    rawResolvedQty !== null && pairLimits && !isCombo
+      ? math.round(rawResolvedQty, basePrecisionFromStep(pairLimits.step))
+      : rawResolvedQty;
   const willCloseDeal =
     mode === 'reduce' && percentClosesDeal(percentBasis, resolvedQty);
 
@@ -570,6 +628,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
       }
     }
 
+    if (minimumError) {
+      setFormError(minimumError);
+      return;
+    }
+
     const settings: AddFundsSettings = {
       qty:
         percentOfAvailable && resolvedFromAvailable !== null
@@ -628,9 +691,10 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
           percentBasis,
           req,
           pendingLevels ?? { base: 0, quote: 0 },
-          long
+          long,
+          pairLimits
         )
-      : dcaFundsOutcome(mode, percentBasis, req, long);
+      : dcaFundsOutcome(mode, percentBasis, req, long, pairLimits);
   }, [
     isBulk,
     percentBasis,
@@ -643,8 +707,31 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     mode,
     pendingLevels,
     long,
+    pairLimits,
   ]);
   const buysNow = (mode === 'add') === long;
+
+  // The engine would refuse this request outright, so it is not sent.
+  const minimumError = React.useMemo(() => {
+    if (!outcome?.belowMinimum || !pairLimits) return null;
+    if (outcome.belowMinimum === 'level') {
+      return outcome.maxReducePerc
+        ? `A resting order would fall below the exchange minimum — at most ${outcome.maxReducePerc}%.`
+        : 'Resting orders are already at the exchange minimum.';
+    }
+    const parts = [
+      pairLimits.minBase > 0
+        ? `${formatQty(pairLimits.minBase)} ${baseAsset ?? ''}`.trim()
+        : null,
+      pairLimits.minQuote > 0
+        ? `${formatPrice(pairLimits.minQuote)} ${quoteAsset ?? ''}`.trim()
+        : null,
+    ].filter(Boolean);
+    return parts.length
+      ? `Below the exchange minimum order (${parts.join(' / ')}).`
+      : 'Below the exchange minimum order.';
+  }, [outcome, pairLimits, baseAsset, quoteAsset]);
+  const blockingError = error ?? minimumError;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -859,7 +946,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
             </div>
             )}
 
-            {outcome ? (
+            {outcome && !outcome.belowMinimum ? (
               <div
                 className="space-y-xs rounded-lg bg-muted/20 p-sm text-sm"
                 data-testid="adjust-funds-outcome"
@@ -882,9 +969,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                       ? 'Buys now'
                       : 'Sells now'
                   }
-                  {...(isCombo && !isPercent
-                    ? { tooltip: COMBO_AMOUNT_TOOLTIP }
-                    : {})}
+                  {...(outcome.raisedToMinimum
+                    ? { tooltip: RAISED_TO_MINIMUM_TOOLTIP }
+                    : isCombo && !isPercent
+                      ? { tooltip: COMBO_AMOUNT_TOOLTIP }
+                      : {})}
                 >
                   ≈ {formatQty(outcome.orderBase)} {baseAsset ?? ''} (
                   {formatPrice(outcome.orderQuote)} {quoteAsset ?? ''})
@@ -986,7 +1075,9 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                 </p>
               ) : null}
             </div>
-            {!!error && <div className="text-sm text-destructive">{error}</div>}
+            {!!blockingError && (
+              <div className="text-sm text-destructive">{blockingError}</div>
+            )}
           </div>
 
           {formError ? (
@@ -1011,7 +1102,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
           <Button
             type="button"
             onClick={handleConfirm}
-            disabled={isProcessing || !!error}
+            disabled={isProcessing || !!blockingError}
             className="w-full sm:w-auto"
           >
             {isProcessing
