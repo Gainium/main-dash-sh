@@ -243,7 +243,9 @@ export function useDealSmartOrders({
       symbol &&
       mergedSettings &&
       (isCombo
-        ? comboProjectsDca || comboProjectsGrid
+        ? comboProjectsDca ||
+          comboProjectsGrid ||
+          computeRegardlessOfSmartOrders
         : mergedSettings.useSmartOrders ||
           isIndicatorDca ||
           computeRegardlessOfSmartOrders)

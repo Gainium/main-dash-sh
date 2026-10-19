@@ -797,6 +797,20 @@ export function useDealActionHost({
           onConfirm={handleChangeDcaConfirm}
           isProcessing={editDeal.isPending}
           {...(fundingInputFor ? { fundingInputFor } : {})}
+          {...(pendingDeal.botId &&
+          (pendingDeal.kind === 'dca' || pendingDeal.kind === 'combo')
+            ? {
+                previewDeal: {
+                  botId: pendingDeal.botId,
+                  dealId: pendingDeal.dealId,
+                  kind: pendingDeal.kind,
+                  long: pendingDeal.long,
+                  symbol: pendingDeal.symbol,
+                  baseAsset: pendingDeal.baseAsset,
+                  quoteAsset: pendingDeal.quoteAsset,
+                },
+              }
+            : {})}
         />
       )}
       <MoveDealToBotDialog

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.106.6] - 2026-10-19
+### Changed
+- Change DCA levels (DCA and Combo deals): raising the max lists each new level with its price and size. A level the price has already passed is marked "Fills now", because its order fills at once at about the market price; on a Combo deal, that level's minigrid still starts at the level's own price.
+
 ## [2.106.4] - 2026-10-19
 ### Fixed
 - Bot Start/Stop: the bot shows "Starting…" / "Stopping…" (status badge, Start/Stop button, action menus) from the click until the bot reports the new status, and Start/Stop stay disabled meanwhile. A bot list refreshed in that window no longer flips the status back to the old one. A toast confirms when the bot has started or stopped, including Start on the bot page, which showed nothing before; if the bot doesn't confirm within 90 seconds an error toast says so.

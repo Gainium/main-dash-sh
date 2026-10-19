@@ -14,6 +14,10 @@ import { NumberInput } from '@/components/ui/number-input';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useFundingPreview } from '@/hooks/useBaseFunding';
 import type { PreviewFundingInput } from '@/lib/baseFunding/baseFundingApi';
+import {
+  useAddedDcaLevels,
+  type ChangeDcaLevelsPreviewDeal,
+} from './changeDcaLevelsPreview';
 
 export interface ChangeDcaLevelsDialogProps {
   /** Dialog visibility flag controlled by the parent */
@@ -36,10 +40,20 @@ export interface ChangeDcaLevelsDialogProps {
    * new max, or null when that max needs no funding preview.
    */
   fundingInputFor?: (newMax: number) => PreviewFundingInput | null;
+  /** The deal, to preview where the added levels land. */
+  previewDeal?: ChangeDcaLevelsPreviewDeal;
 }
 
 const fmt = (n: number) =>
   n.toLocaleString(undefined, { maximumFractionDigits: n >= 1 ? 4 : 8 });
+
+const NEW_LEVELS_TOOLTIP =
+  'Placed at the next prices on the deal’s ladder, measured from its opening price. Sizes follow the volume scale.';
+
+const FILLS_NOW_TOOLTIP =
+  'Price is already past this level, so its limit order fills straight away at about the market price, buying more coins for the same level size.';
+
+const FILLS_NOW_COMBO_TOOLTIP = `${FILLS_NOW_TOOLTIP} Its minigrid still starts at the level’s own price, so it only trades once price returns there.`;
 
 const FUNDING_TOOLTIP =
   'Estimated from the order size. The bot buys this at market when you save, before the new levels are placed. If your free quote cannot cover it, the change is refused and the deal is left as it was.';
@@ -58,6 +72,7 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
   onConfirm,
   isProcessing = false,
   fundingInputFor,
+  previewDeal,
 }) => {
   const minValue = Math.max(0, currentLevel);
   const [value, setValue] = React.useState<number>(maxLevel);
@@ -79,6 +94,14 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
     [fundingInputFor, value, maxLevel]
   );
   const { preview } = useFundingPreview(fundingInput);
+  const { levels: addedLevels, market } = useAddedDcaLevels(
+    previewDeal,
+    open,
+    maxLevel,
+    error ? maxLevel : value
+  );
+  const fillsNowTooltip =
+    previewDeal?.kind === 'combo' ? FILLS_NOW_COMBO_TOOLTIP : FILLS_NOW_TOOLTIP;
 
   const handleConfirm = () => {
     if (error || unchanged) {
@@ -156,6 +179,46 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
               <div className="text-sm text-destructive">{error}</div>
             ) : null}
           </div>
+
+          {addedLevels.length > 0 ? (
+            <div className="space-y-xs">
+              <div className="flex items-center gap-xs text-sm text-muted-foreground">
+                New levels
+                <Tooltip tooltip={NEW_LEVELS_TOOLTIP}>
+                  <InfoIcon />
+                </Tooltip>
+              </div>
+              <div className="divide-y divide-border rounded-lg bg-muted/20 text-sm">
+                {addedLevels.map((l) => (
+                  <div
+                    key={l.level}
+                    className="flex items-center justify-between gap-sm p-sm"
+                    data-testid="change-dca-new-level"
+                  >
+                    <span className="text-muted-foreground">#{l.level}</span>
+                    <span className="font-medium tabular-nums">
+                      {fmt(l.price)}
+                    </span>
+                    <span className="tabular-nums">
+                      {fmt(l.qty)} {previewDeal?.baseAsset ?? ''} (≈{' '}
+                      {fmt(l.qty * (l.crossed && market ? market : l.price))}{' '}
+                      {previewDeal?.quoteAsset ?? ''})
+                    </span>
+                    {l.crossed ? (
+                      <span className="flex items-center gap-xs text-warning">
+                        Fills now
+                        <Tooltip tooltip={fillsNowTooltip}>
+                          <InfoIcon />
+                        </Tooltip>
+                      </span>
+                    ) : (
+                      <span className="text-muted-foreground">Limit</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : null}
 
           {preview?.kind === 'fund' && preview.buyQty > 0 ? (
             <div className="flex items-center justify-between gap-sm rounded-lg bg-muted/20 p-sm text-sm">
