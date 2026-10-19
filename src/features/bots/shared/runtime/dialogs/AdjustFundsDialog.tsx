@@ -31,24 +31,21 @@ import {
   resolvePercentOfAvailable,
   amountModeLabel,
   fromAmountMode,
-  percentClosesDeal,
-  resolvePercentQuantity,
   toAmountMode,
   type AmountMode,
   type PercentBasis,
 } from './adjustFundsAmount';
 import { useDealFreeBalance } from './useDealFreeBalance';
 import {
-  basePrecisionFromStep,
   comboFundsOutcome,
   dcaFundsOutcome,
+  percentHint,
   type FundsOutcome,
   type PairLimits,
   type PendingLevels,
 } from './fundsOutcome';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import { isCoinmExchange, removePaperPrefix } from '@/utils/exchangeUtils';
-import { math } from '@/utils/math';
 import {
   AddFundsTypeEnum,
   ExchangeEnum,
@@ -433,20 +430,6 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   const marketPrice = useMarketPrice(symbol, exchange);
   const pairLimits = usePairLimits(symbol, exchange, baseAsset, quoteAsset);
 
-  // The base amount behind the percentage, computed exactly as the engine
-  // computes it — see `percentBasis` — and rounded to the lot step as the
-  // engine rounds it. Rendered only when every input was available; a
-  // confident "0" would read as "this order does nothing".
-  const rawResolvedQty = isPercentOfPosition
-    ? resolvePercentQuantity(percentBasis, quantity)
-    : null;
-  const resolvedQty =
-    rawResolvedQty !== null && pairLimits && !isCombo
-      ? math.round(rawResolvedQty, basePrecisionFromStep(pairLimits.step))
-      : rawResolvedQty;
-  const willCloseDeal =
-    mode === 'reduce' && percentClosesDeal(percentBasis, resolvedQty);
-
   // What caps this adjustment, in the unit the user is currently typing in.
   //
   // The two directions are capped by different things, and conflating them
@@ -709,6 +692,24 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
     long,
     pairLimits,
   ]);
+
+  // The base amount behind the percentage, as the engine will send it — see
+  // `percentHint`. DCA: the engine's percent basis rounded to the lot step;
+  // Combo: the order the outcome describes (k = 1 ± p/100 of the position).
+  // Rendered only when every input was available; a confident "0" would read
+  // as "this order does nothing".
+  const hint = isPercentOfPosition
+    ? percentHint(
+        isCombo ? 'combo' : 'dca',
+        mode,
+        percentBasis,
+        quantity,
+        outcome,
+        pairLimits
+      )
+    : null;
+  const resolvedQty = hint?.qty ?? null;
+  const willCloseDeal = !!hint?.closesDeal;
   const buysNow = (mode === 'add') === long;
 
   // The engine would refuse this request outright, so it is not sent.

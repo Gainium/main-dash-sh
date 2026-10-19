@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.107.2] - 2026-10-19
+### Fixed
+- Add / Reduce funds on a Combo deal: the "≈" amount under a percentage now matches the order shown in the preview (the percentage scales the deal's position), and the "closes the deal" warning appears only for a reduce of 100% or more.
+
 ## [2.107.1] - 2026-10-19
 ### Fixed
 - Add / Reduce funds (DCA and Combo): the preview rounds the order to the pair's lot step the way the order is placed, and shows when a percentage is raised to the exchange minimum.

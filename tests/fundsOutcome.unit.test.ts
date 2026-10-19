@@ -4,6 +4,7 @@ import {
   basePrecisionFromStep,
   comboFundsOutcome,
   dcaFundsOutcome,
+  percentHint,
 } from '@/features/bots/shared/runtime/dialogs/fundsOutcome';
 
 /**
@@ -252,4 +253,73 @@ test('combo reduce that leaves a resting line below the minimum is refused with 
     )
   );
   expect(allowed.belowMinimum).toBeNull();
+});
+
+/**
+ * The "≈ X base" hint under a percentage. On a combo deal the percentage is
+ * the factor k = 1 ± p/100 on the POSITION, so the hint must be the order the
+ * outcome panel shows, not the DCA basis (cost / average × leverage), which on
+ * a leveraged deal is a different quantity.
+ */
+const ETH = {
+  // DCA basis 0.061 ETH; the combo position the factor applies to is 0.0535.
+  perHundred: 0.061,
+  remainingBase: 0.0535,
+  perHundredQuote: 0.061 * 2500,
+  avgPrice: 2500,
+};
+const ETH_LIMITS = { step: 0.001, minBase: 0.001, minQuote: 5 };
+const comboOut = (mode: 'add' | 'reduce', pct: number) =>
+  comboFundsOutcome(
+    mode,
+    ETH,
+    { qty: pct, asset: 'base', perc: true, price: 2500 },
+    NONE,
+    true,
+    ETH_LIMITS
+  );
+
+test('combo hint: reduce 30% shows the order the engine sends, not the DCA basis', () => {
+  const o = must(comboOut('reduce', 30));
+  const h = percentHint('combo', 'reduce', ETH, '30', o, ETH_LIMITS);
+  expect(h.qty).toBe(o.orderBase);
+  expect(h.qty).toBeCloseTo(0.016, 10);
+  expect(h.closesDeal).toBe(false);
+  // The DCA basis would have said 0.018.
+  expect(percentHint('dca', 'reduce', ETH, '30', null, ETH_LIMITS).qty).toBeCloseTo(0.018, 10);
+});
+
+test('combo hint: add 30% matches the outcome order too', () => {
+  const o = must(comboOut('add', 30));
+  const h = percentHint('combo', 'add', ETH, '30', o, ETH_LIMITS);
+  expect(h.qty).toBe(o.orderBase);
+  expect(h.closesDeal).toBe(false);
+});
+
+test('combo hint: reduce closes the deal at k <= 0 (100% and above), not before', () => {
+  expect(percentHint('combo', 'reduce', ETH, '99', comboOut('reduce', 99), ETH_LIMITS).closesDeal).toBe(false);
+  // Under the DCA basis 90% (0.0549) would already exceed the 0.0535 position.
+  expect(percentHint('combo', 'reduce', ETH, '90', comboOut('reduce', 90), ETH_LIMITS).closesDeal).toBe(false);
+  const full = percentHint('combo', 'reduce', ETH, '100', comboOut('reduce', 100), ETH_LIMITS);
+  expect(full.closesDeal).toBe(true);
+  expect(full.qty).toBeCloseTo(0.0535, 10);
+  // Known to close even before a price (and so an outcome) is available.
+  expect(percentHint('combo', 'reduce', ETH, '120', null, ETH_LIMITS)).toEqual({
+    qty: null,
+    closesDeal: true,
+  });
+  // An add never closes.
+  expect(percentHint('combo', 'add', ETH, '150', comboOut('add', 150), ETH_LIMITS).closesDeal).toBe(false);
+});
+
+test('dca hint: unchanged — engine basis rounded to the lot step, closes at the position', () => {
+  expect(percentHint('dca', 'reduce', ETH, '50', null, ETH_LIMITS).qty).toBeCloseTo(0.031, 10);
+  expect(percentHint('dca', 'reduce', ETH, '50', null, null).qty).toBeCloseTo(0.0305, 10);
+  expect(percentHint('dca', 'reduce', ETH, '87', null, ETH_LIMITS).closesDeal).toBe(false);
+  expect(percentHint('dca', 'reduce', ETH, '88', null, ETH_LIMITS).closesDeal).toBe(true);
+  expect(percentHint('dca', 'add', ETH, '100', null, ETH_LIMITS).closesDeal).toBe(false);
+  expect(percentHint('dca', 'reduce', ETH, '', null, ETH_LIMITS)).toEqual({
+    qty: null,
+    closesDeal: false,
+  });
 });

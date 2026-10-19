@@ -1,5 +1,9 @@
 import { math } from '@/utils/math';
-import type { PercentBasis } from './adjustFundsAmount';
+import {
+  percentClosesDeal,
+  resolvePercentQuantity,
+  type PercentBasis,
+} from './adjustFundsAmount';
 
 /**
  * What an add / reduce funds request does to a deal, for the confirmation
@@ -305,5 +309,50 @@ function comboOutcome(
     pendingQuoteDelta: (scale - 1) * pending.quote,
     closesDeal: false,
     ...NO_MINIMUM,
+  };
+}
+
+/**
+ * The "≈ X base" hint under a percentage input, and whether that percentage
+ * closes the deal (reduce only).
+ *
+ * - DCA: the percentage is of the engine's `percentFundsBasis`, rounded to the
+ *   lot step — `resolvePercentQuantity`; closes at or above the position.
+ * - Combo: the percentage is the scale factor k = 1 ± p/100 applied to the
+ *   deal's position, so the hint is the order the outcome describes (rounded
+ *   to the lot step as the engine sends it), never the DCA basis. A reduce
+ *   closes the deal when k ≤ 0, i.e. at 100% or more, or when rounding takes
+ *   the order to the whole position. Without an outcome (no price yet) there
+ *   is no hint, but a ≥ 100% reduce is still known to close.
+ */
+export function percentHint(
+  kind: 'dca' | 'combo',
+  mode: FundsMode,
+  basis: PercentBasis | null | undefined,
+  percent: string,
+  outcome: FundsOutcome | null,
+  limits?: PairLimits | null
+): { qty: number | null; closesDeal: boolean } {
+  if (kind === 'combo') {
+    const pct = Number(percent);
+    if (!basis || !Number.isFinite(pct) || pct <= 0) {
+      return { qty: null, closesDeal: false };
+    }
+    return {
+      qty: outcome ? outcome.orderBase : null,
+      closesDeal:
+        mode === 'reduce' &&
+        basis.remainingBase > 0 &&
+        (pct >= 100 || !!outcome?.closesDeal),
+    };
+  }
+  const raw = resolvePercentQuantity(basis, percent);
+  const qty =
+    raw !== null && limits
+      ? math.round(raw, basePrecisionFromStep(limits.step))
+      : raw;
+  return {
+    qty,
+    closesDeal: mode === 'reduce' && percentClosesDeal(basis, qty),
   };
 }
