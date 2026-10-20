@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.107.3] - 2026-10-20
+### Changed
+- Release combining 2.107.0–2.107.2 (Combo add / reduce funds and the funds dialog's outcome preview) with 2.106.7–2.106.8 below.
+
 ## [2.107.2] - 2026-10-19
 ### Fixed
 - Add / Reduce funds on a Combo deal: the "≈" amount under a percentage now matches the order shown in the preview (the percentage scales the deal's position), and the "closes the deal" warning appears only for a reduce of 100% or more.
@@ -16,6 +20,14 @@
 
 ### Changed
 - Add / Reduce funds (DCA and Combo): the dialog shows what the order does before you confirm: the amount bought or sold now, the position and average price before → after, the realized P&L of a reduce, and for Combo the factor every DCA level is scaled by and the change to pending levels.
+## [2.106.8] - 2026-10-20
+### Changed
+- DCA, Combo and Grid bot lists: the credits column is now "Credits in use" and shows a value only for bots that are holding credits. Stopped bots with no open deals and archived bots have already released theirs, so their cell is empty and they count as 0 when sorting or filtering — "Credits in use > 0" lists exactly the bots using your credits. A stopped DCA or Combo bot that is still running open deals keeps its credits and keeps showing them.
+
+## [2.106.7] - 2026-10-20
+### Fixed
+- Bot Profit chart (Daily): each day's profit is drawn on its own day in your account's time zone, and Today/Yesterday match it. Before, a browser in a different zone shifted every bar by a day.
+- Bot Profit chart (Weekly): week labels show the real week (e.g. 2026-W43) instead of "NaN-WNaN". The chart ends at the current week, numbered by your week-start setting.
 
 ## [2.106.6] - 2026-10-19
 ### Changed

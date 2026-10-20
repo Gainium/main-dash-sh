@@ -342,3 +342,64 @@ export function parseProfitBucketDate(
   }
   return new Date(date);
 }
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+/**
+ * The exact `"<year>-<week>"` weekly bucket `getProfitByBot`/`getProfitByUser`
+ * file a calendar day under, for an account's `weekStart`. `dayUTC` is that
+ * calendar day encoded as UTC midnight (`Date.UTC(y, m - 1, d)`), so no zone is
+ * involved here — resolve the day in the account's zone first.
+ *
+ * Mirrors the backend's `$group`: `weekStart === 'm'` → `$isoWeek` with
+ * `$isoWeekYear`; anything else → `$week + 1` with the calendar `$year`, where
+ * `$week` counts Sunday-started weeks and the days before the year's first
+ * Sunday are week 0.
+ */
+export function getProfitWeekKey(
+  dayUTC: number,
+  weekStart: string | null | undefined
+): { year: number; week: number } {
+  const date = new Date(dayUTC);
+  if (weekStart === 'm') {
+    // The ISO week of a day is the ISO week of its Thursday.
+    const thursday = dayUTC + (3 - ((date.getUTCDay() + 6) % 7)) * DAY_MS;
+    const year = new Date(thursday).getUTCFullYear();
+    const jan1 = Date.UTC(year, 0, 1);
+    return { year, week: Math.floor((thursday - jan1) / DAY_MS / 7) + 1 };
+  }
+  const year = date.getUTCFullYear();
+  const jan1 = Date.UTC(year, 0, 1);
+  const dayOfYear = Math.round((dayUTC - jan1) / DAY_MS);
+  const firstSunday = (7 - new Date(jan1).getUTCDay()) % 7;
+  const mongoWeek =
+    dayOfYear < firstSunday
+      ? 0
+      : Math.floor((dayOfYear - firstSunday) / 7) + 1;
+  return { year, week: mongoWeek + 1 };
+}
+
+/**
+ * The first calendar day (as UTC midnight) of a `"<year>-<week>"` weekly
+ * bucket — the inverse of `getProfitWeekKey`. Unlike `parseProfitBucketDate`
+ * this is the true boundary, not an approximation. Returns NaN for a
+ * malformed key.
+ */
+export function getProfitWeekStart(
+  key: string,
+  weekStart: string | null | undefined
+): number {
+  const [year, week] = String(key).split('-').map(Number);
+  if (!Number.isInteger(year) || !Number.isInteger(week)) return NaN;
+  if (weekStart === 'm') {
+    const jan4 = Date.UTC(year, 0, 4);
+    const isoWeek1Monday =
+      jan4 - ((new Date(jan4).getUTCDay() + 6) % 7) * DAY_MS;
+    return isoWeek1Monday + (week - 1) * 7 * DAY_MS;
+  }
+  const jan1 = Date.UTC(year, 0, 1);
+  const mongoWeek = week - 1;
+  if (mongoWeek <= 0) return jan1;
+  const firstSunday = (7 - new Date(jan1).getUTCDay()) % 7;
+  return jan1 + (firstSunday + (mongoWeek - 1) * 7) * DAY_MS;
+}

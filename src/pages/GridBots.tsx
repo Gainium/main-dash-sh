@@ -2,6 +2,7 @@ import { isReadOnly } from '@/lib/demoMode';
 import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
+import { creditsInUse } from '@/lib/botList/creditsInUse';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -951,16 +952,16 @@ const GridBots: React.FC = () => {
         },
         {
           id: 'creditsCost',
-          header: 'CREDITS COST',
-          accessorFn: (row) => row.cost || 0,
+          header: 'CREDITS IN USE',
+          // Bots that released their credits sort/filter as 0 (spec 128).
+          accessorFn: (row) => creditsInUse(row) ?? 0,
           meta: {
             filterType: 'number',
             description: BOT_METRIC_DESCRIPTIONS.grid.creditsCost,
           },
           cell: ({ row }) => {
-            const bot = row.original;
-            const cost = bot.cost || 0;
-            return `${cost.toFixed(2)}`;
+            const cost = creditsInUse(row.original);
+            return cost === undefined ? null : cost.toFixed(2);
           },
         },
         {

@@ -27,7 +27,8 @@ const SHARED = {
   created: 'When the bot was created.',
   tradingTime:
     'Total time this bot has spent running, summed across every start/stop cycle. This is the denominator behind Avg daily and Annualized return.',
-  creditsCost: 'Gainium credits this bot has consumed so far.',
+  creditsCost:
+    'Gainium credits this bot is holding. Credits are held while the bot is active and released when it is stopped with no open deals, or archived. Empty when the bot holds none.',
   botId: "The bot's internal ID. Quote it when reporting an issue to support.",
 } as const;
 

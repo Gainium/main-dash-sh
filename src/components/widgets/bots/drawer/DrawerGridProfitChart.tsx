@@ -15,15 +15,15 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import {
-  useGridBotProfit,
-  type GridProfitEntry,
-} from '@/hooks/useGridBotProfit';
+import { useGridBotProfit } from '@/hooks/useGridBotProfit';
 import { CHART_COLORS } from '@/lib/colors';
 import { round } from '@/utils/bots/grid/math';
+import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
+import { useAuthStore } from '@/stores/authStore';
 import CustomTooltip from '@/components/charts/CustomTooltip';
 import WidgetStats from '../../shared/WidgetStats';
 import { DrawerSection } from './DrawerSection';
+import { buildChartData } from './botProfitChartData';
 
 // ---------- types ----------
 
@@ -35,195 +35,6 @@ const TIMEFRAME_MAP: Record<Timeframe, number> = {
   Weekly: 1,
   Monthly: 2,
   Total: 3,
-};
-
-interface ChartPoint {
-  date: string;
-  value: number;
-  fullDate: string;
-  label: string;
-}
-
-// ---------- helpers ----------
-
-/**
- * Map the raw getProfitByBot entries into the value to display,
- * respecting the selected currency.
- *
- * This mirrors the legacy logic in main-dash/components/gridbot/botContent.tsx
- * where profit entries are mapped before being passed to TotalProfit.
- */
-const mapProfitValue = (
-  entry: GridProfitEntry,
-  showCurrency: GridCurrency,
-  profitCurrency: string,
-  latestPrice: number
-): number => {
-  if (showCurrency === 'usd') return entry.profitUsd;
-  if (showCurrency === 'base' && profitCurrency === 'base') return entry.base;
-  if (showCurrency === 'quote' && profitCurrency === 'quote')
-    return entry.quote;
-  if (showCurrency === 'quote' && profitCurrency === 'base')
-    return entry.base * (latestPrice || 1);
-  if (showCurrency === 'base' && profitCurrency === 'quote')
-    return latestPrice > 0 ? entry.quote / latestPrice : 0;
-  return 0;
-};
-
-/**
- * Build chart data with a fixed-size window, filling empty periods with 0.
- * Mirrors the legacy TotalProfit.tsx fill logic exactly.
- */
-const buildChartData = (
-  entries: GridProfitEntry[],
-  showCurrency: GridCurrency,
-  profitCurrency: string,
-  latestPrice: number,
-  timeframe: number // 0=Daily, 1=Weekly, 2=Monthly, 3=Total
-): ChartPoint[] => {
-  const precision = showCurrency === 'usd' ? 2 : 6;
-
-  const getValue = (e: GridProfitEntry) =>
-    round(
-      mapProfitValue(e, showCurrency, profitCurrency, latestPrice),
-      precision
-    );
-
-  // Total: return raw entries as-is
-  if (timeframe === 3) {
-    return entries.map((e) => {
-      const d = new Date(e.date);
-      return {
-        date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        value: getValue(e),
-        fullDate: e.date,
-        label: d.toLocaleDateString(),
-      };
-    });
-  }
-
-  if (timeframe === 2) {
-    // Monthly: fixed 12-month window ending this month
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = today.getMonth() + 1; // 1-based
-    const list: ChartPoint[] = [];
-    for (let i = -11; i <= 0; i++) {
-      let m = month + i;
-      let y = year;
-      if (m < 1) {
-        m += 12;
-        y -= 1;
-      }
-      const key = `${y}-${m}`; // backend key e.g. "2025-3"
-      const keyPadded = `${y}-${`0${m}`.slice(-2)}`; // "2025-03"
-      const match = entries.find(
-        ({ date }) => date === key || date === keyPadded
-      );
-      list.push({
-        date: new Date(y, m - 1, 1).toLocaleDateString('en-US', {
-          month: 'short',
-          year: '2-digit',
-        }),
-        value: match ? getValue(match) : 0,
-        fullDate: keyPadded,
-        label: keyPadded,
-      });
-    }
-    return list;
-  }
-
-  if (timeframe === 1) {
-    // Weekly: fill gaps between first and today + 7d
-    const step = 7 * 24 * 60 * 60 * 1000;
-    const list: ChartPoint[] = [];
-    if (entries.length === 0) return list;
-
-    const getWeek = (d: Date): number => {
-      const oneJan = new Date(d.getFullYear(), 0, 1);
-      return Math.ceil(
-        ((d.getTime() - oneJan.getTime()) / 86400000 + oneJan.getDay() + 1) / 7
-      );
-    };
-
-    const getMonday = (isoDate: string): Date => {
-      const d = new Date(isoDate);
-      const day = d.getUTCDay(); // 0=Sun
-      const diff = day === 0 ? -6 : 1 - day;
-      return new Date(
-        d.getUTCFullYear(),
-        d.getUTCMonth(),
-        d.getUTCDate() + diff
-      );
-    };
-
-    const sorted = [...entries].sort(
-      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-    );
-    let startTime = getMonday(sorted[0].date).getTime();
-    const endTime = Date.now() + step;
-
-    for (const val of sorted) {
-      const profitTime = getMonday(val.date).getTime();
-      for (let i = startTime; i < profitTime; i += step) {
-        const d = new Date(i);
-        list.push({
-          date: `${d.getFullYear()}-W${getWeek(d)}`,
-          value: 0,
-          fullDate: d.toISOString(),
-          label: d.toLocaleDateString(),
-        });
-      }
-      const d = new Date(profitTime);
-      list.push({
-        date: `${d.getFullYear()}-W${getWeek(d)}`,
-        value: getValue(val),
-        fullDate: val.date,
-        label: d.toLocaleDateString(),
-      });
-      startTime = profitTime + step;
-    }
-    for (let i = startTime; i <= endTime; i += step) {
-      const d = new Date(i);
-      const key = `${d.getFullYear()}-W${getWeek(d)}`;
-      if (!list.find((p) => p.date === key)) {
-        list.push({
-          date: key,
-          value: 0,
-          fullDate: d.toISOString(),
-          label: d.toLocaleDateString(),
-        });
-      }
-    }
-    return list;
-  }
-
-  // Daily (timeframe === 0): fixed 30-day window ending today, fill missing days with 0
-  const list: ChartPoint[] = [];
-  const now = new Date();
-  // Start of today in local midnight
-  const todayStart = new Date(
-    now.getFullYear(),
-    now.getMonth(),
-    now.getDate()
-  ).getTime();
-
-  for (let i = -29; i <= 0; i++) {
-    const dayStart = todayStart + i * 24 * 60 * 60 * 1000;
-    const dayEnd = dayStart + 24 * 60 * 60 * 1000;
-    const match = entries.find(({ date }) => {
-      const t = new Date(date).getTime();
-      return t >= dayStart && t < dayEnd;
-    });
-    const d = new Date(dayStart);
-    list.push({
-      date: d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      value: match ? getValue(match) : 0,
-      fullDate: d.toISOString(),
-      label: d.toLocaleDateString(),
-    });
-  }
-  return list;
 };
 
 /**
@@ -271,10 +82,15 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
   const quoteAsset = gridBot?.symbol?.quoteAsset ?? 'QUOTE';
   const profitCurrency = gridBot?.settings?.profitCurrency ?? 'quote';
   const latestPrice = gridBot?.lastPrice ?? 0;
+  const timeZone = useAccountTimeZone();
+  const weekStart = useAuthStore((s) => s.user?.weekStart);
 
   // Fetch profit data from backend — mirrors legacy getProfitByBot call
   const { profitEntries, isLoading } = useGridBotProfit({
     botId: actualBotId,
+    // Bucket in the zone the chart is drawn in, even when the account has no
+    // usable zone of its own and the browser's stands in for it.
+    timezone: timeZone,
     timeframe: TIMEFRAME_MAP[timeframe],
     botType: PROFIT_BOT_TYPE[botType] ?? BotTypesEnum.grid,
     enabled: !!actualBotId,
@@ -287,16 +103,46 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
   const chartData = useMemo(
     () =>
       withAxisIndex(
-        buildChartData(
-          profitEntries,
-          currency,
+        buildChartData(profitEntries, {
+          showCurrency: currency,
           profitCurrency,
           latestPrice,
-          TIMEFRAME_MAP[timeframe]
-        )
+          timeframe: TIMEFRAME_MAP[timeframe],
+          timeZone,
+          weekStart,
+          now: Date.now(),
+        })
       ),
-    [profitEntries, currency, profitCurrency, latestPrice, timeframe]
+    [
+      profitEntries,
+      currency,
+      profitCurrency,
+      latestPrice,
+      timeframe,
+      timeZone,
+      weekStart,
+    ]
   );
+
+  // The tooltip's default date line formats `fullDate` in the BROWSER's zone,
+  // which names the wrong day whenever it differs from the account's. Daily
+  // rows are account-zone midnights; weekly rows are UTC calendar days.
+  const tooltipLabel = useMemo(() => {
+    if (timeframe !== 'Daily' && timeframe !== 'Weekly') return undefined;
+    const zone = timeframe === 'Daily' ? timeZone : 'UTC';
+    return (axisValue: unknown): React.ReactNode => {
+      const row = chartData[Number(axisValue)];
+      const date = row ? new Date(row.fullDate) : new Date(NaN);
+      if (Number.isNaN(date.getTime())) return row?.label ?? '';
+      return date.toLocaleDateString('en-US', {
+        timeZone: zone,
+        weekday: 'short',
+        month: 'long',
+        day: 'numeric',
+        year: 'numeric',
+      });
+    };
+  }, [timeframe, timeZone, chartData]);
 
   // Compute summary stats (same logic as legacy TotalProfit)
   const stats = useMemo(() => {
@@ -495,7 +341,10 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                   tickFormatter={(v) => (currency === 'usd' ? `$${v}` : `${v}`)}
                   width={50}
                 />
-                <Tooltip content={<CustomTooltip />} cursor={false} />
+                <Tooltip
+                  content={<CustomTooltip labelFormatter={tooltipLabel} />}
+                  cursor={false}
+                />
                 <Bar
                   isAnimationActive={false}
                   dataKey="value"
