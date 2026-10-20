@@ -1320,11 +1320,11 @@ export const DealStartSettings: React.FC = () => {
                           : `Day of the next deal; it opens at ${hodlAt || 'the set time'} in your profile timezone (${timezone}).`}{' '}
                         Leave empty to let the system compute it automatically.
                       </p>
-                      <div className="rounded-md bg-blue-500/10 p-sm">
-                        <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
+                      <div className="rounded-md bg-muted p-sm">
+                        <p className="text-sm font-medium text-foreground">
                           Next Execution Preview
                         </p>
-                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                        <p className="text-sm text-muted-foreground">
                           {timerPreview.message}
                         </p>
                       </div>

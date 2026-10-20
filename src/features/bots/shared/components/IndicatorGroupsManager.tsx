@@ -20,7 +20,7 @@ import {
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
-import { AlertTriangle, Info, Plus } from 'lucide-react';
+import { AlertTriangle, Plus } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 export interface IndicatorGroupsManagerProps {
@@ -331,8 +331,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
           ) : null}
 
           {shouldShowEmptyIndicatorAlert ? (
-            <Alert className="border-blue-500/30 bg-blue-500/10 text-blue-900 dark:text-blue-100">
-              <Info className="h-4 w-4" />
+            <Alert className="border-warning/60 bg-warning/10 text-warning">
+              <AlertTriangle className="h-4 w-4" />
               <AlertTitle className="text-sm font-semibold">
                 {emptyIndicatorsAlertTitle}
               </AlertTitle>

@@ -900,7 +900,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
             </Button>
           </div>
           {webhooksLocked ? (
-            <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <Alert>
               <AlertTitle className="text-sm font-semibold">
                 Webhooks are locked
               </AlertTitle>
@@ -917,7 +917,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
               </AlertDescription>
             </Alert>
           ) : missingBotUuid ? (
-            <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <Alert>
               <AlertTitle className="text-sm font-semibold">
                 {isTerminal ? 'Place the deal first' : 'Bot UUID required'}
               </AlertTitle>
@@ -955,7 +955,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
       >
         <div className="space-y-md">
           {missingBotId ? (
-            <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <Alert>
               <AlertTitle className="text-sm font-semibold">
                 Save the bot first
               </AlertTitle>

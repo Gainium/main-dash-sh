@@ -851,7 +851,7 @@ export const RiskRewardSettings: React.FC = () => {
             alerts={alerts?.rrSlFixedValue ?? []}
           >
             {isRRSlFixedValueBound && (
-              <Alert className="space-y-xs border-primary/40 bg-primary/5">
+              <Alert className="space-y-xs">
                 <AlertTitle>Global variable linked</AlertTitle>
                 <AlertDescription className="space-y-xs">
                   <p>
@@ -1024,7 +1024,7 @@ export const RiskRewardSettings: React.FC = () => {
           ]}
         >
           {hasRiskAmountBinding && (
-            <Alert className="space-y-xs border-primary/40 bg-primary/5">
+            <Alert className="space-y-xs">
               <AlertTitle>Global variable linked</AlertTitle>
               <AlertDescription className="space-y-xs">
                 <p>
@@ -1138,7 +1138,7 @@ export const RiskRewardSettings: React.FC = () => {
           alerts={alerts?.riskTpRatio ?? []}
         >
           {isRiskTpRatioBound && (
-            <Alert className="border-primary/40 bg-primary/5">
+            <Alert>
               <AlertDescription>
                 This reward ratio is synced from a global variable.
               </AlertDescription>
@@ -1329,7 +1329,7 @@ export const RiskRewardSettings: React.FC = () => {
             ]}
           >
             {hasPositionSizeBinding && (
-              <Alert className="border-primary/40 bg-primary/5">
+              <Alert>
                 <AlertDescription>
                   Position size limits are linked to global variables.
                 </AlertDescription>

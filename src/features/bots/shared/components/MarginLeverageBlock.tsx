@@ -11,6 +11,7 @@
  * Returns null when `futures=false` (so callers don't have to guard).
  */
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import type { MarginNotice } from '@/types/bots/form';
 
 import { Label } from '@/components/ui/label';
 import SettingsAlert from '@/components/ui/SettingsAlert';
@@ -248,31 +249,30 @@ export const MarginLeverageBlock: React.FC<MarginLeverageBlockProps> = ({
   );
 
   const marginNotices = useMemo(() => {
-    if (!futuresEnabled) return [] as string[];
-    const notices: string[] = [];
+    if (!futuresEnabled) return [] as MarginNotice[];
+    const notices: MarginNotice[] = [];
     if (isPaperTrading) {
-      notices.push('Cross margin is not available while paper trading.');
+      notices.push({ message: 'Cross margin is not available while paper trading.', variant: 'info' });
     }
     if (!crossSupportedByPairs) {
-      notices.push('Cross margin type is not available for selected symbols.');
+      notices.push({ message: 'Cross margin type is not available for selected symbols.', variant: 'info' });
     }
     if (shouldFetchLeverage && leverageFetchState.isLoading) {
-      notices.push('Fetching leverage limits from your exchange…');
+      notices.push({ message: 'Fetching leverage limits from your exchange…', variant: 'info' });
     }
     if (shouldFetchLeverage && leverageFetchState.error) {
-      notices.push(leverageFetchState.error);
+      notices.push({ message: leverageFetchState.error, variant: 'warning' });
     }
     if (leverageExceedsMax) {
-      notices.push(
-        `Leverage cannot be higher than ${maxLeverage}x for the selected symbols.`
-      );
+      notices.push({ message: `Leverage cannot be higher than ${maxLeverage}x for the selected symbols.`, variant: 'warning' });
     }
     if (marginControlsLocked) {
-      notices.push(
-        activeDealsCount > 0
+      notices.push({
+        message: activeDealsCount > 0
           ? 'Margin settings are locked while the bot has active deals.'
-          : 'Margin settings are currently locked by your configuration.'
-      );
+          : 'Margin settings are currently locked by your configuration.',
+        variant: 'info',
+      });
     }
     return notices;
   }, [
@@ -359,7 +359,11 @@ export const MarginLeverageBlock: React.FC<MarginLeverageBlockProps> = ({
         {marginNotices.length > 0 && (
           <div className="space-y-xs">
             {marginNotices.map((notice) => (
-              <SettingsAlert key={notice} variant="warning" title={notice} />
+              <SettingsAlert
+                key={notice.message}
+                variant={notice.variant}
+                title={notice.message}
+              />
             ))}
           </div>
         )}

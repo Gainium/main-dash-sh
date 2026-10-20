@@ -367,9 +367,9 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                   <div className="space-y-xs">
                     {marginNotices.map((notice) => (
                       <SettingsAlert
-                        key={notice}
-                        variant="warning"
-                        title={notice}
+                        key={notice.message}
+                        variant={notice.variant}
+                        title={notice.message}
                       />
                     ))}
                   </div>

@@ -1,5 +1,6 @@
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
+import type { MarginNotice } from '@/types/bots/form';
 import {
   useBotFormContext,
   useBotFormFieldLock,
@@ -589,39 +590,38 @@ export const useStrategySettingsTab = ({
 
   const marginNotices = useMemo(() => {
     if (!showMarginControls) {
-      return [] as string[];
+      return [] as MarginNotice[];
     }
 
-    const notices: string[] = [];
+    const notices: MarginNotice[] = [];
 
     if (isPaperTrading) {
-      notices.push('Cross margin is not available while paper trading.');
+      notices.push({ message: 'Cross margin is not available while paper trading.', variant: 'info' });
     }
 
     if (!crossSupportedByPairs) {
-      notices.push('Cross margin type is not available for selected symbols.');
+      notices.push({ message: 'Cross margin type is not available for selected symbols.', variant: 'info' });
     }
 
     if (shouldFetchLeverage && leverageFetchState.isLoading) {
-      notices.push('Fetching leverage limits from your exchange…');
+      notices.push({ message: 'Fetching leverage limits from your exchange…', variant: 'info' });
     }
 
     if (shouldFetchLeverage && leverageFetchState.error) {
-      notices.push(leverageFetchState.error);
+      notices.push({ message: leverageFetchState.error, variant: 'warning' });
     }
 
     if (leverageExceedsMax) {
-      notices.push(
-        `Leverage cannot be higher than ${maxLeverage}x for the selected symbols.`
-      );
+      notices.push({ message: `Leverage cannot be higher than ${maxLeverage}x for the selected symbols.`, variant: 'warning' });
     }
 
     if (marginControlsLocked) {
-      notices.push(
-        activeDealsCount > 0
+      notices.push({
+        message: activeDealsCount > 0
           ? 'Margin settings are locked while the bot has active deals.'
-          : 'Margin settings are currently locked by your configuration.'
-      );
+          : 'Margin settings are currently locked by your configuration.',
+        variant: 'info',
+      });
     }
 
     return notices;

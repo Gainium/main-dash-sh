@@ -153,7 +153,7 @@ const WebhookHelper: React.FC<WebhookHelperProps> = ({
             ) : null}
           </div>
           {missingBotId ? (
-            <Alert className="border-amber-500/40 bg-amber-500/10 text-amber-900 dark:border-amber-500/40 dark:bg-amber-500/10 dark:text-amber-100">
+            <Alert>
               <AlertTitle className="text-sm font-semibold">
                 Bot ID required
               </AlertTitle>

@@ -40,6 +40,12 @@ export type BotFormErrors = Partial<
 
 export type AlertVariant = 'error' | 'warning' | 'info';
 
+/** A margin/leverage notice: a fact (info) or a problem to fix (warning). */
+export interface MarginNotice {
+  message: string;
+  variant: Exclude<AlertVariant, 'error'>;
+}
+
 export interface BotFormAlert {
   variant: AlertVariant;
   /** Title shown inline in the chip */

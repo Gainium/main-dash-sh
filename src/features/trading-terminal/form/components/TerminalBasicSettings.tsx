@@ -4,6 +4,7 @@ import {
   TerminalButtonStack,
 } from '@/components/ui';
 import { Button } from '@/components/ui/button';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
 import { Switch } from '@/components/ui/switch';
@@ -659,9 +660,13 @@ export const TerminalBasicSettings: React.FC<TerminalBasicSettingsProps> = (
                   }
                 />
                 {marginNotices.length > 0 && (
-                  <div className="space-y-1 rounded-md border border-warning/40 bg-warning/10 p-sm text-xs text-warning">
+                  <div className="space-y-xs">
                     {marginNotices.map((notice) => (
-                      <p key={notice}>{notice}</p>
+                      <SettingsAlert
+                        key={notice.message}
+                        variant={notice.variant}
+                        title={notice.message}
+                      />
                     ))}
                   </div>
                 )}

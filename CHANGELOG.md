@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.107.6] - 2026-10-20
+### Changed
+- Bot forms: informational notices (margin availability, leverage loading, locked settings, global-variable links, risk/reward-managed take profit, webhook-managed exits, save-the-bot-first, next execution preview) use neutral styling; only warnings and errors are colored.
+- Bot forms: "No indicators in groups" is shown as a warning, since such a group never triggers.
+
 ## [2.107.5] - 2026-10-20
 ### Changed
 - Bot forms: informational hints (minimum order, grid spacing and similar) are shown as plain muted text instead of an orange chip, so only warnings and errors appear as colored chips.

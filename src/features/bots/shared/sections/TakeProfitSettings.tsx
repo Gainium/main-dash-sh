@@ -114,7 +114,7 @@ import {
     isCloseIndicatorUsedByCondition,
     sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
-import { AlertTriangle, Info } from 'lucide-react';
+import { Info } from 'lucide-react';
 import React, {
     useCallback,
     useEffect,
@@ -2533,8 +2533,8 @@ export const TakeProfitSettings: React.FC = () => {
           >
             {takeProfitLocked && (
               <SettingsRow colSpan="full">
-                <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
-                  <AlertTriangle className="h-4 w-4" />
+                <Alert>
+                  <Info className="h-4 w-4" />
                   <AlertTitle className="text-sm font-semibold">
                     Take profit managed by risk/reward
                   </AlertTitle>
@@ -2724,8 +2724,8 @@ export const TakeProfitSettings: React.FC = () => {
             >
               {takeProfitLocked && !isDealEdit && (
                 <SettingsRow colSpan="full">
-                  <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
-                    <AlertTriangle className="h-4 w-4" />
+                  <Alert>
+                    <Info className="h-4 w-4" />
                     <AlertTitle className="text-sm font-semibold">
                       Take profit managed by risk/reward
                     </AlertTitle>
@@ -2739,7 +2739,7 @@ export const TakeProfitSettings: React.FC = () => {
               )}
 
               {option.value === CloseConditionEnum.webhook && !isDealEdit ? (
-                <Alert className="border-blue-500/40 bg-blue-500/10 text-blue-900 dark:border-blue-400/40 dark:bg-blue-400/10 dark:text-blue-50">
+                <Alert>
                   <AlertTitle className="text-sm font-semibold">
                     Webhook-managed take profit
                   </AlertTitle>

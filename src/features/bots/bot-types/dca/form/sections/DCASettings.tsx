@@ -3744,7 +3744,7 @@ export const DCASettings: React.FC<Partial<DCASettingsProps>> = ({
     ) {
       return (
         <SettingsAlert
-          variant="warning"
+          variant="info"
           title="DCA condition cannot be changed for existing deals. Showing percentage-based DCA settings."
         />
       );
