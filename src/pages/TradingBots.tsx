@@ -50,6 +50,7 @@ import { useUIStore } from '../stores/uiStore';
 
 import { isReadOnly } from '@/lib/demoMode';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
+import { creditsInUse } from '@/lib/botList/creditsInUse';
 import { isReady as isAnalyticsReady } from '@/lib/analytics';
 import { useStarredBotsStore } from '@/stores/starredBotsStore';
 import {
@@ -1354,14 +1355,16 @@ const TradingBots: React.FC = () => {
       },
       {
         accessorKey: 'cost',
-        header: 'CREDITS COST',
+        // Bots that released their credits sort/filter as 0 (spec 128).
+        accessorFn: (row) => creditsInUse(row) ?? 0,
+        header: 'CREDITS IN USE',
         meta: {
           filterType: 'number',
           description: BOT_METRIC_DESCRIPTIONS.dca.creditsCost,
         },
-        cell: ({ getValue }) => {
-          const cost = getValue() as number;
-          return `${(cost || 0).toFixed(2)}`;
+        cell: ({ row }) => {
+          const cost = creditsInUse(row.original);
+          return cost === undefined ? null : cost.toFixed(2);
         },
       },
       {

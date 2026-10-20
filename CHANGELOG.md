@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.106.8] - 2026-10-20
+### Changed
+- DCA, Combo and Grid bot lists: the credits column is now "Credits in use" and shows a value only for bots that are holding credits. Stopped bots with no open deals and archived bots have already released theirs, so their cell is empty and they count as 0 when sorting or filtering — "Credits in use > 0" lists exactly the bots using your credits. A stopped DCA or Combo bot that is still running open deals keeps its credits and keeps showing them.
+
 ## [2.106.7] - 2026-10-20
 ### Fixed
 - Bot Profit chart (Daily): each day's profit is drawn on its own day in your account's time zone, and Today/Yesterday match it. Before, a browser in a different zone shifted every bar by a day.
