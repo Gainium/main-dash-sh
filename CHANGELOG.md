@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.106.7] - 2026-10-20
+### Fixed
+- Bot Profit chart (Daily): each day's profit is drawn on its own day in your account's time zone, and Today/Yesterday match it. Before, a browser in a different zone shifted every bar by a day.
+- Bot Profit chart (Weekly): week labels show the real week (e.g. 2026-W43) instead of "NaN-WNaN". The chart ends at the current week, numbered by your week-start setting.
+
 ## [2.106.6] - 2026-10-19
 ### Changed
 - Change DCA levels (DCA and Combo deals): raising the max lists each new level with its price and size. A level the price has already passed is marked "Fills now", because its order fills at once at about the market price; on a Combo deal, that level's minigrid still starts at the level's own price.
