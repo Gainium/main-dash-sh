@@ -7,10 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
-import { AlertTriangle, RefreshCcw } from 'lucide-react';
+import { RefreshCcw } from 'lucide-react';
 
 export interface AskToResetDialogProps {
   open: boolean;
@@ -74,18 +74,17 @@ export const AskToResetDialog: React.FC<AskToResetDialogProps> = ({
             <RefreshCcw className="h-4 w-4 sm:h-5 sm:w-5" />
             Restart required
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="sr-only text-sm text-muted-foreground">
             Review the impacted settings and confirm to restart the bot.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-md">
-          <Alert className="border-warning/60 bg-warning/10 text-warning-foreground">
-            <AlertDescription className="flex items-start gap-xs text-xs sm:text-sm">
-              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-              <span>{message}</span>
-            </AlertDescription>
-          </Alert>
+          <SettingsAlert
+            variant="warning"
+            title={message}
+            description={`${message} Restarting will pause the bot momentarily while orders and budget are realigned with the new grid settings.`}
+          />
 
           {fieldList.length > 0 ? (
             <div className="space-y-xs rounded-lg border border-border/60 bg-muted/20 p-md">
@@ -100,11 +99,6 @@ export const AskToResetDialog: React.FC<AskToResetDialogProps> = ({
               </ul>
             </div>
           ) : null}
-
-          <p className="text-xs sm:text-sm text-muted-foreground">
-            Restarting will pause the bot momentarily while orders and budget
-            are realigned with the new grid settings.
-          </p>
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

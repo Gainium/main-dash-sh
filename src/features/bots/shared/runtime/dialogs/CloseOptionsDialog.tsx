@@ -1,4 +1,3 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -8,9 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { cn } from '@/lib/utils';
 import { CloseDCATypeEnum } from '@/types';
-import { PauseOctagon, ShieldAlert } from 'lucide-react';
+import { PauseOctagon } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 export type CloseTypeOption = CloseDCATypeEnum;
@@ -133,7 +133,7 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
             {title}
           </DialogTitle>
           {!isDeal && (
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogDescription className="sr-only text-sm text-muted-foreground">
               Choose how the bot should handle open orders and positions before
               stopping.
             </DialogDescription>
@@ -141,13 +141,11 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
         </DialogHeader>
 
         <div className="space-y-md">
-          <Alert className="border-destructive/40 bg-destructive/10">
-            <ShieldAlert className="h-4 w-4" />
-            <AlertDescription className="text-xs sm:text-sm">
-              Positions may be closed at a loss depending on market conditions.
-              Make sure the chosen option matches your risk tolerance.
-            </AlertDescription>
-          </Alert>
+          <SettingsAlert
+            variant="warning"
+            title="Positions may close at a loss"
+            description="Positions may be closed at a loss depending on market conditions. Make sure the chosen option matches your risk tolerance."
+          />
 
           <div className="space-y-sm">
             {options.map((option) => {
@@ -164,6 +162,12 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                       : 'hover:bg-muted/20'
                   )}
                   disabled={isProcessing}
+                  title={
+                    isDeal && option.dealDescription
+                      ? (isBulkDeals && option.dealsDescription) ||
+                        option.dealDescription
+                      : option.description
+                  }
                 >
                   <div className="font-medium text-sm sm:text-base text-card-foreground">
                     {isDeal && option.dealTitle
@@ -172,12 +176,6 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                         : option.dealTitle
                       : option.title}
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    {isDeal && option.dealDescription
-                      ? (isBulkDeals && option.dealsDescription) ||
-                        option.dealDescription
-                      : option.description}
-                  </p>
                 </button>
               );
             })}

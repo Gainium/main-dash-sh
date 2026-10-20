@@ -92,7 +92,7 @@ export const GridStopBotDialog: React.FC<GridStopBotDialogProps> = ({
             <PauseOctagon className="h-5 w-5 text-destructive" />
             Stop bot options
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="sr-only text-sm text-muted-foreground">
             How do you want to stop the bot?
           </DialogDescription>
         </DialogHeader>

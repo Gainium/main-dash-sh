@@ -6,7 +6,6 @@ import {
   Loader2,
   Lock,
   /*  Merge, */
-  RotateCcw,
   Sparkles,
   Zap,
 } from 'lucide-react';
@@ -15,7 +14,6 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 
 import { mapWidgetMenuItemsToPanelMenu } from '@/components/bots/panels/menuUtils';
 import { Celebration } from '@/components/onboarding/Celebration';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import { useSinglePositionFormBridge } from '@/features/bots/bot-types/dca/form/hooks/useSinglePositionFormBridge';
 import { useBaseFundingFormBridge } from '@/features/bots/bot-types/dca/form/hooks/useBaseFundingFormBridge';
@@ -3896,15 +3894,16 @@ const BotForm: React.FC<BotFormProps> = ({
             transition={{ duration: 0.3, delay: 0.4 }}
           >
             {shouldWarnRestart && !allStrategiesOpen && (
-              <Alert className="mb-4">
-                <RotateCcw className="h-5 w-5 text-muted-foreground" />
-                <AlertTitle>Bot restart required</AlertTitle>
-                <AlertDescription>
-                  {requiresActiveRestartConfirmation
-                    ? 'These changes will require restarting the bot. You will be asked to confirm before saving.'
-                    : 'These changes will require a bot restart before they take effect. Save the changes, then restart the bot when ready.'}
-                </AlertDescription>
-              </Alert>
+              <SettingsAlert
+                className="mb-4"
+                variant="warning"
+                title="Bot restart required"
+                description={
+                  requiresActiveRestartConfirmation
+                    ? 'You will be asked to confirm the restart before saving.'
+                    : 'Save the changes, then restart the bot when ready.'
+                }
+              />
             )}
             {!hideFooter && !allStrategiesOpen && (
               <BotFormFooter
@@ -4399,15 +4398,16 @@ const BotForm: React.FC<BotFormProps> = ({
           transition={{ duration: 0.3, delay: 0.2 }}
         >
           {shouldWarnRestart && (
-            <Alert className="mb-2 mx-1">
-              <RotateCcw className="h-4 w-4 text-muted-foreground" />
-              <AlertTitle className="text-sm">Bot restart required</AlertTitle>
-              <AlertDescription className="text-xs">
-                {requiresActiveRestartConfirmation
-                  ? 'Changes will require restarting the bot.'
-                  : 'Changes require a bot restart to take effect.'}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              className="mb-2 mx-1"
+              variant="warning"
+              title="Bot restart required"
+              description={
+                requiresActiveRestartConfirmation
+                  ? 'You will be asked to confirm the restart before saving.'
+                  : 'Save the changes, then restart the bot when ready.'
+              }
+            />
           )}
           <BotFormFooter
             currentExchange={currentExchange}

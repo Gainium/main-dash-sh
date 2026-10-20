@@ -1,4 +1,5 @@
 import { Chip } from '@/components/ui/chip';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { Switch } from '@/components/ui/switch';
@@ -384,11 +385,11 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
                   </div>
                 )}
                 {pairLockState.reason === 'edit-single-pair' && (
-                  <p className="text-xs text-muted-foreground/75">
-                    The trading pair is fixed for a single-pair bot. Use
-                    &ldquo;Duplicate bot&rdquo; to run the same strategy on
-                    another pair.
-                  </p>
+                  <SettingsAlert
+                    variant="info"
+                    title="Pair is fixed"
+                    description="Use Duplicate bot to run the same strategy on another pair."
+                  />
                 )}
               </div>
             ) : (

@@ -118,7 +118,7 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
             <SlidersHorizontal className="h-5 w-5" />
             Change DCA levels
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="sr-only text-sm text-muted-foreground">
             Adjust the maximum number of DCA safety orders for this deal. Set it
             to 0 to disable further DCA orders.
           </DialogDescription>

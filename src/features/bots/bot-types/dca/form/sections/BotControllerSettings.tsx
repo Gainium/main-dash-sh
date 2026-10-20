@@ -1,5 +1,4 @@
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
@@ -46,11 +45,7 @@ import {
     buildIndicatorConfig,
     sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
-import {
-    AlertCircle,
-    AlertTriangle,
-    HelpCircle,
-} from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import React from 'react';
 import { IndicatorGroupsManager } from '@/features/bots/shared/components/IndicatorGroupsManager';
 
@@ -607,22 +602,15 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
     <>
       <div className="space-y-md">
         {controllerErrors.length > 0 ? (
-          <Alert
-            variant="destructive"
-            className="border-destructive/50 bg-destructive/10 text-destructive"
-          >
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle className="text-sm font-semibold">
-              Review your bot controller settings
-            </AlertTitle>
-            <AlertDescription>
-              <ul className="list-disc space-y-1 pl-4 text-xs sm:text-sm">
-                {controllerErrors.map((message, index) => (
-                  <li key={`${message}-${index}`}>{message}</li>
-                ))}
-              </ul>
-            </AlertDescription>
-          </Alert>
+          <div className="space-y-xs">
+            {controllerErrors.map((message, index) => (
+              <SettingsAlert
+                key={`${message}-${index}`}
+                variant="error"
+                title={message}
+              />
+            ))}
+          </div>
         ) : null}
 
         <MasonryLayout
@@ -752,21 +740,15 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
               className="border-none bg-transparent p-0 shadow-none"
               contentClassName="space-y-0"
             >
-              <Alert className="border-slate-500/40 bg-muted/40 text-muted-foreground">
-                <div className="flex items-start gap-sm">
-                  <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <div className="space-y-1 text-xs sm:text-sm">
-                    <AlertTitle className="text-sm font-semibold">
-                      Indicator usage summary
-                    </AlertTitle>
-                    <AlertDescription>
-                      {indicatorLimitReached
-                        ? `You have reached the maximum of ${indicatorsLimit} indicators across all automation blocks. Remove one before adding more.`
-                        : `You can add ${remainingIndicators} more indicator${remainingIndicators === 1 ? '' : 's'} across the bot controller, deal start, stop-loss, and risk modules.`}
-                    </AlertDescription>
-                  </div>
-                </div>
-              </Alert>
+              <SettingsAlert
+                variant={indicatorLimitReached ? 'warning' : 'info'}
+                title={
+                  indicatorLimitReached
+                    ? `Indicator limit reached (${indicatorsLimit})`
+                    : `${remainingIndicators} indicator${remainingIndicators === 1 ? '' : 's'} left`
+                }
+                description={`Up to ${indicatorsLimit} indicators across the bot controller, deal start, stop loss and take profit.`}
+              />
             </SettingsRow>
           )}
 

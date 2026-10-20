@@ -82,7 +82,7 @@ export const ExperimentalFeatures: React.FC<ExperimentalFeaturesProps> = ({
       {computedState.toggles.length === 0 ? (
         <SettingsRow colSpan="full">
           <div className="rounded-lg border border-dashed border-border/70 bg-muted/20 p-md text-sm text-muted-foreground">
-            No experimental toggles are available for this bot configuration.
+            No experimental options
           </div>
         </SettingsRow>
       ) : null}

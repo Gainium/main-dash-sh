@@ -227,7 +227,7 @@ export const GridRangeSettings: React.FC = () => {
     >
         <SettingsRow
           name={`Top price (${quoteLabel})`}
-          tooltip="Set the upper limit for the grid to operate within."
+          tooltip={`Set the upper limit for the grid to operate within. The % buttons are relative to the start price (${startPrice || 'n/a'}).`}
           navId="topPrice"
           alerts={buildErrorAlerts(errors, 'topPrice')}
         >
@@ -308,10 +308,6 @@ export const GridRangeSettings: React.FC = () => {
                 />
               }
             />
-            <p className="text-xs text-muted-foreground max-w-[540px]">
-              Quick adjustments use your start price ({startPrice || 'n/a'}) as
-              a reference.
-            </p>
           </div>
         </SettingsRow>
 
@@ -499,7 +495,7 @@ export const GridRangeSettings: React.FC = () => {
 
         <SettingsRow
           name="Sell displacement (%)"
-          tooltip="Offset sell orders relative to their paired buys to widen profit targets."
+          tooltip="Offset sell orders relative to their paired buys to widen profit targets. The minimum should cover exchange fees."
           tooltipURL="/help/sell-displacement"
           alerts={buildErrorAlerts(errors, 'sellDisplacement')}
         >
@@ -517,10 +513,6 @@ export const GridRangeSettings: React.FC = () => {
               showControls={false}
               endAdornment={unitAdornment('%', { size: 'sm' })}
             />
-            <p className="text-xs text-muted-foreground max-w-[640px]">
-              Increase the distance between matched buy and sell orders. Minimum
-              should cover exchange fees; larger values widen profit targets.
-            </p>
           </div>
         </SettingsRow>
     </MasonryLayout>

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.107.8] - 2026-10-20
+### Changed
+- Bot forms: explanation boxes and helper paragraphs replaced by one-line notes, with the detail in a tooltip; fields linked to a global variable or locked by Risk/Reward no longer repeat that in a separate box.
+- Bot forms: warnings and errors (allocation over 100%, empty indicator groups, minigrids over the order limit, missing ATR/ADR indicator, restart required) are shown as one-line chips.
+- Bot dialogs (close deal, stop options, adjust funds, next DCA, grid start, share, smart order merge) and terminal order confirmations: intro sentences and explanation boxes shortened to one line, details in tooltips.
+
 ## [2.107.7] - 2026-10-20
 ### Fixed
 - Combo bot form: indicators added as deal start conditions now appear on the chart as you add or edit them, as they already did for DCA bots.

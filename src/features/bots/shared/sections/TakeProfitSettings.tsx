@@ -3,7 +3,6 @@ import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndic
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import { TerminalButtonStack } from '@/components/ui';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { Label } from '@/components/ui/label';
@@ -2533,16 +2532,11 @@ export const TakeProfitSettings: React.FC = () => {
           >
             {takeProfitLocked && (
               <SettingsRow colSpan="full">
-                <Alert>
-                  <Info className="h-4 w-4" />
-                  <AlertTitle className="text-sm font-semibold">
-                    Take profit managed by risk/reward
-                  </AlertTitle>
-                  <AlertDescription className="text-xs leading-relaxed">
-                    Risk/reward automation is enforcing the take profit target.
-                    Disable the risk/reward ratio to edit these settings.
-                  </AlertDescription>
-                </Alert>
+                <SettingsAlert
+                  variant="info"
+                  title="Set by Risk/Reward"
+                  description="Turn off the risk/reward ratio to edit take profit."
+                />
               </SettingsRow>
             )}
 
@@ -2724,31 +2718,24 @@ export const TakeProfitSettings: React.FC = () => {
             >
               {takeProfitLocked && !isDealEdit && (
                 <SettingsRow colSpan="full">
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertTitle className="text-sm font-semibold">
-                      Take profit managed by risk/reward
-                    </AlertTitle>
-                    <AlertDescription className="text-xs leading-relaxed">
-                      Risk/reward automation is enforcing the take profit
-                      target. Disable the risk/reward ratio to edit these
-                      settings.
-                    </AlertDescription>
-                  </Alert>
+                  <SettingsAlert
+                  variant="info"
+                  title="Set by Risk/Reward"
+                  description="Turn off the risk/reward ratio to edit take profit."
+                />
                 </SettingsRow>
               )}
 
               {option.value === CloseConditionEnum.webhook && !isDealEdit ? (
-                <Alert>
-                  <AlertTitle className="text-sm font-semibold">
-                    Webhook-managed take profit
-                  </AlertTitle>
-                  <AlertDescription className="text-xs leading-relaxed">
-                    {formTerminal
-                      ? 'Take profit management will rely on webhook signals. The webhook UUID is created with the deal: after placing it, edit the deal (Open orders → Edit → Webhooks) to copy its payloads.'
-                      : 'Take profit management will rely on webhook signals. Configure your payload in the webhook section to control exits.'}
-                  </AlertDescription>
-                </Alert>
+                <SettingsAlert
+                  variant="info"
+                  title="Closes on webhook signal"
+                  description={
+                    formTerminal
+                      ? 'The webhook UUID is created with the deal. After placing it, open Open orders → Edit → Webhooks to copy its payloads.'
+                      : 'Set up the payload in the Webhooks section.'
+                  }
+                />
               ) : null}
 
               {option.value === CloseConditionEnum.webhook ? (
@@ -2782,26 +2769,18 @@ export const TakeProfitSettings: React.FC = () => {
                   />
                   <BotFieldManagedFieldset path="tpPerc">
                     {hasAllocationOverflow ? (
-                      <Alert variant="destructive" className="py-2 text-xs">
-                        <AlertTitle className="text-sm font-semibold">
-                          Allocation exceeds 100%
-                        </AlertTitle>
-                        <AlertDescription>
-                          Adjust target percentages so the total does not exceed
-                          100%.
-                        </AlertDescription>
-                      </Alert>
+                      <SettingsAlert
+                        variant="error"
+                        title="Allocation exceeds 100%"
+                        description="Adjust target percentages so the total is 100% or less."
+                      />
                     ) : null}
                     {hasAmountOverflow ? (
-                      <Alert variant="destructive" className="py-2 text-xs">
-                        <AlertTitle className="text-sm font-semibold">
-                          Position allocation exceeds 100%
-                        </AlertTitle>
-                        <AlertDescription>
-                          Reduce the position percentages so the sum of the
-                          distributed position equals 100% or less.
-                        </AlertDescription>
-                      </Alert>
+                      <SettingsAlert
+                        variant="error"
+                        title="Position allocation exceeds 100%"
+                        description="Reduce the position percentages so they add up to 100% or less."
+                      />
                     ) : null}
                     <MasonryLayout
                       gap={16}
@@ -3159,19 +3138,11 @@ export const TakeProfitSettings: React.FC = () => {
                   </div>
 
                   {dynamicArIndicators.length === 0 ? (
-                    <Alert
-                      variant="destructive"
-                      className="border-destructive/40 bg-destructive/10"
-                    >
-                      <AlertTitle className="text-sm font-semibold">
-                        Add an ATR or ADR indicator
-                      </AlertTitle>
-                      <AlertDescription className="text-xs leading-relaxed">
-                        Dynamic ATR/ADR requires at least one ATR or ADR
-                        indicator. Add an indicator to compute take profit
-                        distance.
-                      </AlertDescription>
-                    </Alert>
+                    <SettingsAlert
+                        variant="error"
+                        title="Add an ATR or ADR indicator"
+                        description="Dynamic ATR/ADR needs at least one ATR or ADR indicator to compute the take profit distance."
+                      />
                   ) : null}
                 </SettingsRow>
               ) : null}
@@ -3341,7 +3312,7 @@ export const TakeProfitSettings: React.FC = () => {
                     <SettingsRow
                       key="trailing-tp"
                       name="Trailing take profit"
-                      tooltip="Follow the price after the initial target is reached."
+                      tooltip={`Follow the price after the initial target is reached, by the deviation set here (${TRAILING_TP_MIN}%–${TRAILING_TP_MAX}%).`}
                       tooltipURL="/help/trailing-take-profit"
                       colSpan="full"
                       className={interactionDisabledClass}
@@ -3439,11 +3410,6 @@ export const TakeProfitSettings: React.FC = () => {
                             />
                           </FieldVariableBinding>
                           <BotFieldExtensionPanel path="trailingTpPerc" />
-                          <p className="text-xs text-muted-foreground">
-                            Once the take profit is hit, trailing keeps
-                            following the price by the deviation set here. Valid
-                            range is {TRAILING_TP_MIN}%–{TRAILING_TP_MAX}%.
-                          </p>
                         </div>
                       ) : null}
                       <BotFieldExtensionPanel

@@ -1,7 +1,6 @@
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { Slider } from '@/components/ui';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
@@ -1185,14 +1184,11 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
           />
           <BotFieldManagedFieldset path="slPerc">
             {hasAllocationOverflow ? (
-              <Alert variant="destructive" className="py-2 text-xs">
-                <AlertTitle className="text-sm font-semibold">
-                  Allocation exceeds 100%
-                </AlertTitle>
-                <AlertDescription>
-                  Adjust target allocations so the combined value is 100% or less.
-                </AlertDescription>
-              </Alert>
+              <SettingsAlert
+                variant="error"
+                title="Allocation exceeds 100%"
+                description="Adjust target allocations so the total is 100% or less."
+              />
             ) : null}
             <MasonryLayout
               gap={16}
@@ -1519,10 +1515,10 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
               tooltip="Choose whether the stop loss percentage references the averaged filled orders or the initial entry price."
               colSpan="full"
             >
-              <div className="rounded-md border border-dashed border-muted/50 bg-muted/20 p-sm text-xs text-muted-foreground">
-                Base stop loss reference is locked while trailing or Move Stop
-                Loss is active.
-              </div>
+              <SettingsAlert
+                variant="info"
+                title="Locked while trailing or Move Stop Loss is on"
+              />
             </SettingsRow>
           ) : closeConditionSl !== CloseConditionEnum.webhook ? (
             <SettingsRow
@@ -2291,16 +2287,11 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
   const renderSLContent = (condition: CloseConditionEnum) => {
     if (isDealEdit && condition && condition !== CloseConditionEnum.tp) {
       return (
-        <Alert>
-          <AlertTitle className="text-sm font-semibold">
-            Stop loss type locked
-          </AlertTitle>
-          <AlertDescription className="text-xs leading-relaxed">
-            The stop loss type cannot be changed while editing an active deal.
-            To modify the stop loss type, please edit the bot settings outside
-            of the deal view.
-          </AlertDescription>
-        </Alert>
+        <SettingsAlert
+          variant="info"
+          title="Stop loss type locked on open deals"
+          description="Change the type in the bot's settings."
+        />
       );
     }
     switch (condition) {
@@ -2330,16 +2321,15 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
       case CloseConditionEnum.webhook:
         return (
           <>
-            <Alert>
-              <AlertTitle className="text-sm font-semibold">
-                Webhook-managed stop loss
-              </AlertTitle>
-              <AlertDescription className="text-xs leading-relaxed">
-                {formData.terminal && mode !== 'deal-edit'
-                  ? 'Stop loss management will rely on webhook signals. The webhook UUID is created with the deal: after placing it, edit the deal (Open orders → Edit → Webhooks) to copy its payloads.'
-                  : 'Stop loss management will rely on webhook signals. Configure your payload in the webhook section to control exits.'}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Closes on webhook signal"
+              description={
+                formData.terminal && mode !== 'deal-edit'
+                  ? 'The webhook UUID is created with the deal. After placing it, open Open orders → Edit → Webhooks to copy its payloads.'
+                  : 'Set up the payload in the Webhooks section.'
+              }
+            />
             <WebhooksDisabledWarning />
             <PercentageSL
               currentExchange={currentExchange}

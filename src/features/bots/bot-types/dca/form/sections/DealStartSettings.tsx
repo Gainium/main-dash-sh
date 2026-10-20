@@ -1057,6 +1057,7 @@ export const DealStartSettings: React.FC = () => {
     if (!hodlDay || !hodlAt) {
       return {
         message: 'Configure interval and time to see preview',
+        summary: 'Set an interval and time',
       };
     }
 
@@ -1064,6 +1065,7 @@ export const DealStartSettings: React.FC = () => {
     if (!Number.isFinite(interval) || interval <= 0) {
       return {
         message: 'Invalid time configuration',
+        summary: 'Invalid time configuration',
       };
     }
 
@@ -1084,6 +1086,7 @@ export const DealStartSettings: React.FC = () => {
       : `${intro} at ${hodlAt} (${timezone} timezone).`;
 
     let nextRun: string | null = null;
+    let nextRunShort: string | null = null;
     if (hodlNextBuy && !Number.isNaN(new Date(hodlNextBuy).getTime())) {
       // the bot moves a run on an unselected weekday to the next selected one
       const next = shiftNextBuyToWeekday(
@@ -1092,9 +1095,10 @@ export const DealStartSettings: React.FC = () => {
         timezone,
         selectedTimerWeekdays(hodlWeekdays)
       );
-      nextRun = isHourly
-        ? `${new Date(next).toLocaleString()} (${timezone} timezone)`
-        : `${nextBuyToDateValue(next)} ${hodlAt} (${timezone} timezone)`;
+      nextRunShort = isHourly
+        ? new Date(next).toLocaleString()
+        : `${nextBuyToDateValue(next)} ${hodlAt}`;
+      nextRun = `${nextRunShort} (${timezone} timezone)`;
     }
 
     const nextRunText = nextRun
@@ -1111,6 +1115,9 @@ export const DealStartSettings: React.FC = () => {
 
     return {
       message: `${introWithTime}${daysText} ${nextRunText}`,
+      summary: nextRunShort
+        ? `Next deal: ${nextRunShort}`
+        : 'Next deal set after saving',
     };
   }, [hodlAt, hodlDay, hodlHourly, hodlNextBuy, hodlWeekdays, timezone]);
 
@@ -1213,10 +1220,7 @@ export const DealStartSettings: React.FC = () => {
                           </SelectContent>
                         </Select>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Bind interval
-                      </p>
-                    </div>
+                                    </div>
 
                     <div className="space-y-xs">
                       <Label>Open deal at</Label>
@@ -1240,7 +1244,14 @@ export const DealStartSettings: React.FC = () => {
                     </div>
 
                     <div className="space-y-xs">
-                      <Label>Open deal on</Label>
+                      <div className="flex items-center gap-xs">
+                        <Label>Open deal on</Label>
+                        <Tooltip
+                          tooltip={`Days the bot may open deals, in your profile timezone (${timezone}). A run on an unselected day moves to the next selected one.`}
+                        >
+                          <InfoIcon />
+                        </Tooltip>
+                      </div>
                       <div
                         className="flex flex-wrap gap-xs"
                         role="group"
@@ -1269,15 +1280,21 @@ export const DealStartSettings: React.FC = () => {
                           );
                         })}
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Days of the week the bot may open deals, in your
-                        profile timezone ({timezone}). A run on an unselected
-                        day moves to the next selected one.
-                      </p>
                     </div>
 
                     <div className="space-y-xs">
-                      <Label>Next deal</Label>
+                      <div className="flex items-center gap-xs">
+                        <Label>Next deal</Label>
+                        <Tooltip
+                          tooltip={`${
+                            hodlHourly
+                              ? 'Next execution time, in your local timezone.'
+                              : `Day of the next deal; it opens at ${hodlAt || 'the set time'} in your profile timezone (${timezone}).`
+                          } Leave empty to let the system compute it.`}
+                        >
+                          <InfoIcon />
+                        </Tooltip>
+                      </div>
                       {hodlHourly ? (
                         <Input
                           type="datetime-local"
@@ -1314,20 +1331,11 @@ export const DealStartSettings: React.FC = () => {
                           }}
                         />
                       )}
-                      <p className="text-xs text-muted-foreground">
-                        {hodlHourly
-                          ? 'Set the next execution time in your local timezone.'
-                          : `Day of the next deal; it opens at ${hodlAt || 'the set time'} in your profile timezone (${timezone}).`}{' '}
-                        Leave empty to let the system compute it automatically.
-                      </p>
-                      <div className="rounded-md bg-muted p-sm">
-                        <p className="text-sm font-medium text-foreground">
-                          Next Execution Preview
-                        </p>
-                        <p className="text-sm text-muted-foreground">
-                          {timerPreview.message}
-                        </p>
-                      </div>
+                      <SettingsAlert
+                        variant="info"
+                        title={timerPreview.summary}
+                        description={timerPreview.message}
+                      />
                     </div>
                   </div>
                 </SettingsRow>
@@ -1694,9 +1702,6 @@ export const DealStartSettings: React.FC = () => {
                       disabled={isMinOpenDealVarBound}
                     />
                   </FieldVariableBinding>
-                  <p className="text-xs text-muted-foreground">
-                    Bind minimum price
-                  </p>
                 </div>
                 <div className="space-y-xs">
                   <Label htmlFor="max-open-deal">
@@ -1988,9 +1993,6 @@ export const DealStartSettings: React.FC = () => {
                           showControls={false}
                         />
                       </FieldVariableBinding>
-                      <p className="text-xs text-muted-foreground">
-                        Bind cooldown interval
-                      </p>
                     </div>
                     <div className="space-y-xs">
                       <Label htmlFor="cooldown-start-units">Units</Label>
@@ -2152,9 +2154,6 @@ export const DealStartSettings: React.FC = () => {
                           showControls={false}
                         />
                       </FieldVariableBinding>
-                      <p className="text-xs text-muted-foreground">
-                        Bind cooldown interval
-                      </p>
                     </div>
                     <div className="space-y-xs">
                       <Label htmlFor="cooldown-close-units">Units</Label>
@@ -2316,9 +2315,6 @@ export const DealStartSettings: React.FC = () => {
                         showControls={false}
                       />
                     </FieldVariableBinding>
-                    <p className="text-xs text-muted-foreground">
-                      Bind custom top size
-                    </p>
                   </div>
                 )}
               </div>
@@ -2431,9 +2427,6 @@ export const DealStartSettings: React.FC = () => {
                         showControls={false}
                       />
                     </FieldVariableBinding>
-                    <p className="text-xs text-muted-foreground">
-                      Bind relative volume threshold
-                    </p>
                   </div>
                 )}
               </div>

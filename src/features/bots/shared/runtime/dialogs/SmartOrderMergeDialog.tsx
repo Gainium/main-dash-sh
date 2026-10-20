@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -214,10 +214,11 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
             Merge smart orders
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
-            Combine multiple smart orders into a single active position
-            {botName ? ` for ${botName}` : ''}. Select at least two orders to
-            continue.
-            {' '}
+            <span className="sr-only">
+              Combine multiple smart orders into a single active position.
+              Select at least two orders to continue.{' '}
+            </span>
+            {botName ? `${botName} · ` : ''}
             {/* New tab: reading a help article must never cost the user
                 whatever they have half-configured behind this dialog. */}
             <a
@@ -233,21 +234,15 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
 
         <div className="space-y-md">
           {extraMessage ? (
-            <Alert className="border-border/60 bg-muted/20">
-              <AlertDescription className="text-sm text-muted-foreground">
-                {extraMessage}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert variant="info" title={extraMessage} />
           ) : null}
 
           {sortedDeals.length === 0 ? (
-            <Alert className="border-border/60 bg-muted/20">
-              <AlertTitle>No smart orders available</AlertTitle>
-              <AlertDescription className="text-sm text-muted-foreground">
-                There are no eligible smart orders for this bot. Only open
-                orders can be merged.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="No open smart orders"
+              description="There are no eligible smart orders for this bot. Only open orders can be merged."
+            />
           ) : (
             <div className="space-y-sm">
               <div className="flex flex-wrap items-center justify-between gap-sm rounded-lg border border-border/60 bg-muted/20 px-3 py-2 text-xs">
@@ -493,23 +488,19 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
           )}
 
           {summary.pairMismatch || summary.strategyMismatch ? (
-            <Alert className="border-warning/60 bg-warning/10 text-warning-foreground">
-              <AlertTitle>
-                Orders must share the same pair and strategy
-              </AlertTitle>
-              <AlertDescription className="text-sm">
-                Select smart orders that trade the same pair with the same
-                strategy before merging.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="warning"
+              title="Same pair and strategy required"
+              description="Select smart orders that trade the same pair with the same strategy before merging."
+            />
           ) : null}
 
           {selectedDeals.length > 0 && selectedDeals.length < 2 ? (
-            <Alert className="border-border/60 bg-muted/20">
-              <AlertDescription className="text-sm">
-                Select at least two smart orders to enable merging.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Select at least 2 orders"
+              description="Select at least two smart orders to enable merging."
+            />
           ) : null}
         </div>
 

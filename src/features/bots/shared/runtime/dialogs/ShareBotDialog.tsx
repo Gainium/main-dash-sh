@@ -1,4 +1,3 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -11,13 +10,14 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Switch } from '@/components/ui/switch';
 import { useBotShareToggle } from '@/hooks/useBotMutations';
 import { toast } from '@/lib/toast';
 import { buildBotShareUrl } from '@/lib/shareLinks';
 import { useUIStore } from '@/stores/uiStore';
 import { BotTypesEnum } from '@/types';
-import { Copy, Globe, Share2, Shield } from 'lucide-react';
+import { Copy, Globe, Share2 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
 
 export interface ShareBotDialogProps {
@@ -174,7 +174,7 @@ export const ShareBotDialog: React.FC<ShareBotDialogProps> = ({
             <Share2 className="h-4 w-4 sm:h-5 sm:w-5 text-white" />
             Share bot access
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="sr-only text-sm text-muted-foreground">
             Allow other people to view "{botName ?? 'Your bot'}" with a secure
             read-only link.
           </DialogDescription>
@@ -182,12 +182,11 @@ export const ShareBotDialog: React.FC<ShareBotDialogProps> = ({
 
         <div className="space-y-5 px-1">
           <div className="flex items-center justify-between rounded-lg border border-border/60 bg-muted/10 px-4 py-3">
-            <div className="space-y-1">
+            <div
+              className="space-y-1"
+              title={`Anyone with the link can view bot settings in ${isLiveTrading ? 'live' : 'paper'} context.`}
+            >
               <Label className="text-sm font-medium">Share link</Label>
-              <p className="text-xs text-muted-foreground">
-                Anyone with the link can view bot settings in{' '}
-                {isLiveTrading ? 'live' : 'paper'} context.
-              </p>
             </div>
             <div className="flex items-center gap-xs">
               <Switch
@@ -231,41 +230,33 @@ export const ShareBotDialog: React.FC<ShareBotDialogProps> = ({
                 </Button>
               </div>
 
-              <Alert className="border-border/60 bg-muted/30">
-                <AlertDescription className="text-xs sm:text-sm">
-                  Shared bots are read-only. Only you can modify settings or
-                  execute runtime actions.
-                </AlertDescription>
-              </Alert>
+              <SettingsAlert
+                variant="info"
+                title="Viewers can't change anything"
+                description="Shared bots are read-only. Only you can modify settings or execute runtime actions."
+              />
 
               {!shareId ? (
-                <Alert className="border-warning/60 bg-warning/10 text-warning-foreground">
-                  <AlertDescription className="text-xs sm:text-sm">
-                    Share is enabled but the backend has not returned a share ID
-                    yet. Copy link once it appears.
-                  </AlertDescription>
-                </Alert>
+                <SettingsAlert
+                  variant="warning"
+                  title="Share link pending"
+                  description="Share is enabled but the backend has not returned a share ID yet. Copy link once it appears."
+                />
               ) : null}
             </div>
           ) : (
-            <Alert className="border-border/60 bg-muted/15">
-              <AlertDescription className="text-xs sm:text-sm">
-                Sharing is disabled. Turn it on to generate a secure read-only
-                link for collaborators.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Sharing is off"
+              description="Sharing is disabled. Turn it on to generate a secure read-only link for collaborators."
+            />
           )}
 
-          <div className="rounded-lg border border-border/50 bg-muted/10 p-md space-y-xs text-xs sm:text-sm text-muted-foreground">
-            <div className="flex items-center gap-xs font-medium text-foreground">
-              <Shield className="h-3.5 w-3.5" />
-              Keep sensitive data safe
-            </div>
-            <p>
-              Share links never expose API keys or trading credentials. Revoke
-              access anytime by toggling sharing off.
-            </p>
-          </div>
+          <SettingsAlert
+            variant="info"
+            title="API keys are never shared"
+            description="Share links never expose API keys or trading credentials. Revoke access anytime by toggling sharing off."
+          />
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

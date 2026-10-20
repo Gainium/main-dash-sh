@@ -1,6 +1,5 @@
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
@@ -105,7 +104,6 @@ import {
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
 import {
-    AlertTriangle,
     Crosshair,
     DollarSign,
     Trash2,
@@ -1741,16 +1739,11 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                           : 'Match the number of DCA orders you intend to preload.'}
                       </p>
                       {isActiveMinigridsOverLimit ? (
-                        <Alert className="border-warning/60 bg-warning/10 text-warning">
-                          <AlertTriangle className="h-4 w-4" />
-                          <AlertTitle className="text-sm font-semibold">
-                            Active minigrids exceed configured orders
-                          </AlertTitle>
-                          <AlertDescription className="text-sm">
-                            Reduce the minigrid count or increase DCA orders so
-                            every active minigrid has a matching order slot.
-                          </AlertDescription>
-                        </Alert>
+                        <SettingsAlert
+                          variant="warning"
+                          title={`Exceeds DCA orders (${totalOrdersCount ?? 0})`}
+                          description="Reduce the minigrid count or increase DCA orders so every active minigrid has an order slot."
+                        />
                       ) : null}
                     </SettingsRowSurface>
                   ) : null}
@@ -1758,7 +1751,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
 
                 <SettingsRow
                   name="Smart grid orders"
-                  tooltip="Limit how many grid orders are placed simultaneously to manage locked funds."
+                  tooltip="Limit how many grid orders are live at once, so less capital is locked. The remaining grids wait as pending orders."
                   tooltipURL="/help/smart-orders"
                   trailing={
                     <Switch
@@ -1816,11 +1809,6 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                           />
                         </FieldVariableBinding>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        {totalOrdersCount
-                          ? `Locks funds for up to ${totalOrdersCount} active limit orders; remaining grids stage as pending.`
-                          : 'Submit only the first batch of grid orders to keep capital flexible.'}
-                      </p>
                       {isSmartGridsOverLimit && (
                         <SettingsAlert
                           variant="warning"
@@ -3530,8 +3518,7 @@ const CustomDCA: React.FC<DCASectionProps> = ({
       <SettingsRow name="DCA targets" colSpan="full" className="space-y-0!">
         {(dcaCustom || []).length === 0 ? (
           <div className="text-sm text-muted-foreground">
-            No custom DCA orders configured. Add orders with specific step
-            percentages and sizes.
+            No custom DCA orders
           </div>
         ) : (
           <MasonryLayout

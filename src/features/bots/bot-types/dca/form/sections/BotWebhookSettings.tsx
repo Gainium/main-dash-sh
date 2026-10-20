@@ -1,10 +1,9 @@
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Button } from '@/components/ui/button';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -839,11 +838,6 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
           <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div className="space-y-1 min-w-0">
               <CardTitle className="text-base">Webhook endpoint</CardTitle>
-              <CardDescription>
-                {isTerminal
-                  ? 'Use this URL to trigger actions on this deal from external systems.'
-                  : 'Use this URL to trigger bot lifecycle and deal actions from external systems.'}
-              </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-xs">
               <Badge variant={isPaper ? 'outline' : 'default'}>
@@ -900,33 +894,27 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
             </Button>
           </div>
           {webhooksLocked ? (
-            <Alert>
-              <AlertTitle className="text-sm font-semibold">
-                Webhooks are locked
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                Webhook automation for terminal deals is limited to paid
-                plans.{' '}
-                <RouterLink
-                  to="/subscription"
-                  className="inline-flex items-center font-medium underline"
-                >
-                  Upgrade your plan
-                  <Lock className="ml-1 h-3 w-3" />
-                </RouterLink>
-              </AlertDescription>
-            </Alert>
+            <div className="flex items-center gap-xs text-xs text-muted-foreground">
+              <Lock className="h-3 w-3" />
+              Paid plans ·
+              <RouterLink to="/subscription" className="font-medium underline">
+                Upgrade
+              </RouterLink>
+            </div>
           ) : missingBotUuid ? (
-            <Alert>
-              <AlertTitle className="text-sm font-semibold">
-                {isTerminal ? 'Place the deal first' : 'Bot UUID required'}
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                {isTerminal
-                  ? 'The webhook UUID is created with the deal. After placing it, edit the deal (Open orders → Edit → Webhooks) to copy these payloads with its real UUID.'
-                  : 'Save the bot first to generate a persistent identifier. Webhook payloads need a valid bot UUID.'}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title={
+                isTerminal
+                  ? 'Available after placing the deal'
+                  : 'Available after saving'
+              }
+              description={
+                isTerminal
+                  ? 'The webhook UUID is created with the deal. After placing it, open Open orders → Edit → Webhooks to copy these payloads.'
+                  : 'Payloads need the bot UUID, which is created when the bot is saved.'
+              }
+            />
           ) : null}
         </CardContent>
       </Card>
@@ -955,22 +943,18 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
       >
         <div className="space-y-md">
           {missingBotId ? (
-            <Alert>
-              <AlertTitle className="text-sm font-semibold">
-                Save the bot first
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                Outgoing webhooks are stored per bot. Create the bot before
-                configuring webhook notifications.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Available after saving"
+              description="Outgoing webhooks are stored per bot."
+            />
           ) : webhooksLoading ? (
             <div className="rounded-lg border border-border/60 bg-muted/30 p-md text-sm text-muted-foreground">
               Loading webhooks…
             </div>
           ) : outgoingWebhooks.length === 0 ? (
             <div className="rounded-lg border border-border/60 bg-muted/30 p-md text-sm text-muted-foreground">
-              No outgoing webhooks configured. Click Add to create one.
+              No outgoing webhooks
             </div>
           ) : (
             <div className="space-y-sm">

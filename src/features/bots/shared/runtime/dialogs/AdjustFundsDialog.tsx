@@ -22,6 +22,7 @@ import { BalanceInput } from '@/components/ui/balance-input';
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import {
@@ -177,14 +178,6 @@ const SECONDARY_ACTION_TEXT: Record<AdjustFundsDialogMode, string> = {
   add: 'Add funds',
   reduce: 'Reduce funds',
 };
-
-const BULK_DESCRIPTIONS: Record<AdjustFundsDialogMode, (count: number) => string> =
-  {
-    add: (count) =>
-      `Inject additional capital into each of the ${count} selected deals.`,
-    reduce: (count) =>
-      `Withdraw capital from each of the ${count} selected deals.`,
-  };
 
 const BULK_FOOTNOTES: Record<AdjustFundsDialogMode, (count: number) => string> = {
   add: (count) =>
@@ -742,12 +735,16 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
             <Icon className="h-5 w-5" />
             {TITLES[mode]}
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription
+            className={
+              isBulk || targetName
+                ? 'text-sm text-muted-foreground'
+                : 'sr-only text-sm text-muted-foreground'
+            }
+          >
             {isBulk
-              ? BULK_DESCRIPTIONS[mode](targetCount)
-              : targetName
-                ? `${DESCRIPTIONS[mode]} (${targetName}).`
-                : DESCRIPTIONS[mode]}
+              ? `${targetCount} selected deals`
+              : (targetName ?? DESCRIPTIONS[mode])}
           </DialogDescription>
         </DialogHeader>
 
@@ -1046,47 +1043,48 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
               </div>
             ) : null} */}
 
-            <div className="rounded-lg border border-dashed border-border/60 bg-muted/5 p-sm text-xs text-muted-foreground">
-              <p>
-                {isBulk
-                  ? BULK_FOOTNOTES[mode](targetCount)
-                  : mode === 'add'
-                    ? 'The selected amount will be appended to the deal once confirmed.'
-                    : 'The selected amount will be withdrawn from the deal once confirmed.'}
-              </p>
-              {isPercentOfPosition ? (
-                <p className="mt-1">
-                  The percentage is taken from the position this deal currently
-                  holds — not from your exchange balance.
-                </p>
-              ) : null}
-              {percentOfAvailable ? (
-                <p className="mt-1">
-                  The percentage is taken from your free exchange balance, and
-                  is converted to a fixed amount when you confirm — not re-read
-                  when the order is placed.
-                </p>
-              ) : null}
-              {willCloseDeal && percentBasis ? (
-                <p className="mt-1 text-warning">
-                  That is at or above the whole remaining position (
-                  {formatQty(percentBasis.remainingBase)}
-                  {baseAsset ? ` ${baseAsset}` : ''}), so this will close the
-                  deal rather than reduce it.
-                </p>
-              ) : null}
-            </div>
+            {isBulk ||
+            isPercentOfPosition ||
+            percentOfAvailable ||
+            (willCloseDeal && percentBasis) ? (
+              <div className="flex flex-col gap-1">
+                {isBulk ? (
+                  <SettingsAlert
+                    variant="info"
+                    title="Applied to each deal, not split"
+                    description={BULK_FOOTNOTES[mode](targetCount)}
+                  />
+                ) : null}
+                {isPercentOfPosition ? (
+                  <SettingsAlert
+                    variant="info"
+                    title="% of the deal's position"
+                    description="The percentage is taken from the position this deal currently holds — not from your exchange balance."
+                  />
+                ) : null}
+                {percentOfAvailable ? (
+                  <SettingsAlert
+                    variant="info"
+                    title="% of free balance, fixed on confirm"
+                    description="The percentage is taken from your free exchange balance, and is converted to a fixed amount when you confirm — not re-read when the order is placed."
+                  />
+                ) : null}
+                {willCloseDeal && percentBasis ? (
+                  <SettingsAlert
+                    variant="warning"
+                    title="This closes the deal"
+                    description={`That is at or above the whole remaining position (${formatQty(percentBasis.remainingBase)}${baseAsset ? ` ${baseAsset}` : ''}), so this will close the deal rather than reduce it.`}
+                  />
+                ) : null}
+              </div>
+            ) : null}
             {!!blockingError && (
               <div className="text-sm text-destructive">{blockingError}</div>
             )}
           </div>
 
           {formError ? (
-            <Alert className="border-destructive/40 bg-destructive/10">
-              <AlertDescription className="text-sm text-destructive">
-                {formError}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert variant="error" title={formError} />
           ) : null}
         </div>
 

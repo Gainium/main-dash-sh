@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Zap } from 'lucide-react';
+import { Zap } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
@@ -8,7 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Button } from '@/components/ui/button';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import getLatestPrices from '@/helper/price';
@@ -348,8 +348,8 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {ladderPrice
-              ? `Safety order ${level} will be filled at market instead of waiting for ${fmt(ladderPrice)}. The deal counts it as level ${level} and continues with level ${level + 1} at its original price.`
-              : `Safety order ${level} will be filled at market now, without waiting for its condition. The deal counts it as level ${level} and continues with level ${level + 1} as configured.`}
+              ? `Safety order ${level} at market, not ${fmt(ladderPrice)}`
+              : `Safety order ${level} at market now`}
           </DialogDescription>
         </DialogHeader>
 
@@ -463,21 +463,23 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
             </div>
           )}
 
-          <Alert className="border-warning/40 bg-warning/10">
-            <AlertTriangle className="h-4 w-4 text-warning" />
-            <AlertDescription className="text-sm text-muted-foreground">
-              {typeof slippagePerc === 'number' && slippagePerc > 0
+          <SettingsAlert
+            variant="warning"
+            title={
+              typeof slippagePerc === 'number' && slippagePerc > 0
+                ? `Market fill, ~${slippagePerc.toFixed(2)}% worse than ladder`
+                : 'Fills at market price'
+            }
+            description={`${
+              typeof slippagePerc === 'number' && slippagePerc > 0
                 ? `Filled at market — about ${slippagePerc.toFixed(2)}% worse than the ladder price. `
-                : 'Filled at market, so the fill price is whatever the exchange gives. '}
-              {ladderPrice
+                : 'Filled at market, so the fill price is whatever the exchange gives. '
+            }${
+              ladderPrice
                 ? 'Any resting order at that level is cancelled first. '
-                : ''}
-              The levels below keep the prices and sizes they were configured
-              with — they are worked out from the deal's opening price, not
-              from where this one fills — and the take profit is re-placed
-              against the new average. Figures here are estimates.
-            </AlertDescription>
-          </Alert>
+                : ''
+            }The levels below keep the prices and sizes they were configured with — they are worked out from the deal's opening price, not from where this one fills — and the take profit is re-placed against the new average. Figures here are estimates.`}
+          />
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

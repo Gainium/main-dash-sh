@@ -738,7 +738,7 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       <div data-tour="botForm.pair">
       <SettingsRow
         name="Trading Pairs"
-        tooltip="Configure the trading pairs used by this bot"
+        tooltip={`Configure the trading pairs used by this bot. The grid range and funding currency use ${baseLabel} / ${quoteLabel}.`}
         alerts={pairAlerts ?? []}
         navId="pair"
       >
@@ -803,10 +803,6 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
               />
             </>
           )}
-          <p className="text-xs text-muted-foreground">
-            The grid range and funding currency will use {baseLabel || 'base'}{' '}
-            / {quoteLabel || 'quote'} assets from the selected pair.
-          </p>
           {/* Pair errors are surfaced via SettingsRow alerts (validator-driven) */}
         </div>
       </SettingsRow>

@@ -4,6 +4,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import {
   BotTemplatesList,
   TemplateDeleteConfirmation,
@@ -59,10 +60,11 @@ export const BotFormLoadTemplateDialog: React.FC<Props> = ({
             }}
             onRequestDelete={setPendingDelete}
           />
-          <p className="text-xs text-muted-foreground">
-            Templates are stored in this browser, so they won&apos;t follow you
-            to another device.
-          </p>
+          <SettingsAlert
+            variant="info"
+            title="Saved in this browser only"
+            description="Templates don't follow you to another device."
+          />
         </DialogContent>
       </Dialog>
 

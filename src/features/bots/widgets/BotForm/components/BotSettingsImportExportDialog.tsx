@@ -280,7 +280,7 @@ export const BotSettingsImportExportDialog: React.FC<
           <DialogTitle className="text-lg font-semibold">
             Import &amp; Export {botTypeLabel} Settings
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="sr-only">
             Upload, paste, or export JSON to transfer bot configuration.
             Imported values override the current form — review changes before
             saving.

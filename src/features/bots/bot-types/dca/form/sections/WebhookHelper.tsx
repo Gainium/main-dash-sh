@@ -1,7 +1,7 @@
 import React from 'react';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Check, Copy, ExternalLink } from 'lucide-react';
 
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -109,10 +109,6 @@ const WebhookHelper: React.FC<WebhookHelperProps> = ({
           <div className="flex flex-col gap-sm sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
             <div className="space-y-1 min-w-0">
               <CardTitle className="text-base">Webhook endpoint</CardTitle>
-              <CardDescription>
-                Use this URL to trigger bot lifecycle and deal actions from
-                external systems.
-              </CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-xs">
               <Badge variant={isPaper ? 'outline' : 'default'}>
@@ -153,15 +149,11 @@ const WebhookHelper: React.FC<WebhookHelperProps> = ({
             ) : null}
           </div>
           {missingBotId ? (
-            <Alert>
-              <AlertTitle className="text-sm font-semibold">
-                Bot ID required
-              </AlertTitle>
-              <AlertDescription className="text-xs sm:text-sm">
-                Save the bot first to generate a persistent identifier. Webhook
-                payloads need a valid bot UUID.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Available after saving"
+              description="Payloads need the bot UUID, which is created when the bot is saved."
+            />
           ) : null}
         </CardContent>
       </Card>

@@ -8,6 +8,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { cn } from '@/lib/utils';
 import { CloseDCATypeEnum } from '@/types';
 import { AlertTriangle, CircleDollarSign } from 'lucide-react';
@@ -100,7 +101,7 @@ export const CloseDealDialog: React.FC<CloseDealDialogProps> = ({
             <AlertTriangle className="h-5 w-5 text-destructive" />
             Close active deal
           </DialogTitle>
-          <DialogDescription className="text-sm text-muted-foreground">
+          <DialogDescription className="sr-only text-sm text-muted-foreground">
             Select how the system should exit the active position. Review order
             queues prior to confirmation.
           </DialogDescription>
@@ -136,24 +137,21 @@ export const CloseDealDialog: React.FC<CloseDealDialogProps> = ({
                       : 'hover:bg-muted/20'
                   )}
                   disabled={isProcessing}
+                  title={option.description}
                 >
                   <div className="font-medium text-sm sm:text-base text-card-foreground">
                     {option.title}
                   </div>
-                  <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    {option.description}
-                  </p>
                 </button>
               );
             })}
           </div>
 
-          <Alert className="border-destructive/40 bg-destructive/10">
-            <AlertDescription className="text-xs sm:text-sm">
-              Market closes execute immediately and can crystallize unrealized
-              losses. Verify size and slippage tolerance before proceeding.
-            </AlertDescription>
-          </Alert>
+          <SettingsAlert
+            variant="warning"
+            title="Market close executes immediately"
+            description="Market closes execute immediately and can crystallize unrealized losses. Verify size and slippage tolerance before proceeding."
+          />
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

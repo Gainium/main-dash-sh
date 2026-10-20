@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
 import {
   Dialog,
@@ -213,10 +214,11 @@ export const BotFormSaveTemplateDialog: React.FC<Props> = ({
               className="cursor-pointer"
             />
           </div>
-          <p className="text-xs text-muted-foreground">
-            Templates are stored in this browser, so they won&apos;t follow you
-            to another device.
-          </p>
+          <SettingsAlert
+            variant="info"
+            title="Saved in this browser only"
+            description="Templates don't follow you to another device."
+          />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

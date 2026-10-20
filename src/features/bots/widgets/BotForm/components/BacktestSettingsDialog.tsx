@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -470,10 +471,10 @@ export const BacktestSettingsDialog: React.FC<{
             <DialogTitle>Saved Periods</DialogTitle>
           </DialogHeader>
           <DialogBody>
-            <p className="text-xs text-muted-foreground">
-              Note that the actual backtesting period might be slightly modified
-              to accommodate the chosen timeframe.
-            </p>
+            <SettingsAlert
+              variant="info"
+              title="Periods snap to the chosen timeframe"
+            />
             {periods.length === 0 ? (
               <p className="text-xs text-muted-foreground text-center py-4">
                 {periodsLoading ? 'Loading saved periods…' : 'No saved periods yet'}

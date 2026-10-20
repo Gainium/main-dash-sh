@@ -1,6 +1,6 @@
 import { IndicatorList } from '@/components/indicators/IndicatorList';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { Label } from '@/components/ui/label';
@@ -231,9 +231,6 @@ export const RiskRewardSettings: React.FC = () => {
     return Math.min(Math.max(parsed, min), max);
   }, [rrSlFixedValue, strategy]);
 
-  const hasRiskAmountBinding = isRiskSlPercBound || isRiskSlValueBound;
-  const hasPositionSizeBinding =
-    isRiskMinPositionBound || isRiskMaxPositionBound;
 
   const applyVariableToField = React.useCallback(
     (field: RiskRewardBindableField, variable: GlobalVariable | null) => {
@@ -850,27 +847,6 @@ export const RiskRewardSettings: React.FC = () => {
             navId="rrSlFixedValue"
             alerts={alerts?.rrSlFixedValue ?? []}
           >
-            {isRRSlFixedValueBound && (
-              <Alert className="space-y-xs">
-                <AlertTitle>Global variable linked</AlertTitle>
-                <AlertDescription className="space-y-xs">
-                  <p>
-                    Risk adjustments are currently controlled by a global
-                    variable. Update the variable from the Global Variables
-                    workspace to change these values.
-                  </p>
-                  <Button variant="link" className="h-auto px-0" asChild>
-                    <a
-                      href="/global-variables"
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      Manage global variables
-                    </a>
-                  </Button>
-                </AlertDescription>
-              </Alert>
-            )}
 
             <InputButtonsSlider
               value={
@@ -1023,23 +999,6 @@ export const RiskRewardSettings: React.FC = () => {
             ...(alerts?.riskSlAmountValue ?? []),
           ]}
         >
-          {hasRiskAmountBinding && (
-            <Alert className="space-y-xs">
-              <AlertTitle>Global variable linked</AlertTitle>
-              <AlertDescription className="space-y-xs">
-                <p>
-                  Risk adjustments are currently controlled by a global
-                  variable. Update the variable from the Global Variables
-                  workspace to change these values.
-                </p>
-                <Button variant="link" className="h-auto px-0" asChild>
-                  <a href="/global-variables" target="_blank" rel="noreferrer">
-                    Manage global variables
-                  </a>
-                </Button>
-              </AlertDescription>
-            </Alert>
-          )}
 
           {riskSlType === RiskSlTypeEnum.perc ? (
             <>
@@ -1137,13 +1096,6 @@ export const RiskRewardSettings: React.FC = () => {
           navId="riskTpRatio"
           alerts={alerts?.riskTpRatio ?? []}
         >
-          {isRiskTpRatioBound && (
-            <Alert>
-              <AlertDescription>
-                This reward ratio is synced from a global variable.
-              </AlertDescription>
-            </Alert>
-          )}
           <div className="flex gap-xs items-center">
             <FieldVariableBinding
               path="riskTpRatio"
@@ -1328,13 +1280,6 @@ export const RiskRewardSettings: React.FC = () => {
               ...(alerts?.riskMaxPositionSize ?? []),
             ]}
           >
-            {hasPositionSizeBinding && (
-              <Alert>
-                <AlertDescription>
-                  Position size limits are linked to global variables.
-                </AlertDescription>
-              </Alert>
-            )}
             <div className="grid gap-md @[500px]:grid-cols-2">
               <div className="space-y-xs">
                 <FieldVariableBinding
@@ -1422,23 +1367,18 @@ export const RiskRewardSettings: React.FC = () => {
               Reward ratio: {formatNumber(riskRewardData.riskRewardRatio, 2)}
             </div>
           ) : (
-            <Alert className="border-border bg-muted/60">
-              <AlertTitle>Position info unavailable</AlertTitle>
-              <AlertDescription>
-                Configure {isRRSlTypeFixed ? 'stop loss' : 'indicators'} and
-                ensure price data is available to view live risk metrics.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="info"
+              title="Position info unavailable"
+              description={`Configure ${isRRSlTypeFixed ? 'stop loss' : 'indicators'} and make sure price data is available to see live risk metrics.`}
+            />
           )}
           {riskRewardData.validationErrors.length > 0 && (
-            <Alert variant="destructive">
-              <AlertTitle>Risk validation issues</AlertTitle>
-              <AlertDescription className="space-y-1">
-                {riskRewardData.validationErrors.map((error, index) => (
-                  <p key={index}>{error}</p>
-                ))}
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-xs">
+              {riskRewardData.validationErrors.map((error, index) => (
+                <SettingsAlert key={index} variant="error" title={error} />
+              ))}
+            </div>
           )}
         </SettingsRow>
       </MasonryLayout>

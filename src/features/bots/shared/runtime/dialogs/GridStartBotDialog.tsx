@@ -1,4 +1,4 @@
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -34,7 +34,7 @@ import {
   getEstimateGridBalance,
 } from '@/utils/bots/dca/example-orders-core';
 import { math } from '@/utils/math';
-import { PlayCircle, ShieldAlert } from 'lucide-react';
+import { PlayCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GridBot } from '@/types/gridBot';
 
@@ -789,7 +789,7 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
               : `Update bot confirmation`}
           </DialogTitle>
           {!formData.grid.futures && (
-            <DialogDescription className="text-sm text-muted-foreground">
+            <DialogDescription className="sr-only text-sm text-muted-foreground">
               Choose how the bot should handle base and quote assets.
             </DialogDescription>
           )}
@@ -934,69 +934,55 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
                 ? +startDialog.quoteBalance
                 : +startDialog.baseBalance) &&
             selectedIndex === BuyTypeEnum.proceed && (
-              <Alert className="border-destructive/40 bg-destructive/10">
-                <ShieldAlert className="h-4 w-4" />
-                <AlertDescription className="text-xs sm:text-sm">
-                  If you use current {mainAsset} balance, you might need add{' '}
-                  {math.round(
-                    startDialog.orderSwapTotalInMainAsset -
-                      (settings.strategy === StrategyEnum.short
-                        ? +startDialog.quoteBalance
-                        : +startDialog.baseBalance),
-                    10
-                  )}{' '}
-                  {mainAsset} later.
-                </AlertDescription>
-              </Alert>
+              <SettingsAlert
+                variant="warning"
+                title={`May need ${math.round(
+                  startDialog.orderSwapTotalInMainAsset -
+                    (settings.strategy === StrategyEnum.short
+                      ? +startDialog.quoteBalance
+                      : +startDialog.baseBalance),
+                  10
+                )} ${mainAsset} more later`}
+                description={`Using your current ${mainAsset} balance covers the active orders, but not all orders placed in advance.`}
+              />
             )}
 
           {/* Start Price Warning */}
           {!startDialog.notEnoughBalance &&
             settings?.useStartPrice &&
             settings?.startPrice && (
-              <Alert className="border-border/50 bg-muted/15">
-                <AlertDescription className="text-xs sm:text-sm">
-                  This action will apply when the start price is reached
-                </AlertDescription>
-              </Alert>
+              <SettingsAlert
+                variant="info"
+                title="Applies at start price"
+                description="This action will apply when the start price is reached."
+              />
             )}
 
           {/* Main Warning - Balance Issues */}
-          {showWarning && (
-            <Alert className="border-destructive/40 bg-destructive/10">
-              <ShieldAlert className="h-4 w-4" />
-              <AlertDescription className="text-xs sm:text-sm">
-                {notEnoughBalance ? (
-                  !settings.futures ? (
-                    <>
-                      You cannot proceed as your {secondaryAsset} balance not
-                      enough to place buy orders and buy {mainAsset}. Minimum
-                      amount is {minimumAmount} {secondaryAsset}.
-                    </>
-                  ) : (
-                    <>
-                      You cannot proceed as your {secondaryAsset} balance not
-                      enough to place orders. Minimum amount is {minimumAmount}{' '}
-                      {secondaryAsset}.
-                    </>
-                  )
-                ) : (
-                  <>
-                    Your {secondaryAsset} balance is not enough to place all
-                    orders. You might need to add{' '}
-                    {math.round(
-                      startDialog.estimatedSecondaryAssetTotal -
-                        (!isShort
-                          ? parseFloat(startDialog.quoteBalance)
-                          : parseFloat(startDialog.baseBalance)),
-                      10
-                    )}{' '}
-                    {secondaryAsset} later.
-                  </>
-                )}
-              </AlertDescription>
-            </Alert>
-          )}
+          {showWarning &&
+            (notEnoughBalance ? (
+              <SettingsAlert
+                variant="error"
+                title={`Not enough ${secondaryAsset} (min ${minimumAmount})`}
+                description={
+                  !settings.futures
+                    ? `Your ${secondaryAsset} balance is not enough to place buy orders and buy ${mainAsset}. Minimum amount is ${minimumAmount} ${secondaryAsset}.`
+                    : `Your ${secondaryAsset} balance is not enough to place orders. Minimum amount is ${minimumAmount} ${secondaryAsset}.`
+                }
+              />
+            ) : (
+              <SettingsAlert
+                variant="warning"
+                title={`May need ${math.round(
+                  startDialog.estimatedSecondaryAssetTotal -
+                    (!isShort
+                      ? parseFloat(startDialog.quoteBalance)
+                      : parseFloat(startDialog.baseBalance)),
+                  10
+                )} ${secondaryAsset} more later`}
+                description={`Your ${secondaryAsset} balance is not enough to place all orders.`}
+              />
+            ))}
         </div>
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:justify-end">

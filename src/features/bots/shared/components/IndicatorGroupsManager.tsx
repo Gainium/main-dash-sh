@@ -1,7 +1,7 @@
 import { IndicatorGroupCard } from '@/components/indicators/IndicatorGroupCard';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import { LogicPill } from '@/components/indicators/LogicPill';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
-import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -20,7 +20,7 @@ import {
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
-import { AlertTriangle, Plus } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import React, { useMemo } from 'react';
 
 export interface IndicatorGroupsManagerProps {
@@ -120,8 +120,8 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   formulaLabel = 'Condition',
   globalLogicOptions: _globalLogicOptions,
   emptyStateMessage = 'No indicator groups configured yet. Add a group to start building your conditions.',
-  emptyIndicatorsAlertTitle = 'No indicators in groups',
-  emptyIndicatorsAlertDescription = 'Add at least one indicator to each group. Groups without indicators will never trigger.',
+  emptyIndicatorsAlertTitle = 'Empty group never triggers',
+  emptyIndicatorsAlertDescription = 'Add at least one indicator to each group.',
   secondColumnContent,
   //topTrailingContent,
   onAddGroup,
@@ -299,47 +299,23 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
         shouldShowEmptyIndicatorAlert) && (
         <div className="space-y-sm">
           {errorMessage ? (
-            <Alert
-              variant="destructive"
-              className="border-destructive/40 bg-destructive/10 text-destructive"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-sm font-semibold">
-                Indicator issue
-              </AlertTitle>
-              <AlertDescription className="text-sm">
-                {errorMessage}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert variant="error" title={errorMessage} />
           ) : null}
 
           {indicatorLimitReached ? (
-            <Alert
-              variant="destructive"
-              className="border-destructive/40 bg-destructive/10 text-destructive"
-            >
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-sm font-semibold">
-                Indicator limit reached
-              </AlertTitle>
-              <AlertDescription className="text-sm">
-                Remove an indicator from any section before adding more. The bot
-                supports up to {indicatorsLimit} indicators across all
-                automation blocks.
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="error"
+              title={`Indicator limit reached (${indicatorsLimit})`}
+              description="Remove an indicator from any section before adding more."
+            />
           ) : null}
 
           {shouldShowEmptyIndicatorAlert ? (
-            <Alert className="border-warning/60 bg-warning/10 text-warning">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertTitle className="text-sm font-semibold">
-                {emptyIndicatorsAlertTitle}
-              </AlertTitle>
-              <AlertDescription className="text-sm">
-                {emptyIndicatorsAlertDescription}
-              </AlertDescription>
-            </Alert>
+            <SettingsAlert
+              variant="warning"
+              title={emptyIndicatorsAlertTitle}
+              description={emptyIndicatorsAlertDescription}
+            />
           ) : null}
         </div>
       )}

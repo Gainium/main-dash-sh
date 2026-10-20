@@ -80,7 +80,7 @@ export const SuccessFeedbackModal: React.FC<SuccessFeedbackModalProps> = ({
   const getDescription = () => {
     switch (type) {
       case 'clone':
-        return `A copy of "${details?.originalName || itemName}" has been created. You can now customize the cloned ${itemType} or start using it immediately.`;
+        return `A copy of "${details?.originalName || itemName}" has been created.`;
       case 'create':
         return `Your new ${itemType} "${itemName}" is ready to use.`;
       case 'update':

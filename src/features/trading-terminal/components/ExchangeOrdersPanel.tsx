@@ -4,6 +4,7 @@ import { useSearchParams } from 'react-router-dom';
 import { type SortingState } from '@tanstack/react-table';
 
 import { Button } from '@/components/ui/button';
+import SettingsAlert from '@/components/ui/SettingsAlert';
 import {
   Dialog,
   DialogContent,
@@ -66,14 +67,38 @@ type ConfirmKind =
 // (`closePositionOnExchange` → placeOrderOnExchange, type MARKET,
 // reduceOnly: true), not a cancellation of anything.
 const CONFIRM_MESSAGES: Record<ConfirmKind, string> = {
-  cancelOrder: 'Are you sure you want to cancel order?',
-  importOrder:
-    'Are you sure you want to import the order?\nIt will cancel the order on the exchange and open smart terminal bot',
-  importPosition: 'Are you sure you want to import position?',
-  cancelDeal:
-    'Are you sure you want to cancel the order?\nIt will cancel the deal created by source bot',
-  flattenPosition:
-    'Close this whole position by market?\nEach linked bot closes its own deal first, then the remainder is imported and closed as a terminal deal — so all of it lands in your history. This takes a few seconds per bot.',
+  cancelOrder: 'Cancel this order?',
+  importOrder: 'Import this order?',
+  importPosition: 'Import this position?',
+  cancelDeal: 'Cancel this order?',
+  flattenPosition: 'Close this whole position by market?',
+};
+
+// Side effects of a confirm: a short line on screen, the explanation in the
+// tooltip.
+const CONFIRM_NOTES: Partial<
+  Record<
+    ConfirmKind,
+    { variant: 'info' | 'warning'; title: string; description: string }
+  >
+> = {
+  importOrder: {
+    variant: 'warning',
+    title: 'Cancels it on the exchange',
+    description:
+      'It will cancel the order on the exchange and open a smart terminal bot.',
+  },
+  cancelDeal: {
+    variant: 'warning',
+    title: "Cancels the source bot's deal",
+    description: 'It will cancel the deal created by the source bot.',
+  },
+  flattenPosition: {
+    variant: 'info',
+    title: 'Linked bots close their deals first',
+    description:
+      'Each linked bot closes its own deal first, then the remainder is imported and closed as a terminal deal — so all of it lands in your history. This takes a few seconds per bot.',
+  },
 };
 
 // Actions that cancel orders or close a position. Listed explicitly rather
@@ -397,9 +422,12 @@ export function ExchangeOrdersPanel() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Confirm the action</DialogTitle>
-            <DialogDescription className="whitespace-pre-line">
+            <DialogDescription>
               {confirm ? CONFIRM_MESSAGES[confirm.kind] : ''}
             </DialogDescription>
+            {confirm && CONFIRM_NOTES[confirm.kind] ? (
+              <SettingsAlert {...CONFIRM_NOTES[confirm.kind]} />
+            ) : null}
             {/* Spell out what is actually being closed. A venue position can
                 be several bots' deals plus something nobody owns, and the row
                 only shows the netted total. */}
@@ -446,7 +474,10 @@ export function ExchangeOrdersPanel() {
                 this the position comes straight back. Stopping uses `leave`,
                 which touches none of the bot's deals on other symbols. */}
             {!!reopeningBots.length && (
-              <label className="flex items-start gap-sm text-xs cursor-pointer">
+              <label
+                className="flex items-start gap-sm text-xs cursor-pointer"
+                title={`${reopeningBots.length === 1 ? 'This bot starts' : 'These bots start'} deals ASAP and will re-open right after this closes. ${reopeningBots.length === 1 ? 'It stops' : 'They stop'} opening new deals; deals on other pairs are untouched, and you restart ${reopeningBots.length === 1 ? 'it' : 'them'} yourself.`}
+              >
                 <input
                   type="checkbox"
                   className="mt-0.5"
@@ -460,13 +491,7 @@ export function ExchangeOrdersPanel() {
                       : 'Pause the bots that re-open deals'}
                   </span>
                   <span className="block text-muted-foreground">
-                    {reopeningBots.map((b) => b.botName || b.botId).join(', ')}{' '}
-                    {reopeningBots.length === 1 ? 'starts' : 'start'} deals ASAP
-                    and will re-open right after this closes.{' '}
-                    {reopeningBots.length === 1 ? 'It stops' : 'They stop'}{' '}
-                    opening new deals; deals on other pairs are untouched, and
-                    you restart{' '}
-                    {reopeningBots.length === 1 ? 'it' : 'them'} yourself.
+                    {reopeningBots.map((b) => b.botName || b.botId).join(', ')}
                   </span>
                 </span>
               </label>
@@ -474,11 +499,19 @@ export function ExchangeOrdersPanel() {
             {/* Only the closed deals' own orders are cancelled — never every
                 order on the pair. Anything placed by hand keeps resting. */}
             {!!confirm?.restingOrders && (
-              <DialogDescription className="text-warning">
-                {confirm.restingOrders === 1
-                  ? 'There is 1 other open order on this pair. It is not part of any deal being closed, so it stays on the exchange afterwards.'
-                  : `There are ${confirm.restingOrders} other open orders on this pair. They are not part of any deal being closed, so they stay on the exchange afterwards.`}
-              </DialogDescription>
+              <SettingsAlert
+                variant="info"
+                title={
+                  confirm.restingOrders === 1
+                    ? '1 other open order stays on the exchange'
+                    : `${confirm.restingOrders} other open orders stay on the exchange`
+                }
+                description={
+                  confirm.restingOrders === 1
+                    ? 'There is 1 other open order on this pair. It is not part of any deal being closed, so it stays on the exchange afterwards.'
+                    : `There are ${confirm.restingOrders} other open orders on this pair. They are not part of any deal being closed, so they stay on the exchange afterwards.`
+                }
+              />
             )}
           </DialogHeader>
           <DialogFooter>
