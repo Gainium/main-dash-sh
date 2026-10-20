@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.107.7] - 2026-10-20
+### Fixed
+- Combo bot form: indicators added as deal start conditions now appear on the chart as you add or edit them, as they already did for DCA bots.
+
 ## [2.107.6] - 2026-10-20
 ### Changed
 - Bot forms: informational notices (margin availability, leverage loading, locked settings, global-variable links, risk/reward-managed take profit, webhook-managed exits, save-the-bot-first, next execution preview) use neutral styling; only warnings and errors are colored.

@@ -617,13 +617,18 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
             : value;
         // setIndicators ignores the array it already holds, so a keystroke
         // that keeps the same indicators reference no longer re-renders the chart.
-        if (nextValue.dca.indicators) {
-          indicatorStore.setIndicators(nextValue.dca.indicators);
+        // A combo form keeps its indicators in the combo slice, not dca.
+        const nextIndicators =
+          botType === BotTypesEnum.combo
+            ? nextValue.combo.indicators
+            : nextValue.dca.indicators;
+        if (nextIndicators) {
+          indicatorStore.setIndicators(nextIndicators);
         }
         return { formData: nextValue };
       });
     },
-    [store, indicatorStore]
+    [store, indicatorStore, botType]
   );
   const setErrors = useCallback<Dispatch<SetStateAction<BotFormErrors>>>(
     (value) => {
