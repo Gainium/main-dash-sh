@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.107.4] - 2026-10-20
+### Fixed
+- Pair picker on phones: the "Fits this bot" and "Canonical only" switches show a short label instead of a bare toggle, and no longer overlap the search button on narrow screens.
+
 ## [2.107.3] - 2026-10-20
 ### Changed
 - Release combining 2.107.0–2.107.2 (Combo add / reduce funds and the funds dialog's outcome preview) with 2.106.7–2.106.8 below.

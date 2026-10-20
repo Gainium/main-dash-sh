@@ -948,18 +948,24 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
       ? effectiveSortMode
       : undefined;
 
-  // The toolbar's controls, full-size or compact (icon-only, names in
-  // tooltips). DataTable keeps the compact set on narrow screens instead of
-  // hiding the controls altogether (phones lost select-all and Fits).
+  // The toolbar's controls, full-size or compact (short labels, full names
+  // in tooltips). DataTable keeps the compact set on narrow screens instead
+  // of hiding the controls altogether (phones lost select-all and Fits).
+  // Switches keep a visible short label (touch has no hover, so a bare
+  // toggle never says what it does), dropped only where the row can't fit it.
   const renderToolbar = (compact: boolean) => {
     const labelled = (
       label: string,
       tooltip: string,
-      control: React.ReactNode
+      control: React.ReactNode,
+      shortLabel = label
     ) =>
       compact ? (
         <Tooltip side="bottom" tooltip={`${label}. ${tooltip}`}>
-          <span className="inline-flex">{control}</span>
+          <label className="inline-flex items-center gap-1.5 text-xs text-foreground whitespace-nowrap">
+            {control}
+            <span className="hidden @[21rem]:inline">{shortLabel}</span>
+          </label>
         </Tooltip>
       ) : (
         <label className="flex items-center gap-2 text-sm text-foreground whitespace-nowrap">
@@ -971,7 +977,9 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
         </label>
       );
     return (
-      <div className="flex flex-nowrap items-center gap-sm">
+      <div
+        className={`flex flex-nowrap items-center ${compact ? 'gap-1' : 'gap-sm'}`}
+      >
         {labelled(
           'Fits this bot',
           fitsTooltip,
@@ -979,7 +987,8 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
             checked={fitsOnly}
             onCheckedChange={setFitsOnly}
             aria-label="Fits this bot"
-          />
+          />,
+          'Fits'
         )}
         {hasNonCanonical &&
           labelled(
@@ -989,7 +998,8 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
               checked={canonicalOnly}
               onCheckedChange={setCanonicalOnly}
               aria-label="Canonical only"
-            />
+            />,
+            'Canonical'
           )}
         {/* §2.4 — the table sorts from its headers; cards have none, so
             they keep the list picker's sort menu and favourites-first. */}
