@@ -27,7 +27,8 @@ const CHIP_CLASSES: Record<
 > = {
   error: 'bg-destructive/40 text-text-white [&>svg]:text-white',
   warning: 'bg-warning/40 text-white [&>svg]:text-white',
-  info: 'bg-primary/40 text-white [&>svg]:text-white',
+  // Info is a plain hint, not a chip: an orange pill read as a warning.
+  info: 'bg-transparent px-0 py-0 font-normal text-muted-foreground [&>svg]:text-muted-foreground',
 };
 
 const SettingsAlert: React.FC<SettingsAlertProps> = ({

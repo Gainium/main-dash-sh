@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.107.5] - 2026-10-20
+### Changed
+- Bot forms: informational hints (minimum order, grid spacing and similar) are shown as plain muted text instead of an orange chip, so only warnings and errors appear as colored chips.
+
 ## [2.107.4] - 2026-10-20
 ### Fixed
 - Pair picker on phones: the "Fits this bot" and "Canonical only" switches show a short label instead of a bare toggle, and no longer overlap the search button on narrow screens.
