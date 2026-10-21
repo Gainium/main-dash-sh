@@ -1575,7 +1575,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         id: 'gridProfit',
         accessorKey: 'gridProfitUsd',
         header: 'Grid Profit',
-        meta: { filterType: 'number' },
+        meta: { filterType: 'number', reportingUsd: true },
         cell: ({ row }) => {
           const type = row.original.type;
           // Only show for Combo and Hedge Combo bots
@@ -1889,7 +1889,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       id: 'realizedPnl',
       accessorKey: 'profit.totalUsd',
       header: 'Realized P&L',
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => {
         const trade = row.original;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;

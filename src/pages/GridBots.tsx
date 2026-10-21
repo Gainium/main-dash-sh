@@ -521,7 +521,7 @@ const GridBots: React.FC = () => {
           accessorFn: (row) => row.valueChangeUsdNumber || 0,
           meta: {
             description: BOT_METRIC_DESCRIPTIONS.grid.netPnl,
-            filterType: 'number',
+            filterType: 'number', reportingUsd: true,
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
           },
@@ -563,7 +563,7 @@ const GridBots: React.FC = () => {
           accessorFn: (row) => row.unrealizedPnlUsd || 0,
           meta: {
             description: BOT_METRIC_DESCRIPTIONS.grid.unrealizedPnl,
-            filterType: 'number',
+            filterType: 'number', reportingUsd: true,
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
           },
@@ -670,7 +670,7 @@ const GridBots: React.FC = () => {
           accessorFn: (row) => row.totalProfitUsd || 0,
           meta: {
             description: BOT_METRIC_DESCRIPTIONS.grid.realizedPnl,
-            filterType: 'number',
+            filterType: 'number', reportingUsd: true,
             enableTotalsRow: true,
             totalsDefaultAggregation: 'sum',
           },

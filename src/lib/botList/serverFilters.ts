@@ -11,6 +11,7 @@
  */
 import { dateFilterBounds } from '../../components/ui/data-table/filter-logic';
 import type { ServerFilterItem } from './serverBotQuery';
+import { getReportingCurrency } from '@/utils/reportingCurrency';
 
 export type ServerFilterKind = 'text' | 'number' | 'day' | 'enum';
 
@@ -24,6 +25,11 @@ export interface ServerFilterSpec {
    * nothing, so such a filter must never reach them.
    */
   requiresNewBackend?: boolean;
+  /**
+   * A number field stored in USD while the column shows it in the reporting
+   * currency: the typed value is converted back to USD before it is sent.
+   */
+  reportingUsd?: boolean;
 }
 
 /** What the deal-list backend supports: probed once per session. */
@@ -110,14 +116,16 @@ export function translateSingleFilter(
         ];
       return null;
     case 'number': {
+      const rate = spec.reportingUsd ? getReportingCurrency().rate : 1;
+      const num = (x: unknown) => String(Number(x) / (rate > 0 ? rate : 1));
       if (op in NUMBER_OPS && hasValue(v) && Number.isFinite(Number(v)))
-        return [{ field, operator: NUMBER_OPS[op], value: String(Number(v)) }];
+        return [{ field, operator: NUMBER_OPS[op], value: num(v) }];
       if (op === 'between' && Array.isArray(v) && v.length === 2) {
         const out: ServerFilterItem[] = [];
         if (hasValue(v[0]) && Number.isFinite(Number(v[0])))
-          out.push({ field, operator: '>=', value: String(Number(v[0])) });
+          out.push({ field, operator: '>=', value: num(v[0]) });
         if (hasValue(v[1]) && Number.isFinite(Number(v[1])))
-          out.push({ field, operator: '<=', value: String(Number(v[1])) });
+          out.push({ field, operator: '<=', value: num(v[1]) });
         return out.length ? out : null;
       }
       return null;

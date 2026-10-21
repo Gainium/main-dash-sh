@@ -115,7 +115,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.profitTotalUsd',
       header: `${symbol} Net Profit`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => {
         const usd = row.original.financial?.profitTotalUsd ?? 0;
         const perc = row.original.financial?.profitTotalPerc ?? 0;
@@ -160,7 +160,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.budgetUsd',
       header: `${symbol} Budget`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(row.original.financial?.budgetUsd ?? 0)}
@@ -179,7 +179,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgNetDailyUsd',
       header: `${symbol} Avg Net Daily`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(+(row.original.financial?.avgNetDailyUsd ?? 0))}
@@ -200,7 +200,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.avgTransactionProfitUsd',
       header: `${symbol} Avg Transaction Profit`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(+(row.original.financial?.avgTransactionProfitUsd ?? 0))}
@@ -220,7 +220,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.initialBalancesUsd',
       header: `${symbol} Initial Balances`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(+(row.original.financial?.initialBalancesUsd ?? 0))}
@@ -240,7 +240,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.currentBalancesUsd',
       header: `${symbol} Current Balances`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(+(row.original.financial?.currentBalancesUsd ?? 0))}
@@ -283,7 +283,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'financial.valueChangeUsd',
       header: `${symbol} Value Change`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => (
         <div className="text-sm">
           {formatUsdAsReporting(+(row.original.financial?.valueChangeUsd ?? 0))}
@@ -420,7 +420,7 @@ export function buildGridBacktestColumns(
     {
       accessorKey: 'ratios.buyAndHold.valueUsd',
       header: `${symbol} Buy & Hold Return`,
-      meta: { filterType: 'number' },
+      meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => {
         const value = row.original.ratios?.buyAndHold?.valueUsd;
         if (value === null || value === undefined)

@@ -39,11 +39,11 @@ const SHARED = {
 const DCA = {
   ...SHARED,
   currentCost:
-    "How much money is deployed in this bot's open deals right now, converted to USD.",
+    "How much money is deployed in this bot's open deals right now, converted to your reporting currency.",
   currentValue:
-    "What the open deals' positions are worth at the current price (position size × price), converted to USD. On spot it is roughly what closing them would return.",
+    "What the open deals' positions are worth at the current price (position size × price), converted to your reporting currency. On spot it is roughly what closing them would return.",
   maxCost:
-    'The most this bot can have deployed at once — base order plus every safety order — converted to USD.',
+    'The most this bot can have deployed at once — base order plus every safety order — converted to your reporting currency.',
   realizedPnl:
     'Profit already banked from the deals this bot has closed. Deals still running are not counted here; they show under Unrealized PnL.',
   realizedPnlPerc:
@@ -73,9 +73,9 @@ const DCA = {
  */
 const GRID = {
   ...SHARED,
-  budget: 'The budget you allocated to this bot, converted to USD.',
+  budget: 'The budget you allocated to this bot, converted to your reporting currency.',
   currentValue:
-    "What the bot is worth right now: the coins and quote currency it holds plus the profit it has booked, converted to USD. This is a total, not a profit — see Net PnL for what it has made.",
+    "What the bot is worth right now: the coins and quote currency it holds plus the profit it has booked, converted to your reporting currency. This is a total, not a profit — see Net PnL for what it has made.",
   realizedPnl:
     'Profit already booked from completed grid trades (a buy matched with its sell). Inventory the bot is still holding is not counted here — that sits in Unrealized PnL. The percentage divides by the initial balance.',
   unrealizedPnl:
@@ -113,11 +113,11 @@ const HEDGE = {
   shortExchange: 'The exchange account running the short leg.',
   deals: 'Deals currently open across both legs, and deals run in total.',
   currentCost:
-    'Money deployed in the open deals right now, both legs added together, in USD.',
+    'Money deployed in the open deals right now, both legs added together, in your reporting currency.',
   currentValue:
-    "What the open deals' positions are worth at the current price (position size × price), both legs added together, in USD.",
+    "What the open deals' positions are worth at the current price (position size × price), both legs added together, in your reporting currency.",
   maxCost:
-    'The most this hedge can have deployed at once — base order plus every safety order on both legs, in USD.',
+    'The most this hedge can have deployed at once — base order plus every safety order on both legs, in your reporting currency.',
   realizedPnl:
     'Profit already banked from closed deals on both legs. Deals still running show under Unrealized PnL.',
   unrealizedPnl:

@@ -6,6 +6,7 @@
 - A balance already held in the reporting currency, or a profit already earned in it, is shown at its own amount instead of being converted to USD and back.
 ### Changed
 - The per-widget "Display Currency" options on the portfolio balance and value widgets are replaced by the account-wide reporting currency.
+- Number filters on money columns (bot lists, deals, backtests) compare in the reporting currency, so a filter value means the amount shown on screen.
 - Deal order totals, deal cost and value, and bot usage figures that are amounts in the pair's quote asset are shown with that asset instead of a dollar sign.
 
 ## [2.107.8] - 2026-10-20

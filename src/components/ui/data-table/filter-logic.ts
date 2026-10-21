@@ -10,6 +10,7 @@
  * definitions in page files (TradingBots, ComboBots, GridBots, etc.).
  */
 
+import { usdToReporting } from '@/utils/reportingCurrency';
 import type { ColumnFiltersState } from '@tanstack/react-table';
 
 import { getTzDayBounds } from '@/utils/timeUtils';
@@ -483,6 +484,9 @@ export function createEnhancedColumnFilter(
   // a date column's `equals` / `between` are matched as the date operators
   // the user was offered rather than as their string / number namesakes.
   const filterType = meta?.['filterType'] as string | undefined;
+  // A column whose value is a USD amount shown in the reporting currency:
+  // compare the converted number, so `> 100` means 100 of what is on screen.
+  const reportingUsd = meta?.['reportingUsd'] === true;
 
   return (
     row: { getValue: (columnId: string) => unknown; original?: unknown },
@@ -493,10 +497,14 @@ export function createEnhancedColumnFilter(
 
     const resolved = resolveFilterValue(row, columnId, getFilterValueFn);
     const { searchableStrings } = resolved;
-    const cellValue =
+    const rawValue =
       getNumericFilterValueFn && row.original !== undefined
         ? getNumericFilterValueFn(row.original)
         : resolved.cellValue;
+    const cellValue =
+      reportingUsd && !getNumericFilterValueFn && typeof rawValue === 'number'
+        ? usdToReporting(rawValue)
+        : rawValue;
     const optionStrings = resolveOptionValues(row, getOptionValueFn);
 
     // Array of filter conditions → AND logic

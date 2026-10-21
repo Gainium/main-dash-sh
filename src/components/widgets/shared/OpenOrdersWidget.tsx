@@ -1735,7 +1735,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         accessorFn: (row) => Number(row.profit?.totalUsd || 0),
         header: 'Realized P&L',
         meta: {
-          filterType: 'number',
+          filterType: 'number', reportingUsd: true,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
         },
@@ -2376,7 +2376,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
       {
         accessorKey: 'gridProfitUsd',
         header: 'Grid Profit',
-        meta: { filterType: 'number' },
+        meta: { filterType: 'number', reportingUsd: true },
         cell: ({ row }) => {
           const type = row.original.type;
           // Only show for Combo and Hedge Combo bots

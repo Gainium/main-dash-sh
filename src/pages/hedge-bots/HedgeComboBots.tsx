@@ -676,7 +676,7 @@ const HedgeComboBots = () => {
         ),
         meta: {
           description: BOT_METRIC_DESCRIPTIONS.hedge.realizedPnl,
-          filterType: 'number' as const,
+          filterType: 'number', reportingUsd: true as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
         },
@@ -758,7 +758,7 @@ const HedgeComboBots = () => {
         },
         meta: {
           description: BOT_METRIC_DESCRIPTIONS.hedge.netPnl,
-          filterType: 'number' as const,
+          filterType: 'number', reportingUsd: true as const,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
         },

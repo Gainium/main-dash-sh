@@ -36,6 +36,7 @@ import {
 import WidgetWrapper from './WidgetWrapper';
 import { getWidgetMetadata } from './index';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 
 interface ExchangeCardProps {
   exchangeId?: string; // 'ALL' or single exchange uuid
@@ -113,6 +114,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
     GraphQlQuery.getPortfolioByUser()
   );
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, holding } = useReportingCurrency();
 
   const [snapshots, setSnapshots] = useState<Snapshots[]>([]);
 
@@ -156,11 +158,12 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
     // Process snapshots: filter assets by exchange if necessary
     const processedSnapshots = snapshots.map((snapshot) => {
       if (showAllExchanges) {
-        const totalUsd = snapshot.assets.reduce(
-          (sum: number, a: any) => sum + (a.amountUsd || 0),
+        const total = snapshot.assets.reduce(
+          (sum: number, a: any) =>
+            sum + holding(a.name, a.amount || 0, a.amountUsd || 0),
           0
         );
-        return { ...snapshot, totalUsd, assets: snapshot.assets };
+        return { ...snapshot, total, assets: snapshot.assets };
       }
 
       const filteredAssets = (snapshot.assets as AssetWithEx[])
@@ -187,12 +190,13 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
         })
         .filter(Boolean) as AssetWithEx[];
 
-      const totalUsd = filteredAssets.reduce(
-        (sum: number, a: AssetWithEx) => sum + (a.amountUsd || 0),
+      const total = filteredAssets.reduce(
+        (sum: number, a: AssetWithEx) =>
+          sum + holding(a.name, a.amount || 0, a.amountUsd || 0),
         0
       );
 
-      return { ...snapshot, assets: filteredAssets, totalUsd };
+      return { ...snapshot, assets: filteredAssets, total };
     });
 
     // Convert to chart data
@@ -201,7 +205,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
         const date = new Date(snapshot.updateTime);
         return {
           date: date.toISOString(),
-          value: snapshot.totalUsd,
+          value: snapshot.total,
           updateTime: snapshot.updateTime,
         };
       })
@@ -226,7 +230,10 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
         (asset: AssetWithEx, index: number) =>
           ({
             name: asset.name.toUpperCase(),
-            value: Math.max(0, asset.amountUsd || 0),
+            value: Math.max(
+              0,
+              holding(asset.name, asset.amount || 0, asset.amountUsd || 0)
+            ),
             color: getColorForIndex(index),
           }) as DonutDataItem
       )
@@ -235,7 +242,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
       .slice(0, 10);
 
     return { currentValue, changeValue, changePercent, chartData, breakdown };
-  }, [snapshots, exchangeId, balanceUuid]);
+  }, [snapshots, exchangeId, balanceUuid, holding]);
 
   // Resolve by id ONLY — never substitute a different row.
   //
@@ -306,7 +313,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
         header: false,
         value: {
           primary: privacyMode ? '***' : totalValue,
-          secondary: 'USD',
+          secondary: currency.code,
           change: {
             value: privacyMode ? '***' : processed.changeValue,
             percentage: privacyMode

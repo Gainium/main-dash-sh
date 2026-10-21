@@ -1000,7 +1000,7 @@ const TradingBots: React.FC = () => {
         header: `REALIZED PNL, ${currency.symbol}`,
         meta: {
           description: BOT_METRIC_DESCRIPTIONS.dca.realizedPnl,
-          filterType: 'number',
+          filterType: 'number', reportingUsd: true,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
         },

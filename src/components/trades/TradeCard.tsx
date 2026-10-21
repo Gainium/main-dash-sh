@@ -11,6 +11,7 @@ import { BotTypesEnum } from '@/types';
 import type { TransformedTrade } from '@/types/dcaDeal';
 import { buildBotViewRoute } from '@/utils/bots/navigation';
 import { formatNumber } from '@/utils/numberFormatter';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { calculateDealOpenPnl } from '@/lib/utils/tradingMetrics';
 import { formatPairPrice } from '@/utils/formatters';
 import { extractPairAssets, findTradingPair } from '@/utils/pairs';
@@ -1251,13 +1252,21 @@ const SimpleCard = React.memo(
     initialPriceDisplay: string;
     currentPriceDisplay: string | null;
   }) => {
+    const { currency, toReporting, holding } = useReportingCurrency();
     const realizedProfitDisplay = useMemo(
       () =>
         privacyMode
           ? '***'
           : // `profit.totalUsd` is in US dollars whatever the quote asset.
-            `${formatNumber(trade.profit?.totalUsd || 0, true)} USD`,
-      [privacyMode, trade.profit]
+            `${formatNumber(
+              holding(
+                symbolAssets.quoteAsset,
+                trade.profit?.total || 0,
+                trade.profit?.totalUsd || 0
+              ),
+              true
+            )} ${currency.code}`,
+      [privacyMode, trade.profit, holding, symbolAssets.quoteAsset, currency]
     );
     // Open position only: what the deal already banked is under Realized.
     const openUnrealized = Number(
@@ -1272,15 +1281,22 @@ const SimpleCard = React.memo(
         privacyMode
           ? '***'
           : // The canonical fee-inclusive uPnL is in US dollars.
-            `${formatNumber(openUnrealized, true)} USD`,
-      [privacyMode, openUnrealized]
+            `${formatNumber(toReporting(openUnrealized), true)} ${currency.code}`,
+      [privacyMode, openUnrealized, toReporting, currency]
     );
     const fundingDisplay = useMemo(
       () =>
         privacyMode
           ? '***'
-          : `${formatNumber(trade.funding?.totalUsd || 0, true)} ${symbolAssets.quoteAsset}`,
-      [privacyMode, trade.funding, symbolAssets.quoteAsset]
+          : `${formatNumber(
+              holding(
+                symbolAssets.quoteAsset,
+                trade.funding?.total || 0,
+                trade.funding?.totalUsd || 0
+              ),
+              true
+            )} ${currency.code}`,
+      [privacyMode, trade.funding, holding, symbolAssets.quoteAsset, currency]
     );
     return (
       <>

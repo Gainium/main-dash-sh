@@ -167,7 +167,7 @@ export function GridBacktestTransactionsTab({
       {
         accessorKey: 'profitUsd',
         header: `P&L (${getReportingCurrency().code})`,
-        meta: { filterType: 'number' },
+        meta: { filterType: 'number', reportingUsd: true },
         cell: ({ row }) => {
           const value = row.original.profitUsd;
           return <div className="text-sm tabular-nums">{formatUsd(value)}</div>;

@@ -29,7 +29,12 @@ type Fields = Record<string, ColumnServerFields>;
 const DAY_OPENED: ServerFilterSpec = { field: 'createTime', kind: 'day' };
 const DAY_CLOSED: ServerFilterSpec = { field: 'closeTime', kind: 'day' };
 const BOT_NAME: ServerFilterSpec = { field: 'botName', kind: 'text', requiresNewBackend: true };
-const COST: ServerFilterSpec = { field: 'cost', kind: 'number', requiresNewBackend: true };
+const COST: ServerFilterSpec = {
+  field: 'cost',
+  kind: 'number',
+  requiresNewBackend: true,
+  reportingUsd: true,
+};
 const PAIR: ServerFilterSpec = { field: 'pair', kind: 'text', requiresNewBackend: true };
 
 export const DEAL_SEARCH_FIELD = 'symbol.symbol';
