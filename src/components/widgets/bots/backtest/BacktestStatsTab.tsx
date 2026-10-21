@@ -1,4 +1,5 @@
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
+import { formatFiat, holdingToReporting } from '@/utils/reportingCurrency';
 import {
   StatItem,
   StatItemWithChip,
@@ -56,9 +57,22 @@ const formatBase = (
   return `${value.toFixed(8)} ${sign}`;
 };
 
-const formatUSD = (value: number | undefined | null) => {
-  if (value === undefined || value === null) return '$0.00';
-  return `$${value.toFixed(2)}`;
+/**
+ * A USD twin in the reporting currency. With its asset figure: when that
+ * asset already is the reporting currency, the figure itself is shown.
+ */
+const formatUSD = (
+  value: number | string | undefined | null,
+  asset?: string,
+  amount?: number | string | null
+) => {
+  if (value === undefined || value === null) return formatFiat(0);
+  const num = typeof value === 'string' ? parseFloat(value) : value;
+  if (!Number.isFinite(num)) return formatFiat(0);
+  const face = amount === undefined || amount === null ? NaN : +amount;
+  return formatFiat(
+    holdingToReporting(asset, Number.isFinite(face) ? face : num, num)
+  );
 };
 
 const formatPercent = (value: number | undefined | null) => {
@@ -191,12 +205,12 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Net result"
               value={financial?.netProfitTotalPerc}
-              additionalText={`${formatBase(financial?.netProfitTotal, profitSign)} (${formatUSD(financial?.netProfitTotalUsd)})`}
+              additionalText={`${formatBase(financial?.netProfitTotal, profitSign)} (${formatUSD(financial?.netProfitTotalUsd, profitSign, financial?.netProfitTotal)})`}
             />
             <StatItemWithChip
               label="Avg daily return"
               value={financial?.avgNetDailyPerc}
-              additionalText={`${formatBase(financial?.avgNetDaily, profitSign)} (${formatUSD(financial?.avgNetDailyUsd)})`}
+              additionalText={`${formatBase(financial?.avgNetDaily, profitSign)} (${formatUSD(financial?.avgNetDailyUsd, profitSign, financial?.avgNetDaily)})`}
             />
             <StatItemWithChip
               label="Annualized return"
@@ -222,7 +236,7 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Open P&L"
               value={financial?.unrealizedPnLPerc}
-              additionalText={`${formatBase(financial?.unrealizedPnL, profitSign)} (${formatUSD(financial?.unrealizedPnLUsd)})`}
+              additionalText={`${formatBase(financial?.unrealizedPnL, profitSign)} (${formatUSD(financial?.unrealizedPnLUsd, profitSign, financial?.unrealizedPnL)})`}
             />
             <StatItem
               label="Testing period"
@@ -253,27 +267,27 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Gross profit"
               value={financial?.grossProfitPerc}
-              additionalText={`${formatBase(financial?.grossProfit, profitSign)} (${formatUSD(financial?.grossProfitUsd)})`}
+              additionalText={`${formatBase(financial?.grossProfit, profitSign)} (${formatUSD(financial?.grossProfitUsd, profitSign, financial?.grossProfit)})`}
             />
             <StatItemWithChip
               label="Avg net profit"
               value={financial?.avgNetProfitPerc}
-              additionalText={`${formatBase(financial?.avgNetProfit, profitSign)} (${formatUSD(financial?.avgNetProfitUsd)})`}
+              additionalText={`${formatBase(financial?.avgNetProfit, profitSign)} (${formatUSD(financial?.avgNetProfitUsd, profitSign, financial?.avgNetProfit)})`}
             />
             <StatItemWithChip
               label="Max deal profit"
               value={financial?.maxDealProfitPerc}
-              additionalText={`${formatBase(financial?.maxDealProfit, profitSign)} (${formatUSD(financial?.maxDealProfitUsd)})`}
+              additionalText={`${formatBase(financial?.maxDealProfit, profitSign)} (${formatUSD(financial?.maxDealProfitUsd, profitSign, financial?.maxDealProfit)})`}
             />
             <StatItemWithChip
               label="Avg deal profit"
               value={financial?.avgGrossProfitPerc}
-              additionalText={`${formatBase(financial?.avgGrossProfit, profitSign)} (${formatUSD(financial?.avgGrossProfitUsd)})`}
+              additionalText={`${formatBase(financial?.avgGrossProfit, profitSign)} (${formatUSD(financial?.avgGrossProfitUsd, profitSign, financial?.avgGrossProfit)})`}
             />
             <StatItemWithChip
               label="Max Run-Up"
               value={financial?.maxRunUpPerc}
-              additionalText={`${formatBase(financial?.maxRunUp, profitSign)} (${formatUSD(financial?.maxRunUpUsd)})`}
+              additionalText={`${formatBase(financial?.maxRunUp, profitSign)} (${formatUSD(financial?.maxRunUpUsd, profitSign, financial?.maxRunUp)})`}
             />
             <StatItem
               label="Max Consecutive Wins"
@@ -301,12 +315,12 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Gross loss"
               value={financial?.grossLossPerc}
-              additionalText={`${formatBase(financial?.grossLoss, profitSign)} (${formatUSD(financial?.grossLossUsd)})`}
+              additionalText={`${formatBase(financial?.grossLoss, profitSign)} (${formatUSD(financial?.grossLossUsd, profitSign, financial?.grossLoss)})`}
             />
             <StatItemWithChip
               label="Max deal loss"
               value={financial?.maxDealLossPerc}
-              additionalText={`${formatBase(financial?.maxDealLoss, profitSign)} (${formatUSD(financial?.maxDealLossUsd)})`}
+              additionalText={`${formatBase(financial?.maxDealLoss, profitSign)} (${formatUSD(financial?.maxDealLossUsd, profitSign, financial?.maxDealLoss)})`}
             />
             <StatItemWithChip
               label="Avg Equity DD"
@@ -320,7 +334,7 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Max Drawdown"
               value={financial?.maxDrawDownPerc}
-              additionalText={`${formatBase(financial?.maxDrawDown, profitSign)} (${formatUSD(financial?.maxDrawDownUsd)})`}
+              additionalText={`${formatBase(financial?.maxDrawDown, profitSign)} (${formatUSD(financial?.maxDrawDownUsd, profitSign, financial?.maxDrawDown)})`}
             />
             <StatItem
               label="Average losing trade duration"
@@ -382,7 +396,7 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Buy-and-Hold Return"
               value={ratios?.buyAndHold?.perc}
-              additionalText={`${formatBase(ratios?.buyAndHold?.value, profitSign)} (${formatUSD(ratios?.buyAndHold?.valueUsd)})`}
+              additionalText={`${formatBase(ratios?.buyAndHold?.value, profitSign)} (${formatUSD(ratios?.buyAndHold?.valueUsd, profitSign, ratios?.buyAndHold?.value)})`}
             />
           </div>
         </StatsSection>

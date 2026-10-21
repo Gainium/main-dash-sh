@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { GraphQlQuery } from '@/lib/api';
 import { CHART_COLORS } from '@/lib/colors';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
@@ -112,6 +113,7 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
 
   // Get privacy mode state
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, toReporting, formatUsd } = useReportingCurrency();
 
   // The day boundary every other profit surface uses — the Profit widget next
   // to this one on the same dashboard, and the Deals table's date filter. This
@@ -427,16 +429,23 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
                       className: 'text-muted-foreground',
                     }}
                     tickFormatter={(value) =>
-                      privacyMode ? '***' : `$${(value / 1000).toFixed(1)}k`
+                      privacyMode
+                        ? '***'
+                        : `${currency.symbol}${(toReporting(value) / 1000).toFixed(1)}k`
                     }
                     width={50}
                   />
                   <Tooltip
                     content={
                       <CustomTooltip
-                        {...(privacyMode && {
-                          valueFormatter: () => ['***', ''],
-                        })}
+                        valueFormatter={
+                          privacyMode
+                            ? () => ['***', '']
+                            : (value) => [
+                                formatUsd(Number(value)),
+                                'Accumulated Profit',
+                              ]
+                        }
                       />
                     }
                   />
@@ -476,10 +485,12 @@ export const AccumulatedProfit: React.FC<AccumulatedProfitProps> = ({
 
   // Calculate accumulated profit value for header
   const accumulatedProfitValue = {
-    primary: privacyMode ? '***' : accumulatedProfitData.currentTotal,
-    secondary: 'USD',
+    primary: privacyMode
+      ? '***'
+      : toReporting(accumulatedProfitData.currentTotal),
+    secondary: currency.code,
     change: {
-      value: privacyMode ? '***' : accumulatedProfitData.change,
+      value: privacyMode ? '***' : toReporting(accumulatedProfitData.change),
       percentage: privacyMode
         ? '***'
         : (accumulatedProfitData.changePercent ?? '—'),

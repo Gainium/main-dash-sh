@@ -19,6 +19,10 @@ import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { math } from '@/lib/utils/math';
+import {
+  formatUsdAsReporting,
+  getReportingCurrency,
+} from '@/utils/reportingCurrency';
 import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
 
 /**
@@ -34,6 +38,7 @@ export function buildGridBacktestColumns(
   ctx: BacktestColumnContext<GRIDBacktestingResultHistory>
 ): ColumnDef<GRIDBacktestingResultHistory>[] {
   const { backtestNoteOverrides, onSaveNote, onExport, onDelete } = ctx;
+  const { symbol } = getReportingCurrency();
 
   return [
     {
@@ -109,7 +114,7 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.profitTotalUsd',
-      header: '$ Net Profit',
+      header: `${symbol} Net Profit`,
       meta: { filterType: 'number' },
       cell: ({ row }) => {
         const usd = row.original.financial?.profitTotalUsd ?? 0;
@@ -120,7 +125,7 @@ export function buildGridBacktestColumns(
             <span
               className={`text-sm font-medium ${isPositive ? 'text-profit' : 'text-loss'}`}
             >
-              {isPositive ? '+' : ''}${math.round(usd)}
+              {formatUsdAsReporting(usd, { sign: 'always' })}
             </span>
             <ProfitLossPercChip value={perc} size="sm" showSign />
           </div>
@@ -154,11 +159,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.budgetUsd',
-      header: '$ Budget',
+      header: `${symbol} Budget`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${math.round(row.original.financial?.budgetUsd ?? 0)}
+          {formatUsdAsReporting(row.original.financial?.budgetUsd ?? 0)}
         </div>
       ),
     },
@@ -173,11 +178,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.avgNetDailyUsd',
-      header: '$ Avg Net Daily',
+      header: `${symbol} Avg Net Daily`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${row.original.financial?.avgNetDailyUsd ?? 0}
+          {formatUsdAsReporting(+(row.original.financial?.avgNetDailyUsd ?? 0))}
         </div>
       ),
     },
@@ -194,11 +199,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.avgTransactionProfitUsd',
-      header: '$ Avg Transaction Profit',
+      header: `${symbol} Avg Transaction Profit`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${row.original.financial?.avgTransactionProfitUsd ?? 0}
+          {formatUsdAsReporting(+(row.original.financial?.avgTransactionProfitUsd ?? 0))}
         </div>
       ),
     },
@@ -214,11 +219,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.initialBalancesUsd',
-      header: '$ Initial Balances',
+      header: `${symbol} Initial Balances`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${row.original.financial?.initialBalancesUsd ?? 0}
+          {formatUsdAsReporting(+(row.original.financial?.initialBalancesUsd ?? 0))}
         </div>
       ),
     },
@@ -234,11 +239,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.currentBalancesUsd',
-      header: '$ Current Balances',
+      header: `${symbol} Current Balances`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${row.original.financial?.currentBalancesUsd ?? 0}
+          {formatUsdAsReporting(+(row.original.financial?.currentBalancesUsd ?? 0))}
         </div>
       ),
     },
@@ -277,11 +282,11 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'financial.valueChangeUsd',
-      header: '$ Value Change',
+      header: `${symbol} Value Change`,
       meta: { filterType: 'number' },
       cell: ({ row }) => (
         <div className="text-sm">
-          ${row.original.financial?.valueChangeUsd ?? 0}
+          {formatUsdAsReporting(+(row.original.financial?.valueChangeUsd ?? 0))}
         </div>
       ),
     },
@@ -414,13 +419,13 @@ export function buildGridBacktestColumns(
     },
     {
       accessorKey: 'ratios.buyAndHold.valueUsd',
-      header: '$ Buy & Hold Return',
+      header: `${symbol} Buy & Hold Return`,
       meta: { filterType: 'number' },
       cell: ({ row }) => {
         const value = row.original.ratios?.buyAndHold?.valueUsd;
         if (value === null || value === undefined)
           return <div className="text-sm">-</div>;
-        return <div className="text-sm">${value}</div>;
+        return <div className="text-sm">{formatUsdAsReporting(+value)}</div>;
       },
     },
     {

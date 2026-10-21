@@ -1,4 +1,7 @@
 import { cn } from '@/lib/utils';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import type { Currency } from '@/utils/currencyUtils';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import React from 'react';
 import { fitPresentation } from './fitPresentation';
 import { ResponsiveValue } from './ResponsiveValue';
@@ -22,49 +25,22 @@ export interface ResponsiveCurrencyValueProps {
   align?: 'left' | 'right' | 'center';
 }
 
-/**
- * Formats a currency value in full form, e.g. +$1,514.88
- */
-function formatFull(value: number, showSign: boolean): string {
-  const abs = Math.abs(value);
-  const sign = showSign
-    ? value > 0
-      ? '+'
-      : value < 0
-        ? '-'
-        : ''
-    : value < 0
-      ? '-'
-      : '';
-  return `${sign}${new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(abs)}`;
+/** A USD value in full form in the reporting currency, e.g. +$1,514.88 */
+function formatFull(value: number, showSign: boolean, currency: Currency) {
+  return formatUsdAsReporting(
+    value,
+    { sign: showSign ? 'always' : 'auto' },
+    currency
+  );
 }
 
-/**
- * Formats a currency value in compact form, e.g. +$1.5K, -$3.2M
- */
-function formatCompact(value: number, showSign: boolean): string {
-  const abs = Math.abs(value);
-  const sign = showSign
-    ? value > 0
-      ? '+'
-      : value < 0
-        ? '-'
-        : ''
-    : value < 0
-      ? '-'
-      : '';
-
-  if (abs >= 1_000_000_000)
-    return `${sign}$${(abs / 1_000_000_000).toFixed(1)}B`;
-  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(1)}M`;
-  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(1)}K`;
-  // Small numbers: no abbreviation needed
-  return formatFull(value, showSign);
+/** Compact form, e.g. +$1.5K, -€3.2M; small numbers stay in full. */
+function formatCompact(value: number, showSign: boolean, currency: Currency) {
+  return formatUsdAsReporting(
+    value,
+    { sign: showSign ? 'always' : 'auto', compact: true },
+    currency
+  );
 }
 
 function colorClass(value: number): string {
@@ -86,11 +62,12 @@ function selectPresentation(
   value: number,
   showSign: boolean,
   containerWidth: number,
-  steps: readonly FontStep[]
+  steps: readonly FontStep[],
+  currency: Currency
 ): { sizeClass: string; text: string } {
   return fitPresentation(
-    formatFull(value, showSign),
-    formatCompact(value, showSign),
+    formatFull(value, showSign, currency),
+    formatCompact(value, showSign, currency),
     containerWidth,
     steps
   );
@@ -118,6 +95,7 @@ export const ResponsiveCurrencyValue: React.FC<
   colorClassOverride,
   align = 'right',
 }) => {
+  const { currency } = useReportingCurrency();
   const alignClass =
     align === 'left'
       ? 'text-left'
@@ -131,7 +109,8 @@ export const ResponsiveCurrencyValue: React.FC<
           value,
           showSign,
           width,
-          fontSteps
+          fontSteps,
+          currency
         );
         return (
           <span

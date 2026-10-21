@@ -1,3 +1,4 @@
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import React from 'react';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
@@ -20,23 +21,28 @@ export const ScreenerCard: React.FC<ScreenerCardProps> = ({
   isSelected = false,
   index,
 }) => {
+  const { currency, toReporting } = useReportingCurrency();
+
   const handleClick = () => {
     if (onClick) {
       onClick(coin);
     }
   };
 
-  // Helper function to format large numbers
-  const formatNumber = (num: number) => {
-    if (num >= 1e12) return `$${(num / 1e12).toFixed(2)}T`;
-    if (num >= 1e9) return `$${(num / 1e9).toFixed(2)}B`;
-    if (num >= 1e6) return `$${(num / 1e6).toFixed(2)}M`;
-    if (num >= 1e3) return `$${(num / 1e3).toFixed(2)}K`;
-    return `$${num.toFixed(2)}`;
+  // Helper function to format large USD numbers in the reporting currency
+  const formatNumber = (usd: number) => {
+    const num = toReporting(usd);
+    const { symbol } = currency;
+    if (num >= 1e12) return `${symbol}${(num / 1e12).toFixed(2)}T`;
+    if (num >= 1e9) return `${symbol}${(num / 1e9).toFixed(2)}B`;
+    if (num >= 1e6) return `${symbol}${(num / 1e6).toFixed(2)}M`;
+    if (num >= 1e3) return `${symbol}${(num / 1e3).toFixed(2)}K`;
+    return `${symbol}${num.toFixed(2)}`;
   };
 
-  // Helper function to format price
-  const formatPrice = (price: number) => {
+  // Helper function to format a USD price in the reporting currency
+  const formatPrice = (usd: number) => {
+    const price = toReporting(usd);
     let formattedPrice: string;
     if (price < 0.001) {
       formattedPrice = price.toFixed(8);
@@ -114,7 +120,8 @@ export const ScreenerCard: React.FC<ScreenerCardProps> = ({
                           : 'text-card-foreground'
                     )}
                   >
-                    ${formatPrice(coin.currentPrice)}
+                    {currency.symbol}
+                    {formatPrice(coin.currentPrice)}
                   </div>
                   <ProfitLossPercChip
                     value={coin.priceChangePercentage24h}

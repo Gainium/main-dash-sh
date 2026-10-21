@@ -41,6 +41,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 
 import TradingViewChart, {
   type TradingViewChartRef,
@@ -80,11 +81,7 @@ import { DealRailControls } from './DealRailControls';
 // ── formatters (mirror the prototype's GX.fmt* helpers) ─────────────────────
 
 const fmtUsd = (v: number, d = 2): string =>
-  (v < 0 ? '-$' : '$') +
-  Math.abs(v).toLocaleString('en-US', {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  });
+  formatUsdAsReporting(v, { decimals: d });
 
 const fmtPx = (v: number | null): string =>
   v == null

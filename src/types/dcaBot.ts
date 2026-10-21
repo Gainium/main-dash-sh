@@ -7,6 +7,10 @@ import { logger } from '@/lib/loggerInstance';
 /* import { calculateBotValue } from '../utils/botValueCalculation'; */
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { math } from '@/utils/math';
+import {
+  friendlyUsd,
+  profitUsdForReporting,
+} from '@/utils/bots/reportingProfit';
 import { getPricesFetchedAt } from '@/helper/price';
 import { extractPairAssets } from '@/utils/pairs';
 import type { DrawerBot } from './bots/drawer';
@@ -767,6 +771,11 @@ export function transformDcaBotToBot(
         }))
       : undefined;
   const profitInAsset = res.profit.total || -0;
+  // Realized profit as shown: the bot's own figure when it is already in the
+  // reporting currency, otherwise the USD twin.
+  const totalProfitUsd = profitByAsset
+    ? totalUsd
+    : profitUsdForReporting(profitAsset, res.profit.total || 0, totalUsd);
   const name = res.settings.name;
 
   const creditsCost =
@@ -792,26 +801,17 @@ export function transformDcaBotToBot(
       freeTotal: 0,
       freeTotalUsd: 0,
     },
-    totalProfitUsd: totalUsd,
+    totalProfitUsd,
     workingTimeNumber: workingTime,
     workingTime: resWork,
     unPnl,
     unPnlPending:
       active &&
       (useLiveStats || !botHasUsablePrices || getPricesFetchedAt() === 0),
-    unPnlFriendly:
-      (unPnl || 0) < 0
-        ? `-$${math.friendly((unPnl || -0) * -1)}`
-        : `$${math.friendly(unPnl || 0)}`,
+    unPnlFriendly: friendlyUsd(unPnl),
     avgDaily,
-    avgDailyFriendly:
-      (avgDaily || 0) < 0
-        ? `-$${math.friendly((avgDaily || -0) * -1)}`
-        : `$${math.friendly(avgDaily || 0)}`,
-    profitFriendly:
-      (res.profit.totalUsd || 0) < 0
-        ? `-$${math.friendly(math.round(Math.abs(res.profit.totalUsd || -0)))}`
-        : `$${math.friendly(math.round(res.profit.totalUsd || 0))}`,
+    avgDailyFriendly: friendlyUsd(avgDaily),
+    profitFriendly: friendlyUsd(totalProfitUsd, true),
     profitFriendlyInAsset: notShowProfitInAsset
       ? undefined
       : (res.profit.totalUsd || 0) < 0
@@ -834,10 +834,8 @@ export function transformDcaBotToBot(
         : math.round(Math.abs(positionValue), 2)
       : 0,
     exchangeName: ex?.name ?? ex?.provider ?? res.exchange,
-    currentValueFriendly: !currentValues
-      ? 'N/A'
-      : `$${math.friendly(currentValues)}`,
-    maxValueFriendly: `$${math.friendly(maxValue || 0)}`,
+    currentValueFriendly: !currentValues ? 'N/A' : friendlyUsd(currentValues),
+    maxValueFriendly: friendlyUsd(maxValue),
     usageTotal: res.settings.futures
       ? res.settings.coinm
         ? math.round((res.usage.current.base / res.usage.max.base) * 100, 1)

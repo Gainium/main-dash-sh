@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { formatFiat, holdingToReporting } from '@/utils/reportingCurrency';
 
 import { Card } from '@/components/ui/card';
 import { ProfitLossPercChip } from '@/components/ui/chip';
@@ -19,11 +20,22 @@ interface GridBacktestOverviewTabProps {
   backtest: GRIDBacktestingResultHistory;
 }
 
-const formatUsd = (value: number | string | undefined | null) => {
+/**
+ * A USD twin in the reporting currency. With its asset figure: when that
+ * asset already is the reporting currency, the figure itself is shown.
+ */
+const formatUsd = (
+  value: number | string | undefined | null,
+  asset?: string,
+  amount?: number | string | null
+) => {
   if (value === undefined || value === null) return '-';
   const num = typeof value === 'string' ? parseFloat(value) : value;
   if (!Number.isFinite(num)) return '-';
-  return `$${num.toFixed(2)}`;
+  const face = amount === undefined || amount === null ? NaN : +amount;
+  return formatFiat(
+    holdingToReporting(asset, Number.isFinite(face) ? face : num, num)
+  );
 };
 
 const formatDuration = (duration: SplitTime | undefined) => {
@@ -277,16 +289,16 @@ export function GridBacktestOverviewTab({
             General
           </h3>
           <div className="space-y-xs">
-            <StatItem label="Budget" value={`$${math.round(budgetUsd, 2)}`} />
+            <StatItem label="Budget" value={formatUsd(budgetUsd)} />
             <StatItemWithChip
               label="Net result"
               value={netPerc}
-              additionalText={`${financial?.profitTotal ?? 0} ${profitSign} (${formatUsd(financial?.profitTotalUsd)})`}
+              additionalText={`${financial?.profitTotal ?? 0} ${profitSign} (${formatUsd(financial?.profitTotalUsd, profitSign, financial?.profitTotal)})`}
             />
             <StatItemWithChip
               label="Avg daily return"
               value={avgDailyPerc}
-              additionalText={`${financial?.avgNetDaily ?? 0} ${profitSign} (${formatUsd(financial?.avgNetDailyUsd)})`}
+              additionalText={`${financial?.avgNetDaily ?? 0} ${profitSign} (${formatUsd(financial?.avgNetDailyUsd, profitSign, financial?.avgNetDaily)})`}
             />
             {financial?.annualizedReturn != null && (
               <StatItemWithChip
@@ -297,7 +309,7 @@ export function GridBacktestOverviewTab({
             <StatItemWithChip
               label="Avg transaction profit"
               value={avgTxnProfitPerc}
-              additionalText={`${financial?.avgTransactionProfit ?? 0} ${profitSign} (${formatUsd(financial?.avgTransactionProfitUsd)})`}
+              additionalText={`${financial?.avgTransactionProfit ?? 0} ${profitSign} (${formatUsd(financial?.avgTransactionProfitUsd, profitSign, financial?.avgTransactionProfit)})`}
             />
             <StatItem
               label="Total transactions"
@@ -358,7 +370,7 @@ export function GridBacktestOverviewTab({
           <div className="space-y-xs">
             <StatItem
               label="Initial balances"
-              value={`${financial?.initialBalances ?? 0} ${profitSign} (${formatUsd(financial?.initialBalancesUsd)})`}
+              value={`${financial?.initialBalances ?? 0} ${profitSign} (${formatUsd(financial?.initialBalancesUsd, profitSign, financial?.initialBalances)})`}
             />
             {!settings?.futures && financial?.initialBalancesByAsset && (
               <StatItem
@@ -372,7 +384,7 @@ export function GridBacktestOverviewTab({
             />
             <StatItem
               label="Current balances"
-              value={`${financial?.currentBalances ?? 0} ${profitSign} (${formatUsd(financial?.currentBalancesUsd)})`}
+              value={`${financial?.currentBalances ?? 0} ${profitSign} (${formatUsd(financial?.currentBalancesUsd, profitSign, financial?.currentBalances)})`}
             />
             {!settings?.futures && financial?.currentBalancesByAsset && (
               <StatItem
@@ -387,7 +399,7 @@ export function GridBacktestOverviewTab({
             <StatItemWithChip
               label="Value change"
               value={valueChangePerc}
-              additionalText={`${financial?.valueChange ?? 0} ${profitSign} (${formatUsd(financial?.valueChangeUsd)})`}
+              additionalText={`${financial?.valueChange ?? 0} ${profitSign} (${formatUsd(financial?.valueChangeUsd, profitSign, financial?.valueChange)})`}
             />
             {!settings?.futures && (
               <StatItem
@@ -453,7 +465,7 @@ export function GridBacktestOverviewTab({
               <StatItemWithChip
                 label="Buy-and-hold Return"
                 value={backtest.ratios.buyAndHold.perc}
-                additionalText={`${backtest.ratios.buyAndHold.value ?? 0} ${quoteAsset} (${formatUsd(backtest.ratios.buyAndHold.valueUsd)})`}
+                additionalText={`${backtest.ratios.buyAndHold.value ?? 0} ${quoteAsset} (${formatUsd(backtest.ratios.buyAndHold.valueUsd, quoteAsset, backtest.ratios.buyAndHold.value)})`}
               />
             )}
           </div>

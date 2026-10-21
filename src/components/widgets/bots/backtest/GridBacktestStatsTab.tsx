@@ -1,4 +1,5 @@
 import { Card } from '@/components/ui/card';
+import { formatFiat, holdingToReporting } from '@/utils/reportingCurrency';
 import { ProfitLossPercChip } from '@/components/ui/chip';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { math } from '@/lib/utils/math';
@@ -78,11 +79,22 @@ const StatsSection: React.FC<StatsSectionProps> = ({
   </Card>
 );
 
-const formatUsd = (value: number | string | undefined | null) => {
-  if (value === undefined || value === null) return '$0.00';
+/**
+ * A USD twin in the reporting currency. With its asset figure: when that
+ * asset already is the reporting currency, the figure itself is shown.
+ */
+const formatUsd = (
+  value: number | string | undefined | null,
+  asset?: string,
+  amount?: number | string | null
+) => {
+  if (value === undefined || value === null) return formatFiat(0);
   const num = typeof value === 'string' ? parseFloat(value) : value;
-  if (!Number.isFinite(num)) return '$0.00';
-  return `$${num.toFixed(2)}`;
+  if (!Number.isFinite(num)) return formatFiat(0);
+  const face = amount === undefined || amount === null ? NaN : +amount;
+  return formatFiat(
+    holdingToReporting(asset, Number.isFinite(face) ? face : num, num)
+  );
 };
 
 const formatDuration = (duration: SplitTime | undefined) => {
@@ -271,16 +283,16 @@ export const GridBacktestStatsTab: React.FC<GridBacktestStatsTabProps> = ({
         {/* General */}
         <StatsSection title="General" icon={Activity}>
           <div className="space-y-xs">
-            <StatItem label="Budget" value={`$${math.round(budgetUsd, 2)}`} />
+            <StatItem label="Budget" value={formatUsd(budgetUsd)} />
             <StatItemWithChip
               label="Net result"
               value={netPerc}
-              additionalText={`${financial?.profitTotal ?? 0} ${profitSign} (${formatUsd(financial?.profitTotalUsd)})`}
+              additionalText={`${financial?.profitTotal ?? 0} ${profitSign} (${formatUsd(financial?.profitTotalUsd, profitSign, financial?.profitTotal)})`}
             />
             <StatItemWithChip
               label="Avg daily return"
               value={avgDailyPerc}
-              additionalText={`${financial?.avgNetDaily ?? 0} ${profitSign} (${formatUsd(financial?.avgNetDailyUsd)})`}
+              additionalText={`${financial?.avgNetDaily ?? 0} ${profitSign} (${formatUsd(financial?.avgNetDailyUsd, profitSign, financial?.avgNetDaily)})`}
             />
             {financial?.annualizedReturn != null && (
               <StatItemWithChip
@@ -337,7 +349,7 @@ export const GridBacktestStatsTab: React.FC<GridBacktestStatsTabProps> = ({
           <div className="space-y-xs">
             <StatItem
               label="Initial balances"
-              value={`${financial?.initialBalances ?? 0} ${profitSign} (${formatUsd(financial?.initialBalancesUsd)})`}
+              value={`${financial?.initialBalances ?? 0} ${profitSign} (${formatUsd(financial?.initialBalancesUsd, profitSign, financial?.initialBalances)})`}
             />
             {!settings?.futures && financial?.initialBalancesByAsset && (
               <>
@@ -357,7 +369,7 @@ export const GridBacktestStatsTab: React.FC<GridBacktestStatsTabProps> = ({
             />
             <StatItem
               label="Current balances"
-              value={`${financial?.currentBalances ?? 0} ${profitSign} (${formatUsd(financial?.currentBalancesUsd)})`}
+              value={`${financial?.currentBalances ?? 0} ${profitSign} (${formatUsd(financial?.currentBalancesUsd, profitSign, financial?.currentBalances)})`}
             />
             {!settings?.futures && financial?.currentBalancesByAsset && (
               <>
@@ -378,7 +390,7 @@ export const GridBacktestStatsTab: React.FC<GridBacktestStatsTabProps> = ({
             <StatItemWithChip
               label="Value change"
               value={valueChangePerc}
-              additionalText={`${financial?.valueChange ?? 0} ${profitSign} (${formatUsd(financial?.valueChangeUsd)})`}
+              additionalText={`${financial?.valueChange ?? 0} ${profitSign} (${formatUsd(financial?.valueChangeUsd, profitSign, financial?.valueChange)})`}
             />
             {!settings?.futures && (
               <StatItem
@@ -412,7 +424,7 @@ export const GridBacktestStatsTab: React.FC<GridBacktestStatsTabProps> = ({
               <StatItemWithChip
                 label="Buy-and-hold Return"
                 value={ratios.buyAndHold.perc}
-                additionalText={`${ratios.buyAndHold.value} ${quoteAsset} (${formatUsd(ratios.buyAndHold.valueUsd)})`}
+                additionalText={`${ratios.buyAndHold.value} ${quoteAsset} (${formatUsd(ratios.buyAndHold.valueUsd, quoteAsset, ratios.buyAndHold.value)})`}
               />
             )}
           </div>

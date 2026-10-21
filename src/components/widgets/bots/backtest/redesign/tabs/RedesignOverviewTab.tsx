@@ -18,6 +18,7 @@
  */
 
 import type React from 'react';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 
 import {
   Donut,
@@ -32,11 +33,7 @@ import type { BacktestViewModel, DealVM } from '../viewModel';
 // ── formatters (mirror the prototype's GX.fmt* helpers) ─────────────────────
 
 const fmtUsd = (v: number, d = 2): string =>
-  (v < 0 ? '-$' : '$') +
-  Math.abs(v).toLocaleString('en-US', {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  });
+  formatUsdAsReporting(v, { decimals: d });
 
 const fmtPct = (v: number, d = 2): string =>
   (v > 0 ? '+' : '') + v.toFixed(d) + '%';

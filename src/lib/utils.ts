@@ -1,4 +1,5 @@
 import { extractPairAssets } from '@/utils/pairs';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -7,13 +8,9 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 // Formatting utility functions
+/** A USD value, shown in the user's reporting currency. */
 export function formatCurrency(value: number, decimals: number = 2): string {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: 'USD',
-    minimumFractionDigits: decimals,
-    maximumFractionDigits: decimals,
-  }).format(value);
+  return formatUsdAsReporting(value, { decimals });
 }
 
 export function formatPercentage(value: number, decimals: number = 1): string {

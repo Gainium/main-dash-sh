@@ -1,7 +1,8 @@
-import { cn } from '@/lib/utils';
-import React from 'react';
-import { PendingLiveValue } from '../pending-live-value';
-import { ProfitLossPercChip } from './ProfitLossPercChip';
+import { cn } from "@/lib/utils";
+import { useReportingCurrency } from "@/hooks/useReportingCurrency";
+import React from "react";
+import { PendingLiveValue } from "../pending-live-value";
+import { ProfitLossPercChip } from "./ProfitLossPercChip";
 
 export interface ProfitAndPercProps {
   /** Absolute profit/loss value */
@@ -11,11 +12,11 @@ export interface ProfitAndPercProps {
   /** Privacy mode - hides values with *** */
   privacyMode: boolean;
   /** Position of percentage chip: 'right' (inline) or 'bottom' (stacked) */
-  chipPosition?: 'right' | 'bottom';
+  chipPosition?: "right" | "bottom";
   /** Hide the percentage chip entirely */
   hidePercentage?: boolean;
   /** Size variant - affects both value and chip sizing */
-  size?: 'xs' | 'sm' | 'md' | 'lg' | 'xl';
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   /** Show sign prefix (+/-) */
   showSign?: boolean;
   /** Additional className for the container */
@@ -30,6 +31,13 @@ export interface ProfitAndPercProps {
    * `PendingLiveValue`.
    */
   pending?: boolean | undefined;
+  /**
+   * The same figure in the pair's quote asset. When that asset is the
+   * reporting currency (a EUR-quoted deal viewed in EUR) it is shown as-is
+   * instead of converting `value` from USD and back.
+   */
+  quoteAsset?: string | undefined;
+  quoteValue?: number | undefined;
 }
 
 /**
@@ -56,41 +64,48 @@ export const ProfitAndPerc: React.FC<ProfitAndPercProps> = ({
   value,
   percentage,
   privacyMode,
-  chipPosition = 'right',
+  chipPosition = "right",
   hidePercentage = false,
-  size = 'md',
+  size = "md",
   showSign = true,
-  className = '',
-  valueClassName = '',
-  chipClassName = '',
+  className = "",
+  valueClassName = "",
+  chipClassName = "",
   pending = false,
+  quoteAsset,
+  quoteValue,
 }) => {
+  const { holding, toReporting, format } = useReportingCurrency();
+  const inReporting = (usd: number) =>
+    quoteValue !== undefined && Number.isFinite(quoteValue)
+      ? holding(quoteAsset, quoteValue, usd)
+      : toReporting(usd);
   // Size configuration
   const sizeConfig = {
     xs: {
-      valueText: 'text-xs',
-      chipSize: 'xs' as const,
-      gap: chipPosition === 'right' ? 'gap-1' : 'gap-0.5',
+      valueText: "text-xs",
+      chipSize: "xs" as const,
+      gap: chipPosition === "right" ? "gap-1" : "gap-0.5",
     },
     sm: {
-      valueText: 'text-sm',
-      chipSize: 'xs' as const,
-      gap: chipPosition === 'right' ? 'gap-1.5' : 'gap-0.5',
+      valueText: "text-sm",
+      chipSize: "xs" as const,
+      gap: chipPosition === "right" ? "gap-1.5" : "gap-0.5",
     },
     md: {
-      valueText: 'text-base',
-      chipSize: 'sm' as const,
-      gap: chipPosition === 'right' ? 'gap-2' : 'gap-1',
+      valueText: "text-base",
+      chipSize: "sm" as const,
+      gap: chipPosition === "right" ? "gap-2" : "gap-1",
     },
     lg: {
-      valueText: 'text-lg',
-      chipSize: 'sm' as const,
-      gap: chipPosition === 'right' ? 'gap-2' : 'gap-1',
+      valueText: "text-lg",
+      chipSize: "sm" as const,
+      gap: chipPosition === "right" ? "gap-2" : "gap-1",
     },
     xl: {
-      valueText: 'text-xl',
-      chipSize: 'md' as const,
-      gap: chipPosition === 'right' ? 'gap-2.5' : 'gap-1',
+      valueText: "text-xl",
+      chipSize: "md" as const,
+      gap: chipPosition === "right" ? "gap-2.5" : "gap-1",
     },
   };
 
@@ -98,45 +113,40 @@ export const ProfitAndPerc: React.FC<ProfitAndPercProps> = ({
 
   // Format value for display
   const formatValue = (val: number): string => {
-    if (privacyMode) return '***';
+    if (privacyMode) return "***";
 
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(Math.abs(val));
+    return format(Math.abs(inReporting(val)));
   };
 
   // Determine color class based on profit/loss
   const getColorClass = () => {
-    if (privacyMode) return 'text-muted-foreground';
-    if (value > 0) return 'text-profit';
-    if (value < 0) return 'text-loss';
-    return 'text-foreground';
+    if (privacyMode) return "text-muted-foreground";
+    if (value > 0) return "text-profit";
+    if (value < 0) return "text-loss";
+    return "text-foreground";
   };
 
   const sign =
-    showSign && !privacyMode && value !== 0 ? (value > 0 ? '+' : '-') : '';
+    showSign && !privacyMode && value !== 0 ? (value > 0 ? "+" : "-") : "";
   const displayValue = formatValue(value);
 
   return (
     <PendingLiveValue pending={pending}>
       <div
         className={cn(
-          'inline-flex items-center',
-          chipPosition === 'right' ? 'flex-row' : 'flex-col',
+          "inline-flex items-center",
+          chipPosition === "right" ? "flex-row" : "flex-col",
           config.gap,
-          className
+          className,
         )}
       >
         {/* Absolute value */}
         <span
           className={cn(
-            'font-semibold',
+            "font-semibold",
             config.valueText,
             getColorClass(),
-            valueClassName
+            valueClassName,
           )}
         >
           {sign}

@@ -3,6 +3,7 @@ import { isReadOnly } from '@/lib/demoMode';
 import { Check, Edit, Plus, RotateCcw, Settings, Trash2 } from 'lucide-react';
 import React from 'react';
 import { usePortfolioContext } from '../../hooks/usePortfolioContext';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { useUIStore } from '../../stores/uiStore';
 import { Button } from '../ui/button';
 import Widget from '../ui/widget';
@@ -79,6 +80,7 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
 
   // Get privacy mode state and check if in demo mode
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, toReporting } = useReportingCurrency();
   const readOnly = isReadOnly();
 
   // Use shared exchange data from context
@@ -287,7 +289,7 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
                   <div className="text-xs sm:text-sm font-medium">
                     {privacyMode
                       ? '***'
-                      : `$${exchange.balance.toLocaleString()}`}
+                      : `${currency.symbol}${toReporting(exchange.balance).toLocaleString()}`}
                   </div>
                 </div>
               )}

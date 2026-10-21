@@ -1,7 +1,8 @@
 import type { DrawerBot } from '@/types/bots/drawer';
 import { Activity, Layers, Users, Network } from 'lucide-react';
 import React, { useMemo } from 'react';
-import { formatCurrency } from '../../../../lib/utils';
+import { formatAssetAmount, formatQuoteAmount } from '@/utils/formatters';
+import { extractPairAssets } from '@/utils/pairs';
 import { DrawerSection } from './DrawerSection';
 import type { AdditionalBotData, ComboBot } from '@/types';
 
@@ -19,6 +20,9 @@ const DrawerComboOverview: React.FC<DrawerComboOverviewProps> = ({
     () => botSnapshot as ComboBot & AdditionalBotData,
     [botSnapshot]
   );
+
+  // Usage and balances are in the pair's own assets, not USD.
+  const { baseAsset, quoteAsset } = extractPairAssets(botSnapshot?.pair ?? '');
 
   if (!botSnapshot || !combo) {
     return (
@@ -63,10 +67,14 @@ const DrawerComboOverview: React.FC<DrawerComboOverviewProps> = ({
             <Activity className="h-3 w-3 text-success" /> Quote Usage
           </div>
           <div className="mt-1 text-sm font-semibold text-foreground">
-            {formatCurrency(combo.usage.current.quote ?? 0)}
+            {formatQuoteAmount(combo.usage.current.quote ?? 0, quoteAsset)}
           </div>
           <div className="text-xs text-muted-foreground">
-            Initial {formatCurrency(combo.initialBalances?.quote?.[0]?.value ?? 0)}
+            Initial{' '}
+            {formatQuoteAmount(
+              combo.initialBalances?.quote?.[0]?.value ?? 0,
+              quoteAsset
+            )}
           </div>
         </div>
         <div className="rounded-lg border border-border/60 bg-muted/20 p-sm">
@@ -74,11 +82,14 @@ const DrawerComboOverview: React.FC<DrawerComboOverviewProps> = ({
             <Layers className="h-3 w-3 text-warning" /> Base Usage
           </div>
           <div className="mt-1 text-sm font-semibold text-foreground">
-            {formatCurrency(combo.usage.current.base ?? 0)}
+            {formatAssetAmount(combo.usage.current.base ?? 0)} {baseAsset}
           </div>
           <div className="text-xs text-muted-foreground">
             Current quote{' '}
-            {formatCurrency(combo.currentBalances?.quote?.[0]?.value ?? 0)}
+            {formatQuoteAmount(
+              combo.currentBalances?.quote?.[0]?.value ?? 0,
+              quoteAsset
+            )}
           </div>
         </div>
       </div>

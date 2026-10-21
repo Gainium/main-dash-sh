@@ -1,4 +1,5 @@
 import { dcaBotListFragment } from '@/lib/api/GraphQLQueries-fragments';
+import { dcaBotProfitUsdForReporting } from '@/utils/bots/reportingProfit';
 import { useAuthStore } from '@/stores/authStore';
 import { useDcaBotsStore } from '@/stores/live';
 import { useUIStore } from '@/stores/uiStore';
@@ -424,7 +425,7 @@ export function computeDcaBotStatsSummary(bots: DCABot[]): DcaBotStatsSummary {
   );
 
   const totalProfit = bots.reduce(
-    (sum: number, bot: DCABot) => sum + (bot.profit?.totalUsd || 0),
+    (sum: number, bot: DCABot) => sum + dcaBotProfitUsdForReporting(bot),
     0
   );
   const totalDeals = bots.reduce(
@@ -437,8 +438,8 @@ export function computeDcaBotStatsSummary(bots: DCABot[]): DcaBotStatsSummary {
   );
 
   const accumulatedProfit = bots
-    .filter((bot: DCABot) => (bot.profit?.totalUsd || 0) > 0)
-    .reduce((sum: number, bot: DCABot) => sum + (bot.profit?.totalUsd || 0), 0);
+    .filter((bot: DCABot) => dcaBotProfitUsdForReporting(bot) > 0)
+    .reduce((sum: number, bot: DCABot) => sum + dcaBotProfitUsdForReporting(bot), 0);
 
   const validBots = bots.filter((bot) => bot.created);
   const profitByDay = (() => {
@@ -466,7 +467,7 @@ export function computeDcaBotStatsSummary(bots: DCABot[]): DcaBotStatsSummary {
    */
   const activeBots = bots.filter((bot) => isBotActive(bot.status)).length;
   const profitableBots = bots.filter(
-    (bot) => (bot.profit?.totalUsd || 0) > 0
+    (bot) => dcaBotProfitUsdForReporting(bot) > 0
   ).length;
 
   const successRate =

@@ -19,6 +19,7 @@
  */
 
 import { formatDuration } from '@/utils/formatters';
+import { getReportingCurrency, usdToReporting } from '@/utils/reportingCurrency';
 import { math } from '@/utils/math';
 
 import {
@@ -66,9 +67,11 @@ export interface BotWindowStatsData {
 
 export type StatsWindow = 'lifetime' | 'since';
 
+/** A USD amount in the reporting currency, e.g. `-$40`. */
 const usd = (v: number | undefined | null): string => {
-  const r = roundUsd(v);
-  return r < 0 ? `-$${Math.abs(r)}` : `$${r}`;
+  const { symbol } = getReportingCurrency();
+  const r = roundUsd(usdToReporting(roundUsd(v)));
+  return r < 0 ? `-${symbol}${Math.abs(r)}` : `${symbol}${r}`;
 };
 
 /** -1 = profits and no losses, as the stats documents encode it. */

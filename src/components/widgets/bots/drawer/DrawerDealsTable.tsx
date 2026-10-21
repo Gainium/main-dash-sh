@@ -28,6 +28,7 @@ import {
 } from '../../../../hooks/useComboDeals';
 /* import { useHedgeDeals } from '../../../../hooks/useHedgeDeals'; */
 import { formatNumber } from '@/utils/numberFormatter';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { formatPairPrice } from '@/utils/formatters';
 import { ResponsiveAmount } from '@/components/ui/ResponsiveAmount';
 import { getPrecision } from '@/features/trading-terminal/components/exchangeOrderColumns';
@@ -275,6 +276,20 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   // Detect Hedge bot types
 
   const isHedgeCombo = useMemo(() => bot?.type === 'hedgeCombo', [bot?.type]);
+  const { formatUsd } = useReportingCurrency();
+  // The asset a deal's `profit.total` is in: the bot's profit currency.
+  const botProfitBase =
+    bot?.settings?.profitCurrency === 'base' ||
+    !!(bot?.settings as { coinm?: boolean } | undefined)?.coinm;
+  const dealProfitAsset = useCallback(
+    (trade: TransformedTrade): string | undefined =>
+      !bot?.settings?.profitCurrency || typeof trade.symbol === 'string'
+        ? undefined
+        : botProfitBase
+          ? trade.symbol.baseAsset
+          : trade.symbol.quoteAsset,
+    [bot?.settings?.profitCurrency, botProfitBase]
+  );
   const isComboLike = useMemo(
     () => isComboBot || isHedgeCombo,
     [isComboBot, isHedgeCombo]
@@ -1348,7 +1363,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${formatNumber(value, true)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
         enableSorting: true,
@@ -1883,6 +1898,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         return (
           <ProfitAndPerc
             value={realizedPnl}
+            quoteAsset={dealProfitAsset(trade)}
+            quoteValue={trade.profit?.total}
             percentage={percentage}
             privacyMode={privacyMode}
             chipPosition="right"
@@ -2040,6 +2057,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     return filteredColumns;
   }, [
     privacyMode,
+    formatUsd,
+    dealProfitAsset,
     pricesLoading,
     handleOpenOrdersDialog,
     isComboBot,

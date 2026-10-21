@@ -1,3 +1,7 @@
+import {
+  friendlyUsd,
+  profitUsdForReporting,
+} from '@/utils/bots/reportingProfit';
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { math } from '@/utils/math';
@@ -514,7 +518,12 @@ export function transformGridBotToBot(
   res = {
     ...res,
     id: res._id,
-    totalProfitUsd: res.profit.totalUsd,
+    // The bot's own figure when it is already in the reporting currency.
+    totalProfitUsd: profitUsdForReporting(
+      profitAsset,
+      res.profit?.total || 0,
+      res.profit?.totalUsd || 0
+    ),
     value: math.round(valueCurrent || val, 2),
     budget: math.round(
       res.settings.budget *
@@ -579,14 +588,8 @@ export function transformGridBotToBot(
     /* fullProfitUsdWithDecimals: math.splitBigNumberToParts(
             math.round(res.profit.totalUsd || 0, 2),
           ), */
-    profitFriendly:
-      (freeProfit || 0) < 0
-        ? `-$${math.friendly(math.round(Math.abs(freeProfit || -0)))}`
-        : `$${math.friendly(math.round(freeProfit || 0))}`,
-    fullProfitFriendly:
-      (avgDaily || 0) < 0
-        ? `-$${math.friendly(math.round(Math.abs(res.profit.totalUsd || -0)))}`
-        : `$${math.friendly(math.round(res.profit.totalUsd || 0))}`,
+    profitFriendly: friendlyUsd(freeProfit, true),
+    fullProfitFriendly: friendlyUsd(res.profit.totalUsd, true),
     profitFriendlyInAsset:
       (freeProfit || 0) < 0
         ? `-${math.friendly(
@@ -614,10 +617,7 @@ export function transformGridBotToBot(
       ),
     },
     stats: currentStats,
-    avgDailyFriendly:
-      (res.avgDaily || 0) < 0
-        ? `-$${math.friendly((avgDaily || -0) * -1)}`
-        : `$${math.friendly(avgDaily || 0)}`,
+    avgDailyFriendly: friendlyUsd(avgDaily),
     exchangeName:
       userExchanges?.find((e) => e.uuid === res.exchangeUUID)?.name ||
       res.exchange,

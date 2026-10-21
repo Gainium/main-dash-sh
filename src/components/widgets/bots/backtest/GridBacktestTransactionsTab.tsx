@@ -15,6 +15,10 @@ import type {
 } from '@/types';
 import type { ColumnDef } from '@tanstack/react-table';
 import { useMemo, useRef, useState } from 'react';
+import {
+  formatUsdAsReporting,
+  getReportingCurrency,
+} from '@/utils/reportingCurrency';
 
 interface GridBacktestTransactionsTabProps {
   backtest: GRIDBacktestingResultHistory;
@@ -22,7 +26,7 @@ interface GridBacktestTransactionsTabProps {
 
 const formatUsd = (value: number | undefined | null) => {
   if (value === undefined || value === null) return '-';
-  return `$${value.toFixed(2)}`;
+  return formatUsdAsReporting(value);
 };
 
 /**
@@ -162,7 +166,7 @@ export function GridBacktestTransactionsTab({
       },
       {
         accessorKey: 'profitUsd',
-        header: 'P&L (USD)',
+        header: `P&L (${getReportingCurrency().code})`,
         meta: { filterType: 'number' },
         cell: ({ row }) => {
           const value = row.original.profitUsd;

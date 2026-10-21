@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 
 import { ArrowDownRight, ArrowUpRight, LineChart } from 'lucide-react';
 
@@ -111,6 +112,7 @@ export const FundsOverview: React.FC<FundsOverviewProps> = ({
   currency,
   formatAmount,
 }) => {
+  const reportingCode = useReportingCurrency().currency.code;
   if (!funds) {
     return null;
   }
@@ -208,7 +210,7 @@ export const FundsOverview: React.FC<FundsOverviewProps> = ({
             </div>
             <div className="space-y-1">
               <p className="text-xs uppercase tracking-wide text-muted-foreground">
-                USD
+                {reportingCode}
               </p>
               <p className="text-base font-semibold text-card-foreground">
                 {formatAmount(funds.initial.usd.value, {

@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import { Play, Square } from 'lucide-react';
 import { WidgetWrapper, type WidgetMenuActions } from '../WidgetWrapper';
 import { getCompatibilityDefaultSize } from '../DefaultWidgetSizes';
@@ -169,8 +170,8 @@ const DealHistory: React.FC<DealHistoryProps> = ({
             ? 'Completed'
             : 'Active',
         profit: isProfit
-          ? `+$${profit.toFixed(2)}`
-          : `-$${Math.abs(profit).toFixed(2)}`,
+          ? `+${formatUsdAsReporting(profit)}`
+          : formatUsdAsReporting(-Math.abs(profit)),
         profitPercent: isProfit
           ? `+${(profit * 100).toFixed(1)}%`
           : `-${(Math.abs(profit) * 100).toFixed(1)}%`,

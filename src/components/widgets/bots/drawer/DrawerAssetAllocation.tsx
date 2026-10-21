@@ -6,7 +6,8 @@ import { ProgressBar } from '../../../ui/ProgressBar';
 import { DrawerSection } from './DrawerSection';
 
 import { PieChart } from 'lucide-react';
-import { formatCurrency, formatPercentage } from '../../../../lib/utils';
+import { formatPercentage } from '../../../../lib/utils';
+import { formatQuoteAmount } from '@/utils/formatters';
 import type { DrawerBot } from '@/types/bots/drawer';
 
 export interface DrawerAssetAllocationProps {
@@ -176,8 +177,15 @@ const DrawerAssetAllocation: React.FC<DrawerAssetAllocationProps> = ({
               {allocationMetrics.quoteSymbol} Usage
             </span>
             <span className="text-xs text-muted-foreground">
-              {formatCurrency(allocationMetrics.currentQuoteUsage, 2)} /{' '}
-              {formatCurrency(allocationMetrics.maxQuoteUsage, 2)}
+              {formatQuoteAmount(
+                allocationMetrics.currentQuoteUsage,
+                allocationMetrics.quoteSymbol
+              )}{' '}
+              /{' '}
+              {formatQuoteAmount(
+                allocationMetrics.maxQuoteUsage,
+                allocationMetrics.quoteSymbol
+              )}
             </span>
           </div>
           <ProgressBar
@@ -220,9 +228,9 @@ const DrawerAssetAllocation: React.FC<DrawerAssetAllocationProps> = ({
                       {allocationMetrics.quoteSymbol}
                     </span>
                     <span className="text-xs font-medium">
-                      {formatCurrency(
+                      {formatQuoteAmount(
                         allocationMetrics.currentQuote[0] || 0,
-                        2
+                        allocationMetrics.quoteSymbol
                       )}
                     </span>
                   </div>

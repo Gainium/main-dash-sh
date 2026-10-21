@@ -3,6 +3,10 @@
 // Provides CSV, Excel, and JSON export functionality
 
 import type { EnhancedBalanceData } from '../types/enhancedBalance.types';
+import {
+  getReportingCurrency,
+  holdingToReporting,
+} from '@/utils/reportingCurrency';
 
 // Export format types
 export type ExportFormat = 'csv' | 'excel' | 'json';
@@ -24,8 +28,29 @@ export interface ExportOptions {
 export interface ExportColumn {
   key: keyof EnhancedBalanceData;
   header: string;
-  formatter?: (value: any) => string;
+  formatter?: (value: any, row: EnhancedBalanceData) => string;
 }
+
+// A row's USD value in the reporting currency (a balance already in that
+// currency at its face amount), e.g. `€123.45`.
+const reportingValue =
+  (amountKey: keyof EnhancedBalanceData, decimals = 2) =>
+  (val: any, row: EnhancedBalanceData): string => {
+    const currency = getReportingCurrency();
+    const value = holdingToReporting(
+      row.token,
+      Number(row[amountKey] || 0),
+      Number(val || 0),
+      currency
+    );
+    return `${currency.symbol}${value.toFixed(
+      Math.min(decimals, currency.decimals ?? decimals)
+    )}`;
+  };
+
+// "(USD)" in a header names the reporting currency.
+const headerOf = (col: ExportColumn): string =>
+  col.header.replace('(USD)', `(${getReportingCurrency().code})`);
 
 // Default export columns (matching legacy dashboard)
 export const DEFAULT_EXPORT_COLUMNS: ExportColumn[] = [
@@ -64,37 +89,46 @@ export const DEFAULT_EXPORT_COLUMNS: ExportColumn[] = [
   {
     key: 'freeUsd',
     header: 'Not In Limit (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('free'),
   },
   {
     key: 'usedUsd',
     header: 'In Limit (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('used'),
   },
   {
     key: 'totalUsd',
     header: 'Total (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('total'),
   },
   {
     key: 'requiredUsd',
     header: 'Max Bot Usage (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('required'),
   },
   {
     key: 'plannedUsd',
     header: 'Planned (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('planned'),
   },
   {
     key: 'freeAndOverUsd',
     header: 'Free (USD)',
-    formatter: (val) => `$${Number(val || 0).toFixed(2)}`,
+    formatter: reportingValue('freeAndOver'),
   },
   {
     key: 'currentPrice',
     header: 'Current Price',
-    formatter: (val) => `$${Number(val || 0).toFixed(8)}`,
+    formatter: (val, row) => {
+      const currency = getReportingCurrency();
+      const price = holdingToReporting(
+        row.token,
+        1,
+        Number(val || 0),
+        currency
+      );
+      return `${currency.symbol}${price.toFixed(8)}`;
+    },
   },
   {
     key: 'requiredRatio',
@@ -118,7 +152,7 @@ export const exportToCSV = (
 
   // Add headers if requested
   if (options.includeHeaders) {
-    csvContent += columns.map((col) => `"${col.header}"`).join(',') + '\n';
+    csvContent += columns.map((col) => `"${headerOf(col)}"`).join(',') + '\n';
   }
 
   // Process data rows
@@ -131,7 +165,7 @@ export const exportToCSV = (
       .map((col) => {
         const value = row[col.key];
         const formattedValue = col.formatter
-          ? col.formatter(value)
+          ? col.formatter(value, row)
           : String(value || '');
         // Escape quotes and wrap in quotes for CSV
         return `"${String(formattedValue).replace(/"/g, '""')}"`;
@@ -162,7 +196,7 @@ export const exportToExcel = (
 
   // Add headers
   if (options.includeHeaders) {
-    content += columns.map((col) => col.header).join('\t') + '\n';
+    content += columns.map(headerOf).join('\t') + '\n';
   }
 
   // Process data rows
@@ -175,7 +209,7 @@ export const exportToExcel = (
       .map((col) => {
         const value = row[col.key];
         const formattedValue = col.formatter
-          ? col.formatter(value)
+          ? col.formatter(value, row)
           : String(value || '');
         return formattedValue;
       })
@@ -208,7 +242,9 @@ export const exportToJSON = (
     const jsonRow: Record<string, any> = {};
     columns.forEach((col) => {
       const value = row[col.key];
-      jsonRow[col.header] = col.formatter ? col.formatter(value) : value;
+      jsonRow[headerOf(col)] = col.formatter
+        ? col.formatter(value, row)
+        : value;
     });
     return jsonRow;
   });
@@ -218,7 +254,7 @@ export const exportToJSON = (
     metadata: {
       exportDate: new Date().toISOString(),
       totalRows: jsonData.length,
-      includedColumns: columns.map((col) => col.header),
+      includedColumns: columns.map(headerOf),
       includesTotalRow: options.includeTotalRow,
     },
     data: jsonData,
@@ -284,7 +320,7 @@ export const generateFilename = (
 export const getAvailableColumns = (): { key: string; label: string }[] => {
   return DEFAULT_EXPORT_COLUMNS.map((col) => ({
     key: col.key as string,
-    label: col.header,
+    label: headerOf(col),
   }));
 };
 

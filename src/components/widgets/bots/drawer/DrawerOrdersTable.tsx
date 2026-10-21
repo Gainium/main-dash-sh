@@ -40,8 +40,8 @@ import {
 } from '@/utils/mapOrderName';
 import { useCancelOrder } from '../../../../hooks/useOrderActions';
 import logger from '../../../../lib/loggerInstance';
-import { cn, formatCurrency } from '../../../../lib/utils';
-import { formatPriceWithPrecision } from '@/utils/formatters';
+import { cn } from '../../../../lib/utils';
+import { formatPriceWithPrecision, formatQuoteAmount } from '@/utils/formatters';
 import {
   BotOrderSideEnum,
   BotTypesEnum,
@@ -824,7 +824,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
                   Total Value
                 </span>
                 <span className="text-sm font-semibold">
-                  {formatCurrency(order.total)}
+                  {formatQuoteAmount(order.total, order.quoteAsset)}
                 </span>
               </div>
             </div>
@@ -958,7 +958,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-bold">
-                    {formatCurrency(order.total)}
+                    {formatQuoteAmount(order.total, order.quoteAsset)}
                   </div>
                   <div className="text-xs text-muted-foreground">
                     {fillPercentage.toFixed(1)}% filled
@@ -1036,7 +1036,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
 
                 <MetricCard
                   label="Total Value"
-                  value={formatCurrency(order.total)}
+                  value={formatQuoteAmount(order.total, order.quoteAsset)}
                 />
               </div>
 

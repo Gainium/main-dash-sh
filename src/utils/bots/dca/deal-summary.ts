@@ -1,3 +1,4 @@
+import { formatQuoteAmount } from '@/utils/formatters';
 import { BotMarginTypeEnum, StrategyEnum, type DCAGrid } from '@/types';
 
 const trimTrailingZeros = (value: string): string =>
@@ -13,7 +14,7 @@ export interface TotalFundsContext {
 
 // "Total Funds" tile value. Funds are deposited in the base coin for
 // spot short and coin-M futures, so those show the base figure with
-// the base symbol; everything else keeps the quote figure with `$`.
+// the base symbol; everything else shows the quote figure in its quote asset.
 export const formatTotalFunds = (
   summary: { totalCapital: number; totalCapitalBase: number },
   ctx: TotalFundsContext
@@ -29,7 +30,8 @@ export const formatTotalFunds = (
     return `${trimTrailingZeros(amount.toFixed(decimals))} ${ctx.baseAsset ?? 'Base'}`;
   }
 
-  return `$${(summary.totalCapital || 0).toFixed(2)}`;
+  // A quote-asset amount, not USD.
+  return formatQuoteAmount(summary.totalCapital || 0, ctx.quoteAsset);
 };
 
 export interface FundsTile {

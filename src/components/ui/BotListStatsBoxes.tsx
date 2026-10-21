@@ -1,6 +1,7 @@
 import { Activity, DollarSign, Wallet } from 'lucide-react';
 import React from 'react';
 import type { BotListStats } from '@/hooks/useBotListStats';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { StatsBoxes, type StatBox } from './StatsBoxes';
 
 export interface BotListStatsBoxesProps {
@@ -17,10 +18,6 @@ export interface BotListStatsBoxesProps {
   className?: string;
 }
 
-function formatSigned(n: number): string {
-  return `${n >= 0 ? '+' : ''}$${n.toFixed(2)}`;
-}
-
 export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
   stats,
   privacyMode,
@@ -28,6 +25,7 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
   activityLabel = 'deals',
   className,
 }) => {
+  const { formatUsd } = useReportingCurrency();
   const activitySubtitle =
     activityLabel === 'bots'
       ? `${stats.activeBots} active bots`
@@ -46,10 +44,10 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
       title: 'Realized PnL',
       tooltip:
         'Profit banked from closed deals across the bots in this list. Deals still running are not counted — those show as Unrealized PnL on each bot.',
-      value: privacyMode ? '***' : `$${stats.totalProfit.toFixed(2)}`,
+      value: privacyMode ? '***' : formatUsd(stats.totalProfit),
       subtitle: privacyMode
         ? '***'
-        : `Today ${formatSigned(stats.todayProfit)}`,
+        : `Today ${formatUsd(stats.todayProfit, { sign: 'always' })}`,
       icon: <DollarSign className="w-4 h-4" />,
       colorClass:
         stats.totalProfit >= 0
@@ -61,7 +59,7 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
       title: 'Capital Deployed',
       tooltip:
         'Money these bots have working in open deals right now, and how much of their combined maximum that is.',
-      value: privacyMode ? '***' : `$${stats.capitalDeployed.toFixed(0)}`,
+      value: privacyMode ? '***' : formatUsd(stats.capitalDeployed, { decimals: 0 }),
       subtitle: privacyMode
         ? '***'
         : `${stats.utilization.toFixed(1)}% utilization`,

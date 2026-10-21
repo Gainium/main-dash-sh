@@ -9,6 +9,7 @@ import {
   MARKET_CAP_TYPES,
 } from '../types/enhancedBalance.types';
 import { oldestUpdated } from './balanceStaleness';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 
 // Math helper for consistent rounding
 class MathHelper {
@@ -579,15 +580,9 @@ export const formatTokenAmount = (amount: number): string => {
   }
 };
 
-// Helper function to format USD values
+// Helper function to format USD values (in the reporting currency)
 export const formatUSDValue = (value: number): string => {
-  if (value == null || isNaN(value)) {
-    return '$0.00';
-  }
-  return `$${value.toLocaleString('en-US', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  })}`;
+  return formatUsdAsReporting(value == null || isNaN(value) ? 0 : value);
 };
 
 // Helper function to format percentages

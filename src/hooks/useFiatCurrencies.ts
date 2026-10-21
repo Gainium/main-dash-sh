@@ -69,6 +69,7 @@ const loadFiatRates = (accessToken: string, paperContext: boolean) => {
  */
 export function useFiatCurrencies(): {
   currencies: Currency[];
+  rates: FiatRate[];
   getCurrencyInfo: (code: string) => Currency;
 } {
   const accessToken = useAuthStore((s) => s.tokens?.accessToken);
@@ -84,5 +85,5 @@ export function useFiatCurrencies(): {
     (code: string) => getCurrencyInfo(code, currencies),
     [currencies]
   );
-  return { currencies, getCurrencyInfo: lookup };
+  return { currencies, rates: snapshot, getCurrencyInfo: lookup };
 }

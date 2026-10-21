@@ -3,7 +3,8 @@ import type { GridBot } from '@/types/gridBot';
 import { Activity, Layers, TrendingUp } from 'lucide-react';
 import React, { useMemo } from 'react';
 /* import { useGridBots } from '../../../../hooks/useGridBots'; */
-import { formatCurrency } from '../../../../lib/utils';
+import { formatQuoteAmount } from '@/utils/formatters';
+import { extractPairAssets } from '@/utils/pairs';
 import { DrawerSection } from './DrawerSection';
 import { PendingLiveValue } from '@/components/ui/pending-live-value';
 import { useLivePairPrice } from '@/hooks/useLatestPrices';
@@ -145,7 +146,11 @@ const DrawerGridOverview: React.FC<DrawerGridOverviewProps> = ({
                 {formatMaybePrice(grid.gridStep)}
               </div>
               <div className="text-xs text-muted-foreground">
-                Invested {formatCurrency(investedBudget)}
+                Invested{' '}
+                {formatQuoteAmount(
+                  investedBudget,
+                  extractPairAssets(rawGrid?.settings?.pair ?? '').quoteAsset
+                )}
               </div>
             </div>
           </div>

@@ -9,6 +9,7 @@
  */
 
 import { csvField } from '@/components/ui/data-table/exportCsv';
+import { getReportingCurrency, usdToReporting } from '@/utils/reportingCurrency';
 
 import type { DealVM } from './viewModel';
 
@@ -132,7 +133,8 @@ const iso = (t: number | null): string =>
 const num = (v: number | null): number | '' =>
   v == null || !Number.isFinite(v) ? '' : Number(v.toPrecision(12));
 
-const CSV_COLUMNS: [string, (d: DealVM) => unknown][] = [
+/** The P&L column is a USD value, exported in the reporting currency. */
+const csvColumns = (): [string, (d: DealVM) => unknown][] => [
   ['No', (d) => d.no],
   ['Pair', (d) => d.pair],
   ['Status', (d) => d.status],
@@ -141,7 +143,10 @@ const CSV_COLUMNS: [string, (d: DealVM) => unknown][] = [
   ['Close time (UTC)', (d) => iso(d.closeTime)],
   ['Duration (h)', (d) => +d.durationH.toFixed(2)],
   ['P&L %', (d) => num(d.pnlPerc)],
-  ['P&L $', (d) => num(d.pnlUsd)],
+  [
+    `P&L (${getReportingCurrency().code})`,
+    (d) => num(usdToReporting(d.pnlUsd)),
+  ],
   ['Entry price', (d) => num(d.entry)],
   ['Avg price', (d) => num(d.avg)],
   ['Close price', (d) => num(d.closePrice)],
@@ -153,9 +158,10 @@ const CSV_COLUMNS: [string, (d: DealVM) => unknown][] = [
 
 /** RFC-4180 CSV of `deals` in the given order. */
 export function dealsToCsv(deals: DealVM[]): string {
+  const columns = csvColumns();
   const lines = [
-    CSV_COLUMNS.map(([h]) => csvField(h)).join(','),
-    ...deals.map((d) => CSV_COLUMNS.map(([, f]) => csvField(f(d))).join(',')),
+    columns.map(([h]) => csvField(h)).join(','),
+    ...deals.map((d) => columns.map(([, f]) => csvField(f(d))).join(',')),
   ];
   return lines.join('\r\n') + '\r\n';
 }

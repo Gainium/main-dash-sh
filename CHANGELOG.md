@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.108.0] - 2026-10-21
+### Added
+- Reporting currency (Settings → Personal Data): every fiat value in the dashboard can be shown in USD, EUR, GBP, SGD, IDR or one of 29 other currencies, using daily exchange rates. Saved on the account.
+- A balance already held in the reporting currency, or a profit already earned in it, is shown at its own amount instead of being converted to USD and back.
+### Changed
+- The per-widget "Display Currency" options on the portfolio balance and value widgets are replaced by the account-wide reporting currency.
+- Deal order totals, deal cost and value, and bot usage figures that are amounts in the pair's quote asset are shown with that asset instead of a dollar sign.
+
 ## [2.107.8] - 2026-10-20
 ### Changed
 - Bot forms: explanation boxes and helper paragraphs replaced by one-line notes, with the detail in a tooltip; fields linked to a global variable or locked by Risk/Reward no longer repeat that in a separate box.

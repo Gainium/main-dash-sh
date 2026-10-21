@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { useNowTick } from '@/hooks/useNowTick';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { getTzDateKey, getTzDayBounds } from '@/utils/timeUtils';
@@ -96,6 +97,7 @@ export const Profit: React.FC<ProfitProps> = ({
 
   // Get privacy mode state
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, toReporting, formatUsd } = useReportingCurrency();
 
   // The account's day boundary — the platform's one answer to "which day is
   // this instant?", shared with the Deals table and the other profit surfaces.
@@ -853,7 +855,11 @@ export const Profit: React.FC<ProfitProps> = ({
                   fontSize: 8,
                   className: 'text-muted-foreground',
                 }}
-                tickFormatter={(value) => (privacyMode ? '***' : `$${value}`)}
+                tickFormatter={(value) =>
+                  privacyMode
+                    ? '***'
+                    : `${currency.symbol}${Math.round(toReporting(value) * 100) / 100}`
+                }
                 width={40}
               />
               <Tooltip
@@ -861,7 +867,12 @@ export const Profit: React.FC<ProfitProps> = ({
                   <CustomTooltip
                     labelFormatter={tooltipLabelFormatter}
                     valueFormatter={
-                      privacyMode ? () => ['***', ''] as const : undefined
+                      privacyMode
+                        ? () => ['***', ''] as const
+                        : (value, name) => [
+                            formatUsd(Number(value)),
+                            name.charAt(0).toUpperCase() + name.slice(1),
+                          ]
                     }
                   />
                 }
@@ -911,21 +922,26 @@ export const Profit: React.FC<ProfitProps> = ({
       setTimeFilter,
       tooltipLabelFormatter,
       widgetId,
+      currency,
+      toReporting,
+      formatUsd,
     ]
   );
 
   // Calculate profit value for header
   const profitValue = useMemo(
     () => ({
-      primary: privacyMode ? '***' : Math.abs(realProfitData.today),
-      secondary: 'USD',
+      primary: privacyMode ? '***' : Math.abs(toReporting(realProfitData.today)),
+      secondary: currency.code,
       change: {
-        value: privacyMode ? '***' : Math.abs(realProfitData.difference),
+        value: privacyMode
+          ? '***'
+          : Math.abs(toReporting(realProfitData.difference)),
         percentage: privacyMode ? '***' : realProfitData.differencePercent,
         isPositive: realProfitData.difference >= 0,
       },
     }),
-    [privacyMode, realProfitData]
+    [privacyMode, realProfitData, currency, toReporting]
   );
 
   const metadata = useMemo(

@@ -1,4 +1,5 @@
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { BACKTEST_DB_UPDATED_EVENT } from '@/constants/backtest';
 import type {
   BacktestingSettings,
@@ -77,6 +78,7 @@ interface BacktestDisplayData extends BacktestData {
 }
 
 const BacktestDataPage: React.FC = () => {
+  const { formatUsd } = useReportingCurrency();
   // const { user } = useAuthStore();
   const [activeTypeTab, setActiveTypeTab] = useState<
     'regular' | 'hedge' | 'combo' | 'grid'
@@ -728,7 +730,9 @@ const BacktestDataPage: React.FC = () => {
                   : 'text-red-600 dark:text-red-400'
               }`}
             >
-              {profit >= 0 ? '+' : ''}${profit.toFixed(2)}
+              {profit >= 0 ? '+' : ''}
+              {profit.toFixed(2)}
+              {row.original.quoteAsset ? ` ${row.original.quoteAsset}` : ''}
             </span>
           </div>
         );
@@ -1502,7 +1506,7 @@ const BacktestDataPage: React.FC = () => {
                         </label>
                         <p className="text-sm text-gray-900">
                           {selectedBacktest.financial?.netProfitTotalUsd
-                            ? `$${selectedBacktest.financial.netProfitTotalUsd.toFixed(2)}`
+                            ? formatUsd(selectedBacktest.financial.netProfitTotalUsd)
                             : 'N/A'}
                         </p>
                       </div>

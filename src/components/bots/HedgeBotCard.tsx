@@ -12,6 +12,8 @@
  * hedge id + hedge type, with optimistic store update + rollback.
  */
 import { motion } from 'framer-motion';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { dcaBotProfitUsdForReporting } from '@/utils/bots/reportingProfit';
 import { ExternalLink, MoreVertical } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -130,9 +132,10 @@ const HedgeLegTile: React.FC<{
   unPnlPerc,
   unPnlPending,
 }) => {
+  const { formatUsd } = useReportingCurrency();
   const dealsActive = leg?.dealsInBot?.active ?? 0;
   const dealsAll = leg?.dealsInBot?.all ?? 0;
-  const profitUsd = leg?.profit?.totalUsd ?? 0;
+  const profitUsd = leg ? dcaBotProfitUsdForReporting(leg) : 0;
   // Colour the usage value to match the standalone gauge's traffic-light
   // logic: green by default, amber > 80%, red >= 100%. Skip the tint when
   // we have no usage yet to avoid drawing attention to a placeholder zero.
@@ -186,10 +189,10 @@ const HedgeLegTile: React.FC<{
           title={
             privacyMode
               ? '***'
-              : `$${(cost ?? 0).toFixed(2)} / $${(maxCost ?? 0).toFixed(2)} max`
+              : `${formatUsd(cost ?? 0)} / ${formatUsd(maxCost ?? 0)} max`
           }
         >
-          {privacyMode ? '***' : `$${(cost ?? 0).toFixed(2)}`}
+          {privacyMode ? '***' : formatUsd(cost ?? 0)}
         </span>
       </div>
       <div className="mt-1 flex items-center justify-between gap-2 text-xs">
@@ -245,6 +248,7 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
   unPnlPending,
   legUnPnlPending,
 }) => {
+  const { formatUsd } = useReportingCurrency();
   const navigate = useNavigate();
   const resolvePairAsset = useResolvePairAsset();
 
@@ -470,15 +474,15 @@ const HedgeBotCardComponent: React.FC<HedgeBotCardProps> = ({
                 title={
                   privacyMode
                     ? '***'
-                    : `$${(currentCost ?? 0).toFixed(2)}`
+                    : formatUsd(currentCost ?? 0)
                 }
               >
-                {privacyMode ? '***' : `$${(currentCost ?? 0).toFixed(2)}`}
+                {privacyMode ? '***' : formatUsd(currentCost ?? 0)}
               </div>
               <div className="text-muted-foreground text-xs truncate">
                 {privacyMode
                   ? '***'
-                  : `Max: $${(maxCost ?? 0).toFixed(2)}`}
+                  : `Max: ${formatUsd(maxCost ?? 0)}`}
               </div>
             </div>
             <div className="min-w-0">

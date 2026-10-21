@@ -1,4 +1,5 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { dealWorkingMs, isLongStrategy } from '@/lib/utils/tradingMetrics';
 import { formatDuration } from '@/utils/formatters';
 import { percentBasisFromDeal } from '@/types/dcaDeal';
@@ -113,6 +114,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
   menuActions,
 }) => {
   const { id: paramBotId } = useParams<{ id: string }>();
+  const { formatUsd, currency } = useReportingCurrency();
   const gridPageContext = useOptionalGridPageContext();
   const gridState = gridPageContext?.state;
 
@@ -722,8 +724,7 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                       : 'text-red-600'
                                   }`}
                                 >
-                                  {deal.profit > 0 ? '+' : ''}$
-                                  {deal.profit.toFixed(2)}
+                                  {formatUsd(deal.profit, { sign: 'always' })}
                                 </div>
                               )}
                             </div>
@@ -836,13 +837,14 @@ const EditDealHistory: React.FC<EditDealHistoryProps> = ({
                                     <div className="space-y-xs">
                                       <div className="flex justify-between">
                                         <span className="text-sm">
-                                          Total USD:
+                                          Total {currency.code}:
                                         </span>
                                         <span
                                           className={`text-sm font-medium ${deal.profit > 0 ? 'text-green-600' : 'text-red-600'}`}
                                         >
-                                          {deal.profit > 0 ? '+' : ''}$
-                                          {deal.profit.toFixed(2)}
+                                          {formatUsd(deal.profit, {
+                                            sign: 'always',
+                                          })}
                                         </span>
                                       </div>
                                       {deal.profitPercentage && (

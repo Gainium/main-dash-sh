@@ -2,6 +2,8 @@
  * Utility functions for formatting data display
  */
 
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
+
 /**
  * Format bytes to human readable string
  */
@@ -76,9 +78,11 @@ export function formatDate(
 }
 
 /**
- * Format currency value
+ * Format currency value. A USD value (the default) is shown in the user's
+ * reporting currency; any other code is formatted as-is, unconverted.
  */
 export function formatCurrency(value: number, currency = 'USD'): string {
+  if (currency === 'USD') return formatUsdAsReporting(value);
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
     currency,

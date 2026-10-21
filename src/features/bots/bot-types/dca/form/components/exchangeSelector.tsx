@@ -5,6 +5,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import ExchangeIcon from '@/components/widgets/shared/ExchangeIcon';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import type { BotFormMode, BotFormUpdateValue, Fields } from '@/features/bots';
@@ -58,15 +59,13 @@ const ExchangeSelector = ({
       currentExchange?.name || currentExchange?.provider || 'Unknown exchange',
     [currentExchange?.name, currentExchange?.provider]
   );
+  const { formatUsd } = useReportingCurrency();
   const formatUsdAmount = useCallback((value?: number) => {
     if (!value || Number.isNaN(value)) {
       return null;
     }
-    return `$${value.toLocaleString('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: value >= 1000 ? 0 : 2,
-    })}`;
-  }, []);
+    return formatUsd(value, { decimals: value >= 1000 ? 0 : 2 });
+  }, [formatUsd]);
 
   // OKX Europe (my.okx.com) has no coin-margined product, so a legacy
   // okxInverse+EU sub-account stays hidden. Its linear leg (the X-Perps) is

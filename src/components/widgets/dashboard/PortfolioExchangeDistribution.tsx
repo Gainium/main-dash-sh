@@ -7,6 +7,7 @@ import { useChartColors } from '../../../hooks/useChartColors';
 import { useUIStore } from '../../../stores/uiStore';
 import { useWidgetDisplayName } from '../../../utils/widgetUtils';
 import { Donut, type DonutDataItem } from '../../ui/charts/Donut';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import WidgetWrapper, { type WidgetMenuActions } from '../WidgetWrapper';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 
@@ -55,6 +56,8 @@ export const PortfolioExchangeDistribution: React.FC<
 }) => {
   const chartColors = useChartColors();
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { holding, toReporting, format } = useReportingCurrency();
+  const formatValue = valueFormatter ?? ((value: number) => format(value));
   const { exchanges: exchangesList } = useTransformedExchangesFromContext();
 
   const { data: portfolioData, isLoading } = useGraphQL<PortfolioQuery>(
@@ -92,7 +95,11 @@ export const PortfolioExchangeDistribution: React.FC<
       if (!asset.exchanges || asset.exchanges.length === 0) {
         const key = 'Unknown';
         if (!exchangeTotals[key]) exchangeTotals[key] = { value: 0, count: 0 };
-        exchangeTotals[key].value += asset.amountUsd;
+        exchangeTotals[key].value += holding(
+          asset.name,
+          asset.amount || 0,
+          asset.amountUsd
+        );
         exchangeTotals[key].count += 1;
         return;
       }
@@ -114,7 +121,11 @@ export const PortfolioExchangeDistribution: React.FC<
                 ? asset.amountUsd / asset.amount
                 : 0);
         if (!Number.isFinite(exAmountUsd) || exAmountUsd <= 0) return;
-        exchangeTotals[exchangeName].value += exAmountUsd;
+        // In the reporting currency; a fiat holding in it at face amount
+        exchangeTotals[exchangeName].value +=
+          typeof ex.amount === 'number'
+            ? holding(asset.name, ex.amount, exAmountUsd)
+            : toReporting(exAmountUsd);
         exchangeTotals[exchangeName].count += 1;
       });
     });
@@ -137,7 +148,15 @@ export const PortfolioExchangeDistribution: React.FC<
     // If donutData passed from wrapper, prefer wrapper's values
     // (wrapper will also handle filtering)
     return items;
-  }, [portfolioData, exchangesList, chartColors, donutData, hasWrapperData]);
+  }, [
+    portfolioData,
+    exchangesList,
+    chartColors,
+    donutData,
+    hasWrapperData,
+    holding,
+    toReporting,
+  ]);
 
   const displayName = useWidgetDisplayName({
     id: widgetId,
@@ -182,15 +201,11 @@ export const PortfolioExchangeDistribution: React.FC<
           centerLabel={(() => {
             if (privacyMode) return '***';
             const total = exchangeData.reduce((s, i) => s + i.value, 0);
-            if (valueFormatter) return valueFormatter(total);
-            return `$${total.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`;
+            return formatValue(total);
           })()}
           centerSubLabel={'Exchange Distribution'}
           height={'100%'}
-          valueFormatter={valueFormatter}
+          valueFormatter={formatValue}
         />
       ) : (
         <div className="flex items-center justify-center h-full text-muted-foreground">

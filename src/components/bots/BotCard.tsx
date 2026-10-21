@@ -1,4 +1,5 @@
 import { cardHoverVariants } from '@/lib/animations/variants';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { BotNameBadges } from '@/lib/extensions/botListExtensions';
 import { AXIS_INDEX_KEY, withAxisIndex } from '@/lib/charts/axisIndex';
 import { cn } from '@/lib/utils';
@@ -135,6 +136,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
   privacyMode = false,
 }) => {
   const colors = useChartColors();
+  const { formatUsd } = useReportingCurrency();
   const resolvePairAsset = useResolvePairAsset();
   // DCA ladder position for the Usage ring's label. Grid/hedge cards have no
   // ladder, so the hook is fed an undefined id there and returns undefined.
@@ -667,8 +669,8 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                                   }
                                 </p>
                                 <p className="text-sm font-semibold">
-                                  Bot Equity: $
-                                  {Number(payload[0]?.value || 0).toFixed(2)}
+                                  Bot Equity:{' '}
+                                  {formatUsd(Number(payload[0]?.value || 0))}
                                 </p>
                               </div>
                             );
@@ -713,10 +715,10 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                     <div
                       className="text-card-foreground font-semibold text-sm truncate"
                       title={
-                        privacyMode ? '***' : `$${(bot.budget || 0).toFixed(2)}`
+                        privacyMode ? '***' : formatUsd(bot.budget || 0)
                       }
                     >
-                      {privacyMode ? '***' : `$${(bot.budget || 0).toFixed(2)}`}
+                      {privacyMode ? '***' : formatUsd(bot.budget || 0)}
                     </div>
                   </div>
                   <div className="min-w-0">
@@ -791,12 +793,12 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                       title={
                         privacyMode
                           ? '***'
-                          : `$${(bot.currentValue || 0).toFixed(2)}`
+                          : formatUsd(bot.currentValue || 0)
                       }
                     >
                       {privacyMode
                         ? '***'
-                        : `$${(bot.currentValue || 0).toFixed(2)}`}
+                        : formatUsd(bot.currentValue || 0)}
                     </div>
                     {/* A position's max cost is its cost, so "Max" would
                         only repeat the figure above. */}
@@ -804,7 +806,7 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                       <div className="text-muted-foreground text-xs truncate">
                         {privacyMode
                           ? '***'
-                          : `Max: $${(bot.maxValue || 0).toFixed(2)}`}
+                          : `Max: ${formatUsd(bot.maxValue || 0)}`}
                       </div>
                     )}
                   </div>

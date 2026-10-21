@@ -1,4 +1,9 @@
 import { StrategyEnum, type Bot, type DCABot, type Prices } from '../types';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
+import {
+  dcaBotProfitUsdForReporting,
+  friendlyUsd,
+} from '@/utils/bots/reportingProfit';
 import { findUSDRate } from '../lib/utils/unrealizedPnL';
 
 // Define helper functions inline since they're specific to this calculation
@@ -139,7 +144,7 @@ export const calculateBotValue = (
       value: 0,
       unrealizedValue: 0,
       valuePercentage: 0,
-      valueFriendly: '$0.00',
+      valueFriendly: formatUsdAsReporting(0),
       currentValue: 0,
       maxValue: 0,
       isActive: false,
@@ -159,7 +164,7 @@ export const calculateBotValue = (
       value: 0,
       unrealizedValue: 0,
       valuePercentage: 0,
-      valueFriendly: '$0.00',
+      valueFriendly: formatUsdAsReporting(0),
       currentValue: 0,
       maxValue: 0,
       isActive: false,
@@ -478,7 +483,8 @@ export const calculateBotValue = (
   maxValue = math.round(maxValue, 2);
 
   // GET REALIZED PROFITS FROM DEALS
-  const realizedProfit = dcaBot.profit?.totalUsd || 0;
+  // The bot's own figure when it is already in the reporting currency.
+  const realizedProfit = dcaBotProfitUsdForReporting(dcaBot);
 
   // NET PNL = UNREALIZED + REALIZED
   const totalProfit = unPnl + realizedProfit;
@@ -487,10 +493,7 @@ export const calculateBotValue = (
     value: totalProfit, // Net PnL — realized + unrealized
     unrealizedValue: unPnl, // Unrealized PnL on its own
     valuePercentage: unPnlPerc,
-    valueFriendly:
-      (totalProfit || 0) < 0
-        ? `-$${math.friendly((totalProfit || -0) * -1)}`
-        : `$${math.friendly(totalProfit || 0)}`,
+    valueFriendly: friendlyUsd(totalProfit),
     currentValue: currentValues,
     maxValue,
     isActive: active,

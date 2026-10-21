@@ -6,6 +6,8 @@ export interface Currency {
   symbol: string;
   /** Units of this currency per 1 USD. */
   rate: number;
+  /** Most fraction digits worth showing (2 when unset; 0 for JPY, IDR…). */
+  decimals?: number;
 }
 
 /** One cached fiat rate as the API serves it: 1 `asset` = `usdRate` USD. */
@@ -23,10 +25,37 @@ const USD: Currency = { code: 'USD', name: 'US Dollar', symbol: '$', rate: 1 };
 const FIAT_METADATA: Omit<Currency, 'rate'>[] = [
   { code: 'EUR', name: 'Euro', symbol: '€' },
   { code: 'GBP', name: 'British Pound', symbol: '£' },
+  { code: 'JPY', name: 'Japanese Yen', symbol: '¥', decimals: 0 },
   { code: 'CHF', name: 'Swiss Franc', symbol: 'CHF ' },
   { code: 'CAD', name: 'Canadian Dollar', symbol: 'C$' },
   { code: 'AUD', name: 'Australian Dollar', symbol: 'A$' },
-  { code: 'JPY', name: 'Japanese Yen', symbol: '¥' },
+  { code: 'NZD', name: 'New Zealand Dollar', symbol: 'NZ$' },
+  { code: 'SGD', name: 'Singapore Dollar', symbol: 'S$' },
+  { code: 'HKD', name: 'Hong Kong Dollar', symbol: 'HK$' },
+  { code: 'IDR', name: 'Indonesian Rupiah', symbol: 'Rp ', decimals: 0 },
+  { code: 'MYR', name: 'Malaysian Ringgit', symbol: 'RM ' },
+  { code: 'THB', name: 'Thai Baht', symbol: '฿' },
+  { code: 'PHP', name: 'Philippine Peso', symbol: '₱' },
+  { code: 'KRW', name: 'South Korean Won', symbol: '₩', decimals: 0 },
+  { code: 'INR', name: 'Indian Rupee', symbol: '₹' },
+  { code: 'CNY', name: 'Chinese Yuan', symbol: 'CN¥' },
+  { code: 'SEK', name: 'Swedish Krona', symbol: 'SEK ' },
+  { code: 'NOK', name: 'Norwegian Krone', symbol: 'NOK ' },
+  { code: 'DKK', name: 'Danish Krone', symbol: 'DKK ' },
+  { code: 'PLN', name: 'Polish Złoty', symbol: 'zł ' },
+  { code: 'CZK', name: 'Czech Koruna', symbol: 'Kč ' },
+  { code: 'HUF', name: 'Hungarian Forint', symbol: 'Ft ', decimals: 0 },
+  { code: 'RON', name: 'Romanian Leu', symbol: 'lei ' },
+  { code: 'TRY', name: 'Turkish Lira', symbol: '₺' },
+  { code: 'ILS', name: 'Israeli Shekel', symbol: '₪' },
+  { code: 'ZAR', name: 'South African Rand', symbol: 'R ' },
+  { code: 'BRL', name: 'Brazilian Real', symbol: 'R$' },
+  { code: 'MXN', name: 'Mexican Peso', symbol: 'MX$' },
+  { code: 'AED', name: 'UAE Dirham', symbol: 'AED ' },
+  { code: 'VND', name: 'Vietnamese Dong', symbol: '₫', decimals: 0 },
+  { code: 'NGN', name: 'Nigerian Naira', symbol: '₦' },
+  { code: 'ARS', name: 'Argentine Peso', symbol: 'AR$' },
+  { code: 'UAH', name: 'Ukrainian Hryvnia', symbol: '₴' },
 ];
 
 /**

@@ -67,6 +67,11 @@ import { formatDuration, formatPairPrice } from '@/utils/formatters';
 import { ResponsiveAmount } from '@/components/ui/ResponsiveAmount';
 import { getPrecision } from '@/features/trading-terminal/components/exchangeOrderColumns';
 import { formatNumber } from '@/utils/numberFormatter';
+import {
+  formatUsdAsReporting,
+  getReportingCurrency,
+  usdToReporting,
+} from '@/utils/reportingCurrency';
 import { extractPairAssets, findTradingPair } from '@/utils/pairs';
 import { useTradingPairsDataStore } from '@/stores/tradingPairsDataStore';
 import { SYMBOL_COLUMN_FILTER_META } from '@/components/widgets/shared/symbolColumnFilterMeta';
@@ -1759,7 +1764,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsdAsReporting(value)}
           </span>
         ),
       },
@@ -1818,7 +1823,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsdAsReporting(value)}
           </span>
         ),
         cell: ({ row }) => {
@@ -1938,7 +1943,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsdAsReporting(value)}
           </span>
         ),
         cell: ({ row }) => {
@@ -2097,7 +2102,9 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${formatNumber(value, true)}`}
+            {privacyMode
+              ? '***'
+              : `${getReportingCurrency().symbol}${formatNumber(usdToReporting(value), true)}`}
           </span>
         ),
       },

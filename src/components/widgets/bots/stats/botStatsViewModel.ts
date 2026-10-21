@@ -17,6 +17,12 @@
  */
 
 import { formatDuration } from '@/utils/formatters';
+import { profitUsdForReporting } from '@/utils/bots/reportingProfit';
+import {
+  formatFiat,
+  formatUsdAsReporting,
+  holdingToReporting,
+} from '@/utils/reportingCurrency';
 import { math } from '@/utils/math';
 import { StrategyEnum, type BotStats } from '@/types';
 
@@ -263,8 +269,11 @@ const dualValue = (
   usdOnly: boolean
 ): string =>
   usdOnly
-    ? `$${roundUsd(usd)}`
-    : `${fmtAsset(asset)}${profitSign ? ` ${profitSign}` : ''} ($${roundUsd(usd)})`;
+    ? formatUsdAsReporting(roundUsd(usd))
+    : `${fmtAsset(asset)}${profitSign ? ` ${profitSign}` : ''} (${formatFiat(
+        // The asset figure itself when it already is the reporting currency.
+        holdingToReporting(profitSign, asset ?? 0, roundUsd(usd))
+      )})`;
 
 
 /**
@@ -303,7 +312,13 @@ export const buildBotStatsHeadline = (
     closedDeals: wins + losses,
 
     netPerc: PERC(n.general.netProfitPerc),
-    netUsd: roundUsd(bot.profit?.totalUsd),
+    netUsd: roundUsd(
+      profitUsdForReporting(
+        resolveUsdOnly(bot) ? undefined : resolveProfitSign(bot),
+        netAssetOf(stats, bot),
+        bot.profit?.totalUsd ?? 0
+      )
+    ),
     netAsset: netAssetOf(stats, bot),
 
     // avgDaily* are already percent/USD on the transformed drawer bot.
@@ -368,7 +383,7 @@ export const buildBotStatsBreakdown = (
       netPerc: PERC(n.general.netProfitPerc),
       netText: dual(netAssetOf(stats, bot), bot.profit?.totalUsd),
       avgDailyPerc: math.round(bot.avgDailyPerc ?? 0),
-      avgDailyText: `$${roundUsd(bot.avgDaily)}`,
+      avgDailyText: formatUsdAsReporting(roundUsd(bot.avgDaily)),
       annualizedPerc:
         typeof bot.annualizedReturn === 'number' &&
         Number.isFinite(bot.annualizedReturn)
@@ -378,7 +393,7 @@ export const buildBotStatsBreakdown = (
       maxDealDuration: formatDuration(d.general.maxDealDuration ?? 0),
       dealsPerDay: math.round(d.general.dealsPerDay ?? 0, 2),
       openPnlPerc: math.round(bot.unPnlPerc ?? 0),
-      openPnlText: `$${roundUsd(bot.unPnl)}`,
+      openPnlText: formatUsdAsReporting(roundUsd(bot.unPnl)),
       workingTime: formatDuration(d.general.workingTime ?? 0),
     },
 
@@ -428,7 +443,7 @@ export const buildBotStatsBreakdown = (
         ? -Math.abs(PERC(n.loss.maxEquityDrawdownPerc))
         : null,
       maxEquityDdText: hasEquityDd
-        ? `$${roundUsd(n.loss.maxEquityDrawdown.usd)}`
+        ? formatUsdAsReporting(roundUsd(n.loss.maxEquityDrawdown.usd))
         : null,
       maxConsecutiveLosses: n.loss.maxConsecutiveLosses ?? 0,
       avgLosingTradeDuration: formatDuration(d.loss.avgLosingTradeDuration ?? 0),
@@ -450,7 +465,9 @@ export const buildBotStatsBreakdown = (
         : null,
       cwr: n.ratios.cwr ? math.round(n.ratios.cwr, 4) : null,
       buyAndHoldPerc: PERC(n.ratios.buyAndHold?.perc),
-      buyAndHoldText: `$${roundUsd(n.ratios.buyAndHold?.result)}`,
+      buyAndHoldText: formatUsdAsReporting(
+        roundUsd(n.ratios.buyAndHold?.result)
+      ),
     },
 
     dca: {

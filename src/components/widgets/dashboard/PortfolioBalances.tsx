@@ -36,7 +36,7 @@ import {
   type FilterItem,
 } from '../shared/WidgetFilterArea';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
-import { useFiatCurrencies } from '@/hooks/useFiatCurrencies';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 
 export interface PortfolioBalancesProps {
   widgetId?: string;
@@ -305,7 +305,6 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     'selectedExchanges',
     ['ALL']
   );
-  const [selectedCurrency, setSelectedCurrency] = useState('USD');
   const [customName, setCustomName] = usePersistedState('customName', '');
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
   const [showExchangeDialog, setShowExchangeDialog] = useState(false);
@@ -475,24 +474,22 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     });
   }, [data, selectedCoins, selectedExchanges]);
 
-  // USD plus each fiat with a live rate; an unknown or not-yet-loaded code
-  // resolves to USD.
-  const { currencies: availableCurrencies, getCurrencyInfo } =
-    useFiatCurrencies();
+  const { currency, holding, toReporting, format } = useReportingCurrency();
 
-  // Format value in selected currency
+  // Format a value already in the reporting currency
   const formatValueInCurrency = useCallback(
-    (value: number, showSymbol = true) => {
-      if (privacyMode) return '***';
-      const currencyInfo = getCurrencyInfo(selectedCurrency);
-      const convertedValue = value * currencyInfo.rate;
-      const formatted = convertedValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      });
-      return showSymbol ? `${currencyInfo.symbol}${formatted}` : formatted;
+    (value: number) => (privacyMode ? '***' : format(value)),
+    [format, privacyMode]
+  );
+
+  // A row's total in the reporting currency: a fiat balance in that currency
+  // keeps its face amount, everything else converts from its USD value.
+  const rowReportingValue = useCallback(
+    (row: BalanceRow) => {
+      const { total, usdValue } = getRowTotals(row);
+      return holding(String(row.asset), total, usdValue);
     },
-    [selectedCurrency, getCurrencyInfo, privacyMode]
+    [getRowTotals, holding]
   );
 
   // Format token amount
@@ -614,7 +611,7 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
       {
         id: 'totalUsd',
         header: 'TOTAL',
-        accessorFn: (row) => getRowTotals(row).usdValue,
+        accessorFn: (row) => rowReportingValue(row),
         cell: ({ getValue, row }) => {
           const totalValue = getValue() as number;
           const { total, priceUnavailable } = getRowTotals(row.original);
@@ -639,14 +636,12 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum' as const,
-          // The cell shows this USD value converted to the selected display
-          // currency, so filter on that figure; an unpriced holding has none.
+          // The cell shows the reporting-currency value, so filter on that
+          // figure; an unpriced holding has none.
           getNumericFilterValue: (row: unknown): number | undefined => {
-            const { usdValue, priceUnavailable } = getRowTotals(
-              row as BalanceRow
-            );
-            if (priceUnavailable) return undefined;
-            return usdValue * getCurrencyInfo(selectedCurrency).rate;
+            if (getRowTotals(row as BalanceRow).priceUnavailable)
+              return undefined;
+            return rowReportingValue(row as BalanceRow);
           },
         },
         footerValue: (value: number) => formatValueInCurrency(value),
@@ -675,7 +670,7 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
               >
                 {priceUnavailable
                   ? 'price unavailable'
-                  : formatPriceWithPrecision(price, '$')}
+                  : formatPriceWithPrecision(toReporting(price), currency.symbol)}
               </div>
             </div>
           );
@@ -690,17 +685,18 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
       formatTokenAmount,
       getRowTotals,
       exchanges,
-      getCurrencyInfo,
-      selectedCurrency,
+      rowReportingValue,
+      toReporting,
+      currency,
     ]
   );
 
   // Calculate total portfolio value
   const totalPortfolioValue = useMemo(() => {
     return filteredData.reduce((sum, item) => {
-      return sum + getRowTotals(item).usdValue;
+      return sum + rowReportingValue(item);
     }, 0);
-  }, [filteredData, getRowTotals]);
+  }, [filteredData, rowReportingValue]);
 
   const isLoading = isLoadingBalances || isLoadingScreener;
 
@@ -768,7 +764,7 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
   };
   const portfolioValue = {
     primary: privacyMode ? '***' : totalPortfolioValue,
-    secondary: getCurrencyInfo(selectedCurrency).code,
+    secondary: currency.code,
     change: privacyMode
       ? {
           value: '***',
@@ -856,63 +852,12 @@ const PortfolioBalances: React.FC<PortfolioBalancesProps> = ({
     showOptionsDialog,
     onCloseOptionsDialog: () => setShowOptionsDialog(false),
     optionsTitle: 'Widget Options',
-    renderOptionsContent: () => (
-      <div className="space-y-md">
-        {/* Currency Selection */}
-        <div>
-          <label className="text-sm font-medium text-foreground mb-2 block">
-            Display Currency
-          </label>
-          <div className="space-y-xs">
-            {availableCurrencies.map((currency) => (
-              <div
-                key={currency.code}
-                className="flex items-center justify-between p-xs rounded hover:bg-muted/50 cursor-pointer"
-                onClick={() => {
-                  setSelectedCurrency(currency.code);
-                }}
-              >
-                <div className="flex items-center gap-sm">
-                  <div className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-xs font-semibold">
-                    {currency.symbol}
-                  </div>
-                  <div>
-                    <div className="text-foreground font-medium text-sm">
-                      {currency.code}
-                    </div>
-                    <div className="text-muted-foreground text-xs">
-                      {currency.name}
-                    </div>
-                  </div>
-                </div>
-                {selectedCurrency === currency.code && (
-                  <div className="w-5 h-5 rounded-full bg-primary flex items-center justify-center">
-                    <svg
-                      className="w-3 h-3 text-primary-foreground"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fillRule="evenodd"
-                        d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z"
-                        clipRule="evenodd"
-                      />
-                    </svg>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    ),
     ...(onRemove && { onRemove }),
     ...(onSettings && { onSettings }),
     ...(onCollapse && { onCollapse }),
     ...(onTabMove && { onTabMove }),
     menuActions: {
       ...menuActions,
-      ...(isEditable && { onOptions: () => setShowOptionsDialog(true) }),
     },
     cacheQueries: [
       {

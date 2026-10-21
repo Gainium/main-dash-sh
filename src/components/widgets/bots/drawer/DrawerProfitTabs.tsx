@@ -738,6 +738,12 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
   // const avgDaily = workingDays > 0 ? (bot.profit?.totalUsd || 0) / workingDays : 0;
 
   // Profit Overview Section - Primary metrics
+  // Realized profit as the lists show it: the bot's own figure when it is
+  // already in the reporting currency (see `profitUsdForReporting`).
+  const realizedUsd =
+    (transformedBot as { totalProfitUsd?: number } | null)?.totalProfitUsd ??
+    rawBot?.profit?.totalUsd ??
+    0;
   const profitOverviewCards: MetricCardProps[] = [
     // Realized / Unrealized / Net, in that order, on every bot type — the
     // same three the bot lists show, from the same fields. Grid derives its
@@ -754,7 +760,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
             label: 'Realized PnL',
             value: (
               <ProfitAndPerc
-                value={rawBot?.profit?.totalUsd || 0}
+                value={realizedUsd}
                 percentage={transformedBot?.fullProfitPerc || 0}
                 privacyMode={privacyMode}
                 chipPosition="right"
@@ -827,7 +833,7 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
             label: 'Realized PnL',
             value: (
               <ProfitAndPerc
-                value={rawBot?.profit?.totalUsd || 0}
+                value={realizedUsd}
                 percentage={valueMetrics.totalProfitPercent}
                 privacyMode={privacyMode}
                 chipPosition="right"
@@ -860,13 +866,10 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
               <Skeleton className="h-4 w-20" />
             ) : (
               <ProfitAndPerc
-                value={
-                  (rawBot?.profit?.totalUsd || 0) + valueMetrics.currentValue
-                }
+                value={realizedUsd + valueMetrics.currentValue}
                 percentage={
                   (rawBot?.currentValue || rawBot?.maxValue || 0) > 0
-                    ? (((rawBot?.profit?.totalUsd || 0) +
-                        valueMetrics.currentValue) /
+                    ? ((realizedUsd + valueMetrics.currentValue) /
                         (rawBot?.currentValue || rawBot?.maxValue || 1)) *
                       100
                     : 0

@@ -11,6 +11,8 @@
  * Routes: `/hedge/bot`.
  */
 import { PendingLiveValue } from '@/components/ui/pending-live-value';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { dcaBotProfitUsdForReporting } from '@/utils/bots/reportingProfit';
 import { useCallback, useMemo, useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { Archive, Bot, Plus } from 'lucide-react';
@@ -252,6 +254,7 @@ const HedgeDcaBots = () => {
   const bots = botListPaging.bots;
   const unPnlMap = useHedgeUnPnlMap(bots, false);
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { formatUsd } = useReportingCurrency();
   // Demo/read-only sessions can't create bots — gate the "New" button the
   // same way the regular bot lists do.
   const readOnly = useIsReadOnly();
@@ -276,7 +279,7 @@ const HedgeDcaBots = () => {
           return {
             status: bot.status,
             totalProfitUsd: legs.reduce(
-              (sum, leg) => sum + (leg.profit?.totalUsd || 0),
+              (sum, leg) => sum + dcaBotProfitUsdForReporting(leg),
               0
             ),
             todayProfitUsd: legs.reduce(
@@ -312,7 +315,7 @@ const HedgeDcaBots = () => {
         // arithmetic and don't render 0 when only one leg has closed
         // deals.
         const totalProfitUsd = (bot.bots ?? []).reduce(
-          (acc, leg) => acc + (leg.profit?.totalUsd ?? 0),
+          (acc, leg) => acc + dcaBotProfitUsdForReporting(leg),
           0
         );
         // Deal-derived unrealized per leg + combined.
@@ -411,7 +414,7 @@ const HedgeDcaBots = () => {
       unPnlMap.get(selectedHedgeBot._id) ??
       computeHedgeUnPnl(selectedHedgeBot, getLocalPrices(), [], false, exchanges);
     const totalProfitUsd = (selectedHedgeBot.bots ?? []).reduce(
-      (acc, leg) => acc + (leg.profit?.totalUsd ?? 0),
+      (acc, leg) => acc + dcaBotProfitUsdForReporting(leg),
       0
     );
     return {
@@ -633,7 +636,7 @@ const HedgeDcaBots = () => {
         accessorFn: (row) => row.__currentCost ?? 0,
         cell: ({ getValue }) => (
           <span className="text-sm">
-            ${(getValue() as number).toFixed(2)}
+            {privacyMode ? '***' : formatUsd(getValue() as number)}
           </span>
         ),
         meta: {
@@ -644,7 +647,9 @@ const HedgeDcaBots = () => {
         },
         aggregationFn: 'sum',
         footerValue: (value: number) => (
-          <span className="text-sm font-bold">${value.toFixed(2)}</span>
+          <span className="text-sm font-bold">
+            {privacyMode ? '***' : formatUsd(value)}
+          </span>
         ),
       },
       {
@@ -660,7 +665,7 @@ const HedgeDcaBots = () => {
           return (
             <PendingLiveValue pending={row.original.__unPnlPending}>
               <span className="text-sm">
-                {privacyMode ? '***' : `$${value.toFixed(2)}`}
+                {privacyMode ? '***' : formatUsd(value)}
               </span>
             </PendingLiveValue>
           );
@@ -674,7 +679,7 @@ const HedgeDcaBots = () => {
         aggregationFn: 'sum',
         footerValue: (value: number) => (
           <span className="text-sm font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -684,7 +689,7 @@ const HedgeDcaBots = () => {
         accessorFn: (row) => row.__maxCost ?? 0,
         cell: ({ getValue }) => (
           <span className="text-sm text-muted-foreground">
-            ${(getValue() as number).toFixed(2)}
+            {privacyMode ? '***' : formatUsd(getValue() as number)}
           </span>
         ),
         meta: {
@@ -696,7 +701,7 @@ const HedgeDcaBots = () => {
         aggregationFn: 'sum',
         footerValue: (value: number) => (
           <span className="text-sm font-bold text-muted-foreground">
-            ${value.toFixed(2)}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -766,7 +771,7 @@ const HedgeDcaBots = () => {
                   : 'text-sm text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -802,7 +807,7 @@ const HedgeDcaBots = () => {
                   : 'text-sm text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -848,7 +853,7 @@ const HedgeDcaBots = () => {
                   : 'text-sm text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -883,7 +888,7 @@ const HedgeDcaBots = () => {
                   : 'text-sm text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -945,7 +950,7 @@ const HedgeDcaBots = () => {
     // (the unrealized values are baked into `enrichedBots`). The only reactive
     // dep is privacyMode, which the profit/PnL cells honor by masking values,
     // plus the account zone the Created cell renders its day in.
-    [privacyMode, accountTimeZone]
+    [privacyMode, accountTimeZone, formatUsd]
   );
   // Server mode only honours sorts/filters with a server field.
   const serverColumns = useMemo(

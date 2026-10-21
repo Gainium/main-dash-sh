@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { useWidgetSettings } from '@/hooks/useWidgetSettings';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { useUIStore } from '@/stores/uiStore';
@@ -40,6 +41,7 @@ const ProfitOverTimeNavigationView: React.FC<
   ProfitOverTimeNavigationViewProps
 > = ({ widgetId, compact: _compact = false }) => {
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, formatUsd } = useReportingCurrency();
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [profitData, setProfitData] = useState<{
     value: number;
@@ -254,17 +256,14 @@ const ProfitOverTimeNavigationView: React.FC<
       <div className="flex flex-col gap-0.5 shrink-0 cursor-pointer hover:bg-accent/50 px-2 py-1 rounded transition-all duration-200 hover:scale-105 min-w-[80px]">
         <div className="flex items-center gap-1 justify-center">
           <span className="font-medium text-xs text-muted-foreground">
-            $ {getTimeframeLabel()}
+            {currency.symbol} {getTimeframeLabel()}
           </span>
         </div>
 
         <div className="text-xs font-medium text-center">
           {privacyMode
             ? '***'
-            : `$${profitData.value.toLocaleString('en-US', {
-                minimumFractionDigits: 2,
-                maximumFractionDigits: 2,
-              })}`}
+            : formatUsd(profitData.value)}
         </div>
 
         <div className="flex justify-center">

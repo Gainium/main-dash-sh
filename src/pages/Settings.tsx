@@ -90,6 +90,7 @@ import {
 } from '../hooks/useUserSettings';
 import logger from '../lib/loggerInstance';
 import { toast } from '../lib/toast';
+import { ReportingCurrencySelect } from '../components/settings/ReportingCurrencySelect';
 import { useLocalUserSettingsStore } from '../stores/localUserSettingsStore';
 import {
   AVAILABLE_SOUNDS,
@@ -935,6 +936,8 @@ const Settings: React.FC = () => {
                     </SelectContent>
                   </Select>
                 </div>
+
+                <ReportingCurrencySelect disabled={isLoading} />
 
                 <div>
                   <Label

@@ -7,19 +7,18 @@ import ExchangeIcon from '@/components/widgets/shared/ExchangeIcon';
 import { useUIStore } from '@/stores/uiStore';
 import { cn } from '@/lib/utils';
 import { getProviderIcon } from '@/utils/exchangeUtils';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 
 import type { FuturesSummary } from './futuresSummary';
 import { useFuturesSummary } from './useFuturesSummary';
 
 export const POSITIONS_HREF = '/terminal?view=positions';
 
+/** A USD value in the reporting currency. */
 const usd = (v: number, signed = false) => {
-  const abs = Math.abs(v).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  if (!signed) return `${v < 0 ? '−' : ''}$${abs}`;
-  return `${v > 0 ? '+' : v < 0 ? '−' : ''}$${abs}`;
+  const abs = formatUsdAsReporting(Math.abs(v));
+  if (!signed) return `${v < 0 ? '−' : ''}${abs}`;
+  return `${v > 0 ? '+' : v < 0 ? '−' : ''}${abs}`;
 };
 
 const tone = (v: number | null) =>

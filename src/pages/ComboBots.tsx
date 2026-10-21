@@ -1,4 +1,5 @@
 import { isReadOnly } from '@/lib/demoMode';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
@@ -117,6 +118,7 @@ const ComboBots: React.FC = () => {
   const params = useParams<{ id?: string }>();
   const selectedBot = params.id ?? null;
   const privacyMode = useUIStore((state) => state.privacyMode);
+  const { formatUsd, currency } = useReportingCurrency();
 
   // When opening a specific bot via /combo/view/:id, keep the bot's real
   // paper/live mode authoritative over the global toggle so a refresh doesn't
@@ -772,17 +774,17 @@ const ComboBots: React.FC = () => {
         aggregationFn: 'sum',
         cell: ({ getValue }) => {
           const cost = getValue() as number;
-          return <span>{privacyMode ? '***' : `$${cost.toFixed(2)}`}</span>;
+          return <span>{privacyMode ? '***' : formatUsd(cost)}</span>;
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
       {
         accessorKey: 'totalProfitUsd',
-        header: 'REALIZED PNL, $',
+        header: `REALIZED PNL, ${currency.symbol}`,
         meta: {
           description: BOT_METRIC_DESCRIPTIONS.combo.realizedPnl,
           filterType: 'number',
@@ -813,7 +815,7 @@ const ComboBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -868,9 +870,7 @@ const ComboBots: React.FC = () => {
           >
             {privacyMode
               ? '***'
-              : value < 0
-                ? `-$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-                : `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
+              : formatUsd(value)}
           </span>
         ),
       },
@@ -907,7 +907,7 @@ const ComboBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -956,7 +956,7 @@ const ComboBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1034,11 +1034,11 @@ const ComboBots: React.FC = () => {
         aggregationFn: 'sum',
         cell: ({ getValue }) => {
           const cost = getValue() as number;
-          return <span>{privacyMode ? '***' : `$${cost.toFixed(2)}`}</span>;
+          return <span>{privacyMode ? '***' : formatUsd(cost)}</span>;
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1063,13 +1063,13 @@ const ComboBots: React.FC = () => {
           }
           return (
             <PendingLiveValue pending={row.original.unPnlPending}>
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </PendingLiveValue>
           );
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1211,7 +1211,7 @@ const ComboBots: React.FC = () => {
         size: 56,
       },
     ],
-    [privacyMode, botDataMap, accountTimeZone]
+    [privacyMode, botDataMap, accountTimeZone, formatUsd, currency]
   );
   // Server mode only honours sorts/filters with a server field.
   const serverColumns = useMemo(

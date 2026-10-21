@@ -1,4 +1,7 @@
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import type { DCABot } from '@/types';
+import { dcaBotProfitUsdForReporting } from '@/utils/bots/reportingProfit';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import React from 'react';
 import { BarChart3 } from 'lucide-react';
 import { WidgetWrapper, type WidgetMenuActions } from '../WidgetWrapper';
@@ -123,7 +126,8 @@ const BotPerformance: React.FC<BotPerformanceProps> = ({
     // Calculate total profit from bots
     bots.forEach((bot) => {
       if (bot.profit?.totalUsd) {
-        totalProfit += bot.profit.totalUsd;
+        // The bot's own figure when it is already in the reporting currency.
+        totalProfit += dcaBotProfitUsdForReporting(bot as DCABot);
       }
     });
 
@@ -189,8 +193,9 @@ const BotPerformance: React.FC<BotPerformanceProps> = ({
                 <div
                   className={`text-2xl font-bold ${performanceMetrics.totalProfit >= 0 ? 'text-profit' : 'text-loss'}`}
                 >
-                  {performanceMetrics.totalProfit >= 0 ? '+' : ''}$
-                  {performanceMetrics.totalProfit.toFixed(2)}
+                  {formatUsdAsReporting(performanceMetrics.totalProfit, {
+                    sign: 'always',
+                  })}
                 </div>
                 <div className="flex items-center justify-center gap-1 text-sm text-muted-foreground">
                   Realized PnL

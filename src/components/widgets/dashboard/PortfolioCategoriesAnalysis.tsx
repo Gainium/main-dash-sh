@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type PortfolioQuery } from '@/types';
 import React, { useContext, useEffect, useMemo, useState } from 'react';
@@ -123,6 +124,7 @@ export const PortfolioCategoriesAnalysis: React.FC<
 
   // Get privacy mode state
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, holding } = useReportingCurrency();
 
   // Get exchange data
   const { exchanges } = useTransformedExchangesFromContext();
@@ -195,7 +197,12 @@ export const PortfolioCategoriesAnalysis: React.FC<
       const categories = ASSET_CATEGORIES[asset.name.toUpperCase()] || [
         'Other',
       ];
-      const assetValue = asset.amountUsd;
+      // In the reporting currency; a fiat holding in it at face amount
+      const assetValue = holding(
+        asset.name,
+        asset.amount || 0,
+        asset.amountUsd
+      );
       totalValue += assetValue;
 
       categories.forEach((category) => {
@@ -224,7 +231,7 @@ export const PortfolioCategoriesAnalysis: React.FC<
     });
 
     return chartData;
-  }, [portfolioData, colorArray]);
+  }, [portfolioData, colorArray, holding]);
 
   // Exchange filter options
   const exchangeFilterOptions: FilterItem[] = useMemo(() => {
@@ -282,7 +289,7 @@ export const PortfolioCategoriesAnalysis: React.FC<
     const numValue = typeof value === 'number' ? value : 0;
     const item = categoryData.find((d) => d.name === name);
     return [
-      `$${numValue.toLocaleString()}`,
+      `${currency.symbol}${numValue.toLocaleString()}`,
       `${name} (${item?.percentage || 0}%)`,
     ];
   };
@@ -349,7 +356,9 @@ export const PortfolioCategoriesAnalysis: React.FC<
                 interval={0}
               />
               <YAxis
-                tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                tickFormatter={(value) =>
+                  `${currency.symbol}${(value / 1000).toFixed(0)}k`
+                }
                 fontSize={12}
               />
               <Tooltip

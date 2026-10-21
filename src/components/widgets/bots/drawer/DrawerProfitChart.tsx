@@ -1,8 +1,8 @@
-import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
-import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
-import { getTzDateKey, getTzDayBounds } from '@/utils/timeUtils';
-import { BarChart3 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import { axisIndexProps, withAxisIndex } from "@/lib/charts/axisIndex";
+import { useAccountTimeZone } from "@/hooks/useAccountTimeZone";
+import { getTzDateKey, getTzDayBounds } from "@/utils/timeUtils";
+import { BarChart3 } from "lucide-react";
+import React, { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -13,15 +13,16 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
+} from "recharts";
 /* import { useDcaBots } from '../../../../hooks/useDcaBots'; */
-import { useDcaDeals } from '../../../../hooks/useDcaDeals';
-import { CHART_COLORS } from '../../../../lib/colors';
-import CustomTooltip from '../../../charts/CustomTooltip';
-import { FilterSection, SelectionDialog } from '../../shared/WidgetFilterArea';
-import WidgetStats from '../../shared/WidgetStats';
-import { DrawerSection } from './DrawerSection';
-import type { DrawerBot } from '@/types/bots/drawer';
+import { useDcaDeals } from "../../../../hooks/useDcaDeals";
+import { CHART_COLORS } from "../../../../lib/colors";
+import CustomTooltip from "../../../charts/CustomTooltip";
+import { formatUsdAsReporting } from "@/utils/reportingCurrency";
+import { FilterSection, SelectionDialog } from "../../shared/WidgetFilterArea";
+import WidgetStats from "../../shared/WidgetStats";
+import { DrawerSection } from "./DrawerSection";
+import type { DrawerBot } from "@/types/bots/drawer";
 
 // Interface for processed profit data
 interface ProfitData {
@@ -58,8 +59,8 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
   const userTimezone = useAccountTimeZone();
 
   // State for filters
-  const [timeFilter, setTimeFilter] = useState('Daily');
-  const [selectedExchanges, setSelectedExchanges] = useState(['ALL']);
+  const [timeFilter, setTimeFilter] = useState("Daily");
+  const [selectedExchanges, setSelectedExchanges] = useState(["ALL"]);
   const [showExchangeDialog, setShowExchangeDialog] = useState(false);
   const [showBuyAndHold, setShowBuyAndHold] = useState(false);
 
@@ -94,7 +95,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
 
     // Filter completed deals with profit data
     const completedDeals = botDeals.filter(
-      (deal) => deal.status === 'closed' && deal.profit?.totalUsd !== undefined
+      (deal) => deal.status === "closed" && deal.profit?.totalUsd !== undefined,
     );
 
     if (completedDeals.length === 0) {
@@ -111,7 +112,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
     // Sort deals by creation time for cumulative calculations
     const sortedDeals = completedDeals.sort(
       (a, b) =>
-        new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
+        new Date(a.createTime).getTime() - new Date(b.createTime).getTime(),
     );
 
     // Calculate total invested amount for buy-and-hold comparison
@@ -139,7 +140,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
     let differencePercent = 0;
     let avgDaily = 0;
 
-    if (timeFilter === 'Daily') {
+    if (timeFilter === "Daily") {
       // Calculate daily profits, bucketed by the deal's day in the ACCOUNT's
       // timezone — one convention for the keys, the window and the labels.
       const dailyProfits = new Map<string, number>();
@@ -154,7 +155,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       const todayKey =
         getTzDateKey(new Date(), userTimezone) ||
         new Date().toISOString().slice(0, 10);
-      const [todayYear, todayMonth, todayDay] = todayKey.split('-').map(Number);
+      const [todayYear, todayMonth, todayDay] = todayKey.split("-").map(Number);
       const chartDataArray: Array<{
         date: string;
         value: number;
@@ -166,7 +167,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       for (let i = 29; i >= 0; i--) {
         // `Date.UTC` normalises the subtraction across month and year ends.
         const dayUTC = new Date(
-          Date.UTC(todayYear, todayMonth - 1, todayDay - i)
+          Date.UTC(todayYear, todayMonth - 1, todayDay - i),
         );
         if (!Number.isFinite(dayUTC.getTime())) continue;
         const dateString = dayUTC.toISOString().slice(0, 10);
@@ -174,7 +175,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           todayYear,
           todayMonth,
           todayDay - i,
-          userTimezone
+          userTimezone,
         );
         // That day's own midnight instant, so the tooltip resolves back to it.
         const slot = bounds ? new Date(bounds.start) : dayUTC;
@@ -186,10 +187,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           : undefined;
 
         chartDataArray.push({
-          date: slot.toLocaleDateString('en-US', {
+          date: slot.toLocaleDateString("en-US", {
             timeZone: userTimezone,
-            month: 'short',
-            day: 'numeric',
+            month: "short",
+            day: "numeric",
           }),
           value: runningTotal,
           ...(buyAndHoldValue !== undefined && { buyAndHoldValue }),
@@ -212,14 +213,14 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       avgDaily =
         chartDataArray.reduce((sum, item) => sum + item.value, 0) /
         chartDataArray.length;
-    } else if (timeFilter === 'Weekly') {
+    } else if (timeFilter === "Weekly") {
       // Calculate weekly profits
       const weeklyProfits = new Map<string, number>();
       completedDeals.forEach((deal) => {
         const date = new Date(deal.createTime);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        const weekKey = weekStart.toISOString().split('T')[0];
+        const weekKey = weekStart.toISOString().split("T")[0];
         const current = weeklyProfits.get(weekKey) || 0;
         weeklyProfits.set(weekKey, current + (deal.profit?.totalUsd || 0));
       });
@@ -239,7 +240,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
         date.setDate(todayDate.getDate() - i * 7);
         const weekStart = new Date(date);
         weekStart.setDate(date.getDate() - date.getDay());
-        const weekKey = weekStart.toISOString().split('T')[0];
+        const weekKey = weekStart.toISOString().split("T")[0];
         const profitValue = weeklyProfits.get(weekKey) || 0;
         runningTotal += profitValue;
 
@@ -249,7 +250,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
 
         const weekNum = Math.ceil(
           (date.getTime() - new Date(date.getFullYear(), 0, 1).getTime()) /
-            (7 * 24 * 60 * 60 * 1000)
+            (7 * 24 * 60 * 60 * 1000),
         );
         chartDataArray.push({
           date: `W${weekNum}`,
@@ -272,12 +273,12 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       avgDaily =
         chartDataArray.reduce((sum, item) => sum + item.value, 0) /
         chartDataArray.length;
-    } else if (timeFilter === 'Monthly') {
+    } else if (timeFilter === "Monthly") {
       // Calculate monthly profits
       const monthlyProfits = new Map<string, number>();
       completedDeals.forEach((deal) => {
         const date = new Date(deal.createTime);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         const current = monthlyProfits.get(monthKey) || 0;
         monthlyProfits.set(monthKey, current + (deal.profit?.totalUsd || 0));
       });
@@ -295,7 +296,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       for (let i = 11; i >= 0; i--) {
         const date = new Date(todayDate);
         date.setMonth(todayDate.getMonth() - i);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
         const profitValue = monthlyProfits.get(monthKey) || 0;
         runningTotal += profitValue;
 
@@ -304,16 +305,16 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           : undefined;
 
         chartDataArray.push({
-          date: date.toLocaleDateString('en-US', {
-            month: 'short',
-            year: '2-digit',
+          date: date.toLocaleDateString("en-US", {
+            month: "short",
+            year: "2-digit",
           }),
           value: runningTotal,
           ...(buyAndHoldValue !== undefined && { buyAndHoldValue }),
           fullDate: date.toISOString(),
-          label: date.toLocaleDateString('en-US', {
-            month: 'long',
-            year: 'numeric',
+          label: date.toLocaleDateString("en-US", {
+            month: "long",
+            year: "numeric",
           }),
         });
       }
@@ -335,7 +336,7 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       // Calculate cumulative profit over time
       const sortedDeals = completedDeals.sort(
         (a, b) =>
-          new Date(a.createTime).getTime() - new Date(b.createTime).getTime()
+          new Date(a.createTime).getTime() - new Date(b.createTime).getTime(),
       );
       let runningTotal = 0;
       const chartDataArray: Array<{
@@ -392,18 +393,18 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
   // arrives here. Other timeframes keep the default: their points are built
   // from browser-local dates, so a zone argument would move them.
   const tooltipLabel = useMemo(() => {
-    if (timeFilter !== 'Daily') return undefined;
+    if (timeFilter !== "Daily") return undefined;
     const rows = currentProfitData.chartData;
     return (axisValue: unknown): React.ReactNode => {
       const row = rows[Number(axisValue)];
       const date = row ? new Date(row.fullDate) : new Date(NaN);
-      if (Number.isNaN(date.getTime())) return row?.label ?? '';
-      return date.toLocaleDateString('en-US', {
+      if (Number.isNaN(date.getTime())) return row?.label ?? "";
+      return date.toLocaleDateString("en-US", {
         timeZone: userTimezone,
-        weekday: 'short',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
+        weekday: "short",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
       });
     };
   }, [timeFilter, currentProfitData.chartData, userTimezone]);
@@ -415,32 +416,32 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
     // First stat - Today/This Period
     stats.push({
       label:
-        timeFilter === 'Total'
-          ? 'Total'
-          : timeFilter === 'Monthly'
-            ? 'This Month'
-            : timeFilter === 'Weekly'
-              ? 'This Week'
-              : 'Today',
+        timeFilter === "Total"
+          ? "Total"
+          : timeFilter === "Monthly"
+            ? "This Month"
+            : timeFilter === "Weekly"
+              ? "This Week"
+              : "Today",
       value: currentProfitData.today,
     });
 
     // Conditional stats for non-Total timeframes
-    if (timeFilter !== 'Total') {
+    if (timeFilter !== "Total") {
       // Second stat - Yesterday/Last Period
       stats.push({
         label:
-          timeFilter === 'Monthly'
-            ? 'Last Month'
-            : timeFilter === 'Weekly'
-              ? 'Last Week'
-              : 'Yesterday',
+          timeFilter === "Monthly"
+            ? "Last Month"
+            : timeFilter === "Weekly"
+              ? "Last Week"
+              : "Yesterday",
         value: currentProfitData.yesterday,
       });
 
       // Third stat - Change
       stats.push({
-        label: 'Change',
+        label: "Change",
         value: currentProfitData.difference,
         badge: {
           value: currentProfitData.differencePercent,
@@ -450,11 +451,11 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
       // Fourth stat - Average
       stats.push({
         label:
-          timeFilter === 'Monthly'
-            ? 'Avg monthly'
-            : timeFilter === 'Weekly'
-              ? 'Avg weekly'
-              : 'Avg daily',
+          timeFilter === "Monthly"
+            ? "Avg monthly"
+            : timeFilter === "Weekly"
+              ? "Avg weekly"
+              : "Avg daily",
         value: currentProfitData.avgDaily,
       });
     }
@@ -464,24 +465,24 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
 
   // Exchange management functions
   const handleExchangeToggle = (exchangeId: string) => {
-    if (exchangeId === 'ALL') {
-      if (!selectedExchanges.includes('ALL')) {
-        setSelectedExchanges(['ALL']);
+    if (exchangeId === "ALL") {
+      if (!selectedExchanges.includes("ALL")) {
+        setSelectedExchanges(["ALL"]);
         return;
       }
     }
 
     if (selectedExchanges.includes(exchangeId)) {
       const newSelectedExchanges = selectedExchanges.filter(
-        (e) => e !== exchangeId
+        (e) => e !== exchangeId,
       );
       if (newSelectedExchanges.length === 0) {
-        setSelectedExchanges(['ALL']);
+        setSelectedExchanges(["ALL"]);
       } else {
         setSelectedExchanges(newSelectedExchanges);
       }
     } else {
-      const newSelectedExchanges = selectedExchanges.includes('ALL')
+      const newSelectedExchanges = selectedExchanges.includes("ALL")
         ? [exchangeId]
         : [...selectedExchanges, exchangeId];
       setSelectedExchanges(newSelectedExchanges);
@@ -584,14 +585,14 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                 <XAxis
                   {...axisIndexProps(
                     currentProfitData.chartData,
-                    (point) => point.date
+                    (point) => point.date,
                   )}
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: 'currentColor',
+                    fill: "currentColor",
                     fontSize: 10,
-                    className: 'text-muted-foreground',
+                    className: "text-muted-foreground",
                   }}
                   interval="preserveStartEnd"
                 />
@@ -599,26 +600,39 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: 'currentColor',
+                    fill: "currentColor",
                     fontSize: 8,
-                    className: 'text-muted-foreground',
+                    className: "text-muted-foreground",
                   }}
-                  tickFormatter={(value) => `$${value}`}
+                  tickFormatter={(value) =>
+                    formatUsdAsReporting(value, { compact: true })
+                  }
                   width={40}
                 />
                 <Tooltip
-                  content={<CustomTooltip labelFormatter={tooltipLabel} />}
+                  content={
+                    <CustomTooltip
+                      labelFormatter={tooltipLabel}
+                      valueFormatter={(v, name) => [
+                        formatUsdAsReporting(Number(v)),
+                        name.charAt(0).toUpperCase() + name.slice(1),
+                      ]}
+                    />
+                  }
                   cursor={false}
                 />
                 <Bar
-                  isAnimationActive={false} dataKey="value" radius={[4, 4, 0, 0]}>
+                  isAnimationActive={false}
+                  dataKey="value"
+                  radius={[4, 4, 0, 0]}
+                >
                   {currentProfitData.chartData.map((entry, index) => (
                     <Cell
                       key={`cell-${index}`}
                       fill={
                         entry.value >= 0
-                          ? 'url(#profitGradient)'
-                          : 'url(#lossGradient)'
+                          ? "url(#profitGradient)"
+                          : "url(#lossGradient)"
                       }
                     />
                   ))}
@@ -641,14 +655,14 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
 
         {/* Time Filter Buttons */}
         <div className="flex items-center justify-center gap-1 mb-4">
-          {['Daily', 'Weekly', 'Monthly', 'Total'].map((filter) => (
+          {["Daily", "Weekly", "Monthly", "Total"].map((filter) => (
             <button
               key={filter}
               onClick={() => setTimeFilter(filter)}
               className={`px-3 py-1 text-xs rounded ${
                 filter === timeFilter
-                  ? 'bg-muted text-foreground border border-border'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? "bg-muted text-foreground border border-border"
+                  : "text-muted-foreground hover:text-foreground"
               }`}
             >
               {filter}
@@ -674,10 +688,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           title="Exchanges"
           selectedItems={selectedExchanges}
           availableItems={[
-            { id: 'ALL', name: 'All Exchanges' },
-            { id: 'binance', name: 'Binance' },
-            { id: 'kucoin', name: 'KuCoin' },
-            { id: 'bybit', name: 'Bybit' },
+            { id: "ALL", name: "All Exchanges" },
+            { id: "binance", name: "Binance" },
+            { id: "kucoin", name: "KuCoin" },
+            { id: "bybit", name: "Bybit" },
           ]}
           onItemRemove={handleExchangeToggle}
           onShowDialog={() => setShowExchangeDialog(true)}
@@ -689,10 +703,10 @@ export const DrawerProfitChart: React.FC<DrawerProfitChartProps> = ({
           onClose={() => setShowExchangeDialog(false)}
           title="Select Exchanges"
           items={[
-            { id: 'ALL', name: 'All Exchanges' },
-            { id: 'binance', name: 'Binance' },
-            { id: 'kucoin', name: 'KuCoin' },
-            { id: 'bybit', name: 'Bybit' },
+            { id: "ALL", name: "All Exchanges" },
+            { id: "binance", name: "Binance" },
+            { id: "kucoin", name: "KuCoin" },
+            { id: "bybit", name: "Bybit" },
           ]}
           selectedItems={selectedExchanges}
           onItemToggle={handleExchangeToggle}

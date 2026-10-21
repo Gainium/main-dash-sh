@@ -47,6 +47,7 @@ import {
   pairContractSymbol,
 } from '@/utils/pairPicker';
 import { isFuturesExchange } from '@/utils/exchangeUtils';
+import { getReportingCurrency } from '@/utils/reportingCurrency';
 import { ASSET_CLASS_LABELS, ASSET_CLASS_ORDER } from './assetClassLabels';
 import CoinPair from './CoinPair';
 import { ListModalRow, type ListItem } from './ListModal';
@@ -276,23 +277,27 @@ const PairCell: React.FC<{ row: PairPickerRow }> = ({ row }) => {
   );
 };
 
-const compactUsd = (n: number) => {
+const compactUsd = (usd: number) => {
+  const { symbol: sym, rate } = getReportingCurrency();
+  const n = usd * rate;
   const abs = Math.abs(n);
-  if (abs >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-  return `$${Math.round(n)}`;
+  if (abs >= 1e12) return `${sym}${(n / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sym}${(n / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${sym}${(n / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sym}${(n / 1e3).toFixed(1)}K`;
+  return `${sym}${Math.round(n)}`;
 };
 
-const formatPrice = (n: number) => {
+const formatPrice = (usd: number) => {
+  const { symbol: sym, rate } = getReportingCurrency();
+  const n = usd * rate;
   if (n >= 1)
-    return `$${n.toLocaleString('en-US', {
+    return `${sym}${n.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  if (n >= 0.01) return `$${n.toFixed(4)}`;
-  return `$${n.toPrecision(2)}`;
+  if (n >= 0.01) return `${sym}${n.toFixed(4)}`;
+  return `${sym}${n.toPrecision(2)}`;
 };
 
 const ChangeValue: React.FC<{ value: number }> = ({ value }) => (

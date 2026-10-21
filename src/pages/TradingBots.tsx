@@ -1,4 +1,5 @@
 import { dcaDealToOpenTrade } from '@/lib/utils/dcaDealToOpenTrade';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { type ColumnDef } from '@tanstack/react-table';
@@ -323,6 +324,7 @@ const TradingBots: React.FC = () => {
   const tokens = useAuthStore((state) => state.tokens);
   const currentUser = useAuthStore((state) => state.user);
   const privacyMode = useUIStore((state) => state.privacyMode);
+  const { formatUsd, currency } = useReportingCurrency();
   const { data: exchangesData } = useExchangesFromContext();
 
   // Share-link viewers land here without auth — fetch the bot directly
@@ -934,11 +936,11 @@ const TradingBots: React.FC = () => {
         aggregationFn: 'sum',
         cell: ({ getValue }) => {
           const cost = getValue() as number;
-          return <span>{privacyMode ? '***' : `$${cost.toFixed(2)}`}</span>;
+          return <span>{privacyMode ? '***' : formatUsd(cost)}</span>;
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -963,13 +965,13 @@ const TradingBots: React.FC = () => {
           }
           return (
             <PendingLiveValue pending={row.original.unPnlPending}>
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </PendingLiveValue>
           );
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -985,17 +987,17 @@ const TradingBots: React.FC = () => {
         aggregationFn: 'sum',
         cell: ({ getValue }) => {
           const cost = getValue() as number;
-          return <span>{privacyMode ? '***' : `$${cost.toFixed(2)}`}</span>;
+          return <span>{privacyMode ? '***' : formatUsd(cost)}</span>;
         },
         footerValue: (value: number) => (
           <span className="font-bold">
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
       {
         accessorKey: 'totalProfitUsd',
-        header: 'REALIZED PNL, $',
+        header: `REALIZED PNL, ${currency.symbol}`,
         meta: {
           description: BOT_METRIC_DESCRIPTIONS.dca.realizedPnl,
           filterType: 'number',
@@ -1026,7 +1028,7 @@ const TradingBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1081,9 +1083,7 @@ const TradingBots: React.FC = () => {
           >
             {privacyMode
               ? '***'
-              : value < 0
-                ? `-$${Math.abs(value).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`
-                : `$${value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`}
+              : formatUsd(value)}
           </span>
         ),
       },
@@ -1135,7 +1135,7 @@ const TradingBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1196,7 +1196,7 @@ const TradingBots: React.FC = () => {
                   : 'text-destructive font-bold'
             }
           >
-            {privacyMode ? '***' : `$${value.toFixed(2)}`}
+            {privacyMode ? '***' : formatUsd(value)}
           </span>
         ),
       },
@@ -1396,7 +1396,7 @@ const TradingBots: React.FC = () => {
         size: 56,
       },
     ],
-    [botDataMap, privacyMode, accountTimeZone]
+    [botDataMap, privacyMode, accountTimeZone, formatUsd, currency]
   );
   // Server mode only honours sorts/filters with a server field.
   const serverColumns = useMemo(

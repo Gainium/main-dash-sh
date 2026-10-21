@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import {
   Bar,
   BarChart,
@@ -30,6 +31,7 @@ export const BarPerformance: React.FC<BarPerformanceProps> = ({
   privacyMode = false,
 }) => {
   const [_activeIndex, setActiveIndex] = useState<number | null>(null);
+  const { formatUsd } = useReportingCurrency();
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const renderTooltip = (props: any) => {
@@ -41,7 +43,7 @@ export const BarPerformance: React.FC<BarPerformanceProps> = ({
     ): [React.ReactNode, string] => {
       if (privacyMode) return ['***', name];
       const numValue = Number(value);
-      return [`$${numValue.toLocaleString()}`, name];
+      return [formatUsd(numValue), name];
     };
 
     const tooltipLabelFormatter = (label: unknown) => {
@@ -83,7 +85,7 @@ export const BarPerformance: React.FC<BarPerformanceProps> = ({
           <YAxis
             fontSize={12}
             tickFormatter={(v) =>
-              privacyMode ? '***' : `$${v.toLocaleString()}`
+              privacyMode ? '***' : formatUsd(v, { decimals: 0 })
             }
           />
           <Tooltip

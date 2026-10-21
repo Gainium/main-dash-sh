@@ -5,6 +5,8 @@ import type { DrawerBot } from '@/types/bots/drawer';
 import type { GridBot } from '@/types/gridBot';
 import { round } from '@/utils/bots/grid/math';
 import { DollarSign } from 'lucide-react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { profitUsdForReporting } from '@/utils/bots/reportingProfit';
 import React, { useMemo } from 'react';
 import { ProfitLossPercChip } from '../../../ui/chip/ProfitLossPercChip';
 import { DrawerSection } from './DrawerSection';
@@ -20,15 +22,6 @@ const formatPrice = (
     minimumFractionDigits: 2,
     maximumFractionDigits: 10,
   })} ${quoteAsset}`;
-};
-
-const formatValue = (value: number, prefix = ''): string => {
-  const formatted = Math.abs(value).toLocaleString(undefined, {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-  if (value < 0) return `-${prefix}${formatted}`;
-  return `${prefix}${formatted}`;
 };
 
 const formatBalance = (
@@ -133,6 +126,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
 
   const baseAsset = gridBot?.symbol?.baseAsset ?? 'BASE';
   const quoteAsset = gridBot?.symbol?.quoteAsset ?? 'QUOTE';
+  const { formatUsd, currency } = useReportingCurrency();
 
   // Compute all legacy fields using LIVE prices (matching legacy botContent.tsx)
   const data = useMemo(() => {
@@ -233,7 +227,15 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
       (gridBot.settings?.profitCurrency === 'quote' ? profitValue : 0);
 
     // --- bot profit (USD mode) ---
-    const botProfitTotalUsd = gridBot.profit?.totalUsd ?? 0;
+    // The bot's own figure when it is already in the reporting currency.
+    const profitAsset =
+      gridBot.settings?.profitCurrency === 'base' ? baseAsset : quoteAsset;
+    const botProfitTotalUsd = profitUsdForReporting(
+      profitAsset,
+      gridBot.profit?.total ?? 0,
+      gridBot.profit?.totalUsd ?? 0,
+      currency
+    );
     const botProfitPerc =
       initialValueAtStart !== 0
         ? round((botProfitTotalUsd / initialValueAtStart) * 100, 2)
@@ -241,8 +243,15 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
 
     // --- bot free profit ---
     const botFreeProfitUsd = isClosed
-      ? (gridBot.profit?.totalUsd ?? 0)
-      : gridBot.profit?.freeTotalUsd || gridBot.profit?.totalUsd || 0;
+      ? botProfitTotalUsd
+      : gridBot.profit?.freeTotalUsd
+        ? profitUsdForReporting(
+            profitAsset,
+            gridBot.profit?.freeTotal ?? 0,
+            gridBot.profit.freeTotalUsd,
+            currency
+          )
+        : botProfitTotalUsd;
     const botFreeProfitPerc =
       initialValueAtStart !== 0
         ? round((botFreeProfitUsd / initialValueAtStart) * 100, 2)
@@ -279,7 +288,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
       initialValueChange,
       initialValueChangePerc,
     };
-  }, [gridBot]);
+  }, [gridBot, baseAsset, quoteAsset, currency]);
 
   if (!gridBot) {
     return (
@@ -360,7 +369,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                             : ''
                       }
                     >
-                      {formatValue(data.botProfitUsd, '$')} USD
+                      {formatUsd(data.botProfitUsd)} {currency.code}
                     </span>
                     <ProfitLossPercChip value={data.botProfitPerc} size="xs" />
                   </span>
@@ -381,7 +390,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                               : ''
                         }
                       >
-                        {formatValue(data.botFreeProfitUsd, '$')} USD
+                        {formatUsd(data.botFreeProfitUsd)} {currency.code}
                       </span>
                       <ProfitLossPercChip
                         value={data.botFreeProfitPerc}
@@ -400,7 +409,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                   label="Value"
                   tooltip="The fiat value of the funds that the bot holds, including profit and excluding exchange fee."
                 >
-                  {formatValue(data.currentValueUsd, '$')} USD
+                  {formatUsd(data.currentValueUsd)} {currency.code}
                 </FundsRow>
                 <FundsRow
                   label="Net PnL"
@@ -415,7 +424,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                           : ''
                     }
                   >
-                    {formatValue(data.totalPnL, '$')} USD
+                    {formatUsd(data.totalPnL)} {currency.code}
                   </span>
                 </FundsRow>
               </div>
@@ -456,7 +465,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                   label="Value"
                   tooltip="The fiat value of the funds that the bot holds, including profit and excluding exchange fee."
                 >
-                  <span>{formatValue(data.initialValueUsd, '$')} USD</span>
+                  <span>{formatUsd(data.initialValueUsd)} {currency.code}</span>
                 </FundsRow>
                 <FundsRow
                   label="Value change"
@@ -471,7 +480,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                           : ''
                     }
                   >
-                    {formatValue(data.initialValueChange, '$')} USD
+                    {formatUsd(data.initialValueChange)} {currency.code}
                   </span>
                 </FundsRow>
               </div>
@@ -510,7 +519,7 @@ const DrawerGridFundsOverview: React.FC<DrawerGridFundsOverviewProps> = ({
                         : ''
                   }
                 >
-                  {formatValue(data.botProfitUsd, '$')} USD
+                  {formatUsd(data.botProfitUsd)} {currency.code}
                 </span>
                 <ProfitLossPercChip value={data.botProfitPerc} size="xs" />
               </span>

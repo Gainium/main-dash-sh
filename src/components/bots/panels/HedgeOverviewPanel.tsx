@@ -8,6 +8,7 @@
  * Overview renders, just fed each leg's transformed bot.
  */
 import { ArrowDownRight, ArrowUpRight } from 'lucide-react';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import { useMemo } from 'react';
 
 import { ProfitAndPerc, ProfitLossPercChip } from '@/components/ui/chip';
@@ -30,7 +31,7 @@ const NON_OVERVIEW_WIDGETS = [
 ];
 
 const money = (value: number, privacy?: boolean): string =>
-  privacy ? '***' : `$${value.toFixed(2)}`;
+  privacy ? '***' : formatUsdAsReporting(value);
 
 const StatTile: React.FC<{
   label: string;

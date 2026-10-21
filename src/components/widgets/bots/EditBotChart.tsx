@@ -1,4 +1,5 @@
 import { useOptionalGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import { useIndicatorStore } from '@/contexts/bots/form/formStoreContexts';
 import { riskRewardPositionStore } from '@/stores/riskRewardPositionStore';
 import type { ChartIndicatorsConfig, PositionChart } from '@/types';
@@ -151,7 +152,7 @@ export const StatisticsPanel: React.FC<{ bot: BotData }> = ({ bot }) => {
         <div
           className={`text-lg font-bold ${stats.netProfit >= 0 ? 'text-green-600' : 'text-red-600'}`}
         >
-          ${stats.netProfitUsd.toFixed(2)}
+          {formatUsdAsReporting(stats.netProfitUsd)}
         </div>
         <div
           className={`text-xs ${stats.netProfitPerc >= 0 ? 'text-green-600' : 'text-red-600'}`}

@@ -432,6 +432,21 @@ export const userQueries = {
     return { query };
   },
 
+  // Kept out of the `user`/`userSettings` selections on purpose: a backend
+  // that predates the field rejects the whole query, and this one failing
+  // must only cost the reporting currency (USD), not the user.
+  userReportingCurrency: () => {
+    const query = `query userReportingCurrency{
+                        user {
+                            status
+                            data {
+                                reportingCurrency
+                            }
+                        }
+                    }`;
+    return { query };
+  },
+
   user: () => {
     const query = `query user{
                         user {
@@ -555,6 +570,7 @@ export const userQueries = {
   setUserSettings: (input: {
     timezone?: string;
     theme?: string;
+    reportingCurrency?: string;
     paperContext?: boolean;
     shouldOnBoard?: boolean;
     shouldOnBoardExchange?: boolean;

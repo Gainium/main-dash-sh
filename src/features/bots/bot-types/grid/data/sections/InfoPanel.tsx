@@ -1,4 +1,5 @@
 import { ShieldAlert, Zap } from 'lucide-react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
@@ -42,6 +43,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
   isFuturesBot,
   formatAmount,
 }) => {
+  const reportingCode = useReportingCurrency().currency.code;
   const transactionsTotal =
     (metrics?.transactions?.buy ?? 0) + (metrics?.transactions?.sell ?? 0);
   const statusLabel = metrics?.status
@@ -98,7 +100,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
         <InfoRow label="Working Time" value={metrics?.workingTime ?? '—'} />
         <InfoRow label="Transactions" value={transactionsTotal} />
         <InfoRow
-          label="Daily Profit (USD)"
+          label={`Daily Profit (${reportingCode})`}
           value={formatAmount(metrics?.dailyProfitUsd ?? 0, {
             currency: 'usd',
             maximumFractionDigits: 2,
@@ -112,7 +114,7 @@ export const InfoPanel: React.FC<InfoPanelProps> = ({
           })}
         />
         <InfoRow
-          label="USD Conversion"
+          label={`${reportingCode} Conversion`}
           value={`1 ${funds?.quoteAsset ?? 'QUOTE'} = ${formatAmount(
             funds?.usdRate ?? 0,
             {

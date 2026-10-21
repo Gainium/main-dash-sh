@@ -12,6 +12,8 @@ import {
 } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { formatCurrency, formatPercentage } from '../../../../lib/utils';
+import { formatQuoteAmount } from '@/utils/formatters';
+import { extractPairAssets } from '@/utils/pairs';
 import { DrawerSection } from './DrawerSection';
 import {
   BotTypesEnum,
@@ -33,6 +35,14 @@ const formatMaybeCurrency = (value?: number): string => {
     return '—';
   }
   return formatCurrency(value);
+};
+
+/** An amount in the pair's quote asset (usage, balances) — not USD. */
+const formatMaybeQuote = (value?: number, quoteAsset?: string): string => {
+  if (typeof value !== 'number' || Number.isNaN(value)) {
+    return '—';
+  }
+  return formatQuoteAmount(value, quoteAsset);
 };
 
 const formatMaybePercent = (value?: number): string => {
@@ -85,6 +95,7 @@ export const DrawerBotSummary: React.FC<DrawerBotSummaryProps> = ({
   }
 
   const runtime = bot.workingTime;
+  const { quoteAsset } = extractPairAssets(bot.pair ?? '');
   const profit = formatMaybeCurrency(bot.totalProfitUsd);
   const profitPercent = formatMaybePercent(bot.profitPerc);
   const invested = formatMaybeCurrency((bot.usage as Usage).maxUsd);
@@ -151,7 +162,7 @@ export const DrawerBotSummary: React.FC<DrawerBotSummaryProps> = ({
           </div>
           <div className="text-xs text-muted-foreground">
             Base {formatMaybeNumber(bot.usage?.current.base)} • Quote{' '}
-            {formatMaybeCurrency(bot.usage?.current.quote)}
+            {formatMaybeQuote(bot.usage?.current.quote, quoteAsset)}
           </div>
         </div>
 
@@ -248,16 +259,18 @@ export const DrawerBotSummary: React.FC<DrawerBotSummaryProps> = ({
               Quote Usage
             </div>
             <div className="mt-1 text-sm font-semibold text-foreground">
-              {formatMaybeCurrency(bot.usage?.current.quote)} used
+              {formatMaybeQuote(bot.usage?.current.quote, quoteAsset)} used
             </div>
             <div className="text-xs text-muted-foreground">
               Initial{' '}
-              {formatMaybeCurrency(
-                (bot as ComboBot).initialBalances?.quote?.[0]?.value
+              {formatMaybeQuote(
+                (bot as ComboBot).initialBalances?.quote?.[0]?.value,
+                quoteAsset
               )}{' '}
               • Current{' '}
-              {formatMaybeCurrency(
-                (bot as ComboBot).currentBalances?.quote?.[0]?.value
+              {formatMaybeQuote(
+                (bot as ComboBot).currentBalances?.quote?.[0]?.value,
+                quoteAsset
               )}
             </div>
           </div>

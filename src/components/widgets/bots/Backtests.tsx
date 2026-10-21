@@ -1,4 +1,5 @@
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign';
+import { extractPairAssets } from '@/utils/pairs';
 import type { DCABotSettings } from '@/types';
 import { type ColumnDef } from '@tanstack/react-table';
 import { BarChart3, Download, MoreVertical, Trash2 } from 'lucide-react';
@@ -358,8 +359,9 @@ const Backtests: React.FC<BacktestsProps> = ({
             row.original.netProfit >= 0 ? 'text-green-600' : 'text-red-600'
           }`}
         >
-          {row.original.netProfit >= 0 ? '+' : ''}$
-          {row.original.netProfit.toFixed(2)}
+          {row.original.netProfit >= 0 ? '+' : ''}
+          {row.original.netProfit.toFixed(2)}{' '}
+          {extractPairAssets(row.original.pair).quoteAsset}
         </div>
       ),
     },

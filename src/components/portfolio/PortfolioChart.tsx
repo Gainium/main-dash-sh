@@ -1,6 +1,7 @@
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
 import { ProfitBadge, ProfitValue } from '@/components/ui/ProfitValue';
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
 import React, { useEffect, useState } from 'react';
@@ -16,6 +17,7 @@ import CustomTooltip from '../charts/CustomTooltip';
 
 export const PortfolioChart: React.FC = () => {
   const [snapshots, setSnapshots] = useState<Snapshots[]>([]);
+  const { currency, toReporting, formatUsd } = useReportingCurrency();
   const { data: p } = useGraphQL<PortfolioQuery>(
     'getPortfolioByUser',
     GraphQlQuery.getPortfolioByUser()
@@ -138,7 +140,9 @@ export const PortfolioChart: React.FC = () => {
                   {statsData.totalBalance.toFixed(8)} BTC
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  ${statsData.totalBalanceUsd.toLocaleString()} USD
+                  {currency.symbol}
+                  {toReporting(statsData.totalBalanceUsd).toLocaleString()}{' '}
+                  {currency.code}
                 </div>
               </div>
 
@@ -244,11 +248,22 @@ export const PortfolioChart: React.FC = () => {
                     fontSize: 8,
                     className: 'text-muted-foreground',
                   }}
-                  tickFormatter={(value) => `$${(value / 1000).toFixed(0)}k`}
+                  tickFormatter={(value) =>
+                    `${currency.symbol}${(toReporting(value) / 1000).toFixed(0)}k`
+                  }
                   domain={['dataMin - 200', 'dataMax + 200']}
                   width={40}
                 />
-                <Tooltip content={<CustomTooltip />} />
+                <Tooltip
+                  content={
+                    <CustomTooltip
+                      valueFormatter={(value) => [
+                        formatUsd(Number(value)),
+                        'Value',
+                      ]}
+                    />
+                  }
+                />
                 <Area
                   isAnimationActive={false}
                   type="monotone"

@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from 'react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 
 import { useGridPageContext } from '@/contexts/bots/grid/GridPageProvider';
 import type { GridCurrency } from '@/types/bots/grid';
@@ -58,6 +59,7 @@ export interface UseGridBotDataResult {
 }
 
 export const useGridBotData = (): UseGridBotDataResult => {
+  const { currency: reportingCurrency, formatUsd } = useReportingCurrency();
   const { state, actions } = useGridPageContext();
   const {
     bot,
@@ -92,21 +94,11 @@ export const useGridBotData = (): UseGridBotDataResult => {
 
   const currencyOptions = useMemo(
     () => [
-      { value: 'usd' as GridCurrency, label: 'USD' },
+      { value: 'usd' as GridCurrency, label: reportingCurrency.code },
       { value: 'quote' as GridCurrency, label: quoteAsset.toUpperCase() },
       { value: 'base' as GridCurrency, label: baseAsset.toUpperCase() },
     ],
-    [baseAsset, quoteAsset]
-  );
-
-  const usdFormatter = useMemo(
-    () =>
-      new Intl.NumberFormat(undefined, {
-        style: 'currency',
-        currency: 'USD',
-        maximumFractionDigits: 2,
-      }),
-    []
+    [baseAsset, quoteAsset, reportingCurrency.code]
   );
 
   const decimalFormatter = useMemo(
@@ -126,14 +118,10 @@ export const useGridBotData = (): UseGridBotDataResult => {
       const targetCurrency = options?.currency ?? preferences.currency;
 
       if (targetCurrency === 'usd') {
-        const formatter = options?.maximumFractionDigits
-          ? new Intl.NumberFormat(undefined, {
-              style: 'currency',
-              currency: 'USD',
-              maximumFractionDigits: options.maximumFractionDigits,
-            })
-          : usdFormatter;
-        return formatter.format(value);
+        // USD values, shown in the reporting currency.
+        return formatUsd(value, {
+          decimals: options?.maximumFractionDigits ?? 2,
+        });
       }
 
       const formatter = options?.maximumFractionDigits
@@ -144,7 +132,7 @@ export const useGridBotData = (): UseGridBotDataResult => {
 
       return formatter.format(value);
     },
-    [decimalFormatter, preferences.currency, usdFormatter]
+    [decimalFormatter, preferences.currency, formatUsd]
   );
 
   const formatPercent = useCallback<FormatPercentFn>((value, options) => {

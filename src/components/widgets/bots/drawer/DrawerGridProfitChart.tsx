@@ -1,10 +1,10 @@
-import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
-import type { DrawerBot, DrawerBotType } from '@/types/bots/drawer';
-import { BotTypesEnum } from '@/types';
-import type { GridBot } from '@/types/gridBot';
-import type { GridCurrency } from '@/types/bots/grid/data';
-import { BarChart3 } from 'lucide-react';
-import React, { useMemo, useState } from 'react';
+import { axisIndexProps, withAxisIndex } from "@/lib/charts/axisIndex";
+import type { DrawerBot, DrawerBotType } from "@/types/bots/drawer";
+import { BotTypesEnum } from "@/types";
+import type { GridBot } from "@/types/gridBot";
+import type { GridCurrency } from "@/types/bots/grid/data";
+import { BarChart3 } from "lucide-react";
+import React, { useMemo, useState } from "react";
 import {
   Bar,
   BarChart,
@@ -14,20 +14,21 @@ import {
   Tooltip,
   XAxis,
   YAxis,
-} from 'recharts';
-import { useGridBotProfit } from '@/hooks/useGridBotProfit';
-import { CHART_COLORS } from '@/lib/colors';
-import { round } from '@/utils/bots/grid/math';
-import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
-import { useAuthStore } from '@/stores/authStore';
-import CustomTooltip from '@/components/charts/CustomTooltip';
-import WidgetStats from '../../shared/WidgetStats';
-import { DrawerSection } from './DrawerSection';
-import { buildChartData } from './botProfitChartData';
+} from "recharts";
+import { useGridBotProfit } from "@/hooks/useGridBotProfit";
+import { CHART_COLORS } from "@/lib/colors";
+import { round } from "@/utils/bots/grid/math";
+import { useAccountTimeZone } from "@/hooks/useAccountTimeZone";
+import { useAuthStore } from "@/stores/authStore";
+import CustomTooltip from "@/components/charts/CustomTooltip";
+import WidgetStats from "../../shared/WidgetStats";
+import { useReportingCurrency } from "@/hooks/useReportingCurrency";
+import { DrawerSection } from "./DrawerSection";
+import { buildChartData } from "./botProfitChartData";
 
 // ---------- types ----------
 
-type Timeframe = 'Daily' | 'Weekly' | 'Monthly' | 'Total';
+type Timeframe = "Daily" | "Weekly" | "Monthly" | "Total";
 
 /** Timeframe index sent to the backend (matches legacy) */
 const TIMEFRAME_MAP: Record<Timeframe, number> = {
@@ -64,23 +65,24 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
   widgetId,
   botId,
   bot: botProp,
-  botType = 'grid',
+  botType = "grid",
 }) => {
-  const isGrid = botType === 'grid';
+  const isGrid = botType === "grid";
   const gridBot = botProp as unknown as GridBot | undefined;
-  const actualBotId = botId || gridBot?._id || '';
+  const actualBotId = botId || gridBot?._id || "";
 
   // State
-  const [timeframe, setTimeframe] = useState<Timeframe>('Daily');
-  const [selectedCurrency, setCurrency] = useState<GridCurrency>('usd');
+  const [timeframe, setTimeframe] = useState<Timeframe>("Daily");
+  const [selectedCurrency, setCurrency] = useState<GridCurrency>("usd");
+  const { currency: reportingCurrency, formatUsd } = useReportingCurrency();
   // For DCA/Combo/Hedge the backend's base/quote are both the deal's raw
   // profit.total (in whatever currency the deal booked it), so only USD is
   // meaningful there — the legacy deal-bot chart was USD-only too.
-  const currency: GridCurrency = isGrid ? selectedCurrency : 'usd';
+  const currency: GridCurrency = isGrid ? selectedCurrency : "usd";
 
-  const baseAsset = gridBot?.symbol?.baseAsset ?? 'BASE';
-  const quoteAsset = gridBot?.symbol?.quoteAsset ?? 'QUOTE';
-  const profitCurrency = gridBot?.settings?.profitCurrency ?? 'quote';
+  const baseAsset = gridBot?.symbol?.baseAsset ?? "BASE";
+  const quoteAsset = gridBot?.symbol?.quoteAsset ?? "QUOTE";
+  const profitCurrency = gridBot?.settings?.profitCurrency ?? "quote";
   const latestPrice = gridBot?.lastPrice ?? 0;
   const timeZone = useAccountTimeZone();
   const weekStart = useAuthStore((s) => s.user?.weekStart);
@@ -111,7 +113,7 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
           timeZone,
           weekStart,
           now: Date.now(),
-        })
+        }),
       ),
     [
       profitEntries,
@@ -121,25 +123,25 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
       timeframe,
       timeZone,
       weekStart,
-    ]
+    ],
   );
 
   // The tooltip's default date line formats `fullDate` in the BROWSER's zone,
   // which names the wrong day whenever it differs from the account's. Daily
   // rows are account-zone midnights; weekly rows are UTC calendar days.
   const tooltipLabel = useMemo(() => {
-    if (timeframe !== 'Daily' && timeframe !== 'Weekly') return undefined;
-    const zone = timeframe === 'Daily' ? timeZone : 'UTC';
+    if (timeframe !== "Daily" && timeframe !== "Weekly") return undefined;
+    const zone = timeframe === "Daily" ? timeZone : "UTC";
     return (axisValue: unknown): React.ReactNode => {
       const row = chartData[Number(axisValue)];
       const date = row ? new Date(row.fullDate) : new Date(NaN);
-      if (Number.isNaN(date.getTime())) return row?.label ?? '';
-      return date.toLocaleDateString('en-US', {
+      if (Number.isNaN(date.getTime())) return row?.label ?? "";
+      return date.toLocaleDateString("en-US", {
         timeZone: zone,
-        weekday: 'short',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric',
+        weekday: "short",
+        month: "long",
+        day: "numeric",
+        year: "numeric",
       });
     };
   }, [timeframe, timeZone, chartData]);
@@ -158,73 +160,88 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
     const today = chartData[chartData.length - 1]?.value ?? 0;
     const yesterday =
       chartData.length > 1 ? (chartData[chartData.length - 2]?.value ?? 0) : 0;
-    const difference = round(today - yesterday, currency === 'usd' ? 2 : 6);
+    const difference = round(today - yesterday, currency === "usd" ? 2 : 6);
     const differencePercent =
       yesterday !== 0 ? round((difference / Math.abs(yesterday)) * 100, 2) : 0;
     const sum = chartData.reduce((s, p) => s + p.value, 0);
-    const avg = round(sum / chartData.length, currency === 'usd' ? 2 : 6);
+    const avg = round(sum / chartData.length, currency === "usd" ? 2 : 6);
     return { today, yesterday, difference, differencePercent, avg };
   }, [chartData, currency]);
 
   // Currency symbol for display
   const symbolProfit = useMemo(() => {
-    if (currency === 'base') return baseAsset;
-    if (currency === 'usd') return 'USD';
+    if (currency === "base") return baseAsset;
+    if (currency === "usd") return reportingCurrency.code;
     return quoteAsset;
-  }, [currency, baseAsset, quoteAsset]);
+  }, [currency, baseAsset, quoteAsset, reportingCurrency.code]);
 
   // Stat items for WidgetStats component
   const statItems = useMemo(() => {
     const items = [
       {
         label:
-          timeframe === 'Total'
-            ? 'Total'
-            : timeframe === 'Monthly'
-              ? 'This Month'
-              : timeframe === 'Weekly'
-                ? 'This Week'
-                : 'Today',
+          timeframe === "Total"
+            ? "Total"
+            : timeframe === "Monthly"
+              ? "This Month"
+              : timeframe === "Weekly"
+                ? "This Week"
+                : "Today",
         value: stats.today,
       },
     ];
 
-    if (timeframe !== 'Total') {
+    if (timeframe !== "Total") {
       items.push(
         {
           label:
-            timeframe === 'Monthly'
-              ? 'Last Month'
-              : timeframe === 'Weekly'
-                ? 'Last Week'
-                : 'Yesterday',
+            timeframe === "Monthly"
+              ? "Last Month"
+              : timeframe === "Weekly"
+                ? "Last Week"
+                : "Yesterday",
           value: stats.yesterday,
         },
         {
-          label: 'Difference',
+          label: "Difference",
           value: stats.difference,
           badge: { value: stats.differencePercent },
         } as (typeof items)[number] & { badge: { value: number } },
         {
           label:
-            timeframe === 'Monthly'
-              ? 'Avg monthly'
-              : timeframe === 'Weekly'
-                ? 'Avg weekly'
+            timeframe === "Monthly"
+              ? "Avg monthly"
+              : timeframe === "Weekly"
+                ? "Avg weekly"
                 : `Avg daily`,
           value: stats.avg,
-        }
+        },
       );
     }
 
+    // Base/quote figures are asset amounts, not USD: show them with their
+    // asset instead of through the USD-converting currency value.
+    if (currency !== "usd") {
+      return items.map((item) => ({
+        ...item,
+        textValue: `${item.value > 0 ? "+" : ""}${item.value} ${symbolProfit}`,
+        tone:
+          item.value > 0
+            ? ("success" as const)
+            : item.value < 0
+              ? ("destructive" as const)
+              : ("neutral" as const),
+      }));
+    }
+
     return items;
-  }, [timeframe, stats]);
+  }, [timeframe, stats, currency, symbolProfit]);
 
   // Currency tabs
   const currencyTabs: { value: GridCurrency; label: string }[] = [
-    { value: 'base', label: baseAsset },
-    { value: 'quote', label: quoteAsset },
-    { value: 'usd', label: 'USD' },
+    { value: "base", label: baseAsset },
+    { value: "quote", label: quoteAsset },
+    { value: "usd", label: reportingCurrency.code },
   ];
 
   return (
@@ -245,8 +262,8 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                 onClick={() => setCurrency(tab.value)}
                 className={`rounded-md px-2.5 py-1 text-xs font-medium transition-colors ${
                   currency === tab.value
-                    ? 'bg-muted text-foreground shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-muted text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tab.label}
@@ -324,9 +341,9 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: 'currentColor',
+                    fill: "currentColor",
                     fontSize: 10,
-                    className: 'text-muted-foreground',
+                    className: "text-muted-foreground",
                   }}
                   interval="preserveStartEnd"
                 />
@@ -334,15 +351,31 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                   axisLine={false}
                   tickLine={false}
                   tick={{
-                    fill: 'currentColor',
+                    fill: "currentColor",
                     fontSize: 8,
-                    className: 'text-muted-foreground',
+                    className: "text-muted-foreground",
                   }}
-                  tickFormatter={(v) => (currency === 'usd' ? `$${v}` : `${v}`)}
+                  tickFormatter={(v) =>
+                    currency === "usd"
+                      ? formatUsd(v, { compact: true })
+                      : `${v}`
+                  }
                   width={50}
                 />
                 <Tooltip
-                  content={<CustomTooltip labelFormatter={tooltipLabel} />}
+                  content={
+                    <CustomTooltip
+                      labelFormatter={tooltipLabel}
+                      valueFormatter={
+                        currency === "usd"
+                          ? (v, name) => [
+                              formatUsd(Number(v)),
+                              name.charAt(0).toUpperCase() + name.slice(1),
+                            ]
+                          : undefined
+                      }
+                    />
+                  }
                   cursor={false}
                 />
                 <Bar
@@ -356,8 +389,8 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
                       key={`cell-${index}`}
                       fill={
                         entry.value >= 0
-                          ? 'url(#gridProfitGradient)'
-                          : 'url(#gridLossGradient)'
+                          ? "url(#gridProfitGradient)"
+                          : "url(#gridLossGradient)"
                       }
                     />
                   ))}
@@ -369,20 +402,20 @@ const DrawerGridProfitChart: React.FC<DrawerGridProfitChartProps> = ({
 
         {/* Timeframe buttons */}
         <div className="flex items-center justify-center gap-1">
-          {(['Daily', 'Weekly', 'Monthly', 'Total'] as Timeframe[]).map(
+          {(["Daily", "Weekly", "Monthly", "Total"] as Timeframe[]).map(
             (tf) => (
               <button
                 key={tf}
                 onClick={() => setTimeframe(tf)}
                 className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
                   tf === timeframe
-                    ? 'bg-muted text-foreground border border-border shadow-sm'
-                    : 'text-muted-foreground hover:text-foreground'
+                    ? "bg-muted text-foreground border border-border shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {tf}
               </button>
-            )
+            ),
           )}
         </div>
       </div>

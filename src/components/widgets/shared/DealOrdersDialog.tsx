@@ -1,4 +1,6 @@
-import { formatCurrency, formatNumber } from '@/utils/numberFormatter';
+import { formatQuoteAmount } from '@/utils/formatters';
+import { formatNumber } from '@/utils/numberFormatter';
+import { extractPairAssets } from '@/utils/pairs';
 import { Info } from 'lucide-react';
 import React from 'react';
 import { Button } from '../../ui/button';
@@ -63,7 +65,10 @@ export const DealOrdersDialog: React.FC<DealOrdersDialogProps> = ({
       const qtyFormatted = formatNumber(qty);
       return {
         ...o,
-        total: formatCurrency(total),
+        total: formatQuoteAmount(
+          total,
+          o.quoteAsset || extractPairAssets(symbol).quoteAsset
+        ),
         label,
         price,
         qty: qtyFormatted,

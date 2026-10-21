@@ -18,7 +18,8 @@ import { type ColumnDef } from '@tanstack/react-table';
 import React, { useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { CARD_VIEW_COLUMNS } from '../../../config/responsive';
-import { formatCurrency } from '@/lib/utils';
+import { formatQuoteAmount } from '@/utils/formatters';
+import { extractPairAssets } from '@/utils/pairs';
 import { BotTypeChip, ProfitAndPerc } from '../../ui/chip';
 import { DataTable } from '../../ui/data-table/data-table';
 import {
@@ -68,6 +69,12 @@ const getTradeRowId = (row: TransformedTrade) => row.id;
 
 const EMPTY_DCA: DCADeals[] = [];
 const EMPTY_COMBO: ComboDeals[] = [];
+
+// Cost and value are in the deal's quote asset, not USD.
+const tradeQuoteAsset = (t: TransformedTrade): string =>
+  typeof t.symbol === 'string'
+    ? extractPairAssets(t.symbol).quoteAsset
+    : t.symbol.quoteAsset;
 
 const metricValue = (t: TransformedTrade, metric: TopDealsMetric): number => {
   const cost = t.cost ?? 0;
@@ -308,7 +315,12 @@ const TopDeals: React.FC<TopDealsProps> = ({
         meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-right tabular-nums">
-            {privacyMode ? '***' : formatCurrency(row.original.cost ?? 0, 2)}
+            {privacyMode
+              ? '***'
+              : formatQuoteAmount(
+                  row.original.cost ?? 0,
+                  tradeQuoteAsset(row.original)
+                )}
           </div>
         ),
         enableSorting: true,
@@ -320,7 +332,12 @@ const TopDeals: React.FC<TopDealsProps> = ({
         meta: { filterType: 'number' },
         cell: ({ row }) => (
           <div className="text-right tabular-nums">
-            {privacyMode ? '***' : formatCurrency(row.original.value ?? 0, 2)}
+            {privacyMode
+              ? '***'
+              : formatQuoteAmount(
+                  row.original.value ?? 0,
+                  tradeQuoteAsset(row.original)
+                )}
           </div>
         ),
         enableSorting: true,

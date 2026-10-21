@@ -1,4 +1,5 @@
 import { isReadOnly } from '@/lib/demoMode';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { durationTextToDays } from '@/lib/utils/durationText';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import { BOT_METRIC_DESCRIPTIONS } from '@/lib/botMetricDescriptions';
@@ -88,6 +89,7 @@ const GridBots: React.FC = () => {
   const params = useParams<{ id?: string }>();
   const selectedBot = params.id ?? null;
   const privacyMode = useUIStore((state) => state.privacyMode);
+  const { formatUsd, currency } = useReportingCurrency();
 
   // When opening a specific bot via /grid/view/:id, keep the bot's real
   // paper/live mode authoritative over the global toggle so a refresh doesn't
@@ -482,11 +484,11 @@ const GridBots: React.FC = () => {
           aggregationFn: 'sum',
           cell: ({ getValue }) => {
             const budget = getValue() as number;
-            return privacyMode ? '***' : `$${budget.toFixed(2)}`;
+            return privacyMode ? '***' : formatUsd(budget);
           },
           footerValue: (value: number) => (
             <span className="font-bold">
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -505,11 +507,11 @@ const GridBots: React.FC = () => {
               return <Skeleton className="h-4 w-16" />;
             }
             const value = getValue() as number;
-            return privacyMode ? '***' : `$${value.toFixed(2)}`;
+            return privacyMode ? '***' : formatUsd(value);
           },
           footerValue: (value: number) => (
             <span className="font-bold">
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -551,7 +553,7 @@ const GridBots: React.FC = () => {
                     : 'text-destructive font-bold'
               }
             >
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -598,7 +600,7 @@ const GridBots: React.FC = () => {
                     : 'text-destructive font-bold'
               }
             >
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -637,7 +639,7 @@ const GridBots: React.FC = () => {
                     : 'text-destructive font-bold'
               }
             >
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -664,8 +666,8 @@ const GridBots: React.FC = () => {
         },
         {
           id: 'totalProfit',
-          header: 'REALIZED PNL, $',
-          accessorFn: (row) => row.profit.totalUsd || 0,
+          header: `REALIZED PNL, ${currency.symbol}`,
+          accessorFn: (row) => row.totalProfitUsd || 0,
           meta: {
             description: BOT_METRIC_DESCRIPTIONS.grid.realizedPnl,
             filterType: 'number',
@@ -675,7 +677,7 @@ const GridBots: React.FC = () => {
           aggregationFn: 'sum',
           cell: ({ row }) => {
             const bot = row.original;
-            const totalProfit = bot.profit.totalUsd || 0;
+            const totalProfit = bot.totalProfitUsd || 0;
             // `profitPerc` is FREE profit over the initial balance, so it
             // under-reported the dollar figure beside it on any running bot
             // holding unreleased profit. `fullProfitPerc` is the same
@@ -701,7 +703,7 @@ const GridBots: React.FC = () => {
                     : 'text-destructive font-bold'
               }
             >
-              {privacyMode ? '***' : `$${value.toFixed(2)}`}
+              {privacyMode ? '***' : formatUsd(value)}
             </span>
           ),
         },
@@ -994,7 +996,7 @@ const GridBots: React.FC = () => {
           size: 56,
         },
       ],
-      [privacyMode, botDataMap, accountTimeZone]
+      [privacyMode, botDataMap, accountTimeZone, formatUsd, currency]
     );
   // Server mode only honours sorts/filters with a server field.
   const serverColumns = useMemo(

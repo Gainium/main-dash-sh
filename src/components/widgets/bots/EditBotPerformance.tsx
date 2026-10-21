@@ -10,6 +10,9 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { dcaBotProfitUsdForReporting } from '@/utils/bots/reportingProfit';
+import { extractPairAssets } from '@/utils/pairs';
 import { useParams } from 'react-router-dom';
 import {
   Area,
@@ -302,6 +305,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
   settings: _settings,
 }) => {
   const { id: paramBotId } = useParams<{ id: string }>();
+  const { formatUsd } = useReportingCurrency();
   const dataBotId = data?.['botId'] as string | undefined;
   const actualBotId = dataBotId || botId || paramBotId;
 
@@ -439,7 +443,11 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
 
   // Calculate performance metrics
   // Use backend profit data first (like old dashboard), fallback to calculated from deals
-  const botProfitFromData = bot?.profit?.totalUsd;
+  // The bot's own figure when it is already in the reporting currency.
+  const botProfitFromData =
+    bot?.profit?.totalUsd === undefined || bot?.profit?.totalUsd === null
+      ? bot?.profit?.totalUsd
+      : dcaBotProfitUsdForReporting(bot as DCABot);
 
   const profitFromDeals = botDeals
     .filter((deal) => isCompletedDeal(deal))
@@ -492,6 +500,10 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
   }
 
   const investedFromInitialBalances = Number(bot?.initialBalances?.quote) || 0;
+  // Usage/assets/balances are in the pair's quote asset, not USD.
+  const investedAsset = bot?.settings?.pair
+    ? extractPairAssets(bot.settings.pair).quoteAsset
+    : '';
 
   // Priority: current usage first, then required assets, then initial balances
   const investedUsd =
@@ -789,10 +801,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
         primary: `${profitPercentage.toFixed(2)}%`,
         secondary: 'Total Return',
         change: {
-          value:
-            totalProfitUsd > 0
-              ? `+$${totalProfitUsd.toFixed(2)}`
-              : `$${totalProfitUsd.toFixed(2)}`,
+          value: formatUsd(totalProfitUsd, { sign: 'always' }),
           percentage: `${profitPercentage.toFixed(2)}%`,
           isPositive: totalProfitUsd >= 0,
         },
@@ -893,7 +902,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                   </span>
                 </div>
                 <div className="text-xl font-bold text-foreground">
-                  ${investedUsd.toFixed(2)}
+                  {investedUsd.toFixed(2)} {investedAsset}
                 </div>
               </div>
 
@@ -947,7 +956,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                     totalProfitUsd >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  ${totalProfitUsd.toFixed(2)}
+                  {formatUsd(totalProfitUsd)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Closed deals only
@@ -972,7 +981,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                     unrealizedPnL >= 0 ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  ${unrealizedPnL.toFixed(2)}
+                  {formatUsd(unrealizedPnL)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Open deals only
@@ -999,7 +1008,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                       : 'text-red-600'
                   }`}
                 >
-                  ${(totalProfitUsd + unrealizedPnL).toFixed(2)}
+                  {formatUsd(totalProfitUsd + unrealizedPnL)}
                 </div>
                 <div className="text-xs text-muted-foreground mt-1">
                   Realized + Unrealized
@@ -1051,8 +1060,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                             : 'text-red-600'
                         }`}
                       >
-                        {totalProfitUsd >= 0 ? '+' : ''}$
-                        {totalProfitUsd.toFixed(2)}
+                        {formatUsd(totalProfitUsd, { sign: 'always' })}
                       </div>
                     </div>
 
@@ -1163,7 +1171,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                       <DollarSign className="w-4 h-4 text-muted-foreground" />
                     }
                     label="Invested"
-                    value={`$${investedUsd.toFixed(2)}`}
+                    value={`${investedUsd.toFixed(2)} ${investedAsset}`}
                   />
 
                   <MetricCard
@@ -1171,7 +1179,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                       <Calendar className="w-4 h-4 text-muted-foreground" />
                     }
                     label="Daily Average"
-                    value={`${dailyAverage >= 0 ? '+' : ''}$${dailyAverage.toFixed(2)}`}
+                    value={formatUsd(dailyAverage, { sign: 'always' })}
                     color={
                       dailyAverage >= 0 ? 'text-green-600' : 'text-red-600'
                     }
@@ -1180,7 +1188,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                   <MetricCard
                     icon={<Target className="w-4 h-4 text-muted-foreground" />}
                     label="Monthly Est."
-                    value={`${monthlyAverage >= 0 ? '+' : ''}$${monthlyAverage.toFixed(2)}`}
+                    value={formatUsd(monthlyAverage, { sign: 'always' })}
                     color={
                       monthlyAverage >= 0 ? 'text-green-600' : 'text-red-600'
                     }
@@ -1215,7 +1223,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                         <TrendingDown className="w-4 h-4 text-muted-foreground" />
                       }
                       label="Max Drawdown"
-                      value={`$${dealStats.maxDrawdown.toFixed(2)}`}
+                      value={formatUsd(dealStats.maxDrawdown)}
                       subValue={`${dealStats.maxDrawdownPerc.toFixed(1)}%`}
                       color="text-red-600"
                     />
@@ -1361,12 +1369,12 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                                 fontSize: 10,
                                 className: 'text-muted-foreground',
                               }}
-                              tickFormatter={(value) => `$${value.toFixed(0)}`}
+                              tickFormatter={(value) => formatUsd(value, { decimals: 0 })}
                               width={60}
                             />
                             <Tooltip
                               formatter={(value: number) => [
-                                `$${Number(value).toFixed(2)}`,
+                                formatUsd(Number(value)),
                                 'Equity',
                               ]}
                               labelFormatter={(label) => `Deal ${label}`}
@@ -1525,17 +1533,16 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                             Total Wins
                           </span>
                           <span className="text-sm text-green-600 font-semibold">
-                            +${dealStats.totalWinAmount.toFixed(2)}
+                            +{formatUsd(dealStats.totalWinAmount)}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Avg: $
-                          {dealStats.winningDeals > 0
-                            ? (
-                                dealStats.totalWinAmount /
-                                dealStats.winningDeals
-                              ).toFixed(2)
-                            : '0.00'}
+                          Avg:{' '}
+                          {formatUsd(
+                            dealStats.winningDeals > 0
+                              ? dealStats.totalWinAmount / dealStats.winningDeals
+                              : 0
+                          )}
                         </div>
                       </div>
                       <div className="bg-background/50 rounded-lg p-md">
@@ -1544,17 +1551,16 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                             Total Losses
                           </span>
                           <span className="text-sm text-red-600 font-semibold">
-                            -${dealStats.totalLossAmount.toFixed(2)}
+                            -{formatUsd(dealStats.totalLossAmount)}
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          Avg: $
-                          {dealStats.losingDeals > 0
-                            ? (
-                                dealStats.totalLossAmount /
-                                dealStats.losingDeals
-                              ).toFixed(2)
-                            : '0.00'}
+                          Avg:{' '}
+                          {formatUsd(
+                            dealStats.losingDeals > 0
+                              ? dealStats.totalLossAmount / dealStats.losingDeals
+                              : 0
+                          )}
                         </div>
                       </div>
                     </div>
@@ -1583,12 +1589,12 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                               tick={{ fontSize: 12 }}
                               axisLine={false}
                               tickLine={false}
-                              tickFormatter={(value) => `$${value.toFixed(0)}`}
+                              tickFormatter={(value) => formatUsd(value, { decimals: 0 })}
                             />
                             <Tooltip
                               formatter={(value: number, name: string) => [
                                 name === 'profit'
-                                  ? `$${Number(value).toFixed(2)}`
+                                  ? formatUsd(Number(value))
                                   : value,
                                 name === 'profit' ? 'Monthly Profit' : 'Deals',
                               ]}
@@ -1683,7 +1689,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                           </span>
                         </div>
                         <div className="text-xs text-muted-foreground">
-                          ${dealStats.maxDrawdown.toFixed(2)}
+                          {formatUsd(dealStats.maxDrawdown)}
                         </div>
                       </div>
                       <div className="bg-background/50 rounded-lg p-md">
@@ -1758,7 +1764,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                           {dealStats.maxDrawdownPerc.toFixed(1)}%
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
-                          ${dealStats.maxDrawdown.toFixed(2)} loss
+                          {formatUsd(dealStats.maxDrawdown)} loss
                         </div>
                       </div>
 
@@ -1783,7 +1789,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                           <span className="text-sm font-medium">Avg Win</span>
                         </div>
                         <div className="text-2xl font-bold text-green-600">
-                          ${dealStats.avgWinAmount?.toFixed(2) || '0.00'}
+                          {formatUsd(dealStats.avgWinAmount || 0)}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           Per winning deal
@@ -1796,7 +1802,7 @@ const EditBotPerformance: React.FC<EditBotPerformanceProps> = ({
                           <span className="text-sm font-medium">Avg Loss</span>
                         </div>
                         <div className="text-2xl font-bold text-red-600">
-                          ${dealStats.avgLossAmount?.toFixed(2) || '0.00'}
+                          {formatUsd(dealStats.avgLossAmount || 0)}
                         </div>
                         <div className="text-xs text-muted-foreground mt-1">
                           Per losing deal

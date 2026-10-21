@@ -1,7 +1,8 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { StrategyChip } from '@/components/ui/chip';
 import CoinPair from '@/components/widgets/shared/CoinPair';
-import { formatCurrency } from '@/lib/utils';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { formatQuoteAmount } from '@/utils/formatters';
 import { extractPairAssets } from '@/utils/pairs';
 import React, { useMemo } from 'react';
 
@@ -18,6 +19,7 @@ const TradeItemPanel: React.FC<TradeItemPanelProps> = ({
   privacyMode = false,
   displayBotName: displayBotNameProp,
 }) => {
+  const { format, holding, toReporting } = useReportingCurrency();
   // Robust numeric extractor
   const extractNumeric = (val: any): number => {
     if (typeof val === 'number') return val;
@@ -106,13 +108,22 @@ const TradeItemPanel: React.FC<TradeItemPanelProps> = ({
     return 0;
   }, [trade]);
 
-  // USD equivalent: prefer usage.currentUsd, then usage.current.quote, then amount*price
-  const usdEquivalent = useMemo(() => {
-    const uUsd = trade?.usage?.currentUsd ?? trade?.usage?.current?.quote;
-    if (uUsd !== undefined && uUsd !== null) return extractNumeric(uUsd);
+  // Value: usage.currentUsd in the reporting currency; without it, the
+  // usage.current.quote / amount*price fallbacks are quote amounts.
+  const valueText = useMemo(() => {
+    const uUsd = trade?.usage?.currentUsd;
+    const uQuote = trade?.usage?.current?.quote;
+    if (uUsd !== undefined && uUsd !== null)
+      return format(
+        uQuote !== undefined && uQuote !== null
+          ? holding(quoteAsset, extractNumeric(uQuote), extractNumeric(uUsd))
+          : toReporting(extractNumeric(uUsd))
+      );
+    if (uQuote !== undefined && uQuote !== null)
+      return formatQuoteAmount(extractNumeric(uQuote), quoteAsset);
     const p = extractNumeric(trade.price ?? trade.avgPrice ?? trade.closePrice);
-    return amount && p ? amount * p : 0;
-  }, [trade, amount]);
+    return formatQuoteAmount(amount && p ? amount * p : 0, quoteAsset);
+  }, [trade, amount, quoteAsset, format, holding, toReporting]);
 
   const timeAgo = useMemo(() => {
     const ts = trade.updateTime ?? trade.createTime ?? trade.timestamp ?? 0;
@@ -224,7 +235,7 @@ const TradeItemPanel: React.FC<TradeItemPanelProps> = ({
                     }`}
               </div>
               <div className="text-xs text-muted-foreground">
-                {privacyMode ? '***' : formatCurrency(usdEquivalent, 2)}
+                {privacyMode ? '***' : valueText}
               </div>
             </div>
           </div>

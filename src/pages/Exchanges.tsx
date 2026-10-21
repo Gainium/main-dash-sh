@@ -29,6 +29,7 @@ import { type UIExchange } from '../hooks/useTransformedExchanges';
 import { logger } from '../lib/loggerInstance';
 import { useExchangesStore } from '../stores/exchangesStore';
 import type { ExchangeEnum, ExchangeInUser } from '../types/exchange.types';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 
 // Look up the full `ExchangeInUser` from the store by uuid. The table
@@ -186,7 +187,7 @@ const ExchangeCardsGrid: React.FC<{
         header: 'Balance',
         cell: ({ getValue }) => {
           const val = getValue() as number | undefined;
-          return val != null ? `$${val.toLocaleString()}` : '—';
+          return val != null ? formatUsdAsReporting(val) : '—';
         },
       },
       {

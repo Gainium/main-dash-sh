@@ -1,3 +1,5 @@
+import { getReportingCurrency, usdToReporting } from '@/utils/reportingCurrency';
+
 /**
  * Formats numbers in a friendly way (e.g., 1000 -> 1K, 1000000 -> 1M)
  * Matches the old dashboard's math.friendly() function
@@ -38,10 +40,12 @@ export function mathFriendly(n: number): string {
 }
 
 /**
- * Formats VALUE field like the old dashboard
+ * Formats a USD VALUE field like the old dashboard, in the reporting currency
  */
-export function formatValueFriendly(value: number): string {
-  return (value || 0) < 0
-    ? `-$${mathFriendly((value || -0) * -1)}`
-    : `$${mathFriendly(value || 0)}`;
+export function formatValueFriendly(usd: number): string {
+  const { symbol } = getReportingCurrency();
+  const value = usdToReporting(usd || 0);
+  return value < 0
+    ? `-${symbol}${mathFriendly(value * -1)}`
+    : `${symbol}${mathFriendly(value)}`;
 }

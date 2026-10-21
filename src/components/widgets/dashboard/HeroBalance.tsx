@@ -6,6 +6,7 @@ import {
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { useLegacyDashboardStats } from '@/hooks/useDashboardStatsBatch';
 import {
   usePositionTotals,
@@ -96,6 +97,7 @@ const POSITION_TOTALS_SCOPES: {
 
 export const HeroBalance: React.FC = () => {
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, holding } = useReportingCurrency();
   const { exchanges } = useTransformedExchangesFromContext();
   // Stored timezone is free-text and may be an invalid IANA id (e.g. the
   // localized "Europa/Roma"); an invalid value throws in toTzDateKey's Intl
@@ -185,6 +187,20 @@ export const HeroBalance: React.FC = () => {
     const previous = sorted.length > 1 ? sorted[sorted.length - 2] : null;
 
     const total = latest.totalUsd;
+    // A fiat holding already in the reporting currency counts at its face
+    // amount, not round-tripped through USD; expressed back in USD so the
+    // converting value component shows exactly that sum.
+    const faceAdjustUsd =
+      currency.rate > 0
+        ? ((latest.assets ?? []) as PortfolioAssetWithExchanges[]).reduce(
+            (sum, asset) =>
+              sum +
+              holding(asset.name, asset.amount || 0, asset.amountUsd || 0) /
+                currency.rate -
+              (asset.amountUsd || 0),
+            0
+          )
+        : 0;
     let change = 0;
     let changePct = 0;
     if (previous) {
@@ -225,14 +241,14 @@ export const HeroBalance: React.FC = () => {
     }
 
     return {
-      totalValue: total,
+      totalValue: total + faceAdjustUsd,
       changeValue: change,
       changePercent: changePct,
       exchangeCount: fallback.exchangeCount,
       allocationData: allocation,
       topAllocation: allocation[0] ?? null,
     };
-  }, [portfolioData, exchanges]);
+  }, [portfolioData, exchanges, currency, holding]);
 
   // Today's PnL — pull the row matching today's tz-aware midnight from the
   // shared daily-profit response.

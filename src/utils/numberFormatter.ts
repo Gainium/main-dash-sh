@@ -8,6 +8,8 @@
  * - Use K and M (123.4K, 1.45M)
  */
 
+import { getReportingCurrency, usdToReporting } from '@/utils/reportingCurrency';
+
 export function formatNumber(
   value: number | string | null | undefined,
   precise = false
@@ -114,12 +116,23 @@ export function formatPercentage(
 
 /**
  * Format currency values
- * Uses the same formatting rules but adds $ prefix
+ * Uses the same formatting rules but adds a currency prefix. With the default
+ * '$' the value is a USD amount and is shown in the user's reporting currency;
+ * any other prefix is applied to the value as-is.
  */
 export function formatCurrency(
   value: number | string | null | undefined,
   currency = '$'
 ): string {
+  if (currency === '$' && value !== null && value !== undefined) {
+    const n = typeof value === 'number' ? value : parseFloat(value);
+    if (Number.isFinite(n)) {
+      const formatted = formatNumber(usdToReporting(n));
+      return formatted === '-'
+        ? '-'
+        : `${getReportingCurrency().symbol}${formatted}`;
+    }
+  }
   const formatted = formatNumber(value);
   return formatted === '-' ? '-' : `${currency}${formatted}`;
 }

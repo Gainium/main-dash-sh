@@ -1,7 +1,13 @@
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { CHART_COLORS } from '@/lib/colors';
 import { Search } from 'lucide-react';
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { createPortal } from 'react-dom';
 import {
   Area,
@@ -13,6 +19,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useChartColors } from '../../../hooks/useChartColors';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { useQuery } from '@tanstack/react-query';
 import { useWidgetSettings } from '../../../hooks/useWidgetSettings';
 import {
@@ -318,6 +325,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
 }) => {
   // Get chart colors for consistent theming
   const colors = useChartColors();
+  const { currency, holding, toReporting, formatUsd } = useReportingCurrency();
 
   // Use the generic widget settings hook with type safety
   const { usePersistedState } =
@@ -617,7 +625,26 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
     [chartSeries]
   );
 
+  // A bot's realized profit as the USD amount that displays at its
+  // reporting-currency value: profit already in the reporting currency (a
+  // EUR-quoted bot while reporting in EUR) counts at its face amount.
+  const getRealizedProfitUsd = useCallback(
+    (bot: DCABot | ComboBot): number => {
+      const usd = bot.profit?.totalUsd || 0;
+      if (!(currency.rate > 0)) return usd;
+      const pair = bot.symbol?.[0]?.value;
+      const profitAsset =
+        bot.settings?.profitCurrency === 'base' || bot.settings?.coinm
+          ? pair?.baseAsset
+          : pair?.quoteAsset;
+      return holding(profitAsset, bot.profit?.total || 0, usd) / currency.rate;
+    },
+    [currency, holding]
+  );
+
   // Helper: compute allocated capital per bot from available fields
+  // TODO(reporting-currency): quote amount — these are quote-currency sums
+  // (USDT, BTC, EUR… mixed across bots) shown as a USD value.
   const getAllocatedCapital = (bot: DCABot): number => {
     // Prefer assets.required.quote (array of {key,value}) when present
     const requiredQuote = bot.assets?.required?.quote;
@@ -661,7 +688,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
     );
 
     selected.forEach((bot) => {
-      totalRealizedProfit += bot.profit?.totalUsd || 0;
+      totalRealizedProfit += getRealizedProfitUsd(bot);
       // Not all bot types return dealsInBot; default to 0 when missing
       totalTrades += bot.dealsInBot?.all || 0;
       totalAllocatedCapital += getAllocatedCapital(bot);
@@ -737,7 +764,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
           ? Math.round(maxDealDurationMs / (60 * 1000))
           : null,
     };
-  }, [allBots, selectedBots, botStatsData, equitySeries]);
+  }, [allBots, selectedBots, botStatsData, equitySeries, getRealizedProfitUsd]);
 
   // Format duration from minutes to readable format
   const formatDuration = (minutes: number) => {
@@ -882,7 +909,7 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
   // Sums for fallback
   const selected = (allBots || []).filter((b) => selectedBots.includes(b._id));
   const sumRealizedProfit = selected.reduce(
-    (sum, b) => sum + (b.profit?.totalUsd || 0),
+    (sum, b) => sum + getRealizedProfitUsd(b),
     0
   );
   const sumAllocated = selected.reduce(
@@ -904,10 +931,10 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
   const changePercent = computedPrev > 0 ? (change / computedPrev) * 100 : 0;
 
   const headerValue = {
-    primary: computedCurrent,
-    secondary: 'USD',
+    primary: toReporting(computedCurrent),
+    secondary: currency.code,
     change: {
-      value: change,
+      value: toReporting(change),
       percentage: changePercent,
       isPositive: change >= 0,
     },
@@ -1044,14 +1071,24 @@ export const BotStatsAdvanced: React.FC<BotStatsAdvancedProps> = ({
                           fontSize: 8,
                           className: 'text-muted-foreground',
                         }}
-                        tickFormatter={(value) =>
-                          Math.abs(value) >= 1000
-                            ? `$${(value / 1000).toFixed(1)}k`
-                            : `$${value.toFixed(Math.abs(value) < 10 ? 2 : 0)}`
-                        }
+                        tickFormatter={(usd) => {
+                          const value = toReporting(usd);
+                          return Math.abs(value) >= 1000
+                            ? `${currency.symbol}${(value / 1000).toFixed(1)}k`
+                            : `${currency.symbol}${value.toFixed(Math.abs(value) < 10 ? 2 : 0)}`;
+                        }}
                         width={50}
                       />
-                      <Tooltip content={<CustomTooltip />} />
+                      <Tooltip
+                        content={
+                          <CustomTooltip
+                            valueFormatter={(value, name) => [
+                              formatUsd(Number(value)),
+                              name.charAt(0).toUpperCase() + name.slice(1),
+                            ]}
+                          />
+                        }
+                      />
                       <Area
                         isAnimationActive={false}
                         type="monotone"

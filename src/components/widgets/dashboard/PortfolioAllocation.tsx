@@ -4,7 +4,7 @@ import { GraphQlQuery } from '@/lib/api';
 import { StatusEnum, type PortfolioQuery } from '@/types';
 import React, { useContext, useEffect, useState } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { getCurrencyInfo as getCurrencyInfoUtil } from '@/utils/currencyUtils';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { PortfolioContext } from '../../../contexts/PortfolioContext';
 import {
   useWidgetSettings,
@@ -92,7 +92,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
       storedSelectedExchanges.length === 0 ? ['ALL'] : storedSelectedExchanges,
     [storedSelectedExchanges]
   );
-  const [selectedCurrency] = useState('USD');
+  const { holding, toReporting, format } = useReportingCurrency();
   const [customName, setCustomName] = usePersistedState('customName', '');
   const [showOptionsDialog, setShowOptionsDialog] = useState(false);
   const [showExchangeDialog, setShowExchangeDialog] = useState(false);
@@ -199,25 +199,6 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     }
   };
 
-  // Get currency conversion rate and formatting (use centralized function)
-  const getCurrencyInfo = (currencyCode: string) => {
-    return getCurrencyInfoUtil(currencyCode);
-  };
-
-  // Format value in selected currency
-  const formatValueInCurrency = (value: number) => {
-    const currencyInfo = getCurrencyInfo(selectedCurrency);
-    const convertedValue = value * currencyInfo.rate;
-    return {
-      value: convertedValue,
-      formatted: convertedValue.toLocaleString('en-US', {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }),
-      symbol: currencyInfo.symbol,
-    };
-  };
-
   // Note: Removed getPortfolioAllocationForExchanges as it was not being used
 
   // GraphQL data fetching
@@ -286,6 +267,10 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
           }
 
           // Calculate the total amount and USD value for the filtered exchanges
+          const totalAmount = filteredExchanges.reduce(
+            (sum: number, exchange: PortfolioExchange) => sum + exchange.amount,
+            0
+          );
           const totalAmountUsd = filteredExchanges.reduce(
             (sum: number, exchange: PortfolioExchange) =>
               sum + exchange.amountUsd,
@@ -294,6 +279,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
 
           return {
             ...asset,
+            amount: totalAmount,
             amountUsd: totalAmountUsd,
             exchanges: filteredExchanges,
           };
@@ -301,10 +287,11 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
         .filter(Boolean) as PortfolioAssetWithExchanges[]; // Remove null entries and type assert
     }
 
-    // Transform assets into allocation format
+    // Transform assets into allocation format, valued in the reporting
+    // currency (a fiat holding in that currency at its face amount)
     const rawData = assetsToProcess.map((asset, index) => ({
       name: asset.name.toUpperCase(),
-      value: asset.amountUsd,
+      value: holding(asset.name, asset.amount || 0, asset.amountUsd || 0),
       color: `hsl(${(index * 40) % 360}, 70%, 60%)`, // Generate colors dynamically
       percentage: 0, // Will be calculated later
     }));
@@ -338,7 +325,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     }
 
     return topTokens;
-  }, [portfolioData, selectedExchanges]);
+  }, [portfolioData, selectedExchanges, holding]);
 
   // Use the actual total from GraphQL data when showing all exchanges,
   // but calculate from filtered data when filtering by specific exchanges
@@ -355,7 +342,16 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
         )
       : undefined;
 
-  const totalValue = latestSnapshot?.totalUsd ?? allocationTotal;
+  const totalValue = latestSnapshot
+    ? toReporting(latestSnapshot.totalUsd) +
+      ((latestSnapshot.assets ?? []) as PortfolioAssetWithExchanges[]).reduce(
+        (sum, asset) =>
+          sum +
+          holding(asset.name, asset.amount || 0, asset.amountUsd || 0) -
+          toReporting(asset.amountUsd || 0),
+        0
+      )
+    : allocationTotal;
 
 
   // Custom formatters for the tooltip
@@ -369,17 +365,9 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
     }
 
     const numValue = Number(value);
-    const currencyInfo = getCurrencyInfo(selectedCurrency);
-    const convertedValue = numValue * currencyInfo.rate;
     const percentage = totalValue > 0 ? (numValue / totalValue) * 100 : 0;
 
-    const formattedValue = `${currencyInfo.symbol}${convertedValue.toLocaleString(
-      'en-US',
-      {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
-      }
-    )} (${percentage.toFixed(1)}%)`;
+    const formattedValue = `${format(numValue)} (${percentage.toFixed(1)}%)`;
 
     return [formattedValue, name];
   };
@@ -684,7 +672,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
             <div className="text-base sm:text-lg lg:text-xl font-bold text-foreground text-center leading-tight px-2">
               {privacyMode
                 ? '***'
-                : `${formatValueInCurrency(totalValue).symbol}${formatValueInCurrency(totalValue).formatted}`}
+                : format(totalValue)}
             </div>
             <div className="text-xs text-muted-foreground">Total</div>
           </div>

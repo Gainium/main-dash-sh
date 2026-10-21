@@ -1,3 +1,4 @@
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 /**
  * Bot Calculation Utilities
  *
@@ -144,18 +145,17 @@ export const calculateValueChangePercentage = (
 };
 
 /**
- * Format currency value for display
+ * Format a USD value for display, in the user's reporting currency
  */
 export const formatCurrency = (
   value: number,
   _currency: string = 'USD'
 ): string => {
   if (!value || isNaN(value) || !isFinite(value)) {
-    return `$0`;
+    return formatUsdAsReporting(0, { decimals: 0 });
   }
 
-  // Simple formatting - can be enhanced with proper currency formatting
-  return `$${value.toFixed(2)}`;
+  return formatUsdAsReporting(value);
 };
 
 /**

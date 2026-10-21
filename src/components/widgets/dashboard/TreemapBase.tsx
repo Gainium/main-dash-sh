@@ -2,6 +2,8 @@
 /* import { type DCADeals } from '@/hooks/useDcaDeals'; */
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { getReportingCurrency } from '@/utils/reportingCurrency';
 import { GraphQlQuery } from '@/lib/api';
 import type { ReturnResult } from '@/lib/api/types';
 import { serverDealUnrealizedPnl } from '@/lib/utils/dealUnrealizedPnl';
@@ -547,6 +549,15 @@ const NodeContent: React.FC<NodeContentProps> = (props) => {
   );
 };
 
+/** `$1.23T` / `€4.56B` / `$7.89M` / `$12,345` in the reporting currency. */
+const formatBigFiat = (val: number) => {
+  const { symbol } = getReportingCurrency();
+  if (val >= 1e12) return `${symbol}${(val / 1e12).toFixed(2)}T`;
+  if (val >= 1e9) return `${symbol}${(val / 1e9).toFixed(2)}B`;
+  if (val >= 1e6) return `${symbol}${(val / 1e6).toFixed(2)}M`;
+  return `${symbol}${val.toLocaleString()}`;
+};
+
 const TreemapBase: React.FC<TreemapBaseProps> = ({
   widgetId,
   scope,
@@ -563,6 +574,7 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
   dealMetrics: externalDealMetrics,
 }) => {
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { currency, holding, toReporting } = useReportingCurrency();
 
   // Helper to consistently read bot name (prefer flattened, fallback to nested)
   const getDealBotName = useCallback((deal: DCADeals | null | undefined) => {
@@ -927,12 +939,14 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
       hoveredAssetValueContent = '***';
     } else {
       const val = hoveredAsset.amountUsd;
+      // In the reporting currency; a fiat holding in it at face amount
+      const shown = holding(hoveredAsset.name, hoveredAsset.amount, val);
       const formatted =
-        val >= 1e9
-          ? `$${(val / 1e9).toFixed(2)}B`
-          : val >= 1e6
-            ? `$${(val / 1e6).toFixed(2)}M`
-            : `$${val.toLocaleString(undefined, {
+        shown >= 1e9
+          ? `${currency.symbol}${(shown / 1e9).toFixed(2)}B`
+          : shown >= 1e6
+            ? `${currency.symbol}${(shown / 1e6).toFixed(2)}M`
+            : `${currency.symbol}${shown.toLocaleString(undefined, {
                 minimumFractionDigits: 2,
                 maximumFractionDigits: 2,
               })}`;
@@ -968,8 +982,8 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
           <div className={`font-bold text-lg ${hoveredDealUnrealizedUsdClass}`}>
             {privacyMode
               ? '***'
-              : `${hoveredDealUnrealizedUsd >= 0 ? '+' : '-'}$${Math.abs(
-                  hoveredDealUnrealizedUsd
+              : `${hoveredDealUnrealizedUsd >= 0 ? '+' : '-'}${currency.symbol}${Math.abs(
+                  toReporting(hoveredDealUnrealizedUsd)
                 ).toLocaleString(undefined, {
                   minimumFractionDigits: 2,
                   maximumFractionDigits: 2,
@@ -1094,12 +1108,12 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
                 </h3>
                 {hoveredCoin && (
                   <div className="text-lg font-semibold text-muted-foreground">
-                    $
-                    {hoveredCoin.currentPrice < 0.001
-                      ? hoveredCoin.currentPrice.toFixed(8)
-                      : hoveredCoin.currentPrice < 1
-                        ? hoveredCoin.currentPrice.toFixed(5)
-                        : hoveredCoin.currentPrice.toLocaleString(undefined, {
+                    {currency.symbol}
+                    {toReporting(hoveredCoin.currentPrice) < 0.001
+                      ? toReporting(hoveredCoin.currentPrice).toFixed(8)
+                      : toReporting(hoveredCoin.currentPrice) < 1
+                        ? toReporting(hoveredCoin.currentPrice).toFixed(5)
+                        : toReporting(hoveredCoin.currentPrice).toLocaleString(undefined, {
                             minimumFractionDigits: 2,
                             maximumFractionDigits: 2,
                           })}
@@ -1152,8 +1166,11 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
                       Current Cost
                     </span>
                     <div className="font-semibold text-card-foreground">
-                      $
-                      {hoveredDeal.usage?.currentUsd?.toLocaleString(
+                      {currency.symbol}
+                      {(hoveredDeal.usage?.currentUsd != null
+                        ? toReporting(hoveredDeal.usage.currentUsd)
+                        : undefined
+                      )?.toLocaleString(
                         undefined,
                         {
                           minimumFractionDigits: 2,
@@ -1210,21 +1227,13 @@ const TreemapBase: React.FC<TreemapBaseProps> = ({
                   </span>
                   <div className="font-semibold text-card-foreground">
                     {hoveredCoin
-                      ? scope === 'market'
-                        ? hoveredCoin.marketCap >= 1e12
-                          ? `$${(hoveredCoin.marketCap / 1e12).toFixed(2)}T`
-                          : hoveredCoin.marketCap >= 1e9
-                            ? `$${(hoveredCoin.marketCap / 1e9).toFixed(2)}B`
-                            : hoveredCoin.marketCap >= 1e6
-                              ? `$${(hoveredCoin.marketCap / 1e6).toFixed(2)}M`
-                              : `$${hoveredCoin.marketCap.toLocaleString()}`
-                        : hoveredCoin.totalVolume >= 1e12
-                          ? `$${(hoveredCoin.totalVolume / 1e12).toFixed(2)}T`
-                          : hoveredCoin.totalVolume >= 1e9
-                            ? `$${(hoveredCoin.totalVolume / 1e9).toFixed(2)}B`
-                            : hoveredCoin.totalVolume >= 1e6
-                              ? `$${(hoveredCoin.totalVolume / 1e6).toFixed(2)}M`
-                              : `$${hoveredCoin.totalVolume.toLocaleString()}`
+                      ? formatBigFiat(
+                          toReporting(
+                            scope === 'market'
+                              ? hoveredCoin.marketCap
+                              : hoveredCoin.totalVolume
+                          )
+                        )
                       : '—'}
                   </div>
                 </div>

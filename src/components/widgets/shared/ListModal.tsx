@@ -17,6 +17,7 @@ import {
   pairContractSymbol,
 } from '../../../utils/pairPicker';
 import { splitPastedPairTokens } from '../../../utils/pairs';
+import { getReportingCurrency } from '@/utils/reportingCurrency';
 import { Chip } from '../../ui/chip';
 import { Checkbox } from '../../ui/checkbox';
 import ProfitLossPercChip from '../../ui/chip/ProfitLossPercChip';
@@ -213,25 +214,29 @@ const formatRoi = (roi: number): string =>
   })}%`;
 
 /** Compact USD, e.g. $1.34T / $66.3B / $345M / $12.3K. */
-const formatCompactUsd = (n: number): string => {
+const formatCompactUsd = (usd: number): string => {
+  const { symbol: sym, rate } = getReportingCurrency();
+  const n = usd * rate;
   const abs = Math.abs(n);
-  if (abs >= 1e12) return `$${(n / 1e12).toFixed(2)}T`;
-  if (abs >= 1e9) return `$${(n / 1e9).toFixed(1)}B`;
-  if (abs >= 1e6) return `$${(n / 1e6).toFixed(1)}M`;
-  if (abs >= 1e3) return `$${(n / 1e3).toFixed(1)}K`;
-  return `$${Math.round(n)}`;
+  if (abs >= 1e12) return `${sym}${(n / 1e12).toFixed(2)}T`;
+  if (abs >= 1e9) return `${sym}${(n / 1e9).toFixed(1)}B`;
+  if (abs >= 1e6) return `${sym}${(n / 1e6).toFixed(1)}M`;
+  if (abs >= 1e3) return `${sym}${(n / 1e3).toFixed(1)}K`;
+  return `${sym}${Math.round(n)}`;
 };
 
 /** Price with sensible precision across BTC ($66,000) and SHIB ($0.00002). */
-const formatPrice = (n: number): string => {
+const formatPrice = (usd: number): string => {
+  const { symbol: sym, rate } = getReportingCurrency();
+  const n = usd * rate;
   if (n >= 1)
-    return `$${n.toLocaleString('en-US', {
+    return `${sym}${n.toLocaleString('en-US', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
-  if (n >= 0.01) return `$${n.toFixed(4)}`;
-  if (n > 0) return `$${n.toPrecision(2)}`;
-  return '$0';
+  if (n >= 0.01) return `${sym}${n.toFixed(4)}`;
+  if (n > 0) return `${sym}${n.toPrecision(2)}`;
+  return `${sym}0`;
 };
 
 const nameKey = (item: ListItem) => (item.name || item.symbol).toLowerCase();
@@ -488,7 +493,8 @@ export const ListModalRow = React.memo<ListModalRowProps>(
       } else if (item.subtitle) {
         subtitleText = item.subtitle;
       } else if (item.price !== undefined) {
-        subtitleText = `$${item.price.toLocaleString('en-US', {
+        const { symbol: sym, rate } = getReportingCurrency();
+        subtitleText = `${sym}${(item.price * rate).toLocaleString('en-US', {
           minimumFractionDigits: item.symbol === 'USDT' ? 0 : 2,
           maximumFractionDigits: item.symbol === 'USDT' ? 0 : 2,
         })}`;

@@ -1,4 +1,5 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { GraphQlQuery } from '@/lib/api';
 import { useUIStore } from '@/stores/uiStore';
 import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
@@ -15,6 +16,7 @@ const PortfolioValueNavigationView: React.FC<
   PortfolioValueNavigationViewProps
 > = ({ widgetId: _widgetId, compact: _compact = false }) => {
   const privacyMode = useUIStore((s) => s.privacyMode);
+  const { formatUsd } = useReportingCurrency();
 
   const [portfolioData, setPortfolioData] = useState<{
     currentValue: number;
@@ -102,10 +104,7 @@ const PortfolioValueNavigationView: React.FC<
       <div className="text-xs font-medium text-center">
         {privacyMode
           ? '***'
-          : `$${portfolioData.currentValue.toLocaleString('en-US', {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}`}
+          : formatUsd(portfolioData.currentValue)}
       </div>
 
       {portfolioData.percentage !== 0 && (

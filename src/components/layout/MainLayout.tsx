@@ -43,6 +43,7 @@ import { NavigationSidebarV2 } from './NavigationSidebarV2';
 import NavigationWidgetsInitializer from './NavigationWidgetsInitializer';
 import SharedPageLayout from './SharedPageLayout';
 import Socket from './Socket';
+import { useReportingCurrencyStore } from '@/stores/reportingCurrencyStore';
 
 interface MainLayoutProps {
   children: React.ReactNode;
@@ -147,6 +148,9 @@ const AppShellContent: React.FC = () => {
     null
   );
   const scrollRef = useRef<HTMLDivElement | null>(null);
+  // Remount the page (not the shell) when the reporting currency changes, so
+  // values formatted by plain functions re-render in the new currency.
+  const reportingCode = useReportingCurrencyStore((s) => s.currency.code);
 
   const setChrome = useCallback((next: ShellChrome | null) => {
     setChromeState((prev) => (sameChrome(prev, next) ? prev : next));
@@ -176,7 +180,7 @@ const AppShellContent: React.FC = () => {
         scrollContainerOutRef={scrollRef}
       >
         <PageSuspense>
-          <Outlet />
+          <Outlet key={reportingCode} />
         </PageSuspense>
       </MainLayoutContent>
     </ShellContext.Provider>

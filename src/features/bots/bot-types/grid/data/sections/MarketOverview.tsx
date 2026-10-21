@@ -1,4 +1,5 @@
 import { useCallback, type ReactNode } from 'react';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { BarChart3, Layers, ListFilter } from 'lucide-react';
 
 import { Card } from '@/components/ui/card';
@@ -50,6 +51,7 @@ export const MarketOverview: React.FC<MarketOverviewProps> = ({
   exchangeLabel,
   formatAmount,
 }) => {
+  const reportingCode = useReportingCurrency().currency.code;
   const handleToggle = useCallback(
     (key: keyof GridMarketOverviewState) => (value: boolean) => {
       onChange({
@@ -108,7 +110,7 @@ export const MarketOverview: React.FC<MarketOverviewProps> = ({
             </span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-muted-foreground">USD Rate</span>
+            <span className="text-muted-foreground">{reportingCode} Rate</span>
             <span className="font-semibold text-card-foreground">
               {formatAmount(funds.usdRate, {
                 currency: 'usd',

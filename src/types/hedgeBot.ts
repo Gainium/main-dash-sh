@@ -1,5 +1,6 @@
 // Types for real Hedge DCA Bot data from GraphQL API
 import { logger } from '@/lib/loggerInstance';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 import type { DcaBotStats } from './dcaBot';
 import {
   StrategyEnum,
@@ -486,7 +487,7 @@ export function transformHedgeBotToBot(
     tradingTime: formatWorkingTime(workingTimeMs),
     created: hedgeBot.created || new Date().toISOString(),
     usage: investedUsd,
-    usageTooltip: `Long: $${investedLongUsd.toFixed(2)} | Short: $${investedShortUsd.toFixed(2)}`,
+    usageTooltip: `Long: ${formatUsdAsReporting(investedLongUsd)} | Short: ${formatUsdAsReporting(investedShortUsd)}`,
     deals: totalDeals,
     activeDeals: activeDeals,
     outerGaugePercent: investedUsd > 0 ? (value / investedUsd) * 100 : 0,

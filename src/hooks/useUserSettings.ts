@@ -81,6 +81,7 @@ export interface UserSettingsData {
 export interface UserSettingsInput {
   timezone?: string;
   theme?: string;
+  reportingCurrency?: string;
   paperContext?: boolean;
   shouldOnBoard?: boolean;
   shouldOnBoardExchange?: boolean;

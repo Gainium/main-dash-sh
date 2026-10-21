@@ -16,17 +16,14 @@
  */
 
 import type React from 'react';
+import { formatUsdAsReporting } from '@/utils/reportingCurrency';
 
 import { Donut, Kpi, MetricRow, Panel } from '../statsPrimitives';
 import { BotStatsConfidenceGrade } from './BotStatsConfidenceGrade';
 import type { BotStatsHeadlineVM } from './botStatsViewModel';
 
 const fmtUsd = (v: number, d = 2): string =>
-  (v < 0 ? '-$' : '$') +
-  Math.abs(v).toLocaleString('en-US', {
-    minimumFractionDigits: d,
-    maximumFractionDigits: d,
-  });
+  formatUsdAsReporting(v, { decimals: d });
 
 const fmtPct = (v: number, d = 2): string =>
   (v > 0 ? '+' : '') + v.toFixed(d) + '%';
