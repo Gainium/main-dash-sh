@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.108.2] - 2026-10-22
+### Fixed
+- Change DCA levels: the −/+ buttons no longer move while you click them. The new-levels preview now has a fixed height and scrolls, so the dialog keeps its size as levels are added.
+
 ## [2.108.1] - 2026-10-22
 ### Fixed
 - Futures DCA bots: with the "Cost" order size reference selected, DCA order amounts (regular, custom and indicator DCA orders) are now saved as cost × leverage, the same as the base order, instead of as notional value.

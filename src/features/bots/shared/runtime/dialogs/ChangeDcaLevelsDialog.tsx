@@ -12,6 +12,7 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
 import { useFundingPreview } from '@/hooks/useBaseFunding';
 import type { PreviewFundingInput } from '@/lib/baseFunding/baseFundingApi';
 import {
@@ -100,6 +101,14 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
     maxLevel,
     error ? maxLevel : value
   );
+  // Keep the level just added in view once the list scrolls.
+  const levelsListRef = React.useRef<HTMLDivElement>(null);
+  React.useEffect(() => {
+    const el = levelsListRef.current;
+    if (el) {
+      el.scrollTop = el.scrollHeight;
+    }
+  }, [addedLevels.length]);
   const fillsNowTooltip =
     previewDeal?.kind === 'combo' ? FILLS_NOW_COMBO_TOOLTIP : FILLS_NOW_TOOLTIP;
 
@@ -180,15 +189,28 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
             ) : null}
           </div>
 
-          {addedLevels.length > 0 ? (
-            <div className="space-y-xs">
+          {previewDeal ? (
+            // Laid out (invisible) even before a level is added: the dialog is
+            // centred, so any growth here would move the stepper above it.
+            <div
+              className={cn(
+                'space-y-xs',
+                addedLevels.length === 0 && 'invisible'
+              )}
+              aria-hidden={addedLevels.length === 0}
+              data-testid="change-dca-new-levels-section"
+            >
               <div className="flex items-center gap-xs text-sm text-muted-foreground">
                 New levels
                 <Tooltip tooltip={NEW_LEVELS_TOOLTIP}>
                   <InfoIcon />
                 </Tooltip>
               </div>
-              <div className="divide-y divide-border rounded-lg bg-muted/20 text-sm">
+              <div
+                ref={levelsListRef}
+                className="h-56 overflow-y-auto divide-y divide-border rounded-lg bg-muted/20 text-sm"
+                data-testid="change-dca-new-levels"
+              >
                 {addedLevels.map((l) => (
                   <div
                     key={l.level}
