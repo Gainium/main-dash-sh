@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.108.1] - 2026-10-22
+### Fixed
+- Futures DCA bots: with the "Cost" order size reference selected, DCA order amounts (regular, custom and indicator DCA orders) are now saved as cost × leverage, the same as the base order, instead of as notional value.
+
 ## [2.108.0] - 2026-10-21
 ### Added
 - Reporting currency (Settings → Personal Data): every fiat value in the dashboard can be shown in USD, EUR, GBP, SGD, IDR or one of 29 other currencies, using daily exchange rates. Saved on the account.

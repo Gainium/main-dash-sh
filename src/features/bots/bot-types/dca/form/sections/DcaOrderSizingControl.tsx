@@ -14,6 +14,7 @@ import {
 import { formatNumberWithTrim } from '@/features/bots/shared/utils/order-guard';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
+import { costReferenceMultiplier } from '@/utils/bots/dca/order-size-reference';
 import {
   resolveBaseOrderContext,
   type DcaTradingContext,
@@ -130,6 +131,17 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
   const coinm = useBotFormSelector('coinm');
   const orderSizeType = useBotFormSelector('orderSizeType');
   const baseOrderSize = useBotFormSelector('baseOrderSize');
+  const leverage = useBotFormSelector('leverage');
+  const marginType = useBotFormSelector('marginType');
+  // With the futures "Cost" reference the amount is typed as margin and
+  // stored as notional (× leverage), like the Base Order field.
+  const costMultiplier = costReferenceMultiplier({
+    futures: Boolean(futures),
+    orderSizeType,
+    orderSizeReference: formData.orderSizeReference,
+    marginType,
+    leverage,
+  });
   const { currencyLabel, availableBalance, balanceCurrency, balanceAmount } =
     useMemo(() => {
       const params: Parameters<typeof resolveBaseOrderContext>[0] = {
@@ -195,9 +207,9 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
         updateOrderSize(0);
         return;
       }
-      updateOrderSize(value);
+      updateOrderSize(value * costMultiplier);
     },
-    [allowNegative, updateOrderSize]
+    [allowNegative, costMultiplier, updateOrderSize]
   );
 
   const handlePercentChange = useCallback(
@@ -425,7 +437,7 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
         >
           <BalanceInput
             readOnly={isSettingsReadonly}
-            value={orderSizeValue}
+            value={orderSizeValue / costMultiplier}
             onChange={
               isPercentageMode ? handlePercentChange : handleOrderSizeChange
             }
