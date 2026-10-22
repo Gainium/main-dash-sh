@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.0] - 2026-10-22
+### Added
+- Shared backtests: a Settings tab shows the bot settings the backtest ran with (DCA, Combo and Grid), so shared backtests can be compared.
+
 ## [2.108.2] - 2026-10-22
 ### Fixed
 - Change DCA levels: the −/+ buttons no longer move while you click them. The new-levels preview now has a fixed height and scrolls, so the dialog keeps its size as levels are added.

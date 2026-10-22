@@ -11,6 +11,7 @@ import {
   GridBacktestStatsTab,
   GridBacktestTransactionsTab,
 } from '@/components/widgets/bots/backtest';
+import { BacktestSettingsTab } from '@/components/widgets/bots/backtest/BacktestSettingsTab';
 import { useGridBacktests } from '@/hooks/useGridBacktests';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
 import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
@@ -19,8 +20,8 @@ import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
 import type { BotPageDescriptor } from './types';
 
 /**
- * Grid share-viewer tabs (Overview / Transactions / Equity Curve / Stats),
- * lifted verbatim from GridBotNew.tsx's `?backtestShare=` block. Supplied via
+ * Grid share-viewer tabs (Overview / Transactions / Equity Curve / Stats /
+ * Settings), lifted from GridBotNew.tsx's `?backtestShare=` block. Supplied via
  * `renderShareContent` so the unified panel doesn't fall back to DCA tabs over
  * grid data.
  */
@@ -36,6 +37,9 @@ function GridShareTabs({
         <TabsTrigger value="bt-transactions">Transactions</TabsTrigger>
         <TabsTrigger value="bt-equity">Equity Curve</TabsTrigger>
         <TabsTrigger value="bt-stats">Stats</TabsTrigger>
+        {backtest.settings && (
+          <TabsTrigger value="bt-settings">Settings</TabsTrigger>
+        )}
       </TabsList>
       <TabsContent value="bt-overview" className="">
         <GridBacktestOverviewTab backtest={backtest} />
@@ -48,6 +52,9 @@ function GridShareTabs({
       </TabsContent>
       <TabsContent value="bt-stats" className="">
         <GridBacktestStatsTab backtest={backtest} />
+      </TabsContent>
+      <TabsContent value="bt-settings" className="">
+        <BacktestSettingsTab backtest={backtest} kind="grid" />
       </TabsContent>
     </Tabs>
   );
