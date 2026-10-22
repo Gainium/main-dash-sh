@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.1] - 2026-10-22
+### Fixed
+- Backtests run in the browser now size percentage-of-balance orders from the selected account's balance. They were sized from an empty balance, so every order fell to the exchange minimum and results showed a "used more funds than allocated" warning.
+
 ## [2.109.0] - 2026-10-22
 ### Added
 - Shared backtests: a Settings tab shows the bot settings the backtest ran with (DCA, Combo and Grid), so shared backtests can be compared.

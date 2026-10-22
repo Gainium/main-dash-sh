@@ -73,6 +73,7 @@ import { gridTabDescriptors } from '@/features/bots/bot-types/grid/form/tabs';
 } from '@/features/bots/modules/hedgeModule'; */
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { BotPlacementProgress } from '@/features/bots/widgets/BotForm/BotPlacementProgress';
+import { useBalanceStore } from '@/stores/live/balanceStore';
 import { useGridBotsStore } from '@/stores/live/gridBotsStore';
 import { GRID_BOT_TYPE_ID } from '@/features/bots/registry/entries/grid';
 import {
@@ -162,7 +163,10 @@ import {
   type Symbols,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
-import { localDcaBacktestSettings } from './localBacktestSettings';
+import {
+  localBacktestBalances,
+  localDcaBacktestSettings,
+} from './localBacktestSettings';
 import type { ComboBot } from '@/types/comboBot';
 import type { GridBot } from '@/types/gridBot';
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
@@ -734,7 +738,6 @@ const BotForm: React.FC<BotFormProps> = ({
     refetchExchanges,
     currentExchange,
     pairMetadata,
-    balances: queryBalances,
   } = useBotFormQuery();
   // Prefer a caller-supplied bot (e.g. hedge legs which can't be fetched
   // via the standard botId-based query) over the query result.
@@ -3212,7 +3215,10 @@ const BotForm: React.FC<BotFormProps> = ({
               settings: gridSettings,
               userFee,
               prices: getLocalPrices(),
-              balances: queryBalances ?? [],
+              balances: localBacktestBalances(
+                useBalanceStore.getState().balances,
+                currentExchange
+              ),
               interval: cfg.timeframe,
               from: firstDataTime,
               to: lastDataTime,
@@ -3395,7 +3401,10 @@ const BotForm: React.FC<BotFormProps> = ({
               settings: localDcaBacktestSettings(formData, settingsFromMapping),
               userFee,
               prices: getLocalPrices(),
-              balances: queryBalances ?? [],
+              balances: localBacktestBalances(
+                useBalanceStore.getState().balances,
+                currentExchange
+              ),
               interval: cfg.timeframe,
               from: firstDataTime,
               to: lastDataTime,
@@ -3575,7 +3584,6 @@ const BotForm: React.FC<BotFormProps> = ({
       pairMetadata.byPair,
       persistBacktestResult,
       persistGridBacktestResult,
-      queryBalances,
       onBacktestComplete,
       setErrors,
     ]
