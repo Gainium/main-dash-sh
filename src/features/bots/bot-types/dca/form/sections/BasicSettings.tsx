@@ -16,10 +16,8 @@ import {
   type BotFormUpdateValue,
   type Fields,
 } from '@/contexts/bots/form/BotFormProvider';
-import { IS_SH } from '@/config/mode';
 import { NameInput } from '@/features/bots/shared/components/NameInput';
 import { useBotFormDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext';
-import { useIsBetaUser } from '@/hooks/useIsBetaUser';
 import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvider';
 import { BotTypesEnum, StrategyEnum, type ExchangeInUser } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
@@ -164,15 +162,10 @@ export const BasicSettings: React.FC<BasicSettingsProps> = ({
   ];
 
   // A hedge combo's legs each trade one pair. A standalone combo can trade
-  // many — on the cloud only for the beta group (the API enforces the same
-  // gate); self-hosted is not gated. A combo that is already multi-coin stays
-  // editable either way.
-  const isBetaUser = useIsBetaUser();
+  // many.
   const isSinglePairOnly = useMemo(
-    () =>
-      formType === BotTypesEnum.combo &&
-      (Boolean(isNestedLeg) || (!IS_SH && !isBetaUser && !useMulti)),
-    [formType, isNestedLeg, isBetaUser, useMulti]
+    () => formType === BotTypesEnum.combo && Boolean(isNestedLeg),
+    [formType, isNestedLeg]
   );
 
   // Hedge legs: copy the opposite leg's pairs. Each leg keeps its own

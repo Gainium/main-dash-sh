@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.110.1] - 2026-10-23
+### Changed
+- Combo bots: the **Multiple** pairs switch is available on every account — multi-coin combo bots are out of beta on Gainium Cloud.
+
 ## [2.110.0] - 2026-10-23
 ### Added
 - Deal details: a cost breakdown for closed DCA and combo deals — gross P&L, fees, slippage and net P&L on one axis — so a deal that closed below its take-profit target shows where the difference went. Values estimated from older order data are dimmed with a tooltip.
