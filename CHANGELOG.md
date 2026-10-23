@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.5] - 2026-10-23
+### Fixed
+- Hedge bot form: the Take Profit (hedge) and Stop Loss (hedge) tooltips now say what the bot does. While the combined take profit is on, the legs' own fixed take profit order is not placed; while the combined stop loss is on, the legs' own percentage stop loss is not used. The tooltips said both ran side by side.
+
 ## [2.109.4] - 2026-10-23
 ### Fixed
 - Notifications: Updates no longer show a per-item "Mark as read". Updates share one read marker, so marking one marked every Update read. They are cleared from the Updates tab's "Mark all read".

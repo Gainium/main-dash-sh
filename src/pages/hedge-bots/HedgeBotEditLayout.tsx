@@ -1628,7 +1628,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
       <SettingsRow
         name="Take Profit (hedge)"
-        tooltip="A take profit on each pair's combined PnL. When on, a pair's long and short deals close together once their combined profit reaches this percentage; other pairs keep running. A pair with only one leg open is judged on that leg alone. It runs in addition to each leg's own take profit — whichever triggers first closes."
+        tooltip="A take profit on each pair's combined PnL. When on, a pair's long and short deals close together once their combined profit reaches this percentage; other pairs keep running. A pair with only one leg open is judged on that leg alone. While it is on, the legs' own fixed take profit is not used; this combined check closes the deals."
         navId="hedge-tp"
         trailing={
           <Switch
@@ -1677,7 +1677,7 @@ export const HedgeBotEditLayout: React.FC = () => {
 
       <SettingsRow
         name="Stop Loss (hedge)"
-        tooltip="A stop loss on each pair's combined PnL — enter a negative percentage (a loss). When on, a pair's long and short deals close together once their combined loss reaches this level; other pairs keep running. A pair with only one leg open is judged on that leg alone. It runs in addition to each leg's own stop loss — whichever triggers first closes."
+        tooltip="A stop loss on each pair's combined PnL — enter a negative percentage (a loss). When on, a pair's long and short deals close together once their combined loss reaches this level; other pairs keep running. A pair with only one leg open is judged on that leg alone. While it is on, the legs' own percentage stop loss is not used; this combined check closes the deals."
         navId="hedge-sl"
         trailing={
           <Switch
