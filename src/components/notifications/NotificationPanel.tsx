@@ -582,7 +582,7 @@ const NotificationPanel: React.FC = () => {
             updates
           </DetailDrawerDescription>
         </DetailDrawerHeader>
-        <DetailDrawerBody className="p-0 flex flex-col flex-1 min-h-0">
+        <DetailDrawerBody fill className="p-0 flex flex-col flex-1 min-h-0">
           {/* Search */}
           <div className="shrink-0 p-md">
             <div className="relative">

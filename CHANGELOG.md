@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.3] - 2026-10-23
+### Fixed
+- Notifications panel on mobile: the "View all notifications" button sits at the bottom of the panel again. A mobile-only spacer was pushing it up and leaving an empty gap below it.
+
 ## [2.109.2] - 2026-10-23
 ### Fixed
 - A bot's Deals tab sorts again: clicking a column header reorders the deals instead of only moving the arrow, and every column can be sorted. The tab was set up for server paging even when the deals were held in the browser, so the sort was never applied.
