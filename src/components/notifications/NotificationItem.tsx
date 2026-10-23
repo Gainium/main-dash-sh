@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { Bell, Bot, CheckCheck, FileText, Megaphone } from 'lucide-react';
 import React from 'react';
+import { canMarkSingleRead } from './markRead';
 
 interface NotificationItemProps {
   notification: UnifiedNotification;
@@ -85,7 +86,7 @@ export const NotificationItem: React.FC<NotificationItemProps> = ({
           </h3>
 
           {/* Quick actions */}
-          {!notification.isRead && onMarkRead && (
+          {canMarkSingleRead(notification) && onMarkRead && (
             <Button
               size="sm"
               variant="ghost"

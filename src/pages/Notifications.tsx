@@ -1,5 +1,6 @@
 import MainLayout from '@/components/layout/MainLayout';
 import { botUrlFor } from '@/components/notifications/botUrl';
+import { canMarkSingleRead } from '@/components/notifications/markRead';
 import { NotificationMarket } from '@/components/notifications/NotificationMarket';
 import { NotificationRichContent } from '@/components/notifications/NotificationRichContent';
 import { Badge } from '@/components/ui/badge';
@@ -239,7 +240,7 @@ const Notifications: React.FC = () => {
               New
             </Badge>
           ),
-          actions: n.isRead ? null : (
+          actions: !canMarkSingleRead(n) ? null : (
             <Button
               size="sm"
               variant="ghost"

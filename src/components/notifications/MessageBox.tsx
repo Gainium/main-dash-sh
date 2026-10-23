@@ -2,6 +2,7 @@ import { Button } from '@/components/ui/button';
 import type { UnifiedNotification } from '@/stores/notificationsStore';
 import { Bell, Bot, CheckCheck, FileText, Megaphone } from 'lucide-react';
 import React from 'react';
+import { canMarkSingleRead } from './markRead';
 import { NotificationRichContent } from './NotificationRichContent';
 
 export interface MessageBoxProps {
@@ -89,7 +90,7 @@ export const MessageBox: React.FC<MessageBoxProps> = ({
             <span className="text-xs text-muted-foreground font-medium">
               {timeAgo}
             </span>
-            {!notification.isRead && onMarkRead && (
+            {canMarkSingleRead(notification) && onMarkRead && (
               <Button
                 size="sm"
                 variant="ghost"

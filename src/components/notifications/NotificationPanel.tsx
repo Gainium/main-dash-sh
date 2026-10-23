@@ -44,6 +44,7 @@ import { ScrollArea } from '../ui/scroll-area';
 import { Tabs, TabsList, TabsTrigger } from '../ui/tabs';
 import { Timeline, type TimelineItem } from '../ui/timeline';
 import { botUrlFor } from './botUrl';
+import { canMarkSingleRead } from './markRead';
 import { NotificationMarket } from './NotificationMarket';
 import { NotificationRichContent } from './NotificationRichContent';
 
@@ -427,8 +428,9 @@ const NotificationPanel: React.FC = () => {
         // mutation and nothing on screen changed — which reads as a broken
         // button. Users whose Updates/News are fully read (unread count 0)
         // saw an active ✓✓ on every card that could never do anything.
-        // Same `!isRead` gate NotificationItem already uses.
-        const actions = notification.isRead ? null : (
+        // Same `!isRead` gate NotificationItem already uses. Updates never
+        // get one: see canMarkSingleRead.
+        const actions = !canMarkSingleRead(notification) ? null : (
           <Button
             size="sm"
             variant="ghost"
