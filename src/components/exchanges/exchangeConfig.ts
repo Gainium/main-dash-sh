@@ -163,7 +163,6 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
-    popular: true,
   },
   {
     id: ExchangeEnum.bybitSpot,
@@ -410,7 +409,6 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
-    popular: true,
   },
   {
     id: ExchangeEnum.paperBybitSpot,
@@ -734,6 +732,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: false,
     category: 'all',
+    popular: true,
   },
   {
     id: ExchangeEnum.krakenSpot,
@@ -781,6 +780,7 @@ export const exchangeProviders: ExchangeProviderConfig[] = [
     supportsPaperTrading: true,
     isPaperExchange: true,
     category: 'all',
+    popular: true,
   },
   {
     id: ExchangeEnum.paperKrakenSpot,

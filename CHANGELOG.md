@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.110.3] - 2026-10-23
+### Changed
+- Gainium Cloud: Bybit is a premium exchange — free plans see it as upgrade-to-use (or start-trial) in the add-exchange form.
+- Add-exchange form: the Popular badge moved from Bybit to Kraken.
+
 ## [2.110.2] - 2026-10-23
 ### Changed
 - Overview profit widget: fees and slippage for the selected period moved from separate boxes into an info tooltip next to the period's profit.

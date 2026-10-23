@@ -19,6 +19,11 @@ export const paidExchanges = IS_CLOUD
       ExchangeEnum.okxInverse,
       ExchangeEnum.okxLinear,
       ExchangeEnum.okxSpot,
+      ExchangeEnum.bybit,
+      ExchangeEnum.bybitAll,
+      ExchangeEnum.bybitSpot,
+      ExchangeEnum.bybitCoinm,
+      ExchangeEnum.bybitUsdm,
     ]
   : [];
 
