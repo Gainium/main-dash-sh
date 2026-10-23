@@ -23,15 +23,19 @@ export const PendingLiveValue: React.FC<{
   children: React.ReactNode;
   variant?: PendingLiveVariant;
   className?: string;
-}> = ({ pending, children, variant, className }) => {
+  /** Why the figure is not exact, for a figure that is an estimate rather
+   *  than a not-yet-live price (replaces the waiting/saved wording). */
+  tooltip?: string | undefined;
+}> = ({ pending, children, variant, className, tooltip }) => {
   const waiting = usePendingWaiting(pending, variant);
   if (!pending) return <>{children}</>;
   return (
     <Tooltip
       tooltip={
-        waiting
+        tooltip ??
+        (waiting
           ? 'Last saved value. Waiting for the live price.'
-          : 'Saved value, updated every few minutes. No live price for this pair.'
+          : 'Saved value, updated every few minutes. No live price for this pair.')
       }
       triggerClassName={cn('inline-flex opacity-50', className)}
     >

@@ -69,6 +69,11 @@ export const orderDataToViewOrder = (
     // is right for every order.
     time: formatted.executionTime,
     executedQty: order.executedQty,
+    slippageBps: order.slippageBps,
+    slippageQuote: order.slippageQuote,
+    slippageSource: order.slippageSource,
+    feeQuote: order.feeQuote,
+    feeEstimated: order.feeEstimated,
   };
 };
 

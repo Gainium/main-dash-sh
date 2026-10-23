@@ -29,6 +29,7 @@ import {
   dcaMultiBotFragment,
   gridBacktest,
   hedgeComboBotFragment,
+  orderCosts,
   orders,
   keyValue,
   varsFragment,
@@ -83,21 +84,45 @@ type CreateBotInput = Omit<
   vars?: BotVars | null;
 };
 
+const tradingCostsSelection = `
+    feesQuote
+    slippageQuote
+    grossQuote
+    netQuote
+    deals
+    slippageReconstructed
+    feesEstimated
+    quoteAsset
+`;
+
+// Bot types that carry `tradingCosts` (grid has none). Terminal bots are DCA.
+const BOT_BY_ID_FIELD: Record<string, string> = {
+  dca: 'getDCABot',
+  terminal: 'getDCABot',
+  combo: 'getComboBot',
+  hedgeDca: 'getHedgeDCABot',
+  hedgeCombo: 'getHedgeComboBot',
+};
+
 export const botQueries = {
-  getBotOrders: (input: {
-    id: string;
-    type: BotTypesEnum;
-    status?: string;
-    page?: number;
-    pageSize?: number;
-    shareId?: string;
-  }) => {
+  getBotOrders: (
+    input: {
+      id: string;
+      type: BotTypesEnum;
+      status?: string;
+      page?: number;
+      pageSize?: number;
+      shareId?: string;
+    },
+    /** Also select the per-order fee + slippage fields (newer backends only). */
+    withCosts = false
+  ) => {
     const query = `query getBotOrders($input: getBotOrdersInput!) {
       getBotOrders(input: $input) {
         status
         reason
         data {
-          orders {${orders}}
+          orders {${orders}${withCosts ? orderCosts : ''}}
           total
           page
         }
@@ -286,6 +311,52 @@ export const botQueries = {
                         status
                         reason
                         data {${statsOnlySelection}}
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  /**
+   * Fees and slippage summed over one bot's finished deals. Newer backends
+   * only: a schema without `tradingCosts` rejects the document, so the caller
+   * asks once and hides the figures (see `useBotTradingCosts`). Null for a
+   * bot type that has none (grid).
+   */
+  getBotTradingCosts: (
+    type: BotTypesEnum,
+    input: { id: string; shareId?: string }
+  ) => {
+    const field = BOT_BY_ID_FIELD[`${type}`];
+    if (!field) return null;
+    const query = `query ${field}($input: getBotInput!) {
+                    ${field}(input: $input) {
+                        status
+                        reason
+                        data {
+                            _id
+                            tradingCosts {${tradingCostsSelection}}
+                        }
+                    }
+                }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  /**
+   * Account-wide fees and slippage over deals closed in [from, to] (ms,
+   * inclusive), one row per quote asset. `botType` omitted = all bot types.
+   */
+  tradingCostsSummary: (input: {
+    from?: number;
+    to?: number;
+    botType?: BotTypesEnum;
+  }) => {
+    const query = `query tradingCostsSummary($input: tradingCostsSummaryInput) {
+                    tradingCostsSummary(input: $input) {
+                        status
+                        reason
+                        data {${tradingCostsSelection}}
                     }
                 }`;
     const variables = { input };

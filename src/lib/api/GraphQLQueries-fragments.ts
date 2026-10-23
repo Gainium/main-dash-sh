@@ -73,6 +73,20 @@ const orders = `
     typeOrder
 `;
 
+// What an order cost beyond its price: the fee in the quote asset, and the
+// execution slippage of a MARKET order against the market when the bot decided
+// to send it. Newer backends only: a schema without these fields rejects the
+// whole document, so request them with a fallback to `orders` (see
+// `useDealOrders`).
+const orderCosts = `
+    refPrice
+    slippageBps
+    slippageQuote
+    slippageSource
+    feeQuote
+    feeEstimated
+`;
+
 const varsFragment = `
 list
 paths {
@@ -2672,6 +2686,7 @@ export {
   minigridSchema,
   notEnoughBalanceFragment,
   numericalBacktest,
+  orderCosts,
   orders,
   payout,
   period,

@@ -29,7 +29,8 @@ import { useUIStore } from '../../../stores/uiStore';
 import CustomTooltip from '../../charts/CustomTooltip';
 import WidgetWrapper from '../WidgetWrapper';
 import { TimeframeButtons } from '../shared/TimeframeButtons';
-import WidgetStats from '../shared/WidgetStats';
+import WidgetStats, { type StatItem } from '../shared/WidgetStats';
+import { useAccountTradingCostStats } from './useAccountTradingCostStats';
 import {
   PROFIT_EXCHANGE_FILTER_TOOLTIP,
   useWidgetExchangeFilter,
@@ -643,9 +644,18 @@ export const Profit: React.FC<ProfitProps> = ({
   }, [timeframe, realProfitData.chartData, userTimezone]);
 
 
+  // Account-wide fees + slippage for the same period. Not shown under an
+  // exchange filter: the summary is not filtered by exchange.
+  const costStats = useAccountTradingCostStats({
+    timeFilter: String(timeFilter),
+    timeZone: userTimezone,
+    privacyMode,
+    enabled: !filtersActive,
+  });
+
   // Create stats data array for the WidgetStats component
   const createStatsData = useMemo(() => {
-    const stats = [];
+    const stats: StatItem[] = [];
 
     // First stat - Today/This Period
     stats.push({
@@ -718,13 +728,14 @@ export const Profit: React.FC<ProfitProps> = ({
       });
     }
 
-    return stats;
+    return [...stats, ...costStats];
   }, [
     realProfitData,
     timeFilter,
     privacyMode,
     profitResponse,
     computeTotalAverages,
+    costStats,
   ]);
 
   // Distinguish initial load from "loaded but no profit history yet."

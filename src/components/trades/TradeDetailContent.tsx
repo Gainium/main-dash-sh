@@ -25,6 +25,7 @@ import {
   StrategyChip,
 } from '../ui/chip';
 import { DealOrdersSection } from './DealOrdersSection';
+import { DealCostsSection } from './DealCostsSection';
 import {
   ExecuteNextDcaDialog,
   canExecuteNextDca,
@@ -337,6 +338,24 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
           )}
         </div>
       </div>
+
+      {/* Gross → Fees → Slippage → Net. Grid has no deals of its own. */}
+      {trade.botId && trade.type !== 'Grid' && (
+        <DealCostsSection
+          botId={trade.botId}
+          dealId={trade.id}
+          kind={
+            trade.type === 'Combo' || trade.type === 'Hedge Combo'
+              ? 'combo'
+              : 'dca'
+          }
+          quoteAsset={quoteAsset}
+          privacyMode={privacyMode}
+          version={`${normalizedStatus}:${completedOrders.length}:${
+            trade.profit?.total ?? ''
+          }`}
+        />
+      )}
 
       {/* Auto-Compounding Section — how much compounding added to each order.
           Only rendered when the deal actually compounded (see

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.110.0] - 2026-10-23
+### Added
+- Deal details: a cost breakdown for closed DCA and combo deals — gross P&L, fees, slippage and net P&L on one axis — so a deal that closed below its take-profit target shows where the difference went. Values estimated from older order data are dimmed with a tooltip.
+- Deal orders: Fee and Slippage columns (bps and amount in the pair's quote currency) for market orders, also when a deal is opened from the bot drawer.
+- Bot stats: total fees, total slippage and costs as a share of gross profit over the bot's closed deals.
+- Overview profit widget: fees, slippage and costs for the selected period.
+
 ## [2.109.6] - 2026-10-23
 ### Fixed
 - Bots: when the engine refuses to start a bot (for example an existing exchange position with a different leverage or margin type, or not enough credits), the dashboard ends "Starting…" at once and shows the engine's reason. It used to keep waiting for 90 seconds and then say only that the bot had not confirmed it started.

@@ -1,4 +1,4 @@
-import type { OrderData } from '..';
+import type { OrderData, OrderSlippageSource } from '..';
 
 export interface Exchange {
   uuid: string;
@@ -52,6 +52,11 @@ export interface ViewOrder {
   reduceFundsId?: string;
   addFundsId?: string;
   time: number;
+  slippageBps?: number | null | undefined;
+  slippageQuote?: number | null | undefined;
+  slippageSource?: OrderSlippageSource | null | undefined;
+  feeQuote?: number | null | undefined;
+  feeEstimated?: boolean | null | undefined;
 }
 
 export interface Position {

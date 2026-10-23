@@ -203,7 +203,7 @@ export const Panel: React.FC<PanelProps> = ({ title, className, children }) => (
 
 export interface MetricRowProps {
   k: string;
-  v: string | number;
+  v: React.ReactNode;
   tone?: KpiTone;
 }
 

@@ -2743,6 +2743,56 @@ export type OrderData = {
   reduceFundsId?: string;
   /** Set on an add-funds order; such an order is not a ladder level. */
   addFundsId?: string;
+  /** Market price when the bot decided to send the order. */
+  refPrice?: string | null;
+  /** Signed execution slippage of a MARKET order: positive = cost, negative =
+   *  price improvement. Null on LIMIT orders and on backends without it. */
+  slippageBps?: number | null;
+  /** The same slippage in the pair's quote asset, positive = cost. */
+  slippageQuote?: number | null;
+  /** `recorded` at send time, or `reconstructed` later from order data. */
+  slippageSource?: OrderSlippageSource | null;
+  /** The order's fee in the pair's quote asset; null when it cannot be
+   *  valued safely (e.g. paid in an exchange token). */
+  feeQuote?: number | null;
+  /** The fee is worked out from the stored fee rate, not venue-reported. */
+  feeEstimated?: boolean | null;
+};
+
+export type OrderSlippageSource = 'recorded' | 'reconstructed';
+
+/** A deal's execution slippage over its MARKET orders (quote asset). */
+export type DealSlippage = {
+  /** Positive = cost. */
+  quote?: number | null;
+  /** Signed, positive = adverse. */
+  bps?: number | null;
+  /** Orders that carried a slippage figure. */
+  orders?: number | null;
+  /** Some of it was reconstructed from order data rather than recorded. */
+  reconstructed?: boolean | null;
+};
+
+/** gross − fees − slippage = net (= the deal's profit), all in quote asset. */
+export type DealCostBreakdown = {
+  grossQuote?: number | null;
+  feesQuote?: number | null;
+  /** Fees were estimated from a fee rate, not read from the fills. */
+  feesEstimated?: boolean | null;
+  slippageQuote?: number | null;
+  netQuote?: number | null;
+};
+
+/** Fees and slippage summed over a bot's (or an account's) deals. */
+export type TradingCosts = {
+  feesQuote?: number | null;
+  slippageQuote?: number | null;
+  grossQuote?: number | null;
+  netQuote?: number | null;
+  deals?: number | null;
+  slippageReconstructed?: boolean | null;
+  feesEstimated?: boolean | null;
+  quoteAsset?: string | null;
 };
 
 export type ProfitLossStats = {

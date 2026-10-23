@@ -13,6 +13,7 @@ import {
   comboDealFragment,
   dcaBotSettingsFragment,
   dcaDealFragment,
+  orderCosts,
   orders,
 } from './GraphQLQueries-fragments';
 
@@ -81,7 +82,51 @@ const toDealSettingsInput = (settings: DealSettingsInput): DealSettingsInput =>
     })
   ) as DealSettingsInput;
 
+// A deal's fees + slippage. Newer backends only (see `getDealCosts`).
+const dealCostsSelection = `
+  _id
+  slippage {
+    quote
+    bps
+    orders
+    reconstructed
+  }
+  costBreakdown {
+    grossQuote
+    feesQuote
+    feesEstimated
+    slippageQuote
+    netQuote
+  }
+`;
+
 export const dealQueries = {
+  /**
+   * One deal's cost breakdown, by id. Kept out of the shared deal fragments on
+   * purpose: a backend without these fields rejects the whole document, and
+   * here that only hides the breakdown instead of every deal list.
+   */
+  getDealCosts: (
+    kind: 'dca' | 'combo',
+    input: { botId: string; dealId: string }
+  ) => {
+    const field =
+      kind === 'combo' ? 'getComboBotDealsById' : 'getDCABotDealsById';
+    const query = `query ${field}($input: getComboBotDealsByIdInput!) {
+  ${field}(input: $input) {
+  status
+  reason
+  data {
+  deals {
+  ${dealCostsSelection}
+  }
+  }
+  }
+  }`;
+    const variables = { input: { botId: input.botId, id: [input.dealId] } };
+    return { query, variables };
+  },
+
   getDCADeals: (input?: { terminal?: boolean }) => {
     const query = `query getDCADeals($input: getDCADealsInput) {
         getDCADeals(input: $input) {
@@ -822,18 +867,23 @@ export const dealQueries = {
     return { query, variables };
   },
 
-  getDealOrders: (input: {
-    id: string;
-    shareId?: string;
-    dealId: string;
-    all?: boolean;
-  }) => {
+  getDealOrders: (
+    input: {
+      id: string;
+      shareId?: string;
+      dealId: string;
+      all?: boolean;
+    },
+    /** Also select the per-order fee + slippage fields (newer backends only). */
+    withCosts = false
+  ) => {
     const query = `query getDealOrders($input: getDealOrdersInput!) {
   getDealOrders(input: $input) {
   status
   reason
   data {
   ${orders}
+  ${withCosts ? orderCosts : ''}
   }
   }
   }`;
@@ -841,18 +891,23 @@ export const dealQueries = {
     return { query, variables };
   },
 
-  getComboDealOrders: (input: {
-    id: string;
-    shareId?: string;
-    dealId: string;
-    all?: boolean;
-  }) => {
+  getComboDealOrders: (
+    input: {
+      id: string;
+      shareId?: string;
+      dealId: string;
+      all?: boolean;
+    },
+    /** Also select the per-order fee + slippage fields (newer backends only). */
+    withCosts = false
+  ) => {
     const query = `query getComboDealOrders($input: getDealOrdersInput!) {
   getComboDealOrders(input: $input) {
   status
   reason
   data {
   ${orders}
+  ${withCosts ? orderCosts : ''}
   }
   }
   }`;

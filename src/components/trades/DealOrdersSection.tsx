@@ -50,6 +50,8 @@ import { formatNumber } from '@/utils/numberFormatter';
 import { useOrderStore } from '@/stores/live/orderStore';
 import type { ViewOrder } from '@/types/bots';
 import type { SmartViewOrder } from '@/hooks/bots/dca/useDealSmartOrders';
+import { OrderFee, OrderSlippage } from './OrderCostCells';
+import { orderHasFee, orderHasSlippage } from '@/utils/tradingCosts';
 
 type PendingFundsEntry = AddFundsSettings & { id: string };
 
@@ -359,6 +361,20 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                       </span>
                     </div>
                   )}
+                {orderHasFee(order) && (
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Fee</span>
+                    <OrderFee order={order} />
+                  </div>
+                )}
+                {orderHasSlippage(order) && (
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">
+                      Slippage
+                    </span>
+                    <OrderSlippage order={order} />
+                  </div>
+                )}
               </div>
             </div>
 
@@ -661,6 +677,19 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
     }
   };
 
+  // The fee and slippage columns only earn their space once an order carries
+  // a figure (an older backend sends neither).
+  const showFee = useMemo(
+    () => pendingOrders.some(orderHasFee) || completedOrders.some(orderHasFee),
+    [pendingOrders, completedOrders]
+  );
+  const showSlippage = useMemo(
+    () =>
+      pendingOrders.some(orderHasSlippage) ||
+      completedOrders.some(orderHasSlippage),
+    [pendingOrders, completedOrders]
+  );
+
   // Table columns. Cells close over the cancel handlers directly; the card
   // renderer reads them from OrderCardContext instead (see OrderCard).
   const columns = useMemo<ColumnDef<OrderRowModel>[]>(
@@ -757,6 +786,26 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           </span>
         ),
       },
+      ...(showFee
+        ? [
+            {
+              id: 'fee',
+              header: 'FEE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderFee order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
+      ...(showSlippage
+        ? [
+            {
+              id: 'slippage',
+              header: 'SLIPPAGE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderSlippage order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
       {
         // When the order EXECUTED, not when it was placed — the same
         // `getOrderExecutionTime` value the deal's chart plots its marker on,
@@ -818,7 +867,14 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
         },
       },
     ],
-    [isOrderCancellable, isCanceling, nextDcaRowId, onExecuteNextDca]
+    [
+      isOrderCancellable,
+      isCanceling,
+      nextDcaRowId,
+      onExecuteNextDca,
+      showFee,
+      showSlippage,
+    ]
   );
 
   const cardContext = useMemo<OrderCardContextValue>(

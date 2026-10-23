@@ -30,6 +30,7 @@ import { DrawerSection } from '../drawer/DrawerSection';
 import { BotStatsBreakdown } from './BotStatsBreakdown';
 import { BotStatsOverview } from './BotStatsOverview';
 import { BotPairStatsTable } from './BotPairStatsTable';
+import { BotTradingCostsPanel } from './BotTradingCostsPanel';
 import {
   buildBotStatsBreakdown,
   buildBotStatsHeadline,
@@ -226,6 +227,14 @@ export const BotStatsTab: FC<BotStatsTabProps> = ({
           </div>
         )}
         <BotStatsOverview vm={headline} />
+        {/* Lifetime totals: kept out of the since-last-change window. */}
+        {!(resetAt && statsWindow === 'since') && (
+          <BotTradingCostsPanel
+            botId={botId}
+            botType={botType}
+            active={active}
+          />
+        )}
         <BotStatsBreakdown vm={breakdown} />
         {multiPair && (
           <BotPairStatsTable

@@ -1073,6 +1073,11 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
             // `getOrderExecutionTime`.
             time: formatted.executionTime,
             executedQty: order.executedQty,
+            slippageBps: order.slippageBps,
+            slippageQuote: order.slippageQuote,
+            slippageSource: order.slippageSource,
+            feeQuote: order.feeQuote,
+            feeEstimated: order.feeEstimated,
           };
         });
       };

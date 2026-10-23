@@ -13,6 +13,7 @@ import {
   DEFAULT_READ_TIMEOUT_MS,
 } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { withFetchedOrderCosts } from '@/utils/orders/orderCosts';
 import { useUIStore } from '@/stores/uiStore';
 
 export interface UseDealOrdersResult {
@@ -31,7 +32,8 @@ function buildDealOrdersQuery(
   botId: string,
   dealId: string,
   botType: BotTypesEnum,
-  shareId?: string | null
+  shareId?: string | null,
+  withCosts = false
 ) {
   const input = {
     id: botId,
@@ -48,7 +50,7 @@ function buildDealOrdersQuery(
   const key =
     botType === BotTypesEnum.combo ? 'getComboDealOrders' : 'getDealOrders';
 
-  return { query: query(input), key };
+  return { query: query(input, withCosts), key };
 }
 
 // Standalone function to fetch deal orders
@@ -141,8 +143,14 @@ export function useDealOrders(
 
   const { shareId } = useShareContext();
 
-  // Use shared query building logic
+  // Use shared query building logic. The primary document also selects the
+  // per-order fee + slippage; a backend that predates them rejects that
+  // document, and useGraphQL then retries the plain one.
   const { query: gql, key } = useMemo(
+    () => buildDealOrdersQuery(botId, dealId, botType, shareId, true),
+    [botId, dealId, botType, shareId]
+  );
+  const { query: fallbackGql } = useMemo(
     () => buildDealOrdersQuery(botId, dealId, botType, shareId),
     [botId, dealId, botType, shareId]
   );
@@ -157,6 +165,7 @@ export function useDealOrders(
     // Disable the query until we have a valid id to prevent backend cast errors
     enabled,
     shareId,
+    fallbackQuery: fallbackGql,
   });
 
   // Update store when query succeeds and handle sequential auto-loading
@@ -233,10 +242,19 @@ export function useDealOrders(
     () => queryResult.data?.status === 'OK' || ordersFromStore.length > 0,
     [queryResult.data, ordersFromStore.length]
   );
+  const orders = useMemo(
+    () =>
+      withFetchedOrderCosts(
+        ordersFromStore,
+        queryResult.data?.status === 'OK' ? queryResult.data.data : null
+      ),
+    [ordersFromStore, queryResult.data]
+  );
+
   const result = useMemo(
     () => ({
       data: queryResult.data || null,
-      orders: ordersFromStore,
+      orders,
       total: apiTotal,
       hasValidResponse,
       isLoading: isInitialLoad, // Only show loading on first load
@@ -244,7 +262,7 @@ export function useDealOrders(
       error: queryResult.error,
       refetch: queryResult.refetch,
     }),
-    [queryResult, ordersFromStore, apiTotal, hasValidResponse, isInitialLoad]
+    [queryResult, orders, apiTotal, hasValidResponse, isInitialLoad]
   );
   return result;
 }

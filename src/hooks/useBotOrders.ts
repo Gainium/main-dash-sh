@@ -8,6 +8,7 @@ import { useGraphQL } from './useGraphQL';
 import { useShareContext } from './useShareContext';
 import { logger } from '../lib/loggerInstance';
 import { getOrderExecutionTime } from '../utils/orders/executionTime';
+import { withFetchedOrderCosts } from '../utils/orders/orderCosts';
 
 export type BotOrder = OrderData; /* {
   clientOrderId: string;
@@ -126,11 +127,16 @@ export function useBotOrders(
 
   // Get the query and variables from botQueries
 
-  // Use the GraphQL hook with proper caching
+  // Use the GraphQL hook with proper caching. The primary document also
+  // selects the per-order fee + slippage; a backend that predates them rejects
+  // it, and useGraphQL then retries the plain one.
+  const gql = useMemo(() => botQueries.getBotOrders(input, true), [input]);
+  const fallbackGql = useMemo(() => botQueries.getBotOrders(input), [input]);
   const queryResult = useGraphQL<BotOrdersData>(
     'getBotOrders',
-    botQueries.getBotOrders(input),
+    gql,
     {
+      fallbackQuery: fallbackGql,
       // Disable the query until we have a valid id to prevent backend cast errors
       enabled: hasValidId,
       shareId,
@@ -143,6 +149,11 @@ export function useBotOrders(
   );
 
   const [intermediateOrders, setIntermediateOrders] = useState<OrderData[]>([]);
+  // Every fetched page's orders, by clientOrderId — the source of the fee +
+  // slippage overlay (socket order events replace stored orders without them).
+  const [fetchedOrders, setFetchedOrders] = useState<Map<string, OrderData>>(
+    () => new Map()
+  );
   const [isLoadingComplete, setIsLoadingComplete] = useState(false);
 
   // Update store when query succeeds and handle sequential auto-loading
@@ -158,6 +169,13 @@ export function useBotOrders(
           [...prev, ...apiOrders].map((order) => [order.clientOrderId, order])
         ).values(),
       ]); // Deduplicate by clientOrderId
+      if (apiOrders.length) {
+        setFetchedOrders((prev) => {
+          const next = new Map(prev);
+          for (const o of apiOrders) next.set(o.clientOrderId, o);
+          return next;
+        });
+      }
 
       // Check if we should load more pages (only if query is not loading to ensure sequential loading)
       const shouldContinueLoading =
@@ -238,8 +256,14 @@ export function useBotOrders(
     setCurrentPageLoading(0);
     setLoadedPages(new Set([0]));
     setIntermediateOrders([]); // Clear accumulated orders
+    setFetchedOrders(new Map());
     setIsLoadingComplete(false); // Reset loading completion state
   }, [botId, botType, options.status]);
+
+  const orders = useMemo(
+    () => withFetchedOrderCosts(ordersFromStore, [...fetchedOrders.values()]),
+    [ordersFromStore, fetchedOrders]
+  );
 
   // Only show loading on initial load (when store data is empty) or during
   // auto-loading. Also treat pre-hydration as loading so the table doesn't
@@ -266,7 +290,7 @@ export function useBotOrders(
   const result = useMemo(
     () => ({
       data: queryResult.data || null,
-      orders: ordersFromStore,
+      orders,
       total,
       page,
       hasValidResponse,
@@ -275,7 +299,7 @@ export function useBotOrders(
       error: queryResult.error,
       refetch: queryResult.refetch,
     }),
-    [queryResult, ordersFromStore, total, page, hasValidResponse, isInitialLoad]
+    [queryResult, orders, total, page, hasValidResponse, isInitialLoad]
   );
   return result;
 }
