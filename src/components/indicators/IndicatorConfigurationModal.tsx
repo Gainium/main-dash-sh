@@ -276,16 +276,25 @@ export const IndicatorConfigurationModal: React.FC<
             </div>
           );
         }
+        const derive = field.derive;
         return (
           <div key={field.key} className="space-y-1.5">
             {commonLabel}
             <Select
               value={
-                (value as string) ??
-                (field.defaultValue as string | undefined) ??
-                ''
+                derive
+                  ? derive.get(paramsState)
+                  : ((value as string) ??
+                    (field.defaultValue as string | undefined) ??
+                    '')
               }
-              onValueChange={(next) => updateParam(field.key, next)}
+              onValueChange={(next) =>
+                derive
+                  ? setParamsState((prev) =>
+                      prev ? { ...prev, ...derive.set(next, prev) } : prev
+                    )
+                  : updateParam(field.key, next)
+              }
               disabled={disabled}
             >
               <SelectTrigger id={field.key} className="w-full">
@@ -342,6 +351,7 @@ export const IndicatorConfigurationModal: React.FC<
         );
       }
       case 'string':
+      case 'time':
       case 'number':
       default: {
         const stringValue =
@@ -356,7 +366,9 @@ export const IndicatorConfigurationModal: React.FC<
             type={
               field.type === 'number' && !field.allowVariables
                 ? 'number'
-                : 'text'
+                : field.type === 'time'
+                  ? 'time'
+                  : 'text'
             }
             value={stringValue}
             onChange={(event) => updateParam(storageKey, event.target.value)}

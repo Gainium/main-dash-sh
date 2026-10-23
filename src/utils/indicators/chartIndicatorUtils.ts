@@ -187,20 +187,20 @@ const coerceBoolean = (value: unknown, fallback = false): boolean => {
 }; */
 
 /**
- * Converts DCA form indicators to chart-compatible format
- * Based on the old dashboard's chartIndicators computation pattern
+ * The form indicators the chart should show for the current settings (their
+ * group is in use and the bot acts on their action), before the timeframe
+ * filter. The chart follows these indicators' timeframe.
  */
-export function convertIndicatorConfigsToChart(
+export function selectActiveChartIndicators(
   indicators: IndicatorConfig[],
   context: ChartIndicatorsContext
-): ChartIndicatorsConfig {
+): IndicatorConfig[] {
   if (!Array.isArray(indicators) || indicators.length === 0) {
     return [];
   }
 
   const {
     useCloseIndicators,
-    chartInterval,
     indicatorGroupsToUse,
     useStartDealIndicators,
     useStartDCAIndicators,
@@ -235,9 +235,24 @@ export function convertIndicatorConfigsToChart(
         filter.push(IndicatorAction.riskReward);
       }
       return filter.includes(i.indicatorAction);
-    })
+    });
+}
+
+/**
+ * Converts DCA form indicators to chart-compatible format
+ * Based on the old dashboard's chartIndicators computation pattern
+ */
+export function convertIndicatorConfigsToChart(
+  indicators: IndicatorConfig[],
+  context: ChartIndicatorsContext
+): ChartIndicatorsConfig {
+  const { chartInterval } = context;
+  return selectActiveChartIndicators(indicators, context)
     .filter(
       (i) =>
+        // A session is a time window, not a series computed on a timeframe:
+        // it applies to every chart resolution.
+        i.type === IndicatorEnum.session ||
         tvIntervalMap[i.indicatorInterval] === chartInterval ||
         // The comparison MA only exists when the reference is another MA — with
         // "Current price" the stored `maCrossingInterval` is inert (it keeps
@@ -600,6 +615,9 @@ function buildChartIndicator(
     obfvgRef: i.obfvgRef ?? OBFVGRefEnum.middle,
     sessionDays: i.sessionDays,
     sessionRule: i.sessionRule,
+    sessionStart: i.sessionStart,
+    sessionEnd: i.sessionEnd,
+    sessionTimezone: i.sessionTimezone,
     lwMaxDuration: +(i.lwMaxDuration ?? 2),
     lwThreshold: +(i.lwThreshold ?? 1000),
   };

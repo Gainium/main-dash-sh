@@ -409,6 +409,9 @@ xOscillator2voShort
   obfvgRef
   sessionDays
   sessionRule
+  sessionStart
+  sessionEnd
+  sessionTimezone
   lwThreshold
   lwMaxDuration
   lwValue
@@ -715,6 +718,9 @@ xOscillator2voShort
   obfvgRef
   sessionDays
   sessionRule
+  sessionStart
+  sessionEnd
+  sessionTimezone
   lwThreshold
   lwMaxDuration
   lwValue

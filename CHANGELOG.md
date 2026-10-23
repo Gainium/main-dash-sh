@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.111.0] - 2026-10-23
+### Added
+- Session indicator: trading hours. Pick a market session (Sydney, Tokyo, London, New York, US stock market) or set your own Start, End and time zone. Hours follow the market's local clock through daylight saving, and an End before Start runs overnight.
+- Session indicator: the chart shades upcoming sessions to the right of the last candle.
+### Fixed
+- Bot form chart: adding an indicator, changing its timeframe or turning on the setting that uses it switches the chart to that indicator's timeframe, so it is always drawn. Before, an indicator on a different timeframe than the chart was silently missing.
+- Session indicator: drawn on every chart timeframe, not only 1 hour. A candle is shaded when the session is active at any moment inside it.
+
 ## [2.110.4] - 2026-10-23
 ### Fixed
 - Deal cost breakdown: deals opened from a bot's deal list showed the breakdown in the quote currency and a net figure a cent off the deal's Realized Profit. It now uses your reporting currency and Net P&L matches Realized Profit everywhere.

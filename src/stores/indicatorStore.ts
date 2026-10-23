@@ -1,7 +1,9 @@
 import {
   convertIndicatorConfigsToChart,
+  selectActiveChartIndicators,
   type ChartIndicatorsContext,
 } from '@/utils/indicators/chartIndicatorUtils';
+import { chartIntervalToFollow } from '@/utils/indicators/chartIntervalSync';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import { StrategyEnum, type ChartIndicatorsConfig } from '@/types';
 
@@ -20,6 +22,8 @@ const defaultContext: ChartIndicatorsContext = {
   useRiskRewardIndicators: false,
 };
 
+const PENDING_INTERVAL_TTL_MS = 3_000;
+
 // Store for indicators that can be accessed by chart widgets. Regular bots
 // share the module singleton below; hedge legs each get an isolated instance
 // via BotFormProvider so co-mounted leg forms don't clobber each other's
@@ -29,11 +33,47 @@ export class IndicatorStore {
   private listeners: Array<(indicators: ChartIndicatorsConfig) => void> = [];
   private notifyScheduled = false;
   private chartIndicatorsContext: ChartIndicatorsContext = defaultContext;
+  private intervalListeners: Array<(interval: string) => void> = [];
+  // A request made while no chart listens (the form hydrates before the chart
+  // mounts) is handed to the next chart that subscribes, if it comes soon —
+  // an old one belongs to a chart that is gone.
+  private pendingInterval: { interval: string; at: number } | null = null;
+  // Indicators the chart showed at the last flush, before its timeframe
+  // filter: one that joins (added, or its action came into use) or changes
+  // timeframe moves the chart onto that timeframe.
+  private activeIndicators: IndicatorConfig[] = [];
 
   reset() {
     this._indicators = [];
     this.listeners = [];
+    this.intervalListeners = [];
+    this.pendingInterval = null;
+    this.activeIndicators = [];
     this.chartIndicatorsContext = defaultContext;
+  }
+
+  /** Ask the chart(s) showing this store to switch to a TV resolution. */
+  private requestChartInterval(interval: string) {
+    if (!this.intervalListeners.length) {
+      this.pendingInterval = { interval, at: Date.now() };
+      return;
+    }
+    this.pendingInterval = null;
+    this.intervalListeners.forEach((listener) => listener(interval));
+  }
+
+  subscribeChartInterval(listener: (interval: string) => void) {
+    this.intervalListeners.push(listener);
+    const pending = this.pendingInterval;
+    this.pendingInterval = null;
+    if (pending && Date.now() - pending.at < PENDING_INTERVAL_TTL_MS) {
+      listener(pending.interval);
+    }
+    return () => {
+      this.intervalListeners = this.intervalListeners.filter(
+        (l) => l !== listener
+      );
+    };
   }
 
   setChartIndicatorsContext(context: Partial<ChartIndicatorsContext>) {
@@ -95,6 +135,16 @@ export class IndicatorStore {
   }
 
   private flushListeners() {
+    const active = selectActiveChartIndicators(
+      this._indicators,
+      this.chartIndicatorsContext
+    );
+    const follow = chartIntervalToFollow(this.activeIndicators, active);
+    this.activeIndicators = active;
+    if (follow && follow !== this.chartIndicatorsContext.chartInterval) {
+      this.requestChartInterval(follow);
+    }
+
     const chartIndicators = convertIndicatorConfigsToChart(
       this._indicators,
       this.chartIndicatorsContext

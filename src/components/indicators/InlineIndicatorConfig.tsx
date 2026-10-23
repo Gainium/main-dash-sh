@@ -1,6 +1,7 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
+import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -251,6 +252,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
             </div>
           );
         }
+        const derive = field.derive;
         return (
           <div key={field.key} className="space-y-xs">
             <div className="flex items-center gap-1">
@@ -262,8 +264,12 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
               ) : null}
             </div>
             <Select
-              value={value?.toString() ?? ''}
-              onValueChange={(newValue) => updateParam(field.key, newValue)}
+              value={derive ? derive.get(params) : (value?.toString() ?? '')}
+              onValueChange={(newValue) =>
+                derive
+                  ? onChange({ ...params, ...derive.set(newValue, params) })
+                  : updateParam(field.key, newValue)
+              }
               disabled={disabled}
             >
               <SelectTrigger className="w-full">
@@ -290,6 +296,27 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
           </div>
         );
       }
+
+      case 'time':
+        return (
+          <div key={field.key} className="space-y-xs">
+            <div className="flex items-center gap-1">
+              <Label htmlFor={field.key}>{label}</Label>
+              {field.tooltip ? (
+                <Tooltip tooltip={field.tooltip} tooltipURL={field.tooltipURL} side="top">
+                  <InfoIcon />
+                </Tooltip>
+              ) : null}
+            </div>
+            <Input
+              id={field.key}
+              type="time"
+              value={typeof value === 'string' ? value : ''}
+              onChange={(event) => updateParam(storageKey, event.target.value)}
+              disabled={disabled}
+            />
+          </div>
+        );
 
       case 'boolean':
         return (

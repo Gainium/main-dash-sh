@@ -1,3 +1,5 @@
+import { isSessionActiveDuring } from '@/utils/indicators/sessionWindow';
+
 const colorRipeRedA200 = '#FF5252';
 const colorMintyGreen400 = '#22AB94';
 const colorMintyGreen100 = '#ACE5DC';
@@ -11635,6 +11637,47 @@ export const OBFVG = (r, callback) => ({
   },
 });
 
+// Length of the bar starting at `barTime`, from the chart's resolution
+// (`interval` units of `resolution`: '' minutes, S, D, W, M).
+const barDurationMs = (symbol, barTime) => {
+  const count = Number(symbol.interval) || 1;
+  switch (symbol.resolution) {
+    case 'S':
+      return count * 1000;
+    case 'D':
+      return count * 86_400_000;
+    case 'W':
+      return count * 7 * 86_400_000;
+    case 'M': {
+      const start = new Date(barTime);
+      return (
+        Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + count, 1) -
+        barTime
+      );
+    }
+    default:
+      return count * 60_000;
+  }
+};
+
+// Start of the bar `steps` bars after the one starting at `barTime`.
+const barTimeAhead = (symbol, barTime, steps) => {
+  if (symbol.resolution === 'M') {
+    const start = new Date(barTime);
+    const count = (Number(symbol.interval) || 1) * steps;
+    return Date.UTC(start.getUTCFullYear(), start.getUTCMonth() + count, 1);
+  }
+  return barTime + steps * barDurationMs(symbol, barTime);
+};
+
+// How far ahead of the last candle the session is drawn: about two days, kept
+// between 10 and 500 bars. Fixed per resolution, as a plot's offset must be.
+const sessionLookaheadBars = (symbol, barTime) =>
+  Math.min(
+    500,
+    Math.max(10, Math.ceil((2 * 86_400_000) / barDurationMs(symbol, barTime)))
+  );
+
 export const Session = () => ({
   name: 'Session Selector',
   metainfo: {
@@ -11646,6 +11689,10 @@ export const Session = () => ({
     defaults: {
       styles: {
         bgColor: {
+          visible: !0,
+          transparency: 85,
+        },
+        bgAhead: {
           visible: !0,
           transparency: 85,
         },
@@ -11666,6 +11713,9 @@ export const Session = () => ({
         fri: true,
         sat: false,
         inSession: true,
+        startMinute: -1,
+        endMinute: -1,
+        timezone: 'UTC',
       },
     },
     plots: [
@@ -11674,10 +11724,20 @@ export const Session = () => ({
         type: 'bg_colorer',
         palette: 'paletteBg',
       },
+      // Same shading returned N bars ahead (see main), so upcoming sessions
+      // show in the empty space right of the last candle.
+      {
+        id: 'bgAhead',
+        type: 'bg_colorer',
+        palette: 'paletteBg',
+      },
     ],
     styles: {
       bgColor: {
         title: 'Session background',
+      },
+      bgAhead: {
+        title: 'Upcoming session background',
       },
     },
     palettes: {
@@ -11706,6 +11766,32 @@ export const Session = () => ({
       { id: 'fri', name: 'Friday', defval: true, type: 'bool' },
       { id: 'sat', name: 'Saturday', defval: false, type: 'bool' },
       { id: 'inSession', name: 'In session', defval: true, type: 'bool' },
+      // Set from the bot form; hidden so the legend doesn't print raw minutes.
+      {
+        id: 'startMinute',
+        name: 'Start (minute of day, -1 = all day)',
+        defval: -1,
+        type: 'integer',
+        min: -1,
+        max: 1439,
+        isHidden: true,
+      },
+      {
+        id: 'endMinute',
+        name: 'End (minute of day, -1 = all day)',
+        defval: -1,
+        type: 'integer',
+        min: -1,
+        max: 1439,
+        isHidden: true,
+      },
+      {
+        id: 'timezone',
+        name: 'Time zone',
+        defval: 'UTC',
+        type: 'text',
+        isHidden: true,
+      },
     ],
   },
   constructor: function () {
@@ -11722,12 +11808,46 @@ export const Session = () => ({
         this._input(6), // sat = 6
       ];
       const inSession = this._input(7);
+      const toTime = (minute) =>
+        minute >= 0
+          ? `${String(Math.floor(minute / 60)).padStart(2, '0')}:${String(minute % 60).padStart(2, '0')}`
+          : '';
+      const hours = {
+        start: toTime(this._input(8)),
+        end: toTime(this._input(9)),
+        timezone: this._input(10) || 'UTC',
+      };
       const barTime = e.symbol.time;
-      if (!barTime) return [0];
-      const utcDay = new Date(barTime).getUTCDay();
-      const dayMatch = days[utcDay];
-      const active = inSession ? dayMatch : !dayMatch;
-      return [active ? 1 : 0];
+      if (!barTime) return [0, 0];
+      // A bar is shaded when the session is active at any moment inside it,
+      // so the highlight is right on every resolution, not just intraday.
+      const activeDays = days
+        .map((on, day) => (on ? day : -1))
+        .filter((day) => day >= 0);
+      const rule = inSession ? 'in' : 'out';
+      const activeAt = (start) =>
+        isSessionActiveDuring(
+          start,
+          start + barDurationMs(e.symbol, start),
+          activeDays,
+          rule,
+          hours
+        )
+          ? 1
+          : 0;
+      // Each bar paints the bar `ahead` steps later through the offset plot,
+      // which reaches past the last candle. The plain plot only covers the
+      // first `ahead` bars, which nothing paints forward, so no bar is shaded
+      // twice.
+      const ahead = sessionLookaheadBars(e.symbol, barTime);
+      const own = e.symbol.index < ahead ? activeAt(barTime) : NaN;
+      return [
+        own,
+        {
+          value: activeAt(barTimeAhead(e.symbol, barTime, ahead)),
+          offset: ahead,
+        },
+      ];
     };
   },
 });

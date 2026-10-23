@@ -41,6 +41,13 @@ import {
   resolveSmoothingCompare,
   supportsSmoothing,
 } from '@/utils/indicators/smoothing';
+import {
+  resolveSessionPreset,
+  SESSION_ALL_DAY,
+  SESSION_CUSTOM,
+  SESSION_PRESETS,
+  sessionPresetParams,
+} from '@/utils/indicators/sessionWindow';
 
 /**
  * Static catalog describing every supported indicator, ported from the legacy dashboard.
@@ -67,6 +74,39 @@ const makeNumberField = (
   type: 'number',
   ...def,
 });
+
+const makeTimeField = (
+  def: Omit<IndicatorFieldDefinition, 'type'>
+): IndicatorFieldDefinition => ({
+  type: 'time',
+  ...def,
+});
+
+// Time zones offered for a session: UTC plus the main market centres.
+const SESSION_TIMEZONE_OPTIONS = [
+  { value: 'UTC', label: 'UTC' },
+  { value: 'America/New_York', label: 'New York' },
+  { value: 'America/Chicago', label: 'Chicago' },
+  { value: 'America/Los_Angeles', label: 'Los Angeles' },
+  { value: 'America/Sao_Paulo', label: 'São Paulo' },
+  { value: 'Europe/London', label: 'London' },
+  { value: 'Europe/Berlin', label: 'Frankfurt' },
+  { value: 'Europe/Zurich', label: 'Zurich' },
+  { value: 'Asia/Dubai', label: 'Dubai' },
+  { value: 'Asia/Kolkata', label: 'Mumbai' },
+  { value: 'Asia/Singapore', label: 'Singapore' },
+  { value: 'Asia/Hong_Kong', label: 'Hong Kong' },
+  { value: 'Asia/Shanghai', label: 'Shanghai' },
+  { value: 'Asia/Seoul', label: 'Seoul' },
+  { value: 'Asia/Tokyo', label: 'Tokyo' },
+  { value: 'Australia/Sydney', label: 'Sydney' },
+];
+
+const sessionTimezoneLabel = (timezone?: string) =>
+  SESSION_TIMEZONE_OPTIONS.find((o) => o.value === (timezone || 'UTC'))
+    ?.label ??
+  timezone ??
+  'UTC';
 
 const makeIntervalField = (
   def: Omit<IndicatorFieldDefinition, 'type'>
@@ -3022,9 +3062,62 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
     shortLabel: 'Session',
     category: IndicatorCategories.Filter,
     description:
-      'Filters signals based on the day of the week (UTC). Select which days are active and whether to trade in or out of the selected sessions.',
+      'Filters signals by day of the week and, optionally, time of day in a chosen time zone. Pick a market session or set your own hours, and whether to trade in or out of it.',
     supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
     fields: [
+      makeSelectField({
+        key: 'sessionPreset',
+        label: 'Session',
+        span: 'full',
+        tooltip:
+          'Fills the hours and time zone of a market session on its local clock, so daylight saving moves it with that market. Edit the hours to make it your own.',
+        options: [
+          { value: SESSION_ALL_DAY, label: 'All day' },
+          ...SESSION_PRESETS.map((p) => ({
+            value: p.value,
+            label: `${p.label} ${p.start}–${p.end}`,
+          })),
+          { value: SESSION_CUSTOM, label: 'Custom' },
+        ],
+        derive: { get: resolveSessionPreset, set: sessionPresetParams },
+        summary: (params) => {
+          const preset = resolveSessionPreset(params);
+          if (preset === SESSION_ALL_DAY) return null;
+          const match = SESSION_PRESETS.find((p) => p.value === preset);
+          return `${match ? `${match.label} ` : ''}${params.sessionStart}–${params.sessionEnd} ${sessionTimezoneLabel(params.sessionTimezone)}`;
+        },
+      }),
+      makeTimeField({
+        key: 'sessionStart',
+        label: 'Start',
+        tooltip:
+          'Local time the session opens. Leave Start and End empty for the whole day.',
+        summary: () => null,
+      }),
+      makeTimeField({
+        key: 'sessionEnd',
+        label: 'End',
+        tooltip:
+          'Local time the session closes. An End before Start runs overnight and belongs to the day it opens.',
+        summary: () => null,
+      }),
+      makeSelectField({
+        key: 'sessionTimezone',
+        label: 'Time zone',
+        defaultValue: 'UTC',
+        options: SESSION_TIMEZONE_OPTIONS,
+        tooltip: 'Session days and hours are read on this clock.',
+        summary: () => null,
+      }),
+      makeSelectField({
+        key: 'sessionRule',
+        label: 'Rule',
+        defaultValue: SessionRuleEnum.in,
+        options: [
+          { value: SessionRuleEnum.in, label: 'In session' },
+          { value: SessionRuleEnum.out, label: 'Out of session' },
+        ],
+      }),
       makeSelectField({
         key: 'sessionDays',
         label: 'Session Days',
@@ -3038,15 +3131,6 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
           { value: 4, label: 'Thu' },
           { value: 5, label: 'Fri' },
           { value: 6, label: 'Sat' },
-        ],
-      }),
-      makeSelectField({
-        key: 'sessionRule',
-        label: 'Rule',
-        defaultValue: SessionRuleEnum.in,
-        options: [
-          { value: SessionRuleEnum.in, label: 'In session' },
-          { value: SessionRuleEnum.out, label: 'Out of session' },
         ],
       }),
     ],

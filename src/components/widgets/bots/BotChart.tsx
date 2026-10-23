@@ -730,6 +730,13 @@ const BotChart: React.FC<BotChartProps> = ({
     [interval, setInterval, indicatorStore]
   );
 
+  // The form asks the chart to follow an indicator's timeframe when one is
+  // added or retimed — otherwise the chart filters that indicator out.
+  useEffect(
+    () => indicatorStore.subscribeChartInterval(handleIntervalChange),
+    [indicatorStore, handleIntervalChange]
+  );
+
   const intervalLabel = formatIntervalLabel(interval);
   const hasWidgetOptions = Boolean(
     menuActions?.optionsMenuItems?.length || menuActions?.onOptions

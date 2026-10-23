@@ -19,6 +19,8 @@ export const IndicatorFieldTypes = {
   BOOLEAN: 'boolean',
   INTERVAL: 'interval',
   STRING: 'string',
+  /** Local time of day, stored as `HH:MM` ('' when unset). */
+  TIME: 'time',
 } as const;
 
 export type IndicatorFieldType =
@@ -129,6 +131,18 @@ export interface IndicatorFieldDefinition {
    * ORed with any `disabledWhen` match.
    */
   disabled?: boolean;
+  /**
+   * A select with no stored value of its own: it shows a value read from
+   * other params and writes those params when changed (the Session preset,
+   * which fills the hour fields). Its `key` is only the control's id.
+   */
+  derive?: {
+    get: (params: SettingsIndicators) => string;
+    set: (
+      value: string,
+      params: SettingsIndicators
+    ) => Partial<SettingsIndicators>;
+  };
 }
 
 export interface IndicatorDefinition {

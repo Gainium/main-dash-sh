@@ -7,6 +7,7 @@ import {
 } from '@/utils/indicators/smoothing';
 import {} from '@/types/indicators/indicatorTypes';
 import { OBFVGValueEnum } from '@gainium/backtester/dist/types';
+import { parseSessionTime } from '@/utils/indicators/sessionWindow';
 
 type TradingViewInput = Record<string, string | number | boolean>;
 
@@ -581,6 +582,10 @@ const buildInputs = (
         fri: days.includes(5),
         sat: days.includes(6),
         inSession: (indicator.sessionRule ?? 'in') === 'in',
+        // -1 = no hours: the whole day counts.
+        startMinute: parseSessionTime(indicator.sessionStart) ?? -1,
+        endMinute: parseSessionTime(indicator.sessionEnd) ?? -1,
+        timezone: indicator.sessionTimezone || 'UTC',
       };
     }
     default:
