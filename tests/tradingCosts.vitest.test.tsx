@@ -14,6 +14,7 @@ import { createRoot, type Root } from 'react-dom/client';
 import {
   buildCostWaterfall,
   costShareOfGross,
+  dealUsdPerQuote,
   formatCost,
   formatPnlBps,
 } from '@/utils/tradingCosts';
@@ -23,7 +24,12 @@ import { withFetchedOrderCosts } from '@/utils/orders/orderCosts';
 import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
 import { DealCostWaterfall } from '@/components/trades/DealCostsSection';
 import { OrderFee, OrderSlippage } from '@/components/trades/OrderCostCells';
-import { periodStart } from '@/components/widgets/dashboard/useAccountTradingCostStats';
+import {
+  periodStart,
+  tradingCostsTooltipLines,
+} from '@/components/widgets/dashboard/useAccountTradingCostsTooltip';
+import WidgetStats from '@/components/widgets/shared/WidgetStats';
+import { ProfitAndPerc } from '@/components/ui/chip/ProfitAndPerc';
 import type { OrderData } from '@/types';
 
 const span = (w: { min: number; max: number }, ...xs: number[]) =>
@@ -177,6 +183,51 @@ describe('deal orders query', () => {
   });
 });
 
+describe('tradingCostsTooltipLines', () => {
+  it('writes one line per quote asset: fees, slippage, share of gross', () => {
+    expect(
+      tradingCostsTooltipLines([
+        { quoteAsset: 'USDT', feesQuote: 1.87, slippageQuote: 0.11, grossQuote: 29.1 },
+        { quoteAsset: 'BTC', feesQuote: 0.00002, slippageQuote: null, grossQuote: -1 },
+      ])
+    ).toEqual([
+      'USDT — Fees -$1.87 · Slippage -$0.11 · 6.8% of gross',
+      'BTC — Fees -0.000020 BTC',
+    ]);
+  });
+
+  it('marks estimated parts and drops rows without costs', () => {
+    expect(
+      tradingCostsTooltipLines([
+        {
+          quoteAsset: 'USDT',
+          feesQuote: 2,
+          feesEstimated: true,
+          slippageQuote: 0.5,
+          slippageReconstructed: true,
+        },
+        { quoteAsset: 'USDC', feesQuote: null, slippageQuote: null },
+      ])
+    ).toEqual(['USDT — Fees -$2.00 (estimate) · Slippage -$0.50 (estimate)']);
+    expect(tradingCostsTooltipLines([])).toEqual([]);
+  });
+});
+
+describe('dealUsdPerQuote', () => {
+  it("is the deal's own USD per quote when the breakdown's net is its profit", () => {
+    expect(dealUsdPerQuote(6.6959, { total: 6.6959, totalUsd: 6.6929 })).toBeCloseTo(
+      6.6929 / 6.6959
+    );
+  });
+
+  it('refuses a breakdown in another unit, or no profit to scale by', () => {
+    // Profit kept in base: profit.total is not the quote net.
+    expect(dealUsdPerQuote(6.6959, { total: 0.0001, totalUsd: 6.69 })).toBeUndefined();
+    expect(dealUsdPerQuote(5, { total: 0, totalUsd: 0 })).toBeUndefined();
+    expect(dealUsdPerQuote(5, undefined)).toBeUndefined();
+  });
+});
+
 describe('periodStart', () => {
   // Thursday 2026-10-22 15:00 UTC.
   const now = new Date(Date.UTC(2026, 9, 22, 15, 0));
@@ -326,6 +377,34 @@ describe('OrderFee / OrderSlippage cells', () => {
   });
 });
 
+describe('WidgetStats labelTooltip', () => {
+  it('adds an info icon beside the label only when set', () => {
+    const el = document.createElement('div');
+    document.body.appendChild(el);
+    const r = createRoot(el);
+    act(() =>
+      r.render(
+        createElement(WidgetStats, {
+          stats: [
+            // textValue tiles: ResponsiveCurrencyValue needs a ResizeObserver.
+            {
+              label: 'Today',
+              value: 0,
+              textValue: '1',
+              labelTooltip: 'USDT — Fees -$1.00',
+            },
+            { label: 'Yesterday', value: 0, textValue: '2' },
+          ],
+        })
+      )
+    );
+    expect(el.textContent).toContain('?');
+    expect(el.textContent?.match(/\?/g)).toHaveLength(1);
+    act(() => r.unmount());
+    el.remove();
+  });
+});
+
 describe('DealCostWaterfall', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -394,6 +473,48 @@ describe('DealCostWaterfall', () => {
     const text = container.textContent ?? '';
     expect(text).toContain('***');
     expect(text).not.toMatch(/\d/);
+  });
+
+  it('shows Net P&L with the same digits as the Realized Profit figure', () => {
+    // 6.6959 USDT profit, booked as 6.6929 USD: Realized reads $6.69, and so
+    // must Net (it read $6.70 when the waterfall rounded the quote amount).
+    const profit = { total: 6.6959, totalUsd: 6.6929 };
+    render({
+      breakdown: { grossQuote: 8.9, feesQuote: 2.1, slippageQuote: 0.1041, netQuote: 6.6959 },
+      slippage: null,
+      quoteAsset: 'USDT',
+      profit,
+    });
+    const net = [...container.querySelectorAll('div')]
+      .map((d) => d.textContent ?? '')
+      .find((t) => /^\+\$6\.\d\d$/.test(t));
+    const realized = document.createElement('div');
+    document.body.appendChild(realized);
+    const r2 = createRoot(realized);
+    act(() =>
+      r2.render(
+        createElement(ProfitAndPerc, {
+          value: profit.totalUsd,
+          percentage: 0,
+          privacyMode: false,
+          hidePercentage: true,
+        })
+      )
+    );
+    expect(realized.textContent).toBe('+$6.69');
+    expect(net).toBe(realized.textContent);
+    act(() => r2.unmount());
+    realized.remove();
+  });
+
+  it('keeps the quote asset when the breakdown is not in the profit unit', () => {
+    render({
+      breakdown: { grossQuote: 10, feesQuote: 1, netQuote: 9 },
+      slippage: null,
+      quoteAsset: 'BTC',
+      profit: { total: 0.5, totalUsd: 30000 },
+    });
+    expect(container.textContent).toContain('+9.00 BTC');
   });
 
   it('renders nothing without a gross or net', () => {

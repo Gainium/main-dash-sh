@@ -350,6 +350,7 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
               : 'dca'
           }
           quoteAsset={quoteAsset}
+          profit={trade.profit}
           privacyMode={privacyMode}
           version={`${normalizedStatus}:${completedOrders.length}:${
             trade.profit?.total ?? ''

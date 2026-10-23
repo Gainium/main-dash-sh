@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.110.2] - 2026-10-23
+### Changed
+- Overview profit widget: fees and slippage for the selected period moved from separate boxes into an info tooltip next to the period's profit.
+- Deal orders: the Fee and Slippage columns sit right after Price and Amount, so they are visible without scrolling.
+- Deal cost breakdown: amounts are shown in your reporting currency, and Net P&L always matches the deal's Realized Profit.
+
 ## [2.110.1] - 2026-10-23
 ### Changed
 - Combo bots: the **Multiple** pairs switch is available on every account — multi-coin combo bots are out of beta on Gainium Cloud.

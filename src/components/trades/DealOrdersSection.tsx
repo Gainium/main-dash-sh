@@ -324,6 +324,20 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                     {order.amount.toFixed(6)}
                   </span>
                 </div>
+                {orderHasFee(order) && (
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">Fee</span>
+                    <OrderFee order={order} />
+                  </div>
+                )}
+                {orderHasSlippage(order) && (
+                  <div className="flex flex-col">
+                    <span className="text-xs text-muted-foreground">
+                      Slippage
+                    </span>
+                    <OrderSlippage order={order} />
+                  </div>
+                )}
                 <div className="flex flex-col">
                   <span className="text-xs text-muted-foreground">Filled</span>
                   <span className="text-sm font-medium">
@@ -361,20 +375,6 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                       </span>
                     </div>
                   )}
-                {orderHasFee(order) && (
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">Fee</span>
-                    <OrderFee order={order} />
-                  </div>
-                )}
-                {orderHasSlippage(order) && (
-                  <div className="flex flex-col">
-                    <span className="text-xs text-muted-foreground">
-                      Slippage
-                    </span>
-                    <OrderSlippage order={order} />
-                  </div>
-                )}
               </div>
             </div>
 
@@ -760,6 +760,28 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           </span>
         ),
       },
+      // Fee and slippage sit right after the order's own figures so they are
+      // visible at the drawer's default width, without scrolling.
+      ...(showFee
+        ? [
+            {
+              id: 'fee',
+              header: 'FEE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderFee order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
+      ...(showSlippage
+        ? [
+            {
+              id: 'slippage',
+              header: 'SLIPPAGE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderSlippage order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
       {
         id: 'filled',
         header: 'FILLED',
@@ -786,26 +808,6 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           </span>
         ),
       },
-      ...(showFee
-        ? [
-            {
-              id: 'fee',
-              header: 'FEE',
-              enableSorting: false,
-              cell: ({ row }) => <OrderFee order={row.original} />,
-            } satisfies ColumnDef<OrderRowModel>,
-          ]
-        : []),
-      ...(showSlippage
-        ? [
-            {
-              id: 'slippage',
-              header: 'SLIPPAGE',
-              enableSorting: false,
-              cell: ({ row }) => <OrderSlippage order={row.original} />,
-            } satisfies ColumnDef<OrderRowModel>,
-          ]
-        : []),
       {
         // When the order EXECUTED, not when it was placed — the same
         // `getOrderExecutionTime` value the deal's chart plots its marker on,

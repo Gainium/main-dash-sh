@@ -1,5 +1,7 @@
 import { formatQuoteAmount, quoteUnits } from '@/utils/formatters';
 import type { TradingCosts } from '@/types';
+import type { Currency } from '@/utils/currencyUtils';
+import { formatFiat } from '@/utils/reportingCurrency';
 
 /** Tooltips for the figures that are not exact. */
 export const FEES_ESTIMATED_TOOLTIP =
@@ -228,3 +230,54 @@ export const orderHasSlippage = (order: OrderCostFigures): boolean =>
 /** An order whose fee is known in the quote asset. */
 export const orderHasFee = (order: OrderCostFigures): boolean =>
   !order.__smart && isFiniteNumber(order.feeQuote);
+
+// ── deal figures in the Realized Profit's currency ──────────────────────────
+
+/**
+ * USD per quote unit implied by the deal's own profit (`totalUsd / total`) —
+ * what turns the breakdown into the very figure the deal's Realized Profit
+ * shows. Only when the breakdown's net IS that profit in the same unit (a
+ * deal whose profit is kept in base is not); undefined otherwise.
+ */
+export const dealUsdPerQuote = (
+  netQuote: number | null | undefined,
+  profit: { total?: number | null; totalUsd?: number | null } | null | undefined
+): number | undefined => {
+  const total = profit?.total;
+  const totalUsd = profit?.totalUsd;
+  if (
+    !isFiniteNumber(netQuote) ||
+    !isFiniteNumber(total) ||
+    !isFiniteNumber(totalUsd) ||
+    total === 0
+  ) {
+    return undefined;
+  }
+  if (Math.abs(netQuote - total) > 1e-6 * Math.max(1, Math.abs(total))) {
+    return undefined;
+  }
+  const rate = totalUsd / total;
+  return Number.isFinite(rate) && rate > 0 ? rate : undefined;
+};
+
+/**
+ * A reporting-currency amount with an explicit sign, through the same
+ * `formatFiat` the Realized Profit figure uses. Zero after rounding: no sign.
+ */
+export const formatSignedFiat = (value: number, currency: Currency): string => {
+  const digits = Math.min(2, currency.decimals ?? 2);
+  const shown = Number(value.toFixed(digits));
+  const sign = shown > 0 ? '+' : shown < 0 ? '-' : '';
+  // Format the value itself (not a pre-rounded copy): exactly the digits
+  // ProfitAndPerc renders for the same number.
+  return `${sign}${formatFiat(Math.abs(value), currency)}`;
+};
+
+/** Tone of a reporting-currency P&L figure as `formatSignedFiat` shows it. */
+export const fiatTone = (
+  value: number,
+  currency: Currency
+): 'up' | 'down' | 'neutral' => {
+  const shown = Number(value.toFixed(Math.min(2, currency.decimals ?? 2)));
+  return shown > 0 ? 'up' : shown < 0 ? 'down' : 'neutral';
+};

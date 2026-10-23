@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Card } from '../ui/card';
 import { PendingLiveValue } from '../ui/pending-live-value';
 import { useDealCosts } from '@/hooks/useTradingCosts';
+import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import type { DealCostBreakdown, DealSlippage } from '@/types';
 import {
   FEES_ESTIMATED_TOOLTIP,
@@ -12,8 +13,10 @@ import {
   axisPos,
   buildCostWaterfall,
   costShareOfGross,
+  dealUsdPerQuote,
+  fiatTone,
   formatPnlBps,
-  formatCost,
+  formatSignedFiat,
   formatSignedQuote,
   formatTick,
   isFiniteNumber,
@@ -35,14 +38,11 @@ const barClass = (step: WaterfallStep): string => {
   return gain ? 'bg-profit' : 'bg-loss';
 };
 
-const valueClass = (value: number, quoteAsset: string): string => {
-  const tone = pnlTone(value, quoteAsset);
-  return tone === 'up'
-    ? 'text-profit'
-    : tone === 'down'
-      ? 'text-loss'
-      : 'text-foreground';
-};
+const TONE_CLASS = {
+  up: 'text-profit',
+  down: 'text-loss',
+  neutral: 'text-foreground',
+} as const;
 
 /** Row height in px — the dashed connectors are laid out against it. */
 const ROW_H = 28;
@@ -51,28 +51,56 @@ export interface DealCostWaterfallProps {
   breakdown: DealCostBreakdown | null | undefined;
   slippage: DealSlippage | null | undefined;
   quoteAsset: string;
+  /** The deal's profit — its Realized Profit figure (`totalUsd`). */
+  profit?: { total?: number | null; totalUsd?: number | null } | undefined;
   privacyMode?: boolean;
 }
 
 /**
  * Gross P&L → Fees → Slippage → Net P&L as one horizontal waterfall on a
- * shared quote-asset axis: each cost bar starts where the previous step
- * ended, dashed connectors mark the step points, and a solid line marks zero.
+ * shared axis: each cost bar starts where the previous step ended, dashed
+ * connectors mark the step points, and a solid line marks zero.
+ *
+ * Amounts are shown exactly as the deal's Realized Profit is (USD from the
+ * deal's own profit, in the reporting currency, through the same formatter),
+ * so Net P&L always reads the same digits as Realized Profit. A deal whose
+ * breakdown is not in its profit's unit stays in the quote asset.
  */
 export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   breakdown,
   slippage,
   quoteAsset,
+  profit,
   privacyMode = false,
 }) => {
+  const { currency } = useReportingCurrency();
   const slippageQuote = isFiniteNumber(breakdown?.slippageQuote)
     ? breakdown.slippageQuote
     : slippage?.quote;
+
+  // Quote → shown units: USD per quote from the deal's own profit, then the
+  // reporting currency — the path the Realized Profit figure takes.
+  const usdPerQuote = dealUsdPerQuote(breakdown?.netQuote, profit);
+  const k = usdPerQuote !== undefined ? usdPerQuote * currency.rate : undefined;
+  const shown = (q: number | null | undefined) =>
+    isFiniteNumber(q) && k !== undefined ? q * k : q;
+  const formatShown = (v: number) =>
+    k !== undefined
+      ? formatSignedFiat(v, currency)
+      : formatSignedQuote(v, quoteAsset);
+  const toneOf = (v: number) =>
+    k !== undefined ? fiatTone(v, currency) : pnlTone(v, quoteAsset);
+  const unit = k !== undefined ? currency.code : quoteAsset;
+
   const waterfall = buildCostWaterfall({
-    gross: breakdown?.grossQuote,
-    fees: breakdown?.feesQuote,
-    slippage: slippageQuote,
-    net: breakdown?.netQuote,
+    gross: shown(breakdown?.grossQuote),
+    fees: shown(breakdown?.feesQuote),
+    slippage: shown(slippageQuote),
+    // Net = the Realized Profit value itself.
+    net:
+      k !== undefined && isFiniteNumber(profit?.totalUsd)
+        ? profit.totalUsd * currency.rate
+        : shown(breakdown?.netQuote),
   });
   if (!waterfall) return null;
   const { steps } = waterfall;
@@ -98,12 +126,14 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   const share = costShareOfGross({
     feesQuote: fees,
     slippageQuote: slippageQuote ?? null,
-    grossQuote: steps[0]?.value ?? null,
+    grossQuote: isFiniteNumber(breakdown?.grossQuote)
+      ? breakdown.grossQuote
+      : null,
   });
   const avgBps = slippage?.bps;
   const marketOrders = slippage?.orders;
   const summary = [
-    `Costs ${formatCost(totalCosts, quoteAsset)}${
+    `Costs ${formatShown(-(shown(totalCosts) ?? totalCosts))}${
       share !== undefined ? ` (${share.toFixed(1)}% of gross)` : ''
     }`,
     isFiniteNumber(avgBps)
@@ -186,7 +216,9 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
                 key={step.key}
                 className={cn(
                   'flex items-center justify-end text-sm font-bold tabular-nums whitespace-nowrap',
-                  privacyMode ? 'text-muted-foreground' : valueClass(step.value, quoteAsset)
+                  privacyMode
+                    ? 'text-muted-foreground'
+                    : TONE_CLASS[toneOf(step.value)]
                 )}
                 style={{ height: ROW_H }}
               >
@@ -195,9 +227,7 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
                   variant="saved"
                   tooltip={tooltip}
                 >
-                  {privacyMode
-                    ? '***'
-                    : formatSignedQuote(step.value, quoteAsset)}
+                  {privacyMode ? '***' : formatShown(step.value)}
                 </PendingLiveValue>
               </div>
             );
@@ -220,7 +250,7 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
               ))}
             </div>
             <div className="text-xs text-muted-foreground text-right">
-              {quoteAsset}
+              {unit}
             </div>
           </>
         )}
@@ -238,6 +268,8 @@ interface DealCostsSectionProps {
   dealId: string;
   kind: 'dca' | 'combo';
   quoteAsset: string;
+  /** The deal's profit, as its Realized Profit figure shows it. */
+  profit?: { total?: number | null; totalUsd?: number | null } | undefined;
   privacyMode?: boolean;
   /** Changes whenever the deal's figures can have moved (fills, close). */
   version?: string;
@@ -252,6 +284,7 @@ export const DealCostsSection: React.FC<DealCostsSectionProps> = ({
   dealId,
   kind,
   quoteAsset,
+  profit,
   privacyMode = false,
   version,
 }) => {
@@ -280,6 +313,7 @@ export const DealCostsSection: React.FC<DealCostsSectionProps> = ({
           breakdown={breakdown}
           slippage={costs?.slippage}
           quoteAsset={quoteAsset}
+          profit={profit}
           privacyMode={privacyMode}
         />
       </Card>

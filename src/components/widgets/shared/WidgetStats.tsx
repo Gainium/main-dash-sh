@@ -1,6 +1,6 @@
 import { ResponsiveCurrencyValue } from '@/components/ui/ResponsiveCurrencyValue';
 import { ProfitLossPercChip } from '@/components/ui/chip';
-import { PendingLiveValue } from '@/components/ui/pending-live-value';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import React from 'react';
 
 export interface StatItem {
@@ -16,8 +16,8 @@ export interface StatItem {
   subLabel?: string;
   /** Explicit profit/loss coloring for `textValue` stats. */
   tone?: 'success' | 'destructive' | 'neutral';
-  /** The value is an estimate: dimmed, with this tooltip (PendingLiveValue). */
-  estimateTooltip?: string;
+  /** Info icon + tooltip beside the label (the StatsBoxes pattern). */
+  labelTooltip?: string | undefined;
 }
 
 export interface WidgetStatsProps {
@@ -40,8 +40,13 @@ export const WidgetStats: React.FC<WidgetStatsProps> = ({
             {/* Label row — left-aligned label, badge (if any) right-aligned on same line */}
             <div className="flex items-center justify-between gap-1">
               <div>
-                <div className="text-muted-foreground text-xs">
+                <div className="flex items-center gap-1 text-muted-foreground text-xs">
                   {stat.label}
+                  {stat.labelTooltip && (
+                    <Tooltip tooltip={stat.labelTooltip} side="bottom">
+                      <InfoIcon className="h-3 w-3" />
+                    </Tooltip>
+                  )}
                 </div>
                 {stat.subLabel && (
                   <div className="text-muted-foreground text-xs">
@@ -59,37 +64,31 @@ export const WidgetStats: React.FC<WidgetStatsProps> = ({
 
             {/* Value — bottom, right-aligned, larger */}
             <div className="text-right">
-              <PendingLiveValue
-                pending={!!stat.estimateTooltip}
-                variant="saved"
-                tooltip={stat.estimateTooltip}
-              >
-                {stat.textValue ? (
-                  <div className="flex items-center justify-end gap-1">
-                    {stat.icon && <span>{stat.icon}</span>}
-                    <span
-                      className={`text-xl font-bold ${
-                        stat.tone === 'success'
-                          ? 'text-success'
-                          : stat.tone === 'destructive'
-                            ? 'text-destructive'
-                            : stat.textValue === 'Rising'
-                              ? 'text-success'
-                              : stat.textValue === 'Falling'
-                                ? 'text-destructive'
-                                : 'text-foreground'
-                      }`}
-                    >
-                      {stat.textValue}
-                    </span>
-                  </div>
-                ) : (
-                  <ResponsiveCurrencyValue
-                    value={stat.value}
-                    showSign={stat.showSign ?? true}
-                  />
-                )}
-              </PendingLiveValue>
+              {stat.textValue ? (
+                <div className="flex items-center justify-end gap-1">
+                  {stat.icon && <span>{stat.icon}</span>}
+                  <span
+                    className={`text-xl font-bold ${
+                      stat.tone === 'success'
+                        ? 'text-success'
+                        : stat.tone === 'destructive'
+                          ? 'text-destructive'
+                          : stat.textValue === 'Rising'
+                            ? 'text-success'
+                            : stat.textValue === 'Falling'
+                              ? 'text-destructive'
+                              : 'text-foreground'
+                    }`}
+                  >
+                    {stat.textValue}
+                  </span>
+                </div>
+              ) : (
+                <ResponsiveCurrencyValue
+                  value={stat.value}
+                  showSign={stat.showSign ?? true}
+                />
+              )}
             </div>
           </div>
         ))}

@@ -30,7 +30,7 @@ import CustomTooltip from '../../charts/CustomTooltip';
 import WidgetWrapper from '../WidgetWrapper';
 import { TimeframeButtons } from '../shared/TimeframeButtons';
 import WidgetStats, { type StatItem } from '../shared/WidgetStats';
-import { useAccountTradingCostStats } from './useAccountTradingCostStats';
+import { useAccountTradingCostsTooltip } from './useAccountTradingCostsTooltip';
 import {
   PROFIT_EXCHANGE_FILTER_TOOLTIP,
   useWidgetExchangeFilter,
@@ -644,13 +644,13 @@ export const Profit: React.FC<ProfitProps> = ({
   }, [timeframe, realProfitData.chartData, userTimezone]);
 
 
-  // Account-wide fees + slippage for the same period. Not shown under an
-  // exchange filter: the summary is not filtered by exchange.
-  const costStats = useAccountTradingCostStats({
+  // Account-wide fees + slippage for the same period, as an info tooltip on
+  // the period's profit figure. Not under an exchange filter (the summary is
+  // not filtered by exchange) nor in privacy mode.
+  const costsTooltip = useAccountTradingCostsTooltip({
     timeFilter: String(timeFilter),
     timeZone: userTimezone,
-    privacyMode,
-    enabled: !filtersActive,
+    enabled: !filtersActive && !privacyMode,
   });
 
   // Create stats data array for the WidgetStats component
@@ -667,6 +667,7 @@ export const Profit: React.FC<ProfitProps> = ({
             : timeFilter === 'Weekly'
               ? 'This Week'
               : 'Today',
+      labelTooltip: costsTooltip,
       value: privacyMode ? 0 : realProfitData.today,
       ...(privacyMode && { textValue: '***' }),
     });
@@ -728,14 +729,14 @@ export const Profit: React.FC<ProfitProps> = ({
       });
     }
 
-    return [...stats, ...costStats];
+    return stats;
   }, [
     realProfitData,
     timeFilter,
     privacyMode,
     profitResponse,
     computeTotalAverages,
-    costStats,
+    costsTooltip,
   ]);
 
   // Distinguish initial load from "loaded but no profit history yet."
