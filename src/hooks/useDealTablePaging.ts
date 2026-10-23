@@ -215,7 +215,10 @@ export function useDealTablePaging(opts: {
     }
   }, [windowResult.isPartial, windowFetchedWhole, partialKey]);
 
-  const serverPaged = !!opts.force || largeAccount.active || latchedPartial;
+  // A disabled hook is never server-paged, even when forced: its caller shows
+  // its own (client-side) rows, which a server config would leave unsorted.
+  const serverPaged =
+    enabled && (!!opts.force || largeAccount.active || latchedPartial);
 
   // Filters: resolved against the column capability table. Filters the
   // server cannot apply stay visible and are left out; filters on fields only

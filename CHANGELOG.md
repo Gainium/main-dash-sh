@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.2] - 2026-10-23
+### Fixed
+- A bot's Deals tab sorts again: clicking a column header reorders the deals instead of only moving the arrow, and every column can be sorted. The tab was set up for server paging even when the deals were held in the browser, so the sort was never applied.
+
 ## [2.109.1] - 2026-10-22
 ### Fixed
 - Backtests run in the browser now size percentage-of-balance orders from the selected account's balance. They were sized from an empty balance, so every order fell to the exchange minimum and results showed a "used more funds than allocated" warning.
