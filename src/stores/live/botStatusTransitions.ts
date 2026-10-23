@@ -15,9 +15,14 @@ import { toast } from '@/lib/toast';
  * - the server reports the target status (success toast unless `notify` is
  *   off — bulk runs toast their own summary);
  * - the socket reports `error` (error toast);
+ * - the socket reports `closed` for a pending Start: the engine refused to
+ *   start the bot (an existing position with other leverage or margin, not
+ *   enough credits, …) and stopped it again. The toast names the reason the
+ *   engine recorded, looked up through `findRefusal`;
  * - the request itself fails (the mutation clears it; it toasts the failure);
  * - `TRANSITION_TIMEOUT_MS` passes with no confirmation (error toast, and the
- *   bot's real status is re-fetched through `onTimeout`).
+ *   bot's real status is re-fetched through `onTimeout`). A Start whose
+ *   refusal was recorded meanwhile still reports that refusal.
  */
 
 export type TransitionTarget = 'open' | 'closed';
@@ -34,6 +39,11 @@ interface BeginOptions {
   notify?: boolean;
   /** Runs once if the transition times out (e.g. re-fetch the bot lists). */
   onTimeout?: () => void;
+  /**
+   * Why the engine refused a Start: the newest error or warning it recorded
+   * for the bot at or after `since` (ms), or undefined when there is none.
+   */
+  findRefusal?: (since: number) => Promise<string | undefined>;
 }
 
 export const TRANSITION_TIMEOUT_MS = 90_000;
@@ -45,6 +55,18 @@ export const TRANSITION_TIMEOUT_MS = 90_000;
  * until a response agrees with it.
  */
 export const CONFIRM_GRACE_MS = 30_000;
+
+/**
+ * How far before the click a recorded refusal still counts: the event time is
+ * the server's clock, the click time this browser's.
+ */
+export const REFUSAL_LOOKBACK_MS = 60_000;
+
+/** The engine may report `closed` before its warning is stored: look again. */
+export const REFUSAL_RETRY_MS = 1_500;
+
+/** Long enough to read a refusal that says what to change. */
+const REFUSAL_TOAST_MS = 12_000;
 
 /** Statuses that mean a bot is running (grid reports range/monitoring). */
 const RUNNING = new Set(['open', 'range', 'monitoring']);
@@ -70,6 +92,10 @@ export const useBotStatusTransitionStore = create<TransitionState>()(() => ({
 }));
 
 const timers = new Map<string, ReturnType<typeof setTimeout>>();
+const refusalLookups = new Map<
+  string,
+  NonNullable<BeginOptions['findRefusal']>
+>();
 const confirmed = new Map<
   string,
   { target: TransitionTarget; until: number }
@@ -100,10 +126,75 @@ function flushTimeouts() {
   );
 }
 
+// Refusals of many bots at once (a bulk run) are reported in one toast.
+interface Refusal {
+  transition: BotStatusTransition;
+  findRefusal: BeginOptions['findRefusal'];
+}
+let refused: Refusal[] = [];
+let refusalFlush: ReturnType<typeof setTimeout> | null = null;
+
+const wait = (ms: number) =>
+  new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/** The reason the engine recorded for refusing this Start, if any. */
+async function lookUpRefusal(
+  transition: BotStatusTransition,
+  findRefusal: BeginOptions['findRefusal'],
+  retry: boolean
+): Promise<string | undefined> {
+  if (!findRefusal) return undefined;
+  const since = transition.startedAt - REFUSAL_LOOKBACK_MS;
+  const attempt = () => findRefusal(since).catch(() => undefined);
+  const reason = await attempt();
+  if (reason || !retry) return reason;
+  await wait(REFUSAL_RETRY_MS);
+  return attempt();
+}
+
+function refusalToast(transition: BotStatusTransition, reason?: string) {
+  toast.error(
+    reason
+      ? `${quote(transition.name)} could not start. ${reason}`
+      : `${quote(transition.name)} could not start. Check its events for the reason.`,
+    { duration: REFUSAL_TOAST_MS }
+  );
+}
+
+async function flushRefusals() {
+  refusalFlush = null;
+  const batch = refused;
+  refused = [];
+  if (batch.length === 0) return;
+  if (batch.length === 1) {
+    const [only] = batch;
+    refusalToast(
+      only.transition,
+      await lookUpRefusal(only.transition, only.findRefusal, true)
+    );
+    return;
+  }
+  toast.error(
+    `${batch.length} bots could not start. Check their events for the reason.`,
+    { duration: REFUSAL_TOAST_MS }
+  );
+}
+
+function queueRefusal(refusal: Refusal) {
+  refused.push(refusal);
+  if (!refusalFlush) refusalFlush = setTimeout(flushRefusals, 500);
+}
+
+function queueTimeout(expired: BotStatusTransition) {
+  timedOut.push(expired);
+  if (!timeoutFlush) timeoutFlush = setTimeout(flushTimeouts, 500);
+}
+
 function remove(id: string): BotStatusTransition | undefined {
   const timer = timers.get(id);
   if (timer) clearTimeout(timer);
   timers.delete(id);
+  refusalLookups.delete(id);
   const current = useBotStatusTransitionStore.getState().transitions[id];
   if (!current) return undefined;
   useBotStatusTransitionStore.setState((state) => ({
@@ -130,14 +221,24 @@ export function beginBotTransition(
   useBotStatusTransitionStore.setState((state) => ({
     transitions: { ...state.transitions, [id]: entry },
   }));
+  const { findRefusal } = options;
+  if (findRefusal) refusalLookups.set(id, findRefusal);
   timers.set(
     id,
     setTimeout(() => {
       const expired = remove(id);
       if (!expired) return;
       options.onTimeout?.();
-      timedOut.push(expired);
-      if (!timeoutFlush) timeoutFlush = setTimeout(flushTimeouts, 500);
+      // The engine's `closed` may never have reached this tab (a dropped
+      // socket): a refusal it recorded is still the answer to give.
+      if (expired.target !== 'open' || !findRefusal) {
+        queueTimeout(expired);
+        return;
+      }
+      void lookUpRefusal(expired, findRefusal, false).then((reason) => {
+        if (reason) refusalToast(expired, reason);
+        else queueTimeout(expired);
+      });
     }, TRANSITION_TIMEOUT_MS)
   );
 }
@@ -179,7 +280,15 @@ export function reportBotStatus(
     return undefined;
   }
   // A list response may predate the request; only the engine's own report
-  // of an error ends the transition.
+  // of `closed` or an error ends the transition.
+  if (source === 'socket' && pending.target === 'open' && status === 'closed') {
+    // The engine stopped the bot it was asked to start: it refused, and has
+    // recorded why.
+    const findRefusal = refusalLookups.get(id);
+    remove(id);
+    queueRefusal({ transition: pending, findRefusal });
+    return undefined;
+  }
   if (source === 'socket' && status === 'error') {
     remove(id);
     toast.error(
@@ -236,9 +345,13 @@ export function useBotTransition(
 export function resetBotTransitions(): void {
   for (const timer of timers.values()) clearTimeout(timer);
   timers.clear();
+  refusalLookups.clear();
   confirmed.clear();
   if (timeoutFlush) clearTimeout(timeoutFlush);
   timeoutFlush = null;
   timedOut = [];
+  if (refusalFlush) clearTimeout(refusalFlush);
+  refusalFlush = null;
+  refused = [];
   useBotStatusTransitionStore.setState({ transitions: {} });
 }

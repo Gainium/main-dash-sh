@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.109.6] - 2026-10-23
+### Fixed
+- Bots: when the engine refuses to start a bot (for example an existing exchange position with a different leverage or margin type, or not enough credits), the dashboard ends "Starting…" at once and shows the engine's reason. It used to keep waiting for 90 seconds and then say only that the bot had not confirmed it started.
+
 ## [2.109.5] - 2026-10-23
 ### Fixed
 - Hedge bot form: the Take Profit (hedge) and Stop Loss (hedge) tooltips now say what the bot does. While the combined take profit is on, the legs' own fixed take profit order is not placed; while the combined stop loss is on, the legs' own percentage stop loss is not used. The tooltips said both ran side by side.

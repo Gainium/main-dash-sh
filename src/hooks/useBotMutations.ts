@@ -180,6 +180,58 @@ const BOT_COMMAND_TIMEOUT_MS = 60_000;
 const settingsName = (bot: unknown): string | undefined =>
   (bot as { settings?: { name?: string } }).settings?.name || undefined;
 
+/** Bot event types the engine records when it refuses something. */
+const REFUSAL_EVENT_TYPES = new Set(['error', 'warning']);
+
+/** A bot event's `created` (epoch ms or a date string) in epoch ms. */
+const eventTimeMs = (created: string | number): number =>
+  typeof created === 'number'
+    ? created
+    : Number.isFinite(Number(created))
+      ? Number(created)
+      : Date.parse(created);
+
+/**
+ * Why the engine refused to start a bot: the newest error or warning it
+ * recorded for the bot at or after `since`. Read from the bot's event log,
+ * which gets a row for every refusal; the notification feed folds repeats
+ * into one row and does not.
+ */
+async function findStartRefusal(
+  client: GraphQLClient,
+  botId: string,
+  type: BotTypesEnum,
+  since: number
+): Promise<string | undefined> {
+  const { query, variables } = botQueries.getBotEvents({
+    botId,
+    page: 0,
+    pageSize: 10,
+    // No sortModel: the server returns newest first by default, while its
+    // grid sort mapping reads `desc` as ascending.
+    combo: type === BotTypesEnum.combo || type === BotTypesEnum.hedgeCombo,
+    hedge: type === BotTypesEnum.hedgeCombo || type === BotTypesEnum.hedgeDca,
+  });
+  const result = await client.request<{
+    getBotEvents: {
+      status: string;
+      data?: Array<{
+        type?: string | null;
+        description?: string | null;
+        created: string | number;
+      }>;
+    };
+  }>(query, variables);
+  if (result.getBotEvents?.status !== 'OK') return undefined;
+  const refusal = (result.getBotEvents.data ?? []).find(
+    (event) =>
+      REFUSAL_EVENT_TYPES.has(event.type ?? '') &&
+      !!event.description &&
+      eventTimeMs(event.created) >= since
+  );
+  return refusal?.description?.replace(/^(Error|Warning): /, '');
+}
+
 /**
  * Hook for toggling bot status (start/pause/stop)
  * Implements optimistic updates with rollback on error
@@ -366,10 +418,27 @@ export function useBotStatusToggle(type: BotTypesEnum) {
       // The API accepts the request before the engine acts on it. Until the
       // server reports the target status the bot is "Starting…"/"Stopping…"
       // and list refetches can't flip the badge back (botStatusTransitions).
+      const accessToken = tokens?.accessToken;
       beginBotTransition(id, targetStatus, {
         ...(botName ? { name: botName } : {}),
         notify: notify ?? true,
         onTimeout: () => invalidateListCaches(botListKeysFor(type)),
+        ...(targetStatus === 'open' && accessToken
+          ? {
+              findRefusal: (since: number) =>
+                findStartRefusal(
+                  new GraphQLClient(
+                    import.meta.env['VITE_API_ENDPOINT'] ||
+                      'http://localhost:4000',
+                    accessToken,
+                    !isLiveTrading
+                  ),
+                  id,
+                  type,
+                  since
+                ),
+            }
+          : {}),
       });
 
       return { previousStatus } as MutationContext;

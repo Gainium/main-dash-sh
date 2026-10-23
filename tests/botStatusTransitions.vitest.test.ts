@@ -20,6 +20,8 @@ import {
   reportBotStatus,
   resolveFetchedBotStatus,
   CONFIRM_GRACE_MS,
+  REFUSAL_LOOKBACK_MS,
+  REFUSAL_RETRY_MS,
   resetBotTransitions,
   TRANSITION_TIMEOUT_MS,
 } from '@/stores/live/botStatusTransitions';
@@ -79,9 +81,82 @@ describe('bot status transitions', () => {
 
   it('the socket status ends it; grid running statuses count as started', () => {
     beginBotTransition('g1', 'open', { name: 'Grid' });
-    expect(reportBotStatus('g1', 'closed', 'socket')).toBeDefined();
     expect(reportBotStatus('g1', 'range', 'socket')).toBeUndefined();
     expect(toast.success).toHaveBeenCalledWith('Bot "Grid" started');
+  });
+
+  it('a listed closed status does not end a Start', () => {
+    beginBotTransition('b1', 'open', { name: 'X' });
+    expect(reportBotStatus('b1', 'closed', 'list')).toBeDefined();
+  });
+
+  it('the engine stopping a starting bot reports the refusal it recorded', async () => {
+    const findRefusal = vi.fn(async () => 'Leverage in active position is 3, but in settings 5.');
+    beginBotTransition('b1', 'open', { name: 'Gold COMBO', findRefusal });
+    const startedAt = getBotTransition('b1')?.startedAt ?? 0;
+
+    expect(reportBotStatus('b1', 'closed', 'socket')).toBeUndefined();
+    expect(getBotTransition('b1')).toBeUndefined();
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(findRefusal).toHaveBeenCalledWith(startedAt - REFUSAL_LOOKBACK_MS);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[0]).toBe(
+      'Bot "Gold COMBO" could not start. Leverage in active position is 3, but in settings 5.'
+    );
+    // No generic timeout follows.
+    await vi.advanceTimersByTimeAsync(TRANSITION_TIMEOUT_MS + 1000);
+    expect(toast.error).toHaveBeenCalledTimes(1);
+  });
+
+  it('looks again for a refusal stored after the closed report', async () => {
+    const findRefusal = vi
+      .fn<(since: number) => Promise<string | undefined>>()
+      .mockResolvedValueOnce(undefined)
+      .mockResolvedValueOnce('Not enough credits.');
+    beginBotTransition('b1', 'open', { name: 'X', findRefusal });
+    reportBotStatus('b1', 'closed', 'socket');
+    await vi.advanceTimersByTimeAsync(500 + REFUSAL_RETRY_MS);
+
+    expect(findRefusal).toHaveBeenCalledTimes(2);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[0]).toBe(
+      'Bot "X" could not start. Not enough credits.'
+    );
+  });
+
+  it('a refusal with no recorded reason still says the bot did not start', async () => {
+    const findRefusal = vi.fn(async () => {
+      throw new Error('network');
+    });
+    beginBotTransition('b1', 'open', { name: 'X', findRefusal });
+    reportBotStatus('b1', 'closed', 'socket');
+    await vi.advanceTimersByTimeAsync(500 + REFUSAL_RETRY_MS);
+
+    expect(vi.mocked(toast.error).mock.calls[0]?.[0]).toBe(
+      'Bot "X" could not start. Check its events for the reason.'
+    );
+  });
+
+  it('refusals in a bulk run are one toast', async () => {
+    beginBotTransition('a', 'open', { notify: false });
+    beginBotTransition('b', 'open', { notify: false });
+    reportBotStatus('a', 'closed', 'socket');
+    reportBotStatus('b', 'closed', 'socket');
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[0]).toMatch(/^2 bots could not start/);
+  });
+
+  it('a timed-out Start reports a refusal recorded meanwhile', async () => {
+    const findRefusal = vi.fn(async () => 'Margin type differs.');
+    beginBotTransition('b1', 'open', { name: 'X', findRefusal });
+    await vi.advanceTimersByTimeAsync(TRANSITION_TIMEOUT_MS + 1000);
+
+    expect(toast.error).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(toast.error).mock.calls[0]?.[0]).toBe(
+      'Bot "X" could not start. Margin type differs.'
+    );
   });
 
   it('an engine error ends it with an error toast; a listed error does not', () => {
