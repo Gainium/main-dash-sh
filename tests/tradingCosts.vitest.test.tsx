@@ -173,6 +173,12 @@ describe('deal orders query', () => {
     }
   });
 
+  it("asks for the deal's own profit with its cost breakdown", () => {
+    const q = dealQueries.getDealCosts('combo', { botId: 'b', dealId: 'd' }).query;
+    expect(q).toMatch(/profit\s*\{\s*total\s+totalUsd\s*\}/);
+    expect(q).toContain('costBreakdown');
+  });
+
   it('does the same for the bot orders query (bot drawer deal view)', () => {
     const bot = { id: 'b', type: BotTypesEnum.dca };
     expect(botQueries.getBotOrders(bot, true).query).toMatch(
@@ -505,6 +511,28 @@ describe('DealCostWaterfall', () => {
     expect(net).toBe(realized.textContent);
     act(() => r2.unmount());
     realized.remove();
+  });
+
+  it("scales by the queried deal profit and shows Realized Profit's own value as Net", () => {
+    // The ZEC/USDT combo deal: the view's trade object had profit.total =
+    // pureBase, so the scale must come from the deal's stored profit.
+    render({
+      breakdown: {
+        grossQuote: 7.1436,
+        feesQuote: 0.3786,
+        slippageQuote: 0.069,
+        netQuote: 6.695971769999924,
+      },
+      slippage: null,
+      quoteAsset: 'USDT',
+      profit: { total: 6.695971769999924, totalUsd: 6.687186690244725 },
+      realizedUsd: 6.687186690244725,
+    });
+    const text = container.textContent ?? '';
+    expect(text).toContain('+$6.69');
+    expect(text).not.toContain('+$6.70');
+    expect(text).toContain('USD');
+    expect(text).not.toContain('USDT');
   });
 
   it('keeps the quote asset when the breakdown is not in the profit unit', () => {

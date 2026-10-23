@@ -26,6 +26,7 @@ import {
 } from '../ui/chip';
 import { DealOrdersSection } from './DealOrdersSection';
 import { DealCostsSection } from './DealCostsSection';
+import { isFiniteNumber } from '@/utils/tradingCosts';
 import {
   ExecuteNextDcaDialog,
   canExecuteNextDca,
@@ -350,7 +351,12 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
               : 'dca'
           }
           quoteAsset={quoteAsset}
-          profit={trade.profit}
+          // What the Realized Profit card above shows (ProfitAndPerc of
+          // totalUsd). Not `trade.profit.total`: the bot drawer's deal
+          // mapping fills that from pureBase.
+          {...(isFiniteNumber(trade.profit?.totalUsd) && {
+            realizedUsd: trade.profit.totalUsd,
+          })}
           privacyMode={privacyMode}
           version={`${normalizedStatus}:${completedOrders.length}:${
             trade.profit?.total ?? ''

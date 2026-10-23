@@ -26,6 +26,8 @@ const isNum = (v: unknown): v is number =>
 export interface DealCosts {
   breakdown: DealCostBreakdown | null;
   slippage: DealSlippage | null;
+  /** The deal's own profit, as stored (quote `total`, `totalUsd`). */
+  profit: { total?: number | null; totalUsd?: number | null } | null;
 }
 
 interface DealCostsPayload {
@@ -33,6 +35,7 @@ interface DealCostsPayload {
     _id?: string;
     slippage?: DealSlippage | null;
     costBreakdown?: DealCostBreakdown | null;
+    profit?: { total?: number | null; totalUsd?: number | null } | null;
   }> | null;
 }
 
@@ -75,6 +78,7 @@ export function useDealCosts({
     return {
       breakdown: deal.costBreakdown ?? null,
       slippage: deal.slippage ?? null,
+      profit: deal.profit ?? null,
     };
   }, [active, result.data, dealId]);
 }

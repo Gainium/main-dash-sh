@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.110.4] - 2026-10-23
+### Fixed
+- Deal cost breakdown: deals opened from a bot's deal list showed the breakdown in the quote currency and a net figure a cent off the deal's Realized Profit. It now uses your reporting currency and Net P&L matches Realized Profit everywhere.
+- Deal orders: Fee and Slippage sit right after the order name, so they are visible in the bot drawer without scrolling.
+
 ## [2.110.3] - 2026-10-23
 ### Changed
 - Gainium Cloud: Bybit is a premium exchange — free plans see it as upgrade-to-use (or start-trial) in the add-exchange form.

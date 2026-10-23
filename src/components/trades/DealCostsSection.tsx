@@ -51,8 +51,10 @@ export interface DealCostWaterfallProps {
   breakdown: DealCostBreakdown | null | undefined;
   slippage: DealSlippage | null | undefined;
   quoteAsset: string;
-  /** The deal's profit — its Realized Profit figure (`totalUsd`). */
-  profit?: { total?: number | null; totalUsd?: number | null } | undefined;
+  /** The deal's own profit as stored: quote `total` and `totalUsd`. */
+  profit?: { total?: number | null; totalUsd?: number | null } | null | undefined;
+  /** The USD value the deal's Realized Profit figure shows; Net P&L shows it. */
+  realizedUsd?: number | undefined;
   privacyMode?: boolean;
 }
 
@@ -71,6 +73,7 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   slippage,
   quoteAsset,
   profit,
+  realizedUsd,
   privacyMode = false,
 }) => {
   const { currency } = useReportingCurrency();
@@ -98,9 +101,13 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
     slippage: shown(slippageQuote),
     // Net = the Realized Profit value itself.
     net:
-      k !== undefined && isFiniteNumber(profit?.totalUsd)
-        ? profit.totalUsd * currency.rate
-        : shown(breakdown?.netQuote),
+      k === undefined
+        ? breakdown?.netQuote
+        : isFiniteNumber(realizedUsd)
+          ? realizedUsd * currency.rate
+          : isFiniteNumber(profit?.totalUsd)
+            ? profit.totalUsd * currency.rate
+            : shown(breakdown?.netQuote),
   });
   if (!waterfall) return null;
   const { steps } = waterfall;
@@ -268,8 +275,8 @@ interface DealCostsSectionProps {
   dealId: string;
   kind: 'dca' | 'combo';
   quoteAsset: string;
-  /** The deal's profit, as its Realized Profit figure shows it. */
-  profit?: { total?: number | null; totalUsd?: number | null } | undefined;
+  /** The USD value the deal's Realized Profit figure shows. */
+  realizedUsd?: number | undefined;
   privacyMode?: boolean;
   /** Changes whenever the deal's figures can have moved (fills, close). */
   version?: string;
@@ -284,7 +291,7 @@ export const DealCostsSection: React.FC<DealCostsSectionProps> = ({
   dealId,
   kind,
   quoteAsset,
-  profit,
+  realizedUsd,
   privacyMode = false,
   version,
 }) => {
@@ -313,7 +320,8 @@ export const DealCostsSection: React.FC<DealCostsSectionProps> = ({
           breakdown={breakdown}
           slippage={costs?.slippage}
           quoteAsset={quoteAsset}
-          profit={profit}
+          profit={costs?.profit}
+          realizedUsd={realizedUsd}
           privacyMode={privacyMode}
         />
       </Card>

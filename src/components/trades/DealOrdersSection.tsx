@@ -310,20 +310,6 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
             {/* Order Details Grid */}
             <div className="grid grid-cols-2 gap-md">
               <div className="space-y-sm">
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">
-                    Order Price
-                  </span>
-                  <span className="text-sm font-medium">
-                    {priceInQuote(order.price, order.quoteAsset)}
-                  </span>
-                </div>
-                <div className="flex flex-col">
-                  <span className="text-xs text-muted-foreground">Amount</span>
-                  <span className="text-sm font-medium">
-                    {order.amount.toFixed(6)}
-                  </span>
-                </div>
                 {orderHasFee(order) && (
                   <div className="flex flex-col">
                     <span className="text-xs text-muted-foreground">Fee</span>
@@ -338,6 +324,20 @@ const OrderCard: React.FC<{ item: OrderRowModel; index: number }> = ({
                     <OrderSlippage order={order} />
                   </div>
                 )}
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">
+                    Order Price
+                  </span>
+                  <span className="text-sm font-medium">
+                    {priceInQuote(order.price, order.quoteAsset)}
+                  </span>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-xs text-muted-foreground">Amount</span>
+                  <span className="text-sm font-medium">
+                    {order.amount.toFixed(6)}
+                  </span>
+                </div>
                 <div className="flex flex-col">
                   <span className="text-xs text-muted-foreground">Filled</span>
                   <span className="text-sm font-medium">
@@ -729,6 +729,29 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           );
         },
       },
+      // Fee and slippage come straight after the order's name: the drawer's
+      // table is ~540px wide at its default width, and anything past the
+      // second column is behind a horizontal scroll.
+      ...(showFee
+        ? [
+            {
+              id: 'fee',
+              header: 'FEE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderFee order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
+      ...(showSlippage
+        ? [
+            {
+              id: 'slippage',
+              header: 'SLIPPAGE',
+              enableSorting: false,
+              cell: ({ row }) => <OrderSlippage order={row.original} />,
+            } satisfies ColumnDef<OrderRowModel>,
+          ]
+        : []),
       {
         accessorKey: 'status',
         header: 'STATUS',
@@ -760,28 +783,6 @@ export const DealOrdersSection: React.FC<DealOrdersSectionProps> = ({
           </span>
         ),
       },
-      // Fee and slippage sit right after the order's own figures so they are
-      // visible at the drawer's default width, without scrolling.
-      ...(showFee
-        ? [
-            {
-              id: 'fee',
-              header: 'FEE',
-              enableSorting: false,
-              cell: ({ row }) => <OrderFee order={row.original} />,
-            } satisfies ColumnDef<OrderRowModel>,
-          ]
-        : []),
-      ...(showSlippage
-        ? [
-            {
-              id: 'slippage',
-              header: 'SLIPPAGE',
-              enableSorting: false,
-              cell: ({ row }) => <OrderSlippage order={row.original} />,
-            } satisfies ColumnDef<OrderRowModel>,
-          ]
-        : []),
       {
         id: 'filled',
         header: 'FILLED',

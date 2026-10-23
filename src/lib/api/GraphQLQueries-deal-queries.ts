@@ -82,9 +82,15 @@ const toDealSettingsInput = (settings: DealSettingsInput): DealSettingsInput =>
     })
   ) as DealSettingsInput;
 
-// A deal's fees + slippage. Newer backends only (see `getDealCosts`).
+// A deal's fees + slippage. Newer backends only (see `getDealCosts`). The
+// deal's own profit comes along: the breakdown is scaled to USD by it, and the
+// trade object a view holds does not always carry `profit.total` as is.
 const dealCostsSelection = `
   _id
+  profit {
+    total
+    totalUsd
+  }
   slippage {
     quote
     bps
