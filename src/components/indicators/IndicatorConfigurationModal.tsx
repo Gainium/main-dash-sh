@@ -1,4 +1,5 @@
 import React from 'react';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import {
   Dialog,
   DialogContent,
@@ -455,13 +456,10 @@ export const IndicatorConfigurationModal: React.FC<
                 {dialogTitle}
               </DialogTitle>
               {docParsed.helpSlug ? (
-                <button
-                  type="button"
-                  className="text-sm font-medium text-primary hover:underline"
-                  onClick={() => setDocHelpSlug(docParsed.helpSlug)}
-                >
-                  Learn more
-                </button>
+                <HelpArticlePill
+                  url={documentationUrl}
+                  onActivate={setDocHelpSlug}
+                />
               ) : null}
             </div>
             <DialogDescription className="text-sm text-muted-foreground">

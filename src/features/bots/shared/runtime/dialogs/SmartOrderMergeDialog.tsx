@@ -1,4 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import {
   ChevronDown,
   ChevronUp,
@@ -219,16 +220,9 @@ export const SmartOrderMergeDialog: React.FC<SmartOrderMergeDialogProps> = ({
               Select at least two orders to continue.{' '}
             </span>
             {botName ? `${botName} · ` : ''}
-            {/* New tab: reading a help article must never cost the user
-                whatever they have half-configured behind this dialog. */}
-            <a
-              href="/help/merge-deals"
-              target="_blank"
-              rel="noreferrer"
-              className="text-primary underline hover:text-primary/80"
-            >
-              Learn more
-            </a>
+            {/* The pill opens the article over this dialog, so whatever is
+                half-configured behind it is kept. */}
+            <HelpArticlePill url="/help/merge-deals" />
           </DialogDescription>
         </DialogHeader>
 

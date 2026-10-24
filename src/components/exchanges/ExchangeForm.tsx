@@ -1315,14 +1315,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                   </div>
                 );
               })}
-              <p className="text-xs text-muted-foreground">
-                <a
-                  href="/help/paper-trading-forward-testing"
-                  className="text-primary underline hover:text-primary/80"
-                >
-                  Paper trading guide
-                </a>
-              </p>
+              <div>
+                <HelpArticlePill url="/help/paper-trading-forward-testing" />
+              </div>
             </div>
           )}
 
@@ -1360,14 +1355,9 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                     {errors.coinToTopUp}
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">
-                  <a
-                    href="/help/paper-trading-forward-testing"
-                    className="text-primary underline hover:text-primary/80"
-                  >
-                    Paper trading guide
-                  </a>
-                </p>
+                <div>
+                  <HelpArticlePill url="/help/paper-trading-forward-testing" />
+                </div>
               </div>
 
               {/* Paper Trading Balance - Starting balance for add mode, top-up amount for edit mode */}
@@ -1465,12 +1455,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                 builder fees to your trades: 0.07% for spot and 0.045% for
                 perpetuals (fee will be added only when fee asset is USDC). No
                 credits will be used to run your bots.{' '}
-                <a
-                  href="/help/unlimited-trading-hyperliquid"
-                  className="text-primary underline hover:text-primary/80"
-                >
-                  Learn more
-                </a>
+                <HelpArticlePill url="/help/unlimited-trading-hyperliquid" />
               </p>
 
               {/* Web3 Wallet Connection — available for both Regular (paid)
@@ -1842,14 +1827,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                   <p className="text-sm text-muted-foreground">
                     Don't include trading fees in calculations
                   </p>
-                  <p className="text-xs text-muted-foreground">
-                    <a
-                      href="/help/ignore-exchange-fees"
-                      className="text-primary underline hover:text-primary/80"
-                    >
-                      Learn more
-                    </a>
-                  </p>
+                  <HelpArticlePill url="/help/ignore-exchange-fees" />
                 </div>
                 <Switch
                   id="ignore-fees"

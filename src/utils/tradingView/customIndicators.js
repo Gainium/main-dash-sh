@@ -11670,12 +11670,13 @@ const barTimeAhead = (symbol, barTime, steps) => {
   return barTime + steps * barDurationMs(symbol, barTime);
 };
 
-// How far ahead of the last candle the session is drawn: about two days, kept
-// between 10 and 500 bars. Fixed per resolution, as a plot's offset must be.
+// How far ahead of the last candle the session is drawn: a week, so the next
+// session shows even across a weekend, kept between 10 and 2000 bars. Fixed
+// per resolution, as a plot's offset must be.
 const sessionLookaheadBars = (symbol, barTime) =>
   Math.min(
-    500,
-    Math.max(10, Math.ceil((2 * 86_400_000) / barDurationMs(symbol, barTime)))
+    2000,
+    Math.max(10, Math.ceil((7 * 86_400_000) / barDurationMs(symbol, barTime)))
   );
 
 export const Session = () => ({

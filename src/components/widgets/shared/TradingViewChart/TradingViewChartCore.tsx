@@ -5,6 +5,7 @@ import { logger } from '@/lib/loggerInstance';
 import { getCSSVar } from '@/lib/utils/chart';
 import {
   BotOrderSideEnum,
+  IndicatorEnum,
   type AvgPrice,
   type ChartIndicatorsConfig,
   type ChartOrderDrawing,
@@ -37,6 +38,56 @@ import type {
   TransactionExtended,
 } from './types';
 import { useInitializeWidget } from './useInitializeWidget';
+
+// The slice of TradingView's ITimeScaleApi the Session view restore uses.
+interface ChartTimeScale {
+  barSpacing: () => number;
+  rightOffset: () => number;
+  setBarSpacing: (spacing: number) => void;
+  setRightOffset: (offset: number) => void;
+  defaultRightOffset?: () => { value: () => number };
+  rightOffsetChanged?: () => {
+    subscribe: (obj: null, cb: () => void) => void;
+    unsubscribe: (obj: null, cb: () => void) => void;
+  };
+}
+
+// A right margin wider than this many bars is not one the user set (it is
+// the Session study's look-ahead, e.g. from a saved layout): use the default.
+const MAX_KEPT_RIGHT_OFFSET_BARS = 50;
+const SESSION_REFIT_WINDOW_MS = 3_000;
+
+const restoreTimeScaleView = (
+  timeScale: ChartTimeScale,
+  view: { spacing: number; offset: number }
+) => {
+  const offset =
+    view.offset > MAX_KEPT_RIGHT_OFFSET_BARS
+      ? (timeScale.defaultRightOffset?.().value() ?? 10)
+      : view.offset;
+  const apply = () => {
+    timeScale.setBarSpacing(view.spacing);
+    timeScale.setRightOffset(offset);
+  };
+  apply();
+  // TradingView refits when the study's data lands, after createStudy has
+  // resolved: undo that one refit, then stop listening.
+  const changed = timeScale.rightOffsetChanged?.();
+  if (!changed) return;
+  let done = false;
+  const onChange = () => {
+    if (done) return;
+    done = true;
+    changed.unsubscribe(null, onChange);
+    apply();
+  };
+  changed.subscribe(null, onChange);
+  setTimeout(() => {
+    if (done) return;
+    done = true;
+    changed.unsubscribe(null, onChange);
+  }, SESSION_REFIT_WINDOW_MS);
+};
 
 interface BasicChartAPI {
   setResolution?: (interval: string) => void;
@@ -1426,10 +1477,29 @@ export const TradingViewChartCore = forwardRef<
           // when the chart iframe has been torn down.
           const chart = getActiveChart();
           if (!chart) return;
-          clearCustomIndicators(chart as never);
           const configs = Array.isArray(indicators) ? indicators : [];
+          // The Session study paints upcoming sessions through a forward
+          // plot offset. When its data arrives TradingView widens the right
+          // margin to fit those future points and shrinks the bar spacing,
+          // so the candles end up squeezed into a corner. Put the view back.
+          const timeScale = configs.some(
+            (config) => config.type === IndicatorEnum.session
+          )
+            ? (chart as { getTimeScale?: () => ChartTimeScale })
+                .getTimeScale?.()
+            : undefined;
+          const keepView = timeScale
+            ? {
+                spacing: timeScale.barSpacing(),
+                offset: timeScale.rightOffset(),
+              }
+            : null;
+          clearCustomIndicators(chart as never);
           for (const config of configs) {
             await addTradingViewIndicator(chart as never, config);
+          }
+          if (timeScale && keepView) {
+            restoreTimeScaleView(timeScale, keepView);
           }
         },
         centerAtTimestampMs: (timestampMs: number, endTimestampMs?: number) => {

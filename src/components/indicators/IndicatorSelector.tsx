@@ -1,4 +1,5 @@
 import React from 'react';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import { Loader2, Star } from 'lucide-react';
 import { DialogSearchInput } from '@/components/common/DialogSearchInput';
 import { Button } from '@/components/ui/button';
@@ -236,16 +237,12 @@ export const IndicatorSelector: React.FC<IndicatorSelectorProps> = ({
             {definition.description}
           </div>
           {documentationUrl && parseHelpUrl(documentationUrl).helpSlug ? (
-            <button
-              type="button"
-              className="text-xs font-medium text-primary hover:underline text-left"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDocHelpSlug(parseHelpUrl(documentationUrl).helpSlug);
-              }}
-            >
-              Learn more
-            </button>
+            <div>
+              <HelpArticlePill
+                url={documentationUrl}
+                onActivate={setDocHelpSlug}
+              />
+            </div>
           ) : null}
           {isPendingPort ? (
             <div className="text-xs font-medium text-amber-600">

@@ -50,6 +50,13 @@ export const formatIndicatorParamValue = (
     return trimmed;
   }
 
+  // A multi-select (Session Days) reads as its option labels, not raw values.
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => getOptionLabel(field, item) ?? String(item))
+      .join(', ');
+  }
+
   if (
     (field.type === 'select' || field.type === 'interval') &&
     field.options?.length

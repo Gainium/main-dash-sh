@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -919,14 +920,7 @@ export const BacktestSettingsDialog: React.FC<{
                     your backtest freezes, try on a smaller period. Also, Chrome
                     browser is the fastest among all browsers tested.
                     {' '}
-                    <a
-                      href="/help/backtesting-trading-bots"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline hover:text-primary/80"
-                    >
-                      Learn more
-                    </a>
+                    <HelpArticlePill url="/help/backtesting-trading-bots" />
                   </>
                 )}
                 {mode === 'server' && (
@@ -934,14 +928,7 @@ export const BacktestSettingsDialog: React.FC<{
                     The backtest will be run on our server and we will notify
                     you of the results (on app and via email) when ready.
                     {' '}
-                    <a
-                      href="/help/strategy-vs-random-scatterplot"
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-primary underline hover:text-primary/80"
-                    >
-                      Strategy vs random
-                    </a>
+                    <HelpArticlePill url="/help/strategy-vs-random-scatterplot" />
                   </>
                 )}
               </div>

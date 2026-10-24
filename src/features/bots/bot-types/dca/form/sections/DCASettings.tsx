@@ -1,4 +1,5 @@
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -3206,14 +3207,9 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
       </div>
 
       {indicator.type === IndicatorEnum.pc ? (
-        <a
-          href="/help/price-change-indicator"
-          target="_blank"
-          rel="noreferrer"
-          className="text-sm text-primary transition hover:text-primary/80 hover:underline"
-        >
-          Learn more
-        </a>
+        <div>
+          <HelpArticlePill url="/help/price-change-indicator" />
+        </div>
       ) : null}
     </SettingsRowSurface>
   );

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.111.1] - 2026-10-24
+### Fixed
+- Session indicator: upcoming sessions are shaded a week ahead, so the next session shows even over a weekend, and adding the indicator no longer zooms the chart out to fit them.
+- Session indicator: the card summary lists session days by name instead of numbers.
+- Help links in indicator settings, the indicator picker, the backtest settings, the merge-deals dialog and the exchange form open as article chips, like the rest of the app.
+
 ## [2.111.0] - 2026-10-23
 ### Added
 - Session indicator: trading hours. Pick a market session (Sydney, Tokyo, London, New York, US stock market) or set your own Start, End and time zone. Hours follow the market's local clock through daylight saving, and an End before Start runs overnight.

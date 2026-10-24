@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import { parseHelpUrl, Tooltip } from '@/components/ui/tooltip';
 import { HelpArticleModal } from '@/components/modals/HelpArticleModal';
 import { LogicPill } from '@/components/indicators/LogicPill';
@@ -205,13 +206,12 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                 {isOpen ? (
                   <div className="space-y-sm px-md pb-md pt-xs">
                     {helpSlug ? (
-                      <button
-                        type="button"
-                        className="text-xs font-medium text-primary hover:underline"
-                        onClick={() => setHelpSlug(helpSlug)}
-                      >
-                        Learn more about {definition.shortLabel || definition.label}
-                      </button>
+                      <div>
+                        <HelpArticlePill
+                          url={definition.documentationUrl}
+                          onActivate={setHelpSlug}
+                        />
+                      </div>
                     ) : null}
                     {renderExtras?.(indicator, index)}
                   </div>
