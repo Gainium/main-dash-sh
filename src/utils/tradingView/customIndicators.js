@@ -11926,11 +11926,12 @@ export const Session = (r) => ({
           const value = sessionLevelValue(result, level);
           if (!level || !isFinite(value)) return r.Std.na();
           const previous = sessionLevelValue(before, level);
+          if (!isFinite(previous)) return value;
           const jumped =
             level === 'curMid'
               ? before.sessionKey !== result.sessionKey
               : level !== 'price' && previous !== value;
-          return isFinite(previous) && jumped ? r.Std.na() : value;
+          return jumped ? r.Std.na() : value;
         };
         lineA = line(levelA);
         lineB = line(levelB);
