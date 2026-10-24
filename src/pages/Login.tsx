@@ -1,3 +1,4 @@
+import AccountNotFound from '@/components/auth/AccountNotFound';
 import AuthPageShell from '@/components/auth/AuthPageShell';
 import DiscordLoginButton from '@/components/auth/DiscordLoginButton';
 import GoogleAuthSection from '@/components/auth/GoogleAuthSection';
@@ -66,6 +67,11 @@ const Login: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [temporaryToken, setTemporaryToken] = useState<string | null>(null);
+  // Set when a Google sign-in found no account: retries the same
+  // credential with creation allowed once the user confirms.
+  const [createAccount, setCreateAccount] = useState<
+    (() => Promise<void>) | null
+  >(null);
 
   // Magic-link and password-reset inline panels.
   const [magicOpen, setMagicOpen] = useState(false);
@@ -238,6 +244,29 @@ const Login: React.FC = () => {
 
   const handleGoogleError = (errorMessage: string) => setError(errorMessage);
 
+  const handleGoogleAccountNotFound = (credential: string) => {
+    setError(null);
+    setCreateAccount(() => async () => {
+      try {
+        const response = await RealAuthService.loginWithGoogle(
+          credential,
+          true
+        );
+        login(response.accessToken, response.user);
+        navigate(postLoginTarget());
+      } catch (err) {
+        const tempToken =
+          err instanceof Error && err.message === 'OTP_REQUIRED'
+            ? (err as OTPRequiredError).temporaryToken
+            : null;
+        if (!tempToken) throw err;
+        setCreateAccount(null);
+        setTemporaryToken(tempToken);
+        setShowTwoFactor(true);
+      }
+    });
+  };
+
   const handleGoogleOTPRequired = (temporaryToken: string) => {
     if (!termsAccepted) {
       setError('Please accept the terms and conditions to continue.');
@@ -271,6 +300,19 @@ const Login: React.FC = () => {
         temporaryToken={temporaryToken}
         onBack={handleBackFromTwoFactor}
       />
+    );
+  }
+
+  if (createAccount) {
+    return (
+      <AuthPageShell>
+        <div className="mt-6">
+          <AccountNotFound
+            onCreate={createAccount}
+            onBack={() => setCreateAccount(null)}
+          />
+        </div>
+      </AuthPageShell>
     );
   }
 
@@ -572,12 +614,15 @@ const Login: React.FC = () => {
                     onSuccess={handleGoogleSuccess}
                     onError={handleGoogleError}
                     onOTPRequired={handleGoogleOTPRequired}
+                    createIfMissing={false}
+                    onAccountNotFound={handleGoogleAccountNotFound}
                   />
                 )}
                 {discordEnabled && (
                   <DiscordLoginButton
                     termsAccepted={termsAccepted}
                     redirectTo={postLoginTarget()}
+                    createIfMissing={false}
                     className="w-full h-11"
                   />
                 )}

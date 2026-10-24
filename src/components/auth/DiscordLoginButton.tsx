@@ -23,7 +23,10 @@ const DiscordLoginButton: React.FC<{
   className?: string;
   /** Post-login destination, forwarded through the OAuth `state`. */
   redirectTo?: string | null;
-}> = ({ termsAccepted, className, redirectTo }) => {
+  /** False on the sign-in page: an unknown email lands on the callback's
+   *  "Account not found" prompt instead of getting a new account. */
+  createIfMissing?: boolean;
+}> = ({ termsAccepted, className, redirectTo, createIfMissing = true }) => {
   const clientId = import.meta.env['VITE_DISCORD_CLIENT_ID'] as
     | string
     | undefined;
@@ -31,11 +34,16 @@ const DiscordLoginButton: React.FC<{
 
   const handleClick = () => {
     // CSRF nonce, verified by the callback page. The post-login
-    // redirect rides along inside the same state payload.
+    // redirect and the sign-in-only flag ride along inside the same
+    // state payload.
     const nonce = crypto.randomUUID();
     sessionStorage.setItem('discord-oauth-nonce', nonce);
     const state = btoa(
-      JSON.stringify({ n: nonce, r: redirectTo || undefined })
+      JSON.stringify({
+        n: nonce,
+        r: redirectTo || undefined,
+        c: createIfMissing ? undefined : false,
+      })
     );
 
     const params = new URLSearchParams({

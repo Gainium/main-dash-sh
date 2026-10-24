@@ -12,7 +12,16 @@ const GoogleAuthSection: React.FC<{
   onSuccess: () => void;
   onError: (message: string) => void;
   onOTPRequired: (temporaryToken: string) => void;
-}> = ({ termsAccepted, onSuccess, onError, onOTPRequired }) => (
+  createIfMissing?: boolean;
+  onAccountNotFound?: (credential: string) => void;
+}> = ({
+  termsAccepted,
+  onSuccess,
+  onError,
+  onOTPRequired,
+  createIfMissing,
+  onAccountNotFound,
+}) => (
   <Tooltip
     tooltip={
       !termsAccepted
@@ -26,6 +35,8 @@ const GoogleAuthSection: React.FC<{
       onSuccess={onSuccess}
       onError={onError}
       onOTPRequired={onOTPRequired}
+      createIfMissing={createIfMissing}
+      onAccountNotFound={onAccountNotFound}
       termsAccepted={termsAccepted}
       disabled={!termsAccepted}
       className="w-full"

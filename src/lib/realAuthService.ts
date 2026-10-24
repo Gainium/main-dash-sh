@@ -46,6 +46,13 @@ interface OTPRequiredError extends Error {
   temporaryToken: string;
 }
 
+/** `oauth` reason when a sign-in-only request names an email with no
+ *  account. Must match main-app's OAUTH_ACCOUNT_NOT_FOUND. */
+export const ACCOUNT_NOT_FOUND = 'ACCOUNT_NOT_FOUND';
+
+export const isAccountNotFoundError = (error: unknown): boolean =>
+  error instanceof Error && error.message === ACCOUNT_NOT_FOUND;
+
 /**
  * Result of a classified token validation (see `validateTokenDetailed`).
  *
@@ -142,31 +149,40 @@ export class RealAuthService {
    * implicit-grant redirect (scope `identify email`); the backend
    * fetches the user from Discord and requires a verified email.
    */
-  static async loginWithDiscord(discordToken: string): Promise<{
+  static async loginWithDiscord(
+    discordToken: string,
+    createIfMissing = true
+  ): Promise<{
     accessToken: string;
     user: User;
   }> {
-    return this.oauthLogin('discord', discordToken);
+    return this.oauthLogin('discord', discordToken, createIfMissing);
   }
 
   /**
    * Login with Google OAuth using GraphQL oauth mutation
    */
-  static async loginWithGoogle(googleToken: string): Promise<{
+  static async loginWithGoogle(
+    googleToken: string,
+    createIfMissing = true
+  ): Promise<{
     accessToken: string;
     user: User;
   }> {
-    return this.oauthLogin('google', googleToken);
+    return this.oauthLogin('google', googleToken, createIfMissing);
   }
 
   /**
    * Shared OAuth login path — Google ID token or Discord access token,
    * exchanged for a Gainium JWT via the `oauth` mutation. Throws
-   * OTP_REQUIRED (with temporaryToken) when the account has 2FA.
+   * OTP_REQUIRED (with temporaryToken) when the account has 2FA, and
+   * ACCOUNT_NOT_FOUND when `createIfMissing` is false and the email has
+   * no account (the caller asks before creating one).
    */
   private static async oauthLogin(
     oauthType: 'google' | 'discord',
-    oauthToken: string
+    oauthToken: string,
+    createIfMissing: boolean
   ): Promise<{
     accessToken: string;
     user: User;
@@ -194,15 +210,28 @@ export class RealAuthService {
         }
       `;
 
-      const response = await authGraphQLClient.request<{
-        oauth: GainiumAuthResponse;
-      }>(mutation, {
-        input: {
-          type: oauthType,
-          token: oauthToken,
-          timezone,
-        },
-      });
+      const input = { type: oauthType, token: oauthToken, timezone };
+      const request = (withCreateFlag: boolean) =>
+        authGraphQLClient.request<{
+          oauth: GainiumAuthResponse;
+        }>(mutation, {
+          input: withCreateFlag ? { ...input, createIfMissing } : input,
+        });
+
+      let response: { oauth: GainiumAuthResponse };
+      try {
+        response = await request(true);
+      } catch (error) {
+        // A backend older than the createIfMissing field rejects the whole
+        // input; retry without it (that backend always creates).
+        if (
+          !(error instanceof Error) ||
+          !error.message.includes('"createIfMissing" is not defined')
+        ) {
+          throw error;
+        }
+        response = await request(false);
+      }
 
       const providerLabel = oauthType === 'google' ? 'Google' : 'Discord';
       if (

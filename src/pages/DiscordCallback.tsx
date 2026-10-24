@@ -1,9 +1,13 @@
+import AccountNotFound from '@/components/auth/AccountNotFound';
 import TwoFactorAuth from '@/components/auth/TwoFactorAuth';
 import { LogoLockup } from '@/components/common/LogoLockup';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { logger } from '@/lib/loggerInstance';
-import { RealAuthService } from '@/lib/realAuthService';
+import {
+  isAccountNotFoundError,
+  RealAuthService,
+} from '@/lib/realAuthService';
 import { useAuthStore } from '@/stores/authStore';
 import { Loader2, ShieldAlert } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
@@ -19,7 +23,9 @@ interface OTPRequiredError extends Error {
  * set by DiscordLoginButton, exchanges the Discord access token for a
  * Gainium JWT via the shared oauth mutation, then routes to the
  * requested redirect (default /overview). Existing accounts with 2FA
- * get the OTP step, same as Google.
+ * get the OTP step, same as Google. Started from the sign-in page, an
+ * unknown email gets the "Account not found" prompt before any account
+ * is created.
  */
 const DiscordCallback: React.FC = () => {
   const navigate = useNavigate();
@@ -28,6 +34,11 @@ const DiscordCallback: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [isWorking, setIsWorking] = useState(true);
   const [temporaryToken, setTemporaryToken] = useState<string | null>(null);
+  // Set when a sign-in-only attempt found no account: retries with the
+  // same Discord token and creation allowed once the user confirms.
+  const [createAccount, setCreateAccount] = useState<
+    (() => Promise<void>) | null
+  >(null);
   const consumedRef = useRef(false);
 
   useEffect(() => {
@@ -53,10 +64,12 @@ const DiscordCallback: React.FC = () => {
 
       // CSRF check: the state nonce must match what our button stored.
       let redirect = '/overview';
+      let createIfMissing = true;
       try {
         const parsed = JSON.parse(atob(state || '')) as {
           n?: string;
           r?: string;
+          c?: boolean;
         };
         const expected = sessionStorage.getItem('discord-oauth-nonce');
         sessionStorage.removeItem('discord-oauth-nonce');
@@ -66,6 +79,7 @@ const DiscordCallback: React.FC = () => {
         if (parsed.r && parsed.r.startsWith('/')) {
           redirect = parsed.r;
         }
+        createIfMissing = parsed.c !== false;
       } catch {
         setError(
           'Sign-in request could not be verified. Please try again from the login page.'
@@ -74,12 +88,34 @@ const DiscordCallback: React.FC = () => {
         return;
       }
 
-      try {
+      const signIn = async (allowCreate: boolean) => {
         const { accessToken: jwt, user } =
-          await RealAuthService.loginWithDiscord(accessToken);
+          await RealAuthService.loginWithDiscord(accessToken, allowCreate);
         login(jwt, user);
         navigate(redirect, { replace: true });
+      };
+
+      try {
+        await signIn(createIfMissing);
       } catch (err) {
+        if (isAccountNotFoundError(err)) {
+          setCreateAccount(() => async () => {
+            try {
+              await signIn(true);
+            } catch (createErr) {
+              const tempToken =
+                createErr instanceof Error &&
+                createErr.message === 'OTP_REQUIRED'
+                  ? (createErr as OTPRequiredError).temporaryToken
+                  : null;
+              if (!tempToken) throw createErr;
+              setCreateAccount(null);
+              setTemporaryToken(tempToken);
+            }
+          });
+          setIsWorking(false);
+          return;
+        }
         if (err instanceof Error && err.message === 'OTP_REQUIRED') {
           const tempToken = (err as OTPRequiredError).temporaryToken;
           if (tempToken) {
@@ -124,7 +160,14 @@ const DiscordCallback: React.FC = () => {
               </div>
             </div>
 
-            {isWorking ? (
+            {createAccount ? (
+              <div className="mt-6">
+                <AccountNotFound
+                  onCreate={createAccount}
+                  onBack={() => navigate('/login', { replace: true })}
+                />
+              </div>
+            ) : isWorking ? (
               <div className="flex flex-col items-center justify-center gap-md text-muted-foreground">
                 <Loader2 className="w-6 h-6 animate-spin" />
                 <p className="text-sm">Signing you in with Discord…</p>

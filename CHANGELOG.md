@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.114.1] - 2026-10-24
+### Changed
+- Sign in with Google or Discord no longer creates an account for an email that has none: the login page asks "Account not found. Want to create a new one?" first. Sign-up still creates directly.
+
 ## [2.114.0] - 2026-10-24
 ### Added
 - Session indicator Price levels: "Current session midpoint" — halfway between the running session's high and low so far — as a Compare/With value, drawn on the chart while a session runs.

@@ -1,6 +1,9 @@
 import { Button } from '@/components/ui/button';
 import { apiClient } from '@/lib/apiClient';
-import { RealAuthService } from '@/lib/realAuthService';
+import {
+  isAccountNotFoundError,
+  RealAuthService,
+} from '@/lib/realAuthService';
 import { useAuthStore } from '@/stores/authStore';
 import type { User } from '@/types/auth';
 import { GoogleLogin } from '@react-oauth/google';
@@ -45,6 +48,13 @@ interface GoogleLoginButtonProps {
    * @param temporaryToken - Temporary token for 2FA authentication
    */
   onOTPRequired?: (temporaryToken: string) => void;
+  /**
+   * When false, an email with no account is not signed up; the backend
+   * answers ACCOUNT_NOT_FOUND and `onAccountNotFound` gets the Google
+   * credential so the page can ask, then retry with creation allowed.
+   */
+  createIfMissing?: boolean;
+  onAccountNotFound?: (credential: string) => void;
   /**
    * Custom class name for styling
    */
@@ -107,6 +117,8 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
   onSuccess,
   onError,
   onOTPRequired,
+  createIfMissing = true,
+  onAccountNotFound,
   className,
   useOneTap = false,
   autoSelect = false,
@@ -170,7 +182,8 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       } else {
         // Real Google authentication using GraphQL
         authResponse = await RealAuthService.loginWithGoogle(
-          credentialResponse.credential
+          credentialResponse.credential,
+          createIfMissing
         );
       }
 
@@ -180,6 +193,15 @@ export const GoogleLoginButton: React.FC<GoogleLoginButtonProps> = ({
       // Call success callback
       onSuccess?.();
     } catch (error) {
+      if (
+        isAccountNotFoundError(error) &&
+        onAccountNotFound &&
+        credentialResponse.credential
+      ) {
+        onAccountNotFound(credentialResponse.credential);
+        return;
+      }
+
       console.error('Google login failed:', error);
 
       // Handle OTP_REQUIRED error specially
