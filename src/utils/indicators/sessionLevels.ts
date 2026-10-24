@@ -8,8 +8,8 @@ import { parseSessionTime, type SessionHours } from './sessionWindow';
  * bar by bar.
  *
  * Groups candles into sessions and reports the open, high, low, close and
- * midpoint of the last completed session, the open of the session in progress
- * and the latest close.
+ * midpoint of the last completed session, the open and running midpoint of the
+ * session in progress and the latest close.
  *
  * - A candle belongs to a session when its OPEN time is inside the session
  *   window (the same window as `isInSession` with rule `in`).
@@ -38,6 +38,8 @@ export type SessionLevelsResult = {
   prevLow: number;
   prevClose: number;
   curOpen: number;
+  /** (high + low) / 2 of the session in progress so far; NaN outside one */
+  curMid: number;
   price: number;
   inSession: number;
   sessionKey: number;
@@ -238,6 +240,7 @@ export class SessionLevelsState {
       prevLow,
       prevClose: s[PREV_CLOSE],
       curOpen: inSession ? s[CUR_OPEN] : NaN,
+      curMid: inSession ? (s[CUR_HIGH] + s[CUR_LOW]) / 2 : NaN,
       price: candle.close,
       inSession: inSession ? 1 : 0,
       sessionKey: inSession ? s[CUR_KEY] : NaN,
@@ -280,6 +283,8 @@ export const sessionLevelValue = (
       return result.prevClose;
     case 'curOpen':
       return result.curOpen;
+    case 'curMid':
+      return result.curMid;
     case 'price':
       return result.price;
     default:

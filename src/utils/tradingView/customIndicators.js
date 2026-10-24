@@ -11919,16 +11919,18 @@ export const Session = (r) => ({
           before = this.lastResult;
         }
         // A level jumps when a new session starts: break the line on that
-        // bar instead of drawing the jump as a slope.
+        // bar instead of drawing the jump as a slope. The current session
+        // midpoint also moves inside a session, so only a new session
+        // breaks it.
         const line = (level) => {
           const value = sessionLevelValue(result, level);
           if (!level || !isFinite(value)) return r.Std.na();
           const previous = sessionLevelValue(before, level);
-          return level !== 'price' &&
-            isFinite(previous) &&
-            previous !== value
-            ? r.Std.na()
-            : value;
+          const jumped =
+            level === 'curMid'
+              ? before.sessionKey !== result.sessionKey
+              : level !== 'price' && previous !== value;
+          return isFinite(previous) && jumped ? r.Std.na() : value;
         };
         lineA = line(levelA);
         lineB = line(levelB);

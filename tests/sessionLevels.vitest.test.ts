@@ -8,14 +8,17 @@ import {
   ExchangeIntervals,
   IndicatorEnum,
   IndicatorStartConditionEnum,
+  SessionLevelEnum,
   SessionRuleEnum,
   type SettingsIndicators,
 } from '@/types';
+import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
 import { chartIntervalToFollow } from '@/utils/indicators/chartIntervalSync';
 import { sessionRuleParams } from '@/utils/indicators/sessionWindow';
 import {
   SessionLevelsState,
   sessionKey,
+  sessionLevelValue,
   type SessionLevelsResult,
 } from '@/utils/indicators/sessionLevels';
 
@@ -49,6 +52,7 @@ const KEYS: (keyof SessionLevelsResult)[] = [
   'prevLow',
   'prevClose',
   'curOpen',
+  'curMid',
   'price',
   'inSession',
   'sessionKey',
@@ -109,7 +113,8 @@ describe('Session price levels chart copy', () => {
       }
       // the walk really exercised session rollovers
       expect(completed).toBeGreaterThan(5);
-    });
+      // 6000 bars, each checked key by key: slow on a busy machine
+    }, 30_000);
   }
 
   it('never uses a session the data starts inside', () => {
@@ -127,9 +132,57 @@ describe('Session price levels chart copy', () => {
       }
     }
   });
+
+  it('tracks the current session midpoint as the session runs', () => {
+    const days = [0, 1, 2, 3, 4, 5, 6];
+    const hours = { start: '09:00', end: '17:00', timezone: 'UTC' };
+    const chart = new SessionLevelsState(days, hours);
+    let high = -Infinity;
+    let low = Infinity;
+    for (const candle of walk(
+      24 * 4 * 3,
+      11,
+      Date.parse('2026-10-21T00:00:00Z'),
+      15 * MINUTE
+    )) {
+      const ours = chart.next(candle);
+      if (!ours.inSession) {
+        high = -Infinity;
+        low = Infinity;
+        expect(ours.curMid).toBeNaN();
+        continue;
+      }
+      high = Math.max(high, candle.high);
+      low = Math.min(low, candle.low);
+      expect(ours.curMid).toBe((high + low) / 2);
+      expect(sessionLevelValue(ours, SessionLevelEnum.curMid)).toBe(
+        ours.curMid
+      );
+    }
+    // a candle without a time has no session, so no midpoint
+    expect(
+      chart.next({ open: 1, high: 2, low: 0, close: 1, time: NaN }).curMid
+    ).toBeNaN();
+  });
 });
 
 describe('Session Price levels rule in the form', () => {
+  it('offers the current session midpoint for Compare and With', () => {
+    const fields = INDICATOR_CATALOG[IndicatorEnum.session].fields;
+    for (const key of ['sessionLevelA', 'sessionLevelB']) {
+      const field = fields.find((f) => f.key === key) as
+        { options?: { value: string; label: string }[] } | undefined;
+      const values = field?.options?.map((o) => o.value) ?? [];
+      expect(field?.options).toContainEqual({
+        value: SessionLevelEnum.curMid,
+        label: 'Current session midpoint',
+      });
+      expect(values.indexOf(SessionLevelEnum.curMid)).toBe(
+        values.indexOf(SessionLevelEnum.curOpen) + 1
+      );
+    }
+  });
+
   const session = (sessionRule: SessionRuleEnum, interval: ExchangeIntervals) =>
     ({
       uuid: 's',

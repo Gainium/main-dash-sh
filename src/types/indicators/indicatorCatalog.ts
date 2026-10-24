@@ -148,6 +148,7 @@ const SESSION_LEVEL_OPTIONS = [
   { value: SessionLevelEnum.prevLow, label: 'Previous session low' },
   { value: SessionLevelEnum.prevClose, label: 'Previous session close' },
   { value: SessionLevelEnum.curOpen, label: 'Current session open' },
+  { value: SessionLevelEnum.curMid, label: 'Current session midpoint' },
 ];
 
 const SESSION_LEVELS_ONLY = [
@@ -3156,7 +3157,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: SessionLevelEnum.price,
         options: SESSION_LEVEL_OPTIONS,
         tooltip:
-          'Price is the close of the latest candle. Previous session values come from the last session that has ended; Current session open has no value outside a session.',
+          'Price is the close of the latest candle. Previous session values come from the last session that has ended. Current session open and midpoint have no value outside a session; the midpoint is halfway between the session high and low so far.',
         shownWhen: SESSION_LEVELS_ONLY,
       }),
       makeSelectField({
