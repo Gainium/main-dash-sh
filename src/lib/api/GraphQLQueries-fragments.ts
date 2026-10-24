@@ -413,6 +413,8 @@ xOscillator2voShort
   sessionStart
   sessionEnd
   sessionTimezone
+  sessionLevelA
+  sessionLevelB
   lwThreshold
   lwMaxDuration
   lwValue
@@ -726,6 +728,8 @@ xOscillator2voShort
   sessionStart
   sessionEnd
   sessionTimezone
+  sessionLevelA
+  sessionLevelB
   lwThreshold
   lwMaxDuration
   lwValue

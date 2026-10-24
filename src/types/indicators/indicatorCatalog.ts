@@ -10,6 +10,7 @@ import {
   MAEnum,
   OBFVGRefEnum,
   OBFVGValueEnum,
+  SessionLevelEnum,
   SessionRuleEnum,
   LWValueEnum,
   ppValueEnum,
@@ -48,6 +49,7 @@ import {
   SESSION_CUSTOM,
   SESSION_PRESETS,
   sessionPresetParams,
+  sessionRuleParams,
 } from '@/utils/indicators/sessionWindow';
 
 /**
@@ -138,6 +140,20 @@ const SR_CONDITION_OPTIONS = [
 // Legacy renders the condition for the [bb, kc, sr, psar, pp] group with a
 // `Price ` prefix (indicators.tsx:1813-1822). The full four-option variant is
 // used by kc.
+const SESSION_LEVEL_OPTIONS = [
+  { value: SessionLevelEnum.price, label: 'Price' },
+  { value: SessionLevelEnum.prevOpen, label: 'Previous session open' },
+  { value: SessionLevelEnum.prevHigh, label: 'Previous session high' },
+  { value: SessionLevelEnum.prevMid, label: 'Previous session midpoint' },
+  { value: SessionLevelEnum.prevLow, label: 'Previous session low' },
+  { value: SessionLevelEnum.prevClose, label: 'Previous session close' },
+  { value: SessionLevelEnum.curOpen, label: 'Current session open' },
+];
+
+const SESSION_LEVELS_ONLY = [
+  { field: 'sessionRule' as const, equals: SessionRuleEnum.levels },
+];
+
 const PRICE_CONDITION_OPTIONS = [
   { value: IndicatorStartConditionEnum.cd, label: 'Price crossing down' },
   { value: IndicatorStartConditionEnum.cu, label: 'Price crossing up' },
@@ -3118,7 +3134,47 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         options: [
           { value: SessionRuleEnum.in, label: 'In session' },
           { value: SessionRuleEnum.out, label: 'Out of session' },
+          { value: SessionRuleEnum.levels, label: 'Price levels' },
         ],
+        derive: {
+          get: (params) => params.sessionRule ?? SessionRuleEnum.in,
+          set: sessionRuleParams,
+        },
+        tooltip:
+          'In or out of session filters by time. Price levels compares two session prices and is true only during the session.',
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.fifteenM,
+        tooltip: 'Candles the session prices are read from.',
+        shownWhen: SESSION_LEVELS_ONLY,
+      }),
+      makeSelectField({
+        key: 'sessionLevelA',
+        label: 'Compare',
+        defaultValue: SessionLevelEnum.price,
+        options: SESSION_LEVEL_OPTIONS,
+        tooltip:
+          'Price is the close of the latest candle. Previous session values come from the last session that has ended; Current session open has no value outside a session.',
+        shownWhen: SESSION_LEVELS_ONLY,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cu,
+        options: INDICATOR_CONDITION_OPTIONS,
+        tooltip:
+          'Crossing compares two candles of the same session; a new session moving the levels is not a crossing. Nothing triggers before a whole session has ended.',
+        shownWhen: SESSION_LEVELS_ONLY,
+      }),
+      makeSelectField({
+        key: 'sessionLevelB',
+        label: 'With',
+        defaultValue: SessionLevelEnum.prevHigh,
+        options: SESSION_LEVEL_OPTIONS,
+        tooltip: 'The value Compare is tested against.',
+        shownWhen: SESSION_LEVELS_ONLY,
       }),
       makeSelectField({
         key: 'sessionDays',

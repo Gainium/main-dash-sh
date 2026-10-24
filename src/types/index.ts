@@ -1549,6 +1549,19 @@ export enum IndicatorEnum {
 export enum SessionRuleEnum {
   in = 'in',
   out = 'out',
+  /** Price levels: compare two session levels (A with B). */
+  levels = 'levels',
+}
+
+/** A value a Session "Price levels" condition can read. */
+export enum SessionLevelEnum {
+  prevOpen = 'prevOpen',
+  prevHigh = 'prevHigh',
+  prevMid = 'prevMid',
+  prevLow = 'prevLow',
+  prevClose = 'prevClose',
+  curOpen = 'curOpen',
+  price = 'price',
 }
 
 export enum LWValueEnum {
@@ -1696,6 +1709,10 @@ export type SettingsIndicators = {
   sessionTimezone?: string;
   /** Id of the derived Session preset control; never stored or sent. */
   sessionPreset?: string;
+  /** Session Price levels: the compared value (A). */
+  sessionLevelA?: SessionLevelEnum;
+  /** Session Price levels: the value A is compared with (B). */
+  sessionLevelB?: SessionLevelEnum;
   lwThreshold?: string;
   lwMaxDuration?: string;
   lwValue?: LWValueEnum;
@@ -4127,6 +4144,8 @@ export type CommonIndicatorSettings = {
   sessionEnd?: string;
   /** IANA time zone the session hours and days are read in (default UTC). */
   sessionTimezone?: string;
+  sessionLevelA?: SessionLevelEnum;
+  sessionLevelB?: SessionLevelEnum;
   lwThreshold?: number;
   lwMaxDuration?: number;
   lwValue?: LWValueEnum;

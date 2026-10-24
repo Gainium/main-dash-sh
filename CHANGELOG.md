@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.113.0] - 2026-10-24
+### Added
+- Session indicator: new "Price levels" rule that compares two values during the session — price, the previous session's open, high, midpoint, low or close, or the current session's open — with crossing up/down or greater/lower than, on its own candle interval (15m by default). Crossings never count when a new session moves the levels, and a session the data starts inside is never used as the previous one. The chart draws both compared values as lines.
+
 ## [2.112.1] - 2026-10-24
 ### Changed
 - Discount/Premium OTE Levels settings: Condition now comes before Level.

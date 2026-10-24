@@ -1,13 +1,23 @@
-import { tvIntervalMap, type IndicatorEnum } from '@/types';
+import { tvIntervalMap } from '@/types';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
+import {
+  shouldHideField,
+  withGatingParams,
+} from '@/utils/indicators/indicatorFieldGating';
 
-/** True when the indicator is computed on a timeframe the user picks. */
-export function indicatorHasTimeframe(type: IndicatorEnum): boolean {
-  const definition = INDICATOR_CATALOG[type];
+/**
+ * True when the indicator is computed on a timeframe the user picks: it has
+ * an Interval field and that field is shown for its settings (a Session only
+ * has one for Price levels).
+ */
+export function indicatorHasTimeframe(indicator: IndicatorConfig): boolean {
+  const definition = INDICATOR_CATALOG[indicator.type];
   if (!definition) return false;
+  const params = withGatingParams(definition, indicator);
   return [...definition.fields, ...(definition.advancedFields ?? [])].some(
-    (field) => field.key === 'indicatorInterval'
+    (field) =>
+      field.key === 'indicatorInterval' && !shouldHideField(field, params)
   );
 }
 
@@ -27,12 +37,16 @@ export function chartIntervalToFollow(
   for (const indicator of next) {
     if (
       !indicator.indicatorInterval ||
-      !indicatorHasTimeframe(indicator.type)
+      !indicatorHasTimeframe(indicator)
     ) {
       continue;
     }
     const before = prevByUuid.get(indicator.uuid);
-    if (before && before.indicatorInterval === indicator.indicatorInterval) {
+    if (
+      before &&
+      before.indicatorInterval === indicator.indicatorInterval &&
+      indicatorHasTimeframe(before)
+    ) {
       continue;
     }
     follow = tvIntervalMap[indicator.indicatorInterval] ?? follow;

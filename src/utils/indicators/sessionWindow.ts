@@ -1,4 +1,10 @@
-import type { SettingsIndicators } from '@/types';
+import {
+  ExchangeIntervals,
+  IndicatorStartConditionEnum,
+  SessionLevelEnum,
+  SessionRuleEnum,
+  type SettingsIndicators,
+} from '@/types';
 
 /**
  * Session window math for the chart. Mirrors `isInSession` in
@@ -225,4 +231,41 @@ export const sessionPresetParams = (
     };
   }
   return {};
+};
+
+const SESSION_LEVEL_CONDITIONS: string[] = [
+  IndicatorStartConditionEnum.cu,
+  IndicatorStartConditionEnum.cd,
+  IndicatorStartConditionEnum.gt,
+  IndicatorStartConditionEnum.lt,
+];
+
+/**
+ * What picking a Session rule writes. Price levels are read from candles, so
+ * switching to it stores their interval (15m) and the comparison defaults:
+ * the backtester and the bot read the stored settings, not the form's
+ * displayed defaults.
+ */
+export const sessionRuleParams = (
+  value: string,
+  params: SettingsIndicators
+): Partial<SettingsIndicators> => {
+  const rule = value as SessionRuleEnum;
+  if (
+    rule !== SessionRuleEnum.levels ||
+    params.sessionRule === SessionRuleEnum.levels
+  ) {
+    return { sessionRule: rule };
+  }
+  return {
+    sessionRule: rule,
+    indicatorInterval: ExchangeIntervals.fifteenM,
+    sessionLevelA: params.sessionLevelA || SessionLevelEnum.price,
+    sessionLevelB: params.sessionLevelB || SessionLevelEnum.prevHigh,
+    indicatorCondition: SESSION_LEVEL_CONDITIONS.includes(
+      params.indicatorCondition
+    )
+      ? params.indicatorCondition
+      : IndicatorStartConditionEnum.cu,
+  };
 };

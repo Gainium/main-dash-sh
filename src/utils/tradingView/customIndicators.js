@@ -1,5 +1,9 @@
 import { isSessionActiveDuring } from '@/utils/indicators/sessionWindow';
 import {
+  SessionLevelsState,
+  sessionLevelValue,
+} from '@/utils/indicators/sessionLevels';
+import {
   DEFAULT_OTE_LEVELS,
   OTELevelsState,
   oteLevelPrice,
@@ -11686,7 +11690,20 @@ const sessionLookaheadBars = (symbol, barTime) =>
     Math.max(10, Math.ceil((7 * 86_400_000) / barDurationMs(symbol, barTime)))
   );
 
-export const Session = () => ({
+// Session "Price levels": the two compared series, A and B.
+const SESSION_LEVEL_A_COLOR = '#FF9800';
+const SESSION_LEVEL_B_COLOR = '#AB47BC';
+const sessionLevelStyle = (color) => ({
+  linestyle: 0,
+  linewidth: 2,
+  plottype: 7,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color,
+});
+
+export const Session = (r) => ({
   name: 'Session Selector',
   metainfo: {
     _metainfoVersion: 52,
@@ -11704,6 +11721,8 @@ export const Session = () => ({
           visible: !0,
           transparency: 85,
         },
+        levelA: sessionLevelStyle(SESSION_LEVEL_A_COLOR),
+        levelB: sessionLevelStyle(SESSION_LEVEL_B_COLOR),
       },
       palettes: {
         paletteBg: {
@@ -11724,6 +11743,8 @@ export const Session = () => ({
         startMinute: -1,
         endMinute: -1,
         timezone: 'UTC',
+        levelA: '',
+        levelB: '',
       },
     },
     plots: [
@@ -11739,6 +11760,8 @@ export const Session = () => ({
         type: 'bg_colorer',
         palette: 'paletteBg',
       },
+      { id: 'levelA', type: 'line' },
+      { id: 'levelB', type: 'line' },
     ],
     styles: {
       bgColor: {
@@ -11747,6 +11770,8 @@ export const Session = () => ({
       bgAhead: {
         title: 'Upcoming session background',
       },
+      levelA: { title: 'Compare', histogramBase: 0, joinPoints: !1 },
+      levelB: { title: 'With', histogramBase: 0, joinPoints: !1 },
     },
     palettes: {
       paletteBg: {
@@ -11800,6 +11825,9 @@ export const Session = () => ({
         type: 'text',
         isHidden: true,
       },
+      // Price levels: a SessionLevelEnum value each; '' draws no line.
+      { id: 'levelA', name: 'Compare', defval: '', type: 'text', isHidden: true },
+      { id: 'levelB', name: 'With', defval: '', type: 'text', isHidden: true },
     ],
   },
   constructor: function () {
@@ -11825,8 +11853,10 @@ export const Session = () => ({
         end: toTime(this._input(9)),
         timezone: this._input(10) || 'UTC',
       };
+      const levelA = this._input(11);
+      const levelB = this._input(12);
       const barTime = e.symbol.time;
-      if (!barTime) return [0, 0];
+      if (!barTime) return [0, 0, r.Std.na(), r.Std.na()];
       // A bar is shaded when the session is active at any moment inside it,
       // so the highlight is right on every resolution, not just intraday.
       const activeDays = days
@@ -11849,12 +11879,68 @@ export const Session = () => ({
       // twice.
       const ahead = sessionLookaheadBars(e.symbol, barTime);
       const own = e.symbol.index < ahead ? activeAt(barTime) : NaN;
+      let lineA = r.Std.na();
+      let lineB = r.Std.na();
+      if (levelA || levelB) {
+        // Same as the bot: closed candles only, the session window read at
+        // each candle's open. The study is recalculated from the first bar
+        // whenever data or inputs change. A forming candle is previewed.
+        const symbol = e.symbol;
+        this._context.setMinimumAdditionalDepth(1500);
+        if (
+          !this.levels ||
+          symbol.index === 0 ||
+          symbol.index < this.lastIndex
+        ) {
+          this.levels = new SessionLevelsState(activeDays, hours);
+          this.lastIndex = -1;
+          this.lastResult = null;
+          this.prevResult = null;
+        }
+        const candle = {
+          open: r.Std.open(this._context),
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+          time: barTime,
+        };
+        let result = this.lastResult;
+        let before = this.prevResult;
+        if (symbol.isBarClosed) {
+          if (symbol.index > this.lastIndex) {
+            this.prevResult = this.lastResult;
+            this.lastResult = this.levels.next(candle);
+            this.lastIndex = symbol.index;
+          }
+          result = this.lastResult;
+          before = this.prevResult;
+        } else {
+          result = this.levels.preview(candle);
+          before = this.lastResult;
+        }
+        // A level jumps when a new session starts: break the line on that
+        // bar instead of drawing the jump as a slope.
+        const line = (level) => {
+          const value = sessionLevelValue(result, level);
+          if (!level || !isFinite(value)) return r.Std.na();
+          const previous = sessionLevelValue(before, level);
+          return level !== 'price' &&
+            isFinite(previous) &&
+            previous !== value
+            ? r.Std.na()
+            : value;
+        };
+        lineA = line(levelA);
+        lineB = line(levelB);
+      }
       return [
         own,
         {
           value: activeAt(barTimeAhead(e.symbol, barTime, ahead)),
           offset: ahead,
         },
+        lineA,
+        lineB,
       ];
     };
   },

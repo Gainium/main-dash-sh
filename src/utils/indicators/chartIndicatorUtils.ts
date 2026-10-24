@@ -13,6 +13,7 @@ import {
   ppValueEnum,
   RangeType,
   rsiValue2Enum,
+  SessionRuleEnum,
   SRCrossingEnum,
   STConditionEnum,
   StochRangeEnum,
@@ -250,9 +251,11 @@ export function convertIndicatorConfigsToChart(
   return selectActiveChartIndicators(indicators, context)
     .filter(
       (i) =>
-        // A session is a time window, not a series computed on a timeframe:
-        // it applies to every chart resolution.
-        i.type === IndicatorEnum.session ||
+        // An in/out session is a time window, not a series computed on a
+        // timeframe: it applies to every chart resolution. Price levels are
+        // read from candles of the indicator's own interval.
+        (i.type === IndicatorEnum.session &&
+          i.sessionRule !== SessionRuleEnum.levels) ||
         tvIntervalMap[i.indicatorInterval] === chartInterval ||
         // The comparison MA only exists when the reference is another MA — with
         // "Current price" the stored `maCrossingInterval` is inert (it keeps
@@ -618,6 +621,8 @@ function buildChartIndicator(
     sessionStart: i.sessionStart,
     sessionEnd: i.sessionEnd,
     sessionTimezone: i.sessionTimezone,
+    sessionLevelA: i.sessionLevelA,
+    sessionLevelB: i.sessionLevelB,
     lwMaxDuration: +(i.lwMaxDuration ?? 2),
     lwThreshold: +(i.lwThreshold ?? 1000),
     oteLeftBars: +(i.oteLeftBars || 10),

@@ -40,6 +40,8 @@ import {
   PairPrioritizationEnum,
   RiskSlTypeEnum,
   RRSlTypeEnum,
+  SessionLevelEnum,
+  SessionRuleEnum,
   StartConditionEnum,
   StrategyEnum,
   TerminalDealTypeEnum,
@@ -4627,6 +4629,13 @@ export const mapFormDataToBackend = (
         i.oteLeftBars = `${i.oteLeftBars || '10'}`.trim() || undefined;
         i.oteMinLegSize = `${i.oteMinLegSize || '1'}`.trim() || undefined;
         i.oteLevel = `${i.oteLevel || '0.705'}`.trim() || undefined;
+      }
+      if (
+        i.type === IndicatorEnum.session &&
+        i.sessionRule === SessionRuleEnum.levels
+      ) {
+        i.sessionLevelA = i.sessionLevelA || SessionLevelEnum.price;
+        i.sessionLevelB = i.sessionLevelB || SessionLevelEnum.prevHigh;
       }
       // An entry no serializer claimed (see the merge above) still saves its
       // smoothing in the stored shape; the length the form showed is the

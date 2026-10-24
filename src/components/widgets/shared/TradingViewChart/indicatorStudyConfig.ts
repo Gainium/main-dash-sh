@@ -586,6 +586,8 @@ const buildInputs = (
     }
     case IndicatorEnum.session: {
       const days = indicator.sessionDays ?? [1, 2, 3, 4, 5];
+      const rule = indicator.sessionRule ?? 'in';
+      const levels = rule === 'levels';
       return {
         sun: days.includes(0),
         mon: days.includes(1),
@@ -594,11 +596,15 @@ const buildInputs = (
         thu: days.includes(4),
         fri: days.includes(5),
         sat: days.includes(6),
-        inSession: (indicator.sessionRule ?? 'in') === 'in',
+        // Price levels shade the session the condition can fire in.
+        inSession: rule !== 'out',
         // -1 = no hours: the whole day counts.
         startMinute: parseSessionTime(indicator.sessionStart) ?? -1,
         endMinute: parseSessionTime(indicator.sessionEnd) ?? -1,
         timezone: indicator.sessionTimezone || 'UTC',
+        // Price levels: the two compared series; '' draws no line.
+        levelA: levels ? indicator.sessionLevelA || 'price' : '',
+        levelB: levels ? indicator.sessionLevelB || 'prevHigh' : '',
       };
     }
     default:
