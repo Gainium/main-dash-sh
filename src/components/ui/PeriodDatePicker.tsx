@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronRight, Trash2 } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { TimeInput } from '@/components/ui/time-input';
 import {
   Select,
   SelectContent,
@@ -86,7 +86,7 @@ const endOfDay = (d: Date) =>
 const formatTime = (d: Date) =>
   `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
 
-// Move `d` to the `HH:mm` of an `<input type="time">`, keeping its day. The
+// Move `d` to the `HH:mm` of a `TimeInput`, keeping its day. The
 // end of a range keeps :59.999 so "23:59" still covers the whole last minute.
 const withTime = (d: Date, hhmm: string, isEnd: boolean) => {
   const [hh, mm] = hhmm.split(':').map(Number);
@@ -370,24 +370,22 @@ export const PeriodDatePicker: React.FC<PeriodDatePickerProps> = ({
           <div className="grid grid-cols-2 gap-xs">
             <label className="space-y-1 text-[10px] font-semibold uppercase text-muted-foreground">
               <span>Start time</span>
-              <Input
-                type="time"
+              <TimeInput
                 aria-label="Start time"
                 disabled={!draftFrom || !draftTo}
                 value={draftFrom ? formatTime(draftFrom) : ''}
-                onChange={(e) => handleTimeChange('from', e.target.value)}
-                className="h-8 text-xs tabular-nums"
+                onChange={(hhmm) => handleTimeChange('from', hhmm)}
+                className="h-8 text-xs"
               />
             </label>
             <label className="space-y-1 text-[10px] font-semibold uppercase text-muted-foreground">
               <span>End time</span>
-              <Input
-                type="time"
+              <TimeInput
                 aria-label="End time"
                 disabled={!draftFrom || !draftTo}
                 value={draftTo ? formatTime(draftTo) : ''}
-                onChange={(e) => handleTimeChange('to', e.target.value)}
-                className="h-8 text-xs tabular-nums"
+                onChange={(hhmm) => handleTimeChange('to', hhmm)}
+                className="h-8 text-xs"
               />
             </label>
           </div>

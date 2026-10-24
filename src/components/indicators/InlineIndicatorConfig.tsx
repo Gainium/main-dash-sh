@@ -1,7 +1,7 @@
 import React from 'react';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
-import { Input } from '@/components/ui/input';
+import { TimeInput } from '@/components/ui/time-input';
 import { Switch } from '@/components/ui/switch';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
@@ -308,12 +308,12 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
                 </Tooltip>
               ) : null}
             </div>
-            <Input
+            <TimeInput
               id={field.key}
-              type="time"
               value={typeof value === 'string' ? value : ''}
-              onChange={(event) => updateParam(storageKey, event.target.value)}
+              onChange={(next) => updateParam(storageKey, next)}
               disabled={disabled}
+              clearable
             />
           </div>
         );

@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.113.1] - 2026-10-24
+### Added
+- `TimeInput`, `DateInput` and `DateTimeInput`: themed drop-ins for the browser's native time, date and datetime-local inputs. They follow the app's dark and light themes, accept typed values (normalised on blur or Enter, reverted when invalid), show 24-hour time, are keyboard accessible, and emit the same strings the native inputs did.
+### Changed
+- Session indicator Start/End fields and the period picker's start/end times use the themed time picker instead of the browser's native one.
+- `DatePicker` renders its calendar through the shared month grid; arrow keys move between days.
+
 ## [2.113.0] - 2026-10-24
 ### Added
 - Session indicator: new "Price levels" rule that compares two values during the session — price, the previous session's open, high, midpoint, low or close, or the current session's open — with crossing up/down or greater/lower than, on its own candle interval (15m by default). Crossings never count when a new session moves the levels, and a session the data starts inside is never used as the previous one. The chart draws both compared values as lines.

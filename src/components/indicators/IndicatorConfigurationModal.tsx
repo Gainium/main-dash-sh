@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { TimeInput } from '@/components/ui/time-input';
 import { Label } from '@/components/ui/label';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import type { VarBindingPath } from '@/hooks/bots/global-variables/useBotVarBinding';
@@ -361,25 +362,33 @@ export const IndicatorConfigurationModal: React.FC<
             : effectiveDefault !== undefined
               ? String(effectiveDefault)
               : '';
-        const inputElement = (
-          <Input
-            id={field.key}
-            type={
-              field.type === 'number' && !field.allowVariables
-                ? 'number'
-                : field.type === 'time'
-                  ? 'time'
+        const inputElement =
+          field.type === 'time' ? (
+            <TimeInput
+              id={field.key}
+              value={stringValue}
+              onChange={(next) => updateParam(storageKey, next)}
+              placeholder={field.placeholder}
+              disabled={disabled}
+              clearable
+            />
+          ) : (
+            <Input
+              id={field.key}
+              type={
+                field.type === 'number' && !field.allowVariables
+                  ? 'number'
                   : 'text'
-            }
-            value={stringValue}
-            onChange={(event) => updateParam(storageKey, event.target.value)}
-            placeholder={field.placeholder}
-            min={field.min}
-            max={field.max}
-            step={field.step}
-            disabled={disabled}
-          />
-        );
+              }
+              value={stringValue}
+              onChange={(event) => updateParam(storageKey, event.target.value)}
+              placeholder={field.placeholder}
+              min={field.min}
+              max={field.max}
+              step={field.step}
+              disabled={disabled}
+            />
+          );
         // The modal stores params locally and only commits on submit, but
         // variable bindings are stored on the parent bot form (BotVars) and
         // persist independently of the literal value. We can only bind if
