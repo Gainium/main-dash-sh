@@ -10,15 +10,18 @@
  * - `/help` (no slug) renders a normal internal link.
  * - Anything else renders an external link that opens in a new tab.
  *
- * The article title is resolved from the static help-articles cache; while
- * that loads (or if the slug isn't cached) it falls back to the Title-cased
- * slug, or an explicit `label` if provided.
+ * The article title is resolved from the help-articles cache (static help
+ * docs first, then indicator pages); while that loads (or if the slug isn't
+ * cached) it falls back to the Title-cased slug, or an explicit `label`.
  */
 
 import { BookOpen, ExternalLink } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 import { cn } from '../../lib/utils';
-import { loadCachedHelpArticles } from '../../utils/helpArticlesCache';
+import {
+  loadCachedHelpArticles,
+  loadHelpArticlesWithIndicators,
+} from '../../utils/helpArticlesCache';
 import { formatHelpSlugTitle, parseHelpUrl } from '../../utils/helpUrl';
 import { HelpArticleModal } from '../modals/HelpArticleModal';
 
@@ -55,11 +58,14 @@ export const HelpArticlePill: React.FC<HelpArticlePillProps> = ({
     setResolvedTitle(null);
     if (label || !helpSlug) return undefined;
     let active = true;
-    void loadCachedHelpArticles().then((articles) => {
+    const resolve = (articles: { slug: string; title: string }[]) => {
       if (!active) return;
       const found = articles.find((a) => a.slug === helpSlug);
       if (found) setResolvedTitle(found.title);
-    });
+    };
+    // the static list answers at once; indicator pages may arrive later
+    void loadCachedHelpArticles().then(resolve);
+    void loadHelpArticlesWithIndicators().then(resolve);
     return () => {
       active = false;
     };

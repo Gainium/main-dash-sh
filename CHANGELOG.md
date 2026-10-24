@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.114.2] - 2026-10-24
+### Changed
+- Help Center: indicator guides load from the content API's indicator library. They are listed under All and Technical Indicators, open in the in-app article view, appear in global search, and give the bot form's indicator help chips their titles. A content server without the indicator library keeps working as before.
+- Links to indicator pages inside an article (`/indicators/<slug>` or `gainium.io/indicators/<slug>`) open that article in the dashboard; in the article pop-up, a link to another article opens it in place.
+- Content requests time out after 8 seconds, and help-chip titles no longer wait for the indicator library.
+- `VITE_CONTENT_API_URL` overrides the content API base URL (default `https://content.gainium.io`).
+### Fixed
+- A help article opened by its link showed no title.
+- A slow Help Center response no longer replaces the page or article opened after it.
+
 ## [2.114.1] - 2026-10-24
 ### Changed
 - Sign in with Google or Discord no longer creates an account for an email that has none: the login page asks "Account not found. Want to create a new one?" first. Sign-up still creates directly.

@@ -8,6 +8,8 @@ interface ImportMetaEnv {
   /** Self-hosted admin API base URL. Unset in cloud builds and in dev
    *  unless docker-sh is running locally. See pages/admin. */
   readonly VITE_ADMIN_API_URL: string;
+  /** Content API base URL. Defaults to https://content.gainium.io. */
+  readonly VITE_CONTENT_API_URL?: string;
   readonly VITE_GOOGLE_CLIENT_ID: string;
   readonly VITE_GOOGLE_CLIENT_SECRET: string;
   readonly VITE_LOG_LEVEL: string;

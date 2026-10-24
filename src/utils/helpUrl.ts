@@ -72,3 +72,39 @@ export const formatHelpSlugTitle = (slug: string): string =>
     .split('-')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
+
+const INDICATOR_PATH = /^\/indicators\/([^/?#]+)\/?([?#].*)?$/;
+
+/**
+ * Map a link inside an article to the dashboard's own Help Center when it
+ * points at an indicator page — `/indicators/<slug>` or
+ * `https://(www.)gainium.io/indicators/<slug>` → `/help/<slug>` (the hash is
+ * kept). Any other href is returned unchanged.
+ */
+export const toInAppArticleHref = (href?: string): string | undefined => {
+  if (!href) return href;
+  const trimmed = href.trim();
+
+  let pathWithRest: string | null = null;
+  if (trimmed.startsWith('/indicators/')) {
+    pathWithRest = trimmed;
+  } else {
+    try {
+      const parsed = new URL(trimmed);
+      const host = parsed.hostname.replace(/^www\./, '');
+      if (
+        (parsed.protocol === 'https:' || parsed.protocol === 'http:') &&
+        host === 'gainium.io'
+      ) {
+        pathWithRest = `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+    } catch {
+      return href;
+    }
+  }
+
+  const match = pathWithRest ? INDICATOR_PATH.exec(pathWithRest) : null;
+  if (!match) return href;
+  const hash = match[2]?.includes('#') ? match[2].slice(match[2].indexOf('#')) : '';
+  return `/help/${match[1]}${hash}`;
+};

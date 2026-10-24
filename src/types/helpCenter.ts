@@ -26,6 +26,10 @@ export interface HelpDocMetadata {
   tldr: string;
   updatedAt: string;
   publishedAt: string;
+  /** Set on an indicator page still served as a help item, e.g. `/indicators/rsi`. */
+  movedTo?: string;
+  /** Set on an indicator page still served as a help item. */
+  kind?: IndicatorKind;
 }
 
 /** Full metadata returned when fetching a single doc by slug */
@@ -49,6 +53,8 @@ export interface HelpDocWithContent {
 export interface HelpDocBySlugResponse {
   metadata: HelpDocFullMetadata;
   content: string;
+  /** Set when the article has moved to another content type, e.g. `/indicators/rsi`. */
+  movedTo?: string;
 }
 
 /** Paginated list of metadata-only docs */
@@ -61,6 +67,51 @@ export interface HelpDocsListResponse {
 export interface HelpDocsFullListResponse {
   data: HelpDocWithContent[];
   pagination: ContentPagination;
+}
+
+// ─── Indicator ──────────────────────────────────────────────────────────────
+
+/** Help Center category that lists the indicator pages. */
+export const INDICATORS_CATEGORY = 'technical-indicators';
+
+export type IndicatorKind = 'native' | 'builtin' | 'community';
+
+/** Indicator page metadata (GET /indicators, GET /indicators/:slug) */
+export interface IndicatorDocMetadata {
+  slug: string;
+  name: string;
+  kind: IndicatorKind;
+  aliases: string[];
+  /** trend / momentum / volatility / volume / structure / composite */
+  category: string;
+  description: string;
+  tldr: string;
+  /** Indicator catalog keys this page documents */
+  catalogKeys: string[];
+  updatedAt: string;
+  publishedAt?: string;
+}
+
+/** Paginated list of indicator pages (GET /indicators) */
+export interface IndicatorsListResponse {
+  data: IndicatorDocMetadata[];
+  pagination: ContentPagination;
+}
+
+/** Single indicator page (GET /indicators/:slug) */
+export interface IndicatorDocBySlugResponse {
+  metadata: IndicatorDocMetadata;
+  content: string;
+}
+
+/**
+ * An article as the in-app Help Center renders it: a help doc, or an
+ * indicator page mapped onto the help-doc shape.
+ */
+export interface HelpArticleResponse {
+  metadata: HelpDocMetadata & Partial<HelpDocFullMetadata>;
+  content: string;
+  source: 'help' | 'indicator';
 }
 
 // ─── Blog Post ──────────────────────────────────────────────────────────────
@@ -106,13 +157,18 @@ export interface BlogPostsFullListResponse {
 
 // ─── Search ─────────────────────────────────────────────────────────────────
 
+export type ContentSource = 'help' | 'blog' | 'indicator';
+
 export interface SearchResultItem {
-  source: 'help' | 'blog';
+  source: ContentSource;
   slug: string;
   title: string;
   description: string;
   match: string;
   relevance: number;
+  /** Set on an indicator page returned as a help item, e.g. `/indicators/rsi`. */
+  movedTo?: string;
+  kind?: IndicatorKind;
 }
 
 export interface SearchResultsResponse {
@@ -122,7 +178,7 @@ export interface SearchResultsResponse {
 }
 
 export interface SearchFullResultItem {
-  source: 'help' | 'blog';
+  source: ContentSource;
   slug: string;
   title: string;
   description: string;

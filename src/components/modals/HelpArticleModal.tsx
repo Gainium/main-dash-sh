@@ -14,10 +14,12 @@ import {
 } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
 import logger from '@/lib/loggerInstance';
-import { getHelpDoc } from '@/services/contentApi';
-import type { HelpDocBySlugResponse } from '@/types/helpCenter';
+import { getHelpArticle } from '@/services/contentApi';
+import type { HelpArticleResponse } from '@/types/helpCenter';
+import { isIndicatorSlug } from '@/utils/helpArticlesCache';
+import { parseHelpUrl, toInAppArticleHref } from '@/utils/helpUrl';
 import { BookOpen, Calendar, Clock, X } from 'lucide-react';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
@@ -60,6 +62,9 @@ function formatSlugTitle(slug: string | null): string {
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ');
 }
+
+const LINK_CLASS =
+  'text-primary hover:text-primary/80 underline underline-offset-2 transition-colors';
 
 // ─── Markdown components ──────────────────────────────────────────────────────
 
@@ -120,17 +125,6 @@ const markdownComponents: Partial<Components> = {
     <li className="text-foreground/90 leading-relaxed" {...props}>
       {children}
     </li>
-  ),
-  a: ({ children, href, ...props }) => (
-    <a
-      href={href}
-      target={href?.startsWith('http') ? '_blank' : undefined}
-      rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-      className="text-primary hover:text-primary/80 underline underline-offset-2 transition-colors"
-      {...props}
-    >
-      {children}
-    </a>
   ),
   strong: ({ children, ...props }) => (
     <strong className="font-semibold text-foreground" {...props}>
@@ -247,34 +241,85 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
   slug,
   onClose,
 }) => {
-  const [article, setArticle] = useState<HelpDocBySlugResponse | null>(null);
+  const [article, setArticle] = useState<HelpArticleResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // an in-app article link followed inside the modal; reset per opened slug
+  const [linkedSlug, setLinkedSlug] = useState<string | null>(null);
+  useEffect(() => setLinkedSlug(null), [slug]);
+  const activeSlug = slug ? (linkedSlug ?? slug) : null;
+
+  const components = useMemo<Partial<Components>>(
+    () => ({
+      ...markdownComponents,
+      a: ({ children, href, ...props }) => {
+        const target = toInAppArticleHref(href);
+        const inAppSlug = target?.startsWith('/help/')
+          ? parseHelpUrl(target).helpSlug
+          : null;
+        if (inAppSlug) {
+          return (
+            <a
+              href={target}
+              className={LINK_CLASS}
+              {...props}
+              onClick={(e) => {
+                e.preventDefault();
+                setLinkedSlug(inAppSlug);
+              }}
+            >
+              {children}
+            </a>
+          );
+        }
+        return (
+          <a
+            href={target}
+            target={target?.startsWith('http') ? '_blank' : undefined}
+            rel={target?.startsWith('http') ? 'noopener noreferrer' : undefined}
+            className={LINK_CLASS}
+            {...props}
+          >
+            {children}
+          </a>
+        );
+      },
+    }),
+    []
+  );
 
   useEffect(() => {
-    if (!slug) return;
+    const current = activeSlug;
+    if (!current) return undefined;
+    let active = true;
     setArticle(null);
     setError(null);
     setLoading(true);
-    logger.info(`${LOG_PREFIX} Modal loading article: ${slug}`);
-    getHelpDoc(slug)
+    logger.info(`${LOG_PREFIX} Modal loading article: ${current}`);
+    isIndicatorSlug(current)
+      .then((isIndicator) => getHelpArticle(current, isIndicator))
       .then((doc) => {
+        if (!active) return;
         setArticle(doc);
         setLoading(false);
       })
       .catch((err) => {
+        if (!active) return;
         const msg =
           err instanceof Error ? err.message : 'Failed to load article';
-        logger.error(`${LOG_PREFIX} Modal fetch error`, { slug, error: msg });
+        logger.error(`${LOG_PREFIX} Modal fetch error`, { slug: current, error: msg });
         setError(msg);
         setLoading(false);
       });
-  }, [slug]);
+    return () => {
+      active = false;
+    };
+  }, [activeSlug]);
 
   const metadata = article?.metadata;
   const displayTitle = loading
     ? 'Loading…'
-    : (metadata?.title ?? formatSlugTitle(slug));
+    : (metadata?.title ?? formatSlugTitle(activeSlug));
 
   return (
     <Dialog
@@ -364,7 +409,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
               <div className="help-article-content">
                 <ReactMarkdown
                   remarkPlugins={[remarkGfm]}
-                  components={markdownComponents}
+                  components={components}
                 >
                   {article.content}
                 </ReactMarkdown>

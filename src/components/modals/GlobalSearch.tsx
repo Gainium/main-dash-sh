@@ -18,7 +18,10 @@ import { BotTypesEnum, type ComboBot, type DCABot } from '@/types';
 import type { HelpDocMetadata } from '@/types/helpCenter';
 /* import { transformHedgeBotToBot } from '@/types/hedgeBot'; */
 import { getBotTypeLabel } from '@/utils/botUtils';
-import { loadCachedHelpArticles } from '@/utils/helpArticlesCache';
+import {
+  loadCachedHelpArticles,
+  loadHelpArticlesWithIndicators,
+} from '@/utils/helpArticlesCache';
 import { ArrowRight, BookOpen, Bot, FileText, Search } from 'lucide-react';
 import React, {
   useCallback,
@@ -211,7 +214,16 @@ const GlobalSearchContent: React.FC<{
   // Load cached help articles
   const [helpArticles, setHelpArticles] = useState<HelpDocMetadata[]>([]);
   useEffect(() => {
-    loadCachedHelpArticles().then(setHelpArticles);
+    let active = true;
+    const apply = (articles: HelpDocMetadata[]) => {
+      if (active) setHelpArticles(articles);
+    };
+    // static list first; indicator pages are merged in when they arrive
+    void loadCachedHelpArticles().then(apply);
+    void loadHelpArticlesWithIndicators().then(apply);
+    return () => {
+      active = false;
+    };
   }, []);
 
   // API-powered content search results for help articles
@@ -232,7 +244,10 @@ const GlobalSearchContent: React.FC<{
       try {
         const res = await searchContent(query, 1, 20);
         const results = res.data
-          .filter((item) => item.source === 'help')
+          // indicator pages open in the in-app Help Center like help docs
+          .filter(
+            (item) => item.source === 'help' || item.source === 'indicator'
+          )
           .map(
             (item): SearchResult => ({
               id: `help-${item.slug}`,
