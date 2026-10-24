@@ -103,6 +103,11 @@ const dealCostsSelection = `
     feesEstimated
     slippageQuote
     netQuote
+    unbookedFeesQuote
+    unbookedFeesPartial
+    unbookedFeeAssets
+    unbookedFeesInUsdProfit
+    unbookedFeesUsd
   }
 `;
 

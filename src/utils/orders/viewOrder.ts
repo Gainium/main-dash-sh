@@ -74,6 +74,7 @@ export const orderDataToViewOrder = (
     slippageSource: order.slippageSource,
     feeQuote: order.feeQuote,
     feeEstimated: order.feeEstimated,
+    feeConverted: order.feeConverted,
   };
 };
 

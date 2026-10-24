@@ -550,3 +550,194 @@ describe('DealCostWaterfall', () => {
     expect(container.innerHTML).toBe('');
   });
 });
+
+describe('fees paid in another asset (e.g. BNB)', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  it('asks for feeConverted with the other order costs, and the unbooked fields', () => {
+    const input = { id: 'b', dealId: 'd', all: true };
+    expect(dealQueries.getDealOrders(input, true).query).toContain('feeConverted');
+    expect(dealQueries.getDealOrders(input).query).not.toContain('feeConverted');
+    const costs = dealQueries.getDealCosts('dca', { botId: 'b', dealId: 'd' }).query;
+    for (const f of ['unbookedFeesQuote', 'unbookedFeesPartial', 'unbookedFeeAssets']) {
+      expect(costs).toContain(f);
+    }
+  });
+
+  it('dims a converted order fee', () => {
+    act(() =>
+      root.render(
+        createElement(OrderFee, {
+          order: { quoteAsset: 'USDT', feeQuote: 0.0058, feeEstimated: false, feeConverted: true },
+        })
+      )
+    );
+    expect(container.textContent).toMatch(/0\.01/);
+    expect(container.querySelector('.opacity-50')).not.toBeNull();
+  });
+
+  it('keeps fees paid in BNB out of the waterfall and shows them beside it', () => {
+    act(() =>
+      root.render(
+        createElement(DealCostWaterfall, {
+          breakdown: {
+            grossQuote: 2,
+            feesQuote: 0,
+            slippageQuote: 0,
+            netQuote: 2,
+            feesEstimated: false,
+            unbookedFeesQuote: 0.4,
+            unbookedFeesPartial: false,
+            unbookedFeeAssets: ['BNB'],
+          },
+          slippage: null,
+          quoteAsset: 'USDT',
+        })
+      )
+    );
+    const text = container.textContent ?? '';
+    // Net P&L is still the booked profit.
+    expect(text).toMatch(/Net P&L/);
+    expect(text).toMatch(/\+\$2\.00/);
+    expect(text).toMatch(/Fees paid in BNB -\$0\.40/);
+    // Only the unbooked amount is dimmed.
+    expect(container.querySelectorAll('.opacity-50')).toHaveLength(1);
+  });
+
+  it('shows nothing extra for a deal without them, or in privacy mode', () => {
+    const breakdown = { grossQuote: 2, feesQuote: 0.1, slippageQuote: 0, netQuote: 1.9 };
+    act(() =>
+      root.render(createElement(DealCostWaterfall, { breakdown, slippage: null, quoteAsset: 'USDT' }))
+    );
+    expect(container.textContent).not.toContain('Fees paid in');
+    act(() =>
+      root.render(
+        createElement(DealCostWaterfall, {
+          breakdown: { ...breakdown, unbookedFeesQuote: 0.4, unbookedFeeAssets: ['BNB'] },
+          slippage: null,
+          quoteAsset: 'USDT',
+          privacyMode: true,
+        })
+      )
+    );
+    expect(container.textContent).not.toContain('Fees paid in');
+  });
+
+  it('adds them to the account tooltip line, outside the share of gross', () => {
+    expect(
+      tradingCostsTooltipLines([
+        { quoteAsset: 'USDT', feesQuote: 1, slippageQuote: 0, grossQuote: 10, unbookedFeesQuote: 0.5 },
+      ])
+    ).toEqual([
+      'USDT — Fees -$1.00 · Slippage $0.00 · 10.0% of gross · Fees paid in tokens -$0.50 (not in profit)',
+    ]);
+  });
+});
+
+describe('fee-ledger deals: fees paid in BNB are inside the USD profit', () => {
+  let container: HTMLDivElement;
+  let root: Root;
+
+  beforeEach(() => {
+    (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+    container = document.createElement('div');
+    document.body.appendChild(container);
+    root = createRoot(container);
+  });
+
+  afterEach(() => {
+    act(() => root.unmount());
+    container.remove();
+  });
+
+  // Booked: total 2 (quote). USD profit: 2 × 1 − 0.01 BNB fee = 1.99.
+  const breakdown = {
+    grossQuote: 2.1,
+    feesQuote: 0.1,
+    slippageQuote: 0,
+    netQuote: 2,
+    feesEstimated: false,
+    unbookedFeesQuote: 0.0098,
+    unbookedFeesPartial: false,
+    unbookedFeeAssets: ['BNB'],
+  };
+  const values = () =>
+    [...container.querySelectorAll('.font-bold')].map((el) => el.textContent ?? '');
+
+  it('the rate adds the deducted USD back: a plain quote → USD rate', () => {
+    expect(dealUsdPerQuote(2, { total: 2, totalUsd: 1.99 })).toBeCloseTo(0.995, 12);
+    expect(dealUsdPerQuote(2, { total: 2, totalUsd: 1.99 }, 0.01)).toBeCloseTo(1, 12);
+  });
+
+  it('chains a token-fee step between Fees and Slippage', () => {
+    const w = buildCostWaterfall({ gross: 2.1, fees: 0.1, tokenFees: 0.01, slippage: 0.05, net: 1.94 });
+    expect(w?.steps.map((s) => [s.key, +s.from.toFixed(4), +s.to.toFixed(4)])).toEqual([
+      ['gross', 0, 2.1],
+      ['fees', 2.1, 2],
+      ['tokenFees', 2, 1.99],
+      ['slippage', 1.99, 1.94],
+      ['net', 0, 1.94],
+    ]);
+  });
+
+  it('ledger deal: a real step, and the waterfall adds up to Realized Profit', () => {
+    act(() =>
+      root.render(
+        createElement(DealCostWaterfall, {
+          breakdown: { ...breakdown, unbookedFeesInUsdProfit: true, unbookedFeesUsd: 0.01 },
+          slippage: null,
+          quoteAsset: 'USDT',
+          profit: { total: 2, totalUsd: 1.99 },
+          realizedUsd: 1.99,
+        })
+      )
+    );
+    const text = container.textContent ?? '';
+    // gross 2.10 − fees 0.10 − BNB 0.01 − slippage 0 = 1.99 = Realized Profit
+    expect(values()).toEqual(['+$2.10', '-$0.10', '-$0.01', '$0.00', '+$1.99']);
+    expect(text.match(/Fees paid in BNB/g)).toHaveLength(1);
+    expect(text).toContain('Costs -$0.11');
+  });
+
+  it('plain deal (no ledger): USD profit has no BNB fee — info line, no step', () => {
+    act(() =>
+      root.render(
+        createElement(DealCostWaterfall, {
+          breakdown: { ...breakdown, unbookedFeesInUsdProfit: false, unbookedFeesUsd: null },
+          slippage: null,
+          quoteAsset: 'USDT',
+          profit: { total: 2, totalUsd: 2 },
+          realizedUsd: 2,
+        })
+      )
+    );
+    expect(values()).toEqual(['+$2.10', '-$0.10', '$0.00', '+$2.00']);
+    expect(container.textContent).toMatch(/Costs -\$0\.10.*Fees paid in BNB -\$0\.01/);
+  });
+
+  it('aggregate tooltips say how much of it is inside USD profit', () => {
+    const row = { quoteAsset: 'USDT', feesQuote: 1, slippageQuote: 0, grossQuote: 10 };
+    expect(
+      tradingCostsTooltipLines([
+        { ...row, unbookedFeesQuote: 0.5, unbookedFeesInUsdProfitQuote: 0.5 },
+        { ...row, quoteAsset: 'USDC', unbookedFeesQuote: 0.5, unbookedFeesInUsdProfitQuote: 0.2 },
+      ])
+    ).toEqual([
+      'USDT — Fees -$1.00 · Slippage $0.00 · 10.0% of gross · Fees paid in tokens -$0.50 (in USD profit only)',
+      'USDC — Fees -$1.00 · Slippage $0.00 · 10.0% of gross · Fees paid in tokens -$0.50 (partly in USD profit)',
+    ]);
+  });
+});

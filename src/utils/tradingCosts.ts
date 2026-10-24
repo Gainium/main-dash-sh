@@ -107,7 +107,7 @@ export const hasCostFigures = (
 
 // ── deal cost waterfall ─────────────────────────────────────────────────────
 
-export type WaterfallStepKey = 'gross' | 'fees' | 'slippage' | 'net';
+export type WaterfallStepKey = 'gross' | 'fees' | 'tokenFees' | 'slippage' | 'net';
 
 export interface WaterfallStep {
   key: WaterfallStepKey;
@@ -135,27 +135,32 @@ const niceStep = (span: number, count: number): number => {
 };
 
 /**
- * Gross → Fees → Slippage → Net on one axis. Each cost bar starts where the
- * previous step ended; Gross and Net start at 0. A negative slippage (price
- * improvement) runs back toward the gross. Gross, when missing, is derived
- * from net + costs and vice versa; null when neither is known.
+ * Gross → Fees → (Token fees) → Slippage → Net on one axis. Each cost bar
+ * starts where the previous step ended; Gross and Net start at 0. A negative
+ * slippage (price improvement) runs back toward the gross. Gross, when
+ * missing, is derived from net + costs and vice versa; null when neither is
+ * known. `tokenFees` (fees paid in another asset that the shown net already
+ * has subtracted) is a step only when given.
  */
 export const buildCostWaterfall = (input: {
   gross?: number | null | undefined;
   fees?: number | null | undefined;
+  tokenFees?: number | null | undefined;
   slippage?: number | null | undefined;
   net?: number | null | undefined;
 }): CostWaterfall | null => {
   const fees = isFiniteNumber(input.fees) ? input.fees : 0;
+  const tokenFees = isFiniteNumber(input.tokenFees) ? input.tokenFees : 0;
   const slippage = isFiniteNumber(input.slippage) ? input.slippage : 0;
   const gross = isFiniteNumber(input.gross)
     ? input.gross
     : isFiniteNumber(input.net)
-      ? input.net + fees + slippage
+      ? input.net + fees + tokenFees + slippage
       : undefined;
   if (gross === undefined) return null;
   const afterFees = gross - fees;
-  const afterSlippage = afterFees - slippage;
+  const afterTokenFees = afterFees - tokenFees;
+  const afterSlippage = afterTokenFees - slippage;
   const net = isFiniteNumber(input.net) ? input.net : afterSlippage;
 
   const steps: WaterfallStep[] = [
@@ -164,11 +169,19 @@ export const buildCostWaterfall = (input: {
   if (isFiniteNumber(input.fees)) {
     steps.push({ key: 'fees', value: -fees, from: gross, to: afterFees });
   }
+  if (isFiniteNumber(input.tokenFees)) {
+    steps.push({
+      key: 'tokenFees',
+      value: -tokenFees,
+      from: afterFees,
+      to: afterTokenFees,
+    });
+  }
   if (isFiniteNumber(input.slippage)) {
     steps.push({
       key: 'slippage',
       value: -slippage,
-      from: afterFees,
+      from: afterTokenFees,
       to: afterSlippage,
     });
   }
@@ -210,6 +223,46 @@ export const formatTick = (v: number): string => {
 
 export const ORDER_FEE_ESTIMATED_TOOLTIP =
   'Estimate from the stored fee rate. The exchange did not report this fee.';
+export const ORDER_FEE_CONVERTED_TOOLTIP =
+  'Paid in another asset. Converted at its market price when the order filled.';
+
+/** Fees paid in another asset (e.g. BNB), which the profit does not include. */
+export const UNBOOKED_FEES_TOOLTIP =
+  'Not deducted from profit. Converted at the market price of each fill.';
+export const UNBOOKED_FEES_PARTIAL_TOOLTIP = `${UNBOOKED_FEES_TOOLTIP} Some could not be priced and are left out.`;
+
+/** The same fees where the USD profit already has them subtracted. */
+export const FEES_IN_USD_PROFIT_TOOLTIP =
+  'Deducted from the USD profit only, at the market price when the deal closed.';
+export const FEES_PARTLY_IN_USD_PROFIT_TOOLTIP =
+  'Deducted from the USD profit of some deals only. Converted at the market price of each fill.';
+
+export const unbookedFeesTooltip = (
+  partial?: boolean | null,
+  inUsdProfit?: 'all' | 'some' | 'none'
+): string => {
+  const base =
+    inUsdProfit === 'all'
+      ? FEES_IN_USD_PROFIT_TOOLTIP
+      : inUsdProfit === 'some'
+        ? FEES_PARTLY_IN_USD_PROFIT_TOOLTIP
+        : UNBOOKED_FEES_TOOLTIP;
+  return partial ? `${base} Some could not be priced and are left out.` : base;
+};
+
+/** How much of an aggregate's token fees is already inside USD profit. */
+export const inUsdProfitShare = (
+  costs: Pick<TradingCosts, 'unbookedFeesQuote' | 'unbookedFeesInUsdProfitQuote'>
+): 'all' | 'some' | 'none' => {
+  const all = costs.unbookedFeesQuote;
+  const inUsd = costs.unbookedFeesInUsdProfitQuote;
+  if (!isFiniteNumber(inUsd) || inUsd <= 0) return 'none';
+  return isFiniteNumber(all) && inUsd >= all * (1 - 1e-9) ? 'all' : 'some';
+};
+
+/** "Fees paid in BNB" / "Fees paid in BGB, BNB" / "Fees paid in tokens". */
+export const unbookedFeesLabel = (assets?: string[] | null): string =>
+  `Fees paid in ${assets?.length ? assets.join(', ') : 'tokens'}`;
 
 interface OrderCostFigures {
   /** A projected, not-yet-placed level. */
@@ -218,6 +271,8 @@ interface OrderCostFigures {
   slippageQuote?: number | null | undefined;
   slippageSource?: string | null | undefined;
   feeQuote?: number | null | undefined;
+  feeEstimated?: boolean | null | undefined;
+  feeConverted?: boolean | null | undefined;
 }
 
 /** A MARKET order that carries an execution-slippage figure. LIMIT orders
@@ -241,7 +296,10 @@ export const orderHasFee = (order: OrderCostFigures): boolean =>
  */
 export const dealUsdPerQuote = (
   netQuote: number | null | undefined,
-  profit: { total?: number | null; totalUsd?: number | null } | null | undefined
+  profit: { total?: number | null; totalUsd?: number | null } | null | undefined,
+  /** USD already subtracted from `totalUsd` (fees paid in another asset on a
+   *  fee-ledger deal): added back so the rate is a plain quote → USD rate. */
+  usdDeducted?: number | null
 ): number | undefined => {
   const total = profit?.total;
   const totalUsd = profit?.totalUsd;
@@ -256,7 +314,7 @@ export const dealUsdPerQuote = (
   if (Math.abs(netQuote - total) > 1e-6 * Math.max(1, Math.abs(total))) {
     return undefined;
   }
-  const rate = totalUsd / total;
+  const rate = (totalUsd + (isFiniteNumber(usdDeducted) ? usdDeducted : 0)) / total;
   return Number.isFinite(rate) && rate > 0 ? rate : undefined;
 };
 

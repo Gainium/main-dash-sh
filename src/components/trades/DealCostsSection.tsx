@@ -18,15 +18,19 @@ import {
   formatPnlBps,
   formatSignedFiat,
   formatSignedQuote,
+  FEES_IN_USD_PROFIT_TOOLTIP,
   formatTick,
   isFiniteNumber,
   pnlTone,
+  unbookedFeesLabel,
+  unbookedFeesTooltip,
   type WaterfallStep,
 } from '@/utils/tradingCosts';
 
 const STEP_LABEL: Record<WaterfallStep['key'], string> = {
   gross: 'Gross P&L',
   fees: 'Fees',
+  tokenFees: 'Fees paid in tokens',
   slippage: 'Slippage',
   net: 'Net P&L',
 };
@@ -66,7 +70,9 @@ export interface DealCostWaterfallProps {
  * Amounts are shown exactly as the deal's Realized Profit is (USD from the
  * deal's own profit, in the reporting currency, through the same formatter),
  * so Net P&L always reads the same digits as Realized Profit. A deal whose
- * breakdown is not in its profit's unit stays in the quote asset.
+ * breakdown is not in its profit's unit stays in the quote asset. Fees paid in
+ * another asset are a step only when the USD profit has them subtracted
+ * (fee-ledger deals); otherwise they sit on the summary line.
  */
 export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   breakdown,
@@ -82,9 +88,20 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
     : slippage?.quote;
 
   // Quote → shown units: USD per quote from the deal's own profit, then the
-  // reporting currency — the path the Realized Profit figure takes.
-  const usdPerQuote = dealUsdPerQuote(breakdown?.netQuote, profit);
+  // reporting currency — the path the Realized Profit figure takes. A
+  // fee-ledger deal's USD profit already has its fees paid in another asset
+  // (e.g. BNB) subtracted; they are added back so the rate is a plain one.
+  const usdDeducted =
+    breakdown?.unbookedFeesInUsdProfit && isFiniteNumber(breakdown.unbookedFeesUsd)
+      ? breakdown.unbookedFeesUsd
+      : undefined;
+  const usdPerQuote = dealUsdPerQuote(breakdown?.netQuote, profit, usdDeducted);
   const k = usdPerQuote !== undefined ? usdPerQuote * currency.rate : undefined;
+  // Those fees ARE in the Realized Profit then: a real step, in shown units.
+  const tokenFeesStep =
+    k !== undefined && usdDeducted !== undefined && usdDeducted > 0
+      ? usdDeducted * currency.rate
+      : undefined;
   const shown = (q: number | null | undefined) =>
     isFiniteNumber(q) && k !== undefined ? q * k : q;
   const formatShown = (v: number) =>
@@ -98,6 +115,7 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   const waterfall = buildCostWaterfall({
     gross: shown(breakdown?.grossQuote),
     fees: shown(breakdown?.feesQuote),
+    tokenFees: tokenFeesStep,
     slippage: shown(slippageQuote),
     // Net = the Realized Profit value itself.
     net:
@@ -117,9 +135,15 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   const estimate = (key: WaterfallStep['key']): string | undefined =>
     key === 'fees' && breakdown?.feesEstimated
       ? FEES_ESTIMATED_TOOLTIP
-      : key === 'slippage' && slippage?.reconstructed
-        ? SLIPPAGE_RECONSTRUCTED_TOOLTIP
-        : undefined;
+      : key === 'tokenFees'
+        ? FEES_IN_USD_PROFIT_TOOLTIP
+        : key === 'slippage' && slippage?.reconstructed
+          ? SLIPPAGE_RECONSTRUCTED_TOOLTIP
+          : undefined;
+  const labelOf = (key: WaterfallStep['key']): string =>
+    key === 'tokenFees'
+      ? unbookedFeesLabel(breakdown?.unbookedFeeAssets)
+      : STEP_LABEL[key];
 
   // A connector joins each step's end to the next step's start; Net starts
   // at 0, so it is joined where its bar ends (= the last cost's end).
@@ -129,9 +153,12 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   }));
 
   const fees = isFiniteNumber(breakdown?.feesQuote) ? breakdown.feesQuote : 0;
-  const totalCosts = fees + (isFiniteNumber(slippageQuote) ? slippageQuote : 0);
+  // the token-fee step is already in shown units; back to quote
+  const tokenFeesQuote = tokenFeesStep !== undefined && k ? tokenFeesStep / k : 0;
+  const totalCosts =
+    fees + tokenFeesQuote + (isFiniteNumber(slippageQuote) ? slippageQuote : 0);
   const share = costShareOfGross({
-    feesQuote: fees,
+    feesQuote: fees + tokenFeesQuote,
     slippageQuote: slippageQuote ?? null,
     grossQuote: isFiniteNumber(breakdown?.grossQuote)
       ? breakdown.grossQuote
@@ -153,6 +180,12 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
   ]
     .filter(Boolean)
     .join(' · ');
+  // Fees paid in another asset (e.g. BNB) that the net shown does not include
+  // stay out of the waterfall, on the summary line. (When they are a step
+  // above, they are not repeated here.)
+  const unbooked = breakdown?.unbookedFeesQuote;
+  const unbookedShown =
+    tokenFeesStep === undefined && isFiniteNumber(unbooked) ? shown(unbooked) : undefined;
 
   return (
     <div className="space-y-sm">
@@ -171,7 +204,7 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
               className="flex items-center text-sm text-muted-foreground whitespace-nowrap"
               style={{ height: ROW_H }}
             >
-              {STEP_LABEL[step.key]}
+              {labelOf(step.key)}
             </div>
           ))}
         </div>
@@ -263,8 +296,26 @@ export const DealCostWaterfall: React.FC<DealCostWaterfallProps> = ({
         )}
       </div>
 
-      {!privacyMode && summary && (
-        <div className="text-xs text-muted-foreground">{summary}</div>
+      {!privacyMode && (summary || isFiniteNumber(unbookedShown)) && (
+        <div className="text-xs text-muted-foreground">
+          {summary}
+          {isFiniteNumber(unbookedShown) && (
+            <>
+              {summary ? ' · ' : ''}
+              {unbookedFeesLabel(breakdown?.unbookedFeeAssets)}{' '}
+              <PendingLiveValue
+                pending
+                variant="saved"
+                tooltip={unbookedFeesTooltip(
+                  breakdown?.unbookedFeesPartial,
+                  breakdown?.unbookedFeesInUsdProfit ? 'all' : 'none'
+                )}
+              >
+                {formatShown(-unbookedShown)}
+              </PendingLiveValue>
+            </>
+          )}
+        </div>
       )}
     </div>
   );

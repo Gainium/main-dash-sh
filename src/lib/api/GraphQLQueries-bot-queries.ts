@@ -93,6 +93,9 @@ const tradingCostsSelection = `
     slippageReconstructed
     feesEstimated
     quoteAsset
+    unbookedFeesQuote
+    unbookedFeesPartial
+    unbookedFeesInUsdProfitQuote
 `;
 
 // Bot types that carry `tradingCosts` (grid has none). Terminal bots are DCA.

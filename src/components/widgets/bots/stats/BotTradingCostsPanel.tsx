@@ -10,7 +10,10 @@ import {
   costTone,
   formatCost,
   hasCostFigures,
+  inUsdProfitShare,
   isFiniteNumber,
+  unbookedFeesLabel,
+  unbookedFeesTooltip,
 } from '@/utils/tradingCosts';
 
 import { MetricRow, Panel } from '../statsPrimitives';
@@ -72,6 +75,24 @@ export const BotTradingCostsPanel: FC<BotTradingCostsPanelProps> = ({
       )}
       {share !== undefined && (
         <MetricRow k="Costs / Gross" v={`${share.toFixed(1)}%`} />
+      )}
+      {isFiniteNumber(costs.unbookedFeesQuote) && (
+        <MetricRow
+          k={unbookedFeesLabel()}
+          v={
+            <PendingLiveValue
+              pending
+              variant="saved"
+              tooltip={unbookedFeesTooltip(
+                costs.unbookedFeesPartial,
+                inUsdProfitShare(costs)
+              )}
+            >
+              {formatCost(costs.unbookedFeesQuote, quoteAsset)}
+            </PendingLiveValue>
+          }
+          tone={costTone(costs.unbookedFeesQuote, quoteAsset)}
+        />
       )}
     </Panel>
   );

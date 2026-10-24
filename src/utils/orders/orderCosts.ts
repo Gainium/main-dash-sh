@@ -7,6 +7,7 @@ const ORDER_COST_KEYS = [
   'slippageSource',
   'feeQuote',
   'feeEstimated',
+  'feeConverted',
 ] as const;
 
 type OrderCostFields = Pick<OrderData, (typeof ORDER_COST_KEYS)[number]>;
@@ -35,6 +36,7 @@ export function withFetchedOrderCosts(
         slippageSource: o.slippageSource ?? null,
         feeQuote: o.feeQuote ?? null,
         feeEstimated: o.feeEstimated ?? null,
+        feeConverted: o.feeConverted ?? null,
       });
     }
   }

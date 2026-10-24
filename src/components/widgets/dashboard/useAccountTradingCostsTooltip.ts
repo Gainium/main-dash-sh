@@ -7,6 +7,7 @@ import {
   costShareOfGross,
   formatCost,
   hasCostFigures,
+  inUsdProfitShare,
   isFiniteNumber,
 } from '@/utils/tradingCosts';
 
@@ -57,6 +58,18 @@ export const tradingCostsTooltipLines = (rows: TradingCosts[]): string[] =>
     }
     const share = costShareOfGross(r);
     if (share !== undefined) parts.push(`${share.toFixed(1)}% of gross`);
+    // Paid in another asset (e.g. BNB): never in the profit in the quote
+    // asset, so not in the share; some deals' USD profit has them.
+    if (isFiniteNumber(r.unbookedFeesQuote)) {
+      const where = {
+        all: 'in USD profit only',
+        some: 'partly in USD profit',
+        none: 'not in profit',
+      }[inUsdProfitShare(r)];
+      parts.push(
+        `Fees paid in tokens ${formatCost(r.unbookedFeesQuote, r.quoteAsset)} (${where})`
+      );
+    }
     const body = parts.join(' · ');
     return r.quoteAsset ? `${r.quoteAsset} — ${body}` : body;
   });

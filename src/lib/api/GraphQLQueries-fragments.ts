@@ -85,6 +85,7 @@ const orderCosts = `
     slippageSource
     feeQuote
     feeEstimated
+    feeConverted
 `;
 
 const varsFragment = `

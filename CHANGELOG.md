@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.111.2] - 2026-10-24
+### Added
+- Fees paid in another token (for example BNB, BGB or KCS) are shown per order, converted at the market price when the order filled, and on each deal's cost breakdown, bot stats and the overview tooltip. Where the deal's USD profit already deducts them they appear as their own step in the breakdown; otherwise as a note that they are not deducted from profit.
+### Fixed
+- Deal cost breakdown: on deals whose USD profit already deducts fees paid in another token, the amounts were converted to your currency with a slightly wrong rate. They now add up exactly to the Realized Profit.
+
 ## [2.111.1] - 2026-10-24
 ### Fixed
 - Session indicator: upcoming sessions are shaded a week ahead, so the next session shows even over a weekend, and adding the indicator no longer zooms the chart out to fit them.

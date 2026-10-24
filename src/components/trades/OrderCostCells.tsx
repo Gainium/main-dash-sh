@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import type { ViewOrder } from '@/types/bots';
 import { PendingLiveValue } from '../ui/pending-live-value';
 import {
+  ORDER_FEE_CONVERTED_TOOLTIP,
   ORDER_FEE_ESTIMATED_TOOLTIP,
   SLIPPAGE_RECONSTRUCTED_TOOLTIP,
   bpsTone,
@@ -23,6 +24,7 @@ type CostOrder = Pick<
   | 'slippageSource'
   | 'feeQuote'
   | 'feeEstimated'
+  | 'feeConverted'
 > & { __smart?: boolean };
 
 const TONE_CLASS = {
@@ -70,15 +72,20 @@ export const OrderSlippage: React.FC<{ order: CostOrder }> = ({ order }) => {
   );
 };
 
-/** The order's fee in the quote asset, shown as a cost. Renders nothing when
+/** The order's fee in the quote asset, shown as a cost. Dimmed when it is an
+ *  estimate or was paid in another asset and converted. Renders nothing when
  *  the fee is unknown. */
 export const OrderFee: React.FC<{ order: CostOrder }> = ({ order }) => {
   if (!orderHasFee(order) || !isFiniteNumber(order.feeQuote)) return null;
   return (
     <PendingLiveValue
-      pending={!!order.feeEstimated}
+      pending={!!order.feeEstimated || !!order.feeConverted}
       variant="saved"
-      tooltip={ORDER_FEE_ESTIMATED_TOOLTIP}
+      tooltip={
+        order.feeEstimated
+          ? ORDER_FEE_ESTIMATED_TOOLTIP
+          : ORDER_FEE_CONVERTED_TOOLTIP
+      }
     >
       <span
         className={cn(

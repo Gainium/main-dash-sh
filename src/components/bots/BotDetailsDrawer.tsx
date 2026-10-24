@@ -1078,6 +1078,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
             slippageSource: order.slippageSource,
             feeQuote: order.feeQuote,
             feeEstimated: order.feeEstimated,
+            feeConverted: order.feeConverted,
           };
         });
       };

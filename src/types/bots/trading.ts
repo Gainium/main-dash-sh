@@ -57,6 +57,7 @@ export interface ViewOrder {
   slippageSource?: OrderSlippageSource | null | undefined;
   feeQuote?: number | null | undefined;
   feeEstimated?: boolean | null | undefined;
+  feeConverted?: boolean | null | undefined;
 }
 
 export interface Position {

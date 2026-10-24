@@ -2764,6 +2764,9 @@ export type OrderData = {
   feeQuote?: number | null;
   /** The fee is worked out from the stored fee rate, not venue-reported. */
   feeEstimated?: boolean | null;
+  /** The fee includes one paid in another asset (e.g. BNB), converted at
+   *  that asset's market price when the order filled. */
+  feeConverted?: boolean | null;
 };
 
 export type OrderSlippageSource = 'recorded' | 'reconstructed';
@@ -2788,6 +2791,17 @@ export type DealCostBreakdown = {
   feesEstimated?: boolean | null;
   slippageQuote?: number | null;
   netQuote?: number | null;
+  /** Fees paid in another asset (e.g. BNB), converted at each fill's market
+   *  price. Not in `feesQuote` or `netQuote`: not deducted from the profit. */
+  unbookedFeesQuote?: number | null;
+  /** Some of them could not be priced and are left out of the amount. */
+  unbookedFeesPartial?: boolean | null;
+  unbookedFeeAssets?: string[] | null;
+  /** The deal's USD profit (`profit.totalUsd`) already has these fees
+   *  subtracted (its `profit.total` never does). */
+  unbookedFeesInUsdProfit?: boolean | null;
+  /** The USD amount subtracted from `profit.totalUsd`. */
+  unbookedFeesUsd?: number | null;
 };
 
 /** Fees and slippage summed over a bot's (or an account's) deals. */
@@ -2800,6 +2814,11 @@ export type TradingCosts = {
   slippageReconstructed?: boolean | null;
   feesEstimated?: boolean | null;
   quoteAsset?: string | null;
+  /** Sum of the deals' `unbookedFeesQuote` (not in `feesQuote` / `netQuote`). */
+  unbookedFeesQuote?: number | null;
+  unbookedFeesPartial?: boolean | null;
+  /** The part of `unbookedFeesQuote` already subtracted from USD profit. */
+  unbookedFeesInUsdProfitQuote?: number | null;
 };
 
 export type ProfitLossStats = {
