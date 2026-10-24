@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.114.0] - 2026-10-24
+### Added
+- Session indicator Price levels: "Current session midpoint" — halfway between the running session's high and low so far — as a Compare/With value, drawn on the chart while a session runs.
+### Changed
+- Every remaining browser-native date, date-time and time picker (backtest settings and runner, backtest tab, deal start date, data-table date filters, bot events filter, deal rail) and the custom navigation item's section picker now use the app's themed fields, in both themes. The bot events filter keeps its filters inline from 1200px wide and moves them to the Filters panel below that.
+### Fixed
+- The Session study no longer stops drawing when the midpoint level is chosen.
+
 ## [2.113.1] - 2026-10-24
 ### Added
 - `TimeInput`, `DateInput` and `DateTimeInput`: themed drop-ins for the browser's native time, date and datetime-local inputs. They follow the app's dark and light themes, accept typed values (normalised on blur or Enter, reverted when invalid), show 24-hour time, are keyboard accessible, and emit the same strings the native inputs did.
