@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { DateInput } from '@/components/ui/date-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import {
@@ -93,11 +94,10 @@ const BacktestTab: React.FC<BacktestTabProps> = ({
                   >
                     Start Date
                   </Label>
-                  <Input
+                  <DateInput
                     id="start-date"
-                    type="date"
                     value={backtestConfig.startDate}
-                    onChange={(e) => updateConfig('startDate', e.target.value)}
+                    onChange={(value) => updateConfig('startDate', value)}
                   />
                 </div>
 
@@ -108,11 +108,10 @@ const BacktestTab: React.FC<BacktestTabProps> = ({
                   >
                     End Date
                   </Label>
-                  <Input
+                  <DateInput
                     id="end-date"
-                    type="date"
                     value={backtestConfig.endDate}
-                    onChange={(e) => updateConfig('endDate', e.target.value)}
+                    onChange={(value) => updateConfig('endDate', value)}
                   />
                 </div>
               </div>

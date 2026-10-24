@@ -11,6 +11,13 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { logger } from '@/lib/loggerInstance';
 import { formatShortcut, type ShortcutKey } from '@/stores/shortcutStore';
 import { useUIStore, type CustomNavItem } from '@/stores/uiStore';
@@ -378,18 +385,18 @@ const CustomNavItemDialog: React.FC<CustomNavItemDialogProps> = ({
           {!editingItem && sections && sections.length > 0 && (
             <div className="space-y-2">
               <Label htmlFor="nav-section">Section</Label>
-              <select
-                id="nav-section"
-                value={sectionId}
-                onChange={(e) => setSectionId(e.target.value)}
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              >
-                {sections.map((section) => (
-                  <option key={section.id} value={section.id}>
-                    {section.title}
-                  </option>
-                ))}
-              </select>
+              <Select value={sectionId} onValueChange={setSectionId}>
+                <SelectTrigger id="nav-section" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {sections.map((section) => (
+                    <SelectItem key={section.id} value={section.id}>
+                      {section.title}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           )}
 

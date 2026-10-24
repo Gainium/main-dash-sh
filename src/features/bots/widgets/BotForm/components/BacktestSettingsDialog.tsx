@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import { DateTimeInput } from '@/components/ui/date-time-input';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ProgressBar } from '@/components/ui/ProgressBar';
@@ -551,24 +552,22 @@ export const BacktestSettingsDialog: React.FC<{
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">Start date &amp; time</Label>
-                <input
-                  type="datetime-local"
+                <DateTimeInput
+                  aria-label="Start"
                   value={formatLocalDateTime(new Date(editFrom))}
-                  onChange={(e) => {
-                    setEditFrom(parseLocalDateTime(e.target.value).getTime());
+                  onChange={(value) => {
+                    setEditFrom(parseLocalDateTime(value).getTime());
                   }}
-                  className="h-9 w-full rounded-md border border-border/50 bg-foreground/[0.04] hover:bg-foreground/[0.06] transition-colors px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
               <div className="space-y-1">
                 <Label className="text-xs">End date &amp; time</Label>
-                <input
-                  type="datetime-local"
+                <DateTimeInput
+                  aria-label="End"
                   value={formatLocalDateTime(new Date(editTo))}
-                  onChange={(e) => {
-                    setEditTo(parseLocalDateTime(e.target.value).getTime());
+                  onChange={(value) => {
+                    setEditTo(parseLocalDateTime(value).getTime());
                   }}
-                  className="h-9 w-full rounded-md border border-border/50 bg-foreground/[0.04] hover:bg-foreground/[0.06] transition-colors px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50"
                 />
               </div>
               {editFrom >= editTo && (
@@ -788,23 +787,21 @@ export const BacktestSettingsDialog: React.FC<{
                   <div className="grid grid-cols-2 gap-sm">
                     <div className="space-y-1">
                       <Label className="text-xs">Start date &amp; time</Label>
-                      <input
-                        type="datetime-local"
+                      <DateTimeInput
+                        aria-label="Start"
                         value={startDate}
                         max={formatLocalDateTime(new Date())}
-                        onChange={(e) => setStartDate(e.target.value)}
-                        className="h-9 w-full rounded-md border border-border/50 bg-foreground/[0.04] hover:bg-foreground/[0.06] transition-colors px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                        onChange={setStartDate}
                       />
                     </div>
 
                     <div className="space-y-1">
                       <Label className="text-xs">End date &amp; time</Label>
-                      <input
-                        type="datetime-local"
+                      <DateTimeInput
+                        aria-label="End"
                         value={endDate}
                         max={formatLocalDateTime(new Date())}
-                        onChange={(e) => setEndDate(e.target.value)}
-                        className="h-9 w-full rounded-md border border-border/50 bg-foreground/[0.04] hover:bg-foreground/[0.06] transition-colors px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50"
+                        onChange={setEndDate}
                       />
                     </div>
                   </div>

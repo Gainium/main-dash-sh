@@ -2,7 +2,8 @@ import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCoun
 import { Button } from '@/components/ui/button';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
-import { Input } from '@/components/ui/input';
+import { DateInput } from '@/components/ui/date-input';
+import { DateTimeInput } from '@/components/ui/date-time-input';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
@@ -1296,16 +1297,16 @@ export const DealStartSettings: React.FC = () => {
                         </Tooltip>
                       </div>
                       {hodlHourly ? (
-                        <Input
-                          type="datetime-local"
+                        <DateTimeInput
+                          aria-label="Next deal"
+                          clearable
                           value={
                             Number.isFinite(hodlNextBuy) && hodlNextBuy > 0
                               ? toLocalDateTimeInputValue(new Date(hodlNextBuy))
                               : ''
                           }
                           min={timerMinimumDateTime}
-                          onChange={(event) => {
-                            const raw = event.target.value;
+                          onChange={(raw) => {
                             const parsed = raw ? new Date(raw).getTime() : NaN;
                             updateFormData(
                               'hodlNextBuy',
@@ -1314,16 +1315,16 @@ export const DealStartSettings: React.FC = () => {
                           }}
                         />
                       ) : (
-                        <Input
-                          type="date"
+                        <DateInput
+                          aria-label="Next deal"
+                          clearable
                           value={
                             Number.isFinite(hodlNextBuy) && hodlNextBuy > 0
                               ? nextBuyToDateValue(hodlNextBuy)
                               : ''
                           }
                           min={todayInTimezone(timezone)}
-                          onChange={(event) => {
-                            const raw = event.target.value;
+                          onChange={(raw) => {
                             updateFormData(
                               'hodlNextBuy',
                               raw ? dateValueToNextBuy(raw) : NaN

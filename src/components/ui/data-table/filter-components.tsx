@@ -13,6 +13,7 @@ import React, { useMemo, useState } from 'react';
 
 import { Badge } from '../badge';
 import { Button } from '../button';
+import { DateInput } from '../date-input';
 import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
@@ -102,12 +103,13 @@ const DateFilterInput: React.FC<{
   onChange: (value: unknown) => void;
   placeholder?: string;
 }> = ({ value, onChange, placeholder }) => (
-  <Input
-    type="date"
+  <DateInput
+    clearable
     value={String(value ?? '')}
-    onChange={(e) => onChange(e.target.value)}
+    onChange={onChange}
     placeholder={placeholder}
-    className="h-8 text-xs w-full pr-8 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+    aria-label={placeholder || 'Date'}
+    className="h-8 text-xs w-full border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
   />
 );
 
@@ -181,19 +183,23 @@ const DateRangeFilterInput: React.FC<{
 
   return (
     <div className="flex gap-1 w-full min-w-0">
-      <Input
-        type="date"
+      <DateInput
+        clearable
         value={String(startDate ?? '')}
-        onChange={(e) => handleStartDateChange(e.target.value)}
+        onChange={handleStartDateChange}
         placeholder="From"
-        className="h-8 text-xs flex-1 min-w-0 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        aria-label="From"
+        containerClassName="flex-1 min-w-0"
+        className="h-8 text-xs border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
-      <Input
-        type="date"
+      <DateInput
+        clearable
         value={String(endDate ?? '')}
-        onChange={(e) => handleEndDateChange(e.target.value)}
+        onChange={handleEndDateChange}
         placeholder="To"
-        className="h-8 text-xs flex-1 min-w-0 scheme-light dark:scheme-dark border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        aria-label="To"
+        containerClassName="flex-1 min-w-0"
+        className="h-8 text-xs border-0 bg-transparent rounded-none focus-visible:ring-0 focus-visible:ring-offset-0"
       />
     </div>
   );

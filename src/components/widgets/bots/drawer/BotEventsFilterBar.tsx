@@ -3,16 +3,17 @@
  *
  * The widget is resizable, so the layout follows the WIDGET's width through
  * container queries (the nearest `@container` ancestor), not the viewport:
- * - >= 800px: every filter inline next to the search box;
- * - <  800px: search stays inline, the rest go in a "Filters" panel that opens
- *   below the bar, two columns (From/To, then Type/Pair) at every width.
+ * - >= 1200px: every filter inline next to the search box (each date-time
+ *   field is a date and a time box, so the row needs that much room);
+ * - <  1200px: search stays inline, the rest go in a "Filters" panel that
+ *   opens below the bar: From and To on a row each, then Type/Pair in two
+ *   columns.
  * The panel is rendered in-flow rather than in a portal so it stays inside the
  * container and its queries still apply. Active filters always show as
  * removable chips, so a filter tucked into the closed panel is never invisible.
  */
-import React, { useRef, useState } from 'react';
+import React, { useState } from 'react';
 import {
-  CalendarDays,
   Download,
   Filter,
   RefreshCw,
@@ -28,6 +29,7 @@ import {
   type BotEventTypeFilter,
 } from '@/lib/botEventFilters';
 import { Button } from '@/components/ui/button';
+import { DateTimeInput } from '@/components/ui/date-time-input';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -50,62 +52,6 @@ const formatShortTime = (local: string) => {
         minute: '2-digit',
         hour12: false,
       });
-};
-
-// A date-time field drawn as a button that opens the browser's native
-// date-time picker. Not a visible `datetime-local` input because:
-// - the global mobile rule pins inputs to 16px (no iOS focus zoom), and at
-//   16px the native "mm/dd/yyyy, --:-- --" text needs ~170px — more than a
-//   two-column panel leaves on a phone;
-// - its picker icon ignores the app theme and sits right after the text.
-// The real input stays in the box, invisible, so the picker anchors here
-// and `color-scheme` keeps the popup in the active theme.
-const DateTimeField: React.FC<{
-  label: string;
-  value: string;
-  min?: string;
-  max?: string;
-  onChange: (value: string) => void;
-  /** Shown when empty; defaults to the label (inline fields have no label). */
-  placeholder?: string;
-  className?: string;
-}> = ({ label, value, min, max, onChange, placeholder, className }) => {
-  const ref = useRef<HTMLInputElement>(null);
-  const openPicker = () => {
-    const input = ref.current;
-    if (!input) return;
-    try {
-      input.showPicker();
-    } catch {
-      input.focus();
-    }
-  };
-  return (
-    <div className={cn('relative min-w-0', className)}>
-      <input
-        ref={ref}
-        type="datetime-local"
-        tabIndex={-1}
-        aria-hidden
-        value={value}
-        min={min}
-        max={max}
-        onChange={(e) => onChange(e.target.value)}
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-0 [color-scheme:light] dark:[color-scheme:dark]"
-      />
-      <button
-        type="button"
-        aria-label={value ? `${label}: ${formatShortTime(value)}` : label}
-        onClick={openPicker}
-        className="relative flex h-9 w-full items-center justify-between gap-2 rounded-md border border-border/50 bg-foreground/[0.04] px-3 text-left text-sm hover:bg-foreground/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
-      >
-        <span className={cn('truncate', !value && 'text-muted-foreground')}>
-          {value ? formatShortTime(value) : (placeholder ?? label)}
-        </span>
-        <CalendarDays className="h-4 w-4 shrink-0 text-muted-foreground" />
-      </button>
-    </div>
-  );
 };
 
 type TypeOption = (typeof BOT_EVENT_TYPE_OPTIONS)[number];
@@ -146,25 +92,27 @@ const FilterFields: React.FC<FieldsProps> = ({
     <>
       {wrap(
         'From',
-        <DateTimeField
-          label="From"
+        <DateTimeInput
+          aria-label="From"
+          clearable
           value={filters.from}
           max={filters.to || undefined}
           onChange={(v) => onChange({ from: v })}
-          {...(panel ? { placeholder: 'Any time' } : {})}
+          placeholder={panel ? 'Any time' : 'From'}
         />,
-        panel ? undefined : 'w-36 shrink-0'
+        panel ? 'col-span-2' : 'w-[17rem] shrink-0'
       )}
       {wrap(
         'To',
-        <DateTimeField
-          label="To"
+        <DateTimeInput
+          aria-label="To"
+          clearable
           value={filters.to}
           min={filters.from || undefined}
           onChange={(v) => onChange({ to: v })}
-          {...(panel ? { placeholder: 'Any time' } : {})}
+          placeholder={panel ? 'Any time' : 'To'}
         />,
-        panel ? undefined : 'w-36 shrink-0'
+        panel ? 'col-span-2' : 'w-[17rem] shrink-0'
       )}
       {wrap(
         'Type',
@@ -293,7 +241,7 @@ export const BotEventsFilterBar: React.FC<BotEventsFilterBarProps> = ({
             </Button>
           )}
         </div>
-        <div className="hidden items-center gap-xs @[800px]:flex">
+        <div className="hidden items-center gap-xs @[1200px]:flex">
           <FilterFields
             filters={filters}
             pairOptions={pairOptions}
@@ -305,7 +253,7 @@ export const BotEventsFilterBar: React.FC<BotEventsFilterBarProps> = ({
         <Button
           variant="outline"
           size="sm"
-          className="h-9 shrink-0 @[800px]:hidden"
+          className="h-9 shrink-0 @[1200px]:hidden"
           aria-expanded={panelOpen}
           onClick={() => setPanelOpen((v) => !v)}
         >
@@ -348,7 +296,7 @@ export const BotEventsFilterBar: React.FC<BotEventsFilterBarProps> = ({
       </div>
 
       {panelOpen && (
-        <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-muted/30 p-2 @[800px]:hidden">
+        <div className="grid grid-cols-2 gap-2 rounded-md border border-border bg-muted/30 p-2 @[1200px]:hidden">
           <FilterFields
             filters={filters}
             pairOptions={pairOptions}

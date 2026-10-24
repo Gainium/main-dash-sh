@@ -12,6 +12,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { DateInput } from '@/components/ui/date-input';
 import { Input } from '@/components/ui/input';
 import {
   Popover,
@@ -226,16 +227,18 @@ export function DealRailControls({
                     Started (UTC)
                   </span>
                   {(['min', 'max'] as const).map((b) => (
-                    <Input
+                    <DateInput
                       key={b}
-                      type="date"
+                      clearable
                       aria-label={`Started ${b === 'min' ? 'from' : 'to'}`}
-                      className="h-8 px-1.5 text-xs"
+                      placeholder={b === 'min' ? 'From' : 'To'}
+                      containerClassName="min-w-0"
+                      className="h-8 pl-1.5 text-xs"
                       value={toDateInput(filters.startTime[b], b === 'max')}
-                      onChange={(e) =>
+                      onChange={(value) =>
                         setRange('startTime', {
                           ...filters.startTime,
-                          [b]: fromDateInput(e.target.value, b === 'max'),
+                          [b]: fromDateInput(value, b === 'max'),
                         })
                       }
                     />

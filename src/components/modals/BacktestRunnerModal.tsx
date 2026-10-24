@@ -1,5 +1,6 @@
 import React, { useCallback, useState } from 'react';
 import { Button } from '../ui/button';
+import { DateInput } from '../ui/date-input';
 import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Checkbox } from '../ui/checkbox';
@@ -251,14 +252,13 @@ export const BacktestRunnerModal: React.FC<BacktestRunnerModalProps> = ({
                 <Label htmlFor="start-date" className="text-xs">
                   Start Date
                 </Label>
-                <Input
+                <DateInput
                   id="start-date"
-                  type="date"
                   value={config.startDate}
-                  onChange={(e) =>
+                  onChange={(startDate) =>
                     setConfig((prev) => ({
                       ...prev,
-                      startDate: e.target.value,
+                      startDate,
                     }))
                   }
                   max={config.endDate}
@@ -269,12 +269,11 @@ export const BacktestRunnerModal: React.FC<BacktestRunnerModalProps> = ({
                 <Label htmlFor="end-date" className="text-xs">
                   End Date
                 </Label>
-                <Input
+                <DateInput
                   id="end-date"
-                  type="date"
                   value={config.endDate}
-                  onChange={(e) =>
-                    setConfig((prev) => ({ ...prev, endDate: e.target.value }))
+                  onChange={(endDate) =>
+                    setConfig((prev) => ({ ...prev, endDate }))
                   }
                   min={config.startDate}
                   max={new Date().toISOString().split('T')[0]}
