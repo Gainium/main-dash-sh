@@ -417,6 +417,10 @@ xOscillator2voShort
   lwMaxDuration
   lwValue
   lwCondition
+  oteLeftBars
+  oteMinLegSize
+  oteLevel
+  oteLeg
   factor
   atrLength
   pcUp
@@ -726,6 +730,10 @@ xOscillator2voShort
   lwMaxDuration
   lwValue
   lwCondition
+  oteLeftBars
+  oteMinLegSize
+  oteLevel
+  oteLeg
     factor
   atrLength
    pcUp

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.112.0] - 2026-10-24
+### Added
+- Discount/Premium OTE Levels indicator for bot conditions: compares the price with a Fibonacci retracement level of the latest valid swing leg (swing sensitivity, minimum leg size in %, bullish/bearish/any leg, level, crossing down/up, greater/lower than). The chart draws the latest leg's levels — edges and equilibrium in grey, discount in green, premium in red.
+### Fixed
+- A help-article chip kept the previous article's title when switched to an article that is not cached.
+
 ## [2.111.2] - 2026-10-24
 ### Added
 - Fees paid in another token (for example BNB, BGB or KCS) are shown per order, converted at the market price when the order filled, and on each deal's cost breakdown, bot stats and the overview tooltip. Where the deal's USD profit already deducts them they appear as their own step in the breakdown; otherwise as a note that they are not deducted from profit.

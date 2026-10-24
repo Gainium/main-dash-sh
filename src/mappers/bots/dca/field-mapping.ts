@@ -4623,6 +4623,11 @@ export const mapFormDataToBackend = (
         i.lwMaxDuration = `${i.lwMaxDuration || '1000'}`.trim() || undefined;
         i.lwThreshold = `${i.lwThreshold || '2'}`.trim() || undefined;
       }
+      if (i.type === IndicatorEnum.ote) {
+        i.oteLeftBars = `${i.oteLeftBars || '10'}`.trim() || undefined;
+        i.oteMinLegSize = `${i.oteMinLegSize || '1'}`.trim() || undefined;
+        i.oteLevel = `${i.oteLevel || '0.705'}`.trim() || undefined;
+      }
       // An entry no serializer claimed (see the merge above) still saves its
       // smoothing in the stored shape; the length the form showed is the
       // default when the row never held one.

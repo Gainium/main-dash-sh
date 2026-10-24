@@ -50,6 +50,9 @@ export const HelpArticlePill: React.FC<HelpArticlePillProps> = ({
   const [open, setOpen] = useState(false);
 
   useEffect(() => {
+    // a new slug must not keep the previous article's title while (or if)
+    // its own is not in the cache
+    setResolvedTitle(null);
     if (label || !helpSlug) return undefined;
     let active = true;
     void loadCachedHelpArticles().then((articles) => {

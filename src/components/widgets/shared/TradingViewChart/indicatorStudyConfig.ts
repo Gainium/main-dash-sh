@@ -8,6 +8,7 @@ import {
 import {} from '@/types/indicators/indicatorTypes';
 import { OBFVGValueEnum } from '@gainium/backtester/dist/types';
 import { parseSessionTime } from '@/utils/indicators/sessionWindow';
+import { DEFAULT_OTE_LEVELS } from '@/utils/indicators/oteLevels';
 
 type TradingViewInput = Record<string, string | number | boolean>;
 
@@ -68,6 +69,7 @@ const STUDY_NAME_MAP: Omit<
   [IndicatorEnum.obfvg]: 'Fair Value Gaps',
   [IndicatorEnum.session]: 'Session Selector',
   [IndicatorEnum.lw]: 'Long Wick Detector',
+  [IndicatorEnum.ote]: 'Discount/Premium OTE Levels',
 };
 
 // AR-price variants: drawn as a price level on the candle pane when
@@ -568,6 +570,17 @@ const buildInputs = (
         maxDuration: toNumber(indicator.lwMaxDuration, 1000),
         showTop: lwVal === 'top' || lwVal === 'any',
         showBottom: lwVal === 'bottom' || lwVal === 'any',
+        id: '',
+      };
+    }
+    case IndicatorEnum.ote: {
+      const leg = indicator.oteLeg ?? 'any';
+      return {
+        leftBars: toNumber(indicator.oteLeftBars, 10),
+        minLegSize: toNumber(indicator.oteMinLegSize, 1),
+        levels: DEFAULT_OTE_LEVELS,
+        showBullish: leg === 'bullish' || leg === 'any',
+        showBearish: leg === 'bearish' || leg === 'any',
         id: '',
       };
     }

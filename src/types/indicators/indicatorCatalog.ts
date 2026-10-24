@@ -25,6 +25,7 @@ import {
   TradingviewAnalysisSignalEnum,
   TrendFilterOperatorEnum,
   LWConditionEnum,
+  OTELegEnum,
   type SettingsIndicators,
 } from '..';
 import {
@@ -455,6 +456,7 @@ export const INDICATOR_DOCUMENTATION_URLS = {
   [IndicatorEnum.unpnl]: '/help/avp',
   [IndicatorEnum.session]: '/help/sessions',
   [IndicatorEnum.lw]: '/help/long-wick-detector',
+  [IndicatorEnum.ote]: '/help/discount-premium-ote-levels',
 } satisfies Partial<Record<IndicatorEnum, string>>;
 
 export const MARKET_STRUCTURE_VALUE_GROUPS = {
@@ -3181,6 +3183,78 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorInterval',
         label: 'Interval',
         defaultValue: ExchangeIntervals.oneH,
+      }),
+      keepConditionBarsField,
+    ],
+  },
+  [IndicatorEnum.ote]: {
+    type: IndicatorEnum.ote,
+    label: 'Discount/Premium OTE Levels',
+    shortLabel: 'OTE Levels',
+    category: IndicatorCategories.Chart,
+    description:
+      'Fibonacci retracement levels of the latest valid swing leg: discount and premium zones around the 0.5 equilibrium and the optimal trade entry (OTE) zone around 0.618–0.79.',
+    supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
+    fields: [
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeNumberField({
+        key: 'oteLeftBars',
+        label: 'Swing sensitivity',
+        defaultValue: 10,
+        min: 1,
+        max: 500,
+        step: 1,
+        suffix: 'bars',
+        allowVariables: true,
+        tooltip:
+          'A swing high or low must be the highest or lowest point of at least this many bars to its left. It is confirmed one bar after it prints.',
+      }),
+      makeNumberField({
+        key: 'oteMinLegSize',
+        label: 'Minimum leg size',
+        defaultValue: 1,
+        min: 0.01,
+        max: 100,
+        step: 0.1,
+        suffix: '%',
+        allowVariables: true,
+        tooltip:
+          'A move between a swing low and a swing high counts as a leg only when it is at least this many percent of its low.',
+      }),
+      makeSelectField({
+        key: 'oteLeg',
+        label: 'Leg',
+        defaultValue: OTELegEnum.bullish,
+        options: [
+          { value: OTELegEnum.bullish, label: 'Bullish' },
+          { value: OTELegEnum.bearish, label: 'Bearish' },
+          { value: OTELegEnum.any, label: 'Any' },
+        ],
+        tooltip:
+          'Bullish legs run from a swing low up to a swing high, bearish legs from a swing high down to a swing low. Only the latest leg is read.',
+      }),
+      makeNumberField({
+        key: 'oteLevel',
+        label: 'Level',
+        defaultValue: 0.705,
+        min: 0,
+        max: 1,
+        step: 0.001,
+        allowVariables: true,
+        tooltip:
+          'Retracement of the leg the price is compared with: 0 is the end of the leg, 1 its origin, 0.5 the equilibrium. 0.618–0.79 is the OTE zone; above 0.5 is discount in a bullish leg and premium in a bearish one.',
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cd,
+        options: PRICE_CONDITION_OPTIONS,
+        tooltip:
+          'Crossing compares the close with the level on two candles of the same leg; a new leg moving the level is not a crossing.',
       }),
       keepConditionBarsField,
     ],

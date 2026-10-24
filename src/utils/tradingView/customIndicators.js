@@ -1,4 +1,10 @@
 import { isSessionActiveDuring } from '@/utils/indicators/sessionWindow';
+import {
+  DEFAULT_OTE_LEVELS,
+  OTELevelsState,
+  oteLevelPrice,
+  parseOteLevels,
+} from '@/utils/indicators/oteLevels';
 
 const colorRipeRedA200 = '#FF5252';
 const colorMintyGreen400 = '#22AB94';
@@ -1119,6 +1125,7 @@ export const custom_indicators_getter = (r, callback) => {
       OBFVG(r, cb),
       Session(r),
       LW(r, cb),
+      OTE(r, cb),
     ];
 
     // Filter out any undefined/null indicators and validate structure
@@ -11998,6 +12005,179 @@ export const LW = (r, callback) => ({
         }
       }
       return [bull, bear];
+    };
+  },
+});
+
+// Discount / Premium OTE Levels: the retracement levels of the latest valid
+// leg, one line per level (up to 9). Colours: edge = 0, 0.5 and 1; discount =
+// beyond 0.5 towards the leg's origin (the entry side of the retracement);
+// premium = the rest. The original script draws each leg as boxed lines with
+// labels; a study can only plot series, so the latest leg's levels run from
+// the bar it was confirmed on, with a one-bar gap when the leg changes.
+const OTE_SLOTS = 9;
+const OTE_EDGE = "#787B86";
+const OTE_DISCOUNT = "#089981";
+const OTE_PREMIUM = "#F23645";
+const oteColorIndex = (level) =>
+  level === 0 || level === 0.5 || level === 1 ? 0 : level > 0.5 ? 1 : 2;
+const oteSlots = Array.from({ length: OTE_SLOTS }, (_, k) => k);
+
+export const OTE = (r, callback) => ({
+  name: "Discount/Premium OTE Levels",
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: Object.fromEntries(
+        oteSlots.map((k) => [
+          `level${k}`,
+          {
+            linestyle: 0,
+            linewidth: 1,
+            plottype: 7,
+            trackPrice: !1,
+            transparency: 0,
+            visible: !0,
+            color: OTE_EDGE,
+          },
+        ]),
+      ),
+      palettes: Object.fromEntries(
+        oteSlots.map((k) => [
+          `palette${k}`,
+          {
+            colors: {
+              0: { color: OTE_EDGE, width: 1, style: 0 },
+              1: { color: OTE_DISCOUNT, width: 1, style: 0 },
+              2: { color: OTE_PREMIUM, width: 1, style: 0 },
+            },
+          },
+        ]),
+      ),
+      inputs: {
+        leftBars: 10,
+        minLegSize: 1,
+        levels: DEFAULT_OTE_LEVELS,
+        showBullish: true,
+        showBearish: true,
+        id: "",
+      },
+    },
+    plots: oteSlots.flatMap((k) => [
+      { id: `level${k}`, type: "line" },
+      {
+        id: `level${k}Color`,
+        type: "colorer",
+        target: `level${k}`,
+        palette: `palette${k}`,
+      },
+    ]),
+    palettes: Object.fromEntries(
+      oteSlots.map((k) => [
+        `palette${k}`,
+        {
+          colors: {
+            0: { name: "Edge" },
+            1: { name: "Discount" },
+            2: { name: "Premium" },
+          },
+        },
+      ]),
+    ),
+    styles: Object.fromEntries(
+      oteSlots.map((k) => [
+        `level${k}`,
+        { title: `Level ${k + 1}`, histogramBase: 0, joinPoints: !1 },
+      ]),
+    ),
+    description: "Discount/Premium OTE Levels",
+    shortDescription: "OTE Levels",
+    is_price_study: !0,
+    linkedToSeries: true,
+    id: "Discount/Premium OTE Levels@tv-basicstudies-1",
+    scriptIdPart: "",
+    name: "Discount/Premium OTE Levels",
+    format: { type: "inherit" },
+    inputs: [
+      {
+        id: "leftBars",
+        name: "Left Swing Sensitivity (Bars)",
+        defval: 10,
+        type: "integer",
+        min: 1,
+        max: 500,
+      },
+      {
+        id: "minLegSize",
+        name: "Minimum Leg Size (%)",
+        defval: 1,
+        type: "float",
+        min: 0.01,
+        max: 100,
+        step: 0.1,
+      },
+      {
+        id: "levels",
+        name: "Levels to Draw",
+        defval: DEFAULT_OTE_LEVELS,
+        type: "text",
+      },
+      { id: "showBullish", name: "Bullish legs", defval: true, type: "bool" },
+      { id: "showBearish", name: "Bearish legs", defval: true, type: "bool" },
+      { id: "id", name: "", defval: "", type: "text", isHidden: true },
+    ],
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const leftBars = this._input(0);
+      const minLegSize = this._input(1);
+      const levels = parseOteLevels(this._input(2));
+      const showBullish = this._input(3);
+      const showBearish = this._input(4);
+      const id = this._input(5);
+      const symbol = this._context.symbol;
+      this._context.setMinimumAdditionalDepth(1000);
+      // The study is recalculated from the first bar whenever data or inputs
+      // change; legs move only on closed candles, as for the bot.
+      if (!this.ote || symbol.index === 0 || symbol.index < this.lastIndex) {
+        this.ote = new OTELevelsState(leftBars, minLegSize);
+        this.lastIndex = -1;
+        this.legKey = "";
+        this.prevLegKey = "";
+      }
+      if (symbol.isBarClosed && symbol.index > this.lastIndex) {
+        this.ote.next(r.Std.high(this._context), r.Std.low(this._context));
+        this.lastIndex = symbol.index;
+        const leg = this.ote.leg;
+        this.prevLegKey = this.legKey;
+        this.legKey = leg ? `${leg.direction}|${leg.low}|${leg.high}` : "";
+      }
+      const leg = this.ote.leg;
+      if (callback && id) {
+        callback({
+          id,
+          high: leg ? leg.high : NaN,
+          low: leg ? leg.low : NaN,
+          direction: leg ? leg.direction : NaN,
+        });
+      }
+      const shown =
+        leg &&
+        ((leg.direction === 1 && showBullish) ||
+          (leg.direction === -1 && showBearish)) &&
+        // break the lines on the bar a new leg replaces the previous one
+        !(symbol.isBarClosed && this.legKey !== this.prevLegKey);
+      return oteSlots.flatMap((k) => {
+        const level = levels[k];
+        return shown && level !== undefined
+          ? [oteLevelPrice(leg, level), oteColorIndex(level)]
+          : [r.Std.na(), 0];
+      });
     };
   },
 });

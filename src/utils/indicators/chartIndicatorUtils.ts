@@ -620,6 +620,10 @@ function buildChartIndicator(
     sessionTimezone: i.sessionTimezone,
     lwMaxDuration: +(i.lwMaxDuration ?? 2),
     lwThreshold: +(i.lwThreshold ?? 1000),
+    oteLeftBars: +(i.oteLeftBars || 10),
+    oteMinLegSize: +(i.oteMinLegSize || 1),
+    oteLevel: +(i.oteLevel || 0.705),
+    oteLeg: i.oteLeg,
   };
 
   return chartIndicator;
