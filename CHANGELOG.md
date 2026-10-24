@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.112.1] - 2026-10-24
+### Changed
+- Discount/Premium OTE Levels settings: Condition now comes before Level.
+
 ## [2.112.0] - 2026-10-24
 ### Added
 - Discount/Premium OTE Levels indicator for bot conditions: compares the price with a Fibonacci retracement level of the latest valid swing leg (swing sensitivity, minimum leg size in %, bullish/bearish/any leg, level, crossing down/up, greater/lower than). The chart draws the latest leg's levels — edges and equilibrium in grey, discount in green, premium in red.

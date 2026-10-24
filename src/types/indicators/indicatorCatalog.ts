@@ -3237,6 +3237,14 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         tooltip:
           'Bullish legs run from a swing low up to a swing high, bearish legs from a swing high down to a swing low. Only the latest leg is read.',
       }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cd,
+        options: PRICE_CONDITION_OPTIONS,
+        tooltip:
+          'Crossing compares the close with the level on two candles of the same leg; a new leg moving the level is not a crossing.',
+      }),
       makeNumberField({
         key: 'oteLevel',
         label: 'Level',
@@ -3247,14 +3255,6 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         allowVariables: true,
         tooltip:
           'Retracement of the leg the price is compared with: 0 is the end of the leg, 1 its origin, 0.5 the equilibrium. 0.618–0.79 is the OTE zone; above 0.5 is discount in a bullish leg and premium in a bearish one.',
-      }),
-      makeSelectField({
-        key: 'indicatorCondition',
-        label: 'Condition',
-        defaultValue: IndicatorStartConditionEnum.cd,
-        options: PRICE_CONDITION_OPTIONS,
-        tooltip:
-          'Crossing compares the close with the level on two candles of the same leg; a new leg moving the level is not a crossing.',
       }),
       keepConditionBarsField,
     ],
