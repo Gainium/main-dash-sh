@@ -21,6 +21,8 @@ import {
 } from './analysis/ControlSelect';
 import { PriceBehaviorCard } from './analysis/PriceBehaviorCard';
 import { SeasonalityCard } from './analysis/SeasonalityCard';
+import { StrategyVsRandomCard } from './analysis/StrategyVsRandomCard';
+import type { RandomTestSource } from './analysis/useRandomEdgeRun';
 
 import {
   Bar,
@@ -34,6 +36,8 @@ import {
 
 interface BacktestAnalysisTabProps {
   backtest: DCABacktestingResultHistory;
+  /** A fresh DCA run's input + result; enables Strategy vs Random (spec 135). */
+  randomTest?: RandomTestSource | null;
 }
 
 const MONTHS = [
@@ -107,7 +111,10 @@ function MonthCell({ stats }: { stats: PeriodicStats }) {
   );
 }
 
-export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
+export function BacktestAnalysisTab({
+  backtest,
+  randomTest,
+}: BacktestAnalysisTabProps) {
   const chartColors = useChartColors();
   const [narrow, setNarrow] = useState(false);
 
@@ -277,6 +284,10 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
           to={to}
           short={backtest.settings?.strategy === StrategyEnum.short}
         />
+      ) : null}
+
+      {randomTest && deals.length > 0 ? (
+        <StrategyVsRandomCard deals={deals} source={randomTest} />
       ) : null}
 
       {seasonSymbols.length > 0 && to > from ? (

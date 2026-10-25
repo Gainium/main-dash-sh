@@ -116,6 +116,10 @@ import { useBotTemplateShortcuts } from '@/hooks/useBotTemplatesSync';
 import { getLocalPrices } from '@/helper/price';
 import GridBacktestingEngine from '@/lib/backtester/gridWrapper';
 import DCABacktesting from '@/lib/backtester/wrapper';
+import {
+  rememberRandomTestSource,
+  type RandomTestSource,
+} from '@/components/widgets/bots/backtest/analysis/useRandomEdgeRun';
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -288,6 +292,8 @@ interface BacktestResultCapture {
   settings: DCABotSettings;
   meta: BacktestViewModelMeta;
   summary: { netPerc: number; winRate: number; deals: number };
+  /** DCA only: the run's engine input + result, for Strategy vs Random. */
+  randomTest?: RandomTestSource;
 }
 
 const isGridBotEntity = (
@@ -3497,6 +3503,11 @@ const BotForm: React.FC<BotFormProps> = ({
                     historySettings,
                     dcaMeta
                   );
+                  // Strategy vs Random reruns this input (DCA only)
+                  const randomTest: RandomTestSource | undefined =
+                    isComboBacktest
+                      ? undefined
+                      : { input: backtesterInput, result: typedResult };
                   setBacktestResult({
                     result: typedResult,
                     strategy:
@@ -3508,6 +3519,7 @@ const BotForm: React.FC<BotFormProps> = ({
                       winRate: dcaVm.winRate,
                       deals: dcaVm.deals,
                     },
+                    ...(randomTest ? { randomTest } : {}),
                   });
                   const savedId = await persistBacktestResult({
                     result: typedResult,
@@ -3523,6 +3535,7 @@ const BotForm: React.FC<BotFormProps> = ({
                   });
                   toast.success('Backtest saved to server and Local Data');
                   if (savedId) {
+                    if (randomTest) rememberRandomTestSource(savedId, randomTest);
                     onBacktestComplete?.(savedId);
                   }
                 } catch (persistError) {
@@ -4084,6 +4097,7 @@ const BotForm: React.FC<BotFormProps> = ({
           strategy={backtestResult.strategy}
           settings={backtestResult.settings}
           meta={backtestResult.meta}
+          randomTest={backtestResult.randomTest}
         />
       )}
       {/* <SmartOrderMergeDialog
@@ -4567,6 +4581,7 @@ const BotForm: React.FC<BotFormProps> = ({
           strategy={backtestResult.strategy}
           settings={backtestResult.settings}
           meta={backtestResult.meta}
+          randomTest={backtestResult.randomTest}
         />
       )}
       {/* <SmartOrderMergeDialog

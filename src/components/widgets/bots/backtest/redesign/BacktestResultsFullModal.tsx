@@ -77,6 +77,10 @@ import {
 } from '@/components/widgets/bots/backtest';
 import { HedgeBacktestActiveView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
 import type { HedgeBacktestHistoryItem } from '@/hooks/bots/hedge/useHedgeBacktestRunner';
+import {
+  randomTestSourceFor,
+  type RandomTestSource,
+} from '@/components/widgets/bots/backtest/analysis/useRandomEdgeRun';
 
 import { RedesignOverviewTab } from './tabs/RedesignOverviewTab';
 import { RedesignDealsTab } from './tabs/RedesignDealsTab';
@@ -138,6 +142,8 @@ export interface BacktestResultsFullModalProps {
    * deal focus requests. Absent ⇒ the modal as it always was.
    */
   extension?: BacktestResultsExtension | null;
+  /** A fresh DCA run's input + result; enables Analysis → Strategy vs Random. */
+  randomTest?: RandomTestSource | null;
 }
 
 /** Normalize the strategy string into a render kind. */
@@ -337,6 +343,7 @@ export function BacktestResultsFullModal({
   hedgeBotType,
   botName,
   extension,
+  randomTest,
 }: BacktestResultsFullModalProps) {
   const kind = useMemo(() => resultKind(strategy), [strategy]);
 
@@ -349,6 +356,10 @@ export function BacktestResultsFullModal({
   const shownResult = replacementError ? null : replacing ? extResult : result;
   const loadingReplacement =
     replacing && !replacementError && extResult == null;
+  // A list row finds its run's input when this session ran it (spec 135 §1.3).
+  const randomSource =
+    randomTest ??
+    randomTestSourceFor((result as { _id?: string } | null | undefined)?._id);
 
   // DCA / combo build a view model; grid + hedge render their own views.
   const vm = useMemo<BacktestViewModel | null>(() => {
@@ -760,7 +771,11 @@ export function BacktestResultsFullModal({
           {vm &&
             activeTab === 'Analysis' &&
             (analysisEnabled ? (
-              <BacktestAnalysisTab backtest={vm.raw} />
+              <BacktestAnalysisTab
+                backtest={vm.raw}
+                // only for the run it was captured from, never a swapped-in result
+                randomTest={kind === 'dca' && !replacing ? randomSource : null}
+              />
             ) : (
               <div className="grid h-full place-items-center text-sm text-muted-foreground">
                 No analysis data for this backtest.

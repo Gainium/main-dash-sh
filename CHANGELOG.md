@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.116.0] - 2026-10-25
+### Added
+- Backtest Analysis: Strategy vs Random card. On a backtest just run from the bot form (DCA), it re-runs the same period with random entries and compares the closed deals' returns: a scatter of both, each side's average return ± its 95% confidence interval, and a t-value with a verdict (beats random, worse than random, or not distinguishable).
+
 ## [2.115.6] - 2026-10-25
 ### Fixed
 - Stochastic and Stochastic RSI: a new condition with Zone Lower started with a Lower band of 80, so it held almost all the time; it starts at 20 again.
