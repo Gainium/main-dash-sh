@@ -151,8 +151,13 @@ export function priceBehavior(
   for (const bars of barsBySymbol.values()) {
     const starts = bars.length - horizon;
     if (starts <= 0) continue;
-    const stride = Math.max(1, Math.floor(starts / MAX_CONTROL_STARTS));
-    for (let j = 0; j < starts; j += stride) {
+    // Every start when there are few, otherwise a seeded random sample. A
+    // fixed stride locks onto one phase of the day (every 2nd 4h bar is
+    // always 00/08/16 UTC), and time-of-day drift then zig-zags the path.
+    const pick = seededRandom(SIM_SEED ^ starts);
+    const n = Math.min(starts, MAX_CONTROL_STARTS);
+    for (let t = 0; t < n; t++) {
+      const j = n === starts ? t : Math.floor(pick() * starts);
       const base = bars[j].close;
       if (!(base > 0)) continue;
       for (let k = 1; k <= horizon; k++) {

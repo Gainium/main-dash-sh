@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.116.1] - 2026-10-25
+### Fixed
+- Backtest Analysis, Price behaviour: on windows longer than about 10,000 bars, the random-entry average was taken from every second (or third…) bar, which always fell at the same times of day. Daily drift by hour then made the Edge line and the luck band zig-zag. The average now comes from a random sample of bars.
+
 ## [2.116.0] - 2026-10-25
 ### Added
 - Backtest Analysis: Strategy vs Random card. On a backtest just run from the bot form (DCA), it re-runs the same period with random entries and compares the closed deals' returns: a scatter of both, each side's average return ± its 95% confidence interval, and a t-value with a verdict (beats random, worse than random, or not distinguishable).

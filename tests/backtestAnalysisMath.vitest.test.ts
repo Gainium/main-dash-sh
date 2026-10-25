@@ -180,6 +180,25 @@ describe('priceBehavior', () => {
     expect(width(clustered[9])).toBeGreaterThan(2 * width(spread[9]));
   });
 
+  test('§1.3 a sampled control does not lock onto one phase of the bars', () => {
+    // Over 10,000 starts the control is sampled. Price rises 1% on odd bars
+    // only; a stride of 2 started every move on an even bar, so the control
+    // gained 1% at odd steps and nothing at even ones.
+    const closes = [100];
+    for (let i = 1; i < 12_001; i++) {
+      closes.push(closes[i - 1] * (i % 2 ? 1.01 : 1));
+    }
+    const out = priceBehavior(
+      new Map([['BTCUSDT', bars(closes)]]),
+      [deal({})],
+      4,
+      1
+    );
+    const steps = out.map((p, i) => p.control - (i ? out[i - 1].control : 0));
+    for (const s of steps) expect(s).toBeGreaterThan(0.3);
+    expect(Math.max(...steps) - Math.min(...steps)).toBeLessThan(0.3);
+  });
+
   test('§1.8 no usable deal → no points', () => {
     expect(
       priceBehavior(new Map([['BTCUSDT', bars([1, 2])]]), [deal({})], 5, 1)
