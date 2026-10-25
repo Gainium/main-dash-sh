@@ -2,6 +2,7 @@ import { logger } from '@/lib/loggerInstance';
 import {
   IndicatorEnum,
   MAEnum,
+  StochRangeEnum,
   tvIntervalMap,
   type ChartIndicatorConfig,
 } from '@/types';
@@ -702,10 +703,17 @@ const buildOverrides = (
     IndicatorEnum.stochRSI,
   ]);
 
+  // Stochastic's Lower&Upper zone is two bands (0 to its lower line, its
+  // upper line to 100); a single-band zone arrives as one band between its
+  // two limits (Lower: 0 and its band, Upper: its band and 100), shaded like
+  // any other band. The top/bottom fills run from the limit lines to 100 and
+  // 0, so on a single-band zone they shaded the wrong side.
   if (
     indicator.upperLimit !== undefined &&
     indicator.lowerLimit !== undefined &&
-    boundedRangeIndicators.has(type)
+    boundedRangeIndicators.has(type) &&
+    indicator.stochRange !== StochRangeEnum.lower &&
+    indicator.stochRange !== StochRangeEnum.upper
   ) {
     overrides['hlines top background.visible'] = true;
     overrides['hlines bottom background.visible'] = true;

@@ -1,4 +1,5 @@
 import { getActiveFavoritePreset } from '@/utils/indicators/favoritePresetScope';
+import { resolveFieldKey } from '@/utils/indicators/indicatorFieldGating';
 import {
   DONCHIAN_BAND_VALUES,
   INDICATOR_CATALOG,
@@ -112,10 +113,14 @@ export const getIndicatorDefaultParams = (
   const definition = getIndicatorDefinition(type);
   const defaults = collectFields(definition).reduce<IndicatorParamsState>(
     (acc, field) => {
-      const value = getFallbackDefault(field);
+      // A field whose key follows another field (Stochastic's bands follow
+      // Zone) seeds the key and default the seeded params bind it to; the
+      // driving field comes first in the catalog, so it is already set.
+      const { key, defaultValue } = resolveFieldKey(field, acc);
+      const value = getFallbackDefault({ ...field, defaultValue });
       if (value !== undefined) {
         (acc as Record<string, NonNullable<IndicatorParamPrimitive>>)[
-          field.key
+          key as string
         ] = value as NonNullable<IndicatorParamPrimitive>;
       }
       return acc;

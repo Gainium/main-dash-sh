@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.115.6] - 2026-10-25
+### Fixed
+- Stochastic and Stochastic RSI: a new condition with Zone Lower started with a Lower band of 80, so it held almost all the time; it starts at 20 again.
+- Stochastic and Stochastic RSI chart: Zone Lower and Zone Upper shaded the wrong side of their band (from the band to 100). Lower now shades 0 to its band and Upper its band to 100; Lower&Upper keeps both outer bands.
+
 ## [2.115.5] - 2026-10-25
 ### Changed
 - Backtest Analysis, Price behaviour: an edge is checked before it is called "Likely edge". It shows as "Fragile edge" when it disappears once its strongest episode is left out, or when it shows at the chosen horizon only and at none of the others; the badge's tooltip says which. The header counts independent episodes: deals on one pair whose windows overlap count once, so a burst of re-entries in one move is one episode.
