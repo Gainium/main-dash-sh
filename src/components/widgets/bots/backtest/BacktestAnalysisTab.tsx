@@ -1,15 +1,26 @@
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useChartColors } from '@/hooks/useChartColors';
 import { math } from '@/lib/utils/math';
 import {
   MAX_DEALS_IN_BACKTEST,
+  StrategyEnum,
   type DCABacktestingResultHistory,
   type PeriodicStats,
+  type Symbols,
 } from '@/types';
 import CustomTooltip from '@/components/charts/CustomTooltip';
+
+import { topSymbols } from './analysis/analysisMath';
+import {
+  ANALYSIS_CARD,
+  ANALYSIS_PAD_X,
+  NARROW_PX,
+} from './analysis/ControlSelect';
+import { PriceBehaviorCard } from './analysis/PriceBehaviorCard';
+import { SeasonalityCard } from './analysis/SeasonalityCard';
 
 import {
   Bar,
@@ -39,6 +50,8 @@ const MONTHS = [
   'Nov',
   'Dec',
 ];
+
+const MAX_SEASON_PAIRS = 10;
 
 const netClass = (net: number) =>
   net > 0 ? 'text-profit' : net < 0 ? 'text-loss' : 'text-muted-foreground';
@@ -96,6 +109,7 @@ function MonthCell({ stats }: { stats: PeriodicStats }) {
 
 export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
   const chartColors = useChartColors();
+  const [narrow, setNarrow] = useState(false);
 
   const returnDistribution = useMemo(() => {
     const deals = backtest.deals ?? [];
@@ -161,22 +175,56 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
     [periodicStats]
   );
 
+  const deals = useMemo(() => backtest.deals ?? [], [backtest.deals]);
+  const from = Number(backtest.duration?.firstDataTime) || 0;
+  const to = Number(backtest.duration?.lastDataTime) || 0;
+  // A saved backtest has no deals; its own pair still drives price seasonality.
+  const seasonSymbols = useMemo<Symbols[]>(() => {
+    const top = topSymbols(deals, MAX_SEASON_PAIRS);
+    if (top.length || backtest.multi || !backtest.symbol || !backtest.exchange)
+      return top;
+    return [
+      {
+        pair: backtest.symbol,
+        exchange: backtest.exchange,
+        baseAsset: { name: backtest.baseAsset },
+        quoteAsset: { name: backtest.quoteAsset },
+      } as Symbols,
+    ];
+  }, [
+    deals,
+    backtest.multi,
+    backtest.symbol,
+    backtest.exchange,
+    backtest.baseAsset,
+    backtest.quoteAsset,
+  ]);
+
   const hasReturnDistribution = returnDistribution.length > 0;
   const hasPeriodicStats = periodicStats.length > 0;
 
   return (
-    <div className="h-full p-md space-y-md">
+    <div className="h-full space-y-sm p-0 sm:space-y-md sm:p-md">
       {hasReturnDistribution ? (
-        <Card>
-          <CardHeader>
+        <Card className={ANALYSIS_CARD}>
+          <CardHeader className={ANALYSIS_PAD_X}>
             <CardTitle>Return distribution</CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
+          <CardContent className={ANALYSIS_PAD_X}>
+            <div className="h-[260px] sm:h-[300px]">
+              <ResponsiveContainer
+                width="100%"
+                height="100%"
+                onResize={(width) => setNarrow(width < NARROW_PX)}
+              >
                 <BarChart
                   data={returnDistribution}
-                  margin={{ top: 20, right: 20, left: 0, bottom: 60 }}
+                  margin={{
+                    top: 20,
+                    right: narrow ? 4 : 20,
+                    left: 0,
+                    bottom: narrow ? 0 : 60,
+                  }}
                 >
                   <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
                   <XAxis
@@ -186,13 +234,16 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
                     )}
                     angle={-45}
                     textAnchor="end"
-                    height={80}
-                    fontSize={12}
-                    interval={0}
+                    height={narrow ? 56 : 80}
+                    fontSize={narrow ? 10 : 12}
+                    interval={
+                      narrow ? Math.ceil(returnDistribution.length / 6) - 1 : 0
+                    }
                   />
                   <YAxis
                     tickFormatter={(v) => `${v}%`}
-                    fontSize={12}
+                    fontSize={narrow ? 10 : 12}
+                    width={narrow ? 40 : 60}
                     domain={[0, 100]}
                   />
                   <Tooltip
@@ -218,12 +269,31 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
         </Card>
       ) : null}
 
+      {deals.length > 0 ? (
+        <PriceBehaviorCard
+          deals={deals}
+          interval={backtest.interval}
+          from={from}
+          to={to}
+          short={backtest.settings?.strategy === StrategyEnum.short}
+        />
+      ) : null}
+
+      {seasonSymbols.length > 0 && to > from ? (
+        <SeasonalityCard
+          deals={deals}
+          symbols={seasonSymbols}
+          from={from}
+          to={to}
+        />
+      ) : null}
+
       {hasPeriodicStats ? (
-        <Card>
-          <CardHeader>
+        <Card className={ANALYSIS_CARD}>
+          <CardHeader className={ANALYSIS_PAD_X}>
             <CardTitle>Periodic stats</CardTitle>
           </CardHeader>
-          <CardContent>
+          <CardContent className={ANALYSIS_PAD_X}>
             <div className="space-y-lg">
               {yearStats.map((year) => {
                 const yearStart = year.startTime;
@@ -263,7 +333,7 @@ export function BacktestAnalysisTab({ backtest }: BacktestAnalysisTabProps) {
         </Card>
       ) : null}
 
-      {!hasReturnDistribution && !hasPeriodicStats ? (
+      {!hasReturnDistribution && !hasPeriodicStats && !seasonSymbols.length ? (
         <div className="text-sm text-muted-foreground">
           No analysis data available
         </div>

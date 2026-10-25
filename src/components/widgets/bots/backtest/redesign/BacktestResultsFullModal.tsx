@@ -429,11 +429,13 @@ export function BacktestResultsFullModal({
   const shortfall = header ? coverageShortfall(header) : null;
 
   // Analysis tab gating (dca/combo) — enable when there are deals or periodic
-  // stats; the tab also self-handles the empty case.
+  // stats, or a single pair (price seasonality needs only the pair); the tab
+  // also self-handles the empty case.
   const analysisEnabled =
     !!vm &&
     ((vm.raw.deals?.length ?? 0) > 0 ||
-      (vm.raw.periodicStats?.length ?? 0) > 0);
+      (vm.raw.periodicStats?.length ?? 0) > 0 ||
+      (!vm.raw.multi && !!vm.raw.symbol && !!vm.raw.exchange));
 
   // ── header overflow actions: Save as template + Share ─────────────────
   const user = useAuthStore((s) => s.user);

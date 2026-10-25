@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.115.0] - 2026-10-25
+### Added
+- Backtest Analysis: Price behaviour — how price moved in the bars after each deal entry (mean, median, middle-80% band and share in profit), against a random-entry baseline from every bar of the period. Pick 10, 20, 50 or 100 bars and all, winning or losing deals; the header shows how many deals were modelled. Short bots read in the deal's favour.
+- Backtest Analysis: Seasonality by day of week or month (UTC) — share of positive periods and mean change, from the pair's price (backtest period or 1, 3 or 5 years) or, right after a run, from deal results by open time.
+### Changed
+- The Analysis tab opens for saved single-pair backtests too, showing price seasonality.
+- The Analysis tab is laid out for phones: less padding, stacked controls, compact axes and fewer crowded labels.
+
 ## [2.114.2] - 2026-10-24
 ### Changed
 - Help Center: indicator guides load from the content API's indicator library. They are listed under All and Technical Indicators, open in the in-app article view, appear in global search, and give the bot form's indicator help chips their titles. A content server without the indicator library keeps working as before.
