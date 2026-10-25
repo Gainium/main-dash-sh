@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.115.5] - 2026-10-25
+### Changed
+- Backtest Analysis, Price behaviour: an edge is checked before it is called "Likely edge". It shows as "Fragile edge" when it disappears once its strongest episode is left out, or when it shows at the chosen horizon only and at none of the others; the badge's tooltip says which. The header counts independent episodes: deals on one pair whose windows overlap count once, so a burst of re-entries in one move is one episode.
+
 ## [2.115.4] - 2026-10-25
 ### Fixed
 - Ultimate Oscillator and Momentum: the second "Between" bound is labelled "Upper value", like every other indicator.

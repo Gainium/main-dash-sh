@@ -2,7 +2,9 @@ import { describe, expect, test } from 'vitest';
 
 import {
   dealSeasonality,
+  edgeRobustness,
   edgeSeries,
+  episodeGroups,
   priceBehavior,
   priceSeasonality,
 } from '@/components/widgets/bots/backtest/analysis/analysisMath';
@@ -236,6 +238,53 @@ describe('edgeSeries', () => {
       false,
     ]);
     expect(out.every((p) => p.below === null)).toBe(true);
+  });
+});
+
+describe('edge robustness', () => {
+  const at = (i: number) => deal({ startTime: T0 + i * HOUR });
+
+  test('§1.3c entries whose windows overlap chain into one episode', () => {
+    const series = new Map([['BTCUSDT', bars(Array(100).fill(100))]]);
+    const groups = episodeGroups(series, [at(10), at(15), at(24), at(40)], 10);
+    expect(groups.map((g) => g.length)).toEqual([3, 1]);
+  });
+
+  test('§1.3c an edge carried by one burst of entries is fragile', () => {
+    // flat, except a steady rally over bars 200-230; flat-time deals elsewhere
+    const closes = Array.from({ length: 600 }, (_, i) =>
+      i < 200 ? 100 : i < 230 ? 100 + (i - 200) : 130
+    );
+    const series = new Map([['BTCUSDT', bars(closes)]]);
+    const deals = [
+      ...[200, 203, 206, 209].map(at), // the burst
+      ...[50, 120, 300, 380, 450, 520].map(at),
+    ];
+    const r = edgeRobustness(series, deals, 10, 1, [10, 20]);
+    expect(r.episodes).toBe(7);
+    expect(r.strongest?.deals).toBe(4);
+    expect(r.strongest?.without).not.toBe('edge');
+    expect(r.vanishesWithoutStrongest).toBe(true);
+    expect(r.fragile).toBe(true);
+  });
+
+  test('§1.3c an edge repeated across episodes and horizons holds up', () => {
+    // +5% steps at irregular bars (a regular schedule would line up with
+    // shifted copies too); every deal enters on the bar before a step
+    const steps = [37, 101, 160, 233, 290, 371, 430, 512];
+    const closes: number[] = [];
+    let level = 100;
+    for (let i = 0; i < 600; i++) {
+      if (steps.includes(i)) level *= 1.05;
+      closes.push(level);
+    }
+    const series = new Map([['BTCUSDT', bars(closes)]]);
+    const deals = steps.map((s) => at(s - 1));
+    const r = edgeRobustness(series, deals, 10, 1, [10, 20]);
+    expect(r.episodes).toBe(8);
+    expect(r.strongest?.without).toBe('edge');
+    expect(r.otherHorizons).toEqual([{ horizon: 20, state: 'edge' }]);
+    expect(r.fragile).toBe(false);
   });
 });
 

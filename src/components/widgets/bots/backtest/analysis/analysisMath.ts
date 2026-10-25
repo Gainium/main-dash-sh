@@ -74,6 +74,32 @@ function barIndexAt(bars: Bar[], time: number): number {
   return found;
 }
 
+/** A deal the chart can model at `horizon`: its pair's bars and entry bar. */
+interface Entry {
+  deal: PreparedDeal;
+  pair: string;
+  bars: Bar[];
+  i: number;
+}
+
+/** Deals with an entry bar and `horizon` bars of data after it (spec §1.6). */
+function modelledEntries(
+  barsBySymbol: Map<string, Bar[]>,
+  deals: PreparedDeal[],
+  horizon: number
+): Entry[] {
+  const out: Entry[] = [];
+  for (const deal of deals) {
+    const pair = deal.symbol?.pair;
+    const bars = barsBySymbol.get(pair);
+    if (!bars?.length) continue;
+    const i = barIndexAt(bars, deal.startTime);
+    if (i < 0 || i + horizon >= bars.length || !(bars[i].close > 0)) continue;
+    out.push({ deal, pair, bars, i });
+  }
+  return out;
+}
+
 export interface BehaviorPoint {
   step: number;
   mean: number;
@@ -112,15 +138,9 @@ export function priceBehavior(
   sign: 1 | -1
 ): BehaviorPoint[] {
   const moves: number[][] = Array.from({ length: horizon }, () => []);
-  // each modelled entry's bar, for the shifted copies below
-  const entries: { bars: Bar[]; i: number }[] = [];
-
-  for (const deal of deals) {
-    const bars = barsBySymbol.get(deal.symbol?.pair);
-    if (!bars?.length) continue;
-    const i = barIndexAt(bars, deal.startTime);
-    if (i < 0 || i + horizon >= bars.length || !(bars[i].close > 0)) continue;
-    entries.push({ bars, i });
+  // each modelled entry's bar, also for the shifted copies below
+  const entries = modelledEntries(barsBySymbol, deals, horizon);
+  for (const { bars, i } of entries) {
     for (let k = 1; k <= horizon; k++) {
       moves[k - 1].push(sign * pct(bars[i + k].close, bars[i].close));
     }
@@ -252,6 +272,123 @@ export function edgeSeries(points: BehaviorPoint[]): EdgePoint[] {
     above: near(i, 'edge') ? p.edge : null,
     below: near(i, 'worse') ? p.edge : null,
   }));
+}
+
+/**
+ * Independent episodes: entries on the same pair whose `horizon`-bar windows
+ * overlap chain into one episode, because they measure the same stretch of
+ * price. A burst of re-entries in one rally is one episode, not many deals.
+ */
+export function episodeGroups(
+  barsBySymbol: Map<string, Bar[]>,
+  deals: PreparedDeal[],
+  horizon: number
+): PreparedDeal[][] {
+  const entries = modelledEntries(barsBySymbol, deals, horizon).sort((a, b) =>
+    a.pair === b.pair ? a.i - b.i : a.pair < b.pair ? -1 : 1
+  );
+  const groups: Entry[][] = [];
+  for (const e of entries) {
+    const last = groups[groups.length - 1]?.at(-1);
+    if (last && last.pair === e.pair && e.i - last.i <= horizon) {
+      groups[groups.length - 1].push(e);
+    } else {
+      groups.push([e]);
+    }
+  }
+  return groups.map((g) => g.map((e) => e.deal));
+}
+
+export interface EdgeRobustness {
+  episodes: number;
+  /** The episode adding most to the edge; null when there is only one. */
+  strongest: {
+    deals: number;
+    start: number;
+    end: number;
+    /** The verdict once its deals are left out. */
+    without: EdgeVerdict;
+  } | null;
+  /** The verdict at the other horizons on offer. */
+  otherHorizons: { horizon: number; state: EdgeVerdict }[];
+  vanishesWithoutStrongest: boolean;
+  onlyAtThisHorizon: boolean;
+  fragile: boolean;
+}
+
+/** The Edge verdict at a horizon's last bar. */
+function verdictAt(
+  barsBySymbol: Map<string, Bar[]>,
+  deals: PreparedDeal[],
+  horizon: number,
+  sign: 1 | -1
+): EdgeVerdict {
+  return (
+    edgeSeries(priceBehavior(barsBySymbol, deals, horizon, sign)).at(-1)
+      ?.state ?? 'chance'
+  );
+}
+
+/**
+ * Whether a "likely edge" holds up (spec §1.3c). It is fragile when it
+ * disappears once its strongest episode is left out — one lucky stretch, not a
+ * repeatable effect — or when it shows at the chosen horizon only, which a
+ * reader scanning several horizons would find by chance.
+ */
+export function edgeRobustness(
+  barsBySymbol: Map<string, Bar[]>,
+  deals: PreparedDeal[],
+  horizon: number,
+  sign: 1 | -1,
+  horizons: readonly number[]
+): EdgeRobustness {
+  const groups = episodeGroups(barsBySymbol, deals, horizon);
+
+  let strongest: EdgeRobustness['strongest'] = null;
+  if (groups.length > 1) {
+    // excess move of an episode at the horizon, summed over its deals
+    const control =
+      priceBehavior(barsBySymbol, deals, horizon, sign).at(-1)?.control ?? 0;
+    const excess = (g: PreparedDeal[]) =>
+      modelledEntries(barsBySymbol, g, horizon).reduce(
+        (sum, { bars, i }) =>
+          sum + sign * pct(bars[i + horizon].close, bars[i].close) - control,
+        0
+      );
+    let best = groups[0];
+    let bestExcess = excess(best);
+    for (const g of groups.slice(1)) {
+      const x = excess(g);
+      if (x > bestExcess) {
+        best = g;
+        bestExcess = x;
+      }
+    }
+    const rest = deals.filter((d) => !best.includes(d));
+    const times = best.map((d) => d.startTime);
+    strongest = {
+      deals: best.length,
+      start: Math.min(...times),
+      end: Math.max(...times),
+      without: verdictAt(barsBySymbol, rest, horizon, sign),
+    };
+  }
+
+  const otherHorizons = horizons
+    .filter((h) => h !== horizon)
+    .map((h) => ({ horizon: h, state: verdictAt(barsBySymbol, deals, h, sign) }));
+
+  const vanishesWithoutStrongest = !strongest || strongest.without !== 'edge';
+  const onlyAtThisHorizon =
+    otherHorizons.length > 0 && !otherHorizons.some((o) => o.state === 'edge');
+  return {
+    episodes: groups.length,
+    strongest,
+    otherHorizons,
+    vanishesWithoutStrongest,
+    onlyAtThisHorizon,
+    fragile: vanishesWithoutStrongest || onlyAtThisHorizon,
+  };
 }
 
 export type SeasonalityGranularity = 'weekday' | 'month';

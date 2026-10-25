@@ -25,11 +25,14 @@ import {
 } from '@/types';
 
 import {
+  edgeRobustness,
   edgeSeries,
+  episodeGroups,
   priceBehavior,
   topSymbols,
   type BehaviorPoint,
   type EdgePoint,
+  type EdgeRobustness,
   type EdgeVerdict,
 } from './analysisMath';
 import { AnalysisTooltip, fmtPct } from './AnalysisTooltip';
@@ -61,7 +64,7 @@ const HELP: Record<View, string> = {
     'Your deals: the average and median price move in the bars after entry, and the band holding the middle 80% of deals.',
   random:
     'Random entries: copies of your deals with every entry moved together by one random offset in the backtest period, so their spacing and clustering stay the same and only the timing is random. Hundreds of copies are drawn; the line is their average path and 90% of them fall inside the band.',
-  edge: 'Edge: your deals’ average move minus the random entries’ average — what is left once chance is taken out. The grey zone is how far random copies stray from zero by luck. Green: above it, the entries likely carry an edge. Red: below it, worse than random. Grey: within chance. The badge reads the last bar of the chosen horizon. It measures entry timing only — take profit, DCA and stop loss are not part of it.',
+  edge: 'Edge: your deals’ average move minus the random entries’ average — what is left once chance is taken out. The grey zone is how far random copies stray from zero by luck. Green: above it, the entries likely carry an edge. Red: below it, worse than random. Grey: within chance. The badge reads the last bar of the chosen horizon, and marks an edge fragile when it is gone without its strongest episode or shows at the chosen horizon only. An episode is a run of deals on one pair whose windows overlap — a burst of re-entries in one move counts once. It measures entry timing only — take profit, DCA and stop loss are not part of it.',
 };
 
 const VERDICT: Record<
@@ -72,6 +75,43 @@ const VERDICT: Record<
   worse: { label: 'Worse than random', variant: 'error' },
   chance: { label: 'Within chance', variant: 'secondary' },
 };
+
+const FRAGILE = { label: 'Fragile edge', variant: 'warning' } as const;
+
+/** "Aug 19–21", "Aug 30–Sep 2" or "Aug 19" — an episode's span, UTC. */
+function spanDates(start: number, end: number) {
+  const fmt = (t: number, opts: Intl.DateTimeFormatOptions) =>
+    new Date(t).toLocaleDateString('en-US', { timeZone: 'UTC', ...opts });
+  const a = fmt(start, { month: 'short', day: 'numeric' });
+  if (fmt(start, { dateStyle: 'short' }) === fmt(end, { dateStyle: 'short' }))
+    return a;
+  const sameMonth =
+    fmt(start, { month: 'short' }) === fmt(end, { month: 'short' });
+  return `${a}–${fmt(end, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`;
+}
+
+/** Why an edge holds up or not, for the badge's tooltip. */
+function robustnessNote(r: EdgeRobustness, horizon: number) {
+  const lines: string[] = [];
+  if (!r.strongest) {
+    lines.push('All of it comes from one episode.');
+  } else if (r.vanishesWithoutStrongest) {
+    lines.push(
+      `It is gone without its strongest episode (${r.strongest.deals} ${r.strongest.deals === 1 ? 'deal' : 'deals'}, ${spanDates(r.strongest.start, r.strongest.end)}).`
+    );
+  }
+  if (r.onlyAtThisHorizon) {
+    lines.push(
+      `It shows at ${horizon} bars only — not at ${r.otherHorizons.map((o) => o.horizon).join(', ')} bars.`
+    );
+  }
+  return lines.length
+    ? `${lines.join(' ')} Treat it as luck until it repeats.`
+    : `It holds without its strongest episode and at ${r.otherHorizons
+        .filter((o) => o.state === 'edge')
+        .map((o) => o.horizon)
+        .join(', ')} bars too.`;
+}
 
 const SHARED_HELP =
   'A deal is left out when there are fewer bars of price data after its entry than the chosen horizon, or when its pair is not among the 10 with the most deals.';
@@ -146,6 +186,19 @@ export function PriceBehaviorCard({
   const modeled = points[0]?.entries ?? 0;
   // the verdict is read at the chosen horizon's last bar only (spec §1.3b)
   const last = edge[edge.length - 1];
+  const episodes = useMemo(
+    () => episodeGroups(bars, selected, horizon).length,
+    [bars, selected, horizon]
+  );
+  // only an edge is put to the robustness checks (spec §1.3c)
+  const robustness = useMemo(
+    () =>
+      last?.state === 'edge'
+        ? edgeRobustness(bars, selected, horizon, short ? -1 : 1, HORIZONS)
+        : null,
+    [last?.state, bars, selected, horizon, short]
+  );
+  const verdict = robustness?.fragile ? FRAGILE : last && VERDICT[last.state];
 
   if (!loading && !points.length && filter === 'all') return null;
 
@@ -190,15 +243,17 @@ export function PriceBehaviorCard({
               {modeled === selected.length
                 ? `${modeled} deals`
                 : `${modeled} of ${selected.length} deals`}
+              {` · ${episodes} ${episodes === 1 ? 'episode' : 'episodes'}`}
             </span>
           ) : null}
-          {last ? (
-            <Badge
-              variant={VERDICT[last.state].variant}
-              className="tabular-nums"
+          {last && verdict ? (
+            <Tooltip
+              tooltip={robustness ? robustnessNote(robustness, horizon) : ''}
             >
-              {VERDICT[last.state].label} {fmtPct(last.edge)}
-            </Badge>
+              <Badge variant={verdict.variant} className="tabular-nums">
+                {verdict.label} {fmtPct(last.edge)}
+              </Badge>
+            </Tooltip>
           ) : null}
           <Tooltip
             tooltip={`${HELP[view]}${short ? ' Moves are flipped for a short bot, so positive means in the deal’s favour.' : ''} ${SHARED_HELP}`}
