@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.115.2] - 2026-10-25
+### Added
+- Backtest Analysis, Price behaviour: Sample, Random and Edge tabs. Sample shows the deals; Random shows random entries alone; Edge shows the deals' average move minus the random average against a chance zone, green above it (likely edge), red below it (worse than random). A badge in the header gives the verdict at the last bar of the chosen horizon.
+### Fixed
+- Price behaviour measured a deal from its fill price, which can sit inside the entry bar, so each step covered almost one bar more than the random entries and read as edge in a trend. Deals and random entries are now both measured close to close from the entry bar.
+- Random entries now shift all the deals' entries together by one random offset, so deals that cluster (back-to-back re-entries in one move) count as one event instead of many independent chances, which made the random range too narrow.
+
 ## [2.115.1] - 2026-10-25
 ### Changed
 - Backtest Analysis, Price behaviour: deals are compared with simulated random entries — the same number of entries at random bars of the period, drawn hundreds of times. A grey band holds 90% of their average paths, and "beats random" shows the share of those draws the deals' average beats (in the header for the last bar, per bar in the tooltip). It replaces the "Random entry" line, which was the average move from every bar and gave no sense of chance.

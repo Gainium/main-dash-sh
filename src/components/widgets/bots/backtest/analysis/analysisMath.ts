@@ -80,7 +80,7 @@ export interface BehaviorPoint {
   median: number;
   /** Mean move from every bar of the window — what a random entry averages. */
   control: number;
-  /** 5th–95th percentile of the average path of `entries` random entries. */
+  /** 5th–95th percentile of the average path of the deals' shifted copies. */
   randomLo: number;
   randomHi: number;
   randomBand: [number, number];
@@ -97,9 +97,13 @@ export interface BehaviorPoint {
 }
 
 /**
- * Price move after each deal entry, `horizon` bars out. The base is the deal's
- * own entry price; every later point is a bar close. `sign` flips the move for
- * short bots, so a positive value always means "in the deal's favour".
+ * Price move after each deal entry, `horizon` bars out, close to close from the
+ * bar the deal opened in — the same footing as the random entries. The deal's
+ * own fill price is not the base: a deal can fill mid-bar (`startTime` is the
+ * bar's open), and measuring from there to the next bar's close gave deals
+ * almost a bar more than random entries at every step, which read as edge in
+ * any trend. `sign` flips the move for short bots, so a positive value always
+ * means "in the deal's favour".
  */
 export function priceBehavior(
   barsBySymbol: Map<string, Bar[]>,
@@ -108,19 +112,21 @@ export function priceBehavior(
   sign: 1 | -1
 ): BehaviorPoint[] {
   const moves: number[][] = Array.from({ length: horizon }, () => []);
+  // each modelled entry's bar, for the shifted copies below
+  const entries: { bars: Bar[]; i: number }[] = [];
 
   for (const deal of deals) {
     const bars = barsBySymbol.get(deal.symbol?.pair);
-    if (!bars?.length || !(deal.startPrice > 0)) continue;
+    if (!bars?.length) continue;
     const i = barIndexAt(bars, deal.startTime);
-    if (i < 0 || i + horizon >= bars.length) continue;
+    if (i < 0 || i + horizon >= bars.length || !(bars[i].close > 0)) continue;
+    entries.push({ bars, i });
     for (let k = 1; k <= horizon; k++) {
-      moves[k - 1].push(sign * pct(bars[i + k].close, deal.startPrice));
+      moves[k - 1].push(sign * pct(bars[i + k].close, bars[i].close));
     }
   }
 
-  // control[k][j]: the k+1-bar move from start j — one index per start, so a
-  // random entry follows a single bar's own path through every step
+  // the mean move from every bar of the window — what a random entry averages
   const control: number[][] = Array.from({ length: horizon }, () => []);
   for (const bars of barsBySymbol.values()) {
     const starts = bars.length - horizon;
@@ -137,26 +143,36 @@ export function priceBehavior(
 
   if (!moves[0].length) return [];
 
-  // Random comparison: as many entries as there are deals, at random bars of
-  // the window, drawn `sims` times; each draw's average path is one sample.
-  const n = moves[0].length;
-  const starts = control[0].length;
+  // Random comparison by shifted copies: every draw moves ALL the deals'
+  // entries by one random offset (wrapping round the window), so the copy
+  // keeps the deals' own spacing and clustering and only their timing against
+  // price is random. Independent random bars would treat a burst of
+  // back-to-back re-entries in one rally as many separate chances, and call
+  // that rally an edge.
+  const n = entries.length;
   const sims = Math.min(
     MAX_SIMS,
     Math.max(MIN_SIMS, Math.floor(SIM_BUDGET / (n * horizon)))
   );
   const simMeans: number[][] = Array.from({ length: horizon }, () => []);
-  if (starts) {
-    const rand = seededRandom(SIM_SEED);
-    const sums = new Float64Array(horizon);
-    for (let s = 0; s < sims; s++) {
-      sums.fill(0);
-      for (let e = 0; e < n; e++) {
-        const j = Math.floor(rand() * starts);
-        for (let k = 0; k < horizon; k++) sums[k] += control[k][j];
+  const rand = seededRandom(SIM_SEED);
+  const sums = new Float64Array(horizon);
+  for (let s = 0; s < sims; s++) {
+    const u = rand();
+    sums.fill(0);
+    let used = 0;
+    for (const { bars, i } of entries) {
+      const starts = bars.length - horizon;
+      const j = (i + Math.floor(u * starts)) % starts;
+      const base = bars[j].close;
+      if (!(base > 0)) continue;
+      used++;
+      for (let k = 0; k < horizon; k++) {
+        sums[k] += sign * pct(bars[j + k + 1].close, base);
       }
-      for (let k = 0; k < horizon; k++) simMeans[k].push(sums[k] / n);
     }
+    if (!used) continue;
+    for (let k = 0; k < horizon; k++) simMeans[k].push(sums[k] / used);
   }
 
   return moves.map((xs, idx) => {
@@ -186,6 +202,56 @@ export function priceBehavior(
       downBand: [Math.min(0, p10), Math.min(0, p90)],
     };
   });
+}
+
+/** Where the deals' mean sits against random entries of the same size. */
+export type EdgeVerdict = 'edge' | 'worse' | 'chance';
+
+export interface EdgePoint {
+  step: number;
+  /** Deals' mean move minus random entries' mean move — what is left of random. */
+  edge: number;
+  /** Random entries' 90% range, re-centred on zero: the zone luck covers. */
+  chance: [number, number];
+  state: EdgeVerdict;
+  beats: number;
+  entries: number;
+  /** `edge` on the stretches drawn green / red, null elsewhere. */
+  above: number | null;
+  below: number | null;
+}
+
+/**
+ * The random entries taken out of the deals' path: above the chance zone the
+ * entries caught moves random ones did not (95th percentile of the draws),
+ * below it they did worse than 95% of them. A stretch is coloured from the
+ * neighbouring point so a crossing draws as one segment.
+ */
+export function edgeSeries(points: BehaviorPoint[]): EdgePoint[] {
+  const base = points.map((p) => {
+    const edge = p.mean - p.control;
+    const chance: [number, number] = [
+      p.randomLo - p.control,
+      p.randomHi - p.control,
+    ];
+    const state: EdgeVerdict =
+      edge > chance[1] ? 'edge' : edge < chance[0] ? 'worse' : 'chance';
+    return {
+      step: p.step,
+      edge,
+      chance,
+      state,
+      beats: p.beats,
+      entries: p.entries,
+    };
+  });
+  const near = (i: number, s: EdgeVerdict) =>
+    base[i].state === s || base[i - 1]?.state === s || base[i + 1]?.state === s;
+  return base.map((p, i) => ({
+    ...p,
+    above: near(i, 'edge') ? p.edge : null,
+    below: near(i, 'worse') ? p.edge : null,
+  }));
 }
 
 export type SeasonalityGranularity = 'weekday' | 'month';

@@ -2,6 +2,7 @@ import { describe, expect, test } from 'vitest';
 
 import {
   dealSeasonality,
+  edgeSeries,
   priceBehavior,
   priceSeasonality,
 } from '@/components/widgets/bots/backtest/analysis/analysisMath';
@@ -91,18 +92,35 @@ describe('priceBehavior', () => {
     expect(out.every((p) => p.entries === 1)).toBe(true);
   });
 
-  test('§1.3a every random entry moves alike → the band collapses onto it', () => {
-    // geometric series: every k-bar move is exactly 1.01^k - 1
-    const closes = Array.from({ length: 60 }, (_, i) => 100 * 1.01 ** i);
+  test('§1.1 a mid-bar fill is measured from its bar close, like random entries', () => {
+    // filled at 67.5 inside a bar that closed at 100: still 0% after a flat bar
+    const series = new Map([['BTCUSDT', bars([100, 100, 100, 100])]]);
+    const out = priceBehavior(series, [deal({ startPrice: 67.5 })], 2, 1);
+    expect(out[0].mean).toBeCloseTo(0);
+    expect(out[1].mean).toBeCloseTo(0);
+  });
+
+  test('§1.3a entries before the only move beat random; flat ones do not', () => {
+    // flat at 100, one +10% jump after bar 30
+    const closes = Array.from({ length: 80 }, (_, i) => (i <= 30 ? 100 : 110));
     const series = new Map([['BTCUSDT', bars(closes)]]);
-    // entered below the bar close → beats every random draw
-    const good = priceBehavior(series, [deal({ startPrice: 99 })], 3, 1);
-    expect(good[2].randomLo).toBeCloseTo((1.01 ** 3 - 1) * 100, 6);
-    expect(good[2].randomHi).toBeCloseTo(good[2].randomLo, 6);
-    expect(good[2].beats).toBe(100);
-    // entered above it → beats none
-    const bad = priceBehavior(series, [deal({ startPrice: 101 })], 3, 1);
-    expect(bad[2].beats).toBe(0);
+    const good = priceBehavior(
+      series,
+      [deal({ startTime: T0 + 30 * HOUR })],
+      3,
+      1
+    );
+    expect(good[0].mean).toBeCloseTo(10);
+    // a few random draws land on the jump bar too and tie
+    expect(good[0].beats).toBeGreaterThan(95);
+    const flat = priceBehavior(
+      series,
+      [deal({ startTime: T0 + 50 * HOUR })],
+      3,
+      1
+    );
+    expect(flat[0].mean).toBeCloseTo(0);
+    expect(flat[0].beats).toBe(0);
   });
 
   test('§1.3a the band narrows with more deals and is stable between runs', () => {
@@ -137,10 +155,87 @@ describe('priceBehavior', () => {
     expect(again[4].beats).toBe(many[4].beats);
   });
 
+  test('§1.3a back-to-back entries count as one event: a wider zone than spread ones', () => {
+    const closes = Array.from(
+      { length: 600 },
+      (_, i) => 100 + 6 * Math.sin(i * 0.05) + 2 * Math.sin(i * 1.9)
+    );
+    const series = new Map([['BTCUSDT', bars(closes)]]);
+    const at = (i: number) => deal({ startTime: T0 + i * HOUR });
+    const clustered = priceBehavior(
+      series,
+      Array.from({ length: 10 }, (_, i) => at(100 + i)),
+      10,
+      1
+    );
+    const spread = priceBehavior(
+      series,
+      Array.from({ length: 10 }, (_, i) => at(20 + i * 55)),
+      10,
+      1
+    );
+    const width = (p: (typeof spread)[number]) => p.randomHi - p.randomLo;
+    expect(width(clustered[9])).toBeGreaterThan(2 * width(spread[9]));
+  });
+
   test('§1.8 no usable deal → no points', () => {
     expect(
       priceBehavior(new Map([['BTCUSDT', bars([1, 2])]]), [deal({})], 5, 1)
     ).toEqual([]);
+  });
+});
+
+describe('edgeSeries', () => {
+  const pt = (step: number, mean: number, lo: number, hi: number, control = 1) =>
+    ({
+      step,
+      mean,
+      median: mean,
+      control,
+      randomLo: lo,
+      randomHi: hi,
+      randomBand: [lo, hi],
+      beats: 50,
+      p10: 0,
+      p90: 0,
+      positive: 0,
+      entries: 10,
+      upBand: [0, 0],
+      downBand: [0, 0],
+    }) as Parameters<typeof edgeSeries>[0][number];
+
+  test('§1.3b subtracts random and re-centres the chance zone on zero', () => {
+    const [p] = edgeSeries([pt(1, 1.5, 0.8, 1.2)]);
+    expect(p.edge).toBeCloseTo(0.5);
+    expect(p.chance[0]).toBeCloseTo(-0.2);
+    expect(p.chance[1]).toBeCloseTo(0.2);
+    expect(p.state).toBe('edge');
+  });
+
+  test('§1.3b states: inside the zone is chance, below it is worse', () => {
+    const out = edgeSeries([
+      pt(1, 1.1, 0.8, 1.2),
+      pt(2, 0.5, 0.8, 1.2),
+    ]);
+    expect(out.map((p) => p.state)).toEqual(['chance', 'worse']);
+  });
+
+  test('§1.3b a coloured stretch includes its neighbours, nothing else', () => {
+    const out = edgeSeries([
+      pt(1, 1.0, 0.8, 1.2), // chance
+      pt(2, 1.0, 0.8, 1.2), // chance, next to edge
+      pt(3, 2.0, 0.8, 1.2), // edge
+      pt(4, 1.0, 0.8, 1.2), // chance, next to edge
+      pt(5, 1.0, 0.8, 1.2), // chance
+    ]);
+    expect(out.map((p) => p.above !== null)).toEqual([
+      false,
+      true,
+      true,
+      true,
+      false,
+    ]);
+    expect(out.every((p) => p.below === null)).toBe(true);
   });
 });
 
