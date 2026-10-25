@@ -106,6 +106,8 @@ export function PriceBehaviorCard({
   );
   // every point is computed over the same deals (spec §1.6)
   const modeled = points[0]?.entries ?? 0;
+  // the comparison at the chosen horizon's last bar
+  const verdict = points[points.length - 1]?.beats ?? NaN;
 
   if (!loading && !points.length && filter === 'all') return null;
 
@@ -119,10 +121,13 @@ export function PriceBehaviorCard({
               {modeled === selected.length
                 ? `${modeled} deals`
                 : `${modeled} of ${selected.length} deals`}
+              {Number.isFinite(verdict)
+                ? ` · beats random ${verdict.toFixed(0)}%`
+                : ''}
             </span>
           ) : null}
           <Tooltip
-            tooltip={`Price move in the bars after each deal entry, measured from the entry price${short ? ' and flipped for a short bot, so positive means in the deal’s favour' : ''}. The band holds the middle 80% of deals. Random entry is the mean move from every bar of the backtest period. A deal is left out when there are fewer bars of price data after its entry than the chosen horizon, or when its pair is not among the 10 with the most deals.`}
+            tooltip={`Price move in the bars after each deal entry, measured from the entry price${short ? ' and flipped for a short bot, so positive means in the deal’s favour' : ''}. The coloured band holds the middle 80% of deals. The grey band is random entries: the same number of entries at random bars of the backtest period, drawn hundreds of times; 90% of their average paths fall inside it. "Beats random" is the share of those draws your deals' average beats — near 50% means the entries do no better than chance. A deal is left out when there are fewer bars of price data after its entry than the chosen horizon, or when its pair is not among the 10 with the most deals.`}
           >
             <InfoIcon />
           </Tooltip>
@@ -182,7 +187,16 @@ export function PriceBehaviorCard({
                         rows={[
                           ['Mean', fmtPct(p.mean), colors.chart3],
                           ['Median', fmtPct(p.median), colors.chart1],
-                          ['Random entry', fmtPct(p.control)],
+                          [
+                            'Random 90%',
+                            `${fmtPct(p.randomLo)} / ${fmtPct(p.randomHi)}`,
+                          ],
+                          [
+                            'Beats random',
+                            Number.isFinite(p.beats)
+                              ? `${p.beats.toFixed(0)}%`
+                              : '',
+                          ],
                           ['P10 / P90', `${fmtPct(p.p10)} / ${fmtPct(p.p90)}`],
                           ['In profit', `${p.positive.toFixed(0)}%`],
                           ['Deals', String(p.entries)],
@@ -215,6 +229,18 @@ export function PriceBehaviorCard({
                   legendType="none"
                   activeDot={false}
                 />
+                <Area
+                  dataKey="randomBand"
+                  name="Random entries (90%)"
+                  isAnimationActive={false}
+                  stroke="var(--color-muted-foreground)"
+                  strokeDasharray="3 3"
+                  strokeWidth={1}
+                  fill="var(--color-muted-foreground)"
+                  fillOpacity={0.2}
+                  legendType="square"
+                  activeDot={false}
+                />
                 <Line
                   dataKey="mean"
                   name="Mean"
@@ -229,14 +255,6 @@ export function PriceBehaviorCard({
                   isAnimationActive={false}
                   stroke={colors.chart1}
                   strokeWidth={2}
-                  dot={false}
-                />
-                <Line
-                  dataKey="control"
-                  name="Random entry"
-                  isAnimationActive={false}
-                  stroke="var(--color-muted-foreground)"
-                  strokeDasharray="4 4"
                   dot={false}
                 />
               </ComposedChart>

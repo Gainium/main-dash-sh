@@ -91,6 +91,52 @@ describe('priceBehavior', () => {
     expect(out.every((p) => p.entries === 1)).toBe(true);
   });
 
+  test('§1.3a every random entry moves alike → the band collapses onto it', () => {
+    // geometric series: every k-bar move is exactly 1.01^k - 1
+    const closes = Array.from({ length: 60 }, (_, i) => 100 * 1.01 ** i);
+    const series = new Map([['BTCUSDT', bars(closes)]]);
+    // entered below the bar close → beats every random draw
+    const good = priceBehavior(series, [deal({ startPrice: 99 })], 3, 1);
+    expect(good[2].randomLo).toBeCloseTo((1.01 ** 3 - 1) * 100, 6);
+    expect(good[2].randomHi).toBeCloseTo(good[2].randomLo, 6);
+    expect(good[2].beats).toBe(100);
+    // entered above it → beats none
+    const bad = priceBehavior(series, [deal({ startPrice: 101 })], 3, 1);
+    expect(bad[2].beats).toBe(0);
+  });
+
+  test('§1.3a the band narrows with more deals and is stable between runs', () => {
+    const closes = Array.from(
+      { length: 400 },
+      (_, i) => 100 + 5 * Math.sin(i * 1.7) + 3 * Math.sin(i * 0.31)
+    );
+    const series = new Map([['BTCUSDT', bars(closes)]]);
+    const one = priceBehavior(series, [deal({ startPrice: closes[0] })], 5, 1);
+    const many = priceBehavior(
+      series,
+      Array.from({ length: 20 }, (_, i) =>
+        deal({ startTime: T0 + i * 10 * HOUR, startPrice: closes[i * 10] })
+      ),
+      5,
+      1
+    );
+    const width = (p: (typeof one)[number]) => p.randomHi - p.randomLo;
+    expect(width(many[4])).toBeLessThan(width(one[4]));
+    expect(many[4].randomLo).toBeLessThan(many[4].control);
+    expect(many[4].randomHi).toBeGreaterThan(many[4].control);
+    // seeded: the same input draws the same band
+    const again = priceBehavior(
+      series,
+      Array.from({ length: 20 }, (_, i) =>
+        deal({ startTime: T0 + i * 10 * HOUR, startPrice: closes[i * 10] })
+      ),
+      5,
+      1
+    );
+    expect(again[4].randomLo).toBe(many[4].randomLo);
+    expect(again[4].beats).toBe(many[4].beats);
+  });
+
   test('§1.8 no usable deal → no points', () => {
     expect(
       priceBehavior(new Map([['BTCUSDT', bars([1, 2])]]), [deal({})], 5, 1)

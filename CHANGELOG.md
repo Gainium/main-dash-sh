@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.115.1] - 2026-10-25
+### Changed
+- Backtest Analysis, Price behaviour: deals are compared with simulated random entries — the same number of entries at random bars of the period, drawn hundreds of times. A grey band holds 90% of their average paths, and "beats random" shows the share of those draws the deals' average beats (in the header for the last bar, per bar in the tooltip). It replaces the "Random entry" line, which was the average move from every bar and gave no sense of chance.
+
 ## [2.115.0] - 2026-10-25
 ### Added
 - Backtest Analysis: Price behaviour — how price moved in the bars after each deal entry (mean, median, middle-80% band and share in profit), against a random-entry baseline from every bar of the period. Pick 10, 20, 50 or 100 bars and all, winning or losing deals; the header shows how many deals were modelled. Short bots read in the deal's favour.

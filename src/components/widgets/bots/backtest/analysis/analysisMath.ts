@@ -24,6 +24,24 @@ export function topSymbols(deals: PreparedDeal[], max: number): Symbols[] {
 
 /** Upper bound on control start points — keeps a 1m, multi-year run cheap. */
 const MAX_CONTROL_STARTS = 5_000;
+/** Random-entry simulations: draws × entries × bars stays near this budget. */
+const SIM_BUDGET = 5_000_000;
+const MIN_SIMS = 100;
+const MAX_SIMS = 500;
+/** Fixed seed, so the band doesn't jitter between renders. */
+const SIM_SEED = 0x9e3779b9;
+
+/** mulberry32 — a small seeded PRNG; Math.random would redraw on every render. */
+function seededRandom(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = a;
+    t = Math.imul(t ^ (t >>> 15), t | 1);
+    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
+    return ((t ^ (t >>> 14)) >>> 0) / 4_294_967_296;
+  };
+}
 
 const pct = (to: number, from: number) => (to / from - 1) * 100;
 
@@ -60,8 +78,14 @@ export interface BehaviorPoint {
   step: number;
   mean: number;
   median: number;
-  /** Mean move from every bar of the window — the "no signal" baseline. */
+  /** Mean move from every bar of the window — what a random entry averages. */
   control: number;
+  /** 5th–95th percentile of the average path of `entries` random entries. */
+  randomLo: number;
+  randomHi: number;
+  randomBand: [number, number];
+  /** Share of random draws whose average the deals' mean beats, 0–100. */
+  beats: number;
   p10: number;
   p90: number;
   /** Share of entries in profit at this step, 0–100. */
@@ -95,6 +119,8 @@ export function priceBehavior(
     }
   }
 
+  // control[k][j]: the k+1-bar move from start j — one index per start, so a
+  // random entry follows a single bar's own path through every step
   const control: number[][] = Array.from({ length: horizon }, () => []);
   for (const bars of barsBySymbol.values()) {
     const starts = bars.length - horizon;
@@ -111,15 +137,47 @@ export function priceBehavior(
 
   if (!moves[0].length) return [];
 
+  // Random comparison: as many entries as there are deals, at random bars of
+  // the window, drawn `sims` times; each draw's average path is one sample.
+  const n = moves[0].length;
+  const starts = control[0].length;
+  const sims = Math.min(
+    MAX_SIMS,
+    Math.max(MIN_SIMS, Math.floor(SIM_BUDGET / (n * horizon)))
+  );
+  const simMeans: number[][] = Array.from({ length: horizon }, () => []);
+  if (starts) {
+    const rand = seededRandom(SIM_SEED);
+    const sums = new Float64Array(horizon);
+    for (let s = 0; s < sims; s++) {
+      sums.fill(0);
+      for (let e = 0; e < n; e++) {
+        const j = Math.floor(rand() * starts);
+        for (let k = 0; k < horizon; k++) sums[k] += control[k][j];
+      }
+      for (let k = 0; k < horizon; k++) simMeans[k].push(sums[k] / n);
+    }
+  }
+
   return moves.map((xs, idx) => {
     const sorted = xs.slice().sort((a, b) => a - b);
     const p10 = quantile(sorted, 0.1);
     const p90 = quantile(sorted, 0.9);
+    const m = mean(xs);
+    const sim = simMeans[idx].slice().sort((a, b) => a - b);
+    const randomLo = quantile(sim, 0.05);
+    const randomHi = quantile(sim, 0.95);
     return {
       step: idx + 1,
-      mean: mean(xs),
+      mean: m,
       median: quantile(sorted, 0.5),
       control: mean(control[idx]),
+      randomLo,
+      randomHi,
+      randomBand: [randomLo, randomHi],
+      beats: sim.length
+        ? (sim.filter((v) => v < m).length / sim.length) * 100
+        : NaN,
       p10,
       p90,
       positive: (xs.filter((x) => x > 0).length / xs.length) * 100,
