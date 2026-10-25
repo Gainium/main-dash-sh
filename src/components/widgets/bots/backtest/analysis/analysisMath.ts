@@ -23,7 +23,8 @@ export function topSymbols(deals: PreparedDeal[], max: number): Symbols[] {
 }
 
 /** Upper bound on control start points — keeps a 1m, multi-year run cheap. */
-const MAX_CONTROL_STARTS = 5_000;
+/** Work per pair (starts × horizon) for the control; below it, every start. */
+const CONTROL_BUDGET = 2_000_000;
 /** Random-entry simulations: draws × entries × bars stays near this budget. */
 const SIM_BUDGET = 5_000_000;
 const MIN_SIMS = 100;
@@ -147,21 +148,26 @@ export function priceBehavior(
   }
 
   // the mean move from every bar of the window — what a random entry averages
-  const control: number[][] = Array.from({ length: horizon }, () => []);
+  // Running sums, not arrays: the control can cover millions of moves.
+  const controlSum = new Float64Array(horizon);
+  let controlN = 0;
   for (const bars of barsBySymbol.values()) {
     const starts = bars.length - horizon;
     if (starts <= 0) continue;
-    // Every start when there are few, otherwise a seeded random sample. A
-    // fixed stride locks onto one phase of the day (every 2nd 4h bar is
-    // always 00/08/16 UTC), and time-of-day drift then zig-zags the path.
+    // Every start when the budget allows, which covers years of hourly bars,
+    // otherwise a seeded random sample of the budget's size. A 5,000-start
+    // sample left the control off by ~0.07% a few bars out, as large as the
+    // effects being measured; a fixed stride also locked onto one phase of
+    // the day (every 2nd 4h bar is always 00/08/16 UTC) and zig-zagged.
+    const n = Math.min(starts, Math.floor(CONTROL_BUDGET / horizon));
     const pick = seededRandom(SIM_SEED ^ starts);
-    const n = Math.min(starts, MAX_CONTROL_STARTS);
     for (let t = 0; t < n; t++) {
       const j = n === starts ? t : Math.floor(pick() * starts);
       const base = bars[j].close;
       if (!(base > 0)) continue;
+      controlN++;
       for (let k = 1; k <= horizon; k++) {
-        control[k - 1].push(sign * pct(bars[j + k].close, base));
+        controlSum[k - 1] += sign * pct(bars[j + k].close, base);
       }
     }
   }
@@ -212,7 +218,7 @@ export function priceBehavior(
       step: idx + 1,
       mean: m,
       median: quantile(sorted, 0.5),
-      control: mean(control[idx]),
+      control: controlN ? controlSum[idx] / controlN : NaN,
       randomLo,
       randomHi,
       randomBand: [randomLo, randomHi],

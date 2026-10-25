@@ -199,6 +199,30 @@ describe('priceBehavior', () => {
     expect(Math.max(...steps) - Math.min(...steps)).toBeLessThan(0.3);
   });
 
+  test('§1.3 within the budget the control uses every start', () => {
+    // 20,000 bars is well past the old 5,000-start sample: the control must
+    // equal the mean move over every start, not an estimate of it.
+    const closes = [100];
+    let seed = 7;
+    for (let i = 1; i < 20_000; i++) {
+      seed = (seed * 16807) % 2147483647;
+      closes.push(closes[i - 1] * (1 + (seed / 2147483647 - 0.5) * 0.02));
+    }
+    const horizon = 20;
+    const out = priceBehavior(
+      new Map([['BTCUSDT', bars(closes)]]),
+      [deal({})],
+      horizon,
+      1
+    );
+    const starts = closes.length - horizon;
+    for (const k of [1, 5, 20]) {
+      let sum = 0;
+      for (let j = 0; j < starts; j++) sum += (closes[j + k] / closes[j] - 1) * 100;
+      expect(out[k - 1].control).toBeCloseTo(sum / starts, 9);
+    }
+  });
+
   test('§1.8 no usable deal → no points', () => {
     expect(
       priceBehavior(new Map([['BTCUSDT', bars([1, 2])]]), [deal({})], 5, 1)

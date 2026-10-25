@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.116.2] - 2026-10-25
+### Fixed
+- Backtest Analysis, Price behaviour: the random-entry average is now taken from every bar of the window (a large random sample only on very long windows). The 5,000-bar sample it used before could be off by as much as the effects the chart measures, a few bars after entry.
+
 ## [2.116.1] - 2026-10-25
 ### Fixed
 - Backtest Analysis, Price behaviour: on windows longer than about 10,000 bars, the random-entry average was taken from every second (or third…) bar, which always fell at the same times of day. Daily drift by hour then made the Edge line and the luck band zig-zag. The average now comes from a random sample of bars.
