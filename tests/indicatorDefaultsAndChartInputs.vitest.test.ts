@@ -225,3 +225,45 @@ test("Oscillator Crossover draws both oscillators across intervals", () => {
     xOscillator2Resolution: "",
   });
 });
+
+test('the second bound of Between is "Upper value" on every indicator', () => {
+  for (const definition of Object.values(INDICATOR_CATALOG)) {
+    const upper = definition.fields.find((f) => f.key === 'indicatorValue2');
+    if (upper) expect(upper.label, definition.type).toBe('Upper value');
+  }
+});
+
+test('limits stop at what the indicator can reach', () => {
+  // Combined Ratings sums 28 signals of ±1
+  expect(field(IndicatorEnum.tv, 'checkLevel')?.max).toBe(28);
+  // one divergence per oscillator, nine oscillators to pick from
+  const div = field(IndicatorEnum.div, 'divMinCount');
+  const oscillators = field(IndicatorEnum.div, 'divOscillators');
+  expect(div?.max).toBe(oscillators?.options?.length);
+  expect(div?.max).toBe(9);
+});
+
+test('defaults match what the bot and the backtest use when unset', () => {
+  // percentile: the engine's fallback is 80
+  const percentile = INDICATOR_CATALOG[IndicatorEnum.rsi].fields.find(
+    (f) => f.key === 'percentilePercentage'
+  );
+  expect(percentile?.defaultValue).toBe(80);
+  // Keltner Channel range length: engine and backtester fall back to 20
+  expect(field(IndicatorEnum.kc, 'kcRangeLength')?.defaultValue).toBe(20);
+  expect(field(IndicatorEnum.kcpb, 'kcRangeLength')?.defaultValue).toBe(20);
+});
+
+test('the chart draws an unset percentile at the bot’s 80', () => {
+  const inputs = buildTradingViewStudyDescriptor(
+    chart({ type: IndicatorEnum.rsi, percentile: true, indicatorLength: 14 })[0]
+  )?.inputs;
+  expect(inputs).toMatchObject({ usePercentile: true, percentilePercentage: 80 });
+});
+
+test('%B and bandwidth values step in hundredths', () => {
+  for (const type of [IndicatorEnum.bbpb, IndicatorEnum.bbw]) {
+    expect(field(type, 'indicatorValue')?.step, type).toBe(0.01);
+    expect(field(type, 'indicatorValue2')?.step, type).toBe(0.01);
+  }
+});

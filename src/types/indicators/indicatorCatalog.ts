@@ -612,7 +612,8 @@ const percentileFields: IndicatorDefinition['fields'] = [
   makeNumberField({
     key: 'percentilePercentage',
     label: 'Percentile',
-    defaultValue: 90,
+    // the bot's value for a condition saved without one
+    defaultValue: 80,
     step: 1,
     allowVariables: true,
     hiddenWhen: [{ field: 'percentile', equals: false }],
@@ -1095,7 +1096,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue',
         label: 'Value',
         defaultValue: 0.05,
-        step: 1,
+        // a ratio of a few hundredths: whole steps jump past every level
+        step: 0.01,
         allowVariables: true,
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
@@ -1103,7 +1105,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue2',
         label: 'Upper value',
         tooltip: 'Between: the value must stay above Value and below this.',
-        step: 1,
+        step: 0.01,
         allowVariables: true,
         shownWhen: [
           {
@@ -1825,7 +1827,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeNumberField({
         key: 'kcRangeLength',
         label: 'Range length',
-        defaultValue: 10,
+        // the bot's and the backtest's value for a condition saved without one
+        defaultValue: 20,
         min: 1,
         max: 200,
         step: 1,
@@ -2010,7 +2013,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue',
         label: 'Value',
         defaultValue: 0.05,
-        step: 1,
+        // a ratio of a few hundredths: whole steps jump past every level
+        step: 0.01,
         allowVariables: true,
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
@@ -2018,7 +2022,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue2',
         label: 'Upper value',
         tooltip: 'Between: the value must stay above Value and below this.',
-        step: 1,
+        step: 0.01,
         allowVariables: true,
         shownWhen: [
           {
@@ -2312,7 +2316,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeNumberField({
         key: 'indicatorValue2',
-        label: 'Level',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Level and below this.',
         step: 1,
         allowVariables: true,
         shownWhen: [
@@ -2382,7 +2387,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       }),
       makeNumberField({
         key: 'indicatorValue2',
-        label: 'Level',
+        label: 'Upper value',
+        tooltip: 'Between: the value must stay above Level and below this.',
         step: 1,
         allowVariables: true,
         shownWhen: [
@@ -2557,7 +2563,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Check level',
         defaultValue: 15,
         min: 1,
-        max: 100,
+        // the rating sums 28 signals of +1 or -1, so it never passes 28
+        max: 28,
         step: 1,
         allowVariables: true,
       }),
@@ -2685,7 +2692,8 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Min number of divergences',
         defaultValue: 2,
         min: 1,
-        max: 10,
+        // one divergence per oscillator, and there are nine to choose from
+        max: DIV_OSCILLATOR_OPTIONS.length,
         step: 1,
         allowVariables: true,
       }),

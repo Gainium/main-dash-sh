@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.115.4] - 2026-10-25
+### Fixed
+- Ultimate Oscillator and Momentum: the second "Between" bound is labelled "Upper value", like every other indicator.
+- Combined Ratings check level stops at 28 and Divergences' minimum count at 9, the most each can reach.
+- Percentile: a new condition's percentile starts at 80, the value the bot uses when none is saved, and the chart draws an unset percentile at 80.
+- Keltner Channel: a new condition's range length starts at 20, the value the bot and the backtest use when none is saved.
+- Bollinger Bands %B and Bollinger Bands Width: the value fields step by 0.01.
+
 ## [2.115.3] - 2026-10-25
 ### Fixed
 - Combined Ratings (TradingView): the Trigger setting was saved where the bot does not read it, so every condition ran "On every signal". It is now saved where the bot, the backtest and the chart read it; a condition saved before keeps the trigger it shows. The chart's Combined Ratings labels use the condition's trigger and check level.

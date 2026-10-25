@@ -222,14 +222,14 @@ const buildPercentileInputs = (
     return {
       usePercentile: false,
       percentileLookback: toNumber(indicator.percentileLookback, 150),
-      percentilePercentage: toNumber(indicator.percentilePercentage, 50),
+      percentilePercentage: toNumber(indicator.percentilePercentage, 80),
     };
   }
 
   return {
     usePercentile: true,
     percentileLookback: toNumber(indicator.percentileLookback, 150),
-    percentilePercentage: toNumber(indicator.percentilePercentage, 50),
+    percentilePercentage: toNumber(indicator.percentilePercentage, 80),
   };
 };
 
@@ -449,7 +449,7 @@ const buildInputs = (
           length: toNumber(indicator.length, 20),
           mult: toNumber(indicator.bbwMult, 2),
           range: toUpperCase(indicator.kcRange, 'atr'),
-          rangeLength: toNumber(indicator.kcRangeLength, 10),
+          rangeLength: toNumber(indicator.kcRangeLength, 20),
           showUpper: toBoolean(indicator.showUpper, true),
           showBasis: toBoolean(indicator.showMiddle, true),
           showLower: toBoolean(indicator.showLower, true),
