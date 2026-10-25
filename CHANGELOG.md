@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.115.3] - 2026-10-25
+### Fixed
+- Combined Ratings (TradingView): the Trigger setting was saved where the bot does not read it, so every condition ran "On every signal". It is now saved where the bot, the backtest and the chart read it; a condition saved before keeps the trigger it shows. The chart's Combined Ratings labels use the condition's trigger and check level.
+- Stochastic and Stochastic RSI: a new condition's bands start at 20 and 80 in every zone (Lower started at 80, so it held almost all the time, and Lower&Upper's upper band started at 20). Changing Zone keeps the values in "Lower band" and "Upper band".
+- Momentum: a new condition's level starts at 0, the zero line, instead of 70 (Momentum is a price difference, in the pair's price units).
+- Keltner Channel %B: a new condition's value starts at 0, the lower band, instead of 80 (%B runs about 0 to 1), and the value steps by 0.01.
+- Oscillator Crossover: when the second oscillator uses another interval, the chart at the first oscillator's interval draws both oscillators, the second from its own interval's closed bars, as the bot compares them.
+
 ## [2.115.2] - 2026-10-25
 ### Added
 - Backtest Analysis, Price behaviour: Sample, Random and Edge tabs. Sample shows the deals; Random shows random entries alone; Edge shows the deals' average move minus the random average against a chance zone, green above it (likely edge), red below it (worse than random). A badge in the header gives the verdict at the last bar of the chosen horizon.

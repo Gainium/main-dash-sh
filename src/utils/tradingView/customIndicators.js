@@ -5274,6 +5274,25 @@ export const ECD = (r) => ({
   },
 });
 
+// Milliseconds in one bar of a TradingView resolution ('60', '1D', '1W', '1M').
+const resolutionMs = (resolution) => {
+  const match = /^(\d*)([SDWM]?)$/i.exec(String(resolution));
+  if (!match) return 0;
+  const n = Number(match[1] || 1);
+  const unit = match[2].toUpperCase();
+  const MINUTE = 60e3;
+  const DAY = 1440 * MINUTE;
+  return unit === 'S'
+    ? n * 1e3
+    : unit === 'D'
+      ? n * DAY
+      : unit === 'W'
+        ? n * 7 * DAY
+        : unit === 'M'
+          ? n * 30 * DAY
+          : n * MINUTE;
+};
+
 export const XO = (r) => ({
   name: 'Oscillator crossover',
   metainfo: {
@@ -5312,6 +5331,7 @@ export const XO = (r) => ({
         xOscillator1voLong: 10,
         xOscillator2voShort: 5,
         xOscillator2voLong: 10,
+        xOscillator2Resolution: '',
       },
     },
     plots: [
@@ -5402,6 +5422,14 @@ export const XO = (r) => ({
         min: 1,
         max: 2e3,
       },
+      // Resolution oscillator 2 is computed on; '' = the chart's.
+      {
+        id: 'xOscillator2Resolution',
+        name: 'Oscillator 2 resolution',
+        defval: '',
+        type: 'text',
+        isHidden: true,
+      },
     ],
     id: 'Oscillator crossover@tv-basicstudies-1',
     scriptIdPart: '',
@@ -5466,6 +5494,33 @@ export const XO = (r) => ({
     this.vo = function (context, long, short) {
       return voCalc(r, context, short, long);
     };
+    this.oscillator = function (type, length, voShort, voLong, context) {
+      const closeVar = context.new_var(r.Std.close(context));
+      const hlc3Var = context.new_var(r.Std.hlc3(context));
+      return type === 'RSI'
+        ? this.rsi(closeVar, length, context)
+        : type === 'CCI'
+          ? this.cci(hlc3Var, length, context)
+          : type === 'MFI'
+            ? this.mfi(hlc3Var, length, context)
+            : type === 'VO'
+              ? this.vo(context, voLong, voShort)
+              : r.Std.na();
+    };
+    // Oscillator 2 may run on another interval than the chart (the bot
+    // compares the two intervals' oscillators). It is then computed on that
+    // resolution's own bars and each chart bar shows the value of the bar
+    // that had closed when the chart bar closed, as the bot reads it.
+    this.init = function (e, t) {
+      const resolution = String(t(8) || '');
+      const chart = r.Std.period(e);
+      this._secondaryMs = 0;
+      if (resolution && resolution !== chart) {
+        e.new_sym(r.Std.tickerid(e), resolution);
+        this._chartMs = resolutionMs(chart);
+        this._secondaryMs = resolutionMs(resolution);
+      }
+    };
     this.main = function (e, t) {
       this._context = e;
       this._input = t;
@@ -5477,10 +5532,6 @@ export const XO = (r) => ({
       const type2Length = this._input(5);
       const type2voShort = this._input(6);
       const type2voLong = this._input(7);
-      const close = r.Std.close(this._context);
-      const closeVar = this._context.new_var(close);
-      const hlc3 = r.Std.hlc3(this._context);
-      const hlc3Var = this._context.new_var(hlc3);
       this._context.setMinimumAdditionalDepth(
         Math.max(
           type1Length,
@@ -5491,26 +5542,46 @@ export const XO = (r) => ({
           type2voShort
         )
       );
-      const result1 =
-        type1 === 'RSI'
-          ? this.rsi(closeVar, type1Length, this._context)
-          : type1 === 'CCI'
-            ? this.cci(hlc3Var, type1Length, this._context)
-            : type1 === 'MFI'
-              ? this.mfi(hlc3Var, type1Length, this._context)
-              : type1 === 'VO'
-                ? this.vo(this._context, type1voLong, type1voShort)
-                : r.Std.na();
-      const result2 =
-        type2 === 'RSI'
-          ? this.rsi(closeVar, type2Length, this._context)
-          : type2 === 'CCI'
-            ? this.cci(hlc3Var, type2Length, this._context)
-            : type2 === 'MFI'
-              ? this.mfi(hlc3Var, type2Length, this._context)
-              : type2 === 'VO'
-                ? this.vo(this._context, type2voLong, type2voShort)
-                : r.Std.na();
+      if (this._secondaryMs) {
+        this._context.select_sym(1);
+        const secondaryTime = this._context.new_var(this._context.symbol.time);
+        const secondary = this._context.new_var(
+          this.oscillator(
+            type2,
+            type2Length,
+            type2voShort,
+            type2voLong,
+            this._context
+          )
+        );
+        this._context.select_sym(0);
+        const result1 = this.oscillator(
+          type1,
+          type1Length,
+          type1voShort,
+          type1voLong,
+          this._context
+        );
+        // the last secondary bar that had closed when this chart bar closed
+        const readTime = this._context.new_var(
+          this._context.symbol.time + this._chartMs - this._secondaryMs
+        );
+        return [result1, secondary.adopt(secondaryTime, readTime, 0)];
+      }
+      const result1 = this.oscillator(
+        type1,
+        type1Length,
+        type1voShort,
+        type1voLong,
+        this._context
+      );
+      const result2 = this.oscillator(
+        type2,
+        type2Length,
+        type2voShort,
+        type2voLong,
+        this._context
+      );
       return [result1, result2];
     };
   },

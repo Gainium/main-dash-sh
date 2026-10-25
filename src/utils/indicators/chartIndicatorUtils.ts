@@ -335,6 +335,9 @@ export type ChartIndicatorsContext = {
  */
 const OPEN_BAND_EDGE = 1e6;
 
+// Combined Ratings' default check level (catalog `checkLevel`).
+const TV_DEFAULT_CHECK_LEVEL = 15;
+
 // "between" draws the band from its two bounds (ATH values are negative).
 const betweenBand = (
   i: IndicatorConfig
@@ -356,16 +359,26 @@ function buildChartIndicator(
   context: ChartIndicatorsContext
 ): ChartIndicatorConfig | null {
   const { scaleAr, tpAr, slAr, chartInterval, strategy } = context;
+  // Oscillator Crossover: the chart at the primary interval draws both
+  // oscillators (the second one computed on its own interval when that
+  // differs); a chart at only the second interval draws the second one.
+  const xoSecondInterval = i.xOscillator2Interval ?? i.indicatorInterval;
+  const xoPrimaryOnChart =
+    i.type === IndicatorEnum.xo &&
+    tvIntervalMap[i.indicatorInterval] === chartInterval;
   const showXo =
     i.type === IndicatorEnum.xo &&
-    tvIntervalMap[i.xOscillator2Interval ?? i.indicatorInterval] ===
-      chartInterval;
+    (xoPrimaryOnChart || tvIntervalMap[xoSecondInterval] === chartInterval);
   // An indicator tested against its own smoothed line has no value threshold,
   // so there is no band to shade (the smoothed line itself is drawn instead).
   const comparesSmoothedLine = resolveSmoothingCompare(i) === 'line';
   const chartIndicator: ChartIndicatorConfig = {
+    // Combined Ratings has no length; its study's level travels here. An
+    // unset level is the form's default (15), as the bot will save it.
     length:
-      (i.type !== IndicatorEnum.tv ? i.indicatorLength : i.checkLevel) ?? 1,
+      (i.type !== IndicatorEnum.tv
+        ? i.indicatorLength
+        : (i.checkLevel ?? TV_DEFAULT_CHECK_LEVEL)) ?? 1,
     upperLimit:
       i.indicatorAction === IndicatorAction.riskReward ||
       (i.indicatorAction === IndicatorAction.startDca && scaleAr) ||
@@ -381,12 +394,12 @@ function buildChartIndicator(
           : [IndicatorEnum.stoch, IndicatorEnum.stochRSI].includes(i.type)
             ? i.rsiValue2 !== rsiValue2Enum.custom
               ? i.stochRange === StochRangeEnum.lower
-                ? +(i.stochUpper ?? '80')
+                ? +(i.stochUpper ?? '20')
                 : i.stochRange === StochRangeEnum.none
                   ? undefined
                   : i.stochRange === StochRangeEnum.upper
                     ? 100
-                    : +(i.stochUpper ?? '20')
+                    : +(i.stochUpper ?? '80')
               : i.valueInsteadof
             : i.indicatorCondition === IndicatorStartConditionEnum.bw
               ? betweenBand(i)?.upper
@@ -414,7 +427,7 @@ function buildChartIndicator(
           : [IndicatorEnum.stoch, IndicatorEnum.stochRSI].includes(i.type)
             ? i.rsiValue2 !== rsiValue2Enum.custom
               ? i.stochRange === StochRangeEnum.upper
-                ? +(i.stochLower ?? '20')
+                ? +(i.stochLower ?? '80')
                 : i.stochRange === StochRangeEnum.none
                   ? undefined
                   : i.stochRange === StochRangeEnum.lower
@@ -461,14 +474,16 @@ function buildChartIndicator(
     bbwpLookback: i.bbwpLookback ?? 252,
     ecdTrigger: i.ecdTrigger ?? ECDTriggerEnum.both,
     xOscillator1:
-      showXo && chartInterval !== tvIntervalMap[i.indicatorInterval]
+      showXo && !xoPrimaryOnChart
         ? 'None'
         : (i.xOscillator1 ?? IndicatorEnum.rsi),
     xOscillator2: showXo ? (i.xOscillator2 ?? IndicatorEnum.mfi) : 'None',
     xOscillator2length: showXo ? (i.xOscillator2length ?? 14) : undefined,
-    xOscillator2Interval: showXo
-      ? (i.xOscillator2Interval ?? i.indicatorInterval)
-      : undefined,
+    // set only when the second oscillator is computed off the chart's interval
+    xOscillator2Interval:
+      xoPrimaryOnChart && tvIntervalMap[xoSecondInterval] !== chartInterval
+        ? xoSecondInterval
+        : undefined,
     xOscillator2voLong: showXo ? (i.xOscillator2voLong ?? 10) : undefined,
     xOscillator2voShort: showXo ? (i.xOscillator2voShort ?? 5) : undefined,
     percentile: i.percentile,

@@ -1,5 +1,10 @@
 import { logger } from '@/lib/loggerInstance';
-import { IndicatorEnum, MAEnum, type ChartIndicatorConfig } from '@/types';
+import {
+  IndicatorEnum,
+  MAEnum,
+  tvIntervalMap,
+  type ChartIndicatorConfig,
+} from '@/types';
 import {
   DEFAULT_SMOOTHING_LENGTH,
   resolveSmoothing,
@@ -253,6 +258,14 @@ const buildSmoothingInputs = (
     smoothingMaLength: smoothing?.length ?? DEFAULT_SMOOTHING_LENGTH,
   };
 };
+
+// The resolution Oscillator Crossover's second oscillator runs on when it is
+// not the chart's ('' = the chart's): the chart conversion sets
+// `xOscillator2Interval` only then.
+const xoSecondResolution = (indicator: ChartIndicatorConfig): string =>
+  indicator.xOscillator2Interval
+    ? (tvIntervalMap[indicator.xOscillator2Interval] ?? '')
+    : '';
 
 const buildInputs = (
   indicator: ChartIndicatorConfig,
@@ -529,7 +542,7 @@ const buildInputs = (
       };
     case IndicatorEnum.tv:
       return {
-        checkLevel: toNumber(indicator.length, 14),
+        checkLevel: toNumber(indicator.length, 15),
         showStrongBuy: ['bothbuy', 'strongbuy'].includes(
           String(indicator.signal ?? '').toLowerCase()
         ),
@@ -562,6 +575,8 @@ const buildInputs = (
         xOscillator2length: toNumber(indicator.xOscillator2length, 14),
         xOscillator2voLong: toNumber(indicator.xOscillator2voLong, 10),
         xOscillator2voShort: toNumber(indicator.xOscillator2voShort, 5),
+        // '' = the chart's resolution; another one is computed off-chart
+        xOscillator2Resolution: xoSecondResolution(indicator),
       };
     case IndicatorEnum.lw: {
       const lwVal = indicator.lwValue ?? 'any';

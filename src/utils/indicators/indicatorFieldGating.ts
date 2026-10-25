@@ -66,7 +66,12 @@ export const withFieldDefaults = (
     ...definition.fields,
     ...(definition.advancedFields ?? []),
   ]) {
-    const { key, defaultValue } = resolveFieldKey(field, params);
+    // Resolve against `filled`, so a band bound by a zone the row never
+    // stored follows the zone the form shows (its default).
+    const { key, defaultValue } = resolveFieldKey(
+      field,
+      filled as IndicatorParamsState
+    );
     if (filled[key as string] == null && defaultValue !== undefined) {
       filled[key as string] = defaultValue as IndicatorParamPrimitive;
     }

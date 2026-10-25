@@ -284,6 +284,89 @@ const STOCH_RANGE_OPTIONS = [
   { value: StochRangeEnum.none, label: 'Anywhere' },
 ];
 
+// The Stochastic band keys as the bot engine reads them: with Zone
+// Lower&Upper (or Anywhere) stochLower is the lower band and stochUpper the
+// upper band, but a single-band zone reads its one band from the OTHER key —
+// Lower reads its lower band from stochUpper, Upper its upper band from
+// stochLower. Saved bots rely on this, so the storage stays as it is. Each
+// field binds the key its zone reads, the hidden band keeps the other key,
+// and changing Zone between a single-band zone and a two-band one swaps the
+// two values, so "Lower band" and "Upper band" keep what the user typed.
+const isSingleBandZone = (range: unknown) =>
+  range === StochRangeEnum.lower || range === StochRangeEnum.upper;
+
+export const stochZoneParams = (
+  value: string,
+  params: SettingsIndicators
+): Partial<SettingsIndicators> => {
+  const next = { stochRange: value as StochRangeEnum };
+  if (
+    isSingleBandZone(params.stochRange ?? StochRangeEnum.lower) ===
+    isSingleBandZone(value)
+  ) {
+    return next;
+  }
+  return {
+    ...next,
+    stochLower: params.stochUpper,
+    stochUpper: params.stochLower,
+  };
+};
+
+const STOCH_LOWER_BAND_DEFAULT = '20';
+const STOCH_UPPER_BAND_DEFAULT = '80';
+
+const stochZoneFields: IndicatorFieldDefinition[] = [
+  makeSelectField({
+    key: 'stochRange',
+    label: 'Zone',
+    defaultValue: StochRangeEnum.lower,
+    options: STOCH_RANGE_OPTIONS,
+    tooltip: 'This is the area where the condition must be met',
+    hiddenWhen: [{ field: 'rsiValue2', equals: rsiValue2Enum.custom }],
+    derive: {
+      get: (params) => params.stochRange ?? StochRangeEnum.lower,
+      set: stochZoneParams,
+    },
+  }),
+  makeNumberField({
+    key: 'stochLower',
+    label: 'Lower band',
+    defaultValue: STOCH_LOWER_BAND_DEFAULT,
+    allowVariables: true,
+    tooltip: 'Define the lower band range where the condition must be met',
+    keyWhen: [StochRangeEnum.lower, StochRangeEnum.upper].map((equals) => ({
+      field: 'stochRange' as const,
+      equals,
+      key: 'stochUpper' as const,
+      defaultValue: STOCH_LOWER_BAND_DEFAULT,
+    })),
+    hiddenWhen: [
+      { field: 'stochRange', equals: StochRangeEnum.upper },
+      { field: 'stochRange', equals: StochRangeEnum.none },
+      { field: 'rsiValue2', equals: rsiValue2Enum.custom },
+    ],
+  }),
+  makeNumberField({
+    key: 'stochUpper',
+    label: 'Upper band',
+    defaultValue: STOCH_UPPER_BAND_DEFAULT,
+    allowVariables: true,
+    tooltip: 'Define the upper band range where the condition must be met',
+    keyWhen: [StochRangeEnum.upper, StochRangeEnum.lower].map((equals) => ({
+      field: 'stochRange' as const,
+      equals,
+      key: 'stochLower' as const,
+      defaultValue: STOCH_UPPER_BAND_DEFAULT,
+    })),
+    hiddenWhen: [
+      { field: 'stochRange', equals: StochRangeEnum.lower },
+      { field: 'stochRange', equals: StochRangeEnum.none },
+      { field: 'rsiValue2', equals: rsiValue2Enum.custom },
+    ],
+  }),
+];
+
 const RANGE_TYPE_OPTIONS = [
   { value: RangeType.atr, label: 'ATR' },
   { value: RangeType.tr, label: 'True Range' },
@@ -1445,64 +1528,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 1,
         allowVariables: true,
       }),
-      makeSelectField({
-        key: 'stochRange',
-        label: 'Zone',
-        defaultValue: StochRangeEnum.lower,
-        options: STOCH_RANGE_OPTIONS,
-        tooltip: 'This is the area where the condition must be met',
-        hiddenWhen: [{ field: 'rsiValue2', equals: rsiValue2Enum.custom }],
-      }),
-      // Legacy "Lower band" (indicators.tsx:2452-2498): shows when stochRange is
-      // lower or both. Storage key swaps with stochRange — stochRange===lower
-      // writes stochUpper (default '80'); otherwise (both) writes stochLower
-      // (default '20').
-      makeNumberField({
-        key: 'stochLower',
-        label: 'Lower band',
-        defaultValue: '20',
-        allowVariables: true,
-        tooltip:
-          'Define the lower band range where the condition must be met',
-        keyWhen: [
-          {
-            field: 'stochRange',
-            equals: StochRangeEnum.lower,
-            key: 'stochUpper',
-            defaultValue: '80',
-          },
-        ],
-        hiddenWhen: [
-          { field: 'stochRange', equals: StochRangeEnum.upper },
-          { field: 'stochRange', equals: StochRangeEnum.none },
-          { field: 'rsiValue2', equals: rsiValue2Enum.custom },
-        ],
-      }),
-      // Legacy "Upper band" (indicators.tsx:2502-2547): shows when stochRange is
-      // upper or both. Storage key swaps with stochRange — stochRange===upper
-      // writes stochLower (default '80'); otherwise (both) writes stochUpper
-      // (default '20').
-      makeNumberField({
-        key: 'stochUpper',
-        label: 'Upper band',
-        defaultValue: '20',
-        allowVariables: true,
-        tooltip:
-          'Define the upper band range where the condition must be met',
-        keyWhen: [
-          {
-            field: 'stochRange',
-            equals: StochRangeEnum.upper,
-            key: 'stochLower',
-            defaultValue: '80',
-          },
-        ],
-        hiddenWhen: [
-          { field: 'stochRange', equals: StochRangeEnum.lower },
-          { field: 'stochRange', equals: StochRangeEnum.none },
-          { field: 'rsiValue2', equals: rsiValue2Enum.custom },
-        ],
-      }),
+      ...stochZoneFields,
       keepConditionBarsField,
     ],
   },
@@ -1586,60 +1612,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: 3,
         allowVariables: true,
       }),
-      makeSelectField({
-        key: 'stochRange',
-        label: 'Zone',
-        defaultValue: StochRangeEnum.lower,
-        options: STOCH_RANGE_OPTIONS,
-        tooltip: 'This is the area where the condition must be met',
-        hiddenWhen: [{ field: 'rsiValue2', equals: rsiValue2Enum.custom }],
-      }),
-      // Legacy "Lower band" key-swap (see stoch entry above): stochRange===lower
-      // writes stochUpper (default '80'); otherwise (both) writes stochLower ('20').
-      makeNumberField({
-        key: 'stochLower',
-        label: 'Lower band',
-        defaultValue: '20',
-        allowVariables: true,
-        tooltip:
-          'Define the lower band range where the condition must be met',
-        keyWhen: [
-          {
-            field: 'stochRange',
-            equals: StochRangeEnum.lower,
-            key: 'stochUpper',
-            defaultValue: '80',
-          },
-        ],
-        hiddenWhen: [
-          { field: 'stochRange', equals: StochRangeEnum.upper },
-          { field: 'stochRange', equals: StochRangeEnum.none },
-          { field: 'rsiValue2', equals: rsiValue2Enum.custom },
-        ],
-      }),
-      // Legacy "Upper band" key-swap: stochRange===upper writes stochLower
-      // (default '80'); otherwise (both) writes stochUpper (default '20').
-      makeNumberField({
-        key: 'stochUpper',
-        label: 'Upper band',
-        defaultValue: '20',
-        allowVariables: true,
-        tooltip:
-          'Define the upper band range where the condition must be met',
-        keyWhen: [
-          {
-            field: 'stochRange',
-            equals: StochRangeEnum.upper,
-            key: 'stochLower',
-            defaultValue: '80',
-          },
-        ],
-        hiddenWhen: [
-          { field: 'stochRange', equals: StochRangeEnum.lower },
-          { field: 'stochRange', equals: StochRangeEnum.none },
-          { field: 'rsiValue2', equals: rsiValue2Enum.custom },
-        ],
-      }),
+      ...stochZoneFields,
       keepConditionBarsField,
     ],
   },
@@ -1950,8 +1923,10 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeNumberField({
         key: 'indicatorValue',
         label: 'Value',
-        defaultValue: 80,
-        step: 1,
+        // %B is the close's place in the channel: 0 at the lower band, 1 at
+        // the upper one. 0 is the lower band (the bot API's default too).
+        defaultValue: 0,
+        step: 0.01,
         allowVariables: true,
         hiddenWhen: [{ field: 'percentile', equals: true }],
       }),
@@ -1959,7 +1934,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'indicatorValue2',
         label: 'Upper value',
         tooltip: 'Between: the value must stay above Value and below this.',
-        step: 1,
+        step: 0.01,
         allowVariables: true,
         shownWhen: [
           {
@@ -2397,7 +2372,10 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeNumberField({
         key: 'indicatorValue',
         label: 'Level',
-        defaultValue: 70,
+        // Momentum is a price difference (price now minus price n bars ago),
+        // in the pair's price units, so the only level that means the same
+        // on every pair is the zero line.
+        defaultValue: 0,
         step: 1,
         allowVariables: true,
         hiddenWhen: [{ field: 'percentile', equals: true }],
@@ -2557,11 +2535,22 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         defaultValue: TradingviewAnalysisSignalEnum.strongBuy,
         options: TV_SIGNAL_OPTIONS,
       }),
+      // The bot, the backtester and the chart read the trigger from
+      // `condition`. Rows saved while this field wrote `indicatorCondition`
+      // show the trigger they chose until they are saved again.
       makeSelectField({
-        key: 'indicatorCondition',
+        key: 'condition',
         label: 'Trigger',
         defaultValue: TradingviewAnalysisConditionEnum.entry,
         options: TV_CONDITION_OPTIONS,
+        keyWhen: [
+          {
+            field: 'indicatorCondition',
+            equals: TradingviewAnalysisConditionEnum.every,
+            key: 'condition',
+            defaultValue: TradingviewAnalysisConditionEnum.every,
+          },
+        ],
       }),
       makeNumberField({
         key: 'checkLevel',
