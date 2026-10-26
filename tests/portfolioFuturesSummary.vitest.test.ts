@@ -381,3 +381,51 @@ describe('summarizeFutures — unified accounts', () => {
     expect(total.equity).toBeCloseTo(1100, 8);
   });
 });
+
+describe('notInBalance — what the Overview Equity line adds to Total Balance', () => {
+  it('wallet basis: the open positions’ unrealized PnL', () => {
+    const a = account('a', ExchangeEnum.binanceUsdm, 10000);
+    const p = position({ exchangeUUID: 'a', side: 'LONG', base: 'BTC', qty: 1, entry: 50000, mark: 46000 });
+    const { rows, total } = summarizeFutures({ accounts: [a], positions: [p] });
+    expect(rows[0]).toMatchObject({ positions: 1 });
+    expect(rows[0]?.notInBalance).toBeCloseTo(-4000, 8);
+    expect(total.notInBalance).toBeCloseTo(-4000, 8);
+  });
+
+  it('equity basis: 0 — the stored balance already includes it', () => {
+    const a = account('a', ExchangeEnum.hyperliquidLinear, 6000);
+    const p = position({ exchangeUUID: 'a', exchange: ExchangeEnum.hyperliquidLinear, side: 'LONG', base: 'BTC', qty: 1, entry: 50000, mark: 46000 });
+    expect(summarizeFutures({ accounts: [a], positions: [p] }).total.notInBalance).toBe(0);
+  });
+
+  it('unknown basis with open positions is null; without positions it is 0', () => {
+    const a = account('a', ExchangeEnum.krakenCoinm, 500);
+    const p = position({ exchangeUUID: 'a', exchange: ExchangeEnum.krakenCoinm, side: 'LONG', base: 'BTC', qty: 100, entry: 50000, mark: 55000 });
+    expect(summarizeFutures({ accounts: [a], positions: [p] }).total.notInBalance).toBeNull();
+    expect(summarizeFutures({ accounts: [a], positions: [] }).total.notInBalance).toBe(0);
+  });
+
+  it('positions unavailable: 0 with no positions counted, so nothing is shown', () => {
+    const s = summarizeFutures({
+      accounts: [account('a', ExchangeEnum.binanceUsdm, 1000)],
+      positions: [],
+      positionsKnown: false,
+    });
+    expect(s.openPositions).toBe(0);
+    expect(s.rows[0]).toMatchObject({ positions: 0, notInBalance: 0 });
+  });
+
+  it('unified legs fold: positions and notInBalance sum across legs', () => {
+    const accounts: FuturesAccountInput[] = [
+      { ...account('lin', ExchangeEnum.bybitUsdm, 1000), linkedTo: 'spot' },
+      { ...account('inv', ExchangeEnum.bybitCoinm, 1000), linkedTo: 'spot' },
+    ];
+    const pl = position({ exchangeUUID: 'lin', exchange: ExchangeEnum.bybitUsdm, side: 'LONG', base: 'BTC', qty: 0.1, entry: 50000, mark: 51000 });
+    const pi = position({ exchangeUUID: 'inv', exchange: ExchangeEnum.bybitCoinm, side: 'SHORT', base: 'BTC', qty: 100, entry: 50000, mark: 55000 });
+    const { rows } = summarizeFutures({ accounts, positions: [pl, pi] });
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ id: 'spot', positions: 2 });
+    expect(rows[0]?.notInBalance).toBeCloseTo(rows[0]?.upnl ?? NaN, 8);
+    expect(rows[0]?.notInBalance).not.toBeNull();
+  });
+});

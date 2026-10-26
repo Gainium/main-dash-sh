@@ -13,6 +13,7 @@ import {
   type PositionTotalsScope,
 } from '@/hooks/usePositionTotals';
 import { NotCalculated } from '@/components/ui/large-account';
+import { useFuturesSummary } from '@/components/portfolio/futures/useFuturesSummary';
 import { GraphQlQuery, type ReturnResult } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
@@ -137,6 +138,14 @@ export const HeroBalance: React.FC = () => {
   // fetch, truncated at 500 bots), treating USDT, BTC and USD amounts as if
   // they were all dollars, with grid bots counted at their budget.
   const positionTotals = usePositionTotals(POSITION_TOTALS_SCOPES);
+
+  // Total Balance sums stored balances, which for most futures venues is the
+  // wallet: it leaves out open positions' unrealized PnL. Equity adds that
+  // back, from the same numbers as Portfolio → Futures. Nothing is fetched
+  // without a futures account.
+  const { summary: futuresSummary } = useFuturesSummary({
+    ignoreSelection: true,
+  });
 
   // Deal stats and all-time profit per bot type: the same single batched
   // request (and cache entry) the Status widget and usePositionTotals use.
@@ -348,6 +357,12 @@ export const HeroBalance: React.FC = () => {
     totalProfit: aggregatedStats.totalProfit,
   };
 
+  const futuresNotInBalance = futuresSummary.total.notInBalance;
+  const equityValue =
+    futuresSummary.openPositions > 0 && futuresNotInBalance !== null
+      ? totalValue + futuresNotInBalance
+      : null;
+
   const todayChangePercent =
     totalValue > 0 ? (todayProfit / totalValue) * 100 : 0;
   const changeDirection: 'up' | 'down' | 'flat' =
@@ -469,6 +484,27 @@ export const HeroBalance: React.FC = () => {
                 )} (${formatPercentage(changePercent)})`}
               </span>
               <span className="text-xs text-muted-foreground">past 24h</span>
+            </div>
+          )}
+
+          {equityValue !== null && (
+            <div
+              className="flex items-center gap-xs text-sm"
+              data-testid="hero-equity"
+            >
+              <span className="flex items-center gap-1 text-xs uppercase tracking-wide text-muted-foreground">
+                Equity
+                <Tooltip
+                  tooltip="Total Balance plus the unrealized PnL of your open futures positions: what your accounts are worth right now. The futures part matches Portfolio → Futures."
+                  side="top"
+                  className="normal-case"
+                >
+                  <InfoIcon />
+                </Tooltip>
+              </span>
+              <span className="font-semibold tabular-nums text-foreground">
+                {privacyMode ? '***' : formatCurrency(equityValue, 'USD')}
+              </span>
             </div>
           )}
         </div>

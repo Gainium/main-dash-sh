@@ -17,11 +17,17 @@ import { selectFuturesAccounts, summarizeFutures } from './futuresSummary';
  * pages can't disagree. Nothing is fetched for users without a futures
  * account: `getAllOpenPositions` calls every futures exchange live.
  */
-export function useFuturesSummary() {
+export function useFuturesSummary({
+  ignoreSelection = false,
+}: {
+  /** Summarize every futures account, whatever the Portfolio selection. */
+  ignoreSelection?: boolean;
+} = {}) {
   const { exchanges } = useTransformedExchangesFromContext();
   const { pairsByExchange } = useTradingPairsFromContext();
 
-  const selection = useContext(PortfolioContext)?.selectedExchanges;
+  const pageSelection = useContext(PortfolioContext)?.selectedExchanges;
+  const selection = ignoreSelection ? undefined : pageSelection;
 
   // Every futures account decides whether to fetch at all; the selection only
   // decides what is shown, so switching it never issues a request.

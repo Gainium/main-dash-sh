@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.117.4] - 2026-10-26
+### Added
+- Overview: an Equity line under Total Balance while futures positions are open, adding their unrealized P&L to the balance. Futures boxes in Portfolio → My Accounts show the same Equity line.
+
 ## [2.117.3] - 2026-10-26
 ### Changed
 - Trades page: closed trades have their own Closed trades tab next to Trades, replacing the Closed button in the table toolbar. Links to the old closed view open the tab.

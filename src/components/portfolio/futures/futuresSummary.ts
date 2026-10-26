@@ -56,6 +56,14 @@ export type FuturesAccountRow = {
   wallet: number | null;
   upnl: number | null;
   equity: number | null;
+  /** Open positions on this account (all legs). */
+  positions: number;
+  /**
+   * Unrealized PnL the stored balance leaves out: equity − stored balance.
+   * 0 for an equity-basis venue (already included) or with no open
+   * positions; null when it can't be valued.
+   */
+  notInBalance: number | null;
 };
 
 export type ExposureRow = {
@@ -70,7 +78,12 @@ export type ExposureRow = {
 
 export type FuturesSummary = {
   rows: FuturesAccountRow[];
-  total: { wallet: number | null; upnl: number | null; equity: number | null };
+  total: {
+    wallet: number | null;
+    upnl: number | null;
+    equity: number | null;
+    notInBalance: number | null;
+  };
   exposure: {
     top: ExposureRow[];
     other: { count: number; net: number; rows: ExposureRow[] } | null;
@@ -186,7 +199,23 @@ export function summarizeFutures({
       equity = reported;
       wallet = upnl === null ? null : reported - upnl;
     }
-    return { id: a.id, name: a.name, provider: a.provider, wallet, upnl, equity };
+    const positionCount = positionsKnown ? own.length : 0;
+    const notInBalance =
+      positionCount === 0 || basis === 'equity'
+        ? 0
+        : basis === 'wallet'
+          ? upnl
+          : null;
+    return {
+      id: a.id,
+      name: a.name,
+      provider: a.provider,
+      wallet,
+      upnl,
+      equity,
+      positions: positionCount,
+      notInBalance,
+    };
   });
 
   // Legs of one unified account report the same wallet: fold them into one
@@ -209,6 +238,8 @@ export function summarizeFutures({
       wallet,
       upnl,
       equity: wallet === null || upnl === null ? null : wallet + upnl,
+      positions: legs.reduce((s, l) => s + l.positions, 0),
+      notInBalance: sumOrNull(legs.map((l) => l.notInBalance)),
     };
   });
 
@@ -216,6 +247,7 @@ export function summarizeFutures({
     wallet: sumOrNull(rows.map((r) => r.wallet)),
     upnl: sumOrNull(rows.map((r) => r.upnl)),
     equity: sumOrNull(rows.map((r) => r.equity)),
+    notInBalance: sumOrNull(rows.map((r) => r.notInBalance)),
   };
 
   const accountIds = new Set(accounts.map((a) => a.id));

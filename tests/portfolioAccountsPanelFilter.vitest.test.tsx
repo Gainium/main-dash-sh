@@ -26,6 +26,20 @@ vi.mock('../src/contexts/ExchangeDataContext', () => ({
 
 vi.mock('../src/lib/demoMode', () => ({ isReadOnly: () => false }));
 
+// One open futures position on f1, 40 down: its box and the aggregate show
+// an Equity line; the spot box doesn't.
+vi.mock('../src/components/portfolio/futures/useFuturesSummary', () => ({
+  useFuturesSummary: () => ({
+    summary: {
+      rows: [
+        { id: 'f1', name: 'Futures one', provider: 'binanceUsdm', wallet: 100, upnl: -40, equity: 60, positions: 1, notInBalance: -40 },
+      ],
+      total: { wallet: 100, upnl: -40, equity: 60, notInBalance: -40 },
+      openPositions: 1,
+    },
+  }),
+}));
+
 import { AccountsPanel } from '../src/components/portfolio/AccountsPanel';
 import { PortfolioProvider } from '../src/contexts/PortfolioContext';
 
@@ -99,5 +113,16 @@ describe('My Accounts filter visibility (spec 052 §2.7)', () => {
     act(() => showAll?.click());
     expect(filterLine()).toBeNull();
     expect(container.querySelectorAll('[data-selected-check]')).toHaveLength(0);
+  });
+});
+
+describe('My Accounts equity line', () => {
+  const equity = (name: string) =>
+    row(name)?.querySelector('[data-testid="account-equity"]')?.textContent;
+
+  it('shows balance + unrealized PnL on boxes with open futures positions only', () => {
+    expect(equity('Futures one')).toMatch(/Equity\s.*60/);
+    expect(equity('All Exchanges')).toMatch(/Equity\s.*560/);
+    expect(equity('Spot one')).toBeUndefined();
   });
 });

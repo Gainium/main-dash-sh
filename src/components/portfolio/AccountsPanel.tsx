@@ -15,6 +15,7 @@ import {
 } from '@/utils/exchangeUtils';
 
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
+import { useFuturesSummary } from './futures/useFuturesSummary';
 import type { ExchangeInUser } from '../../types/exchange.types';
 import type { UIExchange } from '@/hooks/useTransformedExchanges';
 
@@ -85,6 +86,24 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
 
   // Use shared exchange data from context
   const { exchanges, isLoading } = useTransformedExchangesFromContext();
+
+  // Equity for boxes with open futures positions: the shown balance plus the
+  // unrealized PnL it leaves out, as on the Overview card.
+  const { summary: futuresSummary } = useFuturesSummary({
+    ignoreSelection: true,
+  });
+  const equityFor = (balance: number, ids: string[]): number | null => {
+    const rows = ids.includes('ALL')
+      ? futuresSummary.rows
+      : futuresSummary.rows.filter((r) => ids.includes(r.id));
+    if (!rows.some((r) => r.positions > 0)) return null;
+    let missing = 0;
+    for (const r of rows) {
+      if (r.notInBalance === null) return null;
+      missing += r.notInBalance;
+    }
+    return balance + missing;
+  };
 
   // Track per-exchange loading state for refresh buttons
   const [loadingUuids, setLoadingUuids] = React.useState<string[]>([]);
@@ -224,6 +243,10 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
     }
   ) => {
     const isSelected = selectIds.every((id) => selectedExchanges.includes(id));
+    const equity =
+      showBalance && exchange.balance != null
+        ? equityFor(exchange.balance, selectIds)
+        : null;
     const isMuted = isFiltering && !isSelected;
     return (
       <div
@@ -291,6 +314,17 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
                       ? '***'
                       : `${currency.symbol}${toReporting(exchange.balance).toLocaleString()}`}
                   </div>
+                  {equity !== null && (
+                    <div
+                      data-testid="account-equity"
+                      className="text-xs text-muted-foreground tabular-nums"
+                    >
+                      Equity{' '}
+                      {privacyMode
+                        ? '***'
+                        : `${currency.symbol}${toReporting(equity).toLocaleString()}`}
+                    </div>
+                  )}
                 </div>
               )}
           </div>
