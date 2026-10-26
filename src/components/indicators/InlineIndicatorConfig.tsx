@@ -61,6 +61,8 @@ interface InlineIndicatorConfigProps {
   // (indicators.tsx:1415 `timeIntervalMap[int] >= 60 * 60 * 1000`). Omitted =
   // no lower bound. Applied on top of the per-exchange filter.
   minIntervalMs?: number | undefined;
+  /** Shown right under the indicator's own fields (above Modifiers). */
+  fieldsFooter?: React.ReactNode;
 }
 
 // Global variables are typed `int` | `float` | `text`. We infer numeric
@@ -85,6 +87,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
   indicatorUuid,
   exchange,
   minIntervalMs,
+  fieldsFooter,
 }) => {
   const updateParam = (key: string, value: IndicatorParamPrimitive) => {
     const next: IndicatorParamsState = { ...params, [key]: value };
@@ -411,6 +414,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
           {definition.label} Configuration
         </div>
         {renderGrid(ownFields)}
+        {fieldsFooter}
         {modifiersGrid ? (
           <div className="space-y-md pt-xs">
             <div className="text-sm font-medium text-muted-foreground">

@@ -11,7 +11,10 @@ import {
   type IndicatorEnum,
   type IndicatorSection,
 } from '@/types';
-import type { IndicatorEdgeBotConfig } from '@/types/helpCenter';
+import type {
+  IndicatorEdgeBotConfig,
+  IndicatorEdgeSetting,
+} from '@/types/helpCenter';
 import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
 import {
   filterIntervalOptionsByExchange,
@@ -24,7 +27,10 @@ import type {
 import type { IndicatorDefinition } from '@/types/indicators/indicatorTypes';
 import {
   resetInvalidConditionalSelects,
+  resolveFieldKey,
   resolveFieldOptions,
+  shouldHideField,
+  withGatingParams,
 } from '@/utils/indicators/indicatorFieldGating';
 
 /** What Apply hands the dialog: the bot config and the tab's timeframe. */
@@ -142,4 +148,97 @@ export function buildEdgeAppliedParams({
       resetInvalidConditionalSelects(definition, prev, params, key),
     next as IndicatorParamsState
   );
+}
+
+/** A param as the editor shows it: numbers and numeric strings alike. */
+function normalizeParam(value: unknown): string {
+  if (Array.isArray(value)) {
+    return JSON.stringify(value.map(normalizeParam));
+  }
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? String(value) : '';
+  }
+  if (typeof value === 'string') {
+    const trimmed = value.trim();
+    const asNumber = trimmed === '' ? Number.NaN : Number(trimmed);
+    return Number.isFinite(asNumber) ? String(asNumber) : trimmed;
+  }
+  if (typeof value === 'boolean') {
+    return String(value);
+  }
+  return '';
+}
+
+/** The value a field shows for these (default-filled) params. */
+function shownValue(
+  field: IndicatorDefinition['fields'][number],
+  params: IndicatorParamsState
+): string {
+  if (field.derive) {
+    return normalizeParam(field.derive.get(params));
+  }
+  const { key, defaultValue } = resolveFieldKey(field, params);
+  const value = (params as Record<string, unknown>)[key as string];
+  return normalizeParam(
+    value === undefined || value === null || value === '' ? defaultValue : value
+  );
+}
+
+interface MatchEdgeInput {
+  definition: IndicatorDefinition;
+  action: IndicatorAction;
+  section?: IndicatorSection | undefined;
+  /** The editor's current params. */
+  params: IndicatorParamsState;
+  settings: IndicatorEdgeSetting[];
+}
+
+/**
+ * The tested setting the editor's params reproduce, or null. A setting
+ * matches when every field the tested setting shows reads the same as what
+ * Apply would set on that setting's timeframe: its bot config, the catalog
+ * default for every other field (so RSI(7) "below 30" does not match a
+ * length of 14), and the timeframe on every interval field. A field the
+ * tested setting hides does not count (a price-crossing MA has no second
+ * interval to match).
+ */
+export function matchEdgeSetting({
+  definition,
+  action,
+  section,
+  params,
+  settings,
+}: MatchEdgeInput): IndicatorEdgeSetting | null {
+  const current = withGatingParams(definition, params);
+  if (!current) return null;
+  const fields = [...definition.fields, ...(definition.advancedFields ?? [])];
+  for (const setting of settings) {
+    const bot = setting.bot;
+    if (
+      !bot ||
+      bot.type !== definition.type ||
+      edgeTfToInterval(setting.tf) === null ||
+      !isApplicableEdgeBot(bot)
+    ) {
+      continue;
+    }
+    const tested = withGatingParams(
+      definition,
+      buildEdgeAppliedParams({
+        definition,
+        action,
+        section,
+        current: null,
+        request: { bot, tf: setting.tf },
+      })
+    );
+    if (!tested) continue;
+    const same = fields.every(
+      (field) =>
+        shouldHideField(field, tested) ||
+        shownValue(field, current) === shownValue(field, tested)
+    );
+    if (same) return setting;
+  }
+  return null;
 }

@@ -19,6 +19,8 @@ interface TooltipProps {
   children: React.ReactNode;
   tooltip?: string;
   tooltipURL?: string;
+  /** Label of the `tooltipURL` pill; defaults to the article title. */
+  tooltipURLLabel?: string;
   side?: 'top' | 'bottom' | 'left' | 'right';
   className?: string;
   triggerClassName?: string;
@@ -46,6 +48,7 @@ const Tooltip: React.FC<TooltipProps> = ({
   children,
   tooltip,
   tooltipURL,
+  tooltipURLLabel,
   side = 'top',
   className,
   triggerClassName,
@@ -216,6 +219,7 @@ const Tooltip: React.FC<TooltipProps> = ({
                 {tooltipURL && (
                   <HelpArticlePill
                     url={tooltipURL}
+                    {...(tooltipURLLabel ? { label: tooltipURLLabel } : {})}
                     onActivate={(slug) => {
                       hideTooltip();
                       setModalSlug(slug);

@@ -18,7 +18,6 @@ import logger from '@/lib/loggerInstance';
 import { getHelpArticle } from '@/services/contentApi';
 import type { HelpArticleResponse } from '@/types/helpCenter';
 import { isIndicatorSlug } from '@/utils/helpArticlesCache';
-import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
 import { parseHelpUrl, toInAppArticleHref } from '@/utils/helpUrl';
 import { BookOpen, Calendar, Clock, X } from 'lucide-react';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -237,20 +236,11 @@ const ArticleSkeleton: React.FC = () => (
 interface HelpArticleModalProps {
   slug: string | null;
   onClose: () => void;
-  /**
-   * Opened from the indicator dialog: fills a tested setting from the
-   * article's price-behaviour panel into the dialog.
-   */
-  onApplySetting?: ((request: EdgeApplyRequest) => void) | undefined;
-  /** The dialog's indicator type; Apply shows only for a matching setting. */
-  indicatorType?: string | undefined;
 }
 
 export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
   slug,
   onClose,
-  onApplySetting,
-  indicatorType,
 }) => {
   const [article, setArticle] = useState<HelpArticleResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -403,13 +393,12 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
 
           {!loading && article && metadata && (
             <div className="p-md space-y-md">
+              {/* Read-only here: the bot form's indicator editors apply. */}
               {article.edge ? (
                 <IndicatorEdgePanel
                   key={metadata.slug}
                   edge={article.edge}
                   slug={metadata.slug}
-                  onApplySetting={onApplySetting}
-                  indicatorType={indicatorType}
                 />
               ) : null}
 

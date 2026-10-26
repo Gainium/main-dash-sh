@@ -21,6 +21,9 @@ import {
 import { IndicatorEdgePanel } from '@/components/indicators/IndicatorEdgePanel';
 import { IndicatorConfigurationModal } from '@/components/indicators/IndicatorConfigurationModal';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
+import { IndicatorEdgeMatchBadge } from '@/components/indicators/IndicatorEdgeControls';
+import { HelpArticleModal } from '@/components/modals/HelpArticleModal';
+import { resetIndicatorEdgeCache } from '@/hooks/useIndicatorEdge';
 import {
   ExchangeEnum,
   ExchangeIntervals,
@@ -29,7 +32,10 @@ import {
   IndicatorStartConditionEnum,
 } from '@/types';
 import type { IndicatorEdge } from '@/types/helpCenter';
-import { getIndicatorDefinition } from '@/types/indicators/indicatorLogic';
+import {
+  getIndicatorDefaultParams,
+  getIndicatorDefinition,
+} from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
   edgeRowsFor,
@@ -39,6 +45,7 @@ import {
 import {
   buildEdgeAppliedParams,
   isApplicableEdgeBot,
+  matchEdgeSetting,
 } from '@/utils/indicators/edgeApply';
 import { withFavoritePreset } from '@/utils/indicators/favoritePresetScope';
 import realBots from './fixtures/indicatorEdgeBots.json';
@@ -492,21 +499,21 @@ describe('buildEdgeAppliedParams', () => {
 
 // ─── Every published bot config ──────────────────────────────────────────────
 
-describe('published bot configs', () => {
-  // `bot` blocks of every indicator page's edge data (tf, id, bot only)
-  const pages = realBots as Record<
-    string,
-    Array<{ tf: string; id: string; bot: unknown }>
-  >;
-  const asEdge = (settings: Array<{ tf: string; id: string; bot: unknown }>) =>
-    sanitizeIndicatorEdge({
-      ...rawEdge(),
-      defaultTf: settings[0].tf,
-      settings: settings.map((s) =>
-        setting(s.id, s.tf, s.id, 'long', cell(0.1, 'none'), { bot: s.bot })
-      ),
-    });
+// `bot` blocks of every indicator page's edge data (tf, id, bot only)
+const pages = realBots as Record<
+  string,
+  Array<{ tf: string; id: string; bot: unknown }>
+>;
+const asEdge = (settings: Array<{ tf: string; id: string; bot: unknown }>) =>
+  sanitizeIndicatorEdge({
+    ...rawEdge(),
+    defaultTf: settings[0].tf,
+    settings: settings.map((s) =>
+      setting(s.id, s.tf, s.id, 'long', cell(0.1, 'none'), { bot: s.bot })
+    ),
+  });
 
+describe('published bot configs', () => {
   test.each(Object.keys(pages))('%s: every config survives and applies exactly', (slug) => {
     const edge = asEdge(pages[slug]);
     expect(edge).toBeDefined();
@@ -533,9 +540,83 @@ describe('published bot configs', () => {
   });
 });
 
-// ─── From the indicator editors ──────────────────────────────────────────────
+// ─── Which tested setting the editor reproduces ──────────────────────────────
 
-describe('Apply from the help article', () => {
+describe('matchEdgeSetting', () => {
+  const match = (type: IndicatorEnum, slug: string, over: Record<string, unknown>) => {
+    const definition = getIndicatorDefinition(type);
+    const edge = asEdge(pages[slug]);
+    if (!edge) throw new Error('fixture should be valid');
+    return (
+      matchEdgeSetting({
+        definition,
+        action: IndicatorAction.startDeal,
+        params: {
+          ...getIndicatorDefaultParams(type, IndicatorAction.startDeal),
+          ...over,
+        } as IndicatorParamsState,
+        settings: edge.settings,
+      })?.id ?? null
+    );
+  };
+  const rsi = (over: Record<string, unknown>) => match(IndicatorEnum.rsi, 'rsi', over);
+  const ma = (over: Record<string, unknown>) =>
+    match(IndicatorEnum.ma, 'moving-averages', over);
+
+  test('the catalog default fills what a config leaves out', () => {
+    const below30 = { indicatorCondition: 'lt', indicatorValue: '30' };
+    expect(rsi({ ...below30, indicatorLength: 7 })).toBe('rsi7-lt30');
+    expect(rsi({ ...below30, indicatorLength: '14' })).toBe('rsi14-lt30');
+    expect(rsi({ ...below30, indicatorLength: 21 })).toBeNull();
+  });
+
+  test('values compare as the editor shows them', () => {
+    const above70 = { indicatorLength: 14, indicatorCondition: 'gt' };
+    expect(rsi({ ...above70, indicatorValue: '70' })).toBe('rsi14-gt70');
+    expect(rsi({ ...above70, indicatorValue: 70 })).toBe('rsi14-gt70');
+    expect(rsi({ ...above70, indicatorValue: '71' })).toBeNull();
+  });
+
+  test('the interval has to be a tested timeframe', () => {
+    const above70 = { indicatorLength: 14, indicatorCondition: 'gt', indicatorValue: 70 };
+    expect(rsi({ ...above70, indicatorInterval: '4h' })).toBe('rsi14-gt70');
+    expect(rsi({ ...above70, indicatorInterval: '15m' })).toBeNull();
+  });
+
+  test('a modifier the test did not use breaks the match', () => {
+    expect(
+      rsi({ indicatorLength: 14, indicatorCondition: 'gt', indicatorValue: 70, smoothing: 'ema' })
+    ).toBeNull();
+  });
+
+  test('a second MA has to be on the same interval', () => {
+    const golden = {
+      maType: 'sma',
+      indicatorLength: 50,
+      indicatorCondition: 'cu',
+      maCrossingValue: 'sma',
+      maCrossingLength: 200,
+      indicatorInterval: '4h',
+    };
+    expect(ma({ ...golden, maCrossingInterval: '4h' })).toBe('sma50-up-sma200');
+    expect(ma({ ...golden, maCrossingInterval: '1h' })).toBeNull();
+  });
+
+  test('a hidden second interval does not count', () => {
+    expect(
+      ma({
+        indicatorCondition: 'cd',
+        maCrossingValue: 'price',
+        indicatorInterval: '4h',
+        maCrossingInterval: '1h',
+      })
+    ).toBe('ema20-down-price');
+  });
+});
+
+// ─── In the bot form's indicator editors ─────────────────────────────────────
+
+describe('indicator editors', () => {
   const indicatorMeta = {
     slug: 'rsi',
     name: 'Relative Strength Index (RSI)',
@@ -547,9 +628,13 @@ describe('Apply from the help article', () => {
     catalogKeys: ['rsi'],
     updatedAt: '2026-10-01T00:00:00.000Z',
   };
+  let routes: Record<string, unknown>;
+  let requested: string[];
 
   beforeEach(() => {
-    const routes: Record<string, unknown> = {
+    resetIndicatorEdgeCache();
+    requested = [];
+    routes = {
       '/indicators': {
         data: [indicatorMeta],
         pagination: { total: 1, page: 1, limit: 100, totalPages: 1, hasNext: false, hasPrev: false },
@@ -563,7 +648,10 @@ describe('Apply from the help article', () => {
     vi.stubGlobal(
       'fetch',
       vi.fn(async (input: string) => {
-        const body = routes[new URL(input, 'http://dashboard.local').pathname];
+        const { pathname } = new URL(input, 'http://dashboard.local');
+        requested.push(pathname);
+        const body = routes[pathname];
+        if (body === 'fail') return new Response('boom', { status: 500 });
         return body === undefined
           ? new Response('Not found', { status: 404 })
           : new Response(JSON.stringify(body), { status: 200 });
@@ -583,7 +671,145 @@ describe('Apply from the help article', () => {
     );
   });
 
-  test('fills the setting into the dialog and closes the article', async () => {
+  const rsiDefaults = () =>
+    getIndicatorDefaultParams(IndicatorEnum.rsi, IndicatorAction.startDeal);
+  const rsiParams = (over: Record<string, unknown>) =>
+    ({ ...rsiDefaults(), ...over }) as IndicatorParamsState;
+
+  test('the badge shows the tested verdict and follows each edit', async () => {
+    const definition = getIndicatorDefinition(IndicatorEnum.rsi);
+    const above70 = {
+      indicatorLength: 14,
+      indicatorInterval: '1h',
+      indicatorCondition: 'gt',
+      indicatorValue: '70',
+    };
+    const view = (over: Record<string, unknown>) => (
+      <IndicatorEdgeMatchBadge
+        definition={definition}
+        params={rsiParams(over)}
+        action={IndicatorAction.startDeal}
+      />
+    );
+    const { rerender } = render(view(above70));
+
+    const badge = await screen.findByTestId('edge-match');
+    expect(badge.dataset['setting']).toBe('rsi14-gt70');
+    expect(within(badge).getByText('Tested: Worse than random')).toBeTruthy();
+    expect(within(badge).getAllByTestId('edge-regime')).toHaveLength(2);
+
+    rerender(view({ ...above70, indicatorValue: '71' }));
+    expect(screen.queryByTestId('edge-match')).toBeNull();
+
+    rerender(
+      view({ ...above70, indicatorInterval: '4h', indicatorCondition: 'lt', indicatorValue: 30 })
+    );
+    expect(screen.getByTestId('edge-match').dataset['setting']).toBe('rsi14-lt30');
+    expect(screen.getByText('Tested: No edge')).toBeTruthy();
+
+    rerender(view({ ...above70, indicatorInterval: '15m' }));
+    expect(screen.queryByTestId('edge-match')).toBeNull();
+  });
+
+  test('one request per indicator page, however many editors read it', async () => {
+    const definition = getIndicatorDefinition(IndicatorEnum.rsi);
+    const params = rsiParams({ indicatorLength: 14, indicatorCondition: 'gt', indicatorValue: 70 });
+    render(
+      <>
+        {[1, 2, 3].map((i) => (
+          <IndicatorEdgeMatchBadge
+            key={i}
+            definition={definition}
+            params={params}
+            action={IndicatorAction.startDeal}
+          />
+        ))}
+      </>
+    );
+    await waitFor(() => expect(screen.getAllByTestId('edge-match')).toHaveLength(3));
+    expect(requested.filter((p) => p === '/indicators/rsi')).toHaveLength(1);
+  });
+
+  // The bot form edits indicators inline in IndicatorList rows.
+  const rsiRow = {
+    type: IndicatorEnum.rsi,
+    uuid: 'rsi-1',
+    groupId: 'g-1',
+    indicatorLength: 7,
+    indicatorInterval: ExchangeIntervals.oneH,
+    indicatorCondition: IndicatorStartConditionEnum.cd,
+    indicatorValue: '70',
+  } as unknown as IndicatorParamsState;
+
+  const openRow = (
+    onApplyEdgeSetting?: React.ComponentProps<typeof IndicatorList>['onApplyEdgeSetting']
+  ) => {
+    render(
+      <MemoryRouter>
+        <IndicatorList
+          indicators={[rsiRow]}
+          renderExtras={() => <div>inline editor</div>}
+          {...(onApplyEdgeSetting ? { onApplyEdgeSetting } : {})}
+        />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole('button', { name: /Edit/ }));
+  };
+
+  test('Tested settings: Apply hands the setting back to that indicator and closes', async () => {
+    const onApply = vi.fn();
+    openRow(onApply);
+    fireEvent.click(await screen.findByRole('button', { name: 'Tested settings' }));
+    const panel = await screen.findByTestId('indicator-edge-panel');
+    // opens on the editor's interval (1h), not the data's default (4h)
+    expect(within(panel).getByRole('tab', { name: '1h' }).getAttribute('aria-selected')).toBe(
+      'true'
+    );
+    fireEvent.mouseDown(within(panel).getByRole('tab', { name: '4h' }), { button: 0 });
+    const row = within(panel)
+      .getAllByTestId('edge-row')
+      .find((r) => r.dataset['setting'] === 'rsi14-up30') as HTMLElement;
+    fireEvent.click(within(row).getByRole('button', { name: /^Apply/ }));
+
+    expect(onApply).toHaveBeenCalledWith(rsiRow, {
+      bot: rsiBot(14, 'cu', 30),
+      tf: '4h',
+    });
+    await waitFor(() => expect(screen.queryByTestId('indicator-edge-panel')).toBeNull());
+  });
+
+  test.each([
+    ['a page without edge data', () => ({ metadata: indicatorMeta, content: 'RSI body' })],
+    ['a missing page', () => undefined],
+    ['a failing request', () => 'fail'],
+  ])('no Tested settings for %s', async (_name, body) => {
+    routes['/indicators/rsi'] = body();
+    openRow(vi.fn());
+    await waitFor(() => expect(requested).toContain('/indicators/rsi'));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole('button', { name: 'Tested settings' })).toBeNull();
+    expect(screen.getByText('inline editor')).toBeTruthy();
+  });
+
+  test('no Tested settings when the list cannot apply', async () => {
+    openRow();
+    await waitFor(() => expect(screen.getByText('inline editor')).toBeTruthy());
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole('button', { name: 'Tested settings' })).toBeNull();
+  });
+
+  test('the help article shows the panel without Apply', async () => {
+    render(
+      <MemoryRouter>
+        <HelpArticleModal slug="rsi" onClose={() => undefined} />
+      </MemoryRouter>
+    );
+    const panel = await screen.findByTestId('indicator-edge-panel');
+    expect(within(panel).getAllByTestId('edge-row').length).toBeGreaterThan(0);
+    expect(within(panel).queryByRole('button', { name: /^Apply/ })).toBeNull();
+  });
+
+  test('the dialog: Apply from Tested settings fills the fields and the badge follows', async () => {
     const onSubmit = vi.fn();
     render(
       <MemoryRouter>
@@ -606,8 +832,9 @@ describe('Apply from the help article', () => {
     );
 
     expect((screen.getByLabelText('Length') as HTMLInputElement).value).toBe('21');
+    expect(screen.queryByTestId('edge-match')).toBeNull();
 
-    fireEvent.click(await screen.findByRole('button', { name: /Relative Strength Index|Rsi/ }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Tested settings' }));
     const panel = await screen.findByTestId('indicator-edge-panel');
     const row = within(panel)
       .getAllByTestId('edge-row')
@@ -617,6 +844,9 @@ describe('Apply from the help article', () => {
     await waitFor(() => expect(screen.queryByTestId('indicator-edge-panel')).toBeNull());
     expect((screen.getByLabelText('Length') as HTMLInputElement).value).toBe('14');
     expect((screen.getByLabelText('Value') as HTMLInputElement).value).toBe('30');
+    const badge = screen.getByTestId('edge-match');
+    expect(badge.dataset['setting']).toBe('rsi14-up30');
+    expect(within(badge).getByText('Tested: Likely edge')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save indicator' }));
     expect(onSubmit).toHaveBeenCalledWith(
@@ -627,55 +857,5 @@ describe('Apply from the help article', () => {
         indicatorInterval: ExchangeIntervals.fourH,
       })
     );
-  });
-
-  // The bot form edits indicators inline in IndicatorList rows; the row's
-  // help pill opens the article and Apply goes back to that indicator.
-  const rsiRow = {
-    type: IndicatorEnum.rsi,
-    uuid: 'rsi-1',
-    groupId: 'g-1',
-    indicatorLength: 7,
-    indicatorInterval: ExchangeIntervals.oneH,
-    indicatorCondition: IndicatorStartConditionEnum.cd,
-    indicatorValue: '70',
-  } as unknown as IndicatorParamsState;
-
-  const openRowArticle = async (
-    onApplyEdgeSetting?: React.ComponentProps<typeof IndicatorList>['onApplyEdgeSetting']
-  ) => {
-    render(
-      <MemoryRouter>
-        <IndicatorList
-          indicators={[rsiRow]}
-          renderExtras={() => <div>inline editor</div>}
-          {...(onApplyEdgeSetting ? { onApplyEdgeSetting } : {})}
-        />
-      </MemoryRouter>
-    );
-    fireEvent.click(screen.getByRole('button', { name: /Edit/ }));
-    fireEvent.click(await screen.findByRole('button', { name: /Relative Strength Index|Rsi/ }));
-    return screen.findByTestId('indicator-edge-panel');
-  };
-
-  test('an inline editor row hands Apply back with its indicator', async () => {
-    const onApply = vi.fn();
-    const panel = await openRowArticle(onApply);
-    const row = within(panel)
-      .getAllByTestId('edge-row')
-      .find((r) => r.dataset['setting'] === 'rsi14-up30') as HTMLElement;
-    fireEvent.click(within(row).getByRole('button', { name: /^Apply/ }));
-
-    expect(onApply).toHaveBeenCalledWith(rsiRow, {
-      bot: rsiBot(14, 'cu', 30),
-      tf: '4h',
-    });
-    await waitFor(() => expect(screen.queryByTestId('indicator-edge-panel')).toBeNull());
-  });
-
-  test('a list without the callback shows the panel without Apply', async () => {
-    const panel = await openRowArticle();
-    expect(within(panel).getAllByTestId('edge-row').length).toBeGreaterThan(0);
-    expect(within(panel).queryByRole('button', { name: /^Apply/ })).toBeNull();
   });
 });

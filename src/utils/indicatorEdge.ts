@@ -31,6 +31,19 @@ export const EDGE_VERDICT_LABEL: Record<IndicatorEdgeVerdict, string> = {
   few: 'Too few signals',
 };
 
+/** Badge variant per verdict, in the dashboard's badge palette. */
+export const EDGE_VERDICT_BADGE: Record<
+  IndicatorEdgeVerdict,
+  'success' | 'warning' | 'secondary' | 'error' | 'outline'
+> = {
+  edge: 'success',
+  fragile: 'warning',
+  none: 'secondary',
+  worse: 'error',
+  'fragile-worse': 'warning',
+  few: 'outline',
+};
+
 /** Timeframes in this order first; any other comes after, in data order. */
 const TF_ORDER = ['1h', '4h', '1d'];
 

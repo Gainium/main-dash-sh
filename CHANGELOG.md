@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.119.0] - 2026-10-26
+### Added
+- Bot form indicator settings: when the settings match a tested setting, a "Tested" verdict chip with its uptrend/downtrend results appears under the fields and follows each edit; its tooltip has the numbers and a link to the full analysis.
+- Bot form indicator settings: a "Tested" button opens the indicator's tested settings, and Apply fills one into that indicator, including the candle interval when the bot's exchange offers it.
+### Changed
+- Indicator help articles keep the price behaviour panel but no longer apply settings; applying happens from the bot form.
+
 ## [2.118.0] - 2026-10-26
 ### Added
 - Indicator help articles: a "Price behaviour vs random entries" panel shows how price moved after each tested setting on 1h, 4h and 1d candles, with its verdict and uptrend/downtrend results. Opened from an indicator's settings in the bot form, each tested setting has an Apply button that fills it into that indicator, including the candle interval when the bot's exchange offers it.

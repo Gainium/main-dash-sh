@@ -1,5 +1,6 @@
 import { Button } from '@/components/ui/button';
 import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
+import { TestedSettingsButton } from '@/components/indicators/IndicatorEdgeControls';
 import { parseHelpUrl, Tooltip } from '@/components/ui/tooltip';
 import { HelpArticleModal } from '@/components/modals/HelpArticleModal';
 import { LogicPill } from '@/components/indicators/LogicPill';
@@ -31,8 +32,8 @@ interface IndicatorListProps {
    */
   surface?: 'raised' | 'inset';
   /**
-   * Apply a tested setting from the help article's price-behaviour panel to
-   * the indicator whose open editor opened the article.
+   * Apply a tested setting (the open editor's "Tested" picker) to that
+   * indicator. Without it the picker is not offered.
    */
   onApplyEdgeSetting?: (
     indicator: IndicatorConfig,
@@ -59,13 +60,6 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   onApplyEdgeSetting,
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
-  // the indicator whose editor opened the article, for Apply
-  const [helpIndicator, setHelpIndicator] =
-    React.useState<IndicatorConfig | null>(null);
-  const closeHelp = () => {
-    setHelpSlug(null);
-    setHelpIndicator(null);
-  };
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   if (!indicators.length) {
@@ -150,6 +144,15 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                         Change indicator
                       </Button>
                     ) : null}
+                    {isOpen && onApplyEdgeSetting ? (
+                      <TestedSettingsButton
+                        definition={definition}
+                        interval={indicator.indicatorInterval}
+                        onApply={(request) =>
+                          onApplyEdgeSetting(indicator, request)
+                        }
+                      />
+                    ) : null}
                     {open ? (
                       <Button
                         type="button"
@@ -227,10 +230,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <div>
                         <HelpArticlePill
                           url={definition.documentationUrl}
-                          onActivate={(slug) => {
-                            setHelpSlug(slug);
-                            setHelpIndicator(indicator);
-                          }}
+                          onActivate={setHelpSlug}
                         />
                       </div>
                     ) : null}
@@ -242,19 +242,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
           );
         })}
       </div>
-      <HelpArticleModal
-        slug={helpSlug}
-        onClose={closeHelp}
-        onApplySetting={
-          onApplyEdgeSetting && helpIndicator
-            ? (request) => {
-                onApplyEdgeSetting(helpIndicator, request);
-                closeHelp();
-              }
-            : undefined
-        }
-        indicatorType={helpIndicator?.type}
-      />
+      <HelpArticleModal slug={helpSlug} onClose={() => setHelpSlug(null)} />
     </>
   );
 };

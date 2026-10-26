@@ -17,6 +17,7 @@ import type {
   IndicatorEdgeVerdict,
 } from '@/types/helpCenter';
 import {
+  EDGE_VERDICT_BADGE as VERDICT_BADGE,
   EDGE_VERDICT_LABEL,
   edgeRowsFor,
   edgeTimeframes,
@@ -28,17 +29,6 @@ import {
   type EdgeApplyRequest,
 } from '@/utils/indicators/edgeApply';
 
-const VERDICT_BADGE: Record<
-  IndicatorEdgeVerdict,
-  'success' | 'warning' | 'secondary' | 'error' | 'outline'
-> = {
-  edge: 'success',
-  fragile: 'warning',
-  none: 'secondary',
-  worse: 'error',
-  'fragile-worse': 'warning',
-  few: 'outline',
-};
 
 const VERDICT_TONE: Record<IndicatorEdgeVerdict, string> = {
   edge: 'text-profit',
@@ -72,7 +62,7 @@ function methodTooltip(edge: IndicatorEdge): string {
   return parts.join(' ');
 }
 
-const EdgeValue: React.FC<{ cell: IndicatorEdgeCell; className?: string }> = ({
+export const EdgeValue: React.FC<{ cell: IndicatorEdgeCell; className?: string }> = ({
   cell,
   className,
 }) => (
@@ -83,20 +73,32 @@ const EdgeValue: React.FC<{ cell: IndicatorEdgeCell; className?: string }> = ({
   </span>
 );
 
-const RegimeChip: React.FC<{ name: string; cell: IndicatorEdgeCell }> = ({
+const RegimeChipBody: React.FC<{ name: string; cell: IndicatorEdgeCell }> = ({
   name,
   cell,
 }) => (
-  <Tooltip tooltip={`${name}: ${EDGE_VERDICT_LABEL[cell.verdict]}`}>
-    <span
-      className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-1.5 py-px text-xs text-muted-foreground"
-      data-testid="edge-regime"
-    >
-      {name}
-      <EdgeValue cell={cell} />
-    </span>
-  </Tooltip>
+  <span
+    className="inline-flex items-center gap-1 whitespace-nowrap rounded-md border border-border/60 px-1.5 py-px text-xs text-muted-foreground"
+    data-testid="edge-regime"
+  >
+    {name}
+    <EdgeValue cell={cell} />
+  </span>
 );
+
+/** Uptrend/downtrend chip; `plain` drops its own tooltip (inside another one). */
+export const RegimeChip: React.FC<{
+  name: string;
+  cell: IndicatorEdgeCell;
+  plain?: boolean;
+}> = ({ name, cell, plain = false }) =>
+  plain ? (
+    <RegimeChipBody name={name} cell={cell} />
+  ) : (
+    <Tooltip tooltip={`${name}: ${EDGE_VERDICT_LABEL[cell.verdict]}`}>
+      <RegimeChipBody name={name} cell={cell} />
+    </Tooltip>
+  );
 
 interface EdgeRowProps {
   setting: IndicatorEdgeSetting;
@@ -163,6 +165,10 @@ export interface IndicatorEdgePanelProps {
   onApplySetting?: ((request: EdgeApplyRequest) => void) | undefined;
   /** The dialog's indicator type; Apply shows only for a matching config. */
   indicatorType?: string | undefined;
+  /** Draw its own border and fill (default); off inside a dialog. */
+  framed?: boolean;
+  /** Timeframe to open on when it has rows; else the data's default. */
+  initialTf?: string | undefined;
 }
 
 export const IndicatorEdgePanel: React.FC<IndicatorEdgePanelProps> = ({
@@ -170,15 +176,19 @@ export const IndicatorEdgePanel: React.FC<IndicatorEdgePanelProps> = ({
   slug,
   onApplySetting,
   indicatorType,
+  framed = true,
+  initialTf,
 }) => {
   const tfs = edgeTimeframes(edge);
-  const [tf, setTf] = useState(edge.defaultTf);
+  const [tf, setTf] = useState(
+    initialTf && tfs.includes(initialTf) ? initialTf : edge.defaultTf
+  );
   const active = tfs.includes(tf) ? tf : edge.defaultTf;
   const rows = edgeRowsFor(edge, active);
 
   return (
     <section
-      className="rounded-lg border border-border/60 bg-muted/20 p-sm"
+      className={cn(framed && 'rounded-lg border border-border/60 bg-muted/20 p-sm')}
       aria-label="Price behaviour vs random entries"
       data-testid="indicator-edge-panel"
     >

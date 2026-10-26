@@ -33,6 +33,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { InfoIcon, Tooltip, parseHelpUrl } from '@/components/ui/tooltip';
 import { HelpArticleModal } from '@/components/modals/HelpArticleModal';
 import {
+  IndicatorEdgeMatchBadge,
+  TestedSettingsButton,
+} from '@/components/indicators/IndicatorEdgeControls';
+import {
   filterIntervalOptionsByExchange,
   getIndicatorDefaultParams,
   validateIndicatorParams,
@@ -183,8 +187,8 @@ export const IndicatorConfigurationModal: React.FC<
     [definition]
   );
 
-  // Apply on the help article's price-behaviour panel: the tested setting
-  // replaces the dialog's params; the user still saves with the dialog.
+  // Apply in the "Tested" picker: the tested setting replaces the dialog's
+  // params; the user still saves with the dialog.
   const applyEdgeSetting = React.useCallback(
     (request: EdgeApplyRequest) => {
       if (!definition) {
@@ -201,7 +205,6 @@ export const IndicatorConfigurationModal: React.FC<
         })
       );
       setErrors([]);
-      setDocHelpSlug(null);
     },
     [definition, action, section, exchange]
   );
@@ -491,12 +494,21 @@ export const IndicatorConfigurationModal: React.FC<
               <DialogTitle className="text-lg font-semibold leading-6">
                 {dialogTitle}
               </DialogTitle>
-              {docParsed.helpSlug ? (
-                <HelpArticlePill
-                  url={documentationUrl}
-                  onActivate={setDocHelpSlug}
-                />
-              ) : null}
+              <div className="flex flex-wrap items-center gap-xs">
+                {definition ? (
+                  <TestedSettingsButton
+                    definition={definition}
+                    interval={paramsState?.indicatorInterval}
+                    onApply={applyEdgeSetting}
+                  />
+                ) : null}
+                {docParsed.helpSlug ? (
+                  <HelpArticlePill
+                    url={documentationUrl}
+                    onActivate={setDocHelpSlug}
+                  />
+                ) : null}
+              </div>
             </div>
             <DialogDescription className="text-sm text-muted-foreground">
               {definition?.description ??
@@ -532,6 +544,14 @@ export const IndicatorConfigurationModal: React.FC<
                     ...definition.fields,
                     ...(definition.advancedFields ?? []),
                   ].map((field) => renderField(field))}
+                  {paramsState ? (
+                    <IndicatorEdgeMatchBadge
+                      definition={definition}
+                      params={paramsState}
+                      action={action}
+                      section={section}
+                    />
+                  ) : null}
                 </div>
               </ScrollArea>
 
@@ -561,8 +581,6 @@ export const IndicatorConfigurationModal: React.FC<
       <HelpArticleModal
         slug={docHelpSlug}
         onClose={() => setDocHelpSlug(null)}
-        onApplySetting={definition ? applyEdgeSetting : undefined}
-        indicatorType={definition?.type}
       />
     </>
   );

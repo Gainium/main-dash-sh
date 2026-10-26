@@ -2,6 +2,7 @@ import { IndicatorGroupCard } from '@/components/indicators/IndicatorGroupCard';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { LogicPill } from '@/components/indicators/LogicPill';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
+import { IndicatorEdgeMatchBadge } from '@/components/indicators/IndicatorEdgeControls';
 import { Button } from '@/components/ui/button';
 import { Tooltip } from '@/components/ui/tooltip';
 import {
@@ -438,6 +439,14 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                             : {})}
                           exchange={exchange}
                           minIntervalMs={minIntervalMs}
+                          fieldsFooter={
+                            <IndicatorEdgeMatchBadge
+                              definition={definition}
+                              params={params}
+                              action={indicatorAction}
+                              section={indicatorSection}
+                            />
+                          }
                           onChange={(next) =>
                             onChangeIndicatorParams(
                               group.id,
