@@ -7,6 +7,7 @@ import { cn } from '@/lib/utils';
 import { getIndicatorDefinition } from '@/types/indicators/indicatorLogic';
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
+import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
 import { Pencil, Star, Trash2 } from 'lucide-react';
 import React from 'react';
@@ -29,6 +30,14 @@ interface IndicatorListProps {
    * that is itself the fill.
    */
   surface?: 'raised' | 'inset';
+  /**
+   * Apply a tested setting from the help article's price-behaviour panel to
+   * the indicator whose open editor opened the article.
+   */
+  onApplyEdgeSetting?: (
+    indicator: IndicatorConfig,
+    request: EdgeApplyRequest
+  ) => void;
 }
 
 /**
@@ -47,8 +56,16 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   isFavorite,
   connector,
   surface = 'raised',
+  onApplyEdgeSetting,
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
+  // the indicator whose editor opened the article, for Apply
+  const [helpIndicator, setHelpIndicator] =
+    React.useState<IndicatorConfig | null>(null);
+  const closeHelp = () => {
+    setHelpSlug(null);
+    setHelpIndicator(null);
+  };
   const [openId, setOpenId] = React.useState<string | null>(null);
 
   if (!indicators.length) {
@@ -210,7 +227,10 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <div>
                         <HelpArticlePill
                           url={definition.documentationUrl}
-                          onActivate={setHelpSlug}
+                          onActivate={(slug) => {
+                            setHelpSlug(slug);
+                            setHelpIndicator(indicator);
+                          }}
                         />
                       </div>
                     ) : null}
@@ -222,7 +242,19 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
           );
         })}
       </div>
-      <HelpArticleModal slug={helpSlug} onClose={() => setHelpSlug(null)} />
+      <HelpArticleModal
+        slug={helpSlug}
+        onClose={closeHelp}
+        onApplySetting={
+          onApplyEdgeSetting && helpIndicator
+            ? (request) => {
+                onApplyEdgeSetting(helpIndicator, request);
+                closeHelp();
+              }
+            : undefined
+        }
+        indicatorType={helpIndicator?.type}
+      />
     </>
   );
 };

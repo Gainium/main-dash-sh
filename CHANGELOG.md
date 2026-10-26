@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.118.0] - 2026-10-26
+### Added
+- Indicator help articles: a "Price behaviour vs random entries" panel shows how price moved after each tested setting on 1h, 4h and 1d candles, with its verdict and uptrend/downtrend results. Opened from an indicator's settings in the bot form, each tested setting has an Apply button that fills it into that indicator, including the candle interval when the bot's exchange offers it.
+
 ## [2.117.4] - 2026-10-26
 ### Added
 - Overview: an Equity line under Total Balance while futures positions are open, adding their unrealized P&L to the balance. Futures boxes in Portfolio → My Accounts show the same Equity line.

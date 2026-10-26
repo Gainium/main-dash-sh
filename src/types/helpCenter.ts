@@ -102,6 +102,74 @@ export interface IndicatorsListResponse {
 export interface IndicatorDocBySlugResponse {
   metadata: IndicatorDocMetadata;
   content: string;
+  /** Raw price-behaviour data; read only through `sanitizeIndicatorEdge`. */
+  edge?: unknown;
+}
+
+// ─── Indicator edge (price behaviour vs random entries) ─────────────────────
+
+/**
+ * Verdict on one setting: above the luck band and robust (`edge`), above it
+ * but carried by one stretch (`fragile`), inside it (`none`), below it
+ * (`worse`, `fragile-worse`), or too few separate moves to judge (`few`).
+ */
+export type IndicatorEdgeVerdict =
+  | 'edge'
+  | 'fragile'
+  | 'none'
+  | 'worse'
+  | 'fragile-worse'
+  | 'few';
+
+/** A setting's result, pooled over the coins or within one market trend. */
+export interface IndicatorEdgeCell {
+  entries: number;
+  episodes: number;
+  /** Edge over random entries at the horizon, in percent. */
+  edge: number;
+  /** Luck band (5th to 95th percentile of random copies), in percent. */
+  chance: [number, number];
+  verdict: IndicatorEdgeVerdict;
+}
+
+/** The bot-form indicator config that reproduces a tested setting exactly. */
+export interface IndicatorEdgeBotConfig {
+  /** An `IndicatorEnum` value. */
+  type: string;
+  /** Catalog field key → value. */
+  params: Record<string, string | number | boolean | string[] | number[]>;
+}
+
+export interface IndicatorEdgeSetting {
+  id: string;
+  /** Candle timeframe, e.g. `1h`, `4h`, `1d`. */
+  tf: string;
+  label: string;
+  side: 'long' | 'short';
+  pooled: IndicatorEdgeCell;
+  regimes?: { up: IndicatorEdgeCell; down: IndicatorEdgeCell };
+  /** `null` when no bot-form config reproduces the tested condition. */
+  bot: IndicatorEdgeBotConfig | null;
+}
+
+export interface IndicatorEdgeMethod {
+  horizon: number;
+  horizons: number[];
+  randomDraws: number;
+  minEpisodes: number;
+  source: string;
+  pairs: string[];
+  from: string;
+  to: string;
+  regime?: { sma: number };
+}
+
+/** `edge` on GET /indicators/:slug, rebuilt from known fields. */
+export interface IndicatorEdge {
+  updatedAt: string;
+  defaultTf: string;
+  method: IndicatorEdgeMethod;
+  settings: IndicatorEdgeSetting[];
 }
 
 /**
@@ -112,6 +180,8 @@ export interface HelpArticleResponse {
   metadata: HelpDocMetadata & Partial<HelpDocFullMetadata>;
   content: string;
   source: 'help' | 'indicator';
+  /** Price-behaviour data of an indicator page, when it has valid data. */
+  edge?: IndicatorEdge;
 }
 
 // ─── Blog Post ──────────────────────────────────────────────────────────────

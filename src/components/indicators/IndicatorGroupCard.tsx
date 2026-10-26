@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 import { IndicatorActionsToolbar } from '@/features/bots/shared/components/IndicatorActionsToolbar';
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
+import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
 import { Trash2 } from 'lucide-react';
 import React, { useCallback } from 'react';
 
@@ -36,6 +37,11 @@ export interface IndicatorGroupCardProps {
   framed?: boolean;
   /** Label in the frame's header, e.g. "Group 2". */
   title?: string;
+  /** Apply on the help article's price-behaviour panel (see IndicatorList). */
+  onApplyEdgeSetting?: (
+    indicator: IndicatorConfig,
+    request: EdgeApplyRequest
+  ) => void;
 }
 
 export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
@@ -57,6 +63,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   singleIndicator = false,
   framed = false,
   title = 'Group',
+  onApplyEdgeSetting,
 }) => {
   const addIndicatorDisabled = !canAddIndicator || disableControls;
   const addIndicatorTooltip = addIndicatorDisabled
@@ -112,6 +119,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           ? { renderExtras: renderIndicatorExtras }
           : {})}
         {...(emptyState ? { emptyState } : {})}
+        {...(onApplyEdgeSetting ? { onApplyEdgeSetting } : {})}
         surface={framed ? 'inset' : 'raised'}
         connector={{
           logic: group.logic,

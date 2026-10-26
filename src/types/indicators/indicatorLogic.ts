@@ -109,13 +109,18 @@ export const getIndicatorDocumentationUrl = (
   type: IndicatorEnum
 ): string | undefined => getIndicatorDefinition(type).documentationUrl;
 
-export const getIndicatorDefaultParams = (
+/**
+ * The catalog's own defaults, never a favorite's saved settings. For callers
+ * that must reproduce an exact setting (Apply on an indicator's price
+ * behaviour), where a preset's extra fields would change what is measured.
+ */
+export const getIndicatorCatalogDefaultParams = (
   type: IndicatorEnum,
   action: IndicatorAction,
   section?: IndicatorSection | undefined
 ): IndicatorParamsState => {
   const definition = getIndicatorDefinition(type);
-  const defaults = collectFields(definition).reduce<IndicatorParamsState>(
+  return collectFields(definition).reduce<IndicatorParamsState>(
     (acc, field) => {
       // A field whose key follows another field (Stochastic's bands follow
       // Zone) seeds the key and default the seeded params bind it to; the
@@ -141,6 +146,14 @@ export const getIndicatorDefaultParams = (
       uuid: '',
     } as IndicatorParamsState
   );
+};
+
+export const getIndicatorDefaultParams = (
+  type: IndicatorEnum,
+  action: IndicatorAction,
+  section?: IndicatorSection | undefined
+): IndicatorParamsState => {
+  const defaults = getIndicatorCatalogDefaultParams(type, action, section);
   // A favorite being picked brings its saved settings (see favoritePresetScope).
   const preset = getActiveFavoritePreset(type);
   return preset ? { ...defaults, ...preset } : defaults;

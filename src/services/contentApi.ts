@@ -24,6 +24,7 @@ import {
   type SearchResultItem,
   type SearchResultsResponse,
 } from '@/types/helpCenter';
+import { sanitizeIndicatorEdge } from '@/utils/indicatorEdge';
 
 const DEFAULT_BASE_URL = 'https://content.gainium.io';
 const BASE_URL = (
@@ -276,12 +277,15 @@ export function indicatorToHelpDoc(
 }
 
 function fromIndicator(doc: IndicatorDocBySlugResponse): HelpArticleResponse {
-  return {
+  const article: HelpArticleResponse = {
     // keep page fields such as difficulty; the help-doc fields take precedence
     metadata: { ...doc.metadata, ...indicatorToHelpDoc(doc.metadata) },
     content: doc.content,
     source: 'indicator',
   };
+  const edge = sanitizeIndicatorEdge(doc.edge);
+  if (edge) article.edge = edge;
+  return article;
 }
 
 function fromHelp(doc: HelpDocBySlugResponse): HelpArticleResponse {

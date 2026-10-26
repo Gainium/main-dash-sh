@@ -18,6 +18,7 @@ import {
   getIndicatorDefinition,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
+import { buildEdgeAppliedParams } from '@/utils/indicators/edgeApply';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
 import { Plus } from 'lucide-react';
@@ -392,6 +393,29 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                   }
                   onToggleFavorite={handleToggleFavorite}
                   isFavorite={isFavorite}
+                  onApplyEdgeSetting={(indicator, request) => {
+                    const definition = getIndicatorDefinition(indicator.type);
+                    onChangeIndicatorParams(
+                      group.id,
+                      indicator.uuid,
+                      buildEdgeAppliedParams({
+                        definition,
+                        action: indicatorAction,
+                        section: indicatorSection,
+                        current: {
+                          ...getIndicatorDefaultParams(
+                            definition.type,
+                            indicatorAction,
+                            indicatorSection
+                          ),
+                          ...(indicator as IndicatorParamsState),
+                        },
+                        request,
+                        exchange,
+                        minIntervalMs,
+                      })
+                    );
+                  }}
                   renderIndicatorExtras={(indicator) => {
                     try {
                       const definition = getIndicatorDefinition(indicator.type);

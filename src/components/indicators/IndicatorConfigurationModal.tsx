@@ -47,6 +47,10 @@ import type {
 } from '@/types/indicators/indicatorParams';
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import {
+  buildEdgeAppliedParams,
+  type EdgeApplyRequest,
+} from '@/utils/indicators/edgeApply';
+import {
   resetInvalidConditionalSelects,
   resolveFieldKey,
   resolveFieldLabel,
@@ -177,6 +181,29 @@ export const IndicatorConfigurationModal: React.FC<
       });
     },
     [definition]
+  );
+
+  // Apply on the help article's price-behaviour panel: the tested setting
+  // replaces the dialog's params; the user still saves with the dialog.
+  const applyEdgeSetting = React.useCallback(
+    (request: EdgeApplyRequest) => {
+      if (!definition) {
+        return;
+      }
+      setParamsState((prev) =>
+        buildEdgeAppliedParams({
+          definition,
+          action,
+          section,
+          current: prev,
+          request,
+          exchange,
+        })
+      );
+      setErrors([]);
+      setDocHelpSlug(null);
+    },
+    [definition, action, section, exchange]
   );
 
   const renderField = (field: IndicatorFieldDefinition) => {
@@ -534,6 +561,8 @@ export const IndicatorConfigurationModal: React.FC<
       <HelpArticleModal
         slug={docHelpSlug}
         onClose={() => setDocHelpSlug(null)}
+        onApplySetting={definition ? applyEdgeSetting : undefined}
+        indicatorType={definition?.type}
       />
     </>
   );
