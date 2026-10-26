@@ -3,7 +3,9 @@ import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import { Activity, ExternalLink, Loader2 } from 'lucide-react';
+import { Activity, ExternalLink, History, Loader2 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
+import { Button } from '../components/ui/button';
 import EmptyState from '../components/ui/empty-state';
 import React, {
   useCallback,
@@ -50,6 +52,7 @@ import OpenOrdersWidget, {
   type OpenTrade,
 } from '../components/widgets/shared/OpenOrdersWidget';
 import { CARD_VIEW_COLUMNS } from '../config/responsive';
+import { useClosedTrades } from '../hooks/useClosedTrades';
 import { useComboBots } from '../hooks/useComboBots';
 import { useComboDeals } from '../hooks/useComboDeals';
 import { useDcaBots } from '../hooks/useDcaBots';
@@ -79,10 +82,7 @@ import {
 import { useUIStore } from '../stores/uiStore';
 import { useBotStatsStore } from '../stores/live';
 import getLatestPrices, { getLocalPrices } from '@/helper/price';
-import {
-  ACTIVE_ONLY_DEFAULT_STATUSES,
-  dealStatusGroup,
-} from '@/lib/utils/dealStatusFilter';
+import { ACTIVE_ONLY_DEFAULT_STATUSES } from '@/lib/utils/dealStatusFilter';
 import { transformDcaBotToBot } from '@/types/dcaBot';
 import type { BotStatus, DCADeals, Prices } from '../types';
 import {
@@ -174,6 +174,23 @@ interface TradeItem {
   note?: string;
 }
 
+/** The closed list's table (OpenOrdersWidget names it `${widgetId}-trades`). */
+const CLOSED_TRADES_WIDGET_ID = 'trades-main-closed';
+const CLOSED_TRADES_TABLE_ID = `${CLOSED_TRADES_WIDGET_ID}-trades`;
+
+/** When a stopped grid bot's run ended: its last working shift, else its last update. */
+const gridBotCloseTime = (bot: {
+  workingShift?: { end?: number | null }[] | null;
+  updated?: string | number | Date | null;
+}): number | undefined => {
+  const ends = (bot.workingShift ?? [])
+    .map((w) => Number(w?.end))
+    .filter((t) => Number.isFinite(t) && t > 0);
+  if (ends.length) return Math.max(...ends);
+  const updated = bot.updated ? +new Date(bot.updated) : NaN;
+  return Number.isFinite(updated) ? updated : undefined;
+};
+
 const Trading: React.FC = () => {
   logger.debug('[Trades] Component mounting/rendering');
 
@@ -182,8 +199,21 @@ const Trading: React.FC = () => {
   const privacyModeRef = useRef(privacyMode);
   privacyModeRef.current = privacyMode;
 
-  // State for filtering open/closed trades
-  const [showClosedTrades] = useState(false);
+  // Open vs closed trades. `?status=closed` is the source of truth so the
+  // sidebar's "Closed trades" link and reloads land on the closed list.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const showClosedTrades = searchParams.get('status') === 'closed';
+  const toggleClosedTrades = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (next.get('status') === 'closed') next.delete('status');
+        else next.set('status', 'closed');
+        return next;
+      },
+      { replace: true }
+    );
+  }, [setSearchParams]);
 
   // State for selected trade drawer
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
@@ -311,11 +341,9 @@ const Trading: React.FC = () => {
   );
   const liveDealPnl = useLiveDealPnl(openDcaLikeDeals);
 
-  // Fetch grid bots (these are different from deals)
-  // Use dynamic status based on showClosedTrades state
-  const gridBotStatus: BotStatus[] | undefined = showClosedTrades
-    ? (['closed', 'error'] as BotStatus[]) // Only closed/error bots when showing closed trades
-    : (['open', 'range', 'monitoring'] as BotStatus[]); // Only open bots when hiding closed trades
+  // Fetch grid bots (these are different from deals): the running ones are
+  // open trades; stopped ones come with the closed trades below.
+  const gridBotStatus: BotStatus[] = ['open', 'range', 'monitoring'];
 
   const {
     bots: gridBotsForDeals,
@@ -325,6 +353,59 @@ const Trading: React.FC = () => {
     status: gridBotStatus,
     paperContext: currentPaperContext,
   });
+
+  // Closed trades of every kind, one server page at a time (closed lists run
+  // to tens of thousands of rows).
+  const closedTrades = useClosedTrades({
+    enabled: showClosedTrades,
+    paperContext: currentPaperContext,
+    tableId: CLOSED_TRADES_TABLE_ID,
+  });
+  const closedRawDeals = useMemo(
+    () => [...closedTrades.dca, ...closedTrades.terminal],
+    [closedTrades.dca, closedTrades.terminal]
+  );
+
+  const closedToggle = useMemo(
+    () => (
+      <Button
+        variant={showClosedTrades ? 'default' : 'ghost'}
+        size="sm"
+        onClick={toggleClosedTrades}
+        className="h-9 gap-2 px-3"
+        title={showClosedTrades ? 'Show Open Trades' : 'Show Closed Trades'}
+      >
+        <History className="h-4 w-4" />
+        <span>Closed</span>
+      </Button>
+    ),
+    [showClosedTrades, toggleClosedTrades]
+  );
+  const closedToggleCompact = useMemo(
+    () => (
+      <Button
+        variant={showClosedTrades ? 'default' : 'ghost'}
+        size="icon"
+        onClick={toggleClosedTrades}
+        className="h-9 w-9"
+        title={showClosedTrades ? 'Show Open Trades' : 'Show Closed Trades'}
+        aria-label={
+          showClosedTrades ? 'Show open trades' : 'Show closed trades'
+        }
+      >
+        <History className="h-4 w-4" />
+      </Button>
+    ),
+    [showClosedTrades, toggleClosedTrades]
+  );
+
+  // The rows the Trades list is built from: the open hooks, or the closed page.
+  const tradeDcaDeals = showClosedTrades ? closedTrades.dca : dcaDealsOnly;
+  const tradeComboDeals = showClosedTrades ? closedTrades.combo : comboDeals;
+  const tradeTerminalDeals = showClosedTrades
+    ? closedTrades.terminal
+    : terminalDeals;
+  const tradeGridBots = showClosedTrades ? closedTrades.grid : gridBotsForDeals;
 
   // Removed USD rate fetching; no local unrealized PnL calculation here
 
@@ -418,13 +499,13 @@ const Trading: React.FC = () => {
     // No local price/USDRate usage for unrealized PnL; rely on hooks
 
     logger.debug('[Trades] Raw data:', {
-      dcaDeals: dcaDealsOnly?.length || 0,
-      comboDeals: comboDeals?.length || 0,
+      dcaDeals: tradeDcaDeals?.length || 0,
+      tradeComboDeals: tradeComboDeals?.length || 0,
       /* hedgeComboDeals: hedgeComboDeals?.length || 0,
       hedgeDcaDeals: hedgeDcaDeals?.length || 0, */
-      terminalDeals: terminalDeals?.length || 0,
-      gridBots: gridBotsForDeals?.length || 0,
-      sampleDcaDeals: dcaDealsOnly?.slice(0, 2) || [],
+      tradeTerminalDeals: tradeTerminalDeals?.length || 0,
+      gridBots: tradeGridBots?.length || 0,
+      sampleDcaDeals: tradeDcaDeals?.slice(0, 2) || [],
     });
 
     // Collect all deals for unrealized PnL calculation with source tracking
@@ -432,13 +513,13 @@ const Trading: React.FC = () => {
     const allDeals: DealCalc[] = [];
 
     // Add DCA deals
-    if (dcaDealsOnly && dcaDealsOnly.length > 0) {
+    if (tradeDcaDeals && tradeDcaDeals.length > 0) {
       // DCA deals handled directly below using hook-provided unrealizedUsd
     }
 
     // Add Combo deals
-    if (comboDeals && comboDeals.length > 0) {
-      comboDeals.forEach((deal) => {
+    if (tradeComboDeals && tradeComboDeals.length > 0) {
+      tradeComboDeals.forEach((deal) => {
         // Add debug logging to see what ID the deal has when added to allDeals
         logger.debug('[Trades] Adding combo deal to allDeals:', {
           dealObject: deal,
@@ -478,8 +559,8 @@ const Trading: React.FC = () => {
     } */
 
     // Add Terminal deals
-    if (terminalDeals && terminalDeals.length > 0) {
-      terminalDeals.forEach((deal) => {
+    if (tradeTerminalDeals && tradeTerminalDeals.length > 0) {
+      tradeTerminalDeals.forEach((deal) => {
         allDeals.push({
           ...(deal as unknown as DCADeals),
           dealSource: 'Terminal',
@@ -493,8 +574,8 @@ const Trading: React.FC = () => {
     // Removed local unrealized PnL calculation and mapping
 
     // Transform DCA deals using hook-provided unrealized
-    if (dcaDealsOnly && dcaDealsOnly.length > 0) {
-      dcaDealsOnly.forEach((deal, index: number) => {
+    if (tradeDcaDeals && tradeDcaDeals.length > 0) {
+      tradeDcaDeals.forEach((deal, index: number) => {
         try {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
@@ -603,8 +684,8 @@ const Trading: React.FC = () => {
     }
 
     // Transform Combo deals
-    if (comboDeals && comboDeals.length > 0) {
-      comboDeals.forEach((deal, index: number) => {
+    if (tradeComboDeals && tradeComboDeals.length > 0) {
+      tradeComboDeals.forEach((deal, index: number) => {
         try {
           // Use hook-provided unrealizedUsd or fall back to backend stats
           const dealWithId = deal as unknown as Record<string, unknown>; // lightweight typing
@@ -887,8 +968,8 @@ const Trading: React.FC = () => {
     } */
 
     // Transform Terminal deals using hook-provided unrealized (likely zero for closed)
-    if (terminalDeals && terminalDeals.length > 0) {
-      terminalDeals.forEach((deal: DCADeals, index: number) => {
+    if (tradeTerminalDeals && tradeTerminalDeals.length > 0) {
+      tradeTerminalDeals.forEach((deal: DCADeals, index: number) => {
         try {
           // Get calculated unrealized PnL using actual deal ID
           const actualDealId = deal._id || deal.botId;
@@ -992,8 +1073,8 @@ const Trading: React.FC = () => {
     }
 
     // Transform Grid bots
-    if (gridBotsForDeals && gridBotsForDeals.length > 0) {
-      gridBotsForDeals.forEach((bot) => {
+    if (tradeGridBots && tradeGridBots.length > 0) {
+      tradeGridBots.forEach((bot) => {
         try {
           // For Grid bots, we need to create a compatible deal object for gauge calculations
           const dealForGauge: Partial<DCADeals> & {
@@ -1081,6 +1162,10 @@ const Trading: React.FC = () => {
             },
             initialPrice: bot.initialPrice,
             created: +new Date(bot.created),
+            // A stopped bot's run ends at its last working shift.
+            ...(bot.status === 'closed' || bot.status === 'error'
+              ? { closeTime: gridBotCloseTime(bot) }
+              : {}),
             // Add gauge values
             outerGaugePercent: gaugeValues.outerGaugePercent,
             centerText: gaugeValues.centerText,
@@ -1109,16 +1194,16 @@ const Trading: React.FC = () => {
 
     return dedupedTrades;
   }, [
-    dcaDealsOnly,
-    comboDeals,
+    tradeDcaDeals,
+    tradeComboDeals,
     /*  hedgeComboDeals,
     hedgeDcaDeals, */
-    terminalDeals,
+    tradeTerminalDeals,
     liveDealPnl,
-    gridBotsForDeals,
+    tradeGridBots,
     calculateDealGaugeValues,
     // Note: showClosedTrades is intentionally not included as dependency
-    // since gridBotsForDeals query already handles the filtering based on this state
+    // since tradeGridBots query already handles the filtering based on this state
   ]);
 
   // Transform TradeItem to OpenTrade for the widget
@@ -1230,6 +1315,9 @@ const Trading: React.FC = () => {
       avgPrice: trade.avgPrice || 0,
       levels: trade.levels,
       created: createdTime,
+      ...(trade.closeTime
+        ? { closeTime: new Date(trade.closeTime).toISOString() }
+        : {}),
       initialPrice: trade.initialPrice,
       notes: trade.note || '',
       pair,
@@ -1276,32 +1364,32 @@ const Trading: React.FC = () => {
     //
     // Grid bots enter the same list carrying their raw BOT status and are
     // already filtered server-side via `gridBotStatus`, so their statuses are
-    // unioned in separately. `error` deliberately appears in BOTH groups: an
-    // errored DEAL is still active, while an errored GRID BOT is fetched as
-    // part of the closed set.
+    // unioned in separately. The closed list is the server's page as is (an
+    // errored GRID BOT is part of it, while an errored DEAL is still active).
     const openStatuses = [
       ...ACTIVE_ONLY_DEFAULT_STATUSES,
       'active',
       'range',
       'monitoring',
     ];
-    const closedStatuses = [
-      ...(dealStatusGroup(DCADealStatusEnum.closed) ?? []),
-      'error',
-      'stopped',
-      'completed',
-    ];
 
     if (showClosedTrades) {
-      return allTradesUnfiltered.filter((trade) =>
-        closedStatuses.includes(trade.status.toLowerCase())
+      // The server page, in the server's order across the four kinds.
+      const rank = new Map(
+        closedTrades.order.map((o, i) => [
+          o.kind === 'grid' ? `grid-${o.id}` : o.id,
+          i,
+        ])
       );
+      return allTradesUnfiltered
+        .filter((trade) => rank.has(trade.id))
+        .sort((a, b) => (rank.get(a.id) ?? 0) - (rank.get(b.id) ?? 0));
     } else {
       return allTradesUnfiltered.filter((trade) =>
         openStatuses.includes(trade.status.toLowerCase())
       );
     }
-  }, [allTradesUnfiltered, showClosedTrades]);
+  }, [allTradesUnfiltered, showClosedTrades, closedTrades.order]);
 
   // Transform filtered trades for the widget
   const transformedTrades = useMemo(() => {
@@ -1999,7 +2087,7 @@ const Trading: React.FC = () => {
           >
             <div className="flex flex-col h-full min-h-[500px]">
               <Tabs
-                defaultValue="bots"
+                defaultValue="trades"
                 className="h-full flex flex-col"
                 paramKey="view"
                 paramSync={true}
@@ -2067,8 +2155,20 @@ const Trading: React.FC = () => {
                     {/* Content - Using shared OpenOrdersWidget with enhanced chips */}
                     <div className="flex-1 overflow-hidden">
                       <OpenOrdersWidget
-                        widgetId="trades-main"
+                        key={showClosedTrades ? 'closed' : 'open'}
+                        widgetId={
+                          showClosedTrades
+                            ? CLOSED_TRADES_WIDGET_ID
+                            : 'trades-main'
+                        }
                         showClosedTrades={showClosedTrades}
+                        {...(showClosedTrades && {
+                          serverPaging: closedTrades.serverPaging,
+                          rawDeals: closedRawDeals,
+                          externalLoading: closedTrades.isLoading,
+                        })}
+                        toolbarAction={closedToggle}
+                        toolbarActionCompact={closedToggleCompact}
                         emptyMessage={
                           showClosedTrades
                             ? 'No closed trades found'

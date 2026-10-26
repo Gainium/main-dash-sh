@@ -7,6 +7,7 @@ import {
   Building2,
   Bot,
   FlaskConical,
+  History,
   Braces,
   Home,
   LayoutDashboard,
@@ -205,6 +206,20 @@ export const getNavigationSections = (
           icon: <Bot className="w-4 h-4" />,
           label: 'All Trades',
           href: '/trading',
+          children: [
+            {
+              id: 'trading-bots-list',
+              icon: <Bot className="w-4 h-4" />,
+              label: 'All bots',
+              href: '/trading?view=bots',
+            },
+            {
+              id: 'trading-closed',
+              icon: <History className="w-4 h-4" />,
+              label: 'Closed trades',
+              href: '/trading?status=closed',
+            },
+          ],
         },
         {
           id: 'terminal',

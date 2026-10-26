@@ -10,6 +10,7 @@ import type {
 } from '../../types';
 
 import {
+  botFragment,
   comboDealFragment,
   dcaBotSettingsFragment,
   dcaDealFragment,
@@ -512,6 +513,40 @@ export const dealQueries = {
   result {
   ${fields ?? dcaDealFragment}
   botName
+  }
+  }
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
+  /** Closed deals of every kind and stopped grid bots, one server page. */
+  closedTradeList: (input: { dataGridInput: DataGridFilterInput }) => {
+    const query = `query closedTradeList($input: closedTradeListInput) {
+  closedTradeList(input: $input) {
+  status
+  reason
+  total
+  data {
+  order {
+  kind
+  id
+  }
+  dca {
+  ${dcaDealFragment}
+  botName
+  }
+  terminal {
+  ${dcaDealFragment}
+  botName
+  }
+  combo {
+  ${comboDealFragment}
+  botName
+  }
+  grid {
+  ${botFragment}
   }
   }
   }

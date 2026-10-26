@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.117.0] - 2026-10-26
+### Added
+- Trades page: a Closed button in the trades toolbar shows closed trades of every kind (DCA, terminal, combo deals and stopped grid bots) in one list, paged, sorted and searched on the server.
+- Sidebar: All Trades now has All bots and Closed trades submenus.
+### Changed
+- Trades page opens on the Trades tab instead of Bots.
+- Sidebar: a submenu link to one view of a page highlights only while that view is open.
+
 ## [2.116.3] - 2026-10-26
 ### Changed
 - Indicator settings: Smoothing and Percentile now sit together under a Modifiers heading, each as a switch that reveals its own settings (Average and Length; Lookback and Threshold). Both can be on at once; the percentile then ranks the smoothed line, as the bot does.

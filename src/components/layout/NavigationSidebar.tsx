@@ -17,7 +17,7 @@ import {
   Youtube,
 } from 'lucide-react';
 import React, { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   isNavigationItemEnabled,
   useUIStore,
@@ -173,6 +173,7 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
   showHeader = true,
 }) => {
   const navigate = useNavigate();
+  const { search: currentSearch } = useLocation();
   const [isHovered, setIsHovered] = useState(false);
   const [hoverTimeout, setHoverTimeout] = useState<NodeJS.Timeout | null>(null);
   // Animation state to keep z-50 during collapse/expand
@@ -423,6 +424,17 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
     // For dashboard URLs with slug path, do full path comparison or prefix match
     if (href.startsWith('/dashboard/')) {
       return activePage === href || activePage.startsWith(href + '/');
+    }
+
+    // A link to one view of a page (`/trading?status=closed`) is active only
+    // while the URL carries its params, so two views of a page never both
+    // highlight.
+    const hrefQuery = href.split('?')[1];
+    if (hrefQuery) {
+      const current = new URLSearchParams(currentSearch);
+      for (const [key, value] of new URLSearchParams(hrefQuery)) {
+        if (current.get(key) !== value) return false;
+      }
     }
 
     // For other URLs: normalize paths by removing query strings and trailing slashes
