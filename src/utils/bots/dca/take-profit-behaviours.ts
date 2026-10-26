@@ -399,6 +399,20 @@ export const deriveTimerValueChangeEffects = (
   };
 };
 
+/**
+ * Which bot forms offer "Close by timer" (dashboard spec 137): DCA and
+ * Combo, single- and multi-pair. Not the hedge tab, and not a Combo leg of a
+ * Hedge Combo bot — its legs render with `formType` 'combo'. A Hedge DCA leg
+ * keeps the timer it always had.
+ */
+export const isCloseByTimerAllowed = (
+  formType: string | undefined,
+  insideHedgeForm = false
+): boolean =>
+  formType !== 'hedgeCombo' &&
+  formType !== 'hedgeDca' &&
+  !(insideHedgeForm && formType === 'combo');
+
 interface TimerAvailabilityParams {
   timerAllowed: boolean;
   closeByTimer: boolean | undefined | null;

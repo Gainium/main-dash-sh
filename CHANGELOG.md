@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.120.0] - 2026-10-26
+### Added
+- Combo bots: Close by timer in the take profit section's More Settings, as on DCA bots.
+
 ## [2.119.5] - 2026-10-26
 ### Changed
 - Backtest results: open deals in the deals list show their unrealized P&L at the last price instead of 0.00%, also when several deals are open.

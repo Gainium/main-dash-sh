@@ -100,6 +100,7 @@ import {
     derivePresetClickEffects,
     deriveSingleTargetPercentageSyncEffects,
     deriveTimerAvailabilityEffects,
+    isCloseByTimerAllowed,
     deriveTimerValueChangeEffects,
     enforceMinTpGuardAvailability,
     enforceMultiTargetLimit,
@@ -108,6 +109,7 @@ import {
     resolveVariableBindingEffects,
     type FormUpdateInstruction,
 } from '@/utils/bots/dca/take-profit-behaviours';
+import { useHedgeBotFormOptional } from '@/contexts/bots/form/HedgeBotFormProvider';
 import {
     buildIndicatorConfig,
     isCloseIndicatorUsedByCondition,
@@ -642,6 +644,7 @@ export const TakeProfitSettings: React.FC = () => {
 
   const isComboBot = formType === 'combo';
   const isHedgeBot = formType === 'hedgeCombo' || formType === 'hedgeDca';
+  const isInsideHedgeForm = useHedgeBotFormOptional() !== undefined;
   const closeConditionIsTp = closeCondition === CloseConditionEnum.tp;
   const closeDealTypeOptions = useMemo<
     Array<{
@@ -873,9 +876,10 @@ export const TakeProfitSettings: React.FC = () => {
     typeof formData.dynamicArLockValue === 'boolean'
       ? formData.dynamicArLockValue
       : true; */
-  const timerAllowed = !isComboBot && !isHedgeBot;
+  const timerAllowed = isCloseByTimerAllowed(formType, isInsideHedgeForm);
   const showTimerControls = timerAllowed;
-  const showMultiTargetControls = closeConditionIsTp && timerAllowed;
+  const showMultiTargetControls =
+    closeConditionIsTp && !isComboBot && !isHedgeBot;
   const dynamicArAllowedTypes = useMemo(
     () => [IndicatorEnum.atr, IndicatorEnum.adr] as IndicatorEnum[],
     []
@@ -2514,6 +2518,97 @@ export const TakeProfitSettings: React.FC = () => {
       multiTargets.length <= 1)
   );
 
+  // One row, rendered by both the Combo and the DCA layout below.
+  const closeByTimerRow = showTimerControls ? (
+    <SettingsRow
+      key="close-by-timer"
+      name="Close by timer"
+      tooltip="Automatically close the deal after a specified duration."
+      colSpan="full"
+      trailing={
+        <Switch
+          id="close-by-timer"
+          checked={closeByTimer || false}
+          onCheckedChange={handleToggleTimer}
+          aria-label="Toggle close by timer"
+        />
+      }
+      className={interactionDisabledClass}
+      contentClassName="space-y-md"
+    >
+      {closeByTimer && (
+        <SettingsRowSurface
+          tone="faint"
+          spacing="sm"
+          className="space-y-md"
+        >
+          <div className="flex flex-col gap-sm @[500px]:flex-row @[500px]:items-start">
+            <FieldVariableBinding
+              path="closeByTimerValue"
+              varType="int"
+              tooltip="Bind timer value"
+              disabled={takeProfitLocked}
+              variant="inline"
+              contentClassName="w-full @[500px]:max-w-[160px]"
+              onVariableSelected={(variable) =>
+                applyVariableToField(
+                  'closeByTimerValue',
+                  variable
+                )
+              }
+              onVariableResolved={(variable) =>
+                applyVariableToField(
+                  'closeByTimerValue',
+                  variable
+                )
+              }
+            >
+              <NumberInput
+                ref={timerInputRef}
+                value={closeByTimerValue || '1'}
+                onChange={handleTimerValueChange}
+                className="w-full"
+                placeholder="1"
+                min={1}
+                step={1}
+                showControls={false}
+                disabled={isTimerValueBound}
+              />
+            </FieldVariableBinding>
+            <Select
+              value={closeByTimerUnits || 'minutes'}
+              onValueChange={(value) =>
+                updateFormData(
+                  'closeByTimerUnits',
+                  value as
+                    | 'seconds'
+                    | 'minutes'
+                    | 'hours'
+                    | 'days'
+                )
+              }
+            >
+              <SelectTrigger className="w-full @[500px]:w-36">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="seconds">Seconds</SelectItem>
+                <SelectItem value="minutes">Minutes</SelectItem>
+                <SelectItem value="hours">Hours</SelectItem>
+                <SelectItem value="days">Days</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          {mergedErrors['closeByTimerValue'] && (
+            <p className="text-xs text-destructive">
+              {mergedErrors['closeByTimerValue']}
+            </p>
+          )}
+        </SettingsRowSurface>
+      )}
+    </SettingsRow>
+  ) : null;
+
   if (!useTp) {
     return null;
   }
@@ -2661,8 +2756,12 @@ export const TakeProfitSettings: React.FC = () => {
             <BaseStopLosslOn section="tp" />
           </MasonryLayout>
 
-          <SettingsLoadMore id="take-profit-advanced" title="More Settings">
-            {null}
+          <SettingsLoadMore
+            id="take-profit-advanced"
+            title="More Settings"
+            autoExpand={Boolean(closeByTimer)}
+          >
+            {closeByTimerRow}
           </SettingsLoadMore>
         </>
       ) : (
@@ -3218,95 +3317,7 @@ export const TakeProfitSettings: React.FC = () => {
                     ) : undefined}
                   </SettingsRow>
                 ) : null}
-                {showTimerControls && (
-                  <SettingsRow
-                    key="close-by-timer"
-                    name="Close by timer"
-                    tooltip="Automatically close the deal after a specified duration."
-                    colSpan="full"
-                    trailing={
-                      <Switch
-                        id="close-by-timer"
-                        checked={closeByTimer || false}
-                        onCheckedChange={handleToggleTimer}
-                        aria-label="Toggle close by timer"
-                      />
-                    }
-                    className={interactionDisabledClass}
-                    contentClassName="space-y-md"
-                  >
-                    {closeByTimer && (
-                      <SettingsRowSurface
-                        tone="faint"
-                        spacing="sm"
-                        className="space-y-md"
-                      >
-                        <div className="flex flex-col gap-sm @[500px]:flex-row @[500px]:items-start">
-                          <FieldVariableBinding
-                            path="closeByTimerValue"
-                            varType="int"
-                            tooltip="Bind timer value"
-                            disabled={takeProfitLocked}
-                            variant="inline"
-                            contentClassName="w-full @[500px]:max-w-[160px]"
-                            onVariableSelected={(variable) =>
-                              applyVariableToField(
-                                'closeByTimerValue',
-                                variable
-                              )
-                            }
-                            onVariableResolved={(variable) =>
-                              applyVariableToField(
-                                'closeByTimerValue',
-                                variable
-                              )
-                            }
-                          >
-                            <NumberInput
-                              ref={timerInputRef}
-                              value={closeByTimerValue || '1'}
-                              onChange={handleTimerValueChange}
-                              className="w-full"
-                              placeholder="1"
-                              min={1}
-                              step={1}
-                              showControls={false}
-                              disabled={isTimerValueBound}
-                            />
-                          </FieldVariableBinding>
-                          <Select
-                            value={closeByTimerUnits || 'minutes'}
-                            onValueChange={(value) =>
-                              updateFormData(
-                                'closeByTimerUnits',
-                                value as
-                                  | 'seconds'
-                                  | 'minutes'
-                                  | 'hours'
-                                  | 'days'
-                              )
-                            }
-                          >
-                            <SelectTrigger className="w-full @[500px]:w-36">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="seconds">Seconds</SelectItem>
-                              <SelectItem value="minutes">Minutes</SelectItem>
-                              <SelectItem value="hours">Hours</SelectItem>
-                              <SelectItem value="days">Days</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        {mergedErrors['closeByTimerValue'] && (
-                          <p className="text-xs text-destructive">
-                            {mergedErrors['closeByTimerValue']}
-                          </p>
-                        )}
-                      </SettingsRowSurface>
-                    )}
-                  </SettingsRow>
-                )}
+                {closeByTimerRow}
 
                 {closeConditionIsTp &&
                   showMultiTargetControls && (
