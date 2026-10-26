@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.117.3] - 2026-10-26
+### Changed
+- Trades page: closed trades have their own Closed trades tab next to Trades, replacing the Closed button in the table toolbar. Links to the old closed view open the tab.
+
 ## [2.117.2] - 2026-10-26
 ### Fixed
 - Trades page: DCA deals showed a Realized P&L of $0.00 (open and closed lists); they now show the deal's realized profit and funding.

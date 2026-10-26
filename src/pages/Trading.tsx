@@ -3,9 +3,8 @@ import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';
-import { Activity, ExternalLink, History, Loader2 } from 'lucide-react';
+import { Activity, ExternalLink, Loader2 } from 'lucide-react';
 import { useSearchParams } from 'react-router-dom';
-import { Button } from '../components/ui/button';
 import EmptyState from '../components/ui/empty-state';
 import React, {
   useCallback,
@@ -199,21 +198,23 @@ const Trading: React.FC = () => {
   const privacyModeRef = useRef(privacyMode);
   privacyModeRef.current = privacyMode;
 
-  // Open vs closed trades. `?status=closed` is the source of truth so the
-  // sidebar's "Closed trades" link and reloads land on the closed list.
+  // Open vs closed trades: the Closed trades tab (`?view=closed`, the same
+  // param the page's tabs sync to), so the sidebar link and reloads land on it.
   const [searchParams, setSearchParams] = useSearchParams();
-  const showClosedTrades = searchParams.get('status') === 'closed';
-  const toggleClosedTrades = useCallback(() => {
+  const showClosedTrades = searchParams.get('view') === 'closed';
+  // Links from before the tab (`?status=closed`) open the tab.
+  useEffect(() => {
+    if (searchParams.get('status') !== 'closed') return;
     setSearchParams(
       (prev) => {
         const next = new URLSearchParams(prev);
-        if (next.get('status') === 'closed') next.delete('status');
-        else next.set('status', 'closed');
+        next.delete('status');
+        next.set('view', 'closed');
         return next;
       },
       { replace: true }
     );
-  }, [setSearchParams]);
+  }, [searchParams, setSearchParams]);
 
   // State for selected trade drawer
   const [selectedTradeId, setSelectedTradeId] = useState<string | null>(null);
@@ -364,39 +365,6 @@ const Trading: React.FC = () => {
   const closedRawDeals = useMemo(
     () => [...closedTrades.dca, ...closedTrades.terminal],
     [closedTrades.dca, closedTrades.terminal]
-  );
-
-  const closedToggle = useMemo(
-    () => (
-      <Button
-        variant={showClosedTrades ? 'default' : 'ghost'}
-        size="sm"
-        onClick={toggleClosedTrades}
-        className="h-9 gap-2 px-3"
-        title={showClosedTrades ? 'Show Open Trades' : 'Show Closed Trades'}
-      >
-        <History className="h-4 w-4" />
-        <span>Closed</span>
-      </Button>
-    ),
-    [showClosedTrades, toggleClosedTrades]
-  );
-  const closedToggleCompact = useMemo(
-    () => (
-      <Button
-        variant={showClosedTrades ? 'default' : 'ghost'}
-        size="icon"
-        onClick={toggleClosedTrades}
-        className="h-9 w-9"
-        title={showClosedTrades ? 'Show Open Trades' : 'Show Closed Trades'}
-        aria-label={
-          showClosedTrades ? 'Show open trades' : 'Show closed trades'
-        }
-      >
-        <History className="h-4 w-4" />
-      </Button>
-    ),
-    [showClosedTrades, toggleClosedTrades]
   );
 
   // The rows the Trades list is built from: the open hooks, or the closed page.
@@ -2082,6 +2050,30 @@ const Trading: React.FC = () => {
     );
   }
 
+  // The Trades and Closed trades tabs show the same list, open or closed.
+  const tradesList = (
+    <OpenOrdersWidget
+      key={showClosedTrades ? 'closed' : 'open'}
+      widgetId={showClosedTrades ? CLOSED_TRADES_WIDGET_ID : 'trades-main'}
+      showClosedTrades={showClosedTrades}
+      {...(showClosedTrades && {
+        serverPaging: closedTrades.serverPaging,
+        rawDeals: closedRawDeals,
+        externalLoading: closedTrades.isLoading,
+      })}
+      emptyMessage={
+        showClosedTrades ? 'No closed trades found' : 'No open trades found'
+      }
+      enableCardView={true}
+      data={{ trades: transformedTrades }}
+      privacyMode={privacyMode}
+      onTradeClick={(trade) => {
+        logger.debug('[TradingPage-Trades] Trade clicked:', trade.id);
+        setSelectedTradeId(trade.id);
+      }}
+    />
+  );
+
   return (
     <MainLayout pageTitle="Trading" activePage="/trading">
       <WidgetContainer layout="flex" verticalGap>
@@ -2109,13 +2101,14 @@ const Trading: React.FC = () => {
               >
                 <div className="px-4 pt-4 md:px-6 md:pt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-md">
                   <TabsList
-                    className="w-auto! grid max-w-md grid-cols-2"
+                    className="w-auto! grid max-w-md grid-cols-3"
                     fullWidth={false}
                   >
                     <TabsTrigger value="bots">
                       Bots ({allBots.length})
                     </TabsTrigger>
                     <TabsTrigger value="trades">Trades</TabsTrigger>
+                    <TabsTrigger value="closed">Closed trades</TabsTrigger>
                   </TabsList>
                   {/* Unified KPI strip (aggregated across DCA + Combo + Grid) */}
                   <div className="min-w-0 flex-1 flex items-center justify-end">
@@ -2164,43 +2157,15 @@ const Trading: React.FC = () => {
                   </div>
                 </TabsContent>
 
-                {/* Trades Tab Content */}
+                {/* Trades / Closed trades: one list, open or closed */}
                 <TabsContent value="trades" className="flex-1 overflow-hidden">
                   <div className="space-y-md px-4 pb-4 md:px-6 md:pb-6 h-full flex flex-col">
-                    {/* Content - Using shared OpenOrdersWidget with enhanced chips */}
-                    <div className="flex-1 overflow-hidden">
-                      <OpenOrdersWidget
-                        key={showClosedTrades ? 'closed' : 'open'}
-                        widgetId={
-                          showClosedTrades
-                            ? CLOSED_TRADES_WIDGET_ID
-                            : 'trades-main'
-                        }
-                        showClosedTrades={showClosedTrades}
-                        {...(showClosedTrades && {
-                          serverPaging: closedTrades.serverPaging,
-                          rawDeals: closedRawDeals,
-                          externalLoading: closedTrades.isLoading,
-                        })}
-                        toolbarAction={closedToggle}
-                        toolbarActionCompact={closedToggleCompact}
-                        emptyMessage={
-                          showClosedTrades
-                            ? 'No closed trades found'
-                            : 'No open trades found'
-                        }
-                        enableCardView={true}
-                        data={{ trades: transformedTrades }}
-                        privacyMode={privacyMode}
-                        onTradeClick={(trade) => {
-                          logger.debug(
-                            '[TradingPage-Trades] Trade clicked:',
-                            trade.id
-                          );
-                          setSelectedTradeId(trade.id);
-                        }}
-                      />
-                    </div>
+                    <div className="flex-1 overflow-hidden">{tradesList}</div>
+                  </div>
+                </TabsContent>
+                <TabsContent value="closed" className="flex-1 overflow-hidden">
+                  <div className="space-y-md px-4 pb-4 md:px-6 md:pb-6 h-full flex flex-col">
+                    <div className="flex-1 overflow-hidden">{tradesList}</div>
                   </div>
                 </TabsContent>
               </Tabs>

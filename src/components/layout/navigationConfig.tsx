@@ -217,7 +217,7 @@ export const getNavigationSections = (
               id: 'trading-closed',
               icon: <History className="w-4 h-4" />,
               label: 'Closed trades',
-              href: '/trading?status=closed',
+              href: '/trading?view=closed',
             },
           ],
         },
