@@ -101,6 +101,8 @@ export interface BacktestViewModel {
   // headline KPIs
   netPerc: number; // financial.netProfitTotalPerc
   netUsd: number; // financial.netProfitTotalUsd
+  unrealizedPerc: number; // financial.unrealizedPnLPerc (of open deals' usage)
+  unrealizedUsd: number; // financial.unrealizedPnLUsd
   avgDailyPerc: number; // financial.avgNetDailyPerc
   avgDailyUsd: number; // financial.avgNetDailyUsd
   maxDdPerc: number; // financial.maxDrawDownEquityPerc ?? maxDrawDownPerc
@@ -337,7 +339,10 @@ function buildDealVM(
 ): DealVM {
   const long = isLong(settings);
   const status: 'open' | 'closed' = deal.status === 'open' ? 'open' : 'closed';
-  const pnlPerc = num(deal.profit?.perc);
+  // Open deals have no realized P&L; show what closing at the last price
+  // would book (the engine stamps it per open deal).
+  const pnl = status === 'open' && deal.unrealized ? deal.unrealized : deal.profit;
+  const pnlPerc = num(pnl?.perc);
   const out: DealVM['out'] =
     status === 'open' ? 'open' : pnlPerc >= 0 ? 'win' : 'loss';
 
@@ -362,7 +367,7 @@ function buildDealVM(
     status,
     out,
     pnlPerc,
-    pnlUsd: num(deal.profit?.totalUsd),
+    pnlUsd: num(pnl?.totalUsd),
     entry,
     avg,
     closePrice,
@@ -478,13 +483,13 @@ export function buildBacktestViewModel(
     buildDealVM(deal, i, settings),
   );
 
-  // Open deals carry no realized P&L from the engine — their `profit` stays
-  // zeroed until they close. When exactly one deal is still open (the common
-  // single-pair DCA case), surface the run's unrealized P&L on that row so the
-  // list shows a live number instead of 0.00%. With multiple open deals the
-  // engine only reports the aggregate unrealized figure, which can't be split
-  // per deal, so we leave those rows untouched.
-  const openDeals = dealList.filter((d) => d.status === 'open');
+  // Results from an engine older than 1.22.0 carry no per-deal unrealized
+  // P&L, only the run's aggregate. With exactly one open deal that aggregate
+  // is that deal's figure; with several it can't be split, so those rows
+  // stay at 0.
+  const openDeals = deals.some((d) => d.status === 'open' && d.unrealized)
+    ? []
+    : dealList.filter((d) => d.status === 'open');
   if (openDeals.length === 1) {
     const uPerc = financial?.unrealizedPnLPerc;
     const uUsd = financial?.unrealizedPnLUsd;
@@ -527,6 +532,8 @@ export function buildBacktestViewModel(
 
     netPerc: num(financial?.netProfitTotalPerc),
     netUsd: num(financial?.netProfitTotalUsd),
+    unrealizedPerc: num(financial?.unrealizedPnLPerc),
+    unrealizedUsd: num(financial?.unrealizedPnLUsd),
     avgDailyPerc: num(financial?.avgNetDailyPerc),
     avgDailyUsd: num(financial?.avgNetDailyUsd),
     maxDdPerc: num(

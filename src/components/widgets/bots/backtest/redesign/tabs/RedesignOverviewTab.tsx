@@ -19,6 +19,7 @@
 
 import type React from 'react';
 import { formatUsdAsReporting } from '@/utils/reportingCurrency';
+import { Tooltip } from '@/components/ui/tooltip';
 
 import {
   Donut,
@@ -152,6 +153,26 @@ export const RedesignOverviewTab: React.FC<RedesignOverviewTabProps> = ({
           sub={fmtUsd(vm.netUsd)}
           tone={vm.netPerc >= 0 ? 'up' : 'down'}
           big
+          extra={
+            vm.open > 0 ? (
+              <Tooltip tooltip="Open deals valued at the last price. The % is of the funds those deals use.">
+                <div className="mt-1 flex items-baseline gap-1.5 text-xs tabular-nums">
+                  <span className="text-muted-foreground">Unrealized</span>
+                  <span
+                    className={
+                      vm.unrealizedUsd > 0
+                        ? 'text-profit'
+                        : vm.unrealizedUsd < 0
+                          ? 'text-loss'
+                          : 'text-muted-foreground'
+                    }
+                  >
+                    {fmtPct(vm.unrealizedPerc)} · {fmtUsd(vm.unrealizedUsd)}
+                  </span>
+                </div>
+              </Tooltip>
+            ) : undefined
+          }
         />
         <Kpi
           label="Avg Daily Return"

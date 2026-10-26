@@ -34,6 +34,8 @@ export interface KpiProps {
   big?: boolean;
   /** Quiet, fixed-width tile on the muted surface (deal-duration tiles). */
   grey?: boolean;
+  /** Extra line under `sub` (e.g. Net Result's unrealized P&L). */
+  extra?: React.ReactNode;
 }
 
 /**
@@ -49,6 +51,7 @@ export const Kpi: React.FC<KpiProps> = ({
   tone = 'neutral',
   big = false,
   grey = false,
+  extra,
 }) => {
   const valueColor =
     tone === 'up'
@@ -81,6 +84,7 @@ export const Kpi: React.FC<KpiProps> = ({
           {sub}
         </div>
       )}
+      {extra}
     </div>
   );
 };

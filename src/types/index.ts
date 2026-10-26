@@ -734,6 +734,12 @@ export type PreparedDeal = {
     base: number;
     quote: number;
   };
+  /** Open deals only (backtester ≥ 1.22.0): P&L if closed at the last price. */
+  unrealized?: {
+    total: number;
+    totalUsd: number;
+    perc: number;
+  };
 };
 
 //TODO: install github:Gainium/backtester

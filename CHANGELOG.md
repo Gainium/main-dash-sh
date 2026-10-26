@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.119.5] - 2026-10-26
+### Changed
+- Backtest results: open deals in the deals list show their unrealized P&L at the last price instead of 0.00%, also when several deals are open.
+- Backtest results: the Net Result tile shows the unrealized P&L of open deals beneath the realized result.
+
 ## [2.119.4] - 2026-10-26
 ### Fixed
 - Bitget tokenized ETFs keep live chart updates when the pair is classified as an ETF rather than a stock.
