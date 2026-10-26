@@ -318,15 +318,29 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
           </div>
         );
 
-      case 'boolean':
+      case 'boolean': {
+        const derive = field.derive;
         return (
           <div key={field.key} className="space-y-xs">
             <div className="flex items-center space-x-xs">
               <Switch
                 id={field.key}
-                checked={Boolean(value)}
+                checked={
+                  derive ? derive.get(params) === 'true' : Boolean(value)
+                }
                 disabled={disabled}
-                onCheckedChange={(checked) => updateParam(field.key, checked)}
+                onCheckedChange={(checked) =>
+                  derive
+                    ? onChange(
+                        resetInvalidConditionalSelects(
+                          definition,
+                          params,
+                          { ...params, ...derive.set(String(checked), params) },
+                          field.key
+                        )
+                      )
+                    : updateParam(field.key, checked)
+                }
               />
               <Label htmlFor={field.key}>{label}</Label>
               {field.tooltip ? (
@@ -342,6 +356,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
             )}
           </div>
         );
+      }
 
       default:
         return null;
@@ -354,8 +369,40 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
 
   const isVisible = (field: IndicatorFieldDefinition) =>
     !shouldHideField(field, effectiveParams);
-  const visibleFields = definition.fields.filter(isVisible);
-  const fieldSpans = layoutFieldSpans(definition.fields, isVisible);
+  const ownFields = definition.fields.filter((field) => !field.section);
+  const modifierFields = definition.fields.filter(
+    (field) => field.section === 'modifiers'
+  );
+
+  // Column count keys off the card's own width (container query): two
+  // columns from the bot form's side-panel width (~18rem card), one when the
+  // card is narrower or on a phone-width viewport. Compact fields pair up;
+  // wide ones span the row (`layoutFieldSpans`).
+  const renderGrid = (fields: IndicatorFieldDefinition[]) => {
+    const visibleFields = fields.filter(isVisible);
+    if (visibleFields.length === 0) {
+      return null;
+    }
+    const fieldSpans = layoutFieldSpans(fields, isVisible);
+    return (
+      <div className="grid gap-md sm:@[18rem]:grid-cols-2">
+        {visibleFields.map((field, index) => (
+          <div
+            key={field.key}
+            className={
+              fieldSpans[index] === 'full'
+                ? 'min-w-0 sm:@[18rem]:col-span-2'
+                : 'min-w-0'
+            }
+          >
+            {renderField(field)}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const modifiersGrid = renderGrid(modifierFields);
 
   return (
     <div className={className}>
@@ -363,24 +410,13 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
         <div className="text-sm font-medium text-muted-foreground">
           {definition.label} Configuration
         </div>
-        {visibleFields.length > 0 ? (
-          // Column count keys off the card's own width (container query): two
-          // columns from the bot form's side-panel width (~18rem card), one
-          // when the card is narrower or on a phone-width viewport. Compact
-          // fields pair up; wide ones span the row (`layoutFieldSpans`).
-          <div className="grid gap-md sm:@[18rem]:grid-cols-2">
-            {visibleFields.map((field, index) => (
-              <div
-                key={field.key}
-                className={
-                  fieldSpans[index] === 'full'
-                    ? 'min-w-0 sm:@[18rem]:col-span-2'
-                    : 'min-w-0'
-                }
-              >
-                {renderField(field)}
-              </div>
-            ))}
+        {renderGrid(ownFields)}
+        {modifiersGrid ? (
+          <div className="space-y-md pt-xs">
+            <div className="text-sm font-medium text-muted-foreground">
+              Modifiers
+            </div>
+            {modifiersGrid}
           </div>
         ) : null}
       </div>

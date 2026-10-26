@@ -46,6 +46,10 @@ const getFallbackDefault = (field: IndicatorFieldDefinition) => {
   if (field.defaultValue !== undefined) {
     return field.defaultValue;
   }
+  // A derived control without a default of its own stores nothing.
+  if (field.derive) {
+    return undefined;
+  }
   if (field.type === 'boolean') {
     return false;
   }

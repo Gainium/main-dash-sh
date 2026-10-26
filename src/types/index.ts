@@ -1658,6 +1658,8 @@ export type SettingsIndicators = {
   smoothingLength?: number | null;
   /** What the condition tests while smoothing is on. Unset = 'value'. */
   smoothingCompare?: IndicatorSmoothingCompare | null;
+  /** Id of the derived Smoothing switch; never stored or sent. */
+  smoothingEnabled?: string;
   mar1length?: number;
   mar1type?: MAEnum;
   mar2length?: number;

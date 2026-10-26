@@ -41,6 +41,7 @@ import {
   deriveSmoothingGatingParams,
   resolveSmoothing,
   resolveSmoothingCompare,
+  resolveSmoothingType,
   supportsSmoothing,
 } from '@/utils/indicators/smoothing';
 import {
@@ -593,13 +594,27 @@ const INDICATOR_ACTIONS_EXCEPT_RISK_REWARD =
     (action) => action !== IndicatorAction.riskReward
   );
 
+// Card summary for percentile mode: "Percentile: 80 · 150 bars"; nothing
+// while it is off.
+const summarizePercentile = (params: SettingsIndicators): string | null =>
+  params.percentile
+    ? `${params.percentilePercentage ?? 80} · ${params.percentileLookback ?? 150} bars`
+    : null;
+
+// The two optional transforms of an indicator's line, drawn together under
+// "Modifiers" (`withModifiersSection`): Smoothing first, since the percentile
+// ranks the smoothed line when both are on, then Percentile. Each is a switch
+// that reveals its own settings.
 const percentileFields: IndicatorDefinition['fields'] = [
   makeBooleanField({
     key: 'percentile',
-    label: 'Use percentile',
+    label: 'Percentile',
     defaultValue: false,
-    tooltip: 'Enable percentile mode.',
+    section: 'modifiers',
+    tooltip:
+      'Compare the indicator with its own percentile over the lookback instead of a fixed value. With smoothing on, the smoothed line is ranked.',
     tooltipURL: '/help/indicator-percentiles',
+    summary: summarizePercentile,
   }),
   makeNumberField({
     key: 'percentileLookback',
@@ -607,43 +622,69 @@ const percentileFields: IndicatorDefinition['fields'] = [
     defaultValue: 150,
     step: 1,
     allowVariables: true,
+    section: 'modifiers',
     hiddenWhen: [{ field: 'percentile', equals: false }],
+    // Folded into the Percentile item.
+    summary: () => null,
   }),
   makeNumberField({
     key: 'percentilePercentage',
-    label: 'Percentile',
+    label: 'Threshold',
+    tooltip: 'The percentile rank the indicator is compared with, 0–100.',
     // the bot's value for a condition saved without one
     defaultValue: 80,
     step: 1,
     allowVariables: true,
+    section: 'modifiers',
     hiddenWhen: [{ field: 'percentile', equals: false }],
+    summary: () => null,
   }),
 ];
 
-// Optional smoothing of a single-line oscillator (`SMOOTHING_INDICATOR_TYPES`),
-// spread after Length / Interval so the grid reads Smoothing | Smoothing
-// length, then Compare on its own row. The line-mode rules for the entry's
-// own Condition / Value fields are added by `withSmoothingGates` below.
+// Optional smoothing of a single-line oscillator (`SMOOTHING_INDICATOR_TYPES`).
+// The switch stores nothing of its own: it reads and writes `smoothing`
+// ('none' = off), so the saved shape is the one the engine already reads. The
+// line-mode rules for the entry's own Condition / Value fields are added by
+// `withSmoothingGates` below.
 const smoothingFields: IndicatorDefinition['fields'] = [
-  makeSelectField({
-    key: 'smoothing',
+  makeBooleanField({
+    key: 'smoothingEnabled',
     label: 'Smoothing',
+    section: 'modifiers',
     tooltip:
       'Moving average applied to the indicator line. With smoothing on, the condition uses the smoothed line.',
-    defaultValue: 'none',
-    options: SMOOTHING_OPTIONS,
-    rowStart: true,
+    derive: {
+      get: (params) => String(resolveSmoothingType(params) !== null),
+      set: (value, params) =>
+        value === 'true'
+          ? {
+              smoothing: resolveSmoothingType(params) ?? 'ema',
+              smoothingLength:
+                params.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
+            }
+          : { smoothing: 'none' },
+    },
     summary: summarizeSmoothing,
+  }),
+  makeSelectField({
+    key: 'smoothing',
+    label: 'Average',
+    defaultValue: 'none',
+    options: SMOOTHING_OPTIONS.filter((option) => option.value !== 'none'),
+    section: 'modifiers',
+    hiddenWhen: [{ field: 'smoothing', equals: 'none' }],
+    // Folded into the Smoothing item ("EMA 14").
+    summary: () => null,
   }),
   makeNumberField({
     key: 'smoothingLength',
-    label: 'Smoothing length',
+    label: 'Length',
     defaultValue: DEFAULT_SMOOTHING_LENGTH,
     min: 1,
     max: MAX_SMOOTHING_LENGTH,
     step: 1,
+    section: 'modifiers',
     hiddenWhen: [{ field: 'smoothing', equals: 'none' }],
-    // Folded into the Smoothing item ("EMA 14").
     summary: () => null,
   }),
   makeSelectField({
@@ -654,6 +695,7 @@ const smoothingFields: IndicatorDefinition['fields'] = [
     defaultValue: 'value',
     options: SMOOTHING_COMPARE_OPTIONS,
     span: 'full',
+    section: 'modifiers',
     hiddenWhen: [
       { field: 'smoothing', equals: 'none' },
       { field: 'percentile', equals: true },
@@ -661,6 +703,36 @@ const smoothingFields: IndicatorDefinition['fields'] = [
     summary: summarizeSmoothingCompare,
   }),
 ];
+
+const MODIFIER_FIELD_ORDER: readonly string[] = [
+  ...smoothingFields,
+  ...percentileFields,
+].map((field) => field.key);
+
+// Modifier fields render after the indicator's own settings, whatever order
+// the definition spreads them in.
+const withModifiersSection = (
+  definition: IndicatorDefinition
+): IndicatorDefinition => {
+  const modifiers = definition.fields
+    .filter((field) => field.section === 'modifiers')
+    .sort(
+      (a, b) =>
+        MODIFIER_FIELD_ORDER.indexOf(a.key) -
+        MODIFIER_FIELD_ORDER.indexOf(b.key)
+    );
+  return modifiers.length
+    ? {
+        ...definition,
+        fields: [
+          ...definition.fields.filter(
+            (field) => field.section !== 'modifiers'
+          ),
+          ...modifiers,
+        ],
+      }
+    : definition;
+};
 
 const SMOOTHING_LINE_CONDITION = {
   field: 'smoothingCompare' as const,
@@ -749,6 +821,11 @@ const keepConditionBarsField: IndicatorFieldDefinition = makeNumberField({
   allowVariables: true,
   tooltip:
     'This condition will remain true for a number of extra bars. Default is 0, which means it will be true only on the bar that triggered the condition.',
+  // On the card only while it extends the condition.
+  summary: (params) =>
+    Number(params.keepConditionBars) > 0
+      ? `${params.keepConditionBars} bars`
+      : null,
 });
 
 /**
@@ -3319,7 +3396,9 @@ export const INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> =
   Object.fromEntries(
     Object.entries(BASE_INDICATOR_CATALOG).map(([type, definition]) => [
       type,
-      supportsSmoothing(type) ? withSmoothingGates(definition) : definition,
+      withModifiersSection(
+        supportsSmoothing(type) ? withSmoothingGates(definition) : definition
+      ),
     ])
   ) as Record<IndicatorEnum, IndicatorDefinition>;
 

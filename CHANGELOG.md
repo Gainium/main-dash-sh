@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.116.3] - 2026-10-26
+### Changed
+- Indicator settings: Smoothing and Percentile now sit together under a Modifiers heading, each as a switch that reveals its own settings (Average and Length; Lookback and Threshold). Both can be on at once; the percentile then ranks the smoothed line, as the bot does.
+- Indicator cards: Percentile and Keep true appear in the summary only while they are in use.
+- Indicator cards in the bot form use the inner-fill surface instead of the lighter overlay surface; grouped indicators sit on the card surface inside their group.
+
 ## [2.116.2] - 2026-10-25
 ### Fixed
 - Backtest Analysis, Price behaviour: the random-entry average is now taken from every bar of the window (a large random sample only on very long windows). The 5,000-bar sample it used before could be off by as much as the effects the chart measures, a few bars after entry.

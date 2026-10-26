@@ -24,8 +24,9 @@ interface IndicatorListProps {
   /** The AND/OR drawn between consecutive indicators. */
   connector?: { logic: string | undefined; onToggle?: () => void };
   /**
-   * Row surface. 'raised' lifts rows one step above their container;
-   * 'inset' sinks them below it, for rows inside an already-raised group.
+   * Row surface. 'raised' fills rows one step above their card;
+   * 'inset' puts them back on the card surface, for rows inside a group
+   * that is itself the fill.
    */
   surface?: 'raised' | 'inset';
 }
@@ -86,12 +87,12 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
               ) : null}
               <div
                 // No border: the surface step separates the row from its
-                // container (DESIGN_SYSTEM §2-3).
+                // container (DESIGN_SYSTEM §2-3). The inner fill, like a
+                // toggle group's track; inside a group (itself the fill) the
+                // rows take the card surface, like a toggle's selected item.
                 className={cn(
                   'min-w-0 rounded-lg transition-colors',
-                  surface === 'raised'
-                    ? 'bg-popover shadow-sm dark:shadow-none'
-                    : 'bg-muted'
+                  surface === 'raised' ? 'bg-muted' : 'bg-card'
                 )}
               >
                 {/* Mouse: anywhere on the row opens it. Keyboard and screen

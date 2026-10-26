@@ -72,13 +72,13 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   }, [_onRemoveGroup, indicators, onRemoveIndicator]);
 
   return (
-    // One of several groups: the group lifts a surface step (the bracket
-    // around "(A or B)") and its rows sink below it. A lone group renders
+    // One of several groups: the group is the card's inner fill (the bracket
+    // around "(A or B)") and its rows sit back on the card surface. A lone group renders
     // straight in its host's flow with raised rows. No borders (§3).
     <div
       className={cn(
         'min-w-0 space-y-sm',
-        framed && 'rounded-xl bg-popover p-sm shadow-sm dark:shadow-none'
+        framed && 'rounded-xl bg-muted p-sm'
       )}
     >
       {framed && !singleIndicator ? (
