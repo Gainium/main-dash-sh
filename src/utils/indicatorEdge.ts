@@ -218,6 +218,81 @@ export function edgeRowsFor(
     .map(({ s }) => s);
 }
 
+// ─── Side ─────────────────────────────────────────────────────────────────────
+
+export type EdgeSide = 'long' | 'short';
+
+const MIRRORED_VERDICT: Record<IndicatorEdgeVerdict, IndicatorEdgeVerdict> = {
+  edge: 'worse',
+  worse: 'edge',
+  fragile: 'fragile-worse',
+  'fragile-worse': 'fragile',
+  none: 'none',
+  few: 'few',
+};
+
+const negate = (v: number) => (v === 0 ? 0 : -v);
+
+/**
+ * A result seen from the other side. Flipping the side flips the sign of
+ * both the entries' move and the random baseline, so the edge and the luck
+ * band negate exactly ([lo, hi] → [−hi, −lo]) and better/worse swap.
+ */
+export function mirrorEdgeCell(cell: IndicatorEdgeCell): IndicatorEdgeCell {
+  return {
+    ...cell,
+    edge: negate(cell.edge),
+    chance: [negate(cell.chance[1]), negate(cell.chance[0])],
+    verdict: MIRRORED_VERDICT[cell.verdict],
+  };
+}
+
+/**
+ * A setting as it reads for a condition that trades `side`: unchanged when
+ * the side is unknown or is the tested one, else mirrored and marked with
+ * the side it was tested on.
+ */
+export function edgeSettingForSide(
+  setting: IndicatorEdgeSetting,
+  side: EdgeSide | null | undefined
+): IndicatorEdgeSetting {
+  if (!side || side === setting.side) return setting;
+  const view: IndicatorEdgeSetting = {
+    ...setting,
+    side,
+    testedSide: setting.side,
+    pooled: mirrorEdgeCell(setting.pooled),
+  };
+  if (setting.regimes) {
+    view.regimes = {
+      up: mirrorEdgeCell(setting.regimes.up),
+      down: mirrorEdgeCell(setting.regimes.down),
+    };
+  }
+  return view;
+}
+
+/** Every setting as it reads for `side` (see `edgeSettingForSide`). */
+export function edgeForSide(
+  edge: IndicatorEdge,
+  side: EdgeSide | null | undefined
+): IndicatorEdge {
+  if (!side) return edge;
+  return {
+    ...edge,
+    settings: edge.settings.map((s) => edgeSettingForSide(s, side)),
+  };
+}
+
+const sideWord = (side: EdgeSide) => (side === 'long' ? 'long' : 'short');
+
+/** The tooltip line for a mirrored view, or null. */
+export function edgeSideNote(setting: IndicatorEdgeSetting): string | null {
+  return setting.testedSide
+    ? `Tested on ${sideWord(setting.testedSide)} entries; shown for your ${sideWord(setting.side)} bot.`
+    : null;
+}
+
 /** `+0.12%`, `−0.12%`, `0.00%`. */
 export function formatEdgePct(v: number): string {
   const sign = v > 0 ? '+' : v < 0 ? '−' : '';

@@ -1706,6 +1706,7 @@ const IndicatorsSL: React.FC<
   const indicatorGroups = useBotFormSelector('indicatorGroups');
   const indicators = useBotFormSelector('indicators');
   const stopDealSlLogic = useBotFormSelector('stopDealSlLogic');
+  const strategy = useBotFormSelector('strategy');
   const { openSelector, selector } = useIndicatorSelector();
 
   const {
@@ -2025,6 +2026,7 @@ const IndicatorsSL: React.FC<
           totalIndicatorsAcrossBot={totalIndicatorsAcrossBot}
           indicatorAction={IndicatorAction.closeDeal}
           indicatorSection={IndicatorSection.sl}
+          botStrategy={strategy}
           formulaLabel="Stop loss when"
           exchange={currentExchange?.provider}
           topTrailingContent={

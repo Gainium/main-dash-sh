@@ -309,6 +309,7 @@ export const DealStartSettings: React.FC = () => {
   const formTerminal = useBotFormTopLevelSelector('terminal');
   const formPair = useBotFormTopLevelSelector('pair');
   const formPairMetadata = useBotFormTopLevelSelector('pairMetadata');
+  const strategy = useBotFormSelector('strategy');
   const timerTimes = React.useMemo(
     () =>
       Array.from(
@@ -1365,6 +1366,7 @@ export const DealStartSettings: React.FC = () => {
                   errorMessage={startIndicatorErrorMessage}
                   totalIndicatorsAcrossBot={totalIndicators}
                   indicatorAction={IndicatorAction.startDeal}
+                  botStrategy={strategy}
                   formulaLabel="Start a deal when"
                   exchange={currentExchange?.provider}
                   emptyStateMessage="No indicator groups configured yet. Add a group to start building your technical start conditions."

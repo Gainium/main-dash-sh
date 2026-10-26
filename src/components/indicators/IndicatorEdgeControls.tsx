@@ -26,7 +26,10 @@ import type { IndicatorDefinition } from '@/types/indicators/indicatorTypes';
 import {
   EDGE_VERDICT_BADGE as VERDICT_BADGE,
   EDGE_VERDICT_LABEL,
+  edgeSettingForSide,
+  edgeSideNote,
   formatEdgePct,
+  type EdgeSide,
 } from '@/utils/indicatorEdge';
 import {
   matchEdgeSetting,
@@ -36,7 +39,11 @@ import {
 const fullAnalysisUrl = (slug: string) =>
   `https://gainium.io/indicators/${encodeURIComponent(slug)}#edge`;
 
-function badgeTooltip(edge: IndicatorEdge, setting: IndicatorEdgeSetting) {
+function badgeTooltip(
+  edge: IndicatorEdge,
+  setting: IndicatorEdgeSetting,
+  sideKnown: boolean
+) {
   const { pooled, regimes } = setting;
   const lines = [
     `${setting.label} · ${setting.tf} · ${setting.side === 'long' ? 'Long' : 'Short'}`,
@@ -48,6 +55,13 @@ function badgeTooltip(edge: IndicatorEdge, setting: IndicatorEdgeSetting) {
       `Uptrend ${formatEdgePct(regimes.up.edge)} (${EDGE_VERDICT_LABEL[regimes.up.verdict]}) · Downtrend ${formatEdgePct(regimes.down.edge)} (${EDGE_VERDICT_LABEL[regimes.down.verdict]})`
     );
   }
+  const note = edgeSideNote(setting);
+  if (note) lines.push(note);
+  if (!sideKnown) {
+    lines.push(
+      `This condition's trading side is not known here, so it shows the tested ${setting.side} side.`
+    );
+  }
   lines.push('Past price behaviour on BTC, ETH and SOL, not financial advice.');
   return lines.join('\n');
 }
@@ -57,6 +71,8 @@ interface MatchBadgeProps {
   params: IndicatorParamsState;
   action: IndicatorAction;
   section?: IndicatorSection | undefined;
+  /** The side this condition trades in the bot; null when unknown. */
+  side?: EdgeSide | null;
 }
 
 /**
@@ -68,21 +84,22 @@ export const IndicatorEdgeMatchBadge: React.FC<MatchBadgeProps> = ({
   params,
   action,
   section,
+  side = null,
 }) => {
   const { edge, slug } = useIndicatorEdge(definition);
-  const setting = useMemo(
-    () =>
-      edge
-        ? matchEdgeSetting({
-            definition,
-            action,
-            section,
-            params,
-            settings: edge.settings,
-          })
-        : null,
-    [edge, definition, action, section, params]
-  );
+  const setting = useMemo(() => {
+    const tested = edge
+      ? matchEdgeSetting({
+          definition,
+          action,
+          section,
+          params,
+          settings: edge.settings,
+        })
+      : null;
+    // read from the side this condition trades, not the side it was tested on
+    return tested ? edgeSettingForSide(tested, side) : null;
+  }, [edge, definition, action, section, params, side]);
   if (!edge || !setting || !slug) return null;
   const verdict = setting.pooled.verdict;
   return (
@@ -92,7 +109,7 @@ export const IndicatorEdgeMatchBadge: React.FC<MatchBadgeProps> = ({
       data-setting={setting.id}
     >
       <Tooltip
-        tooltip={badgeTooltip(edge, setting)}
+        tooltip={badgeTooltip(edge, setting, side !== null)}
         tooltipURL={fullAnalysisUrl(slug)}
         tooltipURLLabel="Full analysis"
       >
@@ -115,6 +132,8 @@ interface TestedSettingsButtonProps {
   onApply: (request: EdgeApplyRequest) => void;
   /** The editor's interval; the picker opens on that timeframe when tested. */
   interval?: string | undefined;
+  /** The side this condition trades in the bot; null when unknown. */
+  side?: EdgeSide | null;
 }
 
 /**
@@ -125,6 +144,7 @@ export const TestedSettingsButton: React.FC<TestedSettingsButtonProps> = ({
   definition,
   onApply,
   interval,
+  side = null,
 }) => {
   const { edge, slug } = useIndicatorEdge(definition);
   const [open, setOpen] = useState(false);
@@ -156,6 +176,7 @@ export const TestedSettingsButton: React.FC<TestedSettingsButtonProps> = ({
             slug={slug}
             framed={false}
             initialTf={interval}
+            side={side}
             indicatorType={definition.type}
             onApplySetting={(request) => {
               onApply(request);

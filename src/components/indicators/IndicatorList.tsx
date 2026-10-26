@@ -9,6 +9,7 @@ import { getIndicatorDefinition } from '@/types/indicators/indicatorLogic';
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
+import type { EdgeSide } from '@/utils/indicatorEdge';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
 import { Pencil, Star, Trash2 } from 'lucide-react';
 import React from 'react';
@@ -39,6 +40,8 @@ interface IndicatorListProps {
     indicator: IndicatorConfig,
     request: EdgeApplyRequest
   ) => void;
+  /** The side these conditions trade in the bot, for the tested settings. */
+  edgeSide?: EdgeSide | null;
 }
 
 /**
@@ -58,6 +61,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   connector,
   surface = 'raised',
   onApplyEdgeSetting,
+  edgeSide = null,
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
@@ -148,6 +152,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       <TestedSettingsButton
                         definition={definition}
                         interval={indicator.indicatorInterval}
+                        side={edgeSide}
                         onApply={(request) =>
                           onApplyEdgeSetting(indicator, request)
                         }

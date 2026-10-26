@@ -12,6 +12,7 @@ import {
   IndicatorsLogicEnum,
   type ExchangeEnum,
   type IndicatorEnum,
+  type StrategyEnum,
 } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import {
@@ -19,7 +20,10 @@ import {
   getIndicatorDefinition,
 } from '@/types/indicators/indicatorLogic';
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
-import { buildEdgeAppliedParams } from '@/utils/indicators/edgeApply';
+import {
+  buildEdgeAppliedParams,
+  edgeSideForCondition,
+} from '@/utils/indicators/edgeApply';
 import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { extractFavoritePresetParams } from '@/utils/indicators/favoritePresets';
 import { Plus } from 'lucide-react';
@@ -51,6 +55,12 @@ export interface IndicatorGroupsManagerProps {
    * lower bound.
    */
   minIntervalMs?: number | undefined;
+  /**
+   * The bot's strategy (long/short). Tested settings are read from the side
+   * these conditions trade: the bot's side for entries, the opposite for
+   * exits. Omitted = side unknown.
+   */
+  botStrategy?: StrategyEnum | undefined;
   /**
    * One group holding one fixed indicator: hides the group logic, group and
    * indicator add/remove controls. Default false.
@@ -114,6 +124,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   indicatorSection,
   exchange,
   minIntervalMs,
+  botStrategy,
   singleIndicator = false,
   allowVariableBinding = true,
   maxGroups,
@@ -137,6 +148,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
   onChangeGroupJoins,
 }) => {
   const indicatorLimitReached = totalIndicatorsAcrossBot >= indicatorsLimit;
+  const edgeSide = edgeSideForCondition(indicatorAction, botStrategy);
 
   // Starring a card keeps its settings with the favorite; picking that
   // favorite in the selector later starts from them.
@@ -394,6 +406,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                   }
                   onToggleFavorite={handleToggleFavorite}
                   isFavorite={isFavorite}
+                  edgeSide={edgeSide}
                   onApplyEdgeSetting={(indicator, request) => {
                     const definition = getIndicatorDefinition(indicator.type);
                     onChangeIndicatorParams(
@@ -445,6 +458,7 @@ export const IndicatorGroupsManager: React.FC<IndicatorGroupsManagerProps> = ({
                               params={params}
                               action={indicatorAction}
                               section={indicatorSection}
+                              side={edgeSide}
                             />
                           }
                           onChange={(next) =>

@@ -4,7 +4,7 @@
  * opened from the indicator dialog of the same indicator.
  */
 import { ExternalLink } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -19,8 +19,11 @@ import type {
 import {
   EDGE_VERDICT_BADGE as VERDICT_BADGE,
   EDGE_VERDICT_LABEL,
+  edgeForSide,
   edgeRowsFor,
+  edgeSideNote,
   edgeTimeframes,
+  type EdgeSide,
   formatEdgeDay,
   formatEdgePct,
 } from '@/utils/indicatorEdge';
@@ -42,7 +45,11 @@ const VERDICT_TONE: Record<IndicatorEdgeVerdict, string> = {
 export const EDGE_DISCLAIMER =
   'Past price behaviour on BTC, ETH and SOL — not financial advice.';
 
-function methodTooltip(edge: IndicatorEdge): string {
+/** Said when the panel is in a bot context but the condition's side is not known. */
+const UNKNOWN_SIDE_NOTE =
+  "This condition's trading side is not known here, so each setting shows the side it was tested on.";
+
+function methodTooltip(edge: IndicatorEdge, sideUnknown: boolean): string {
   const m = edge.method;
   const parts = [
     `Each signal opens a hypothetical deal at the close of the signal candle. Edge is the average price move ${m.horizon} candles later minus the move after a random candle, in the deal's favour.`,
@@ -59,6 +66,7 @@ function methodTooltip(edge: IndicatorEdge): string {
     'Entry timing only: no take profit, DCA orders or stop loss.',
     `Data: ${m.source} ${m.pairs.join(', ')}, ${formatEdgeDay(m.from)} to ${formatEdgeDay(m.to)}. Updated ${formatEdgeDay(edge.updatedAt)}.`
   );
+  if (sideUnknown) parts.push(UNKNOWN_SIDE_NOTE);
   return parts.join(' ');
 }
 
@@ -130,7 +138,12 @@ const EdgeRow: React.FC<EdgeRowProps> = ({ setting, horizon, onApply }) => {
       </div>
       <div className="flex items-center gap-xs">
         <Tooltip
-          tooltip={`Edge after ${horizon} candles. Luck band ${formatEdgePct(pooled.chance[0])} to ${formatEdgePct(pooled.chance[1])}. ${pooled.entries.toLocaleString('en-US')} signals in ${pooled.episodes.toLocaleString('en-US')} moves.`}
+          tooltip={[
+            `Edge after ${horizon} candles. Luck band ${formatEdgePct(pooled.chance[0])} to ${formatEdgePct(pooled.chance[1])}. ${pooled.entries.toLocaleString('en-US')} signals in ${pooled.episodes.toLocaleString('en-US')} moves.`,
+            edgeSideNote(setting),
+          ]
+            .filter(Boolean)
+            .join(' ')}
         >
           <EdgeValue
             cell={pooled}
@@ -169,6 +182,13 @@ export interface IndicatorEdgePanelProps {
   framed?: boolean;
   /** Timeframe to open on when it has rows; else the data's default. */
   initialTf?: string | undefined;
+  /**
+   * The side the condition trades in the bot: every result is shown from
+   * that side (mirrored when it was tested on the other). `null` = a bot
+   * context where the side is unknown (shown as tested, and said so);
+   * omitted = no bot context (help article), shown as tested.
+   */
+  side?: EdgeSide | null;
 }
 
 export const IndicatorEdgePanel: React.FC<IndicatorEdgePanelProps> = ({
@@ -178,13 +198,15 @@ export const IndicatorEdgePanel: React.FC<IndicatorEdgePanelProps> = ({
   indicatorType,
   framed = true,
   initialTf,
+  side,
 }) => {
+  const view = useMemo(() => edgeForSide(edge, side), [edge, side]);
   const tfs = edgeTimeframes(edge);
   const [tf, setTf] = useState(
     initialTf && tfs.includes(initialTf) ? initialTf : edge.defaultTf
   );
   const active = tfs.includes(tf) ? tf : edge.defaultTf;
-  const rows = edgeRowsFor(edge, active);
+  const rows = edgeRowsFor(view, active);
 
   return (
     <section
@@ -197,7 +219,7 @@ export const IndicatorEdgePanel: React.FC<IndicatorEdgePanelProps> = ({
           <h3 className="text-sm font-semibold text-foreground">
             Price behaviour vs random entries
           </h3>
-          <Tooltip tooltip={methodTooltip(edge)}>
+          <Tooltip tooltip={methodTooltip(edge, side === null)}>
             <InfoIcon />
           </Tooltip>
         </div>

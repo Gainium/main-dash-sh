@@ -5,9 +5,10 @@
  */
 import {
   ExchangeIntervals,
+  IndicatorAction,
+  StrategyEnum,
   timeIntervalMap,
   type ExchangeEnum,
-  type IndicatorAction,
   type IndicatorEnum,
   type IndicatorSection,
 } from '@/types';
@@ -15,6 +16,7 @@ import type {
   IndicatorEdgeBotConfig,
   IndicatorEdgeSetting,
 } from '@/types/helpCenter';
+import type { EdgeSide } from '@/utils/indicatorEdge';
 import { INDICATOR_CATALOG } from '@/types/indicators/indicatorCatalog';
 import {
   filterIntervalOptionsByExchange,
@@ -241,4 +243,30 @@ export function matchEdgeSetting({
     if (same) return setting;
   }
   return null;
+}
+
+/**
+ * The side a condition trades in this bot, for reading its price behaviour.
+ * Entries (start deal, DCA add) trade the bot's side; exits (close deal, TP,
+ * SL) pay off when price then moves against the position, so they read from
+ * the opposite side. Unknown (null) without a strategy or for actions that
+ * are not entries or exits (bot controller, risk-reward).
+ */
+export function edgeSideForCondition(
+  action: IndicatorAction,
+  strategy: StrategyEnum | string | null | undefined
+): EdgeSide | null {
+  if (strategy !== StrategyEnum.long && strategy !== StrategyEnum.short) {
+    return null;
+  }
+  const botSide: EdgeSide = strategy === StrategyEnum.long ? 'long' : 'short';
+  switch (action) {
+    case IndicatorAction.startDeal:
+    case IndicatorAction.startDca:
+      return botSide;
+    case IndicatorAction.closeDeal:
+      return botSide === 'long' ? 'short' : 'long';
+    default:
+      return null;
+  }
 }

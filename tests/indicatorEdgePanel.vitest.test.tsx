@@ -30,6 +30,7 @@ import {
   IndicatorAction,
   IndicatorEnum,
   IndicatorStartConditionEnum,
+  StrategyEnum,
 } from '@/types';
 import type { IndicatorEdge } from '@/types/helpCenter';
 import {
@@ -39,11 +40,15 @@ import {
 import type { IndicatorParamsState } from '@/types/indicators/indicatorParams';
 import {
   edgeRowsFor,
+  edgeSettingForSide,
+  edgeSideNote,
   edgeTimeframes,
+  mirrorEdgeCell,
   sanitizeIndicatorEdge,
 } from '@/utils/indicatorEdge';
 import {
   buildEdgeAppliedParams,
+  edgeSideForCondition,
   isApplicableEdgeBot,
   matchEdgeSetting,
 } from '@/utils/indicators/edgeApply';
@@ -614,6 +619,69 @@ describe('matchEdgeSetting', () => {
   });
 });
 
+// ─── The side a condition trades ─────────────────────────────────────────────
+
+describe('reading a result from the side the condition trades', () => {
+  test('mirroring negates the edge and flips the luck band', () => {
+    const out = mirrorEdgeCell({
+      entries: 10,
+      episodes: 5,
+      edge: -0.36,
+      chance: [-0.2, 0.19],
+      verdict: 'worse',
+    });
+    expect(out.edge).toBe(0.36);
+    expect(out.chance).toEqual([-0.19, 0.2]);
+    expect(out.verdict).toBe('edge');
+    expect(out.entries).toBe(10);
+    expect(Object.is(mirrorEdgeCell({ ...out, edge: 0 }).edge, -0)).toBe(false);
+  });
+
+  test.each([
+    ['edge', 'worse'],
+    ['worse', 'edge'],
+    ['fragile', 'fragile-worse'],
+    ['fragile-worse', 'fragile'],
+    ['none', 'none'],
+    ['few', 'few'],
+  ] as const)('verdict %s reads as %s from the other side', (from, to) => {
+    expect(
+      mirrorEdgeCell({ entries: 1, episodes: 1, edge: 0.1, chance: [0, 0.2], verdict: from })
+        .verdict
+    ).toBe(to);
+  });
+
+  test('a mirrored setting shows the bot side, its trend cells mirrored, and says so', () => {
+    const tested = edge().settings.find((s) => s.tf === '1h' && s.id === 'rsi14-gt70');
+    if (!tested) throw new Error('fixture');
+    const view = edgeSettingForSide(tested, 'long');
+    expect(view.side).toBe('long');
+    expect(view.testedSide).toBe('short');
+    expect(view.pooled.verdict).toBe('edge');
+    expect(view.regimes?.down.verdict).toBe('edge');
+    expect(view.regimes?.down.edge).toBe(0.31);
+    expect(view.bot).toEqual(tested.bot);
+    expect(edgeSideNote(view)).toBe(
+      'Tested on short entries; shown for your long bot.'
+    );
+    expect(edgeSettingForSide(tested, 'short')).toBe(tested);
+    expect(edgeSettingForSide(tested, null)).toBe(tested);
+    expect(edgeSideNote(tested)).toBeNull();
+  });
+
+  test('entries trade the bot side, exits the opposite, others are unknown', () => {
+    const { startDeal, startDca, closeDeal, startBot, stopBot, riskReward } = IndicatorAction;
+    expect(edgeSideForCondition(startDeal, StrategyEnum.long)).toBe('long');
+    expect(edgeSideForCondition(startDca, StrategyEnum.short)).toBe('short');
+    expect(edgeSideForCondition(closeDeal, StrategyEnum.long)).toBe('short');
+    expect(edgeSideForCondition(closeDeal, StrategyEnum.short)).toBe('long');
+    for (const action of [startBot, stopBot, riskReward]) {
+      expect(edgeSideForCondition(action, StrategyEnum.long)).toBeNull();
+    }
+    expect(edgeSideForCondition(startDeal, undefined)).toBeNull();
+  });
+});
+
 // ─── In the bot form's indicator editors ─────────────────────────────────────
 
 describe('indicator editors', () => {
@@ -709,6 +777,47 @@ describe('indicator editors', () => {
 
     rerender(view({ ...above70, indicatorInterval: '15m' }));
     expect(screen.queryByTestId('edge-match')).toBeNull();
+  });
+
+  test.each([
+    ['a long bot entry', IndicatorAction.startDeal, StrategyEnum.long, 'Tested: Likely edge'],
+    ['a short bot entry', IndicatorAction.startDeal, StrategyEnum.short, 'Tested: Worse than random'],
+    ['a long bot exit', IndicatorAction.closeDeal, StrategyEnum.long, 'Tested: Worse than random'],
+    ['an unknown side', IndicatorAction.startDeal, undefined, 'Tested: Worse than random'],
+  ])('RSI(14) above 70 (tested short) reads for %s', async (_name, action, strategy, text) => {
+    render(
+      <IndicatorEdgeMatchBadge
+        definition={getIndicatorDefinition(IndicatorEnum.rsi)}
+        params={rsiParams({
+          indicatorLength: 14,
+          indicatorInterval: '1h',
+          indicatorCondition: 'gt',
+          indicatorValue: 70,
+        })}
+        action={action}
+        side={edgeSideForCondition(action, strategy)}
+      />
+    );
+    const badge = await screen.findByTestId('edge-match');
+    expect(within(badge).getByText(text)).toBeTruthy();
+  });
+
+  test('the tested settings read for the bot side: values, labels, chips and order', () => {
+    render(
+      <MemoryRouter>
+        <IndicatorEdgePanel edge={edge()} slug="rsi" side="long" initialTf="1h" />
+      </MemoryRouter>
+    );
+    // rsi14-gt70 was worse as a short: as a long it leads the list as an edge
+    expect(rowIds()).toEqual(['rsi14-gt70', 'rsi14-lt30']);
+    const first = screen.getAllByTestId('edge-row')[0];
+    expect(within(first).getByText('+0.40%')).toBeTruthy();
+    expect(within(first).getByText('Likely edge')).toBeTruthy();
+    expect(within(first).getByText(/· Long/)).toBeTruthy();
+    expect(within(first).getAllByTestId('edge-regime').map((c) => c.textContent)).toEqual([
+      'Uptrend−0.05%',
+      'Downtrend+0.31%',
+    ]);
   });
 
   test('one request per indicator page, however many editors read it', async () => {

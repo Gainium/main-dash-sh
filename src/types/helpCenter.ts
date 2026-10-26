@@ -150,6 +150,11 @@ export interface IndicatorEdgeSetting {
   regimes?: { up: IndicatorEdgeCell; down: IndicatorEdgeCell };
   /** `null` when no bot-form config reproduces the tested condition. */
   bot: IndicatorEdgeBotConfig | null;
+  /**
+   * Set only on a view mirrored to the other side (`edgeSettingForSide`):
+   * the side the data was measured on. `side` is then the bot's side.
+   */
+  testedSide?: 'long' | 'short';
 }
 
 export interface IndicatorEdgeMethod {

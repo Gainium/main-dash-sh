@@ -5,6 +5,7 @@ import { IndicatorActionsToolbar } from '@/features/bots/shared/components/Indic
 import type { IndicatorEnum } from '@/types';
 import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
+import type { EdgeSide } from '@/utils/indicatorEdge';
 import { Trash2 } from 'lucide-react';
 import React, { useCallback } from 'react';
 
@@ -42,6 +43,8 @@ export interface IndicatorGroupCardProps {
     indicator: IndicatorConfig,
     request: EdgeApplyRequest
   ) => void;
+  /** The side these conditions trade in the bot (see IndicatorList). */
+  edgeSide?: EdgeSide | null;
 }
 
 export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
@@ -64,6 +67,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   framed = false,
   title = 'Group',
   onApplyEdgeSetting,
+  edgeSide = null,
 }) => {
   const addIndicatorDisabled = !canAddIndicator || disableControls;
   const addIndicatorTooltip = addIndicatorDisabled
@@ -120,6 +124,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           : {})}
         {...(emptyState ? { emptyState } : {})}
         {...(onApplyEdgeSetting ? { onApplyEdgeSetting } : {})}
+        edgeSide={edgeSide}
         surface={framed ? 'inset' : 'raised'}
         connector={{
           logic: group.logic,
