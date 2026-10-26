@@ -71,12 +71,12 @@ const VERDICT: Record<
   EdgeVerdict,
   { label: string; variant: 'success' | 'error' | 'secondary' }
 > = {
-  edge: { label: 'Likely edge', variant: 'success' },
+  edge: { label: 'Beat random', variant: 'success' },
   worse: { label: 'Worse than random', variant: 'error' },
-  chance: { label: 'Within chance', variant: 'secondary' },
+  chance: { label: 'Same as random', variant: 'secondary' },
 };
 
-const FRAGILE = { label: 'Fragile edge', variant: 'warning' } as const;
+const FRAGILE = { label: 'Beat random, fragile', variant: 'warning' } as const;
 
 /** "Aug 19–21", "Aug 30–Sep 2" or "Aug 19" — an episode's span, UTC. */
 function spanDates(start: number, end: number) {
@@ -492,7 +492,7 @@ export function PriceBehaviorCard({
                   />
                   <Line
                     dataKey="above"
-                    name="Likely edge"
+                    name="Beat random"
                     isAnimationActive={false}
                     stroke={colors.profit}
                     strokeWidth={2.5}

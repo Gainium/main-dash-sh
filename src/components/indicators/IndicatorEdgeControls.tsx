@@ -3,7 +3,7 @@
  * tested setting the editor currently reproduces, and the tested settings
  * picker with Apply.
  */
-import { FlaskConical } from 'lucide-react';
+import { ChartLine } from 'lucide-react';
 import React, { useMemo, useState } from 'react';
 import {
   IndicatorEdgePanel,
@@ -114,7 +114,7 @@ export const IndicatorEdgeMatchBadge: React.FC<MatchBadgeProps> = ({
         tooltipURLLabel="Full analysis"
       >
         <Badge variant={VERDICT_BADGE[verdict]} className="cursor-help">
-          {`Tested: ${EDGE_VERDICT_LABEL[verdict]}`}
+          {EDGE_VERDICT_LABEL[verdict]}
         </Badge>
       </Tooltip>
       {setting.regimes ? (
@@ -156,10 +156,10 @@ export const TestedSettingsButton: React.FC<TestedSettingsButtonProps> = ({
         size="sm"
         variant="ghost"
         onClick={() => setOpen(true)}
-        aria-label="Tested settings"
+        aria-label="Price behaviour"
       >
-        <FlaskConical className="mr-1 h-3.5 w-3.5" />
-        Tested
+        <ChartLine className="mr-1 h-3.5 w-3.5" />
+        Price behaviour
       </Button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
@@ -168,7 +168,7 @@ export const TestedSettingsButton: React.FC<TestedSettingsButtonProps> = ({
         >
           <DialogHeader>
             <DialogTitle>
-              {definition.shortLabel || definition.label} tested settings
+              {definition.shortLabel || definition.label} price behaviour
             </DialogTitle>
           </DialogHeader>
           <IndicatorEdgePanel

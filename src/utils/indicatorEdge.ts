@@ -23,9 +23,9 @@ export const EDGE_VERDICT_ORDER: IndicatorEdgeVerdict[] = [
 ];
 
 export const EDGE_VERDICT_LABEL: Record<IndicatorEdgeVerdict, string> = {
-  edge: 'Likely edge',
-  fragile: 'Fragile edge',
-  none: 'No edge',
+  edge: 'Beat random',
+  fragile: 'Beat random, fragile',
+  none: 'Same as random',
   worse: 'Worse than random',
   'fragile-worse': 'Worse, fragile',
   few: 'Too few signals',

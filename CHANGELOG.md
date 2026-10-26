@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.119.2] - 2026-10-26
+### Changed
+- Price behaviour verdicts say what happened against random entries: "Beat random", "Beat random, fragile", "Same as random", "Worse than random", "Worse, fragile". This applies to the bot form, the indicator help panel and the backtest Analysis tab.
+- The indicator editor's button that lists tested settings is now "Price behaviour", and the chip under the fields shows the verdict on its own.
+
 ## [2.119.1] - 2026-10-26
 ### Fixed
 - Bot form tested settings: the verdict chip and the Tested list now read each result from the side the condition trades in your bot (your side for start conditions, the opposite for close and stop-loss conditions). A setting tested on the other side is shown mirrored, and its tooltip says so.

@@ -300,7 +300,7 @@ describe('IndicatorEdgePanel', () => {
     ]);
     const first = screen.getAllByTestId('edge-row')[0];
     expect(within(first).getByText('+0.60%')).toBeTruthy();
-    expect(within(first).getByText('Likely edge')).toBeTruthy();
+    expect(within(first).getByText('Beat random')).toBeTruthy();
     expect(within(first).getAllByTestId('edge-regime').map((c) => c.textContent)).toEqual([
       'Uptrend+0.05%',
       'Downtrend−0.31%',
@@ -763,7 +763,7 @@ describe('indicator editors', () => {
 
     const badge = await screen.findByTestId('edge-match');
     expect(badge.dataset['setting']).toBe('rsi14-gt70');
-    expect(within(badge).getByText('Tested: Worse than random')).toBeTruthy();
+    expect(within(badge).getByText('Worse than random')).toBeTruthy();
     expect(within(badge).getAllByTestId('edge-regime')).toHaveLength(2);
 
     rerender(view({ ...above70, indicatorValue: '71' }));
@@ -773,17 +773,17 @@ describe('indicator editors', () => {
       view({ ...above70, indicatorInterval: '4h', indicatorCondition: 'lt', indicatorValue: 30 })
     );
     expect(screen.getByTestId('edge-match').dataset['setting']).toBe('rsi14-lt30');
-    expect(screen.getByText('Tested: No edge')).toBeTruthy();
+    expect(screen.getByText('Same as random')).toBeTruthy();
 
     rerender(view({ ...above70, indicatorInterval: '15m' }));
     expect(screen.queryByTestId('edge-match')).toBeNull();
   });
 
   test.each([
-    ['a long bot entry', IndicatorAction.startDeal, StrategyEnum.long, 'Tested: Likely edge'],
-    ['a short bot entry', IndicatorAction.startDeal, StrategyEnum.short, 'Tested: Worse than random'],
-    ['a long bot exit', IndicatorAction.closeDeal, StrategyEnum.long, 'Tested: Worse than random'],
-    ['an unknown side', IndicatorAction.startDeal, undefined, 'Tested: Worse than random'],
+    ['a long bot entry', IndicatorAction.startDeal, StrategyEnum.long, 'Beat random'],
+    ['a short bot entry', IndicatorAction.startDeal, StrategyEnum.short, 'Worse than random'],
+    ['a long bot exit', IndicatorAction.closeDeal, StrategyEnum.long, 'Worse than random'],
+    ['an unknown side', IndicatorAction.startDeal, undefined, 'Worse than random'],
   ])('RSI(14) above 70 (tested short) reads for %s', async (_name, action, strategy, text) => {
     render(
       <IndicatorEdgeMatchBadge
@@ -812,7 +812,7 @@ describe('indicator editors', () => {
     expect(rowIds()).toEqual(['rsi14-gt70', 'rsi14-lt30']);
     const first = screen.getAllByTestId('edge-row')[0];
     expect(within(first).getByText('+0.40%')).toBeTruthy();
-    expect(within(first).getByText('Likely edge')).toBeTruthy();
+    expect(within(first).getByText('Beat random')).toBeTruthy();
     expect(within(first).getByText(/· Long/)).toBeTruthy();
     expect(within(first).getAllByTestId('edge-regime').map((c) => c.textContent)).toEqual([
       'Uptrend−0.05%',
@@ -868,7 +868,7 @@ describe('indicator editors', () => {
   test('Tested settings: Apply hands the setting back to that indicator and closes', async () => {
     const onApply = vi.fn();
     openRow(onApply);
-    fireEvent.click(await screen.findByRole('button', { name: 'Tested settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Price behaviour' }));
     const panel = await screen.findByTestId('indicator-edge-panel');
     // opens on the editor's interval (1h), not the data's default (4h)
     expect(within(panel).getByRole('tab', { name: '1h' }).getAttribute('aria-selected')).toBe(
@@ -896,7 +896,7 @@ describe('indicator editors', () => {
     openRow(vi.fn());
     await waitFor(() => expect(requested).toContain('/indicators/rsi'));
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByRole('button', { name: 'Tested settings' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Price behaviour' })).toBeNull();
     expect(screen.getByText('inline editor')).toBeTruthy();
   });
 
@@ -904,7 +904,7 @@ describe('indicator editors', () => {
     openRow();
     await waitFor(() => expect(screen.getByText('inline editor')).toBeTruthy());
     await new Promise((resolve) => setTimeout(resolve, 0));
-    expect(screen.queryByRole('button', { name: 'Tested settings' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Price behaviour' })).toBeNull();
   });
 
   test('the help article shows the panel without Apply', async () => {
@@ -943,7 +943,7 @@ describe('indicator editors', () => {
     expect((screen.getByLabelText('Length') as HTMLInputElement).value).toBe('21');
     expect(screen.queryByTestId('edge-match')).toBeNull();
 
-    fireEvent.click(await screen.findByRole('button', { name: 'Tested settings' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Price behaviour' }));
     const panel = await screen.findByTestId('indicator-edge-panel');
     const row = within(panel)
       .getAllByTestId('edge-row')
@@ -955,7 +955,7 @@ describe('indicator editors', () => {
     expect((screen.getByLabelText('Value') as HTMLInputElement).value).toBe('30');
     const badge = screen.getByTestId('edge-match');
     expect(badge.dataset['setting']).toBe('rsi14-up30');
-    expect(within(badge).getByText('Tested: Likely edge')).toBeTruthy();
+    expect(within(badge).getByText('Beat random')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: 'Save indicator' }));
     expect(onSubmit).toHaveBeenCalledWith(
