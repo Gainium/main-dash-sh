@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.117.2] - 2026-10-26
+### Fixed
+- Trades page: DCA deals showed a Realized P&L of $0.00 (open and closed lists); they now show the deal's realized profit and funding.
+
 ## [2.117.1] - 2026-10-26
 ### Added
 - Alert template editor: a Table button inserts a markdown table; the preview shows it aligned as Telegram will, and warns when a table may wrap on a phone or a message is over Telegram's length limit.

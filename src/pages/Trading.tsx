@@ -654,6 +654,21 @@ const Trading: React.FC = () => {
                 : undefined,
               maxUsd: deal.usage?.maxUsd,
             },
+            profit: {
+              total: deal.profit?.total || 0,
+              totalUsd: deal.profit?.totalUsd || 0,
+              pureBase: deal.profit?.pureBase || 0,
+              pureQuote: deal.profit?.pureQuote || 0,
+            },
+            ...(deal.funding && {
+              funding: {
+                total: deal.funding.total,
+                totalUsd: deal.funding.totalUsd,
+                ...(deal.funding.lastTime !== undefined && {
+                  lastTime: deal.funding.lastTime,
+                }),
+              },
+            }),
             unrealizedProfit,
             unrealizedPending,
             avgPrice,
