@@ -190,7 +190,10 @@ const isRealityPair = (symbolInfo: LibrarySymbolInfo): boolean => {
     (k) => k.toLowerCase() === venue
   );
   return (
-    !!key && pairsByProvider[key]?.[symbolInfo.name]?.assetCategory === 'stock'
+    !!key &&
+    ['stock', 'etf'].includes(
+      pairsByProvider[key]?.[symbolInfo.name]?.assetCategory ?? ''
+    )
   );
 };
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.119.4] - 2026-10-26
+### Fixed
+- Bitget tokenized ETFs keep live chart updates when the pair is classified as an ETF rather than a stock.
+
 ## [2.119.3] - 2026-10-26
 ### Security
 - Update the HTML sanitizer used for rich notification messages and the markdown library to their patched releases. Nothing changes in what you see.
