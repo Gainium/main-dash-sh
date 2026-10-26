@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.117.1] - 2026-10-26
+### Added
+- Alert template editor: a Table button inserts a markdown table; the preview shows it aligned as Telegram will, and warns when a table may wrap on a phone or a message is over Telegram's length limit.
+
 ## [2.117.0] - 2026-10-26
 ### Added
 - Trades page: a Closed button in the trades toolbar shows closed trades of every kind (DCA, terminal, combo deals and stopped grid bots) in one list, paged, sorted and searched on the server.

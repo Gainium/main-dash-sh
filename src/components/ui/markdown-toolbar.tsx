@@ -9,6 +9,7 @@ import {
   Link as LinkIcon,
   List,
   Strikethrough,
+  Table,
   TextQuote,
 } from 'lucide-react';
 
@@ -45,6 +46,11 @@ interface MarkdownToolbarProps {
   /** Telegram-style spoiler. Not every target supports one. */
   showSpoiler?: boolean;
   /**
+   * A markdown pipe table. Only for a target whose renderer lays one out
+   * (alert templates: an aligned block in Telegram, a table in email).
+   */
+  showTable?: boolean;
+  /**
    * Show the formatting buttons. Off for a field that takes variables but is
    * not markdown (a JSON body): only the Variables menu is shown.
    */
@@ -61,6 +67,7 @@ export const MarkdownToolbar = ({
   onChange,
   variables,
   showSpoiler = false,
+  showTable = false,
   formatting = true,
   disabled = false,
 }: MarkdownToolbarProps) => {
@@ -127,6 +134,26 @@ export const MarkdownToolbar = ({
     const before = value.slice(0, start);
     const after = value.slice(end);
     commit(before + text + after, start + caretOffset, start + caretOffset);
+  };
+
+  /**
+   * A starter table on its own lines, with `Field` selected to type over. Its
+   * row names the first offered variable, so it shows a value straight away.
+   */
+  const insertTable = () => {
+    const { start, end } = selection();
+    const before = value.slice(0, start);
+    const after = value.slice(end);
+    const v = variables?.[0]?.name;
+    const table = [
+      '| Field | Value |',
+      '| --- | --- |',
+      v ? `| ${v} | %${v}% |` : '| Name | Value |',
+    ].join('\n');
+    const lead = before && !before.endsWith('\n') ? '\n' : '';
+    const trail = after && !after.startsWith('\n') ? '\n' : '';
+    const caret = before.length + lead.length + 2;
+    commit(before + lead + table + trail + after, caret, caret + 5);
   };
 
   const makeLink = () => {
@@ -227,6 +254,18 @@ export const MarkdownToolbar = ({
           >
             <LinkIcon className="h-3.5 w-3.5" />
           </button>
+          {showTable ? (
+            <button
+              type="button"
+              className={BTN}
+              disabled={disabled}
+              aria-label="Table"
+              title="Table"
+              onClick={insertTable}
+            >
+              <Table className="h-3.5 w-3.5" />
+            </button>
+          ) : null}
           {showSpoiler ? (
             <button
               type="button"
