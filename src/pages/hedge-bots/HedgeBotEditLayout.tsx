@@ -49,6 +49,7 @@ import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { HedgeBacktestListView } from '@/components/widgets/bots/backtest/HedgeBacktestTab';
 import { HEDGE_BACKTEST_LOAD_KEY } from '@/pages/hedge-bots/HedgeBotBacktests';
+import { pickLegFormData } from '@/pages/hedge-bots/pickLegFormData';
 import { BacktestResultsFullModal } from '@/components/widgets/bots/backtest/redesign/BacktestResultsFullModal';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import {
@@ -1332,21 +1333,21 @@ export const HedgeBotEditLayout: React.FC = () => {
     return longActive + shortActive;
   }, [hedgeBot?.bots]);
 
-  // Lazy snapshot builder for the backtest runner. Reads whichever leg
-  // refs hold the latest formData — Quick mode writes to `*QuickRef`,
-  // Manual mode writes to `*FormDataRef`, and the inactive Manual leg
-  // falls back to its `*SeedRef`. Called at click/run time so the
+  // Lazy snapshot builder for the backtest runner. Reads the leg refs of
+  // the current mode (see pickLegFormData). Called at click/run time so the
   // result picks up the user's most recent edits without needing the
   // parent to re-render on every keystroke (refs don't trigger one).
   const getBacktestSnapshot = useCallback((): HedgeBacktestSnapshot | null => {
-    const longData =
-      longQuickRef.current ??
-      longFormDataRef.current ??
-      (longSeedRef.current as BotFormData | null);
-    const shortData =
-      shortQuickRef.current ??
-      shortFormDataRef.current ??
-      (shortSeedRef.current as BotFormData | null);
+    const longData = pickLegFormData(hedgeMode, {
+      quick: longQuickRef.current,
+      manual: longFormDataRef.current,
+      seed: longSeedRef.current,
+    });
+    const shortData = pickLegFormData(hedgeMode, {
+      quick: shortQuickRef.current,
+      manual: shortFormDataRef.current,
+      seed: shortSeedRef.current,
+    });
     if (!longData || !shortData) return null;
     const longExchange = exchanges.find(
       (e) => e.uuid === longData.exchangeUUID
@@ -1397,6 +1398,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       shortVars: resolveLegVars(shortVarsRef.current, shortLegBot),
     };
   }, [
+    hedgeMode,
     exchanges,
     sharedSettings,
     botType,
@@ -2258,6 +2260,10 @@ export const HedgeBotEditLayout: React.FC = () => {
               // pre-configured in Manual.
               if (hedgeMode === 'quick' && next === 'manual') {
                 writeSeeds(null);
+                // Folded into the seeds above; the Quick legs unmount now
+                // and would leave these refs holding stale values.
+                longQuickRef.current = null;
+                shortQuickRef.current = null;
               }
               setHedgeMode(next);
             }}
