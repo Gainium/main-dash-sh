@@ -77,6 +77,7 @@ const buildLegHistory = (
     exchange: string;
     exchangeUUID?: string;
     settings?: unknown;
+    time?: number;
   }
 ): DCABacktestingResultHistory =>
   ({
@@ -87,7 +88,7 @@ const buildLegHistory = (
     quoteAsset: meta.quoteAsset,
     exchange: meta.exchange,
     exchangeUUID: meta.exchangeUUID ?? '',
-    time: 0,
+    time: meta.time ?? 0,
     userId: 'local',
     savePermanent: false,
     serverSide: false,
@@ -201,10 +202,11 @@ export const HedgeBacktestActiveView: React.FC<
               exchange: meta?.long.exchange ?? '',
               exchangeUUID: meta?.long.exchangeUUID,
               settings: (meta?.long as { settings?: unknown })?.settings,
+              time: meta?.time,
             }
           )
         : null,
-    [longSource, meta?.long]
+    [longSource, meta?.long, meta?.time]
   );
   const shortHistory = useMemo(
     () =>
@@ -218,10 +220,11 @@ export const HedgeBacktestActiveView: React.FC<
               exchange: meta?.short.exchange ?? '',
               exchangeUUID: meta?.short.exchangeUUID,
               settings: (meta?.short as { settings?: unknown })?.settings,
+              time: meta?.time,
             }
           )
         : null,
-    [shortSource, meta?.short]
+    [shortSource, meta?.short, meta?.time]
   );
   const combinedHistory = useMemo(
     () =>
@@ -240,10 +243,11 @@ export const HedgeBacktestActiveView: React.FC<
               exchange: meta?.long.exchange ?? '',
               exchangeUUID: meta?.long.exchangeUUID,
               settings: (meta?.long as { settings?: unknown })?.settings,
+              time: meta?.time,
             }
           )
         : null,
-    [hedgeSource, meta?.long, meta?.short]
+    [hedgeSource, meta?.long, meta?.short, meta?.time]
   );
 
   // Per-leg Deals only available locally.

@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.120.2] - 2026-10-28
+### Fixed
+- Hedge backtest results: the Stats tab of the Combined, Long and Short views shows when the backtest ran instead of 1 Jan 1970.
+
 ## [2.120.1] - 2026-10-28
 ### Fixed
 - Pair picker: pairs the bot can't trade with its current settings (order below the exchange minimum, leverage above the pair's maximum, not enough free balance) are always listed, greyed out, with the reason written on the row. The "Fits this bot" switch, which hid them and could leave the list empty, is removed.
