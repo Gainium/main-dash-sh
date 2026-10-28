@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.120.1] - 2026-10-28
+### Fixed
+- Pair picker: pairs the bot can't trade with its current settings (order below the exchange minimum, leverage above the pair's maximum, not enough free balance) are always listed, greyed out, with the reason written on the row. The "Fits this bot" switch, which hid them and could leave the list empty, is removed.
+
 ## [2.120.0] - 2026-10-26
 ### Added
 - Combo bots: Close by timer in the take profit section's More Settings, as on DCA bots.

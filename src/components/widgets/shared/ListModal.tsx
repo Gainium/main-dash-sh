@@ -642,6 +642,12 @@ export const ListModalRow = React.memo<ListModalRowProps>(
                           .join(' · ')}
                       </div>
                     )}
+                    {/* Why it can't be picked, as text: touch has no hover. */}
+                    {isDisabled && (
+                      <div className="text-warning text-xs leading-tight whitespace-normal">
+                        {item.disabledReason}
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>

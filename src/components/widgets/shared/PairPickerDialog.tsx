@@ -272,6 +272,12 @@ const PairCell: React.FC<{ row: PairPickerRow }> = ({ row }) => {
             ? `${row.baseDisplayName} · ${row.quoteAsset}`
             : row.quoteAsset}
         </div>
+        {/* Why it can't be picked, as text: touch has no hover (spec 138). */}
+        {reason && (
+          <div className="text-xs text-warning leading-tight whitespace-normal">
+            {reason}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -646,7 +652,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   loadingMessage = 'Fetching trading pairs from your exchange…',
   zIndex,
 }) => {
-  const [fitsOnly, setFitsOnly] = useState(true);
   const [canonicalOnly, setCanonicalOnly] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>(() =>
@@ -789,10 +794,12 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
     () =>
       rows.filter(
         (r) =>
-          !(fitsOnly && r.fitReason) &&
+          // Pairs the bot can't take stay listed, disabled with their reason
+          // (spec 138): hiding them made a listed pair look like it wasn't
+          // offered — and an empty balance hid every pair at once.
           !(hasNonCanonical && canonicalOnly && r.isCanonical === false)
       ),
-    [rows, fitsOnly, canonicalOnly, hasNonCanonical]
+    [rows, canonicalOnly, hasNonCanonical]
   );
 
   const columns = useMemo(() => buildColumns(present), [present]);
@@ -943,8 +950,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
   if (!isOpen) return null;
 
   const isCards = viewMode !== 'table';
-  const fitsTooltip =
-    "Hides pairs this bot can't trade with its current settings: an order below the exchange minimum, leverage above the pair's maximum, or not enough free balance in the pair's quote asset for the base order.";
   const canonicalTooltip =
     'Non-canonical pairs are permissionless listings — they can impersonate real tickers or carry liquidity/rug risk. Turn off to show them.';
   const sortValue = headerSorting
@@ -955,7 +960,7 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
 
   // The toolbar's controls, full-size or compact (short labels, full names
   // in tooltips). DataTable keeps the compact set on narrow screens instead
-  // of hiding the controls altogether (phones lost select-all and Fits).
+  // of hiding the controls altogether (phones lost select-all).
   // Switches keep a visible short label (touch has no hover, so a bare
   // toggle never says what it does), dropped only where the row can't fit it.
   const renderToolbar = (compact: boolean) => {
@@ -985,16 +990,6 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
       <div
         className={`flex flex-nowrap items-center ${compact ? 'gap-1' : 'gap-sm'}`}
       >
-        {labelled(
-          'Fits this bot',
-          fitsTooltip,
-          <Switch
-            checked={fitsOnly}
-            onCheckedChange={setFitsOnly}
-            aria-label="Fits this bot"
-          />,
-          'Fits'
-        )}
         {hasNonCanonical &&
           labelled(
             'Canonical only',

@@ -4,8 +4,9 @@
  *
  * Spec 115 (parent repo) §4–§6 — the add-pairs dialog as a data table: the
  * bot's anchor arrives as a column filter, pairs the bot can't trade are
- * hidden by "Fits this bot" (and disabled when it's off), and "Select all
- * matching" adds exactly the shown, pickable, not-yet-selected pairs.
+ * always listed, disabled, with the reason on the row (spec 138, which
+ * removed the "Fits this bot" switch), and "Select all matching" adds exactly
+ * the shown, pickable, not-yet-selected pairs.
  */
 import React from 'react';
 import { describe, expect, test, afterEach, beforeAll, beforeEach, vi } from 'vitest';
@@ -106,22 +107,65 @@ const renderDialog = (overrides: Partial<React.ComponentProps<typeof PairPickerD
 };
 
 describe('spec 115 pair picker dialog', () => {
-  test('§5.1 the anchor filters to its quote; §4.3 pairs that do not fit are hidden', async () => {
+  test('§5.1 the anchor filters to its quote; spec 138 §4.1 pairs that do not fit are still listed', async () => {
     renderDialog();
     await settle();
-    expect(shownBases()).toEqual(['BTC', 'ETH']);
+    expect(shownBases()).toEqual(['BTC', 'ETH', 'XAUT']);
   });
 
-  test('§4.2 with "Fits this bot" off, an unfit pair shows but cannot be toggled', async () => {
+  test('spec 138 §4.1 there is no "Fits this bot" switch', async () => {
+    renderDialog();
+    await settle();
+    expect(screen.queryByRole('switch', { name: 'Fits this bot' })).toBeNull();
+    expect(screen.queryByText('Fits this bot')).toBeNull();
+  });
+
+  test('spec 138 §4.2 an unfit pair cannot be toggled; a fitting one can', async () => {
     const { onItemToggle } = renderDialog();
     await settle();
-    fireEvent.click(screen.getByRole('switch', { name: 'Fits this bot' }));
-    await settle();
-    expect(shownBases()).toEqual(['BTC', 'ETH', 'XAUT']);
     fireEvent.click(screen.getByText('XAUT'));
     expect(onItemToggle).not.toHaveBeenCalled();
     fireEvent.click(screen.getByText('ETH'));
     expect(onItemToggle).toHaveBeenCalledWith('ETH-USDT');
+  });
+
+  test('spec 138 §4.2 card view: the reason is text on the card', async () => {
+    renderDialog();
+    await settle();
+    expect(
+      screen.getByText('Exchange minimum 50 USDT is above your 10 USDT order')
+    ).toBeTruthy();
+  });
+
+  test('spec 138 §4.2 table view: the reason is text in the pair cell', async () => {
+    useTablePreferencesStore
+      .getState()
+      .setViewMode('bot-form-pair-picker', 'table');
+    renderDialog();
+    await settle();
+    const reason = screen.getByText(
+      'Exchange minimum 50 USDT is above your 10 USDT order'
+    );
+    expect(reason.closest('td')).not.toBeNull();
+  });
+
+  test('spec 138 §1.2 every pair unfit (empty balance): all listed, none pickable', async () => {
+    const broke = 'Not enough USDT: 0 free, the base order needs 10';
+    const { onAddMany, onItemToggle } = renderDialog({
+      rows: [
+        row('BTC', 'USDT', { fitReason: broke }),
+        row('ETH', 'USDT', { fitReason: broke }),
+      ],
+      selectedItems: [],
+    });
+    await settle();
+    expect(shownBases()).toEqual(['BTC', 'ETH']);
+    expect(screen.queryByText(/No pairs match/)).toBeNull();
+    expect(screen.getAllByText(broke).length).toBe(2);
+    fireEvent.click(screen.getByText('BTC'));
+    expect(onItemToggle).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Select all on this page' }));
+    expect(onAddMany).not.toHaveBeenCalled();
   });
 
   test('§6.2 select all matching adds only shown, pickable, unselected pairs', async () => {
@@ -241,7 +285,7 @@ describe('spec 115 §2.2 each opening starts fresh', () => {
       .setGlobalFilter('bot-form-pair-picker', 'ETH');
     renderDialog();
     await settle();
-    expect(shownBases()).toEqual(['BTC', 'ETH']);
+    expect(shownBases()).toEqual(['BTC', 'ETH', 'XAUT']);
   });
 });
 
