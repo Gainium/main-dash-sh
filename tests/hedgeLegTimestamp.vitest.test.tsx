@@ -91,10 +91,9 @@ describe("Hedge backtest Stats tab timestamp", () => {
     const expected = new Date(RAN_AT).toLocaleString();
     for (const view of ["combined", "long", "short"]) {
       const stats = within(screen.getByTestId(`tab-${view}`))
-        .getAllByTestId("tab-stats")
-        .at(0)!;
+        .getAllByTestId("tab-stats")[0] as HTMLElement;
       const label = within(stats).getByText("Timestamp");
-      const row = label.parentElement!;
+      const row = label.parentElement as HTMLElement;
       expect(row.textContent, view).toContain(expected);
       expect(row.textContent, view).not.toContain("1970");
     }
