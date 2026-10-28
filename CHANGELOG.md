@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.120.3] - 2026-10-28
+### Fixed
+- Grid bot form: pairs whose concatenated symbol reads two ways (BATUSD, QNTUSD) name their assets from the pair itself, so the investment field asks for USD instead of TUSD.
+
 ## [2.120.2] - 2026-10-28
 ### Fixed
 - Hedge backtest results: the Stats tab of the Combined, Long and Short views shows when the backtest ran instead of 1 Jan 1970.
