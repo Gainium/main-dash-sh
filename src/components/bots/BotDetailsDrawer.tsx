@@ -1,12 +1,7 @@
 import {
   BotOrderSideEnum,
-  BotStartTypeEnum,
   BotTypesEnum,
-  CloseConditionEnum,
-  DCAConditionEnum,
   DCAOrderTypeEnum,
-  ScaleDcaTypeEnum,
-  StartConditionEnum,
   DCADealStatusEnum,
   StrategyEnum,
   type AvgPrice,
@@ -21,6 +16,7 @@ import {
 import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
 import { useDealsWithLivePnl } from '@/hooks/useLiveDealPnl';
 import { indicatorStore } from '@/stores/indicatorStore';
+import { chartIndicatorsContextFromSettings } from '@/utils/indicators/chartIndicatorUtils';
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -1444,54 +1440,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       if (bot?.type === BotTypesEnum.grid) {
         return;
       }
-      const b = bot as DCABot;
-      const scaleAr =
-        (b.settings.dcaCondition === DCAConditionEnum.percentage ||
-          !b.settings.dcaCondition) &&
-        [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
-          b.settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage
-        ) &&
-        b.settings.useDca;
-      const tpAr =
-        b.settings.dealCloseCondition === CloseConditionEnum.dynamicAr &&
-        b.settings.useTp;
-      const slAr =
-        b.settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
-        b.settings.useSl;
-      indicatorStore.setChartIndicatorsContext({
-        scaleAr,
-        tpAr,
-        slAr,
-        strategy: b?.settings.strategy,
-        indicatorGroupsToUse: b?.settings.indicatorGroups
-          .filter(
-            (ig) =>
-              b.settings.indicators.filter((i) => i.groupId === ig.id).length >
-              0
-          )
-          .map((ig) => ig.id),
-        useCloseIndicators:
-          (b.settings.dealCloseCondition === CloseConditionEnum.techInd &&
-            (!b.settings.useRiskReward ||
-              (b.settings.useRiskReward && !b.settings.riskUseTpRatio))) ||
-          (b.settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
-            !b.settings.useRiskReward) ||
-          tpAr ||
-          slAr,
-        useStartDealIndicators:
-          b.settings.startCondition === StartConditionEnum.ti,
-        useStartDCAIndicators:
-          (b.settings.dcaCondition === DCAConditionEnum.indicators &&
-            b.settings.useDca) ||
-          scaleAr,
-        useStopBotIndicators:
-          b.settings.botStart === BotStartTypeEnum.indicators &&
-          b.settings.useBotController,
-        useStartBotIndicators:
-          b.settings.botActualStart === BotStartTypeEnum.indicators &&
-          b.settings.useBotController,
-        useRiskRewardIndicators: b.settings.useRiskReward,
-      });
+      indicatorStore.setChartIndicatorsContext(
+        chartIndicatorsContextFromSettings((bot as DCABot).settings)
+      );
     }, [bot]);
 
     const leftPanel = useMemo(

@@ -1,6 +1,9 @@
 import type { IndicatorConfig } from '@/types/indicators/indicators';
 import {
   BBCrossingEnum,
+  BotStartTypeEnum,
+  CloseConditionEnum,
+  DCAConditionEnum,
   ECDTriggerEnum,
   IndicatorAction,
   IndicatorEnum,
@@ -13,8 +16,10 @@ import {
   ppValueEnum,
   RangeType,
   rsiValue2Enum,
+  ScaleDcaTypeEnum,
   SessionRuleEnum,
   SRCrossingEnum,
+  StartConditionEnum,
   STConditionEnum,
   StochRangeEnum,
   StrategyEnum,
@@ -22,6 +27,7 @@ import {
   tvIntervalMap,
   type ChartIndicatorConfig,
   type ChartIndicatorsConfig,
+  type DCABotSettings,
 } from '@/types';
 import { resolveSmoothingCompare } from '@/utils/indicators/smoothing';
 
@@ -316,6 +322,59 @@ export type ChartIndicatorsContext = {
   useStartBotIndicators: boolean;
   useRiskRewardIndicators: boolean;
 };
+
+/**
+ * The chart context for a saved bot's settings (a bot, or the settings a
+ * backtest ran with): which indicator groups and actions the bot acts on.
+ * `chartInterval` is the chart's own and is left to the caller.
+ */
+export function chartIndicatorsContextFromSettings(
+  settings: DCABotSettings
+): Omit<ChartIndicatorsContext, 'chartInterval'> {
+  const scaleAr =
+    (settings.dcaCondition === DCAConditionEnum.percentage ||
+      !settings.dcaCondition) &&
+    [ScaleDcaTypeEnum.adr, ScaleDcaTypeEnum.atr].includes(
+      settings.scaleDcaType ?? ScaleDcaTypeEnum.percentage
+    ) &&
+    !!settings.useDca;
+  const tpAr =
+    settings.dealCloseCondition === CloseConditionEnum.dynamicAr &&
+    !!settings.useTp;
+  const slAr =
+    settings.dealCloseConditionSL === CloseConditionEnum.dynamicAr &&
+    !!settings.useSl;
+  const indicators = settings.indicators ?? [];
+  return {
+    scaleAr,
+    tpAr,
+    slAr,
+    strategy: settings.strategy,
+    indicatorGroupsToUse: (settings.indicatorGroups ?? [])
+      .filter((ig) => indicators.some((i) => i.groupId === ig.id))
+      .map((ig) => ig.id),
+    useCloseIndicators:
+      (settings.dealCloseCondition === CloseConditionEnum.techInd &&
+        (!settings.useRiskReward ||
+          (settings.useRiskReward && !settings.riskUseTpRatio))) ||
+      (settings.dealCloseConditionSL === CloseConditionEnum.techInd &&
+        !settings.useRiskReward) ||
+      tpAr ||
+      slAr,
+    useStartDealIndicators: settings.startCondition === StartConditionEnum.ti,
+    useStartDCAIndicators:
+      (settings.dcaCondition === DCAConditionEnum.indicators &&
+        !!settings.useDca) ||
+      scaleAr,
+    useStopBotIndicators:
+      settings.botStart === BotStartTypeEnum.indicators &&
+      !!settings.useBotController,
+    useStartBotIndicators:
+      settings.botActualStart === BotStartTypeEnum.indicators &&
+      !!settings.useBotController,
+    useRiskRewardIndicators: !!settings.useRiskReward,
+  };
+}
 
 /**
  * The open edge of a one-sided threshold band.

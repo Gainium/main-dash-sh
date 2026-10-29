@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.121.1] - 2026-10-29
+### Fixed
+- Backtest results, Deals tab: the chart draws the indicators the bot's conditions use, picked the same way as on the bot chart. When the backtest ran on a different candle timeframe than its indicators, the chart opens on the indicators' timeframe.
+
 ## [2.121.0] - 2026-10-29
 ### Added
 - Moving Averages and MA Ratio: McGinley Dynamic as a moving average type, in the bot form and on the chart. The chart line follows the same calculation the bot and the backtest use.

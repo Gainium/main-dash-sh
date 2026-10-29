@@ -66,6 +66,12 @@ import type {
 } from '@/lib/extensions/backtestSources';
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
+import {
+  chartIndicatorsContextFromSettings,
+  convertIndicatorConfigsToChart,
+  selectActiveChartIndicators,
+} from '@/utils/indicators/chartIndicatorUtils';
+import { chartIntervalToFollow } from '@/utils/indicators/chartIntervalSync';
 
 import {
   DEFAULT_DEAL_SORT,
@@ -568,6 +574,74 @@ export function RedesignDealsTab({
     [rawDeal, intervalResolution, vm.to, candles],
   );
 
+  // The run's indicators, picked the way the bot chart picks them: only the
+  // groups and actions the settings act on, drawn on their own timeframe.
+  const settings = vm.raw.settings;
+  const indicatorContext = useMemo(
+    () => (settings ? chartIndicatorsContextFromSettings(settings) : null),
+    [settings],
+  );
+  const activeIndicators = useMemo(
+    () =>
+      indicatorContext
+        ? selectActiveChartIndicators(settings?.indicators ?? [], {
+            ...indicatorContext,
+            chartInterval: '',
+          })
+        : [],
+    [settings, indicatorContext],
+  );
+
+  // Like the bot chart, open on the indicators' timeframe when the run's own
+  // resolution would draw none of them — unless this deal is too far back to
+  // be framed there.
+  const framedInterval = chartProps?.interval;
+  const dealStart = rawDeal?.startTime;
+  const chartInterval = useMemo(() => {
+    if (!framedInterval || !indicatorContext || !activeIndicators.length) {
+      return framedInterval;
+    }
+    const drawn = convertIndicatorConfigsToChart(activeIndicators, {
+      ...indicatorContext,
+      chartInterval: framedInterval,
+    });
+    if (drawn.length) return framedInterval;
+    const follow = chartIntervalToFollow([], activeIndicators);
+    return follow &&
+      dealStart &&
+      dealFrameFits(follow, intervalResolution, dealStart)
+      ? follow
+      : framedInterval;
+  }, [
+    framedInterval,
+    indicatorContext,
+    activeIndicators,
+    dealStart,
+    intervalResolution,
+  ]);
+
+  // The resolution the chart shows now: the one it mounted at, until one is
+  // picked on the chart. A remount at another resolution drops the pick.
+  const [pickedResolution, setPickedResolution] = useState<{
+    mountedAt: string;
+    resolution: string;
+  } | null>(null);
+  const shownResolution =
+    pickedResolution && pickedResolution.mountedAt === chartInterval
+      ? pickedResolution.resolution
+      : chartInterval;
+
+  const chartIndicators = useMemo(
+    () =>
+      indicatorContext && shownResolution
+        ? convertIndicatorConfigsToChart(activeIndicators, {
+            ...indicatorContext,
+            chartInterval: shownResolution,
+          })
+        : [],
+    [activeIndicators, indicatorContext, shownResolution],
+  );
+
   // Extension markers as chart notes. A marker without a price sits on its
   // bar's close (or its deal's entry until the candles are in).
   const barMs = timeIntervalMap[vm.raw.interval as ExchangeIntervals] ?? 60_000;
@@ -636,6 +710,9 @@ export function RedesignDealsTab({
   // bars as ready when the change fires, so wait for the data-loaded event.
   const onChartIntervalChange = useCallback(
     (resolution: string) => {
+      if (chartInterval) {
+        setPickedResolution({ mountedAt: chartInterval, resolution });
+      }
       reframeAfterLoadRef.current?.();
       const start = rawDeal?.startTime;
       if (!start || !dealFrameFits(resolution, intervalResolution, start)) {
@@ -669,7 +746,13 @@ export function RedesignDealsTab({
       loaded.subscribe(null, reframe);
       reframeAfterLoadRef.current = stop;
     },
-    [rawDeal?.startTime, rawDeal?.closedTime, intervalResolution, vm.to],
+    [
+      rawDeal?.startTime,
+      rawDeal?.closedTime,
+      intervalResolution,
+      vm.to,
+      chartInterval,
+    ],
   );
   useEffect(() => () => reframeAfterLoadRef.current?.(), []);
 
@@ -710,7 +793,7 @@ export function RedesignDealsTab({
         /* nothing left to unsubscribe from */
       }
     };
-  }, [hasMarkerClick, chartProps?.interval]);
+  }, [hasMarkerClick, chartInterval]);
 
   // Empty state — no deals on this result (saved/stripped history) or the
   // selected deal lacks a resolvable symbol/pair.
@@ -859,16 +942,17 @@ export function RedesignDealsTab({
             place would first load the previous frame at the new one. */}
         <div className="h-[320px] shrink-0 overflow-hidden rounded-xl lg:h-auto lg:min-h-0 lg:flex-1">
           <TradingViewChart
-            key={chartProps.interval}
+            key={chartInterval}
             ref={chartRef}
             widgetId="backtest-deal-chart"
             symbol={chartProps.symbol}
             availableSymbols={chartProps.availableSymbols}
-            interval={chartProps.interval}
+            interval={chartInterval ?? chartProps.interval}
             initialTimeframe={chartProps.initialTimeframe}
             onIntervalChange={onChartIntervalChange}
             transactions={chartTransactions}
             ordersForDrawing={chartProps.ordersForDrawing}
+            indicators={chartIndicators}
             enableAutoSave={false}
             enableLoadLastChart={false}
             enableSeparateDrawingsStorage={false}
