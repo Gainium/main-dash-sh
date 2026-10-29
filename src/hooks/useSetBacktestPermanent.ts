@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 
-import { dispatchBacktestDbEvent } from '@/constants/backtest';
 import { GraphQLClient, type ReturnResult } from '@/lib/api';
 import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
 import { logger } from '@/lib/loggerInstance';
@@ -8,12 +7,7 @@ import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
 import { BotTypesEnum } from '@/types';
-import {
-  getById as getLocalBacktest,
-  getHedgeById as getLocalHedgeBacktest,
-  save as saveLocalBacktest,
-  saveHedge as saveLocalHedgeBacktest,
-} from '@/utils/backtest/db';
+import { patchLocalBacktest } from '@/utils/backtest/patchLocal';
 
 export interface SetBacktestPermanentInput {
   id: string;
@@ -25,44 +19,6 @@ export type SetBacktestPermanentResult = ReturnResult<string>;
 
 const isHedgeType = (type: BotTypesEnum) =>
   type === BotTypesEnum.hedgeDca || type === BotTypesEnum.hedgeCombo;
-
-/**
- * Patch the locally-cached IndexedDB copy of a backtest so its
- * `savePermanent` flag matches the server. The list hooks merge the local
- * copy OVER the remote one (local wins by `_id`), so without this the toggle
- * would visually revert to the stale local value on the next render. Mirrors
- * legacy's in-place list update — no refetch. No-op if there's no local copy.
- */
-const patchLocalBacktestSavePermanent = async (
-  id: string,
-  savePermanent: boolean,
-  hedge: boolean
-): Promise<void> => {
-  try {
-    const entry = hedge
-      ? await getLocalHedgeBacktest(id, true)
-      : await getLocalBacktest(id, true);
-    if (!entry?.data) return;
-
-    const parsed = JSON.parse(entry.data) as Record<string, unknown>;
-    if (parsed['savePermanent'] === savePermanent) return;
-    parsed['savePermanent'] = savePermanent;
-    const data = JSON.stringify(parsed);
-    const next = { ...entry, data, size: data.length };
-
-    if (hedge) {
-      await saveLocalHedgeBacktest(next as Parameters<typeof saveLocalHedgeBacktest>[0]);
-    } else {
-      await saveLocalBacktest(next as Parameters<typeof saveLocalBacktest>[0]);
-    }
-    dispatchBacktestDbEvent();
-  } catch (e) {
-    logger.warn('[useSetBacktestPermanent] Could not patch local copy', {
-      id,
-      error: (e as Error)?.message,
-    });
-  }
-};
 
 // Map each bot family to its mutation builder + the list query key whose
 // cached rows should be patched in place. Mirrors legacy
@@ -199,7 +155,11 @@ export function useSetBacktestPermanent() {
 
       // Keep the IndexedDB copy in sync so the merged value stays correct on
       // re-render and survives a full reload.
-      await patchLocalBacktestSavePermanent(id, savePermanent, isHedgeType(type));
+      await patchLocalBacktest(id, isHedgeType(type), (payload) => {
+        if (payload['savePermanent'] === savePermanent) return false;
+        payload['savePermanent'] = savePermanent;
+        return true;
+      });
     },
     onError: (error) => {
       logger.error('[useSetBacktestPermanent] Failed to update', {

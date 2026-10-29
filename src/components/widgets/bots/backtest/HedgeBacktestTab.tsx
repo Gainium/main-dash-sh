@@ -46,8 +46,10 @@ import {
   hedgeDealBadge,
   type HedgeCloseIndex,
 } from '@/components/widgets/bots/backtest/HedgeClosesTab';
+import { useRenameBacktest } from '@/hooks/useRenameBacktest';
 import { useSetBacktestNote } from '@/hooks/useSetBacktestNote';
 import type { BacktestDealsExtension } from '@/lib/extensions/backtestSources';
+import { isStoredBacktest } from '@/lib/shareLinks';
 import type {
   DCABacktestingResultHistory,
   DCABotSettings,
@@ -372,12 +374,39 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
     [setBacktestNoteMutation, hedgeBotType]
   );
 
+  const renameBacktestMutation = useRenameBacktest();
+  const [backtestNameOverrides, setBacktestNameOverrides] = useState<
+    Record<string, string>
+  >({});
+
+  const handleRename = useCallback(
+    (id: string, next: string, prev: string) => {
+      setBacktestNameOverrides((o) => ({ ...o, [id]: next }));
+      renameBacktestMutation.mutate(
+        {
+          id,
+          name: next,
+          type: hedgeBotType,
+          stored: isStoredBacktest({ _id: id }),
+        },
+        {
+          onError: () => {
+            setBacktestNameOverrides((o) => ({ ...o, [id]: prev }));
+          },
+        }
+      );
+    },
+    [renameBacktestMutation, hedgeBotType]
+  );
+
   const columns = useMemo(
     () =>
       buildHedgeBacktestColumns({
         hedgeBotType,
         backtestNoteOverrides,
         onSaveNote: handleSaveNote,
+        backtestNameOverrides,
+        onRename: handleRename,
         onToggleSavePermanent: patchHistorySavePermanent,
         // No-op-safe fallback when the host doesn't provide a reseed handler.
         onLoadIntoForm: onLoadIntoForm ?? (() => {}),
@@ -394,6 +423,8 @@ export const HedgeBacktestListView: React.FC<HedgeBacktestListViewProps> = ({
       hedgeBotType,
       backtestNoteOverrides,
       handleSaveNote,
+      backtestNameOverrides,
+      handleRename,
       patchHistorySavePermanent,
       onLoadIntoForm,
       onSelect,

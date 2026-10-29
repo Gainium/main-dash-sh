@@ -41,10 +41,11 @@ import {
 } from '@/hooks/useBacktestDataManagement';
 import { useBacktests } from '@/hooks/useBacktests';
 import { useBacktestsSummary } from '@/hooks/useBacktestsSummary';
+import { useRenameBacktest } from '@/hooks/useRenameBacktest';
 import { useSetBacktestNote } from '@/hooks/useSetBacktestNote';
 import { useShareContext } from '@/hooks/useShareContext';
 import { GraphQLClient } from '@/lib/api';
-import { buildBacktestShareUrl } from '@/lib/shareLinks';
+import { buildBacktestShareUrl, isStoredBacktest } from '@/lib/shareLinks';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useAuthStore } from '@/stores/authStore';
@@ -590,6 +591,35 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
     [setBacktestNoteMutation.mutate, descriptor.noteType]
   );
 
+  // Inline rename from the Name column — same optimistic-override pattern.
+  const renameBacktestMutation = useRenameBacktest();
+  const [backtestNameOverrides, setBacktestNameOverrides] = useState<
+    Record<string, string>
+  >({});
+
+  const handleRenameBacktest = useCallback(
+    (backtest: TResult, next: string, prev: string) => {
+      const id = backtest._id;
+      setBacktestNameOverrides((o) => ({ ...o, [id]: next }));
+      renameBacktestMutation.mutate(
+        {
+          id,
+          name: next,
+          type: descriptor.noteType,
+          stored: isStoredBacktest(backtest),
+        },
+        {
+          onError: () => {
+            setBacktestNameOverrides((o) => ({ ...o, [id]: prev }));
+          },
+        }
+      );
+    },
+    // Stable mutate handle, not the mutation object — see handleExportBacktests.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [renameBacktestMutation.mutate, descriptor.noteType]
+  );
+
   // Per-type column set — the shared panel never imports a column module
   // directly, it only calls descriptor.buildColumns(ctx).
   const backtestColumns = useMemo<ColumnDef<TResult>[]>(
@@ -599,6 +629,8 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
           user,
           backtestNoteOverrides,
           onSaveNote: handleSaveBacktestNote,
+          backtestNameOverrides,
+          onRename: handleRenameBacktest,
           onShare: handleShareBacktest,
           onLoadIntoForm: onLoadBacktestIntoForm,
           onLoadDetails: handleLoadBacktestDetails,
@@ -618,6 +650,8 @@ export function BotBacktestPanel<TResult extends BacktestRowBase>({
       user,
       backtestNoteOverrides,
       handleSaveBacktestNote,
+      backtestNameOverrides,
+      handleRenameBacktest,
       handleShareBacktest,
       onLoadBacktestIntoForm,
       handleLoadBacktestDetails,

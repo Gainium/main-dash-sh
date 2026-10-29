@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.124.3] - 2026-10-29
+### Added
+- Backtests table (DCA, Combo, Grid and Hedge bots): a rename icon next to each backtest's name renames it in place, without opening it.
+
 ## [2.124.2] - 2026-10-29
 ### Fixed
 - Backtests: a candle request that fails while the data loads is retried instead of ending the load early, which made the backtest run on a shorter period than the one picked. If it keeps failing, DCA, Combo and Grid backtests (and the Analysis random-entry comparison) stop and show the error instead of finishing on part of the period.

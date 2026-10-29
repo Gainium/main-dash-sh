@@ -21,6 +21,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import InlineRenameCell from '@/components/ui/InlineRenameCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { isStoredBacktest, NOT_STORED_SHARE_HINT } from '@/lib/shareLinks';
@@ -89,6 +90,8 @@ export function buildDcaBacktestColumns(
     user,
     backtestNoteOverrides,
     onSaveNote,
+    backtestNameOverrides,
+    onRename,
     onShare,
     onLoadIntoForm,
     onLoadDetails,
@@ -151,10 +154,18 @@ export function buildDcaBacktestColumns(
       header: 'Name',
       meta: { filterType: 'string' },
       cell: ({ row }) => {
+        const backtestId = row.original._id ?? '';
         const hasLocalData = !!row.original.hasLocalDetails;
         return (
-          <div className="font-medium inline-flex items-center gap-1">
-            <span>{row.original.settings?.name || ''}</span>
+          <InlineRenameCell
+            id={backtestId}
+            name={
+              backtestNameOverrides[backtestId] ??
+              row.original.settings?.name ??
+              ''
+            }
+            onSave={(_id, next, prev) => onRename(row.original, next, prev)}
+          >
             {hasLocalData ? (
               <span title="Local backtest details available">
                 <Database
@@ -163,7 +174,7 @@ export function buildDcaBacktestColumns(
                 />
               </span>
             ) : null}
-          </div>
+          </InlineRenameCell>
         );
       },
     },

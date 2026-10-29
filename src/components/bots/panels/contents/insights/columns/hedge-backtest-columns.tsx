@@ -14,6 +14,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import InlineRenameCell from '@/components/ui/InlineRenameCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { BotTypesEnum } from '@/types';
@@ -46,6 +47,8 @@ export interface HedgeBacktestColumnContext {
   hedgeBotType: BotTypesEnum.hedgeDca | BotTypesEnum.hedgeCombo;
   backtestNoteOverrides: Record<string, string>;
   onSaveNote: (id: string, next: string, prev: string) => void;
+  backtestNameOverrides: Record<string, string>;
+  onRename: (id: string, next: string, prev: string) => void;
   /** Post-success local patch after the checkbox flips savePermanent. */
   onToggleSavePermanent: (id: string, next: boolean) => void;
   /** "Load in settings" — reseed both legs' form from this backtest. */
@@ -90,6 +93,8 @@ export function buildHedgeBacktestColumns(
     hedgeBotType,
     backtestNoteOverrides,
     onSaveNote,
+    backtestNameOverrides,
+    onRename,
     onToggleSavePermanent,
     onLoadIntoForm,
     onLoadDetails,
@@ -172,9 +177,20 @@ export function buildHedgeBacktestColumns(
       // Both legs carry the shared hedge name (handleSave fans it out), so
       // the long leg's is representative.
       accessorFn: (row) => row.long.settings?.name ?? '',
-      cell: ({ row }) => (
-        <div className="font-medium">{row.original.long.settings?.name || ''}</div>
-      ),
+      cell: ({ row }) => {
+        const backtestId = row.original._id ?? '';
+        return (
+          <InlineRenameCell
+            id={backtestId}
+            name={
+              backtestNameOverrides[backtestId] ??
+              row.original.long.settings?.name ??
+              ''
+            }
+            onSave={onRename}
+          />
+        );
+      },
     },
     {
       accessorKey: 'time',

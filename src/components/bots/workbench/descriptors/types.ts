@@ -67,6 +67,8 @@ export interface BacktestColumnContext<TResult extends BacktestRowBase> {
   user: { id?: string | null; importAsPaper?: boolean | null } | null;
   backtestNoteOverrides: Record<string, string>;
   onSaveNote: (id: string, next: string, prev: string) => void;
+  backtestNameOverrides: Record<string, string>;
+  onRename: (bt: TResult, next: string, prev: string) => void;
   onShare: (bt: TResult) => void;
   onLoadIntoForm: (bt: TResult) => void; // "Load in settings"
   onLoadDetails: (bt: TResult) => void; // "Load details"

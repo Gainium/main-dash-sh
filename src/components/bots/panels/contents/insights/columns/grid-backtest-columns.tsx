@@ -16,6 +16,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
+import InlineRenameCell from '@/components/ui/InlineRenameCell';
 import { BacktestPermanentCheckbox } from '@/components/widgets/bots/backtest';
 import CoinPair from '@/components/widgets/shared/CoinPair';
 import { math } from '@/lib/utils/math';
@@ -29,7 +30,7 @@ import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
  * Grid backtest table columns — lifted verbatim from the identical inline
  * useMemo arrays in GridBotNew.tsx / GridBotEdit.tsx. Grid's actions column is
  * Delete-only (it stops row-click propagation), so the builder reads only
- * `onDelete`, `onSaveNote`, and `backtestNoteOverrides` off `ctx`.
+ * `onDelete`, the note and the rename handlers (with their overrides) off `ctx`.
  *
  * accessorKeys drive sort/visibility persistence keyed by the table id — do
  * NOT rename or drop any, or existing users' saved column prefs silently reset.
@@ -37,7 +38,14 @@ import { BotTypesEnum, type GRIDBacktestingResultHistory } from '@/types';
 export function buildGridBacktestColumns(
   ctx: BacktestColumnContext<GRIDBacktestingResultHistory>
 ): ColumnDef<GRIDBacktestingResultHistory>[] {
-  const { backtestNoteOverrides, onSaveNote, onExport, onDelete } = ctx;
+  const {
+    backtestNoteOverrides,
+    onSaveNote,
+    backtestNameOverrides,
+    onRename,
+    onExport,
+    onDelete,
+  } = ctx;
   const { symbol } = getReportingCurrency();
 
   return [
@@ -83,9 +91,20 @@ export function buildGridBacktestColumns(
       accessorKey: 'settings.name',
       header: 'Name',
       meta: { filterType: 'string' },
-      cell: ({ row }) => (
-        <div className="font-medium">{row.original.settings?.name || ''}</div>
-      ),
+      cell: ({ row }) => {
+        const backtestId = row.original._id ?? '';
+        return (
+          <InlineRenameCell
+            id={backtestId}
+            name={
+              backtestNameOverrides[backtestId] ??
+              row.original.settings?.name ??
+              ''
+            }
+            onSave={(_id, next, prev) => onRename(row.original, next, prev)}
+          />
+        );
+      },
     },
     {
       accessorKey: 'note',
