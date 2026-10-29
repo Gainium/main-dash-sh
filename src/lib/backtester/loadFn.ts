@@ -47,6 +47,7 @@ const loadFn = (
         index,
         total,
         handleErrorByCandles,
+        backtest: true,
       }),
     stop: () => {
       instance.stop = true;

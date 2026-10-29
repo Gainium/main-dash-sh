@@ -31,6 +31,18 @@ type GetCandlesInput = {
   // Aborted when the user switches exchange/pair while a slow load is still
   // in flight, so we stop paginating and cancel the pending fetch.
   signal?: AbortSignal | undefined;
+  // Set by backtests: skip the range before where the venue's history is
+  // known to begin. Without it a pair listed after the window starts had
+  // its empty pre-listing range paged again on every run.
+  backtest?: boolean | undefined;
+};
+
+type ExchangeFetch = {
+  bars: Bar[];
+  // The venue answered at least the first whole page with nothing.
+  emptyHead: boolean;
+  // A request failed, or the load stopped before the end of the range.
+  failed: boolean;
 };
 
 // The IndexedDB cache is an optimisation, never a dependency: an open or
@@ -96,17 +108,28 @@ class Candles {
   private async saveLocal(
     info: CandleSeriesInfo,
     candles: Bar[],
-    firstTime: number | undefined,
-    keep: { from: number; to: number }
+    {
+      firstTime,
+      historyStart,
+      keep,
+    }: {
+      firstTime: number | undefined;
+      historyStart: number | undefined;
+      keep: { from: number; to: number };
+    }
   ) {
-    if (!candles.length && firstTime === undefined) {
+    if (
+      !candles.length &&
+      firstTime === undefined &&
+      historyStart === undefined
+    ) {
       return;
     }
     if (this._stop) {
       return;
     }
     try {
-      const work = writeBars(info, candles, { firstTime, keep });
+      const work = writeBars(info, candles, { firstTime, historyStart, keep });
       // A rejected write that we stopped waiting for must not surface as an
       // unhandled rejection.
       work.catch((e) => {
@@ -138,6 +161,7 @@ class Candles {
     bars: Bar[];
     firstTime?: number | undefined;
     minTime?: number | undefined;
+    historyStart?: number | undefined;
     readTimedOut?: boolean;
   }> {
     if (this._stop) {
@@ -191,6 +215,7 @@ class Candles {
     total,
     handleErrorByCandles,
     signal,
+    backtest,
   }: GetCandlesInput): Promise<Bar[]> {
     try {
       const step = timeIntervalMap[interval];
@@ -261,6 +286,14 @@ class Candles {
           (m) => m.from > (local.firstTime || 0) && m.to > (local.firstTime || 0)
         );
       }
+      // Nothing exists before historyStart, so a backtest does not ask again.
+      const knownStart = local.historyStart;
+      if (backtest && knownStart !== undefined) {
+        missed = missed.map((m) => ({
+          from: Math.max(m.from, knownStart),
+          to: m.to,
+        }));
+      }
 
       // Cap each individual gap to maxGapMs (the caller's requested range).
       // Leading/trailing gaps also get capped so we never try to download
@@ -305,6 +338,8 @@ class Candles {
       });
 
       const toSave: Bar[] = [];
+      // The venue answered the start of the window with nothing.
+      let emptyFromStart = false;
 
       // Background candle downloads are intentionally silent — they are a
       // normal side-effect of opening a bot form, so a toast every time
@@ -329,7 +364,10 @@ class Candles {
           handleErrorByCandles,
           ...(signal ? { signal } : {}),
         });
-        for (const d of result) {
+        if (int.from === from && result.emptyHead && !result.failed) {
+          emptyFromStart = true;
+        }
+        for (const d of result.bars) {
           if (!requiredIndex.has(d.time)) {
             required.push(d);
             toSave.push(d);
@@ -383,7 +421,7 @@ class Candles {
           if (this._stop || signal?.aborted) {
             break;
           }
-          const refill = await this.getCandlesFromExchange({
+          const { bars: refill } = await this.getCandlesFromExchange({
             symbol,
             period: {
               from: g.from,
@@ -442,14 +480,31 @@ class Candles {
           firstTime = candidateFirstTime;
         }
       }
+      // An empty answer from the start of the window means the venue's
+      // history begins at the first bar there is — unless bars cached before
+      // `from` show that empty range is a gap, not the beginning.
+      const historyStart =
+        emptyFromStart &&
+        candles.length &&
+        (local.minTime === undefined || local.minTime >= from)
+          ? candles[0].time
+          : undefined;
       // A read that timed out tells us nothing about what is stored, so do
       // not pile a write onto a store that is not answering.
       if (!local.readTimedOut) {
         await this.saveLocal(
           this.seriesInfo(symbol, interval, baseAsset, quoteAsset),
           toSave.sort((a, b) => a.time - b.time),
-          firstTime !== local.firstTime ? firstTime : undefined,
-          { from, to }
+          {
+            firstTime: firstTime !== local.firstTime ? firstTime : undefined,
+            historyStart:
+              historyStart !== undefined &&
+              (local.historyStart === undefined ||
+                historyStart < local.historyStart)
+                ? historyStart
+                : undefined,
+            keep: { from, to },
+          }
         );
       }
       const map: Map<number, Bar> = new Map();
@@ -475,7 +530,7 @@ class Candles {
     total,
     handleErrorByCandles,
     signal,
-  }: Omit<GetCandlesInput, 'baseAsset' | 'quoteAsset'>): Promise<Bar[]> {
+  }: Omit<GetCandlesInput, 'baseAsset' | 'quoteAsset'>): Promise<ExchangeFetch> {
     try {
       // Per-venue candle page size. This is BOTH the `limit` we send and the
       // width of each request window, and the iteration budget below is
@@ -546,14 +601,20 @@ class Candles {
       // branch below. Counted so the completion log states the range actually
       // covered instead of implying the requested one was served.
       let leadingEmptyChunks = 0;
+      // Any failed request or early stop: the range was not fully asked for.
+      let failed = false;
 
       for (const request of [...Array(count).keys()]) {
         if (this._stop) {
-          return [];
+          return { bars: [], emptyHead: false, failed: true };
         }
         // Selection changed mid-load — stop and hand back what we have.
         if (signal?.aborted) {
-          return data;
+          return {
+            bars: data,
+            emptyHead: leadingEmptyChunks > 0,
+            failed: true,
+          };
         }
 
         actualIterations++;
@@ -561,6 +622,7 @@ class Candles {
           console.error(
             `[Candles.getCandlesFromExchange] SAFETY BREAK: Exceeded ${maxIterations} iterations (expected ${count}) | symbol=${symbol} | Collected ${data.length} bars so far`
           );
+          failed = true;
           break;
         }
 
@@ -594,6 +656,9 @@ class Candles {
             exchange: this.exchangeName,
             limit: requestStep,
             ...(signal ? { signal } : {}),
+            onError: () => {
+              failed = true;
+            },
           });
 
           // Convert CandleResponse[] to Bar[]
@@ -610,6 +675,7 @@ class Candles {
           consecutiveErrors = 0;
         } catch (error) {
           consecutiveErrors++;
+          failed = true;
           const errorMsg =
             error instanceof Error ? error.message : String(error);
           console.error(
@@ -625,7 +691,11 @@ class Candles {
               handleErrorByCandles(failureMsg);
             }
             // Return what we have collected so far rather than empty array
-            return data;
+            return {
+              bars: data,
+              emptyHead: leadingEmptyChunks > 0,
+              failed: true,
+            };
           }
 
           // Skip this iteration and continue with next
@@ -693,6 +763,7 @@ class Candles {
           console.error(
             `[Candles.getCandlesFromExchange] STUCK: prev not advancing! iteration=${ind} oldPrev=${new Date(oldPrev).toISOString()} newPrev=${new Date(prev).toISOString()} - BREAKING to prevent infinite loop`
           );
+          failed = true;
           break;
         }
 
@@ -763,12 +834,12 @@ class Candles {
           `[Candles.getCandlesFromExchange] Requested from ${new Date(from).toISOString()} but ${this.exchangeName} served nothing before ${new Date(data[0].time).toISOString()} for ${symbol}@${interval} (${leadingEmptyChunks} empty leading chunk(s)) - the pair listed later, or this venue caps its candle history`
         );
       }
-      return data;
+      return { bars: data, emptyHead: leadingEmptyChunks > 0, failed };
     } catch (e) {
       if (handleErrorByCandles) {
         handleErrorByCandles((e as Error)?.message || (e as string));
       }
-      return [];
+      return { bars: [], emptyHead: false, failed: true };
     }
   }
 }

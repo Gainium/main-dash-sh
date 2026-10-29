@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.124.1] - 2026-10-29
+### Fixed
+- Backtests: a period that starts before a pair was listed no longer downloads the empty stretch before the listing again on every run. The first run records where the pair's history begins, and later runs start there.
+
 ## [2.124.0] - 2026-10-29
 ### Added
 - Backtest results, Overview: a per-pair table for multi-pair backtests, the same one multi-pair bots show — deals, win rate, realized P&L, return on capital, profit factor, durations and open deals for each pair, sortable, searchable and exportable to CSV.

@@ -52,6 +52,12 @@ export type CandleSeriesMeta = {
   quoteAsset: string;
   /** Earliest time the exchange serves, when an exhaustive fetch proved it. */
   firstTime?: number | undefined;
+  /**
+   * Where the venue's history begins: a fetch from earlier got a whole empty
+   * page and no failed request before this bar. Backtests skip the range
+   * before it. Kept apart from `firstTime`, which an import also sets.
+   */
+  historyStart?: number | undefined;
   /** Bar count per chunk start. */
   chunks: Record<string, number>;
   bars: number;

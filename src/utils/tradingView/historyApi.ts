@@ -84,6 +84,7 @@ export const requestCandles = async ({
   exchange,
   limit,
   signal,
+  onError,
 }: {
   symbol: string;
   endAt: string;
@@ -92,6 +93,9 @@ export const requestCandles = async ({
   exchange: ExchangeEnum;
   limit?: number;
   signal?: AbortSignal | undefined;
+  // A failed request still resolves to [], same as an empty range; this is
+  // how a caller that must tell the two apart finds out.
+  onError?: ((error: unknown) => void) | undefined;
 }): Promise<CandleResponse[]> => {
   // Selection already changed before this request even started — don't fire.
   if (signal?.aborted) {
@@ -202,6 +206,7 @@ export const requestCandles = async ({
       'Error fetching candles:',
       error
     );
+    onError?.(error);
     return [];
   }
 };

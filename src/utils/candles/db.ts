@@ -104,6 +104,8 @@ export type CandleRangeRead = {
   firstTime?: number | undefined;
   /** Earliest cached time of the whole series, if anything is cached. */
   minTime?: number | undefined;
+  /** Where the venue's history begins, once a fetch proved it. */
+  historyStart?: number | undefined;
 };
 
 /**
@@ -147,6 +149,7 @@ export const readRange = async (
     bars,
     firstTime: meta?.firstTime,
     minTime: meta?.bars ? meta.minTime : undefined,
+    historyStart: meta?.historyStart,
   };
 };
 
@@ -183,11 +186,12 @@ export const writeBars = async (
   bars: Bar[],
   options: {
     firstTime?: number | undefined;
+    historyStart?: number | undefined;
     keep?: { from: number; to: number };
   } = {}
 ): Promise<boolean> => {
   const hasFirstTime = options.firstTime !== undefined;
-  if (!bars.length && !hasFirstTime) {
+  if (!bars.length && !hasFirstTime && options.historyStart === undefined) {
     return false;
   }
   const db = await openCandleDb();
@@ -258,9 +262,17 @@ export const writeBars = async (
     (meta?.firstTime === undefined || proposed < meta.firstTime)
       ? proposed
       : meta?.firstTime;
+  // The earliest proof wins: skipping less is always safe.
+  const historyStart =
+    options.historyStart !== undefined &&
+    (meta?.historyStart === undefined ||
+      options.historyStart < meta.historyStart)
+      ? options.historyStart
+      : meta?.historyStart;
   const next: CandleSeriesMeta = {
     ...info,
     firstTime,
+    historyStart,
     chunks: chunkCounts,
     ...seriesTotals(chunkCounts),
     minTime: Number.isFinite(minTime) ? minTime : 0,
