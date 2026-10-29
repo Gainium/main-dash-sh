@@ -202,6 +202,9 @@ const buildCreatePayload = (
     indicatorGroups: _rawIndicatorGroups,
     ...rest
   } = isComboBot ? formData.combo : formData.dca;
+  // The bot uuid is its webhook key and the server mints it; one that reached
+  // the form (an imported settings file) is never sent.
+  delete (rest as { uuid?: unknown }).uuid;
 
   const pairAssetTuples = pairs.map((pair) =>
     resolvePairAssetTuple(pair, formData.pairMetadata)
@@ -575,15 +578,19 @@ export const mapFormDataToPayload = (
   // change{DCA,Combo}BotInput has no such field, so strip them (like the create
   // path does) before building the update payload. useExperimental is stripped
   // alongside for the same reason.
+  // `uuid` (the bot's webhook key) is stripped for the same reason as in the
+  // create payload; no update input declares it either.
   const {
     avgPrice: _avgPrice,
     tpSlTargetFilled: _tpSlTargetFilled,
     useExperimental: _useExperimental,
+    uuid: _uuid,
     ...updatePayload
   } = (mappingResult.data ?? {}) as DCABotSettings & {
     avgPrice?: number;
     tpSlTargetFilled?: string[];
     useExperimental?: boolean;
+    uuid?: unknown;
   };
 
   // DCA-only settings (DECLARED_BY_DCA_ONLY) reach a combo form through the

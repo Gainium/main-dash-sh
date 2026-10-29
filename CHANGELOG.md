@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.124.4] - 2026-10-29
+### Fixed
+- Bot settings import: a bot identifier carried in the imported settings is no longer sent when the bot is created or saved; the server assigns it.
+
 ## [2.124.3] - 2026-10-29
 ### Added
 - Backtests table (DCA, Combo, Grid and Hedge bots): a rename icon next to each backtest's name renames it in place, without opening it.
