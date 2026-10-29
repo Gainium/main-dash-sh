@@ -1550,6 +1550,8 @@ export enum IndicatorEnum {
   session = 'SESSION',
   lw = 'LW',
   ote = 'OTE',
+  kdj = 'KDJ',
+  vwap = 'VWAP',
 }
 
 export enum SessionRuleEnum {
@@ -1582,6 +1584,41 @@ export enum OTELegEnum {
   bullish = 'bullish',
   bearish = 'bearish',
   any = 'any',
+}
+
+/** ADX: what the condition reads — the ADX line (default) or +DI vs −DI. */
+export enum ADXModeEnum {
+  adx = 'adx',
+  dmi = 'dmi',
+}
+
+/** KDJ: a line the condition reads. */
+export enum KDJLineEnum {
+  k = 'k',
+  d = 'd',
+  j = 'j',
+}
+
+/** KDJ: what the chosen line is compared with — another line, or the fixed level. */
+export enum KDJCompareToEnum {
+  k = 'k',
+  d = 'd',
+  j = 'j',
+  custom = 'custom',
+}
+
+/** VWAP: where the anchored VWAP restarts, in UTC. */
+export enum VWAPAnchorEnum {
+  day = 'day',
+  week = 'week',
+  month = 'month',
+}
+
+/** VWAP: the line the close is compared with. */
+export enum VWAPLineEnum {
+  vwap = 'vwap',
+  upper = 'upper',
+  lower = 'lower',
 }
 
 export type SettingsIndicators = {
@@ -1733,6 +1770,31 @@ export type SettingsIndicators = {
   /** OTE Levels: retracement level the close is compared with (0 = leg end, 1 = origin). */
   oteLevel?: string;
   oteLeg?: OTELegEnum;
+  /**
+   * ADX: unset / 'adx' = the ADX line; 'dmi' = +DI against −DI, where
+   * indicatorValue is not read.
+   */
+  adxMode?: ADXModeEnum;
+  /** KDJ: RSV window (default 9). */
+  kdjLength?: number;
+  /** KDJ: K smoothing (default 3). */
+  kdjKSmooth?: number;
+  /** KDJ: D smoothing (default 3). */
+  kdjDSmooth?: number;
+  /** KDJ: the line the condition reads (default k). */
+  kdjLine?: KDJLineEnum;
+  /**
+   * KDJ: what that line is compared with (default d); 'custom' = the fixed
+   * level in indicatorValue. The zone is Stochastic's stochRange /
+   * stochUpper / stochLower.
+   */
+  kdjCompareTo?: KDJCompareToEnum;
+  /** VWAP: where it restarts, UTC (default day). */
+  vwapAnchor?: VWAPAnchorEnum;
+  /** VWAP: the line the close is compared with (default vwap). */
+  vwapLine?: VWAPLineEnum;
+  /** VWAP: band width in standard deviations (default 1). */
+  vwapBandMultiplier?: number;
 };
 
 /**
@@ -4164,6 +4226,15 @@ export type CommonIndicatorSettings = {
   oteMinLegSize?: number;
   oteLevel?: number;
   oteLeg?: OTELegEnum;
+  adxMode?: ADXModeEnum;
+  kdjLength?: number;
+  kdjKSmooth?: number;
+  kdjDSmooth?: number;
+  kdjLine?: KDJLineEnum;
+  kdjCompareTo?: KDJCompareToEnum;
+  vwapAnchor?: VWAPAnchorEnum;
+  vwapLine?: VWAPLineEnum;
+  vwapBandMultiplier?: number;
 };
 
 export enum ppValueTypeEnum {

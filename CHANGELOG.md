@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.122.0] - 2026-10-29
+### Added
+- VWAP indicator: anchored to the day, week or month (UTC), with the close compared with the VWAP or one of its standard-deviation bands. The chart draws the VWAP and both bands, restarting at each anchor, with the same calculation the bot and the backtest use.
+- KDJ indicator: K, D or J against another line or a custom value, with Stochastic's zone filter. The chart draws K, D and J with the same calculation the bot and the backtest use.
+- ADX: DMI mode, where the condition compares +DI with −DI; the chart draws +DI, −DI and the ADX.
+- Moving Averages: the trend filter MA Ratio has (the average's own move over a lookback), shown when it is switched on.
+
+### Fixed
+- Bot form: a condition whose type was changed from one with the trend filter on (MA Ratio, Moving Averages) to another type no longer saves the filter, which would have kept that condition from ever firing.
+- Indicator cards: the summary names a setting by the option the form shows for the current settings (e.g. ADX's DMI conditions).
+
 ## [2.121.1] - 2026-10-29
 ### Fixed
 - Backtest results, Deals tab: the chart draws the indicators the bot's conditions use, picked the same way as on the bot chart. When the backtest ran on a different candle timeframe than its indicators, the chart opens on the indicators' timeframe.

@@ -423,6 +423,15 @@ xOscillator2voShort
   oteMinLegSize
   oteLevel
   oteLeg
+  adxMode
+  kdjLength
+  kdjKSmooth
+  kdjDSmooth
+  kdjLine
+  kdjCompareTo
+  vwapAnchor
+  vwapLine
+  vwapBandMultiplier
   factor
   atrLength
   pcUp
@@ -738,6 +747,15 @@ xOscillator2voShort
   oteMinLegSize
   oteLevel
   oteLeg
+  adxMode
+  kdjLength
+  kdjKSmooth
+  kdjDSmooth
+  kdjLine
+  kdjCompareTo
+  vwapAnchor
+  vwapLine
+  vwapBandMultiplier
     factor
   atrLength
    pcUp

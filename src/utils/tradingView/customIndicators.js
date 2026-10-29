@@ -10,6 +10,8 @@ import {
   oteLevelPrice,
   parseOteLevels,
 } from '@/utils/indicators/oteLevels';
+import { VWAPState } from '@/utils/indicators/vwap';
+import { KDJState } from '@/utils/indicators/kdj';
 
 const colorRipeRedA200 = '#FF5252';
 const colorMintyGreen400 = '#22AB94';
@@ -389,7 +391,8 @@ const adxCalc = (r, context, diLength, length) => {
   const n = i[1];
   const o = s + n;
   const a = context.new_var(r.Std.abs(s - n) / (r.Std.eq(o, 0) ? 1 : o));
-  return [100 * r.Std.rma(a, length, context)];
+  // [ADX, +DI, −DI]
+  return [100 * r.Std.rma(a, length, context), s, n];
 };
 const bbwCalc = (r, context, maType, maLength, bbwLength, bbwMult) => {
   const f_0 = (e, t) => {
@@ -1132,6 +1135,9 @@ export const custom_indicators_getter = (r, callback) => {
       Session(r),
       LW(r, cb),
       OTE(r, cb),
+      VWAP(r),
+      KDJ(r),
+      DMI(r),
     ];
 
     // Filter out any undefined/null indicators and validate structure
@@ -12443,6 +12449,321 @@ export const OTE = (r, callback) => ({
           ? [oteLevelPrice(leg, level), oteColorIndex(level)]
           : [r.Std.na(), 0];
       });
+    };
+  },
+});
+
+// Feeds a stateful chart copy (VWAP, KDJ) the closed candles only, as the
+// bot reads them, and previews the open candle on a copy of the state. A
+// candle seen open whose closed call never came is fed when a later candle
+// arrives. Recalculating from the first bar starts over.
+const closedCandleFeed = (study, symbol, candle, create, step) => {
+  if (!study.state || symbol.index === 0 || symbol.index < study.lastIndex) {
+    study.state = create();
+    study.lastIndex = -1;
+    study.pending = null;
+    study.lastValue = null;
+    study.prevValue = null;
+  }
+  const commit = (c) => {
+    study.prevValue = study.lastValue;
+    study.lastValue = step(study.state, c);
+    study.lastIndex = c.index;
+  };
+  if (
+    study.pending &&
+    study.pending.index > study.lastIndex &&
+    study.pending.index < candle.index
+  ) {
+    commit(study.pending);
+  }
+  study.pending = null;
+  if (symbol.isBarClosed) {
+    if (candle.index > study.lastIndex) {
+      commit(candle);
+    }
+    return { value: study.lastValue, prev: study.prevValue };
+  }
+  study.pending = candle;
+  return {
+    value: step(study.state.clone(), candle),
+    prev: study.lastValue,
+  };
+};
+
+const vwapLineStyle = (color) => ({
+  linestyle: 0,
+  linewidth: 1,
+  plottype: 7,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color,
+});
+
+// Anchored VWAP with its standard-deviation bands: the volume-weighted hlc3
+// since the day, week or month began (UTC). The lines restart at every
+// anchor; the bar a period starts on is left empty so the jump is not drawn
+// as a slope. The calculation is `VWAPState`, a copy of the one the bot runs.
+export const VWAP = (r) => ({
+  name: 'VWAP (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: { ...vwapLineStyle('#2962FF'), linewidth: 2 },
+        plot_1: vwapLineStyle('#089981'),
+        plot_2: vwapLineStyle('#089981'),
+      },
+      filledAreasStyle: {
+        fill_0: { color: '#089981', transparency: 92, visible: !0 },
+      },
+      inputs: { anchor: 'day', multiplier: 1 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'line' },
+      { id: 'plot_2', type: 'line' },
+    ],
+    styles: {
+      plot_0: { title: 'VWAP', histogramBase: 0, joinPoints: !1 },
+      plot_1: { title: 'Upper band', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'Lower band', histogramBase: 0, joinPoints: !1 },
+    },
+    filledAreas: [
+      {
+        id: 'fill_0',
+        objAId: 'plot_1',
+        objBId: 'plot_2',
+        type: 'plot_plot',
+        title: 'Bands Background',
+      },
+    ],
+    description: 'VWAP (Custom)',
+    shortDescription: 'VWAP',
+    is_price_study: !0,
+    linkedToSeries: true,
+    inputs: [
+      {
+        id: 'anchor',
+        name: 'Anchor',
+        defval: 'day',
+        type: 'text',
+        options: ['day', 'week', 'month'],
+      },
+      {
+        id: 'multiplier',
+        name: 'Bands multiplier',
+        defval: 1,
+        type: 'float',
+        min: 0.1,
+        max: 10,
+        step: 0.1,
+      },
+    ],
+    id: 'VWAP (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'VWAP (Custom)',
+    format: { type: 'inherit' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const anchor = this._input(0);
+      const multiplier = this._input(1);
+      const symbol = this._context.symbol;
+      this._context.setMinimumAdditionalDepth(1500);
+      const { value, prev } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          time: symbol.time,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+          volume: r.Std.volume(this._context),
+        },
+        () => new VWAPState(anchor, multiplier),
+        (state, c) => state.next(c.time, c.high, c.low, c.close, c.volume)
+      );
+      if (!value || !prev || value.periodStart !== prev.periodStart) {
+        return [r.Std.na(), r.Std.na(), r.Std.na()];
+      }
+      return [value.vwap, value.upper, value.lower];
+    };
+  },
+});
+
+const kdjLineStyle = (color) => ({
+  linestyle: 0,
+  linewidth: 1,
+  plottype: 0,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color,
+});
+
+// KDJ: K, D and J (= 3K − 2D) with Stochastic's 80 / 20 guide bands, which the
+// chart moves to the condition's zone. The calculation is `KDJState`, a copy
+// of the one the bot runs.
+export const KDJ = (r) => ({
+  name: 'KDJ (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: kdjLineStyle('#2196F3'),
+        plot_1: kdjLineStyle('#FF6D00'),
+        plot_2: kdjLineStyle('#AB47BC'),
+      },
+      bands: [
+        { color: '#787B86', linestyle: 2, linewidth: 1, visible: !0, value: 80 },
+        { color: '#787B86', linestyle: 2, linewidth: 1, visible: !0, value: 20 },
+        { color: '#787B86', linestyle: 2, linewidth: 1, visible: !1, value: 100 },
+        { color: '#787B86', linestyle: 2, linewidth: 1, visible: !1, value: 0 },
+      ],
+      filledAreasStyle: {
+        fill_0: { color: '#2196F3', transparency: 90, visible: !0 },
+        fill_1: { color: '#2196F3', transparency: 90, visible: !1 },
+        fill_2: { color: '#2196F3', transparency: 90, visible: !1 },
+      },
+      inputs: { in_0: 9, in_1: 3, in_2: 3 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'line' },
+      { id: 'plot_2', type: 'line' },
+    ],
+    styles: {
+      plot_0: { title: 'K', histogramBase: 0, joinPoints: !1 },
+      plot_1: { title: 'D', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'J', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'KDJ (Custom)',
+    shortDescription: 'KDJ',
+    is_price_study: !1,
+    bands: [
+      { id: 'hline_0', name: 'UpperLimit' },
+      { id: 'hline_1', name: 'LowerLimit' },
+      { id: 'hline_3', name: 'TopLimit' },
+      { id: 'hline_4', name: 'LowLimit' },
+    ],
+    filledAreas: [
+      {
+        id: 'fill_0',
+        objAId: 'hline_0',
+        objBId: 'hline_1',
+        type: 'hline_hline',
+        title: 'Hlines Background',
+      },
+      {
+        id: 'fill_1',
+        objAId: 'hline_3',
+        objBId: 'hline_0',
+        type: 'hline_hline',
+        title: 'Hlines top Background',
+      },
+      {
+        id: 'fill_2',
+        objAId: 'hline_4',
+        objBId: 'hline_1',
+        type: 'hline_hline',
+        title: 'Hlines bottom Background',
+      },
+    ],
+    inputs: [
+      { id: 'in_0', name: 'Length', defval: 9, type: 'integer', min: 1, max: 500 },
+      { id: 'in_1', name: 'K Smoothing', defval: 3, type: 'integer', min: 1, max: 100 },
+      { id: 'in_2', name: 'D Smoothing', defval: 3, type: 'integer', min: 1, max: 100 },
+    ],
+    id: 'KDJ (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'KDJ (Custom)',
+    format: { precision: 2, type: 'price' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = this._input(0);
+      const kSmooth = this._input(1);
+      const dSmooth = this._input(2);
+      const symbol = this._context.symbol;
+      const { value } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+        },
+        () => new KDJState(length, kSmooth, dSmooth),
+        (state, c) => state.next(c.high, c.low, c.close)
+      );
+      this._context.setMinimumAdditionalDepth(this.state.warmup + 50);
+      return value
+        ? [value.k, value.d, value.j]
+        : [r.Std.na(), r.Std.na(), r.Std.na()];
+    };
+  },
+});
+
+// ADX in DMI mode: +DI and −DI (the condition compares them) with the ADX,
+// one length for the DI and the ADX smoothing, as the bot uses.
+export const DMI = (r) => ({
+  name: 'Directional Movement Index (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: kdjLineStyle('#089981'),
+        plot_1: kdjLineStyle('#F23645'),
+        plot_2: { ...kdjLineStyle('#FF9800'), transparency: 40 },
+      },
+      inputs: { in_0: 14 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'line' },
+      { id: 'plot_2', type: 'line' },
+    ],
+    styles: {
+      plot_0: { title: '+DI', histogramBase: 0, joinPoints: !1 },
+      plot_1: { title: '−DI', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'ADX', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'Directional Movement Index (Custom)',
+    shortDescription: 'DMI',
+    is_price_study: !1,
+    inputs: [
+      { id: 'in_0', name: 'Length', defval: 14, type: 'integer', min: 1, max: 1e3 },
+    ],
+    id: 'Directional Movement Index (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Directional Movement Index (Custom)',
+    format: { precision: 2, type: 'price' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = this._input(0);
+      this._context.setMinimumAdditionalDepth(3 * length);
+      const [adx, pdi, mdi] = adxCalc(r, this._context, length, length);
+      return [pdi, mdi, adx];
     };
   },
 });

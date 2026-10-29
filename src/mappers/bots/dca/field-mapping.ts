@@ -69,6 +69,7 @@ import {
   DEFAULT_SMOOTHING_LENGTH,
   normalizeSmoothingFields,
 } from '@/utils/indicators/smoothing';
+import { clearStrayTrendFilter } from '@/utils/indicators/trendFilter';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 import {
@@ -4630,6 +4631,12 @@ export const mapFormDataToBackend = (
         i.oteMinLegSize = `${i.oteMinLegSize || '1'}`.trim() || undefined;
         i.oteLevel = `${i.oteLevel || '0.705'}`.trim() || undefined;
       }
+      if (i.type === IndicatorEnum.kdj || i.type === IndicatorEnum.vwap) {
+        // not read by either, but the engine subscribes a condition only
+        // when it is set
+        i.indicatorLength =
+          i.indicatorLength || (i.type === IndicatorEnum.kdj ? 9 : 20);
+      }
       if (
         i.type === IndicatorEnum.session &&
         i.sessionRule === SessionRuleEnum.levels
@@ -4640,13 +4647,17 @@ export const mapFormDataToBackend = (
       // An entry no serializer claimed (see the merge above) still saves its
       // smoothing in the stored shape; the length the form showed is the
       // default when the row never held one.
+      // A type switched from MA / MAR keeps their trendFilter, which would
+      // keep any other type's condition false in the engines.
       if (i.smoothing) {
-        return normalizeSmoothingFields({
-          ...i,
-          smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
-        });
+        return normalizeSmoothingFields(
+          clearStrayTrendFilter({
+            ...i,
+            smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
+          })
+        );
       }
-      return normalizeSmoothingFields(i);
+      return normalizeSmoothingFields(clearStrayTrendFilter(i));
     });
 
     if (result.errors) {

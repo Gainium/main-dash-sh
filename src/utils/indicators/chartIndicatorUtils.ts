@@ -9,6 +9,8 @@ import {
   IndicatorEnum,
   IndicatorSection,
   IndicatorStartConditionEnum,
+  ADXModeEnum,
+  KDJCompareToEnum,
   MAEnum,
   OBFVGRefEnum,
   OBFVGValueEnum,
@@ -430,7 +432,27 @@ function buildChartIndicator(
     (xoPrimaryOnChart || tvIntervalMap[xoSecondInterval] === chartInterval);
   // An indicator tested against its own smoothed line has no value threshold,
   // so there is no band to shade (the smoothed line itself is drawn instead).
-  const comparesSmoothedLine = resolveSmoothingCompare(i) === 'line';
+  // Neither has a VWAP (the close against a line of the study) nor an ADX in
+  // DMI mode (+DI against −DI).
+  const comparesSmoothedLine =
+    resolveSmoothingCompare(i) === 'line' ||
+    i.type === IndicatorEnum.vwap ||
+    (i.type === IndicatorEnum.adx && i.adxMode === ADXModeEnum.dmi);
+  // KDJ shades Stochastic's zones (Anywhere when unset) or, against a custom
+  // value, marks that value.
+  const isKdj = i.type === IndicatorEnum.kdj;
+  const stochLike =
+    isKdj ||
+    [IndicatorEnum.stoch, IndicatorEnum.stochRSI].includes(i.type);
+  const stochCustom = isKdj
+    ? i.kdjCompareTo === KDJCompareToEnum.custom
+    : i.rsiValue2 === rsiValue2Enum.custom;
+  const stochRange = isKdj
+    ? (i.stochRange ?? StochRangeEnum.none)
+    : i.stochRange;
+  const stochCustomValue = isKdj
+    ? parseFloat(i.indicatorValue ?? '')
+    : i.valueInsteadof;
   const chartIndicator: ChartIndicatorConfig = {
     // Combined Ratings has no length; its study's level travels here. An
     // unset level is the form's default (15), as the bot will save it.
@@ -450,16 +472,16 @@ function buildChartIndicator(
         ? undefined
         : i.percentile || comparesSmoothedLine
           ? undefined
-          : [IndicatorEnum.stoch, IndicatorEnum.stochRSI].includes(i.type)
-            ? i.rsiValue2 !== rsiValue2Enum.custom
-              ? i.stochRange === StochRangeEnum.lower
+          : stochLike
+            ? !stochCustom
+              ? stochRange === StochRangeEnum.lower
                 ? +(i.stochUpper ?? '20')
-                : i.stochRange === StochRangeEnum.none
+                : stochRange === StochRangeEnum.none
                   ? undefined
-                  : i.stochRange === StochRangeEnum.upper
+                  : stochRange === StochRangeEnum.upper
                     ? 100
                     : +(i.stochUpper ?? '80')
-              : i.valueInsteadof
+              : stochCustomValue
             : i.indicatorCondition === IndicatorStartConditionEnum.bw
               ? betweenBand(i)?.upper
               : i.indicatorCondition === IndicatorStartConditionEnum.gt
@@ -483,13 +505,13 @@ function buildChartIndicator(
         ? undefined
         : i.percentile || comparesSmoothedLine
           ? undefined
-          : [IndicatorEnum.stoch, IndicatorEnum.stochRSI].includes(i.type)
-            ? i.rsiValue2 !== rsiValue2Enum.custom
-              ? i.stochRange === StochRangeEnum.upper
+          : stochLike
+            ? !stochCustom
+              ? stochRange === StochRangeEnum.upper
                 ? +(i.stochLower ?? '80')
-                : i.stochRange === StochRangeEnum.none
+                : stochRange === StochRangeEnum.none
                   ? undefined
-                  : i.stochRange === StochRangeEnum.lower
+                  : stochRange === StochRangeEnum.lower
                     ? 0
                     : +(i.stochLower ?? '20')
               : undefined
@@ -703,6 +725,15 @@ function buildChartIndicator(
     oteMinLegSize: +(i.oteMinLegSize || 1),
     oteLevel: +(i.oteLevel || 0.705),
     oteLeg: i.oteLeg,
+    adxMode: i.adxMode,
+    kdjLength: +(i.kdjLength || 9),
+    kdjKSmooth: +(i.kdjKSmooth || 3),
+    kdjDSmooth: +(i.kdjDSmooth || 3),
+    kdjLine: i.kdjLine,
+    kdjCompareTo: i.kdjCompareTo,
+    vwapAnchor: i.vwapAnchor,
+    vwapLine: i.vwapLine,
+    vwapBandMultiplier: +(i.vwapBandMultiplier || 1),
   };
 
   return chartIndicator;

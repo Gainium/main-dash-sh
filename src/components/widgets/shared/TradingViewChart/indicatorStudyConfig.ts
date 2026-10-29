@@ -1,5 +1,6 @@
 import { logger } from '@/lib/loggerInstance';
 import {
+  ADXModeEnum,
   IndicatorEnum,
   MAEnum,
   StochRangeEnum,
@@ -76,7 +77,16 @@ const STUDY_NAME_MAP: Omit<
   [IndicatorEnum.session]: 'Session Selector',
   [IndicatorEnum.lw]: 'Long Wick Detector',
   [IndicatorEnum.ote]: 'Discount/Premium OTE Levels',
+  [IndicatorEnum.vwap]: 'VWAP (Custom)',
+  [IndicatorEnum.kdj]: 'KDJ (Custom)',
 };
+
+// ADX in DMI mode draws +DI, −DI and the ADX in a study of its own.
+const DMI_STUDY_NAME = 'Directional Movement Index (Custom)';
+
+const isAdxDmi = (indicator: ChartIndicatorConfig): boolean =>
+  indicator.type === IndicatorEnum.adx &&
+  indicator.adxMode === ADXModeEnum.dmi;
 
 // AR-price variants: drawn as a price level on the candle pane when
 // indicator.arPrice === true (mirrors legacy `arPriceStudies`).
@@ -115,6 +125,7 @@ const OVERLAY_TYPES = new Set<string>([
   IndicatorEnum.sr,
   IndicatorEnum.obfvg,
   IndicatorEnum.dc,
+  IndicatorEnum.vwap,
 ]);
 
 const toNumber = (value: unknown, fallback = 0): number => {
@@ -178,6 +189,7 @@ export const SUPPORTED_STUDY_NAMES = new Set<string>([
   // won't recognise/remove them on refresh and changing the Multiplier
   // stacks a duplicate study instead of replacing it.
   ...Object.values(AR_PRICE_STUDY_NAME_MAP),
+  DMI_STUDY_NAME,
   /* ...LEGACY_STUDY_ALIASES, */
 ]);
 
@@ -421,6 +433,9 @@ const buildInputs = (
         percentileInputs
       );
     case IndicatorEnum.adx:
+      if (isAdxDmi(indicator)) {
+        return { in_0: toNumber(indicator.length, 14) };
+      }
       return mergeInputs(
         {
           in_0: toNumber(indicator.length, 14),
@@ -601,6 +616,17 @@ const buildInputs = (
         id: '',
       };
     }
+    case IndicatorEnum.vwap:
+      return {
+        anchor: String(indicator.vwapAnchor || 'day'),
+        multiplier: toNumber(indicator.vwapBandMultiplier, 1),
+      };
+    case IndicatorEnum.kdj:
+      return {
+        in_0: toNumber(indicator.kdjLength, 9),
+        in_1: toNumber(indicator.kdjKSmooth, 3),
+        in_2: toNumber(indicator.kdjDSmooth, 3),
+      };
     case IndicatorEnum.session: {
       const days = indicator.sessionDays ?? [1, 2, 3, 4, 5];
       const rule = indicator.sessionRule ?? 'in';
@@ -636,7 +662,9 @@ const buildOverrides = (
   if (
     type === IndicatorEnum.st ||
     type === IndicatorEnum.dc ||
-    type === IndicatorEnum.tv
+    type === IndicatorEnum.tv ||
+    type === IndicatorEnum.vwap ||
+    isAdxDmi(indicator)
   ) {
     return undefined;
   }
@@ -702,6 +730,7 @@ const buildOverrides = (
   const boundedRangeIndicators = new Set<string>([
     IndicatorEnum.stoch,
     IndicatorEnum.stochRSI,
+    IndicatorEnum.kdj,
   ]);
 
   // Stochastic's Lower&Upper zone is two bands (0 to its lower line, its
@@ -778,9 +807,12 @@ const buildOverrides = (
     overrides['mean.linewidth'] = 0;
   }
   if (
-    [IndicatorEnum.stoch, IndicatorEnum.stochRSI, IndicatorEnum.div].includes(
-      indicator.type
-    )
+    [
+      IndicatorEnum.stoch,
+      IndicatorEnum.stochRSI,
+      IndicatorEnum.kdj,
+      IndicatorEnum.div,
+    ].includes(indicator.type)
   ) {
     delete overrides['plot.linewidth'];
     delete overrides['plot'];
@@ -863,6 +895,8 @@ export function buildTradingViewStudyDescriptor(
     studyName = MA_STUDY_NAME_MAP[maType] ?? STUDY_NAME_MAP[IndicatorEnum.ma];
   } else if (isArPrice) {
     studyName = AR_PRICE_STUDY_NAME_MAP[type];
+  } else if (isAdxDmi(indicator)) {
+    studyName = DMI_STUDY_NAME;
   } else {
     studyName = STUDY_NAME_MAP[type];
   }
@@ -877,7 +911,7 @@ export function buildTradingViewStudyDescriptor(
 
   const baseInputs = buildInputs(indicator, type);
   const inputs =
-    baseInputs && supportsSmoothing(type)
+    baseInputs && supportsSmoothing(type) && !isAdxDmi(indicator)
       ? { ...baseInputs, ...buildSmoothingInputs(indicator) }
       : baseInputs;
   if (!inputs) {
@@ -914,6 +948,7 @@ export function buildTradingViewStudyDescriptor(
     IndicatorEnum.wr,
     IndicatorEnum.stoch,
     IndicatorEnum.stochRSI,
+    IndicatorEnum.kdj,
     IndicatorEnum.ao,
     IndicatorEnum.mom,
     IndicatorEnum.vo,

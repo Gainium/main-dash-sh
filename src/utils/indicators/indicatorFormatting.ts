@@ -6,6 +6,7 @@ import type { SettingsIndicators } from '@/types';
 import {
   resolveFieldKey,
   resolveFieldLabel,
+  resolveFieldOptions,
   shouldHideField,
   withFieldDefaults,
   withGatingParams,
@@ -119,7 +120,16 @@ export const buildIndicatorSummary = (
     } else {
       const { key, defaultValue } = resolveFieldKey(field, params);
       const value = params?.[key] ?? defaultValue;
-      formatted = formatIndicatorParamValue(field, value);
+      // Name the value from the option list the form offers for these
+      // params (`optionsWhen`), e.g. ADX's DMI conditions.
+      formatted = formatIndicatorParamValue(
+        {
+          ...field,
+          options:
+            resolveFieldOptions(definition, field, params) ?? field.options,
+        },
+        value
+      );
     }
     if (!formatted) {
       continue;
