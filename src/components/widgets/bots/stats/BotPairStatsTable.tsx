@@ -183,7 +183,8 @@ const RangeChip: FC<RangeChipProps> = ({ value, onChange }) => {
 };
 
 export interface BotPairStatsTableProps {
-  botId: string;
+  /** The bot's id; omit it for a backtest. */
+  botId?: string;
   rows: BotPairStatsRowVM[];
   isLoading?: boolean;
   /** Null = all time. Omit `onRangeChange` to hide the picker (old backend). */
@@ -193,6 +194,14 @@ export interface BotPairStatsTableProps {
   fromStoredStats?: boolean;
 }
 
+/** Rows that never carry some metrics (stored stats, a backtest). */
+const dropEmptyColumns = (rows: BotPairStatsRowVM[]): Col[] =>
+  columns.filter(
+    (c) =>
+      c.id === 'pair' ||
+      rows.some((r) => r[c.id as keyof BotPairStatsRowVM] !== undefined)
+  );
+
 export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
   botId,
   rows,
@@ -201,18 +210,13 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
   onRangeChange,
   fromStoredStats = false,
 }) => {
-  // Against a server without per-pair statistics most metrics were never
-  // recorded; a column of dashes says nothing, so drop the ones with no data.
+  const backtest = !botId;
+  // Against a server without per-pair statistics, or for a backtest, some
+  // metrics were never recorded; a column of dashes says nothing, so drop the
+  // ones with no data.
   const visibleColumns = useMemo(
-    () =>
-      fromStoredStats
-        ? columns.filter(
-            (c) =>
-              c.id === 'pair' ||
-              rows.some((r) => r[c.id as keyof BotPairStatsRowVM] !== undefined)
-          )
-        : columns,
-    [fromStoredStats, rows]
+    () => (fromStoredStats || backtest ? dropEmptyColumns(rows) : columns),
+    [fromStoredStats, backtest, rows]
   );
 
   const rangeChip = useMemo(
@@ -229,7 +233,7 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
         Per-pair statistics
       </h3>
       <DataTable
-        tableId="bot-pair-stats"
+        tableId={backtest ? 'backtest-pair-stats' : 'bot-pair-stats'}
         columns={visibleColumns}
         data={rows}
         getRowId={(r) => r.pair}
@@ -240,31 +244,33 @@ export const BotPairStatsTable: FC<BotPairStatsTableProps> = ({
         enableColumnVisibility
         enableSorting
         enableExport
-        exportFilename={`bot-${botId}-pairs`}
+        exportFilename={backtest ? 'backtest-pairs' : `bot-${botId}-pairs`}
         showPagination
         initialPageSize={25}
         defaultColumnVisibility={{ maxDealDuration: false }}
         firstToolbarActions={rangeChip}
         emptyMessage={isLoading ? 'Loading pairs…' : 'No deals in this period.'}
       />
-      <p className="mt-2 text-xs text-muted-foreground">
-        {fromStoredStats ? (
-          <>
-            Return on capital is net profit over the capital allocated to the
-            pair. Update the server for fees, peak capital, drawdown, open
-            positions and a date range.
-          </>
-        ) : (
-          <>
-            {range ? 'The period filters closed deals by close time. ' : ''}
-            Peak capital is the most the pair had committed at once, across all
-            its deals open at the same time; return on capital is realized P&L
-            divided by it. Max drawdown is the deepest a single deal went below
-            its entry. Open deals and open P&L show the current position and
-            ignore the period.
-          </>
-        )}
-      </p>
+      {!backtest && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          {fromStoredStats ? (
+            <>
+              Return on capital is net profit over the capital allocated to the
+              pair. Update the server for fees, peak capital, drawdown, open
+              positions and a date range.
+            </>
+          ) : (
+            <>
+              {range ? 'The period filters closed deals by close time. ' : ''}
+              Peak capital is the most the pair had committed at once, across
+              all its deals open at the same time; return on capital is realized
+              P&L divided by it. Max drawdown is the deepest a single deal went
+              below its entry. Open deals and open P&L show the current position
+              and ignore the period.
+            </>
+          )}
+        </p>
+      )}
     </Card>
   );
 };

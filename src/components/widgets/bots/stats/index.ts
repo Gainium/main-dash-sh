@@ -14,6 +14,7 @@ export {
 export {
   buildPairStatsRows,
   buildPairStatsRowsFromSymbolStats,
+  buildPairStatsRowsFromBacktest,
   type BotPairStatsDTO,
   type BotPairStatsRowVM,
 } from './pairStatsViewModel';

@@ -12,7 +12,13 @@
  *    which the table shows as "—" and sorts last.
  */
 
-import type { BotSymbolsStats } from '@/types';
+import type {
+  BotSymbolsStats,
+  PreparedDeal,
+  SplitTime,
+  SymbolStats,
+} from '@/types';
+import { extractPairAssets } from '@/utils/pairs';
 
 /** One pair as `getBotPairStats` returns it. Money is USD unless named. */
 export interface BotPairStatsDTO {
@@ -151,5 +157,64 @@ export const buildPairStatsRowsFromSymbolStats = (
       maxDealDuration: decided ? s.duration.maxDealDuration : undefined,
       openDeals: undefined,
       unrealizedProfitUsd: undefined,
+    };
+  });
+
+const splitToMs = (split: SplitTime | undefined): number | undefined => {
+  if (!split) return undefined;
+  const n = (v: string) => (finite(Number(v)) ? Number(v) : 0);
+  const ms =
+    (((n(split.d) * 24 + n(split.h)) * 60 + n(split.min)) * 60 + n(split.s)) *
+    1000;
+  return ms || undefined;
+};
+
+/**
+ * A multi-pair backtest's per-pair `symbolStats` → the same rows. The engine
+ * keeps no fees, peak capital or drawdown per pair, so those are `undefined`.
+ * ROI is its `netProfit.perc`: net profit over the most capital the pair could
+ * commit (largest deal × max deals per pair). With the run's `deals` at hand
+ * (a fresh or locally stored run), open P&L and the assets come from them;
+ * a saved run without deals has neither.
+ */
+export const buildPairStatsRowsFromBacktest = (
+  symbolStats: SymbolStats[] | null | undefined,
+  deals?: PreparedDeal[] | null
+): BotPairStatsRowVM[] =>
+  (symbolStats ?? []).map((s) => {
+    const pairDeals = deals?.filter((d) => d.symbol?.pair === s.pair);
+    const symbol = pairDeals?.[0]?.symbol;
+    const fallback = extractPairAssets(s.pair);
+    const wins = s.deals.profit ?? 0;
+    const losses = s.deals.loss ?? 0;
+    const decided = wins + losses;
+    const realized = s.netProfit?.totalUsd ?? 0;
+    const pf = Number(s.profitFactor);
+    return {
+      pair: s.pair,
+      baseAsset: symbol?.baseAsset?.name || fallback.baseAsset,
+      quoteAsset: symbol?.quoteAsset?.name || fallback.quoteAsset,
+      closedDeals: decided,
+      wins,
+      losses,
+      winRatePerc: decided ? (wins / decided) * 100 : undefined,
+      realizedProfitUsd: realized,
+      roiPerc: finite(s.netProfit?.perc) ? s.netProfit.perc : undefined,
+      avgProfitUsd: decided ? realized / decided : undefined,
+      // `Number('Infinity')` is Infinity: profits and no losses.
+      profitFactor: decided && !Number.isNaN(pf) ? pf : undefined,
+      feesQuote: undefined,
+      peakCapitalUsd: undefined,
+      maxDrawdownPerc: undefined,
+      avgDealDuration: splitToMs(s.avgDealDuration),
+      maxDealDuration: splitToMs(s.maxDealDuration),
+      openDeals: s.deals.open ?? 0,
+      unrealizedProfitUsd: pairDeals
+        ? pairDeals.reduce(
+            (acc, d) =>
+              d.status === 'open' ? acc + (d.unrealized?.totalUsd ?? 0) : acc,
+            0
+          )
+        : undefined,
     };
   });

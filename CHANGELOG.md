@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.124.0] - 2026-10-29
+### Added
+- Backtest results, Overview: a per-pair table for multi-pair backtests, the same one multi-pair bots show — deals, win rate, realized P&L, return on capital, profit factor, durations and open deals for each pair, sortable, searchable and exportable to CSV.
+
 ## [2.123.0] - 2026-10-29
 ### Added
 - Candle Colour indicator: green or red closed candles in a row, read from Heikin Ashi or regular candles, either while the run lasts or once on its N-th candle. The chart draws the run as columns with the run the condition needs, with the same calculation the bot and the backtest use.

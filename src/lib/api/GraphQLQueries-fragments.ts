@@ -456,6 +456,8 @@ xOscillator2voShort
   pcDown
   pcCondition
   pcValue
+  pcCompare
+  pcValue2
   ppHighLeft
   ppHighRight
   ppLowLeft
@@ -798,6 +800,8 @@ xOscillator2voShort
   pcDown
   pcCondition
   pcValue
+  pcCompare
+  pcValue2
   ppHighLeft
   ppHighRight
   ppLowLeft
@@ -2249,10 +2253,12 @@ const symbolStatsBacktest = `pair
                                 deals {
                                   profit
                                   loss
+                                  open
                                 }
                                 netProfit {
                                   total
                                   totalUsd
+                                  perc
                                 }
                                 dailyReturn {
                                   total
