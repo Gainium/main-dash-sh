@@ -8498,23 +8498,132 @@ export const PC = (r) => ({
     showLegendValues: false,
     defaults: {
       styles: {
-        up: {
+        // A trigger is marked on the NEXT candle (the one a deal opens on):
+        // a short line at each bound, open·(1 ± v/100) of the triggering
+        // candle, with a triangle on it. Greater than / the lower bound of
+        // Between: the triangle points the move's way (up move below the
+        // line pointing up, down move above it pointing down). Lower than /
+        // the upper bound of Between: it points the other way, so a Between
+        // pair brackets the range.
+        upTriUp: {
           plottype: 'shape_triangle_up',
-          location: 'BelowBar',
+          location: 'Absolute',
+          // on the chart only: no price-scale label, no legend value
+          display: 3,
           visible: !0,
           color: '#4caf4f',
           textColor: '#4caf4f',
           transparency: 0,
-          fontsize: 30,
         },
-        down: {
+        upTriDown: {
           plottype: 'shape_triangle_down',
-          location: 'AboveBar',
+          location: 'Absolute',
+          // on the chart only: no price-scale label, no legend value
+          display: 3,
+          visible: !0,
+          color: '#4caf4f',
+          textColor: '#4caf4f',
+          transparency: 0,
+        },
+        downTriDown: {
+          plottype: 'shape_triangle_down',
+          location: 'Absolute',
+          // on the chart only: no price-scale label, no legend value
+          display: 3,
           visible: !0,
           color: '#ff5252',
           textColor: '#ff5252',
           transparency: 0,
-          fontsize: 30,
+        },
+        downTriUp: {
+          plottype: 'shape_triangle_up',
+          location: 'Absolute',
+          // on the chart only: no price-scale label, no legend value
+          display: 3,
+          visible: !0,
+          color: '#ff5252',
+          textColor: '#ff5252',
+          transparency: 0,
+        },
+        upLineA: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#4caf4f',
+        },
+        upLineB: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#4caf4f',
+        },
+        upLine2A: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#4caf4f',
+        },
+        upLine2B: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#4caf4f',
+        },
+        downLineA: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#ff5252',
+        },
+        downLineB: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#ff5252',
+        },
+        downLine2A: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#ff5252',
+        },
+        downLine2B: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 11,
+          display: 3,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#ff5252',
         },
         bgColor: {
           visible: !0,
@@ -8534,21 +8643,24 @@ export const PC = (r) => ({
         down: 5,
         showUp: true,
         showDown: false,
+        compare: 'gt',
+        up2: 5,
+        down2: 5,
       },
     },
     plots: [
-      {
-        id: 'up',
-        type: 'shapes',
-        plottype: 'shape_triangle_up',
-        location: 'BelowBar',
-      },
-      {
-        id: 'down',
-        type: 'shapes',
-        plottype: 'shape_triangle_down',
-        location: 'AboveBar',
-      },
+      { id: 'upTriUp', type: 'shapes' },
+      { id: 'upTriDown', type: 'shapes' },
+      { id: 'downTriDown', type: 'shapes' },
+      { id: 'downTriUp', type: 'shapes' },
+      { id: 'upLineA', type: 'line' },
+      { id: 'upLineB', type: 'line' },
+      { id: 'upLine2A', type: 'line' },
+      { id: 'upLine2B', type: 'line' },
+      { id: 'downLineA', type: 'line' },
+      { id: 'downLineB', type: 'line' },
+      { id: 'downLine2A', type: 'line' },
+      { id: 'downLine2B', type: 'line' },
       {
         id: 'bgColor',
         type: 'bg_colorer',
@@ -8556,12 +8668,18 @@ export const PC = (r) => ({
       },
     ],
     styles: {
-      up: {
-        title: 'Price increased',
-      },
-      down: {
-        title: 'Price decreased',
-      },
+      upTriUp: { title: 'Price increased', size: 'tiny' },
+      upTriDown: { title: 'Price increased, upper bound', size: 'tiny' },
+      downTriDown: { title: 'Price decreased', size: 'tiny' },
+      downTriUp: { title: 'Price decreased, lower bound', size: 'tiny' },
+      upLineA: { title: 'Up level' },
+      upLineB: { title: 'Up level' },
+      upLine2A: { title: 'Up level 2' },
+      upLine2B: { title: 'Up level 2' },
+      downLineA: { title: 'Down level' },
+      downLineB: { title: 'Down level' },
+      downLine2A: { title: 'Down level 2' },
+      downLine2B: { title: 'Down level 2' },
       bgColor: {
         title: 'Background color',
       },
@@ -8591,7 +8709,7 @@ export const PC = (r) => ({
         name: '% up',
         defval: 5,
         type: 'float',
-        min: 1,
+        min: 0,
         max: 1000,
         step: 0.1,
       },
@@ -8600,7 +8718,7 @@ export const PC = (r) => ({
         name: '% down',
         defval: 5,
         type: 'float',
-        min: 1,
+        min: 0,
         max: 1000,
         step: 0.1,
       },
@@ -8616,13 +8734,38 @@ export const PC = (r) => ({
         defval: true,
         type: 'bool',
       },
+      {
+        id: 'compare',
+        name: 'Condition',
+        defval: 'gt',
+        type: 'text',
+        options: ['gt', 'lt', 'bw'],
+      },
+      {
+        id: 'up2',
+        name: '% up (between: other bound)',
+        defval: 5,
+        type: 'float',
+        min: 0,
+        max: 1000,
+        step: 0.1,
+      },
+      {
+        id: 'down2',
+        name: '% down (between: other bound)',
+        defval: 5,
+        type: 'float',
+        min: 0,
+        max: 1000,
+        step: 0.1,
+      },
     ],
   },
   constructor: function () {
     this.main = function (e, t) {
       this._context = e;
       this._input = t;
-      this._context.setMinimumAdditionalDepth(1);
+      this._context.setMinimumAdditionalDepth(2);
       const high = r.Std.high(this._context);
       const low = r.Std.low(this._context);
       const open = r.Std.open(this._context);
@@ -8630,11 +8773,69 @@ export const PC = (r) => ({
       const downPerc = this._input(1);
       const showUp = this._input(2);
       const showDown = this._input(3);
+      // gt (the only mode before) / lt / bw (strict at both bounds), as
+      // @gainium/indicators' priceChangeCondition
+      const compare = this._input(4);
+      const upPerc2 = this._input(5);
+      const downPerc2 = this._input(6);
+      const pass = (m, a, b) =>
+        compare === 'lt'
+          ? m < a
+          : compare === 'bw'
+            ? m > Math.min(a, b) && m < Math.max(a, b)
+            : m > a;
       const _up = Math.abs((high - open) / open) * 100;
       const _down = Math.abs((low - open) / open) * 100;
-      const up = showUp && _up > upPerc ? 1 : 0;
-      const down = showDown && _down > downPerc ? 1 : 0;
-      return [up, down, up ? 1 : down ? 2 : 0];
+      const up = showUp && pass(_up, upPerc, upPerc2) ? 1 : 0;
+      const down = showDown && pass(_down, downPerc, downPerc2) ? 1 : 0;
+      // the previous candle's decision and prices, read on the candle after it
+      const upS = this._context.new_var(up);
+      const downS = this._context.new_var(down);
+      const openS = this._context.new_var(open);
+      const highS = this._context.new_var(high);
+      const lowS = this._context.new_var(low);
+      const countS = this._context.new_var(0);
+      const prevCount = countS.get(1);
+      const bar = Number.isFinite(prevCount) ? prevCount + 1 : 0;
+      countS.set(bar);
+      const prevUp = upS.get(1) === 1;
+      const prevDown = downS.get(1) === 1;
+      const prevOpen = openS.get(1);
+      // the triangle sits beside its line, a fraction of the triggering
+      // candle's range away, so the line stays visible
+      const gap = Math.abs(highS.get(1) - lowS.get(1)) * 0.04;
+      const lo = (a, b) => (compare === 'bw' ? Math.min(a, b) : a);
+      const hi = (a, b) => Math.max(a, b);
+      const at = (pct, sign) => prevOpen * (1 + (sign * pct) / 100);
+      // bound 1: gt / bw lower bound (points the move's way) or lt (opposite)
+      const upL1 = prevUp ? at(lo(upPerc, upPerc2), 1) : NaN;
+      const upL2 = prevUp && compare === 'bw' ? at(hi(upPerc, upPerc2), 1) : NaN;
+      const downL1 = prevDown ? at(lo(downPerc, downPerc2), -1) : NaN;
+      const downL2 =
+        prevDown && compare === 'bw' ? at(hi(downPerc, downPerc2), -1) : NaN;
+      const atMost = compare === 'lt';
+      // pointing up = below its line; pointing down = above it
+      const below = (v) => v - gap;
+      const above = (v) => v + gap;
+      // consecutive markers alternate between two step lines, so they are
+      // never joined by a riser
+      const even = bar % 2 === 0;
+      const split = (v) => (even ? [v, NaN] : [NaN, v]);
+      return [
+        // upTriUp: up move, pointing up
+        atMost ? NaN : below(upL1),
+        // upTriDown: up move, pointing down (lt bound, bw upper bound)
+        atMost ? above(upL1) : above(upL2),
+        // downTriDown: down move, pointing down
+        atMost ? NaN : above(downL1),
+        // downTriUp: down move, pointing up (lt bound, bw lower price)
+        atMost ? below(downL1) : below(downL2),
+        ...split(upL1),
+        ...split(upL2),
+        ...split(downL1),
+        ...split(downL2),
+        up ? 1 : down ? 2 : 0,
+      ];
     };
   },
 });

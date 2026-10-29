@@ -74,6 +74,10 @@ import {
   divergenceRangeInvalid,
   stripDefaultDivergencePivots,
 } from '@/utils/indicators/divergencePivots';
+import {
+  priceChangeRangeInvalid,
+  stripPriceChangeRange,
+} from '@/utils/indicators/priceChangeRange';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 import {
@@ -194,6 +198,7 @@ const normalizeIndicatorParamsRecord = (
     'pcUp',
     'pcDown',
     'pcValue',
+    'pcValue2',
     'riskAtrMult',
     'dynamicArFactor',
   ];
@@ -4676,15 +4681,19 @@ export const mapFormDataToBackend = (
       if (i.smoothing) {
         return normalizeSmoothingFields(
           clearStrayTrendFilter(
-            stripDefaultDivergencePivots({
-              ...i,
-              smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
-            })
+            stripPriceChangeRange(
+              stripDefaultDivergencePivots({
+                ...i,
+                smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
+              })
+            )
           )
         );
       }
       return normalizeSmoothingFields(
-        clearStrayTrendFilter(stripDefaultDivergencePivots(i))
+        clearStrayTrendFilter(
+          stripPriceChangeRange(stripDefaultDivergencePivots(i))
+        )
       );
     });
 
@@ -4717,6 +4726,13 @@ export const mapFormDataToBackend = (
   finalData.indicatorGroups = (finalData.indicatorGroups ?? []).filter((ig) =>
     (finalData.indicators ?? []).some((i) => i.groupId === ig.id)
   );
+
+  // A Price Change between with no usable second value never fires.
+  if ((finalData.indicators ?? []).some((i) => priceChangeRangeInvalid(i))) {
+    allErrors.push(
+      'Price Change: Between needs a second value with the same sign as % change and a different size'
+    );
+  }
 
   // A Divergence whose lookback range is empty never finds a pair of pivots.
   if ((finalData.indicators ?? []).some((i) => divergenceRangeInvalid(i))) {

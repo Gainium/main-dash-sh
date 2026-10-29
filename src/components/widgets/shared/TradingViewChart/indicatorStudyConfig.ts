@@ -6,6 +6,7 @@ import {
   SessionLevelsActiveEnum,
   IndicatorEnum,
   MAEnum,
+  PCCompareEnum,
   StochRangeEnum,
   tvIntervalMap,
   type ChartIndicatorConfig,
@@ -19,6 +20,7 @@ import {} from '@/types/indicators/indicatorTypes';
 import { OBFVGValueEnum } from '@gainium/backtester/dist/types';
 import { parseSessionTime } from '@/utils/indicators/sessionWindow';
 import { DEFAULT_OTE_LEVELS } from '@/utils/indicators/oteLevels';
+import { resolvePriceChangeCompare } from '@/utils/indicators/priceChangeRange';
 
 type TradingViewInput = Record<string, string | number | boolean>;
 
@@ -299,12 +301,26 @@ const buildInputs = (
     case IndicatorEnum.pc: {
       const upValue = toNumber(indicator.pcUp ?? indicator.pcValue, 5);
       const downValue = toNumber(indicator.pcDown ?? indicator.pcValue, 5);
-      const condition = String(indicator.pcCondition ?? 'up');
+      // The chart config carries PCConditionEnum ('UP' / 'DOWN').
+      const condition = String(indicator.pcCondition ?? 'up').toLowerCase();
+      // The study marks the candle after each trigger at its bound(s);
+      // between needs a second value of the same sign (else it never fires,
+      // and nothing is marked).
+      const compare = resolvePriceChangeCompare(indicator.pcCompare);
+      const second = Math.abs(toNumber(indicator.pcValue2, NaN));
+      const pcSign = condition === 'down' ? -1 : 1;
+      const secondSign = Math.sign(toNumber(indicator.pcValue2, NaN));
+      const bwInvalid =
+        compare === PCCompareEnum.bw &&
+        (!isFinite(second) || secondSign !== pcSign);
       return {
         up: upValue,
         down: downValue,
-        showUp: condition === 'up',
-        showDown: condition === 'down',
+        showUp: condition === 'up' && !bwInvalid,
+        showDown: condition === 'down' && !bwInvalid,
+        compare,
+        up2: compare === PCCompareEnum.bw && !bwInvalid ? second : upValue,
+        down2: compare === PCCompareEnum.bw && !bwInvalid ? second : downValue,
       };
     }
     case IndicatorEnum.rsi:

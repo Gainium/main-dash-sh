@@ -1674,6 +1674,16 @@ export enum SqzMomentumEnum {
   any = 'any',
 }
 
+/**
+ * Price Change: how the candle's move is compared with pcValue (and pcValue2
+ * for between). Unset = gt, the behaviour before the setting existed.
+ */
+export enum PCCompareEnum {
+  gt = 'gt',
+  lt = 'lt',
+  bw = 'bw',
+}
+
 /** Session Price levels: where the condition is evaluated. */
 export enum SessionLevelsActiveEnum {
   session = 'session',
@@ -1788,6 +1798,10 @@ export type SettingsIndicators = {
   pcDown?: string;
   pcCondition?: PCConditionEnum;
   pcValue?: string;
+  /** Price Change: greater than (unset = as before) / lower than / between. */
+  pcCompare?: PCCompareEnum;
+  /** Price Change: the second bound for between, same sign as pcValue. */
+  pcValue2?: string;
   ppHighLeft?: number;
   ppHighRight?: number;
   ppLowLeft?: number;
@@ -4265,6 +4279,10 @@ export type CommonIndicatorSettings = {
   pcDown?: string;
   pcCondition?: PCConditionEnum;
   pcValue?: string;
+  /** Price Change: greater than (unset = as before) / lower than / between. */
+  pcCompare?: PCCompareEnum;
+  /** Price Change: the second bound for between, same sign as pcValue. */
+  pcValue2?: string;
   ppHighLeft?: number;
   ppHighRight?: number;
   ppLowLeft?: number;

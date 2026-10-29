@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.125.0] - 2026-10-29
+### Added
+- Price Change indicator: a Condition setting — Greater than (as before), Lower than, or Between with a second % value of the same sign (2 and 5 = the candle rose 2–5 % from its open; −2 and −5 = it fell 2–5 %). A Price Change left on Greater than saves exactly the settings it saved before.
+- Price Change chart study: each trigger is marked on the next candle with a short line at the bound (the triggering candle's open ± the %) and a triangle on it pointing the move's way; Lower than points the other way, and Between marks both bounds so the pair brackets the range.
+
+### Fixed
+- Price Change chart study: the triggering candles were never marked on the bot chart.
+
 ## [2.124.4] - 2026-10-29
 ### Fixed
 - Bot settings import: a bot identifier carried in the imported settings is no longer sent when the bot is created or saved; the server assigns it.

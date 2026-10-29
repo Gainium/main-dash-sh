@@ -40,6 +40,7 @@ import {
   SqzSignalEnum,
   SqzMomentumEnum,
   SessionLevelsActiveEnum,
+  PCCompareEnum,
   type SettingsIndicators,
 } from '..';
 import {
@@ -58,6 +59,10 @@ import {
   supportsSmoothing,
 } from '@/utils/indicators/smoothing';
 import { DIV_PIVOT_DEFAULTS } from '@/utils/indicators/divergencePivots';
+import {
+  resolvePriceChangeCompare,
+  suggestPriceChangeValue2,
+} from '@/utils/indicators/priceChangeRange';
 import {
   resolveSessionPreset,
   SESSION_ALL_DAY,
@@ -584,6 +589,14 @@ export const sqzMomentumParams = (
   (params.sqzSignal ?? SqzSignalEnum.fired) === SqzSignalEnum.any
     ? { sqzMomentum: SqzMomentumEnum.any, sqzSignal: SqzSignalEnum.fired }
     : { sqzMomentum: value as SqzMomentumEnum };
+
+const PRICE_CHANGE_COMPARE_OPTIONS = [
+  { value: PCCompareEnum.gt, label: 'Greater than' },
+  { value: PCCompareEnum.lt, label: 'Lower than' },
+  { value: PCCompareEnum.bw, label: 'Between' },
+];
+
+const isUnsetValue = (v: unknown) => v === undefined || v === null || v === '';
 
 const SESSION_LEVELS_ACTIVE_OPTIONS = [
   { value: SessionLevelsActiveEnum.session, label: 'During the session' },
@@ -1965,6 +1978,40 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
     description: 'Measures candle price change as percentage or points.',
     supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
     fields: [
+      makeSelectField({
+        // No default: a Price Change that never chose stays "Greater than"
+        // and saves exactly what it saved before (gt is stripped on save).
+        key: 'pcCompare',
+        label: 'Condition',
+        options: PRICE_CHANGE_COMPARE_OPTIONS,
+        // Own row, so % change pairs with the second value under Between.
+        span: 'full',
+        tooltip:
+          'How the last closed candle\'s move from its open is compared with % change: greater than, lower than, or between % change and the second value.',
+        // On the card only when it is not the default.
+        summary: (params) =>
+          resolvePriceChangeCompare(params.pcCompare) === PCCompareEnum.gt
+            ? null
+            : (PRICE_CHANGE_COMPARE_OPTIONS.find(
+                (o) => o.value === resolvePriceChangeCompare(params.pcCompare)
+              )?.label ?? null),
+        derive: {
+          get: (params) => resolvePriceChangeCompare(params.pcCompare),
+          set: (value, params) =>
+            value === PCCompareEnum.bw
+              ? {
+                  pcCompare: PCCompareEnum.bw,
+                  pcValue2: isUnsetValue(params.pcValue2)
+                    ? suggestPriceChangeValue2(params.pcValue)
+                    : params.pcValue2,
+                }
+              : {
+                  pcCompare:
+                    value === PCCompareEnum.lt ? PCCompareEnum.lt : undefined,
+                  pcValue2: undefined,
+                },
+        },
+      }),
       makeNumberField({
         key: 'pcValue',
         label: '% change',
@@ -1972,7 +2019,16 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         step: 0.1,
         allowVariables: true,
         tooltip:
-          'The minimum price increase or decrease in the previous candle. Use a positive number for an increase and a negative number for a decrease.',
+          'The price move of the last closed candle from its open, in %. A positive number reads the move up to the high, a negative number the move down to the low.',
+      }),
+      makeNumberField({
+        key: 'pcValue2',
+        label: 'And % change',
+        step: 0.1,
+        allowVariables: true,
+        tooltip:
+          'The other end of the range, with the same sign as % change: 2 and 5 = the candle rose between 2 % and 5 %; -2 and -5 = it fell between 2 % and 5 %.',
+        shownWhen: [{ field: 'pcCompare', equals: PCCompareEnum.bw }],
       }),
       makeIntervalField({
         key: 'indicatorInterval',

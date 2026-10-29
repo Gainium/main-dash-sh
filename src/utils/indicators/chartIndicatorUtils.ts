@@ -601,6 +601,8 @@ function buildChartIndicator(
     pcDown: `${Math.abs(+(i.pcValue ?? '5'))}`,
     pcCondition:
       +(i.pcValue ?? '5') > 0 ? PCConditionEnum.up : PCConditionEnum.down,
+    pcCompare: i.pcCompare,
+    pcValue2: i.pcValue2,
     ppHighLeft: +(i.ppHighLeft ?? 5),
     ppHighRight: +(i.ppHighRight ?? 5),
     ppLowLeft: +(i.ppLowLeft ?? 5),
