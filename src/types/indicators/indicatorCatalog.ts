@@ -4051,14 +4051,14 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeNumberField({
         key: 'sqzBBMult',
         label: 'BB multiplier',
-        defaultValue: 2,
+        defaultValue: 1.5,
         min: 0.1,
         max: 10,
         step: 0.1,
         suffix: 'σ',
         allowVariables: true,
         tooltip:
-          "Width of the Bollinger Bands in standard deviations. TradingView's published script draws with 1.5; set 1.5 to match its chart.",
+          "Width of the Bollinger Bands in standard deviations. 1.5 (the default) matches the Squeeze Momentum chart TradingView shows; 2 is LazyBear's corrected version.",
       }),
       makeNumberField({
         key: 'sqzKCLength',

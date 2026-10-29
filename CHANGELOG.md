@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.0] - 2026-10-29
+
+### Changed
+
+- Squeeze Momentum: the BB multiplier defaults to 1.5 (was 2), so a new Squeeze Momentum condition and its chart match the Squeeze Momentum chart TradingView shows. Saved conditions keep their value.
+
 ## [2.125.1] - 2026-10-29
 
 ### Fixed

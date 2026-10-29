@@ -13265,7 +13265,7 @@ export const SqueezeMomentum = (r) => ({
           },
         },
       },
-      inputs: { length: 20, bbMult: 2, kcLength: 20, kcMult: 1.5 },
+      inputs: { length: 20, bbMult: 1.5, kcLength: 20, kcMult: 1.5 },
     },
     plots: [
       { id: 'plot_0', type: 'line' },
@@ -13299,7 +13299,7 @@ export const SqueezeMomentum = (r) => ({
     is_price_study: !1,
     inputs: [
       { id: 'length', name: 'BB length', defval: 20, type: 'integer', min: 1, max: 500 },
-      { id: 'bbMult', name: 'BB multiplier', defval: 2, type: 'float', min: 0.1, max: 10, step: 0.1 },
+      { id: 'bbMult', name: 'BB multiplier', defval: 1.5, type: 'float', min: 0.1, max: 10, step: 0.1 },
       { id: 'kcLength', name: 'KC length', defval: 20, type: 'integer', min: 1, max: 500 },
       { id: 'kcMult', name: 'KC multiplier', defval: 1.5, type: 'float', min: 0.1, max: 10, step: 0.1 },
     ],

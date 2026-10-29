@@ -672,7 +672,7 @@ const buildInputs = (
     case IndicatorEnum.sqz:
       return {
         length: toNumber(indicator.sqzLength, 20),
-        bbMult: toNumber(indicator.sqzBBMult, 2),
+        bbMult: toNumber(indicator.sqzBBMult, 1.5),
         kcLength: toNumber(indicator.sqzKCLength, 20),
         kcMult: toNumber(indicator.sqzKCMult, 1.5),
       };

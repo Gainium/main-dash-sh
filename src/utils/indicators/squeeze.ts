@@ -36,7 +36,7 @@ export const resolveSqueezeSettings = (
   kcMult?: number | string | null
 ) => ({
   length: wholeLength(length, 20),
-  bbMult: positive(bbMult, 2),
+  bbMult: positive(bbMult, 1.5),
   kcLength: wholeLength(kcLength, 20),
   kcMult: positive(kcMult, 1.5),
 });

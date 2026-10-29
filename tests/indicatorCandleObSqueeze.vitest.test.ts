@@ -140,7 +140,8 @@ describe("catalog defaults are the contract's", () => {
     expect(INDICATOR_CATALOG[IndicatorEnum.sqz].label).toBe("Squeeze Momentum");
     expect(row(IndicatorEnum.sqz)).toMatchObject({
       sqzLength: 20,
-      sqzBBMult: 2,
+      // 1.5 = the chart TradingView shows (and the package default)
+      sqzBBMult: 1.5,
       sqzKCLength: 20,
       sqzKCMult: 1.5,
       sqzSignal: SqzSignalEnum.fired,
@@ -236,6 +237,15 @@ describe("saving", () => {
     expect(candle).toMatchObject({ candleCount: 3, indicatorLength: 14 });
     expect(ob).toMatchObject({ obSwingLength: 7 });
     expect(sqz).toMatchObject({ sqzBBMult: 1.5, sqzKCMult: 1.25, sqzLength: 18 });
+  });
+
+  it("a new Squeeze Momentum row saves sqzBBMult 1.5 explicitly", () => {
+    expect(field(IndicatorEnum.sqz, "sqzBBMult")).toMatchObject({ defaultValue: 1.5 });
+    const [sqz] = save([row(IndicatorEnum.sqz)]);
+    expect(sqz.sqzBBMult).toBe(1.5);
+    // a stored 2 is kept
+    const [two] = save([row(IndicatorEnum.sqz, { sqzBBMult: 2 })]);
+    expect(two.sqzBBMult).toBe(2);
   });
 
   it("keeps a decimal standard deviation on BB, BBW, BB%B and the SuperTrend factor", () => {

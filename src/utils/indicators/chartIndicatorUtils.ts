@@ -748,7 +748,7 @@ function buildChartIndicator(
     obSide: i.obSide,
     obLevel: i.obLevel,
     sqzLength: +(i.sqzLength || 20),
-    sqzBBMult: +(i.sqzBBMult || 2),
+    sqzBBMult: +(i.sqzBBMult || 1.5),
     sqzKCLength: +(i.sqzKCLength || 20),
     sqzKCMult: +(i.sqzKCMult || 1.5),
     sqzSignal: i.sqzSignal,
