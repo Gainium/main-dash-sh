@@ -1,5 +1,9 @@
 # Changelog
 
+## [2.121.0] - 2026-10-29
+### Added
+- Moving Averages and MA Ratio: McGinley Dynamic as a moving average type, in the bot form and on the chart. The chart line follows the same calculation the bot and the backtest use.
+
 ## [2.120.3] - 2026-10-28
 ### Fixed
 - Grid bot form: pairs whose concatenated symbol reads two ways (BATUSD, QNTUSD) name their assets from the pair itself, so the investment field asks for USD instead of TUSD.

@@ -1,4 +1,5 @@
 import { isSessionActiveDuring } from '@/utils/indicators/sessionWindow';
+import { mcginleyNext } from '@/utils/indicators/mcginley';
 import {
   SessionLevelsState,
   sessionLevelValue,
@@ -1096,6 +1097,7 @@ export const custom_indicators_getter = (r, callback) => {
       RSI(r),
       TVTA(r),
       RMA(r, cb),
+      McGinley(r, cb),
       SMA(r, cb),
       BB(r, cb),
       Stoch(r),
@@ -2943,6 +2945,91 @@ export const RMA = (r, callback) => ({
         callback(rma, id);
       }
       return [rma];
+    };
+  },
+});
+
+export const McGinley = (r, callback) => ({
+  name: 'McGinley Dynamic (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 0,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#00BCD4',
+        },
+      },
+      inputs: {
+        in_0: 14,
+        id: '',
+      },
+    },
+    plots: [
+      {
+        id: 'plot_0',
+        type: 'line',
+      },
+    ],
+    styles: {
+      plot_0: {
+        title: 'McGinley Dynamic',
+        histogramBase: 0,
+        joinPoints: !1,
+      },
+    },
+    description: 'McGinley Dynamic (Custom)',
+    shortDescription: 'McGinley',
+    is_price_study: !0,
+    linkedToSeries: true,
+    inputs: [
+      {
+        id: 'in_0',
+        name: 'Length',
+        defval: 14,
+        type: 'integer',
+        min: 1,
+        max: 2e3,
+      },
+      {
+        id: 'id',
+        name: 'ID',
+        defval: '',
+        type: 'text',
+      },
+    ],
+    id: 'McGinley Dynamic (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'McGinley Dynamic (Custom)',
+    format: {
+      type: 'inherit',
+    },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = this._input(0);
+      const id = this._input(1);
+      const close = r.Std.close(this._context);
+      const closeVar = this._context.new_var(close);
+      // seeded with the SMA of the first `length` closes, as the engine is
+      const seed = r.Std.sma(closeVar, length, this._context);
+      const mg = this._context.new_var();
+      const value = mcginleyNext(mg.get(1), close, seed, length);
+      mg.set(value);
+      if (callback) {
+        callback(value, id);
+      }
+      return [value];
     };
   },
 });
@@ -5632,6 +5719,13 @@ const getMarValue = (type1, r, closeVar, type1length, context) => {
     case 'RMA':
       result1 = r.Std.rma(closeVar, type1length, context);
       break;
+    case 'MCGINLEY': {
+      const seed = r.Std.sma(closeVar, type1length, context);
+      const mg = context.new_var();
+      result1 = mcginleyNext(mg.get(1), closeVar.get(), seed, type1length);
+      mg.set(result1);
+      break;
+    }
     case 'price':
       result1 = closeVar.get();
       break;
@@ -5768,7 +5862,17 @@ export const MAR = withSmoothing((r) => ({
         name: 'Type 1',
         defval: 'EMA',
         type: 'text',
-        options: ['SMA', 'EMA', 'WMA', 'DEMA', 'TEMA', 'VWMA', 'HMA', 'RMA'],
+        options: [
+          'SMA',
+          'EMA',
+          'WMA',
+          'DEMA',
+          'TEMA',
+          'VWMA',
+          'HMA',
+          'RMA',
+          'MCGINLEY',
+        ],
       },
       {
         id: 'type1length',
@@ -5792,6 +5896,7 @@ export const MAR = withSmoothing((r) => ({
           'VWMA',
           'HMA',
           'RMA',
+          'MCGINLEY',
           'price',
         ],
       },

@@ -94,6 +94,7 @@ const MA_STUDY_NAME_MAP: Omit<Record<MAEnum, string>, MAEnum.price> = {
   [MAEnum.vwma]: 'VWMA (Custom)',
   [MAEnum.hma]: 'Hull Moving Average (Custom)',
   [MAEnum.rma]: 'RMA',
+  [MAEnum.mcginley]: 'McGinley Dynamic (Custom)',
 };
 
 // Studies that plot in PRICE units and therefore belong on the candle pane.

@@ -223,9 +223,17 @@ const summarizeSmoothingCompare = (params: SettingsIndicators): string | null =>
         ?.label ?? null)
     : null;
 
+// The averages the Moving Average and MA Ratio lines can be. McGinley Dynamic
+// is a line of its own, not a basis for the Bollinger family, whose engines
+// would compute it as an EMA.
+const MA_LINE_OPTIONS = [
+  ...MA_TYPE_OPTIONS,
+  { value: MAEnum.mcginley, label: 'McGinley Dynamic' },
+];
+
 const MA_REFERENCE_OPTIONS = [
   { value: MAEnum.price, label: 'Current price' },
-  ...MA_TYPE_OPTIONS,
+  ...MA_LINE_OPTIONS,
 ];
 
 const INTERVAL_OPTIONS = [
@@ -911,7 +919,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'maType',
         label: 'Moving average',
         defaultValue: MAEnum.ema,
-        options: MA_TYPE_OPTIONS,
+        options: MA_LINE_OPTIONS,
       }),
       makeNumberField({
         key: 'indicatorLength',
@@ -2146,7 +2154,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         key: 'mar1type',
         label: 'Relative to',
         defaultValue: MAEnum.ema,
-        options: MA_TYPE_OPTIONS,
+        options: MA_LINE_OPTIONS,
       }),
       makeNumberField({
         key: 'mar1length',
