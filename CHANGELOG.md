@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.124.2] - 2026-10-29
+### Fixed
+- Backtests: a candle request that fails while the data loads is retried instead of ending the load early, which made the backtest run on a shorter period than the one picked. If it keeps failing, DCA, Combo and Grid backtests (and the Analysis random-entry comparison) stop and show the error instead of finishing on part of the period.
+- Backtests: a stopped or cancelled backtest no longer shows "finished successfully".
+
 ## [2.124.1] - 2026-10-29
 ### Fixed
 - Backtests: a period that starts before a pair was listed no longer downloads the empty stretch before the listing again on every run. The first run records where the pair's history begins, and later runs start there.

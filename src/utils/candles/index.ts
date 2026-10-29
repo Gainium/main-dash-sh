@@ -340,6 +340,8 @@ class Candles {
       const toSave: Bar[] = [];
       // The venue answered the start of the window with nothing.
       let emptyFromStart = false;
+      // A request failed: a late first bar may be a failed page, not history.
+      let anyFailed = false;
 
       // Background candle downloads are intentionally silent — they are a
       // normal side-effect of opening a bot form, so a toast every time
@@ -367,6 +369,7 @@ class Candles {
         if (int.from === from && result.emptyHead && !result.failed) {
           emptyFromStart = true;
         }
+        anyFailed ||= result.failed;
         for (const d of result.bars) {
           if (!requiredIndex.has(d.time)) {
             required.push(d);
@@ -421,21 +424,23 @@ class Candles {
           if (this._stop || signal?.aborted) {
             break;
           }
-          const { bars: refill } = await this.getCandlesFromExchange({
-            symbol,
-            period: {
-              from: g.from,
-              to: g.to,
-              countBack: Infinity,
-              firstDataRequest: false,
-            },
-            interval,
-            updateProgress,
-            index,
-            total,
-            handleErrorByCandles,
-            ...(signal ? { signal } : {}),
-          });
+          const { bars: refill, failed: refillFailed } =
+            await this.getCandlesFromExchange({
+              symbol,
+              period: {
+                from: g.from,
+                to: g.to,
+                countBack: Infinity,
+                firstDataRequest: false,
+              },
+              interval,
+              updateProgress,
+              index,
+              total,
+              handleErrorByCandles,
+              ...(signal ? { signal } : {}),
+            });
+          anyFailed ||= refillFailed;
           for (const d of refill) {
             if (!requiredIndex.has(d.time)) {
               required.push(d);
@@ -467,6 +472,7 @@ class Candles {
       // known from the series' earliest cached time instead.
       let firstTime: number | undefined = local.firstTime;
       if (
+        !anyFailed &&
         candles.length &&
         candles[0].time > from &&
         (local.minTime === undefined || local.minTime >= from) &&
@@ -595,8 +601,8 @@ class Candles {
       let ind = 0;
       const maxIterations = count * 2; // Safety limit to prevent infinite loops
       let actualIterations = 0;
-      let consecutiveErrors = 0;
-      const maxConsecutiveErrors = 3;
+      const maxAttempts = 3;
+      const retryDelayMs = 1_000;
       // Leading chunks the venue answered with nothing — see the empty-chunk
       // branch below. Counted so the completion log states the range actually
       // covered instead of implying the requested one was served.
@@ -646,8 +652,14 @@ class Candles {
         }
         // IMPORTANT: historyApi expects startAt/endAt in milliseconds.
         // Previously we sent seconds, which caused API to ignore the range and return most recent candles.
-        let candles: Bar[] = [];
-        try {
+        // A failed request resolves to [], the same as an empty range, and an
+        // empty page after data reads as the end of history below — so one
+        // failed page used to end the load early and the backtest ran on a
+        // shorter period. Retry the same window; if it keeps failing, say so.
+        let candles: Bar[] | null = null;
+        let lastError = '';
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const outcome = { failed: false, error: undefined as unknown };
           const result = await requestCandles({
             symbol,
             endAt: `${toThis * 1000}`,
@@ -656,53 +668,57 @@ class Candles {
             exchange: this.exchangeName,
             limit: requestStep,
             ...(signal ? { signal } : {}),
-            onError: () => {
-              failed = true;
+            onError: (error) => {
+              outcome.failed = true;
+              outcome.error = error;
             },
           });
-
-          // Convert CandleResponse[] to Bar[]
-          candles = result.map((c) => ({
-            open: +c.open,
-            high: +c.high,
-            low: +c.low,
-            close: +c.close,
-            volume: +c.volume,
-            time: c.time,
-          }));
-
-          // Reset error counter on successful API call
-          consecutiveErrors = 0;
-        } catch (error) {
-          consecutiveErrors++;
-          failed = true;
-          const errorMsg =
-            error instanceof Error ? error.message : String(error);
-          console.error(
-            `[Candles.getCandlesFromExchange] API error at iteration ${ind}/${count} (consecutive: ${consecutiveErrors}/${maxConsecutiveErrors}): ${errorMsg}`
-          );
-
-          if (consecutiveErrors >= maxConsecutiveErrors) {
-            const failureMsg = `Failed to fetch candles after ${maxConsecutiveErrors} consecutive errors. Last error: ${errorMsg}`;
-            console.error(
-              `[Candles.getCandlesFromExchange] STOPPING: ${failureMsg}`
-            );
-            if (handleErrorByCandles) {
-              handleErrorByCandles(failureMsg);
-            }
-            // Return what we have collected so far rather than empty array
+          if (this._stop || signal?.aborted) {
             return {
               bars: data,
               emptyHead: leadingEmptyChunks > 0,
               failed: true,
             };
           }
-
-          // Skip this iteration and continue with next
-          console.warn(
-            `[Candles.getCandlesFromExchange] Skipping iteration ${ind}, will retry next range`
+          if (!outcome.failed) {
+            // Convert CandleResponse[] to Bar[]
+            candles = result.map((c) => ({
+              open: +c.open,
+              high: +c.high,
+              low: +c.low,
+              close: +c.close,
+              volume: +c.volume,
+              time: c.time,
+            }));
+            break;
+          }
+          failed = true;
+          lastError =
+            outcome.error instanceof Error
+              ? outcome.error.message
+              : String(outcome.error);
+          console.error(
+            `[Candles.getCandlesFromExchange] API error at iteration ${ind}/${count} (attempt ${attempt}/${maxAttempts}): ${lastError}`
           );
-          continue;
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) =>
+              setTimeout(resolve, retryDelayMs * attempt)
+            );
+          }
+        }
+        if (!candles) {
+          const failureMsg = `Failed to fetch ${symbol} candles after ${maxAttempts} attempts. Last error: ${lastError}`;
+          console.error(
+            `[Candles.getCandlesFromExchange] STOPPING: ${failureMsg}`
+          );
+          if (handleErrorByCandles) {
+            handleErrorByCandles(failureMsg);
+          }
+          return {
+            bars: data,
+            emptyHead: leadingEmptyChunks > 0,
+            failed: true,
+          };
         }
 
         logger.info(

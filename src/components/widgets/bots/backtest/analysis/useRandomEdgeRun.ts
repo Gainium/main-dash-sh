@@ -68,6 +68,12 @@ export function useRandomEdgeRun(source: RandomTestSource) {
       const pct = value <= 1 ? value * 100 : value;
       setProgress(Math.max(0, Math.min(100, Math.round(pct))));
     };
+    // Candles that cannot be loaded stop the run rather than test part of it.
+    let loadError: string | null = null;
+    const onLoadError = (msg: string) => {
+      loadError = msg;
+      b.stopBacktest();
+    };
     const b: DCABacktesting = new DCABacktesting(
       {
         ...input,
@@ -77,13 +83,18 @@ export function useRandomEdgeRun(source: RandomTestSource) {
         //@ts-expect-error the app mirrors the engine's types with its own enums
         previousData: result,
       },
-      onProgress
+      onProgress,
+      onLoadError
     );
     engine.current = b;
     try {
       const res = (await b.test(undefined, onProgress)) as unknown as
         DCABacktestingResult | undefined;
       if (engine.current !== b) return;
+      if (loadError !== null) {
+        setError(loadError);
+        return;
+      }
       const randomDeals: PreparedDeal[] = res?.deals ?? [];
       remembered.set(result, randomDeals);
       setDeals(randomDeals);
