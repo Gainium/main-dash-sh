@@ -1236,6 +1236,7 @@ export const userQueries = {
                         reason
                         data {
                             token
+                            isOTP
                         }
                     }
                 }`;

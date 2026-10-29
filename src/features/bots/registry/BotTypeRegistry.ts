@@ -34,7 +34,7 @@ let defaultBotTypeId: string = dcaModule.id;
 
 const isDevelopment =
   typeof import.meta !== 'undefined'
-    ? Boolean(import.meta.env?.DEV)
+    ? Boolean(import.meta.env.DEV)
     : (process.env?.['NODE_ENV'] ?? 'development') !== 'production';
 
 function getEmergencyFallbackBotType(): BotTypeConfig {

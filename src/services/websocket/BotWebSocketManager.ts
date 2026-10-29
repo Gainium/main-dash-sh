@@ -6,7 +6,7 @@ import { recordSocketBreadcrumb } from '../../lib/crashBreadcrumbs';
 // Test environment variables at module load time
 logger.info(
   '🔧 [BotWebSocketManager] Module loaded, WebSocket URL:',
-  import.meta.env?.['VITE_WS_URL'] || 'wss://ws.gainium.io'
+  import.meta.env['VITE_WS_URL'] || 'wss://ws.gainium.io'
 );
 
 // Event types matching the old dashboard implementation
@@ -183,7 +183,7 @@ export class BotWebSocketManager {
     if (typeof window === 'undefined') return;
 
     try {
-      const wsUrl = import.meta.env?.['VITE_WS_URL'] || 'wss://ws.gainium.io';
+      const wsUrl = import.meta.env['VITE_WS_URL'] || 'wss://ws.gainium.io';
 
       if (!wsUrl) {
         logger.error('🔧 [BotWebSocketManager] WebSocket URL not configured');

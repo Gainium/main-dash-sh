@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.125.1] - 2026-10-29
+
+### Fixed
+
+- News widget: feed text is extracted without rendering the feed's HTML, and only http(s) links and images are used
+- Password reset on an account with two-factor authentication continues to the 2FA code step
+
+### Changed
+
+- Environment variables are read by literal key, so a build embeds only the values it uses
+
 ## [2.125.0] - 2026-10-29
 ### Added
 - Price Change indicator: a Condition setting — Greater than (as before), Lower than, or Between with a second % value of the same sign (2 and 5 = the candle rose 2–5 % from its open; −2 and −5 = it fell 2–5 %). A Price Change left on Greater than saves exactly the settings it saved before.

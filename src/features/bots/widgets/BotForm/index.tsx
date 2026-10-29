@@ -591,7 +591,7 @@ const BotForm: React.FC<BotFormProps> = ({
   const mode: BotFormMode = propMode ?? dataMode ?? 'edit';
 
   const debugEnabled =
-    debugProp ?? import.meta.env[NEW_SHELL_DEBUG_FLAG] === 'true';
+    debugProp ?? import.meta.env['VITE_BOT_FORM_DEBUG'] === 'true';
 
   // Render-loop tripwire (additive, non-fatal). This component is the innermost
   // app frame of the React #185 crashes reported as Claus #575 / #503 / #425 —

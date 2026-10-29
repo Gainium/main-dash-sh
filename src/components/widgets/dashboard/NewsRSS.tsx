@@ -19,6 +19,19 @@ import { PREDEFINED_RSS_FEEDS, useRSSStore } from '../../../stores/rssStore';
 import { Card } from '../../ui/card';
 import WidgetWrapper from '../WidgetWrapper';
 
+// Feed links come from third-party feeds: only follow http(s) URLs.
+const safeHttpUrl = (value: string | undefined): string | undefined => {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === 'http:' || url.protocol === 'https:'
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+};
+
 export interface NewsRSSProps {
   widgetId?: string;
   isEditable?: boolean;
@@ -234,10 +247,11 @@ const NewsRSS: React.FC<NewsRSSProps> = ({
     }
   };
 
+  // Feed HTML is untrusted. A DOMParser document is inert (no scripts run,
+  // no images load), unlike an element created in the live document.
   const stripHtml = (html: string): string => {
-    const tmp = document.createElement('div');
-    tmp.innerHTML = html;
-    return tmp.textContent || tmp.innerText || '';
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return doc.body.textContent || '';
   };
 
   const truncateText = (text: string, maxLength: number = 150): string => {
@@ -302,13 +316,16 @@ const NewsRSS: React.FC<NewsRSSProps> = ({
                 key={item.guid || index}
                 position={1}
                 className="mb-2 hover:bg-accent/50 transition-colors cursor-pointer"
-                onClick={() => window.open(item.link, '_blank')}
+                onClick={() => {
+                  const link = safeHttpUrl(item.link);
+                  if (link) window.open(link, '_blank', 'noopener,noreferrer');
+                }}
               >
                 <div className="flex items-start gap-sm">
-                  {item.image && (
+                  {item.image && safeHttpUrl(item.image.url) && (
                     <div className="shrink-0">
                       <img
-                        src={item.image.url}
+                        src={safeHttpUrl(item.image.url)}
                         alt={item.image.title || item.title}
                         className="w-20 h-20 object-cover rounded-md"
                         onError={(e) => {

@@ -4,10 +4,7 @@ import {
   useBotFormSelector,
   useTrackedBotFormState,
 } from '@/features/bots';
-import {
-  BotFormShell,
-  NEW_SHELL_DEBUG_FLAG,
-} from '@/features/bots/widgets/BotForm';
+import { BotFormShell } from '@/features/bots/widgets/BotForm';
 import {
   DCAOrderTypeEnum,
   StrategyEnum,
@@ -115,7 +112,7 @@ const CreateDeal: React.FC<CreateDealProps> = (props) => {
   );
 
   const debugEnabled = useMemo(
-    () => import.meta.env[NEW_SHELL_DEBUG_FLAG] === 'true',
+    () => import.meta.env['VITE_BOT_FORM_DEBUG'] === 'true',
     []
   );
 

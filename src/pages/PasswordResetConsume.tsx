@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { LogoLockup } from '@/components/common/LogoLockup';
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist';
+import TwoFactorAuth from '@/components/auth/TwoFactorAuth';
 import { useResetPassword } from '@/hooks/usePasswordReset';
 import { RealAuthService } from '@/lib/realAuthService';
 import { useAuthStore } from '@/stores/authStore';
@@ -28,6 +29,7 @@ const PasswordResetConsume: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [passwordValid, setPasswordValid] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [otpToken, setOtpToken] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -47,10 +49,17 @@ const PasswordResetConsume: React.FC = () => {
     }
 
     try {
-      const { token: jwt } = await resetPassword.mutateAsync({
+      const { token: jwt, isOTP } = await resetPassword.mutateAsync({
         token,
         newPassword: password,
       });
+      // 2FA account: the password is changed, but signing in still needs
+      // the second factor — hand the pre-OTP jwt to the standard 2FA step.
+      if (isOTP) {
+        toast.success('Password updated.');
+        setOtpToken(jwt);
+        return;
+      }
       const user = await RealAuthService.getUserInfo(jwt);
       login(jwt, user);
       toast.success('Password updated. You are now signed in.');
@@ -64,6 +73,15 @@ const PasswordResetConsume: React.FC = () => {
       );
     }
   };
+
+  if (otpToken) {
+    return (
+      <TwoFactorAuth
+        temporaryToken={otpToken}
+        onBack={() => navigate('/login')}
+      />
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background flex items-center justify-center p-md">

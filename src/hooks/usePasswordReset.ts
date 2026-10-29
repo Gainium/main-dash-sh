@@ -14,6 +14,8 @@ export interface ResetPasswordInput {
 
 export interface ResetPasswordResponse {
   token: string;
+  /** 2FA account: `token` is a short-lived pre-OTP jwt, not a session. */
+  isOTP?: boolean | null;
 }
 
 /**
