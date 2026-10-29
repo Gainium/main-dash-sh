@@ -66,6 +66,8 @@ export interface IndicatorFieldDefinition {
   optionsWhen?: Array<{
     field: keyof SettingsIndicators;
     equals: unknown;
+    /** Further fields that must ALL match too (e.g. Order Blocks' side and level). */
+    and?: Array<{ field: keyof SettingsIndicators; equals: unknown }>;
     options: IndicatorFieldOption[];
   }>;
   /**

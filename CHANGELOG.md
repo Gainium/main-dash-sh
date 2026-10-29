@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.123.0] - 2026-10-29
+### Added
+- Candle Colour indicator: green or red closed candles in a row, read from Heikin Ashi or regular candles, either while the run lasts or once on its N-th candle. The chart draws the run as columns with the run the condition needs, with the same calculation the bot and the backtest use.
+- Order Blocks indicator: the latest bullish and bearish smart-money order block, kept until a close goes through it, with the close compared with its top, middle or bottom. The chart draws each active block as its top and bottom lines, shaded between, with the same calculation the bot and the backtest use.
+- Squeeze Momentum indicator (LazyBear): Bollinger Bands inside the Keltner Channels mark a squeeze; the condition combines the squeeze (fired, on, off) with the momentum (positive, negative, rising, falling, crossing zero). The chart draws the momentum histogram and the squeeze marks on the zero line, with the same calculation the bot and the backtest use.
+- Divergences: pivot lookback left / right and the min / max of the lookback range, also passed to the chart study. Left at the defaults, nothing new is saved.
+- Session Selector, Price levels: Active — during the session (as before), outside the session or any time, e.g. for a Monday range breakout. Outside the session the chart shades where the condition is read.
+
+### Changed
+- Bollinger Bands, BB Width and BB %B: Standard Deviations accept decimals (step 0.1). SuperTrend's Multiplier too.
+
 ## [2.122.0] - 2026-10-29
 ### Added
 - VWAP indicator: anchored to the day, week or month (UTC), with the close compared with the VWAP or one of its standard-deviation bands. The chart draws the VWAP and both bands, restarting at each anchor, with the same calculation the bot and the backtest use.

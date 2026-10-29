@@ -70,6 +70,10 @@ import {
   normalizeSmoothingFields,
 } from '@/utils/indicators/smoothing';
 import { clearStrayTrendFilter } from '@/utils/indicators/trendFilter';
+import {
+  divergenceRangeInvalid,
+  stripDefaultDivergencePivots,
+} from '@/utils/indicators/divergencePivots';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
 import { enforceMultiTargetLimit } from '@/utils/bots/dca/take-profit-behaviours';
 import {
@@ -162,6 +166,16 @@ const normalizeIndicatorParamsRecord = (
     'athLookback',
     'kcRangeLength',
     'unpnlValue',
+    'candleCount',
+    'obSwingLength',
+    'sqzLength',
+    'sqzBBMult',
+    'sqzKCLength',
+    'sqzKCMult',
+    'divPivotLeft',
+    'divPivotRight',
+    'divRangeLower',
+    'divRangeUpper',
   ];
 
   const fieldsAsString: (keyof IndicatorConfig)[] = [
@@ -4638,6 +4652,14 @@ export const mapFormDataToBackend = (
           i.indicatorLength || (i.type === IndicatorEnum.kdj ? 9 : 20);
       }
       if (
+        i.type === IndicatorEnum.candle ||
+        i.type === IndicatorEnum.ob ||
+        i.type === IndicatorEnum.sqz
+      ) {
+        // not read by any of them either
+        i.indicatorLength = i.indicatorLength || 14;
+      }
+      if (
         i.type === IndicatorEnum.session &&
         i.sessionRule === SessionRuleEnum.levels
       ) {
@@ -4649,15 +4671,21 @@ export const mapFormDataToBackend = (
       // default when the row never held one.
       // A type switched from MA / MAR keeps their trendFilter, which would
       // keep any other type's condition false in the engines.
+      // A Divergence left at the default pivots saves none of them, so its
+      // condition stays exactly what it was before they existed.
       if (i.smoothing) {
         return normalizeSmoothingFields(
-          clearStrayTrendFilter({
-            ...i,
-            smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
-          })
+          clearStrayTrendFilter(
+            stripDefaultDivergencePivots({
+              ...i,
+              smoothingLength: i.smoothingLength ?? DEFAULT_SMOOTHING_LENGTH,
+            })
+          )
         );
       }
-      return normalizeSmoothingFields(clearStrayTrendFilter(i));
+      return normalizeSmoothingFields(
+        clearStrayTrendFilter(stripDefaultDivergencePivots(i))
+      );
     });
 
     if (result.errors) {
@@ -4689,6 +4717,13 @@ export const mapFormDataToBackend = (
   finalData.indicatorGroups = (finalData.indicatorGroups ?? []).filter((ig) =>
     (finalData.indicators ?? []).some((i) => i.groupId === ig.id)
   );
+
+  // A Divergence whose lookback range is empty never finds a pair of pivots.
+  if ((finalData.indicators ?? []).some((i) => divergenceRangeInvalid(i))) {
+    allErrors.push(
+      'Divergences: Min of lookback range must be below Max of lookback range'
+    );
+  }
 
   finalData.pair = [formData.pair]
     .flat()

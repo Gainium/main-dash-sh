@@ -1,6 +1,9 @@
 import { logger } from '@/lib/loggerInstance';
 import {
   ADXModeEnum,
+  CandleColorEnum,
+  CandleSourceEnum,
+  SessionLevelsActiveEnum,
   IndicatorEnum,
   MAEnum,
   StochRangeEnum,
@@ -79,6 +82,9 @@ const STUDY_NAME_MAP: Omit<
   [IndicatorEnum.ote]: 'Discount/Premium OTE Levels',
   [IndicatorEnum.vwap]: 'VWAP (Custom)',
   [IndicatorEnum.kdj]: 'KDJ (Custom)',
+  [IndicatorEnum.candle]: 'Candle Colour (Custom)',
+  [IndicatorEnum.ob]: 'Order Blocks (Custom)',
+  [IndicatorEnum.sqz]: 'Squeeze Momentum (Custom)',
 };
 
 // ADX in DMI mode draws +DI, −DI and the ADX in a study of its own.
@@ -126,6 +132,7 @@ const OVERLAY_TYPES = new Set<string>([
   IndicatorEnum.obfvg,
   IndicatorEnum.dc,
   IndicatorEnum.vwap,
+  IndicatorEnum.ob,
 ]);
 
 const toNumber = (value: unknown, fallback = 0): number => {
@@ -351,6 +358,11 @@ const buildInputs = (
         uo: contains('uo'),
         mom: contains('mom'),
         stoch: contains('stoch'),
+        // unset = the DIV defaults, as the bot runs it
+        pivotLeft: toNumber(indicator.divPivotLeft, 3),
+        pivotRight: toNumber(indicator.divPivotRight, 1),
+        rangeLower: toNumber(indicator.divRangeLower, 1),
+        rangeUpper: toNumber(indicator.divRangeUpper, 60),
       };
     }
     case IndicatorEnum.mar:
@@ -627,6 +639,27 @@ const buildInputs = (
         in_1: toNumber(indicator.kdjKSmooth, 3),
         in_2: toNumber(indicator.kdjDSmooth, 3),
       };
+    case IndicatorEnum.candle:
+      return {
+        source:
+          indicator.candleSource === CandleSourceEnum.regular
+            ? CandleSourceEnum.regular
+            : CandleSourceEnum.heikinAshi,
+        color:
+          indicator.candleColor === CandleColorEnum.red
+            ? CandleColorEnum.red
+            : CandleColorEnum.green,
+        count: toNumber(indicator.candleCount, 1),
+      };
+    case IndicatorEnum.ob:
+      return { swingLength: toNumber(indicator.obSwingLength, 5) };
+    case IndicatorEnum.sqz:
+      return {
+        length: toNumber(indicator.sqzLength, 20),
+        bbMult: toNumber(indicator.sqzBBMult, 2),
+        kcLength: toNumber(indicator.sqzKCLength, 20),
+        kcMult: toNumber(indicator.sqzKCMult, 1.5),
+      };
     case IndicatorEnum.session: {
       const days = indicator.sessionDays ?? [1, 2, 3, 4, 5];
       const rule = indicator.sessionRule ?? 'in';
@@ -639,8 +672,15 @@ const buildInputs = (
         thu: days.includes(4),
         fri: days.includes(5),
         sat: days.includes(6),
-        // Price levels shade the session the condition can fire in.
-        inSession: rule !== 'out',
+        // Price levels shade where the condition can fire: the session, or
+        // outside it when it is read only outside (Any time keeps the
+        // session shaded).
+        inSession:
+          rule !== 'out' &&
+          !(
+            levels &&
+            indicator.sessionLevelsActive === SessionLevelsActiveEnum.outside
+          ),
         // -1 = no hours: the whole day counts.
         startMinute: parseSessionTime(indicator.sessionStart) ?? -1,
         endMinute: parseSessionTime(indicator.sessionEnd) ?? -1,
@@ -664,6 +704,9 @@ const buildOverrides = (
     type === IndicatorEnum.dc ||
     type === IndicatorEnum.tv ||
     type === IndicatorEnum.vwap ||
+    type === IndicatorEnum.candle ||
+    type === IndicatorEnum.ob ||
+    type === IndicatorEnum.sqz ||
     isAdxDmi(indicator)
   ) {
     return undefined;

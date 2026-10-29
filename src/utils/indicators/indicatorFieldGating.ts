@@ -187,8 +187,11 @@ export const resolveFieldOptions = (
   }
   const gating = withGatingParams(definition, params);
   return (
-    field.optionsWhen.find((entry) => gating?.[entry.field] === entry.equals)
-      ?.options ?? field.options
+    field.optionsWhen.find(
+      (entry) =>
+        gating?.[entry.field] === entry.equals &&
+        (entry.and ?? []).every((also) => gating?.[also.field] === also.equals)
+    )?.options ?? field.options
   );
 };
 
@@ -215,7 +218,9 @@ export const resetInvalidConditionalSelects = (
     }
     const nextOptions = resolveFieldOptions(definition, field, next);
     const drivenByKey = field.optionsWhen.some(
-      (entry) => entry.field === changedKey
+      (entry) =>
+        entry.field === changedKey ||
+        (entry.and ?? []).some((also) => also.field === changedKey)
     );
     if (
       !drivenByKey &&

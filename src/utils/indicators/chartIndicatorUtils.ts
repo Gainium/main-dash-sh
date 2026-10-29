@@ -432,11 +432,15 @@ function buildChartIndicator(
     (xoPrimaryOnChart || tvIntervalMap[xoSecondInterval] === chartInterval);
   // An indicator tested against its own smoothed line has no value threshold,
   // so there is no band to shade (the smoothed line itself is drawn instead).
-  // Neither has a VWAP (the close against a line of the study) nor an ADX in
-  // DMI mode (+DI against −DI).
+  // Neither has a VWAP (the close against a line of the study), an ADX in
+  // DMI mode (+DI against −DI), nor the types whose condition reads no value
+  // (Candle Colour, Order Blocks, Squeeze Momentum).
   const comparesSmoothedLine =
     resolveSmoothingCompare(i) === 'line' ||
     i.type === IndicatorEnum.vwap ||
+    i.type === IndicatorEnum.candle ||
+    i.type === IndicatorEnum.ob ||
+    i.type === IndicatorEnum.sqz ||
     (i.type === IndicatorEnum.adx && i.adxMode === ADXModeEnum.dmi);
   // KDJ shades Stochastic's zones (Anywhere when unset) or, against a custom
   // value, marks that value.
@@ -734,6 +738,24 @@ function buildChartIndicator(
     vwapAnchor: i.vwapAnchor,
     vwapLine: i.vwapLine,
     vwapBandMultiplier: +(i.vwapBandMultiplier || 1),
+    candleSource: i.candleSource,
+    candleColor: i.candleColor,
+    candleCount: +(i.candleCount || 1),
+    candleTrigger: i.candleTrigger,
+    obSwingLength: +(i.obSwingLength || 5),
+    obSide: i.obSide,
+    obLevel: i.obLevel,
+    sqzLength: +(i.sqzLength || 20),
+    sqzBBMult: +(i.sqzBBMult || 2),
+    sqzKCLength: +(i.sqzKCLength || 20),
+    sqzKCMult: +(i.sqzKCMult || 1.5),
+    sqzSignal: i.sqzSignal,
+    sqzMomentum: i.sqzMomentum,
+    divPivotLeft: +(i.divPivotLeft || 3),
+    divPivotRight: +(i.divPivotRight || 1),
+    divRangeLower: +(i.divRangeLower || 1),
+    divRangeUpper: +(i.divRangeUpper || 60),
+    sessionLevelsActive: i.sessionLevelsActive,
   };
 
   return chartIndicator;

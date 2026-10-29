@@ -1552,6 +1552,9 @@ export enum IndicatorEnum {
   ote = 'OTE',
   kdj = 'KDJ',
   vwap = 'VWAP',
+  candle = 'CANDLE',
+  ob = 'OB',
+  sqz = 'SQZ',
 }
 
 export enum SessionRuleEnum {
@@ -1619,6 +1622,63 @@ export enum VWAPLineEnum {
   vwap = 'vwap',
   upper = 'upper',
   lower = 'lower',
+}
+
+/** Candle colour: the candle the colour is read from. */
+export enum CandleSourceEnum {
+  regular = 'regular',
+  heikinAshi = 'heikinAshi',
+}
+
+/** Candle colour: the colour required. */
+export enum CandleColorEnum {
+  green = 'green',
+  red = 'red',
+}
+
+/** Candle colour: while the run lasts, or only on its N-th candle. */
+export enum CandleTriggerEnum {
+  streak = 'streak',
+  start = 'start',
+}
+
+/** Order Blocks: which block the close is compared with. */
+export enum OBSideEnum {
+  bullish = 'bullish',
+  bearish = 'bearish',
+}
+
+/** Order Blocks: the level of that block (middle = halfway). */
+export enum OBLevelEnum {
+  top = 'top',
+  middle = 'middle',
+  bottom = 'bottom',
+}
+
+/** Squeeze Momentum: the squeeze state required. */
+export enum SqzSignalEnum {
+  fired = 'fired',
+  on = 'on',
+  off = 'off',
+  any = 'any',
+}
+
+/** Squeeze Momentum: the momentum required. */
+export enum SqzMomentumEnum {
+  positive = 'positive',
+  negative = 'negative',
+  rising = 'rising',
+  falling = 'falling',
+  crossUp = 'crossUp',
+  crossDown = 'crossDown',
+  any = 'any',
+}
+
+/** Session Price levels: where the condition is evaluated. */
+export enum SessionLevelsActiveEnum {
+  session = 'session',
+  outside = 'outside',
+  always = 'always',
 }
 
 export type SettingsIndicators = {
@@ -1795,6 +1855,45 @@ export type SettingsIndicators = {
   vwapLine?: VWAPLineEnum;
   /** VWAP: band width in standard deviations (default 1). */
   vwapBandMultiplier?: number;
+  /** Candle colour: candle the colour is read from (default heikinAshi). */
+  candleSource?: CandleSourceEnum;
+  /** Candle colour: the colour required (default green). */
+  candleColor?: CandleColorEnum;
+  /** Candle colour: N candles in a row, 1..50 (default 1). */
+  candleCount?: number;
+  /** Candle colour: streak (default) = while the run lasts; start = its N-th candle only. */
+  candleTrigger?: CandleTriggerEnum;
+  /** Order Blocks: pivot bars each side of a swing, 2..50 (default 5). */
+  obSwingLength?: number;
+  /** Order Blocks: the block the close is compared with (default bullish). */
+  obSide?: OBSideEnum;
+  /** Order Blocks: the level of that block (default top). */
+  obLevel?: OBLevelEnum;
+  /** Squeeze Momentum: Bollinger length (default 20). */
+  sqzLength?: number;
+  /** Squeeze Momentum: Bollinger multiplier (default 2, decimals). */
+  sqzBBMult?: number;
+  /** Squeeze Momentum: Keltner length, also the momentum length (default 20). */
+  sqzKCLength?: number;
+  /** Squeeze Momentum: Keltner multiplier (default 1.5, decimals). */
+  sqzKCMult?: number;
+  /** Squeeze Momentum: the squeeze state required (default fired). */
+  sqzSignal?: SqzSignalEnum;
+  /** Squeeze Momentum: the momentum required (default positive). */
+  sqzMomentum?: SqzMomentumEnum;
+  /**
+   * Divergence: pivot bars left / right and the bars between two pivots.
+   * Unset = the defaults 3 / 1 / 1 / 60, and nothing is stored.
+   */
+  divPivotLeft?: number;
+  divPivotRight?: number;
+  divRangeLower?: number;
+  divRangeUpper?: number;
+  /**
+   * Session Price levels: unset / 'session' = only during the session (as
+   * before); 'outside' = only outside it; 'always' = both.
+   */
+  sessionLevelsActive?: SessionLevelsActiveEnum;
 };
 
 /**
@@ -4235,6 +4334,24 @@ export type CommonIndicatorSettings = {
   vwapAnchor?: VWAPAnchorEnum;
   vwapLine?: VWAPLineEnum;
   vwapBandMultiplier?: number;
+  candleSource?: CandleSourceEnum;
+  candleColor?: CandleColorEnum;
+  candleCount?: number;
+  candleTrigger?: CandleTriggerEnum;
+  obSwingLength?: number;
+  obSide?: OBSideEnum;
+  obLevel?: OBLevelEnum;
+  sqzLength?: number;
+  sqzBBMult?: number;
+  sqzKCLength?: number;
+  sqzKCMult?: number;
+  sqzSignal?: SqzSignalEnum;
+  sqzMomentum?: SqzMomentumEnum;
+  divPivotLeft?: number;
+  divPivotRight?: number;
+  divRangeLower?: number;
+  divRangeUpper?: number;
+  sessionLevelsActive?: SessionLevelsActiveEnum;
 };
 
 export enum ppValueTypeEnum {

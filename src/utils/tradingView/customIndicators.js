@@ -12,6 +12,9 @@ import {
 } from '@/utils/indicators/oteLevels';
 import { VWAPState } from '@/utils/indicators/vwap';
 import { KDJState } from '@/utils/indicators/kdj';
+import { CandleColourState } from '@/utils/indicators/candleColour';
+import { OrderBlocksState } from '@/utils/indicators/orderBlocks';
+import { SqueezeState } from '@/utils/indicators/squeeze';
 
 const colorRipeRedA200 = '#FF5252';
 const colorMintyGreen400 = '#22AB94';
@@ -1138,6 +1141,9 @@ export const custom_indicators_getter = (r, callback) => {
       VWAP(r),
       KDJ(r),
       DMI(r),
+      CandleColour(r),
+      OrderBlocks(r),
+      SqueezeMomentum(r),
     ];
 
     // Filter out any undefined/null indicators and validate structure
@@ -12764,6 +12770,374 @@ export const DMI = (r) => ({
       this._context.setMinimumAdditionalDepth(3 * length);
       const [adx, pdi, mdi] = adxCalc(r, this._context, length, length);
       return [pdi, mdi, adx];
+    };
+  },
+});
+
+const CANDLE_GREEN = '#089981';
+const CANDLE_RED = '#F23645';
+
+// Candle colour: the signed run of green (up) or red (down) closed candles,
+// read from Heikin Ashi or regular candles, as columns — +3 is the third
+// green in a row, −2 the second red, nothing on a doji. The dashed line is
+// the run the condition needs (N in a row of its colour). The calculation is
+// `CandleColourState`, a copy of the one the bot runs.
+export const CandleColour = (r) => ({
+  name: 'Candle Colour (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: {
+          linestyle: 0,
+          linewidth: 1,
+          plottype: 5,
+          trackPrice: !1,
+          transparency: 20,
+          visible: !0,
+          color: CANDLE_GREEN,
+        },
+        plot_2: {
+          linestyle: 2,
+          linewidth: 1,
+          plottype: 7,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#787B86',
+        },
+      },
+      palettes: {
+        palette_0: {
+          colors: {
+            0: { color: CANDLE_GREEN, width: 1, style: 0 },
+            1: { color: CANDLE_RED, width: 1, style: 0 },
+          },
+        },
+      },
+      inputs: { source: 'heikinAshi', color: 'green', count: 1 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'colorer', target: 'plot_0', palette: 'palette_0' },
+      { id: 'plot_2', type: 'line' },
+    ],
+    palettes: {
+      palette_0: {
+        colors: { 0: { name: 'Green run' }, 1: { name: 'Red run' } },
+      },
+    },
+    styles: {
+      plot_0: { title: 'Run', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'Required run', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'Candle Colour (Custom)',
+    shortDescription: 'Candle Colour',
+    is_price_study: !1,
+    inputs: [
+      {
+        id: 'source',
+        name: 'Candles',
+        defval: 'heikinAshi',
+        type: 'text',
+        options: ['heikinAshi', 'regular'],
+      },
+      {
+        id: 'color',
+        name: 'Colour',
+        defval: 'green',
+        type: 'text',
+        options: ['green', 'red'],
+      },
+      { id: 'count', name: 'In a row', defval: 1, type: 'integer', min: 1, max: 50 },
+    ],
+    id: 'Candle Colour (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Candle Colour (Custom)',
+    format: { precision: 0, type: 'price' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const source = this._input(0);
+      const color = this._input(1);
+      const count = this._input(2);
+      const symbol = this._context.symbol;
+      this._context.setMinimumAdditionalDepth(100);
+      const { value } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          open: r.Std.open(this._context),
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+        },
+        () => new CandleColourState(source),
+        (state, c) => state.next(c.open, c.high, c.low, c.close)
+      );
+      const required = (color === 'red' ? -1 : 1) * Math.max(1, +count || 1);
+      if (!value) {
+        return [r.Std.na(), 0, required];
+      }
+      return [
+        value.streak === 0 ? r.Std.na() : value.streak,
+        value.color < 0 ? 1 : 0,
+        required,
+      ];
+    };
+  },
+});
+
+const obLineStyle = (color) => ({
+  linestyle: 0,
+  linewidth: 1,
+  plottype: 7,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color,
+});
+
+// Order Blocks: the latest active bullish block (green) and bearish block
+// (red) as their top and bottom, shaded between. Each block is drawn from the
+// candle that broke structure until a close goes through it; the bar a new
+// block replaces the previous one is left empty so the jump is not drawn as
+// a slope. The calculation is `OrderBlocksState`, a copy of the one the bot
+// runs. (Lines, not boxes: the zone starts where the block was confirmed,
+// not at the block candle itself.)
+export const OrderBlocks = (r) => ({
+  name: 'Order Blocks (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: obLineStyle(CANDLE_GREEN),
+        plot_1: obLineStyle(CANDLE_GREEN),
+        plot_2: obLineStyle(CANDLE_RED),
+        plot_3: obLineStyle(CANDLE_RED),
+      },
+      filledAreasStyle: {
+        fill_0: { color: CANDLE_GREEN, transparency: 85, visible: !0 },
+        fill_1: { color: CANDLE_RED, transparency: 85, visible: !0 },
+      },
+      inputs: { swingLength: 5 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'line' },
+      { id: 'plot_2', type: 'line' },
+      { id: 'plot_3', type: 'line' },
+    ],
+    styles: {
+      plot_0: { title: 'Bullish block top', histogramBase: 0, joinPoints: !1 },
+      plot_1: { title: 'Bullish block bottom', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'Bearish block top', histogramBase: 0, joinPoints: !1 },
+      plot_3: { title: 'Bearish block bottom', histogramBase: 0, joinPoints: !1 },
+    },
+    filledAreas: [
+      {
+        id: 'fill_0',
+        objAId: 'plot_0',
+        objBId: 'plot_1',
+        type: 'plot_plot',
+        title: 'Bullish block',
+      },
+      {
+        id: 'fill_1',
+        objAId: 'plot_2',
+        objBId: 'plot_3',
+        type: 'plot_plot',
+        title: 'Bearish block',
+      },
+    ],
+    description: 'Order Blocks (Custom)',
+    shortDescription: 'Order Blocks',
+    is_price_study: !0,
+    linkedToSeries: true,
+    inputs: [
+      {
+        id: 'swingLength',
+        name: 'Swing length',
+        defval: 5,
+        type: 'integer',
+        min: 1,
+        max: 249,
+      },
+    ],
+    id: 'Order Blocks (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Order Blocks (Custom)',
+    format: { type: 'inherit' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const swingLength = this._input(0);
+      const symbol = this._context.symbol;
+      this._context.setMinimumAdditionalDepth(1000);
+      const { value, prev } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          time: symbol.time,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+        },
+        () => new OrderBlocksState(swingLength),
+        (state, c) => state.next(c.high, c.low, c.close, c.time)
+      );
+      const side = (top, bottom, id) =>
+        value && prev && prev[id] === value[id] && isFinite(value[top])
+          ? [value[top], value[bottom]]
+          : [r.Std.na(), r.Std.na()];
+      return [
+        ...side('bullishTop', 'bullishBottom', 'bullishId'),
+        ...side('bearishTop', 'bearishBottom', 'bearishId'),
+      ];
+    };
+  },
+});
+
+const SQZ_DOT_STYLE = {
+  linestyle: 0,
+  linewidth: 2,
+  plottype: 3,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color: '#787B86',
+};
+
+// Squeeze Momentum (LazyBear): the momentum as columns — bright green rising
+// above zero, dark green falling above zero, bright red falling below zero,
+// dark red rising below zero — and the squeeze as marks on the zero line:
+// orange in a squeeze (Bollinger Bands inside the Keltner Channels), grey out
+// of one, blue neither. LazyBear marks the squeeze black, which a dark chart
+// cannot show. The calculation is `SqueezeState`, a copy of the one the bot
+// runs.
+export const SqueezeMomentum = (r) => ({
+  name: 'Squeeze Momentum (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: {
+          linestyle: 0,
+          linewidth: 1,
+          plottype: 5,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color: '#00E676',
+        },
+        plot_2: SQZ_DOT_STYLE,
+      },
+      palettes: {
+        palette_0: {
+          colors: {
+            0: { color: '#00E676', width: 1, style: 0 },
+            1: { color: '#1B8A3A', width: 1, style: 0 },
+            2: { color: '#FF1744', width: 1, style: 0 },
+            3: { color: '#8E1B2B', width: 1, style: 0 },
+          },
+        },
+        palette_1: {
+          colors: {
+            0: { color: '#FF9800', width: 1, style: 0 },
+            1: { color: '#787B86', width: 1, style: 0 },
+            2: { color: '#2962FF', width: 1, style: 0 },
+          },
+        },
+      },
+      inputs: { length: 20, bbMult: 2, kcLength: 20, kcMult: 1.5 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'colorer', target: 'plot_0', palette: 'palette_0' },
+      { id: 'plot_2', type: 'line' },
+      { id: 'plot_3', type: 'colorer', target: 'plot_2', palette: 'palette_1' },
+    ],
+    palettes: {
+      palette_0: {
+        colors: {
+          0: { name: 'Above zero, rising' },
+          1: { name: 'Above zero, falling' },
+          2: { name: 'Below zero, falling' },
+          3: { name: 'Below zero, rising' },
+        },
+      },
+      palette_1: {
+        colors: {
+          0: { name: 'In a squeeze' },
+          1: { name: 'Out of a squeeze' },
+          2: { name: 'Neither' },
+        },
+      },
+    },
+    styles: {
+      plot_0: { title: 'Momentum', histogramBase: 0, joinPoints: !1 },
+      plot_2: { title: 'Squeeze', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'Squeeze Momentum (Custom)',
+    shortDescription: 'Squeeze',
+    is_price_study: !1,
+    inputs: [
+      { id: 'length', name: 'BB length', defval: 20, type: 'integer', min: 1, max: 500 },
+      { id: 'bbMult', name: 'BB multiplier', defval: 2, type: 'float', min: 0.1, max: 10, step: 0.1 },
+      { id: 'kcLength', name: 'KC length', defval: 20, type: 'integer', min: 1, max: 500 },
+      { id: 'kcMult', name: 'KC multiplier', defval: 1.5, type: 'float', min: 0.1, max: 10, step: 0.1 },
+    ],
+    id: 'Squeeze Momentum (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Squeeze Momentum (Custom)',
+    format: { type: 'inherit' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = this._input(0);
+      const bbMult = this._input(1);
+      const kcLength = this._input(2);
+      const kcMult = this._input(3);
+      const symbol = this._context.symbol;
+      const { value, prev } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+        },
+        () => new SqueezeState(length, bbMult, kcLength, kcMult),
+        (state, c) => state.next(c.high, c.low, c.close)
+      );
+      this._context.setMinimumAdditionalDepth(this.state.warmup + 50);
+      if (!value) {
+        return [r.Std.na(), 0, r.Std.na(), 2];
+      }
+      const m = value.momentum;
+      const before = prev ? prev.momentum : 0;
+      const momentumColor = m > 0 ? (m > before ? 0 : 1) : m < before ? 2 : 3;
+      const squeezeColor =
+        value.squeeze === 1 ? 0 : value.squeeze === -1 ? 1 : 2;
+      return [m, momentumColor, 0, squeezeColor];
     };
   },
 });
