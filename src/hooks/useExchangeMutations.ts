@@ -454,9 +454,14 @@ export function useExchangeMutations() {
       // Mark exchange store stale so consumers refetch latest balances
       useExchangesStore.getState().markStale();
 
-      // See addExchange: `['user']` is the exchange list's cache key, so this
-      // is what refetches the updated balances.
+      // See addExchange: `['user']` is the exchange list's cache key.
       queryClient.invalidateQueries({ queryKey: ['user'] });
+
+      // The balance rows themselves (and their `updated`, which drives the
+      // stale-balance clock) are cached under `['getBalances', …]` with no
+      // polling, so without this prefix-invalidate the portfolio widget kept
+      // the pre-refresh rows until a page reload.
+      queryClient.invalidateQueries({ queryKey: ['getBalances'] });
     },
     onError: (error) => {
       logger.error('Failed to update balance:', error);

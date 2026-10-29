@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.1] - 2026-10-30
+
+### Fixed
+
+- Portfolio Balances: "Refresh balance" now reloads the balances shown, so the out-of-date clock clears without reloading the page.
+
 ## [2.126.0] - 2026-10-29
 
 ### Changed
