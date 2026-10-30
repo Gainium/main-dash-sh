@@ -4473,8 +4473,11 @@ function DataTableComponent<TData, TValue>(
               // gap. Keep the breathing room only when there is no totals
               // row.
               hasTotalsFooter ? 'pb-0' : 'pb-4',
-              canScrollLeft ? 'pl-6' : 'pl-0',
-              canScrollRight ? 'pr-6' : 'pr-0',
+              // No side gutter tied to canScrollLeft/Right: the scroll
+              // indicators overlay the content. Padding that appears only
+              // while the table overflows shrinks a width:100% table back
+              // inside the container, which ends the overflow and drops the
+              // padding again — a loop that redraws every frame.
               // Desktop: wheel scrolling stops at the table's ends instead of
               // moving the page. Only while it scrolls vertically — a table
               // with sideways overflow alone would otherwise swallow the
@@ -4812,7 +4815,10 @@ function DataTableComponent<TData, TValue>(
                             delay: rowIndex * 0.03, // Very fast sequential timing
                             ease: 'easeOut',
                           }}
-                          className={`border-b border-border/40 transition-all duration-200 ease-out hover:bg-muted/60 hover:border-border hover:shadow-sm data-[state=selected]:bg-primary/10 data-[state=selected]:border-primary/30 h-16 ${onRowClick && !row.getIsGrouped() ? 'cursor-pointer hover:scale-[1.002] hover:-translate-y-px' : ''}`}
+                          // No hover scale: a scaled row is wider than the
+                          // table, so hovering one gave a table that fits a
+                          // horizontal overflow (and a scrollbar) of its own.
+                          className={`border-b border-border/40 transition-all duration-200 ease-out hover:bg-muted/60 hover:border-border hover:shadow-sm data-[state=selected]:bg-primary/10 data-[state=selected]:border-primary/30 h-16 ${onRowClick && !row.getIsGrouped() ? 'cursor-pointer hover:-translate-y-px' : ''}`}
                           onClick={(e) => {
                             // Don't trigger row click if clicking on selection checkbox
                             const target = e.target as HTMLElement;

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.5] - 2026-10-31
+
+### Fixed
+
+- Tables: hovering a clickable row no longer makes the table shake sideways. The hover zoom made the row a little wider than a table that fits, the table then reserved a scroll-indicator gutter and shrank, the overflow went away, the gutter was dropped and the cycle repeated on every frame. Rows no longer zoom on hover, and the scroll indicators now overlay the table instead of reserving space beside it.
+
 ## [2.126.4] - 2026-10-30
 
 ### Fixed
