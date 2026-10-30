@@ -22,12 +22,7 @@
 
 ### Fixed
 
-- News widget: feed text is extracted without rendering the feed's HTML, and only http(s) links and images are used
-- Password reset on an account with two-factor authentication continues to the 2FA code step
-
-### Changed
-
-- Environment variables are read by literal key, so a build embeds only the values it uses
+- Security hardening across several areas of the dashboard
 
 ## [2.125.0] - 2026-10-29
 ### Added
