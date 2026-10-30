@@ -10,7 +10,10 @@ import {
   isLongStrategy,
 } from '@/lib/utils/tradingMetrics';
 import { getPricesFetchedAt } from '@/helper/price';
-import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
+import {
+  expectsRestingTpOrder,
+  tpSLConfig,
+} from '@/utils/bots/dca/tpSlConfig';
 import { formatDuration } from '@/utils/formatters';
 import {
   computeCompoundBreakdown,
@@ -153,6 +156,9 @@ export type TransformedTrade = DealPositionValue & {
   timeInLoss?: string;
   timeInProfit?: string;
   takeProfitConfig?: string;
+  /** Open non-combo deal whose TP should be a resting exchange order
+   *  (see `expectsRestingTpOrder`), so its absence is worth showing. */
+  tpOrderExpected?: boolean;
   stopLossConfig?: string;
   // Gauge properties
   outerGaugePercent?: number;
@@ -498,6 +504,11 @@ export const transformDealToTrade = (
     takeProfitConfig: (deal as DCADeals).settings
       ? tpSLConfig((deal as DCADeals).settings, 'tp', combo)
       : '-',
+    tpOrderExpected:
+      !combo &&
+      deal.status === DCADealStatusEnum.open &&
+      !!(deal as DCADeals).settings &&
+      expectsRestingTpOrder((deal as DCADeals).settings),
     stopLossConfig: (deal as DCADeals).settings
       ? tpSLConfig((deal as DCADeals).settings, 'sl', combo)
       : '-',

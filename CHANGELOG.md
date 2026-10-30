@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.2] - 2026-10-30
+
+### Fixed
+
+- Bot deals table: the Take Profit column shows the target percentage for deals saved without an explicit close condition (it showed only the type), plus the price of the resting take-profit order, or "No TP order on exchange" when take profit is on but no TP order is resting.
+
 ## [2.126.1] - 2026-10-30
 
 ### Fixed

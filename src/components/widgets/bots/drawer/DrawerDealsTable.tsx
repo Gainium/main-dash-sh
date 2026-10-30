@@ -183,6 +183,9 @@ export interface DrawerDealsTableProps {
   setSymbol?: React.Dispatch<React.SetStateAction<string | null>>;
   completedOrders?: ViewOrder[];
   pendingOrders?: ViewOrder[];
+  /** `pendingOrders` has loaded, so a deal missing its TP order there really
+   *  has none resting (until then the TP cell makes no claim either way). */
+  pendingOrdersReady?: boolean;
   onTradeChartSelect?: (trade: any) => void;
   onEditDeal?: (deal: DCADeals[]) => void;
   /** Externally selected deal ID (e.g. auto-selected by parent) */
@@ -215,6 +218,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   setSymbol,
   completedOrders = [],
   pendingOrders = [],
+  pendingOrdersReady = false,
   onTradeChartSelect,
   onEditDeal,
   externalSelectedDealId,
@@ -931,6 +935,18 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
   // Avg / Entry price render at the pair's own price precision.
   const pairsByProvider = useTradingPairsDataStore((s) => s.pairsByProvider);
   const botExchange = bot?.exchange;
+  // Resting take-profit order prices per deal, for the Take Profit column.
+  const tpOrderPricesByDeal = useMemo(() => {
+    const byDeal = new Map<string, number[]>();
+    for (const order of pendingOrders) {
+      if (order.typeOrder !== 'dealTP' || !order.dealId) continue;
+      if (order.status !== 'pending' && order.status !== 'partial') continue;
+      const prices = byDeal.get(order.dealId) ?? [];
+      prices.push(order.price);
+      byDeal.set(order.dealId, prices);
+    }
+    return byDeal;
+  }, [pendingOrders]);
   const columns = useMemo<
     ColumnDef<ReturnType<typeof transformDealToTradeWrapper>>[]
   >(() => {
@@ -1710,10 +1726,40 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
         accessorKey: 'takeProfitConfig',
         header: 'Take Profit Config',
         cell: ({ row }) => {
-          const value = row.original.takeProfitConfig;
+          const trade = row.original;
+          const value = trade.takeProfitConfig;
           if (!value || value === '-')
             return <span className="text-muted-foreground">-</span>;
-          return <span className="text-sm whitespace-pre-line">{value}</span>;
+          const tpPrices = trade.tpOrderExpected
+            ? tpOrderPricesByDeal.get(trade.id)
+            : undefined;
+          const symbolObj = trade.symbol;
+          const quoteAsset =
+            typeof symbolObj === 'string' ? '' : symbolObj.quoteAsset || '';
+          return (
+            <div className="flex flex-col text-sm">
+              <span className="whitespace-pre-line">{value}</span>
+              {tpPrices && tpPrices.length > 0 ? (
+                <span className="whitespace-nowrap">
+                  TP price:{' '}
+                  {[...tpPrices]
+                    .sort((a, b) => a - b)
+                    .map((p) => formatPairPrice(p, pricePrecisionOf(trade)))
+                    .join(', ')}{' '}
+                  {quoteAsset}
+                </span>
+              ) : trade.tpOrderExpected && pendingOrdersReady ? (
+                <HelpTooltip
+                  tooltip="Take profit is on, but no take-profit order is resting on the exchange for this deal, so it will not close at its target. The order was not placed or was cancelled; the bot's Events tab shows why."
+                  triggerClassName="inline-flex w-fit"
+                >
+                  <span className="whitespace-nowrap text-warning">
+                    No TP order on exchange
+                  </span>
+                </HelpTooltip>
+              ) : null}
+            </div>
+          );
         },
         enableSorting: false,
       },
@@ -2067,6 +2113,8 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     botId,
     pairsByProvider,
     botExchange,
+    tpOrderPricesByDeal,
+    pendingOrdersReady,
   ]);
   // Server-paged drawer: only columns with a server field sort.
   const pagedFields = pagedDeals.serverPaging?.fields;
