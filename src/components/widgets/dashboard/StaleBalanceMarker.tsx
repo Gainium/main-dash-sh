@@ -18,9 +18,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '../../ui/popover';
  * staleness threshold. Nothing is rendered for a fresh row, or when the
  * backend did not send `updated` at all — a permanent marker would be
  * ignored within a day; one that only appears when something is actually
- * stale is a signal people act on. The popover names the last fetch time and
- * offers the same REST refresh as the Accounts panel, scoped to the row's
- * venue (or every venue for a summed asset).
+ * stale is a signal people act on. The popover names when the row was last
+ * confirmed and offers the same REST refresh as the Accounts panel, scoped to
+ * the row's venue (or every venue for a summed asset). It does not claim the
+ * live connection stopped: streams only write a row when its amount changes,
+ * so a quiet holding ages past the threshold on a healthy connection too.
  */
 export const StaleBalanceMarker: React.FC<{ balance: EnhancedBalanceData }> = ({
   balance,
@@ -29,7 +31,7 @@ export const StaleBalanceMarker: React.FC<{ balance: EnhancedBalanceData }> = ({
   const { updateBalance, isUpdatingBalance } = useExchangeMutations();
   if (!isBalanceStale(balance.updatedAt)) return null;
 
-  const fetchedAt = balance.updatedAt
+  const confirmedAt = balance.updatedAt
     ? new Date(balance.updatedAt).toLocaleString()
     : 'unknown';
   const where = balance.exchangeName || balance.exchange || 'the exchange';
@@ -55,8 +57,8 @@ export const StaleBalanceMarker: React.FC<{ balance: EnhancedBalanceData }> = ({
           variant="ghost"
           size="sm"
           className="p-0 h-4 w-4 text-warning"
-          aria-label={`Balance last fetched ${formatAge(balance.updatedAt)}`}
-          title={`Last fetched ${formatAge(balance.updatedAt)} — click for details`}
+          aria-label={`Balance last confirmed ${formatAge(balance.updatedAt)}`}
+          title={`Last confirmed ${formatAge(balance.updatedAt)} — click for details`}
           onClick={(e) => {
             e.stopPropagation();
             setOpen(true);
@@ -69,9 +71,10 @@ export const StaleBalanceMarker: React.FC<{ balance: EnhancedBalanceData }> = ({
         <div className="space-y-xs">
           <h4 className="font-medium text-sm">Balance may be out of date</h4>
           <p className="text-xs text-muted-foreground">
-            Last fetched from {where} {formatAge(balance.updatedAt)} ({fetchedAt}).
-            Live updates for this balance have not arrived since. Refresh to read the
-            latest figure from the exchange.
+            Last confirmed by {where} {formatAge(balance.updatedAt)} ({confirmedAt}).
+            Balances update when the amount changes, so a holding that hasn&apos;t
+            moved can show this even while the connection is working. Refresh to
+            confirm the latest figure from the exchange.
           </p>
           <Button
             size="sm"

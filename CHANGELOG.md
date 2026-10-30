@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.3] - 2026-10-30
+
+### Changed
+
+- Portfolio Balances: the out-of-date balance clock says when the balance was last confirmed and no longer says live updates have stopped, since a holding whose amount has not changed receives no live update even while the connection is working.
+
 ## [2.126.2] - 2026-10-30
 
 ### Fixed
