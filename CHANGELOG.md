@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.4] - 2026-10-30
+
+### Fixed
+
+- Grid bot form: the order preview for a grid that takes profit in the quote currency with order size fixed in quote now fits the budget. Each sell level holds the coin bought one level below it but was reserved at its own sell price, so the preview, like the bot, committed about one grid step too much on every sell level.
+
 ## [2.126.3] - 2026-10-30
 
 ### Changed
