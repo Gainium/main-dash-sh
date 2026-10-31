@@ -24,6 +24,7 @@ import {
 import { useBotFormSelector } from '@/contexts/bots/form/BotFormProvider';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import {
+  resolvePairAssets,
   resolvePairSelectionSymbol,
   resolveStoredPairSymbol,
 } from '@/utils/pairs';
@@ -374,46 +375,15 @@ export const useBasicSettingsTab = (
     return findMissingPairs(pairs, metadataSources);
   }, [activeLivePairsMap, pairMetadata.byPair, pairs, scopedFormPairMetadata]);
 
+  // '?' marks an asset we cannot name yet: no metadata, and a symbol that
+  // reads two ways (`QNTUSD` → QNT/USD or QN/TUSD). Never a guessed quote.
   const splitPair = useCallback(
     (pair: string) => {
-      if (!pair) {
-        return ['?', 'USDT'] as const;
-      }
-      // Prefer the loaded pair's own assets — string-splitting a contract
-      // symbol has no chance of being right ("BTCUSD_PERP" fell through to the
-      // last-three-characters guess and rendered as "BTCUSD_P/ERP"). The
-      // heuristics below stay as the fallback for pairs we have no metadata
-      // for (free-typed input, a pair from another exchange).
-      const metadata = resolvePairMetadata(pair);
-      const metadataBase = metadata?.baseAsset?.name;
-      const metadataQuote = metadata?.quoteAsset?.name;
-      if (metadataBase && metadataQuote) {
-        return [metadataBase, metadataQuote] as const;
-      }
-      // Pairs may be stored slash- OR dash-separated (e.g. "BTC/USDT", and
-      // "PGx-USD" for Kraken xStocks). Split on either separator so a dash-pair
-      // base isn't left with a trailing "-" — that stray dash broke the
-      // live-pairs index lookup (→ assetClass lost → stock icon fell back) and
-      // the "BASE/QUOTE" label (rendered "PGX-/USD"). Mirrors GRID's splitPairParts.
-      const parts = pair.split(/[-/]/).filter(Boolean);
-      if (parts.length === 2) {
-        return [parts[0] || '?', parts[1] || 'USDT'] as const;
-      }
-
-      const normalized = pair.toUpperCase();
-      const knownQuotes = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
-      for (const quote of knownQuotes) {
-        if (normalized.endsWith(quote)) {
-          return [
-            normalized.slice(0, normalized.length - quote.length) || '?',
-            quote,
-          ] as const;
-        }
-      }
-      if (normalized.length > 3) {
-        return [normalized.slice(0, -3), normalized.slice(-3)] as const;
-      }
-      return [normalized, 'USDT'] as const;
+      const { baseAsset, quoteAsset } = resolvePairAssets(
+        pair,
+        resolvePairMetadata(pair)
+      );
+      return [baseAsset || '?', quoteAsset || '?'] as const;
     },
     [resolvePairMetadata]
   );

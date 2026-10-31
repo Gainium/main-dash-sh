@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.7] - 2026-10-31
+
+### Fixed
+
+- Bot forms: the base and quote assets of a pair now always come from the exchange's own pair list. A concatenated symbol that reads two ways (`NIGHTUSD` as NIGHT/USD or NIGH/TUSD) is no longer guessed, so the grid and DCA forms can no longer show the investment, balance or profit currency in the wrong asset. Every bot-form copy of the old quote-suffix guessing was replaced by one resolver, and a test now fails if a new copy is added.
+
 ## [2.126.6] - 2026-10-31
 
 ### Fixed

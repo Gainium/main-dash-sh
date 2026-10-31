@@ -4,6 +4,7 @@ import { useGraphQL } from './useGraphQL';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import { IS_CLOUD } from '@/config/mode';
+import { resolvePairAssets } from '@/utils/pairs';
 
 interface MarketData {
   symbol: string;
@@ -43,18 +44,21 @@ export function useMarketData(
   pair: string,
   exchange: string
 ): UseMarketDataResult {
-  // Extract base asset from pair (e.g., "BTCUSDT" -> "BTC")
-  const baseAsset = useMemo(() => {
-    if (!pair) return '';
-    // Common quote assets to remove
-    const quoteAssets = ['USDT', 'USDC', 'BTC', 'ETH', 'BNB', 'USD'];
-    for (const quote of quoteAssets) {
-      if (pair.endsWith(quote)) {
-        return pair.slice(0, -quote.length).replace(/-/g, '').toLowerCase();
-      }
-    }
-    return pair;
-  }, [pair]);
+  const {
+    pairsByExchange,
+    isLoading: isLoadingPairs,
+    error: pairsError,
+  } = useTradingPairsFromContext();
+  const pairInfo = useMemo(
+    () => pairsByExchange[exchange]?.find((p) => p.pair === pair) ?? null,
+    [pairsByExchange, exchange, pair]
+  );
+
+  // Coin market data is keyed by the base asset alone.
+  const baseAsset = useMemo(
+    () => resolvePairAssets(pair, pairInfo).baseAsset.toLowerCase(),
+    [pair, pairInfo]
+  );
 
   // Fetch coin market data
   const { query: coinQuery, variables: coinVariables } =
@@ -102,16 +106,6 @@ export function useMarketData(
       queryKey: ['user', 'getCoins', coinVariables],
     }
   );
-  const {
-    pairsByExchange,
-    isLoading: isLoadingPairs,
-    error: pairsError,
-  } = useTradingPairsFromContext();
-  const pairInfo = useMemo(
-    () => pairsByExchange[exchange]?.find((p) => p.pair === pair) ?? null,
-    [pairsByExchange, exchange, pair]
-  );
-
   const marketData = useMemo(() => {
     if (!coinDataResult.data || coinDataResult.data.status !== 'OK')
       return null;

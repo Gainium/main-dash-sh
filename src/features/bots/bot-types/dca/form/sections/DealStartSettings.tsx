@@ -66,6 +66,8 @@ import {
   buildIndicatorConfig,
   sanitizeIndicatorParams,
 } from '@/utils/indicators/indicatorConfigUtils';
+import type { BotFormData } from '@/types/bots/form';
+import { normalizePairKey, resolvePairAssets } from '@/utils/pairs';
 import { getValidTimezone } from '@/utils/timeUtils';
 import { Info } from 'lucide-react';
 import React, { useMemo } from 'react';
@@ -74,17 +76,6 @@ type NormalizedSymbol = {
   base: string;
   quote: string;
 };
-
-const COMMON_QUOTES = [
-  'USDT',
-  'USDC',
-  'BTC',
-  'ETH',
-  'BNB',
-  'BUSD',
-  'USD',
-  'EUR',
-] as const;
 
 const VOLUME_PRESET_OPTIONS: Array<{ value: VolumeValueEnum; label: string }> =
   [
@@ -134,42 +125,17 @@ const PAIR_PRIORITIZATION_OPTIONS: Array<{
   },
 ];
 
-function normalizeSymbol(pair?: string | null): NormalizedSymbol | null {
-  if (!pair) return null;
-  const trimmed = pair.trim();
-  if (!trimmed) return null;
-
-  const separators = ['/', '_', '-'];
-  for (const separator of separators) {
-    if (trimmed.includes(separator)) {
-      const [base, quote] = trimmed.split(separator);
-      if (base && quote) {
-        return {
-          base: base.toUpperCase(),
-          quote: quote.toUpperCase(),
-        };
-      }
-    }
-  }
-
-  const upper = trimmed.toUpperCase();
-  for (const quote of COMMON_QUOTES) {
-    if (upper.endsWith(quote) && upper.length > quote.length) {
-      return {
-        base: upper.slice(0, upper.length - quote.length),
-        quote,
-      };
-    }
-  }
-
-  if (upper.length >= 6) {
-    return {
-      base: upper.slice(0, upper.length - 3),
-      quote: upper.slice(-3),
-    };
-  }
-
-  return null;
+function normalizeSymbol(
+  pair: string | null | undefined,
+  metadata: BotFormData['pairMetadata'] | null | undefined
+): NormalizedSymbol | null {
+  if (!pair?.trim()) return null;
+  const { baseAsset, quoteAsset } = resolvePairAssets(
+    pair,
+    metadata?.[pair] ?? metadata?.[normalizePairKey(pair)]
+  );
+  if (!baseAsset || !quoteAsset) return null;
+  return { base: baseAsset.toUpperCase(), quote: quoteAsset.toUpperCase() };
 }
 
 type SplitDealsCapField =
@@ -443,7 +409,7 @@ export const DealStartSettings: React.FC = () => {
   const normalizedSymbols = React.useMemo<NormalizedSymbol[]>(() => {
     const pairs = [formPair || []]
       .flat()
-      .map((pair) => normalizeSymbol(pair))
+      .map((pair) => normalizeSymbol(pair, formPairMetadata))
       .filter((symbol): symbol is NormalizedSymbol => Boolean(symbol));
 
     if (pairs.length > 0) {
@@ -451,13 +417,13 @@ export const DealStartSettings: React.FC = () => {
     }
 
     const metadataPairs = Object.keys(formPairMetadata || {})
-      .map((key) => normalizeSymbol(key))
+      .map((key) => normalizeSymbol(key, formPairMetadata))
       .filter((symbol): symbol is NormalizedSymbol => Boolean(symbol));
 
     return metadataPairs;
   }, [formPair, formPairMetadata]);
 
-  const primarySymbol = normalizedSymbols[0] ?? { base: 'BTC', quote: 'USDT' };
+  const primarySymbol = normalizedSymbols[0] ?? { base: '', quote: '' };
   const useMulti = useBotFormSelector('useMulti');
   const maxDealsPerPair = useBotFormSelector('maxDealsPerPair');
   const cooldownAfterDealStartInterval = useBotFormSelector(

@@ -494,22 +494,6 @@ export const createDatafeed = (): IBasicDataFeed => ({
           return { base: baseAsset, quote: quoteAsset };
         }
 
-        // Fallback: assume last 3-4 characters are quote
-        if (pair.length >= 6) {
-          const quote = pair.slice(-4); // Try 4 characters first
-          const base = pair.slice(0, -4);
-          if (['USDT', 'USDC'].includes(quote)) {
-            return { base, quote };
-          }
-
-          // Try 3 characters
-          const quote3 = pair.slice(-3);
-          const base3 = pair.slice(0, -3);
-          if (['USD', 'BTC', 'ETH', 'BNB', 'EUR'].includes(quote3)) {
-            return { base: base3, quote: quote3 };
-          }
-        }
-
         // Default fallback
         return { base: pair, quote: 'USDT' };
       };

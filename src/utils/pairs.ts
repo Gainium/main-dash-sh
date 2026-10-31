@@ -286,6 +286,61 @@ export const extractPairAssets = (symbol: string) => {
   };
 };
 
+/**
+ * The base and quote assets to use for a pair wherever the answer drives
+ * money: the investment currency, a balance check, a bot payload.
+ *
+ * A concatenated symbol does not name its assets. `NIGHTUSD` reads as
+ * NIGHT/USD or NIGH/TUSD, `QNTUSD` as QNT/USD or QN/TUSD, `ETHBUSD` as
+ * ETH/BUSD or ETHB/USD — both readings are real listings somewhere, so no
+ * quote list or match order can be right for all of them. The loaded pair's
+ * own `baseAsset`/`quoteAsset` therefore always win, returned as listed.
+ *
+ * Without metadata, a symbol with an explicit separator is split on it, and a
+ * concatenated one is split only when exactly one known quote asset fits its
+ * tail. When more than one fits, both assets come back blank: the caller shows
+ * a placeholder until the metadata arrives, instead of naming — and checking a
+ * balance in — the wrong currency.
+ *
+ * This is the only pair splitter bot forms and mappers may use; a local quote
+ * list is what this replaced (`tests/pairAssetResolution.vitest.test.ts`
+ * fails on a new one). `extractPairAssets` stays the best-effort reading for
+ * labels and icons, where a wrong guess is cosmetic.
+ */
+export const resolvePairAssets = (
+  symbol: string | null | undefined,
+  metadata?: PairIdentitySource | null
+): { baseAsset: string; quoteAsset: string } => {
+  const metaBase = metadata?.baseAsset?.name?.trim();
+  const metaQuote = metadata?.quoteAsset?.name?.trim();
+  if (metaBase && metaQuote) {
+    return { baseAsset: metaBase, quoteAsset: metaQuote };
+  }
+
+  const raw = symbol?.trim() ?? '';
+  if (!raw) {
+    return { baseAsset: '', quoteAsset: '' };
+  }
+
+  if (/[/-]/.test(raw)) {
+    const { baseAsset, quoteAsset } = extractPairAssets(raw);
+    return {
+      baseAsset: baseAsset.toUpperCase(),
+      quoteAsset: quoteAsset.toUpperCase(),
+    };
+  }
+
+  const upper = raw.toUpperCase();
+  const fits = QUOTE_ASSETS_LONGEST_FIRST.filter(
+    (quote) => upper.length > quote.length && upper.endsWith(quote)
+  );
+  if (fits.length !== 1) {
+    return { baseAsset: '', quoteAsset: '' };
+  }
+  const [quote] = fits;
+  return { baseAsset: upper.slice(0, -quote.length), quoteAsset: quote };
+};
+
 // Stricter than `normalizePairKey`: drops every non-alphanumeric (`:` too).
 const alphanumericKey = (value: string): string =>
   value.replace(/[^a-z0-9]/gi, '').toUpperCase();

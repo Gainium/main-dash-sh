@@ -14,7 +14,7 @@ import getLatestPrices, { getLocalPrices } from '@/helper/price';
 import type { Prices } from '@/types';
 import { findUSDRate } from '@/lib/utils/unrealizedPnL';
 import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
-import { extractPairAssets, normalizePairKey } from '@/utils/pairs';
+import { normalizePairKey, resolvePairAssets } from '@/utils/pairs';
 
 interface ParsedPair {
   raw: string;
@@ -22,21 +22,10 @@ interface ParsedPair {
   quoteAsset: string;
 }
 
-// The grid form used to carry its own pair parser: a short KNOWN_QUOTES list
-// and, when nothing matched, `slice(-3)`. Any symbol whose quote is not in
-// that list fell through to the slice, which is how an OKX X-Perp pair
-// (`ARB-USD_UM_XPERP`) became base `ARB-USD_UM_XP` / quote `ERP` and every
-// field in the form ended up labelled "ERP" — investment, range, balance.
-// `extractPairAssets` is the shared resolver the rest of the app already
-// uses: it understands slash- and dash-separated symbols, the X-Perp
-// contract-family suffix, and the concatenated form.
-//
-// The string split is still only a guess for a concatenated symbol: quotes are
-// tried longest-first, so `QNTUSD` reads as `QN`/`TUSD` and `BATUSD` as
-// `BA`/`TUSD` — and no quote list can fix that, because both readings are
-// valid symbols. The pair's own metadata names its assets exactly, so it wins
-// whenever it is loaded; the split is the fallback for the moment before it
-// arrives.
+// The pair's own metadata names its assets; `resolvePairAssets` uses it when
+// it is loaded and otherwise splits only a symbol it can split unambiguously.
+// A concatenated symbol like `QNTUSD` (QNT/USD or QN/TUSD) comes back blank
+// until the metadata arrives, so the form never asks for a TUSD balance.
 const extractPair = (
   pair: BotFormData['pair'],
   lookups: Array<Record<string, TradingPair> | null | undefined>
@@ -57,14 +46,12 @@ const extractPair = (
 
   const key = normalizePairKey(sanitized);
   const metadata = lookups.map((map) => map?.[key]).find(Boolean);
-  const metaBase = metadata?.baseAsset?.name?.trim().toUpperCase();
-  const metaQuote = metadata?.quoteAsset?.name?.trim().toUpperCase();
-  if (metaBase && metaQuote) {
-    return { raw: sanitized, baseAsset: metaBase, quoteAsset: metaQuote };
-  }
-
-  const { baseAsset, quoteAsset } = extractPairAssets(sanitized);
-  return { raw: sanitized, baseAsset, quoteAsset };
+  const { baseAsset, quoteAsset } = resolvePairAssets(sanitized, metadata);
+  return {
+    raw: sanitized,
+    baseAsset: baseAsset.toUpperCase(),
+    quoteAsset: quoteAsset.toUpperCase(),
+  };
 };
 
 export interface GridFormContext {

@@ -16,8 +16,7 @@ import {
   type BotVars,
   type ExchangeInUser,
 } from '@/types';
-
-const KNOWN_QUOTES = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
+import { normalizePairKey, resolvePairAssets } from '@/utils/pairs';
 
 const sanitizeString = (value: unknown): string | undefined => {
   if (typeof value === 'string') {
@@ -84,41 +83,6 @@ const sanitizePair = (pairs: BotFormData['pair']): string | undefined => {
 
   const candidate = String(pairs[0]).trim();
   return candidate.length > 0 ? candidate : undefined;
-};
-
-const splitPairSymbols = (
-  pair: string | undefined
-): { baseAsset?: string; quoteAsset?: string } => {
-  const result: { baseAsset?: string; quoteAsset?: string } = {};
-
-  if (!pair) {
-    return result;
-  }
-
-  const normalized = pair.toUpperCase();
-  if (normalized.includes('/')) {
-    const [base, quote] = normalized.split('/');
-    if (base) {
-      result.baseAsset = base;
-    }
-    if (quote) {
-      result.quoteAsset = quote;
-    }
-    return result;
-  }
-
-  const matchedQuote = KNOWN_QUOTES.find((quote) => normalized.endsWith(quote));
-  if (!matchedQuote) {
-    result.baseAsset = normalized;
-    return result;
-  }
-
-  const baseAsset = normalized.slice(0, -matchedQuote.length);
-  if (baseAsset) {
-    result.baseAsset = baseAsset;
-  }
-  result.quoteAsset = matchedQuote;
-  return result;
 };
 
 /* const setIfDefined = (
@@ -356,7 +320,12 @@ const buildGridCreatePayload = (
   const pair = sanitizePair(formData.pair) ?? '';
   const exchangeUUID = sanitizeString(formData.exchangeUUID) ?? '';
 
-  const { baseAsset = '', quoteAsset = '' } = splitPairSymbols(pair);
+  // main-app re-resolves both from the pairs collection on create; these are
+  // only its fallback, so a blank beats a guess.
+  const { baseAsset, quoteAsset } = resolvePairAssets(
+    pair,
+    formData.pairMetadata[pair] ?? formData.pairMetadata[normalizePairKey(pair)]
+  );
   const { updatedBudget: _updatedBudget, ...rest } = updatePayload;
   // `createBotInput` (schema ~4210) accepts `strategy` and `newProfit`,
   // unlike `changeBotInput`. `buildGridUpdatePayload` strips them so the

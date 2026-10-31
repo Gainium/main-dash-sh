@@ -33,6 +33,7 @@ import {
   resolvePairsLockState,
 } from '@/utils/bots/dca/basic-settings';
 import {
+  resolvePairAssets,
   resolvePairSelectionSymbol,
   resolveStoredPairSymbol,
 } from '@/utils/pairs';
@@ -61,60 +62,12 @@ interface GridBasicSettingsProps {
 const normalizePairInput = (raw: string): string =>
   raw.replace(/[\s\-/]/g, '').toUpperCase();
 
-const KNOWN_QUOTES = [
-  'USDT',
-  'USDC',
-  'BTC',
-  'ETH',
-  'BNB',
-  'BUSD',
-  'USDP',
-  'USD',
-];
-
-const splitPairParts = (raw: string): { base: string; quote: string } => {
-  const trimmed = raw?.trim().toUpperCase() ?? '';
-  if (!trimmed) {
-    return { base: '', quote: '' };
-  }
-
-  const explicitSeparatorMatch = trimmed.split(/[-/]/u).filter(Boolean);
-  if (explicitSeparatorMatch.length === 2) {
-    const [base, quote] = explicitSeparatorMatch;
-    return {
-      base: base ?? '',
-      quote: quote ?? '',
-    };
-  }
-
-  const normalized = trimmed.replace(/[^A-Z0-9]/g, '');
-  const matchedQuote = KNOWN_QUOTES.find(
-    (quote) => normalized.length > quote.length && normalized.endsWith(quote)
-  );
-
-  if (matchedQuote) {
-    return {
-      base: normalized.slice(0, normalized.length - matchedQuote.length),
-      quote: matchedQuote,
-    };
-  }
-
-  if (normalized.length > 3) {
-    return {
-      base: normalized.slice(0, normalized.length - 3),
-      quote: normalized.slice(-3),
-    };
-  }
-
-  return { base: normalized, quote: '' };
-};
-
 const toSelectionSymbol = (raw: string): string => {
-  const { base, quote } = splitPairParts(raw);
-  if (!base) {
+  const { baseAsset, quoteAsset } = resolvePairAssets(raw);
+  if (!baseAsset) {
     return '';
   }
-  return quote ? `${base}-${quote}` : base;
+  return `${baseAsset}-${quoteAsset}`;
 };
 
 export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
@@ -511,8 +464,11 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
       resolvePairMetadata,
       selectTargetAsset,
       splitPair: (pair: string) => {
-        const { base, quote } = splitPairParts(pair);
-        return [base || '', quote || ''] as const;
+        const { baseAsset, quoteAsset } = resolvePairAssets(
+          pair,
+          resolvePairMetadata(pair)
+        );
+        return [baseAsset, quoteAsset] as const;
       },
       determineAnchorForPairs: () => null,
       resolveHelperToken: () => null,
@@ -663,10 +619,10 @@ export const GridBasicSettings: React.FC<GridBasicSettingsProps> = ({
     return pairs.map((pair, index) => {
       // Authoritative assets first — string-splitting a contract symbol renders
       // nonsense ("BTCUSD_PERP" → "BTCUSD_P/ERP").
-      const metadata = resolvePairMetadata(pair);
-      const fallback = splitPairParts(pair);
-      const base = metadata?.baseAsset?.name ?? fallback.base;
-      const quote = metadata?.quoteAsset?.name ?? fallback.quote;
+      const { baseAsset: base, quoteAsset: quote } = resolvePairAssets(
+        pair,
+        resolvePairMetadata(pair)
+      );
       const label = quote ? `${base}/${quote}` : base;
       return {
         key: `${pair}-${index}`,

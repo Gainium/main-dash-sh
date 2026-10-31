@@ -30,8 +30,6 @@ export interface MapGridBotSettingsOptions {
   debug?: boolean;
 }
 
-const KNOWN_QUOTES = ['USDT', 'USDC', 'USD', 'BTC', 'ETH', 'BNB', 'BUSD'];
-
 const stripTrailingZeros = (value: string): string =>
   value.replace(/(\.\d*?[1-9])0+$|\.0+$/, '$1');
 
@@ -151,26 +149,7 @@ const normalizePairString = (pair: string | undefined): string | undefined => {
   }
 
   const sanitized = pair.trim();
-  if (!sanitized) {
-    return undefined;
-  }
-
-  if (sanitized.includes('/')) {
-    return sanitized.toUpperCase();
-  }
-
-  const upper = sanitized.toUpperCase();
-  const matchedQuote = KNOWN_QUOTES.find((quote) => upper.endsWith(quote));
-  if (!matchedQuote) {
-    return upper;
-  }
-
-  const baseAsset = upper.slice(0, -matchedQuote.length);
-  if (!baseAsset) {
-    return upper;
-  }
-
-  return `${baseAsset}${matchedQuote}`;
+  return sanitized ? sanitized.toUpperCase() : undefined;
 };
 
 const ensureArrayPair = (value: unknown): string[] | undefined => {

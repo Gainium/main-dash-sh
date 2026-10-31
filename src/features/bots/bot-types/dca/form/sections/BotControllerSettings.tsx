@@ -56,7 +56,6 @@ interface BotControllerSettingsProps {
 
 /* const MAX_INDICATOR_GROUPS = 5;
 const MAX_INDICATORS_PER_GROUP = 10; */
-// KNOWN_QUOTES defined elsewhere when needed
 
 const createGroupId = () =>
   typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
