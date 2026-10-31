@@ -460,7 +460,10 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
             disabled={isVarBound || (isDealEdit && isComboBot)}
             showRefreshButton={shouldShowRefresh}
             coinIcon={coinIconElement}
-            unitLabel={isPercentageMode ? '%' : coinIconSymbol}
+            // The text names the unit the amount is entered in, the same
+            // label the Base Order Size field shows; `coinIconSymbol` is only
+            // an icon stand-in (USD reference → USDT icon).
+            unitLabel={isPercentageMode ? '%' : currencyLabel}
             showPercentageButtons={!isPercentageMode}
             currencyReference={orderSizeType}
             onCurrencyReferenceChange={handleOrderSizeTypeChange}

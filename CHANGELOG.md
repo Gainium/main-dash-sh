@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.126.6] - 2026-10-31
+
+### Fixed
+
+- DCA bot form: with order size set in USD, the DCA order amount field now labels its unit USD, the same as the Base Order Size field, instead of USDT.
+
 ## [2.126.5] - 2026-10-31
 
 ### Fixed
