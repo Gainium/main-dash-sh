@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.127.0] - 2026-11-01
+
+### Removed
+
+- The "Switch to V1" link on the sign-in and sign-up pages and in the account menu. The V1 dashboard has been retired, and its address now redirects to the current app.
+
 ## [2.126.7] - 2026-10-31
 
 ### Fixed

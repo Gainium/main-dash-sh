@@ -1,16 +1,12 @@
 import { LogoLockup } from '@/components/common/LogoLockup';
 import LoggerDrawer from '@/components/dev/LoggerDrawer';
 import { Card } from '@/components/ui/card';
-import {
-  redirectToV1App,
-  setPreferredUiVersion,
-} from '@/lib/uiVersionPreference';
 import React from 'react';
 
 /**
  * Shared frame for the unauthenticated auth pages (Login, SignUp):
- * centered card with the logo, the marketing footer links, the
- * "Switch to V1" escape hatch, and the dev logger drawer. Page
+ * centered card with the logo, the marketing footer links, and the
+ * dev logger drawer. Page
  * content (headings, forms, terms) renders as children inside the card.
  */
 const AuthPageShell: React.FC<{ children: React.ReactNode }> = ({
@@ -50,18 +46,6 @@ const AuthPageShell: React.FC<{ children: React.ReactNode }> = ({
             <a href="#" className="hover:text-foreground transition-colors">
               About Us
             </a>
-          </div>
-          <div className="flex justify-center text-sm text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => {
-                setPreferredUiVersion('v1');
-                redirectToV1App();
-              }}
-              className="hover:text-foreground transition-colors"
-            >
-              Switch to V1
-            </button>
           </div>
         </div>
       </div>

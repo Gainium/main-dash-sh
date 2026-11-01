@@ -13,10 +13,6 @@ import {
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { getDashboardShortcutId } from '@/lib/dashboardShortcuts';
 import { showShortcutHint } from '@/lib/shortcutHints';
-import {
-  redirectToV1App,
-  setPreferredUiVersion,
-} from '@/lib/uiVersionPreference';
 import { Slot } from '@/lib/extensions';
 import { useChatStore } from '@/stores/chatStore';
 import { useGlobalSearchStore } from '@/stores/globalSearchStore';
@@ -29,7 +25,6 @@ import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
 import { useNotificationsSettingsStore } from '@/stores/notificationsSettingsStore';
 import {
   Activity,
-  ArrowLeftRight,
   Bell,
   ChevronLeft,
   CreditCard,
@@ -363,11 +358,6 @@ const Navbar: React.FC<NavbarProps> = ({
     showShortcutHint('toggleAiChat');
     toggleChat();
   }, [dismissChatHelpTooltip, markDiscoveryInteraction, toggleChat]);
-
-  const switchToV1 = React.useCallback(() => {
-    setPreferredUiVersion('v1');
-    redirectToV1App();
-  }, []);
 
   React.useEffect(() => {
     if (typeof window === 'undefined') {
@@ -1004,17 +994,6 @@ const Navbar: React.FC<NavbarProps> = ({
                     </div>
                   </DropdownMenuItem>
 
-                  {IS_CLOUD && (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={switchToV1}>
-                        <div className="flex items-center gap-xs">
-                          <ArrowLeftRight className="h-4 w-4" />
-                          <span>Switch to V1</span>
-                        </div>
-                      </DropdownMenuItem>
-                    </>
-                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={handleLogout}>
                     <div className="flex items-center gap-xs text-destructive">
