@@ -559,10 +559,10 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
         return;
       }
       // Collapsed sidebar stays collapsed on casual hover. Only expand
-      // after the cursor has lingered for a full 3 seconds.
+      // after the cursor has lingered for 2 seconds.
       const timeout = setTimeout(() => {
         setIsHovered(true);
-      }, 3000);
+      }, 2000);
       setHoverTimeout(timeout);
     }
   };
