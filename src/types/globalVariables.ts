@@ -74,7 +74,6 @@ export interface GlobalVariableFormErrors {
 
 // API Request/Response Types
 export interface GetGlobalVariablesRequest {
-  search?: string;
   page?: number;
   pageSize?: number;
   sortModel?: SortModel[];

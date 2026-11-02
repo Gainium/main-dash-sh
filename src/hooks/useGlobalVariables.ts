@@ -56,7 +56,6 @@ export function useGlobalVariables(
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
   const {
-    search = '',
     page = 0,
     pageSize = 10000,
     sortModel = [],
@@ -65,7 +64,7 @@ export function useGlobalVariables(
 
   const queryKey = [
     QUERY_KEYS.globalVariables,
-    { search, page, pageSize, sortModel, filterModel },
+    { page, pageSize, sortModel, filterModel },
   ];
 
   const { data, isLoading, error, refetch } = useQuery({
@@ -84,8 +83,9 @@ export function useGlobalVariables(
         paperContext
       );
 
+      // `GetGlobalVariablesInput` has no `search` field — sending one fails the
+      // whole request with BAD_USER_INPUT. Callers filter by name client-side.
       const { query, variables } = GraphQlQuery.getGlobalVariables({
-        ...(search && { search }),
         page,
         pageSize,
         ...(sortModel.length > 0 && { sortModel }),
@@ -101,7 +101,6 @@ export function useGlobalVariables(
       });
 
       logger.info('[useGlobalVariables] Fetching variables', {
-        search,
         page,
         pageSize,
         sortModel,

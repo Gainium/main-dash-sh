@@ -54,33 +54,21 @@ export const VariableSearch: React.FC<VariableSearchProps> = ({
   const debouncedSearch = useDebounce(search, 250);
   const allowedTypes = useMemo(() => toAllowedTypes(varType), [varType]);
 
-  const shouldFilterServerSide = allowedTypes.length === 1;
-
-  const { variables, isLoading } = useGlobalVariables({
-    search: debouncedSearch,
-    page: 0,
-    pageSize: 20,
-    ...(shouldFilterServerSide
-      ? {
-          filterModel: {
-            items: [
-              {
-                field: 'type',
-                operator: 'equals',
-                value: allowedTypes[0],
-              },
-            ],
-          },
-        }
-      : {}),
-  });
+  // Fetch the whole list (the hook's default) and filter here: the picker has
+  // no paging, and the API has no name search.
+  const { variables, isLoading } = useGlobalVariables();
 
   const filteredVariables = useMemo(() => {
     if (!variables?.length) {
       return [];
     }
-    return variables.filter((item) => allowedTypes.includes(item.type));
-  }, [variables, allowedTypes]);
+    const term = debouncedSearch.trim().toLowerCase();
+    return variables.filter(
+      (item) =>
+        allowedTypes.includes(item.type) &&
+        (!term || item.name.toLowerCase().includes(term))
+    );
+  }, [variables, allowedTypes, debouncedSearch]);
 
   return (
     <>
