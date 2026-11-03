@@ -323,7 +323,7 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
               additionalText={`${formatBase(financial?.maxDealLoss, profitSign)} (${formatUSD(financial?.maxDealLossUsd, profitSign, financial?.maxDealLoss)})`}
             />
             <StatItemWithChip
-              label="Avg Equity DD"
+              label="Max Equity DD"
               value={financial?.maxDrawDownEquityPerc}
               additionalText={formatUSD(financial?.maxDrawDownEquityUsd)}
             />
