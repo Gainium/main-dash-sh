@@ -2657,7 +2657,7 @@ export const TakeProfitSettings: React.FC = () => {
 
               <FieldVariableBinding
                 path="tpPerc"
-                varType="float"
+                varType="number"
                 tooltip="Bind take profit percentage"
                 disabled={takeProfitLocked}
                 variant="inline"
@@ -3284,7 +3284,7 @@ export const TakeProfitSettings: React.FC = () => {
                       >
                         <FieldVariableBinding
                           path="minTp"
-                          varType="float"
+                          varType="number"
                           tooltip="Bind minimum take profit"
                           disabled={takeProfitLocked}
                           variant="inline"

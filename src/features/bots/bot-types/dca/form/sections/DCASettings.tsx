@@ -1545,7 +1545,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
               ]}
               baseValue={0}
               varBindingPath="step"
-              varType="float"
+              varType="number"
               varTooltip="Bind orders step"
               onVariableSelected={applyStepVariable}
               onVariableResolved={applyStepVariable}
@@ -1604,7 +1604,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                     <Label htmlFor="combo-DCA-step">DCA grid range (%)</Label>
                     <FieldVariableBinding
                       path="step"
-                      varType="float"
+                      varType="number"
                       tooltip="Bind DCA grid range"
                       variant="inline"
                       onVariableSelected={applyStepVariable}
@@ -1885,7 +1885,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
             ]}
             baseValue={0}
             varBindingPath="stepScale"
-            varType="float"
+            varType="number"
             varTooltip="Bind step scale"
             onVariableSelected={applyStepScaleVariable}
             onVariableResolved={applyStepScaleVariable}
@@ -1949,7 +1949,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
             ]}
             baseValue={0}
             varBindingPath="volumeScale"
-            varType="float"
+            varType="number"
             varTooltip="Bind volume scale"
             onVariableSelected={applyVolumeScaleVariable}
             onVariableResolved={applyVolumeScaleVariable}
@@ -2743,7 +2743,7 @@ const CustomDcaOrderRow = React.memo<CustomDcaOrderRowProps>(({
             />
             <FieldVariableBinding
               path={stepVariablePath}
-              varType="float"
+              varType="number"
               tooltip="Bind step %"
               variant="inline"
               onVariableSelected={applyStepVariable}
@@ -3134,7 +3134,7 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
           </div>
           <FieldVariableBinding
             path={minPercVariablePath}
-            varType="float"
+            varType="number"
             tooltip="Bind minimum %"
             variant="inline"
             className="w-full"

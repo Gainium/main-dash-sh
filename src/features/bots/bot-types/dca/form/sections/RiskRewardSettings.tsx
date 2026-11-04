@@ -870,7 +870,7 @@ export const RiskRewardSettings: React.FC = () => {
                 value: strategy === StrategyEnum.long ? -val : val,
               }))}
               varBindingPath="rrSlFixedValue"
-              varType="float"
+              varType="number"
               varTooltip="Fixed value"
               onVariableSelected={(variable) =>
                 applyVariableToField('rrSlFixedValue', variable)
@@ -1022,7 +1022,7 @@ export const RiskRewardSettings: React.FC = () => {
                   value: val,
                 }))}
                 varBindingPath="riskSlAmountPerc"
-                varType="float"
+                varType="number"
                 varTooltip="Bind risk % of free balance"
                 onVariableSelected={(variable) =>
                   applyVariableToField('riskSlAmountPerc', variable)
@@ -1051,7 +1051,7 @@ export const RiskRewardSettings: React.FC = () => {
                 showSlider={false}
                 presetButtons={[]}
                 varBindingPath="riskSlAmountValue"
-                varType="float"
+                varType="number"
                 varTooltip="Bind fixed risk amount"
                 onVariableSelected={(variable) =>
                   applyVariableToField('riskSlAmountValue', variable)
@@ -1099,7 +1099,7 @@ export const RiskRewardSettings: React.FC = () => {
           <div className="flex gap-xs items-center">
             <FieldVariableBinding
               path="riskTpRatio"
-              varType="float"
+              varType="number"
               tooltip="Bind reward ratio target"
               variant="inline"
               className="flex-1"
@@ -1210,7 +1210,7 @@ export const RiskRewardSettings: React.FC = () => {
             <div className="space-y-xs">
               <FieldVariableBinding
                 path="riskMinSl"
-                varType="float"
+                varType="number"
                 tooltip="Bind min SL %"
                 variant="inline"
                 disabled={isRiskMinSlBound}
@@ -1240,7 +1240,7 @@ export const RiskRewardSettings: React.FC = () => {
             <div className="space-y-xs">
               <FieldVariableBinding
                 path="riskMaxSl"
-                varType="float"
+                varType="number"
                 tooltip="Bind max SL %"
                 variant="inline"
                 disabled={isRiskMaxSlBound}
@@ -1284,7 +1284,7 @@ export const RiskRewardSettings: React.FC = () => {
               <div className="space-y-xs">
                 <FieldVariableBinding
                   path="riskMinPositionSize"
-                  varType="float"
+                  varType="number"
                   tooltip="Bind min position size"
                   variant="inline"
                   disabled={isRiskMinPositionBound}
@@ -1310,7 +1310,7 @@ export const RiskRewardSettings: React.FC = () => {
               <div className="space-y-xs">
                 <FieldVariableBinding
                   path="riskMaxPositionSize"
-                  varType="float"
+                  varType="number"
                   tooltip="Bind max position size"
                   variant="inline"
                   disabled={isRiskMaxPositionBound}

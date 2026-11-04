@@ -170,7 +170,7 @@ const MultiTarget = ({
         presetButtons={presets}
         baseValue={baseValue}
         varBindingPath={percentagePath}
-        varType="float"
+        varType="number"
         varTooltip="Bind target %"
         onVariableSelected={(variable) => {
           applyVariableToMultiTarget(target.uuid, 'target', variable);
@@ -264,7 +264,7 @@ const MultiTarget = ({
         sliderMax={maxAmountForTarget}
         sliderStep={1}
         varBindingPath={amountPath}
-        varType="float"
+        varType="number"
         varTooltip="Bind allocation %"
         onVariableSelected={(variable) => {
           applyVariableToMultiTarget(target.uuid, 'amount', variable);

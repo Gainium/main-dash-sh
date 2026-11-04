@@ -1642,7 +1642,7 @@ export const DealStartSettings: React.FC = () => {
                   </Label>
                   <FieldVariableBinding
                     path="minOpenDeal"
-                    varType="float"
+                    varType="number"
                     tooltip="Bind minimum price"
                     variant="inline"
                     onVariableSelected={(variable) =>
@@ -1678,7 +1678,7 @@ export const DealStartSettings: React.FC = () => {
                   </Label>
                   <FieldVariableBinding
                     path="maxOpenDeal"
-                    varType="float"
+                    varType="number"
                     tooltip="Bind maximum price"
                     variant="inline"
                     onVariableSelected={(variable) =>
@@ -1780,7 +1780,7 @@ export const DealStartSettings: React.FC = () => {
                       <Label htmlFor="dynamic-price-over">Over value</Label>
                       <FieldVariableBinding
                         path="dynamicPriceFilterOverValue"
-                        varType="float"
+                        varType="number"
                         tooltip="Bind over deviation"
                         variant="inline"
                         onVariableSelected={(variable) =>
@@ -1827,7 +1827,7 @@ export const DealStartSettings: React.FC = () => {
                       <Label htmlFor="dynamic-price-under">Under value</Label>
                       <FieldVariableBinding
                         path="dynamicPriceFilterUnderValue"
-                        varType="float"
+                        varType="number"
                         tooltip="Bind under deviation"
                         variant="inline"
                         onVariableSelected={(variable) =>

@@ -418,7 +418,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
               <div className="space-y-xs">
                 <FieldVariableBinding
                   path="baseOrderSize"
-                  varType="float"
+                  varType="number"
                   tooltip="Bind base order size"
                   disabled={baseOrderLocked}
                   variant="inline"
@@ -589,7 +589,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                         </Label>
                         <FieldVariableBinding
                           path="baseStep"
-                          varType="float"
+                          varType="number"
                           tooltip="Bind base grid range"
                           variant="inline"
                           onVariableSelected={applyBaseStepVariable}
@@ -920,7 +920,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
               />
               <FieldVariableBinding
                 path="riskReductionValue"
-                varType="float"
+                varType="number"
                 tooltip="Bind risk reduction value"
                 disabled={riskReductionLocked}
                 variant="inline"
@@ -1034,7 +1034,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
               />
               <FieldVariableBinding
                 path="reinvestValue"
-                varType="float"
+                varType="number"
                 tooltip="Bind reinvest value"
                 disabled={reinvestLocked}
                 variant="inline"
