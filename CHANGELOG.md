@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.127.1] - 2026-11-04
+
+### Fixed
+
+- Backtest results Deals tab: entry, average, close and DCA ladder prices now show the pair's own price decimals instead of rounding every price to one decimal, so sub-dollar pairs no longer read as 0.3.
+
 ## [2.127.0] - 2026-11-01
 
 ### Removed

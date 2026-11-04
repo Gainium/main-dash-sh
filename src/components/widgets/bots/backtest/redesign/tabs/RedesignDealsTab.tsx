@@ -42,6 +42,7 @@ import {
   useState,
 } from 'react';
 import { formatUsdAsReporting } from '@/utils/reportingCurrency';
+import { formatPairPrice } from '@/utils/formatters';
 
 import TradingViewChart, {
   type TradingViewChartRef,
@@ -89,13 +90,9 @@ import { DealRailControls } from './DealRailControls';
 const fmtUsd = (v: number, d = 2): string =>
   formatUsdAsReporting(v, { decimals: d });
 
-const fmtPx = (v: number | null): string =>
-  v == null
-    ? '—'
-    : v.toLocaleString('en-US', {
-        minimumFractionDigits: 1,
-        maximumFractionDigits: 1,
-      });
+/** A price at the pair's precision (adaptive decimals when it is unknown). */
+const fmtPx = (v: number | null, pricePrecision?: number): string =>
+  v == null ? '—' : formatPairPrice(v, pricePrecision);
 
 const fmtPct = (v: number, d = 2): string =>
   (v > 0 ? '+' : '') + v.toFixed(d) + '%';
@@ -527,6 +524,7 @@ export function RedesignDealsTab({
   // independently (its own `Candles` instance) so it never couples to the live
   // chart datafeed; lines fall back to the filled-order heuristic until ready.
   const sym = rawDeal?.symbol;
+  const pricePrecision = sym?.priceAssetPrecision;
   const symKey = sym?.pair && sym.exchange ? `${sym.pair}@${sym.exchange}` : '';
   const [candles, setCandles] = useState<ClipCandle[] | undefined>(undefined);
   useEffect(() => {
@@ -980,9 +978,18 @@ export function RedesignDealsTab({
               value={`${fmtPct(deal.pnlPerc)} · ${fmtUsd(deal.pnlUsd)}`}
               tone={pnlTone}
             />
-            <DetailRow label="Entry price" value={fmtPx(deal.entry)} />
-            <DetailRow label="Avg price" value={fmtPx(deal.avg)} />
-            <DetailRow label="Close price" value={fmtPx(deal.closePrice)} />
+            <DetailRow
+              label="Entry price"
+              value={fmtPx(deal.entry, pricePrecision)}
+            />
+            <DetailRow
+              label="Avg price"
+              value={fmtPx(deal.avg, pricePrecision)}
+            />
+            <DetailRow
+              label="Close price"
+              value={fmtPx(deal.closePrice, pricePrecision)}
+            />
           </Inset>
 
           {/* col 2 — execution facts */}
@@ -1013,7 +1020,7 @@ export function RedesignDealsTab({
               <LadderRow
                 lvl="E"
                 dev="—"
-                price={fmtPx(deal.entry)}
+                price={fmtPx(deal.entry, pricePrecision)}
                 filled
                 label="Entry"
               />
@@ -1022,7 +1029,7 @@ export function RedesignDealsTab({
                   key={s.idx}
                   lvl={s.idx}
                   dev={'-' + s.dev.toFixed(2) + '%'}
-                  price={fmtPx(s.price)}
+                  price={fmtPx(s.price, pricePrecision)}
                   filled={s.filled}
                 />
               ))}
