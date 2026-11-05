@@ -34,6 +34,7 @@ import {
   getEstimateGridBalance,
 } from '@/utils/bots/dca/example-orders-core';
 import { math } from '@/utils/math';
+import { normalizePairKey } from '@/utils/pairs';
 import { PlayCircle } from 'lucide-react';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import type { GridBot } from '@/types/gridBot';
@@ -222,8 +223,15 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
   const symbol = useMemo(() => {
     const pair = [formData.pair].flat()[0];
     const b = bot as GridBot | undefined;
-    return formData.pairMetadata[pair]
-      ? { ...formData.pairMetadata[pair], maxOrders: 200 }
+    // `pairMetadata` is keyed by `normalizePairKey` (`ETHUSDC`), while
+    // `formData.pair` keeps the exchange's own form (`ETH-USDC`). A raw lookup
+    // missed for every dashed pair, leaving the asset names empty — so both
+    // balances read 0 and no buy option was offered.
+    const meta =
+      formData.pairMetadata[normalizePairKey(pair ?? '')] ??
+      formData.pairMetadata[pair];
+    return meta
+      ? { ...meta, maxOrders: 200 }
       : b?.symbol
         ? {
             pair,

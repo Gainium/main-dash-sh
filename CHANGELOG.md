@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.128.1] - 2026-11-05
+
+### Fixed
+
+- Grid bot start dialog showed a zero balance and no option to buy the missing coin on exchanges whose pairs contain a dash (Hyperliquid, Kraken, Coinbase, KuCoin, OKX).
+
 ## [2.128.0] - 2026-11-05
 
 ### Added
