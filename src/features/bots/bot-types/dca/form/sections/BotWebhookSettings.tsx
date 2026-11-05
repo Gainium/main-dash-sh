@@ -883,7 +883,7 @@ export const BotWebhookSettings: React.FC<BotWebhookSettingsProps> = ({
               className="flex items-center gap-xs"
             >
               <a
-                href="https://gainium.io/docs/webhooks"
+                href="https://gainium.io/help/webhooks"
                 target="_blank"
                 rel="noreferrer"
                 className="flex items-center gap-xs"
