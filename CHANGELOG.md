@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.128.0] - 2026-11-05
+
+### Added
+
+- Self-hosted: a one-line notice on every page when newer images are published for this installation, with the dashboard version you are running and a link to Admin → Updates. Dismissing it hides it until a further version is published. Cloud never shows it.
+
 ## [2.127.1] - 2026-11-04
 
 ### Fixed

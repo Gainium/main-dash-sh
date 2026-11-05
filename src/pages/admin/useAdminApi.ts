@@ -95,15 +95,18 @@ export function useAdminDiagnostics(
   });
 }
 
-export function useAdminUpdates(): UseQueryResult<AdminUpdate[]> {
+export function useAdminUpdates(
+  options: { staleTime?: number; retry?: boolean } = {}
+): UseQueryResult<AdminUpdate[]> {
   return useQuery({
     queryKey: [...ROOT_KEY, 'updates'],
     queryFn: adminApi.listUpdates,
     enabled: isAdminApiConfigured(),
     // Hitting the registry is slow + costs API quota; only refresh on
     // mount + manual refetch.
-    staleTime: 60_000,
+    staleTime: options.staleTime ?? 60_000,
     refetchOnWindowFocus: false,
+    ...(options.retry === undefined ? {} : { retry: options.retry }),
   });
 }
 

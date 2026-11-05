@@ -34,6 +34,7 @@ import { PromptPill } from '../onboarding/PromptPill';
 import { OnboardingSurvey } from '../survey/OnboardingSurvey';
 import { PWAStatus } from '../ui/PWAStatus';
 import { EncryptionKeyNotice } from './EncryptionKeyNotice';
+import { UpdateAvailableNotice } from './UpdateAvailableNotice';
 import HeaderWidgetsManager from './HeaderManager';
 import MobileBottomNav from './MobileBottomNav';
 import MobileSidebar from './MobileSidebar';
@@ -531,6 +532,10 @@ const MainLayoutContent: React.FC<MainLayoutContentProps> = ({
                 nothing on cloud (the query is not even sent) and nothing
                 once the operator has set a key or dismissed the notice. */}
             <EncryptionKeyNotice />
+
+            {/* Self-hosted-only: newer images are published for this
+                install. Re-shows when a further version appears. */}
+            <UpdateAvailableNotice />
 
             {/* Page content with mobile bottom navigation padding and standardized spacing */}
             <main
