@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.0] - 2026-11-06
+
+### Added
+
+- Settings: Known devices card listing the browsers that have signed in to the account, with Forget to sign one out and require the emailed code next time (cloud edition)
+
 ## [2.129.0] - 2026-11-06
 
 ### Added

@@ -62,6 +62,7 @@ import { InfoIcon, Tooltip } from '../components/ui/tooltip';
 import VisualSettings from '../components/VisualSettings';
 import PasskeyManager from '../components/auth/PasskeyManager';
 import SessionsCard from '../components/settings/SessionsCard';
+import KnownDevicesCard from '../components/settings/KnownDevicesCard';
 import QRCode from 'react-qr-code';
 import {
   Dialog,
@@ -1642,6 +1643,10 @@ const Settings: React.FC = () => {
               self-hosted and cloud ship it; admin-impersonation sessions are
               filtered out server-side. */}
           <SessionsCard />
+
+          {/* Remembered devices — cloud only, the self-hosted API keeps no
+              device history. */}
+          {IS_CLOUD && <KnownDevicesCard />}
         </div>
 
         {/* Regenerate recovery codes dialog */}
