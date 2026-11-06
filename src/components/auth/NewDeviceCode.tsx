@@ -31,9 +31,11 @@ const NewDeviceCode: React.FC<NewDeviceCodeProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
+  // Focus on mount and again once a rejected code has re-enabled the input
+  // (focusing while it is still disabled is a no-op).
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
+    if (!isSubmitting) inputRef.current?.focus();
+  }, [isSubmitting]);
 
   const submit = useCallback(
     async (value: string) => {
@@ -54,7 +56,6 @@ const NewDeviceCode: React.FC<NewDeviceCodeProps> = ({
             : 'The code is incorrect or has expired'
         );
         setCode('');
-        inputRef.current?.focus();
       } finally {
         setIsSubmitting(false);
       }

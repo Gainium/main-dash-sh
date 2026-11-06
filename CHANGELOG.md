@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.1] - 2026-11-06
+
+### Fixed
+
+- Sign-in code screen: after a wrong code the cursor returns to the code field so it can be retyped straight away
+
 ## [2.130.0] - 2026-11-06
 
 ### Added
