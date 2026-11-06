@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.129.0] - 2026-11-06
+
+### Added
+
+- Sign-in code step: when the server asks to confirm a password sign-in from a new browser, the login page asks for the code sent by email (cloud edition)
+
 ## [2.128.1] - 2026-11-05
 
 ### Fixed

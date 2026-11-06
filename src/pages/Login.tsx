@@ -3,6 +3,7 @@ import AuthPageShell from '@/components/auth/AuthPageShell';
 import DiscordLoginButton from '@/components/auth/DiscordLoginButton';
 import GoogleAuthSection from '@/components/auth/GoogleAuthSection';
 import MagicLinkRequestForm from '@/components/auth/MagicLinkRequestForm';
+import NewDeviceCode from '@/components/auth/NewDeviceCode';
 import PasskeyLoginButton from '@/components/auth/PasskeyLoginButton';
 import { PasswordChecklist } from '@/components/auth/PasswordChecklist';
 import TermsCheckbox from '@/components/auth/TermsCheckbox';
@@ -15,7 +16,10 @@ import { IS_CLOUD } from '@/config/mode';
 import { usePostLoginTarget } from '@/hooks/usePostLoginTarget';
 import { useRequestPasswordReset } from '@/hooks/usePasswordReset';
 import { useAuthCapabilities } from '@/lib/auth';
-import { RealAuthService } from '@/lib/realAuthService';
+import {
+  RealAuthService,
+  type DeviceVerificationRequiredError,
+} from '@/lib/realAuthService';
 import {
   SESSION_EXPIRED_MESSAGE,
   SESSION_EXPIRED_PARAM,
@@ -67,6 +71,10 @@ const Login: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [showTwoFactor, setShowTwoFactor] = useState(false);
   const [temporaryToken, setTemporaryToken] = useState<string | null>(null);
+  // Set when the password was right but this browser is new to the account.
+  const [deviceChallengeId, setDeviceChallengeId] = useState<string | null>(
+    null
+  );
   // Set when a Google sign-in found no account: retries the same
   // credential with creation allowed once the user confirms.
   const [createAccount, setCreateAccount] = useState<
@@ -163,6 +171,12 @@ const Login: React.FC = () => {
       console.error('Login failed:', error);
       let errorMessage = 'Login failed. Please try again.';
       if (error instanceof Error) {
+        if (error.message === 'DEVICE_VERIFICATION_REQUIRED') {
+          setDeviceChallengeId(
+            (error as DeviceVerificationRequiredError).challengeId
+          );
+          return;
+        }
         if (error.message === 'OTP_REQUIRED') {
           const tempToken = (error as OTPRequiredError).temporaryToken;
           if (tempToken) {
@@ -293,6 +307,24 @@ const Login: React.FC = () => {
       );
     }
   };
+
+  if (deviceChallengeId) {
+    return (
+      <NewDeviceCode
+        challengeId={deviceChallengeId}
+        email={email.trim()}
+        onSuccess={(accessToken, user) => {
+          login(accessToken, user);
+          navigate(postLoginTarget());
+        }}
+        onBack={() => {
+          setDeviceChallengeId(null);
+          setPassword('');
+          setError(null);
+        }}
+      />
+    );
+  }
 
   if (showTwoFactor && temporaryToken) {
     return (

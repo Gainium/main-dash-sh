@@ -7,6 +7,7 @@ import {
   type GraphQLRequestOptions,
 } from './api/GraphQLClient';
 import { GraphQlQuery } from './api';
+import { IS_CLOUD } from '@/config/mode';
 // import { logger } from './loggerInstance';
 
 // Mock logger to replace removed logger calls
@@ -31,6 +32,8 @@ interface GainiumAuthResponse {
   data?: {
     token: string;
     isOTP: boolean;
+    deviceVerification?: boolean;
+    challengeId?: string;
     shouldOnBoard: boolean;
     shouldOnBoardExchange: boolean;
   };
@@ -40,6 +43,22 @@ interface GainiumUserResponse {
   status: string;
   reason?: string;
   data?: Omit<User, 'email' | 'id'> & { username: string; _id: string };
+}
+
+// Cloud-only fields: the self-hosted backend's tokenData has no such fields,
+// and requesting them there fails the whole sign-in query.
+const DEVICE_VERIFICATION_SELECTION = IS_CLOUD
+  ? `deviceVerification
+              challengeId`
+  : '';
+
+/**
+ * Thrown by loginWithPassword when the password was right but the browser is
+ * new to the account: the server emailed a 6-digit code and holds the session
+ * until confirmNewDevice receives it from this same browser.
+ */
+export interface DeviceVerificationRequiredError extends Error {
+  challengeId: string;
 }
 
 interface OTPRequiredError extends Error {
@@ -72,6 +91,37 @@ export type TokenValidationResult =
 // eslint-disable-next-line @typescript-eslint/no-extraneous-class
 export class RealAuthService {
   /**
+   * Second step of a password sign-in from a new browser: send the code the
+   * server emailed. Returns the session exactly like loginWithPassword.
+   */
+  static async confirmNewDevice(
+    challengeId: string,
+    code: string
+  ): Promise<{ accessToken: string; user: User }> {
+    const mutation = `
+      mutation confirmNewDevice($input: confirmNewDeviceInput!) {
+        confirmNewDevice(input: $input) {
+          status
+          reason
+          data {
+            token
+            isOTP
+          }
+        }
+      }
+    `;
+    const response = await authGraphQLClient.request<{
+      confirmNewDevice: GainiumAuthResponse;
+    }>(mutation, { input: { challengeId, code } });
+    const result = response.confirmNewDevice;
+    if (result.status !== 'OK' || !result.data?.token) {
+      throw new Error(result.reason || 'The code is incorrect or has expired');
+    }
+    const user = await this.getUserInfo(result.data.token);
+    return { accessToken: result.data.token, user };
+  }
+
+  /**
    * Login with email/password using GraphQL token mutation
    */
   static async loginWithPassword(
@@ -95,6 +145,7 @@ export class RealAuthService {
               isOTP
               shouldOnBoard
               shouldOnBoardExchange
+              ${DEVICE_VERIFICATION_SELECTION}
             }
           }
         }
@@ -103,6 +154,18 @@ export class RealAuthService {
       const response = await authGraphQLClient.request<{
         token: GainiumAuthResponse;
       }>(mutation, { input: { username: email, password } });
+
+      if (
+        response.token.status === 'OK' &&
+        response.token.data?.deviceVerification &&
+        response.token.data.challengeId
+      ) {
+        const deviceError = new Error(
+          'DEVICE_VERIFICATION_REQUIRED'
+        ) as DeviceVerificationRequiredError;
+        deviceError.challengeId = response.token.data.challengeId;
+        throw deviceError;
+      }
 
       // Debug logging to see what the API returns
       logger.info('Auth API response:', {
