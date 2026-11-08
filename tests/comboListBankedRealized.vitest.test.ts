@@ -1,6 +1,10 @@
 import { describe, expect, test } from 'vitest';
 
-import { splitBankedOpenDealProfit, transformDcaBotToBot } from '@/types/dcaBot';
+import {
+  comboOpenDealsRealizedUsd,
+  splitBankedOpenDealProfit,
+  transformDcaBotToBot,
+} from '@/types/dcaBot';
 
 /**
  * The Combo bot lists (card + table) must split P&L the same way the bot
@@ -92,5 +96,22 @@ describe('combo bot list — banked grid profit of open deals (§Definition)', (
       unrealizedUsd: -5,
       unrealizedPerc: -2,
     });
+  });
+
+  test('the list header counts the same banked figure as the rows', () => {
+    const raw = makeCombo() as unknown as Parameters<
+      typeof comboOpenDealsRealizedUsd
+    >[0];
+    const row = transformDcaBotToBot(makeCombo(), [], [], true);
+    expect(comboOpenDealsRealizedUsd(raw)).toBeCloseTo(BANKED, 2);
+    expect(comboOpenDealsRealizedUsd(raw)).toBe(row.openDealsRealizedUsd);
+  });
+
+  test('a bot holding nothing banks nothing in the header', () => {
+    const raw = {
+      ...(makeCombo() as object),
+      usage: { current: { base: 0, quote: 0 }, max: { base: 0, quote: 200 } },
+    } as Parameters<typeof comboOpenDealsRealizedUsd>[0];
+    expect(comboOpenDealsRealizedUsd(raw)).toBe(0);
   });
 });

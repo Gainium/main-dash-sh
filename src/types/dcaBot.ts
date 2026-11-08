@@ -719,16 +719,7 @@ export function transformDcaBotToBot(
   // deals already banked is inside it. Deal cards report that part as
   // Realized (`calculateDealOpenPnl`); expose it so the bot Overview can make
   // the same split. The percent is on unPnlPerc's own basis.
-  const openDealsRealizedUsd =
-    combo && active && 'dealsStatsForBot' in res
-      ? math.round(
-          (res.dealsStatsForBot ?? []).reduce(
-            (sum, d) => sum + (Number(d.profit?.totalUsd) || 0),
-            0
-          ),
-          2
-        )
-      : 0;
+  const openDealsRealizedUsd = combo ? comboOpenDealsRealizedUsd(res) : 0;
   const openDealsRealizedPerc =
     openDealsRealizedUsd && unPnl
       ? (unPnlPerc * openDealsRealizedUsd) / unPnl
@@ -906,6 +897,29 @@ export function transformDcaBotToBot(
   };
 
   return res;
+}
+
+/**
+ * Grid profit a combo bot's open deals have already banked (the sum of
+ * `dealsStatsForBot[].profit.totalUsd`), 0 when the bot holds nothing.
+ * Single source for every surface that counts it as Realized: the list
+ * rows/cards (via `transformDcaBotToBot`) and the list header totals.
+ */
+export function comboOpenDealsRealizedUsd(bot: {
+  usage?: { current?: { base?: number; quote?: number } };
+  dealsStatsForBot?: ReadonlyArray<{ profit?: { totalUsd?: number } }>;
+}): number {
+  const active =
+    (bot.usage?.current?.quote ?? 0) !== 0 ||
+    (bot.usage?.current?.base ?? 0) !== 0;
+  if (!active || !bot.dealsStatsForBot) return 0;
+  return math.round(
+    bot.dealsStatsForBot.reduce(
+      (sum, d) => sum + (Number(d.profit?.totalUsd) || 0),
+      0
+    ),
+    2
+  );
 }
 
 /**

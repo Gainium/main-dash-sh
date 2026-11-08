@@ -15,6 +15,9 @@ export interface BotListStatsBoxesProps {
    * DCA/Combo/Hedge/Trading use the default `deals`.
    */
   activityLabel?: 'deals' | 'bots';
+  /** Realized PnL tooltip override. Combo lists count the grid profit open
+   * deals already banked as Realized, so they pass their own wording. */
+  realizedTooltip?: string;
   className?: string;
 }
 
@@ -23,6 +26,7 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
   privacyMode,
   isLoading,
   activityLabel = 'deals',
+  realizedTooltip,
   className,
 }) => {
   const { formatUsd } = useReportingCurrency();
@@ -43,6 +47,7 @@ export const BotListStatsBoxes: React.FC<BotListStatsBoxesProps> = ({
     {
       title: 'Realized PnL',
       tooltip:
+        realizedTooltip ??
         'Profit banked from closed deals across the bots in this list. Deals still running are not counted — those show as Unrealized PnL on each bot.',
       value: privacyMode ? '***' : formatUsd(stats.totalProfit),
       subtitle: privacyMode

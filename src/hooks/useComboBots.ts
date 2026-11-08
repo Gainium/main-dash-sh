@@ -6,6 +6,7 @@ import { logger } from '../lib/loggerInstance';
 import type { BotStatus } from '../types';
 import type { ComboBot as StoreBotType } from '@/types';
 import { type ComboBotListResponse } from '../types/comboBot';
+import { comboOpenDealsRealizedUsd } from '@/types/dcaBot';
 import {
   computeBotListStats,
   emptyBotListStats,
@@ -26,11 +27,13 @@ import { useShareContext } from './useShareContext';
 import { useUIStore } from '@/stores/uiStore';
 
 /** Map a Combo bot into the unified BotForStats shape. Combo shares the
- * DCA quote-array shape on `assets.used/required.quote`. */
+ * DCA quote-array shape on `assets.used/required.quote`. Realized includes
+ * the grid profit open deals already banked, as the list rows show it. */
 function comboBotToBotForStats(bot: StoreBotType): BotForStats {
   return {
     status: bot.status,
-    totalProfitUsd: bot.profit?.totalUsd || 0,
+    totalProfitUsd:
+      (bot.profit?.totalUsd || 0) + comboOpenDealsRealizedUsd(bot),
     todayProfitUsd: bot.profitToday?.totalTodayUsd || 0,
     usedQuote: usageCurrentUsd(bot.usage),
     requiredQuote: usageMaxUsd(bot.usage),

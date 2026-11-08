@@ -257,10 +257,14 @@ const HedgeComboBots = () => {
           const u = unPnlMap.get(bot._id);
           return {
             status: bot.status,
-            totalProfitUsd: legs.reduce(
-              (sum, leg) => sum + dcaBotProfitUsdForReporting(leg),
-              0
-            ),
+            // Grid profit banked by open deals is Realized, as in the table.
+            totalProfitUsd:
+              legs.reduce(
+                (sum, leg) => sum + dcaBotProfitUsdForReporting(leg),
+                0
+              ) +
+              (u?.legOpenDealsRealizedUsd?.long ?? 0) +
+              (u?.legOpenDealsRealizedUsd?.short ?? 0),
             todayProfitUsd: legs.reduce(
               (sum, leg) => sum + (leg.profitToday?.totalTodayUsd || 0),
               0
@@ -987,6 +991,9 @@ const HedgeComboBots = () => {
                       stats={botListStats}
                       privacyMode={privacyMode}
                       isLoading={isLoading}
+                      realizedTooltip={
+                        BOT_METRIC_DESCRIPTIONS.hedge.comboRealizedPnl
+                      }
                       className="w-full"
                     />
                   </div>
@@ -1009,6 +1016,9 @@ const HedgeComboBots = () => {
                         stats={botListStats}
                         privacyMode={privacyMode}
                         isLoading={isLoading}
+                        realizedTooltip={
+                          BOT_METRIC_DESCRIPTIONS.hedge.comboRealizedPnl
+                        }
                       />
                     </div>
                     {readOnly ? (

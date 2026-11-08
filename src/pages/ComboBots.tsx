@@ -1517,6 +1517,9 @@ const ComboBots: React.FC = () => {
                       stats={botListStats}
                       privacyMode={privacyMode}
                       isLoading={botsLoading || statsLoading}
+                      realizedTooltip={
+                        BOT_METRIC_DESCRIPTIONS.combo.comboRealizedPnl
+                      }
                       className="w-full"
                     />
                   </div>
@@ -1548,6 +1551,9 @@ const ComboBots: React.FC = () => {
                         stats={botListStats}
                         privacyMode={privacyMode}
                         isLoading={botsLoading || statsLoading}
+                        realizedTooltip={
+                          BOT_METRIC_DESCRIPTIONS.combo.comboRealizedPnl
+                        }
                       />
                     </div>
 
