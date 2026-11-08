@@ -715,6 +715,24 @@ export function transformDcaBotToBot(
 
   const ex = userExchanges?.find((e) => e.uuid === res.exchangeUUID);
 
+  // Combo `unPnl` is the open deals' DEAL-WIDE P&L, so the grid profit those
+  // deals already banked is inside it. Deal cards report that part as
+  // Realized (`calculateDealOpenPnl`); expose it so the bot Overview can make
+  // the same split. The percent is on unPnlPerc's own basis.
+  const openDealsRealizedUsd =
+    combo && active && 'dealsStatsForBot' in res
+      ? math.round(
+          (res.dealsStatsForBot ?? []).reduce(
+            (sum, d) => sum + (Number(d.profit?.totalUsd) || 0),
+            0
+          ),
+          2
+        )
+      : 0;
+  const openDealsRealizedPerc =
+    openDealsRealizedUsd && unPnl
+      ? (unPnlPerc * openDealsRealizedUsd) / unPnl
+      : 0;
   unPnl = active ? math.round(unPnl, 2, unPnl < 0, unPnl > 0) : 0;
   res.usage = {
     current: {
@@ -805,6 +823,8 @@ export function transformDcaBotToBot(
     workingTimeNumber: workingTime,
     workingTime: resWork,
     unPnl,
+    openDealsRealizedUsd,
+    openDealsRealizedPerc,
     unPnlPending:
       active &&
       (useLiveStats || !botHasUsablePrices || getPricesFetchedAt() === 0),

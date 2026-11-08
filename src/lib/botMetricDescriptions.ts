@@ -54,6 +54,10 @@ const DCA = {
     'Unrealized PnL ÷ the cost currently deployed in the open deals.',
   netPnl:
     'Realized PnL + Unrealized PnL — everything this bot has made, banked and still open.',
+  comboRealizedPnl:
+    'Profit already banked: the deals this bot has closed plus the grid profit its running deals have taken so far.',
+  comboUnrealizedPnl:
+    'Open profit or loss on the position the running deals still hold, after estimated fees. Grid profit those deals already took is under Realized PnL.',
   netPnlPerc:
     'Net PnL ÷ current cost. Falls back to max cost when the bot has nothing open.',
   avgDaily:

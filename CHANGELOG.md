@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.3] - 2026-11-08
+
+### Fixed
+
+- Combo bot Overview: grid profit already taken by running deals now counts under Realized PnL instead of Unrealized PnL, so the Overview splits profit the same way as the deal cards (Net PnL unchanged)
+
 ## [2.130.2] - 2026-11-08
 
 ### Fixed

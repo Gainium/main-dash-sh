@@ -744,6 +744,18 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
     (transformedBot as { totalProfitUsd?: number } | null)?.totalProfitUsd ??
     rawBot?.profit?.totalUsd ??
     0;
+  // Combo: the grid profit the OPEN deals already banked. It is inside the
+  // deal-wide `unPnl`; the deal cards report it as Realized, so the Overview
+  // moves it from Unrealized to Realized too. Net PnL is unchanged.
+  const openDealsRealizedUsd = isGrid
+    ? 0
+    : transformedBot?.openDealsRealizedUsd || 0;
+  const openDealsRealizedPerc = isGrid
+    ? 0
+    : transformedBot?.openDealsRealizedPerc || 0;
+  const overviewRealizedUsd = realizedUsd + openDealsRealizedUsd;
+  const overviewUnrealizedUsd =
+    valueMetrics.currentValue - openDealsRealizedUsd;
   const profitOverviewCards: MetricCardProps[] = [
     // Realized / Unrealized / Net, in that order, on every bot type — the
     // same three the bot lists show, from the same fields. Grid derives its
@@ -833,14 +845,24 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
             label: 'Realized PnL',
             value: (
               <ProfitAndPerc
-                value={realizedUsd}
-                percentage={valueMetrics.totalProfitPercent}
+                value={overviewRealizedUsd}
+                percentage={
+                  valueMetrics.totalProfitPercent +
+                  ((transformedBot?.maxValue || 0) > 0
+                    ? (openDealsRealizedUsd /
+                        (transformedBot?.maxValue || 1)) *
+                      100
+                    : 0)
+                }
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
               />
             ),
-            tooltip: BOT_METRIC_DESCRIPTIONS.dca.realizedPnl,
+            tooltip:
+              botType === 'combo'
+                ? BOT_METRIC_DESCRIPTIONS.combo.comboRealizedPnl
+                : BOT_METRIC_DESCRIPTIONS.dca.realizedPnl,
             valueClassName: 'text-sm font-semibold',
           },
           {
@@ -849,15 +871,20 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
               <Skeleton className="h-4 w-20" />
             ) : (
               <ProfitAndPerc
-                value={valueMetrics.currentValue}
-                percentage={valueMetrics.currentValuePercent}
+                value={overviewUnrealizedUsd}
+                percentage={
+                  valueMetrics.currentValuePercent - openDealsRealizedPerc
+                }
                 privacyMode={privacyMode}
                 chipPosition="right"
                 size="sm"
                 pending={transformedBot?.unPnlPending}
               />
             ),
-            tooltip: BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl,
+            tooltip:
+              botType === 'combo'
+                ? BOT_METRIC_DESCRIPTIONS.combo.comboUnrealizedPnl
+                : BOT_METRIC_DESCRIPTIONS.dca.unrealizedPnl,
             valueClassName: 'text-sm font-semibold',
           },
           {
@@ -866,10 +893,10 @@ const DrawerProfitTabs: React.FC<DrawerProfitTabsProps> = ({
               <Skeleton className="h-4 w-20" />
             ) : (
               <ProfitAndPerc
-                value={realizedUsd + valueMetrics.currentValue}
+                value={overviewRealizedUsd + overviewUnrealizedUsd}
                 percentage={
                   (rawBot?.currentValue || rawBot?.maxValue || 0) > 0
-                    ? ((realizedUsd + valueMetrics.currentValue) /
+                    ? ((overviewRealizedUsd + overviewUnrealizedUsd) /
                         (rawBot?.currentValue || rawBot?.maxValue || 1)) *
                       100
                     : 0
