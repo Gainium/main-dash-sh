@@ -84,7 +84,10 @@ import { sameFeeRows, toSortedFeeRows } from '@/lib/utils/feeRows';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import { useAuthStore } from '@/stores/authStore';
 import { useBotStatsStore } from '@/stores/live';
-import { transformDcaBotToBot } from '@/types/dcaBot';
+import {
+  splitBankedOpenDealProfit,
+  transformDcaBotToBot,
+} from '@/types/dcaBot';
 import { BotNameCell } from '@/components/bots/BotNameCell';
 import { BotTableActions } from '@/components/bots/BotTableActions';
 import { toBotRef } from '@/features/bots/actions/botRef';
@@ -783,18 +786,20 @@ const ComboBots: React.FC = () => {
         ),
       },
       {
-        accessorKey: 'totalProfitUsd',
+        id: 'totalProfitUsd',
+        // Grid profit the open deals already banked counts as Realized.
+        accessorFn: (row) => splitBankedOpenDealProfit(row).realizedUsd,
         header: `REALIZED PNL, ${currency.symbol}`,
         meta: {
-          description: BOT_METRIC_DESCRIPTIONS.combo.realizedPnl,
+          description: BOT_METRIC_DESCRIPTIONS.combo.comboRealizedPnl,
           filterType: 'number', reportingUsd: true,
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
         },
         aggregationFn: 'sum',
         cell: ({ row }) => {
-          const profit = row.original.totalProfitUsd ?? 0;
-          const percentage = row.original.profitPerc ?? 0;
+          const { realizedUsd: profit, realizedPerc: percentage } =
+            splitBankedOpenDealProfit(row.original);
           return (
             <ProfitAndPerc
               value={profit}
@@ -820,7 +825,8 @@ const ComboBots: React.FC = () => {
         ),
       },
       {
-        accessorKey: 'profitPerc',
+        id: 'profitPerc',
+        accessorFn: (row) => splitBankedOpenDealProfit(row).realizedPerc,
         header: 'REALIZED PNL, %',
         meta: {
           filterType: 'number',
@@ -832,10 +838,11 @@ const ComboBots: React.FC = () => {
         },
       },
       {
-        accessorKey: 'unPnl',
+        id: 'unPnl',
+        accessorFn: (row) => splitBankedOpenDealProfit(row).unrealizedUsd,
         header: 'UNREALIZED PNL',
         meta: {
-          description: BOT_METRIC_DESCRIPTIONS.combo.unrealizedPnl,
+          description: BOT_METRIC_DESCRIPTIONS.combo.comboUnrealizedPnl,
           filterType: 'number',
           enableTotalsRow: true,
           totalsDefaultAggregation: 'sum',
@@ -845,8 +852,8 @@ const ComboBots: React.FC = () => {
           if (row.original.isActive && row.original.loadedPrices === false) {
             return <Skeleton className="h-4 w-16" />;
           }
-          const value = row.original.unPnl ?? 0;
-          const percentage = row.original.unPnlPerc ?? 0;
+          const { unrealizedUsd: value, unrealizedPerc: percentage } =
+            splitBankedOpenDealProfit(row.original);
           return (
             <ProfitAndPerc
               value={value}
@@ -1249,9 +1256,13 @@ const ComboBots: React.FC = () => {
     }
 
     if (activeFilters.profitability === 'profitable') {
-      data = data.filter((bot) => (bot.totalProfitUsd ?? 0) > 0);
+      data = data.filter(
+        (bot) => splitBankedOpenDealProfit(bot).realizedUsd > 0
+      );
     } else if (activeFilters.profitability === 'losing') {
-      data = data.filter((bot) => (bot.totalProfitUsd ?? 0) < 0);
+      data = data.filter(
+        (bot) => splitBankedOpenDealProfit(bot).realizedUsd < 0
+      );
     }
 
     return applyExtensionFilters(data, (bot) => bot.id);

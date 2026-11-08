@@ -49,6 +49,7 @@ import { DualArcProgressGauge } from '../ui/DualArcProgressGauge';
 import CoinPair from '../widgets/shared/CoinPair';
 import { useResolvePairAsset } from '@/hooks/useResolvePairAsset';
 import { useBotDcaOrderFill } from '@/hooks/useBotDcaOrderFill';
+import { splitBankedOpenDealProfit } from '@/types/dcaBot';
 import { BotActionsMenuItems } from './BotActionsMenuItems';
 /* import { useBotSpecificDeals } from '@/hooks/useBotSpecificDeals'; */
 
@@ -332,14 +333,29 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
     }
   };
 
+  // Combo: grid profit the open deals already banked is Realized, not
+  // Unrealized — the same split the bot Overview and the deal cards make.
+  const pnlSplit = useMemo(
+    () =>
+      splitBankedOpenDealProfit(
+        type === BotTypesEnum.combo
+          ? bot
+          : { ...bot, openDealsRealizedUsd: 0, openDealsRealizedPerc: 0 }
+      ),
+    [bot, type]
+  );
   const currentValue = useMemo(
-    () => +((type === BotTypesEnum.grid ? bot.value : bot.unPnl) || 0),
-    [bot.unPnl, bot.value, type]
+    () =>
+      +((type === BotTypesEnum.grid ? bot.value : pnlSplit.unrealizedUsd) ||
+        0),
+    [pnlSplit.unrealizedUsd, bot.value, type]
   );
   const valueChangePercent = useMemo(
     () =>
-      +((type === BotTypesEnum.grid ? bot.valueChange : bot.unPnlPerc) || 0),
-    [bot.valueChange, bot.unPnlPerc, type]
+      +((type === BotTypesEnum.grid
+        ? bot.valueChange
+        : pnlSplit.unrealizedPerc) || 0),
+    [bot.valueChange, pnlSplit.unrealizedPerc, type]
   );
   // True while the value is not live yet: no price for this bot's exchange
   // (a server-side liveStats fallback is shown), or prices still from the
@@ -612,8 +628,8 @@ const BotCardComponent: React.FC</* BotCardComponentProps */ BotCardProps> = ({
                       Realized PnL
                     </div>
                     <ProfitAndPerc
-                      value={bot.totalProfitUsd || 0}
-                      percentage={bot.profitPerc || 0}
+                      value={pnlSplit.realizedUsd}
+                      percentage={pnlSplit.realizedPerc}
                       privacyMode={privacyMode}
                       chipPosition="bottom"
                       size="lg"
@@ -912,6 +928,11 @@ export const BotCard = React.memo(BotCardBase, (prevProps, nextProps) => {
   const unPnlChanged =
     Math.abs(
       Number(prevProps.item.unPnl ?? 0) - Number(nextProps.item.unPnl ?? 0)
+    ) > 0.01 ||
+    // Combo: moves Realized and Unrealized on the card (see pnlSplit).
+    Math.abs(
+      Number(prevProps.item.openDealsRealizedUsd ?? 0) -
+        Number(nextProps.item.openDealsRealizedUsd ?? 0)
     ) > 0.01;
   const valueChanged =
     Math.abs(

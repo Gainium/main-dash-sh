@@ -52,6 +52,10 @@ export interface HedgeUnPnlResult {
   /** Per-leg unrealized PnL percentage (vs the leg's own max value),
    *  keyed by leg strategy. */
   legUnPnlPerc: { long?: number; short?: number };
+  /** Combo: grid profit each leg's OPEN deals already banked (USD), keyed by
+   *  leg strategy. It is inside the legs' deal-wide unrealized; the lists
+   *  move it to Realized (see `splitBankedOpenDealProfit`). 0 for DCA. */
+  legOpenDealsRealizedUsd: { long?: number; short?: number };
 }
 
 export function computeHedgeUnPnl(
@@ -71,6 +75,7 @@ export function computeHedgeUnPnl(
   const legMaxCost: { long?: number; short?: number } = {};
   const legUnPnl: { long?: number; short?: number } = {};
   const legUnPnlPerc: { long?: number; short?: number } = {};
+  const legOpenDealsRealizedUsd: { long?: number; short?: number } = {};
 
   for (const leg of hedgeBot.bots ?? []) {
     try {
@@ -94,18 +99,21 @@ export function computeHedgeUnPnl(
       const max = transformed.maxValue ?? 0;
       const legPnl = transformed.unPnl ?? 0;
       const legPnlPerc = transformed.unPnlPerc ?? 0;
+      const legBanked = transformed.openDealsRealizedUsd ?? 0;
       if (leg.settings?.strategy === StrategyEnum.long) {
         legUsage.long = usage;
         legCost.long = cost;
         legMaxCost.long = max;
         legUnPnl.long = legPnl;
         legUnPnlPerc.long = legPnlPerc;
+        legOpenDealsRealizedUsd.long = legBanked;
       } else if (leg.settings?.strategy === StrategyEnum.short) {
         legUsage.short = usage;
         legCost.short = cost;
         legMaxCost.short = max;
         legUnPnl.short = legPnl;
         legUnPnlPerc.short = legPnlPerc;
+        legOpenDealsRealizedUsd.short = legBanked;
       }
     } catch {
       // Partial transform failure on one leg shouldn't break the whole
@@ -138,5 +146,6 @@ export function computeHedgeUnPnl(
     legMaxCost,
     legUnPnl,
     legUnPnlPerc,
+    legOpenDealsRealizedUsd,
   };
 }

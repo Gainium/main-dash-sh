@@ -126,6 +126,10 @@ const HEDGE = {
     'Profit already banked from closed deals on both legs. Deals still running show under Unrealized PnL.',
   unrealizedPnl:
     'Open profit or loss on the deals running right now, both legs added together, after estimated entry and exit fees.',
+  comboRealizedPnl:
+    'Profit already banked on both legs: closed deals plus the grid profit the running deals have taken so far.',
+  comboUnrealizedPnl:
+    'Open profit or loss on the position the running deals still hold, both legs added together, after estimated fees. Grid profit those deals already took is under Realized PnL.',
   netPnl:
     'Realized PnL + Unrealized PnL across both legs — everything this hedge has made, banked and still open.',
   avgDaily: 'Realized PnL ÷ days of trading time, both legs added together.',

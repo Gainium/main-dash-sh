@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.4] - 2026-11-08
+
+### Fixed
+
+- Combo bots and Hedge Combo bots lists: grid profit already taken by running deals now counts under Realized PnL instead of Unrealized PnL on the cards and in the table (values, sorting, totals and the profitability filter), matching the bot Overview and the deal cards (Net PnL unchanged)
+
 ## [2.130.3] - 2026-11-08
 
 ### Fixed
