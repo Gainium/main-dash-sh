@@ -55,6 +55,30 @@ export interface ColumnServerFields {
    * one page, so options built from its rows would cover that page only.
    */
   filterOptions?: readonly string[];
+  /**
+   * The column's cells show a live value that the server's `sort` field
+   * lags behind (e.g. unrealized P&L, which is saved periodically). The server still
+   * sorts and pages by `sort`; the rows of the page it returns are then
+   * ordered by the column's own value, so the page reads in order.
+   */
+  liveSort?: boolean;
+}
+
+/**
+ * Whether a server page is re-sorted on the client: the active sort is on a
+ * column marked `meta.serverSortLive` (see `ColumnServerFields.liveSort`).
+ */
+export function resortsServerPage(
+  sorting: readonly { id: string }[],
+  columns: readonly { id?: string; meta?: unknown }[]
+): boolean {
+  const id = sorting[0]?.id;
+  if (!id) return false;
+  const col = columns.find(
+    (c) => (c.id ?? (c as { accessorKey?: string }).accessorKey) === id
+  );
+  return !!(col?.meta as { serverSortLive?: boolean } | undefined)
+    ?.serverSortLive;
 }
 
 /** Column filter capability from a `filter` entry (a bare field = text). */
@@ -92,6 +116,7 @@ export function withServerFields<C extends { id?: string; meta?: unknown }>(
       meta: {
         ...(col.meta as object | undefined),
         ...(f.sort ? { serverSortField: f.sort } : {}),
+        ...(f.sort && f.liveSort ? { serverSortLive: true } : {}),
         ...(f.filter ? { serverFilterField: f.filter } : {}),
         ...(f.filterOptions ? { filterOptions: f.filterOptions } : {}),
       },

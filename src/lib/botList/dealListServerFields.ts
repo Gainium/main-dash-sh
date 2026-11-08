@@ -4,7 +4,9 @@
  * contract: `stats.usage` (cost, USD), the fee-inclusive
  * `stats.unrealizedProfitNet` / `stats.unrealizedPercentNet`, `stats.valueUsd`,
  * `profit.totalUsd`, `createTime`. On a backend without the `*Net` fields
- * those columns sort as "missing" rather than erroring.
+ * those columns sort as "missing" rather than erroring. Those P&L fields are
+ * saved periodically while the rows show live values, so they are `liveSort`:
+ * the page the server returns is ordered by the value on screen.
  *
  * Closed deals: only time columns. Sorting a user's whole closed history by
  * anything else is an unindexed in-memory sort on the server.
@@ -98,8 +100,8 @@ export const OPEN_DEAL_SERVER_FIELDS: Fields = {
   cost: { sort: 'stats.usage', filter: COST },
   value: { sort: 'stats.valueUsd' },
   realizedProfit: { sort: 'profit.totalUsd' },
-  unrealizedProfit: { sort: 'stats.unrealizedProfitNet' },
-  unrealizedProfitPercentage: { sort: 'stats.unrealizedPercentNet' },
+  unrealizedProfit: { sort: 'stats.unrealizedProfitNet', liveSort: true },
+  unrealizedProfitPercentage: { sort: 'stats.unrealizedPercentNet', liveSort: true },
   status: { sort: 'status' },
 };
 
@@ -122,8 +124,8 @@ export const DRAWER_OPEN_DEAL_SERVER_FIELDS: Fields = {
   symbol: { filter: PAIR },
   cost: { sort: 'stats.usage', filter: COST },
   value: { sort: 'stats.valueUsd' },
-  unrealizedPnl: { sort: 'stats.unrealizedProfitNet' },
-  unrealizedPnlPercentage: { sort: 'stats.unrealizedPercentNet' },
+  unrealizedPnl: { sort: 'stats.unrealizedProfitNet', liveSort: true },
+  unrealizedPnlPercentage: { sort: 'stats.unrealizedPercentNet', liveSort: true },
   realizedPnl: { sort: 'profit.totalUsd' },
   status: { sort: 'status' },
 };

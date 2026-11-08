@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.2] - 2026-11-08
+
+### Fixed
+
+- Deal tables of large accounts: sorting open deals by Unrealized P&L or Unrealized P&L % now orders each page by the live values shown on its rows
+
 ## [2.130.1] - 2026-11-06
 
 ### Fixed

@@ -137,6 +137,7 @@ import { Tooltip } from '../tooltip';
 import {
   SERVER_FILTER_UNAVAILABLE_TOOLTIP,
   SERVER_SORT_UNAVAILABLE_TOOLTIP,
+  resortsServerPage,
   type DataTableServerSide,
 } from './serverSide';
 
@@ -3356,13 +3357,16 @@ function DataTableComponent<TData, TValue>(
     enableGlobalFilter,
     enableGrouping: enableGrouping && !serverSide,
     // Server mode: `data` is already the requested page, sorted and filtered.
+    // Except for a sort on a `serverSortLive` column: its cells show a live
+    // value the server's sort field lags, so the page is ordered here by that
+    // value (stable; the server still chose which rows make the page).
     // Client mode sets the same keys explicitly: useReactTable merges each
     // render's options into the previous ones, so a table that LEAVES server
     // mode would otherwise keep manual sorting/paging and stop sorting.
     ...(serverSide
       ? {
           manualPagination: true,
-          manualSorting: true,
+          manualSorting: !resortsServerPage(sorting, enhancedColumns),
           manualFiltering: true,
           enableMultiSort: false,
           rowCount: serverSide.rowCount,
