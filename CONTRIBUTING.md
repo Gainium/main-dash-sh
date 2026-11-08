@@ -38,7 +38,9 @@ Point `VITE_API_ENDPOINT` and `VITE_WS_URL` (or copy `.env.example` to
 
 - Open the PR against `main`.
 - Keep the diff small and focused — one PR per logical change.
-- Update [`CHANGELOG.md`](./CHANGELOG.md) if the change is user-visible.
+- If the change is user-visible, add an entry under [`.changes/`](./.changes/README.md).
+  Don't edit the `version` in `package.json` or add a release section to
+  `CHANGELOG.md`: both are assigned when the change is released.
 - Run `npm run type-check` and `npm run lint` locally before pushing.
 - CI must be green before review.
 

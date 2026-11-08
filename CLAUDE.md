@@ -35,41 +35,38 @@ Keep the interface clean. **Explanatory text never sits in the UI; it goes in a 
 
 ## Release ceremony — REQUIRED on every PR
 
-Every PR that changes user-visible behavior MUST do both of these in the
-same PR (not a follow-up):
+Every PR that changes user-visible behavior adds ONE entry under
+[`.changes/`](.changes/README.md) in the same PR (not a follow-up):
 
-1. **Bump `version` in `package.json`** following SemVer:
-   - `MAJOR` (`x.0.0`) — breaking change (config schema, license-gate
-     behavior, public component API contract changes).
-   - `MINOR` (`2.x.0`) — new feature, new section, new setting.
-   - `PATCH` (`2.8.x`) — bug fix, copy tweak, refactor with no UX delta.
+```markdown
+---
+bump: patch
+section: Fixed
+---
+- One line describing the change from a user's perspective.
+```
 
-2. **Add an entry at the TOP of `CHANGELOG.md`** in
-   [Keep a Changelog](https://keepachangelog.com/en/1.0.0/) format:
+- `bump`: `patch` — bug fix, copy tweak, refactor with no UX delta;
+  `minor` — new feature, new section, new setting. A breaking change
+  (config schema, license-gate behavior, public component API contract)
+  needs the maintainers' explicit direction.
+- `section`: `Added`, `Changed`, `Deprecated`, `Removed`, `Fixed` or `Security`.
+- Phrase bullets as observable outcomes ("Restore the reports params in
+  `getNavigationSections`"), not commit subjects ("fix bug"). Reference the
+  affected feature/page, not the code path.
 
-   ```markdown
-   ## [2.8.8] - YYYY-MM-DD
+**Never edit `version` in `package.json` or add a `## [x.y.z]` section to
+`CHANGELOG.md` yourself.** Both are assigned when the change is released,
+from whatever version `main` is at by then, so changes made at the same time
+never collide on a number or conflict in `CHANGELOG.md`. A pre-push hook
+refuses hand-set versions. The downstream Docker image is still tagged from
+the released `package.json` version.
 
-   ### Added | Changed | Deprecated | Removed | Fixed | Security
+### When to SKIP the entry
 
-   - One line describing the change from a user's perspective. Reference
-     the affected feature/page, not the code path.
-   ```
-
-   - Use today's date in ISO format.
-   - Group bullets under the right `###` subsection. Multiple subsections
-     are fine in one release.
-   - Phrase bullets as observable outcomes ("Restore the reports params
-     in `getNavigationSections`"), not commit subjects ("fix bug").
-
-The downstream Docker image is tagged from `package.json` version. Skipping
-the bump silently re-uses the previous tag and breaks reproducible builds.
-
-### When to SKIP the bump
-
-Only docs-only changes (README, CONTRIBUTING, CHANGELOG itself, LICENSE,
-CLA, this CLAUDE.md, comments) and CI-only changes (`.github/`) may ship
-without a version bump or CHANGELOG entry. If in doubt, bump.
+Only docs-only changes (README, CONTRIBUTING, LICENSE, CLA, this CLAUDE.md,
+comments) and CI-only changes (`.github/`) may ship without a `.changes/`
+entry. If in doubt, add one.
 
 ## Before pushing
 
