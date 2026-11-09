@@ -29,6 +29,26 @@ export interface BaseOrderContextResult {
   balanceAmount: number; // The actual balance to display
 }
 
+// Which wallet side the bot funds from — the balance the engine takes a
+// percFree/percTotal percentage of (main-app dcaHelper, percFree/percTotal
+// branch). Futures are margined in one coin whatever the direction: the base
+// coin on COIN-M, the quote on USD-margined. Spot spends quote to buy (long)
+// and base to sell (short).
+export const resolvePercentageBalanceSide = ({
+  strategy,
+  futures,
+  coinm,
+}: {
+  strategy: BotFormData['dca']['strategy'];
+  futures: boolean;
+  coinm: boolean;
+}): 'base' | 'quote' => {
+  if (futures) {
+    return coinm ? 'base' : 'quote';
+  }
+  return strategy === StrategyEnum.short ? 'base' : 'quote';
+};
+
 const safeNumber = (value: number | undefined) =>
   Number.isFinite(value) ? Number(value) : 0;
 
@@ -75,20 +95,14 @@ export const resolveBaseOrderContext = (
   const isImportSpot =
     !futures && terminalDealType === TerminalDealTypeEnum.import;
   const isShort = isImportSpot ? !rawShort : rawShort;
-  const balanceCurrency = futures
-    ? coinm
-      ? (baseAsset ?? 'BASE')
-      : (quoteAsset ?? 'QUOTE')
-    : isShort
-      ? (baseAsset ?? 'BASE')
-      : (quoteAsset ?? 'QUOTE');
-  const balanceSnapshot = futures
-    ? coinm
-      ? baseSnapshot
-      : quoteSnapshot
-    : isShort
-      ? baseSnapshot
-      : quoteSnapshot;
+  const balanceSide = resolvePercentageBalanceSide({
+    strategy: isShort ? StrategyEnum.short : StrategyEnum.long,
+    futures,
+    coinm,
+  });
+  const balanceCurrency =
+    balanceSide === 'base' ? (baseAsset ?? 'BASE') : (quoteAsset ?? 'QUOTE');
+  const balanceSnapshot = balanceSide === 'base' ? baseSnapshot : quoteSnapshot;
   const balanceAmount = safeNumber(balanceSnapshot.free);
 
   // The deposit side is what the bot actually spends: quote for a long

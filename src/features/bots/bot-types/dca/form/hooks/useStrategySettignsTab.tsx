@@ -1,5 +1,6 @@
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
+import { resolvePercentageBalanceSide } from '@/utils/bots/dca/base-order-context';
 import type { MarginNotice } from '@/types/bots/form';
 import {
   useBotFormContext,
@@ -1641,11 +1642,15 @@ export const useStrategySettingsTab = ({
     options.push({ value: 'base', label: baseLabel });
     options.push({ value: 'quote', label: quoteLabel });
 
-    // Add percentage options with dynamic asset labels
-    // For long bots: % quote (buying with quote)
-    // For short bots: % base (selling base)
+    // Percentage options name the balance the engine sizes from.
     const percentageAsset =
-      strategy === StrategyEnum.long ? quoteLabel : baseLabel;
+      resolvePercentageBalanceSide({
+        strategy,
+        futures: Boolean(futures),
+        coinm: Boolean(coinm),
+      }) === 'base'
+        ? baseLabel
+        : quoteLabel;
     options.push({ value: 'percFree', label: `% Free ${percentageAsset}` });
     options.push({ value: 'percTotal', label: `% Total ${percentageAsset}` });
 
@@ -1653,7 +1658,7 @@ export const useStrategySettingsTab = ({
     options.push({ value: 'usd', label: 'USD' });
 
     return options;
-  }, [displayBaseAsset, displayQuoteAsset, strategy]);
+  }, [displayBaseAsset, displayQuoteAsset, strategy, futures, coinm]);
 
   const baseOrderCoinIcon = useMemo(() => {
     // Icon follows the selected currency reference so it updates when the user

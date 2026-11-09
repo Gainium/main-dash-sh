@@ -14,6 +14,7 @@ import {
 import { formatNumberWithTrim } from '@/features/bots/shared/utils/order-guard';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
+import { resolvePercentageBalanceSide } from '@/utils/bots/dca/base-order-context';
 import { costReferenceMultiplier } from '@/utils/bots/dca/order-size-reference';
 import {
   resolveBaseOrderContext,
@@ -23,7 +24,7 @@ import {
   useBotVarBinding,
   type VarBindingPath,
 } from '@/hooks/bots/global-variables/useBotVarBinding';
-import { BotTypesEnum, StrategyEnum } from '@/types';
+import { BotTypesEnum } from '@/types';
 import { useBaseFundingState } from '@/features/bots/shared/sections/useBaseFundingState';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
@@ -286,7 +287,13 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
       return [];
     }
     const percentageAsset =
-      strategy === StrategyEnum.long ? quoteLabel : baseLabel;
+      resolvePercentageBalanceSide({
+        strategy,
+        futures: Boolean(futures),
+        coinm: Boolean(coinm),
+      }) === 'base'
+        ? baseLabel
+        : quoteLabel;
     return [
       { value: 'base' as const, label: baseLabel },
       { value: 'quote' as const, label: quoteLabel },
@@ -294,7 +301,15 @@ export const DcaOrderSizingControl: React.FC<DcaOrderSizingControlProps> = ({
       { value: 'percTotal' as const, label: `% Total ${percentageAsset}` },
       { value: 'usd' as const, label: 'USD' },
     ];
-  }, [baseLabel, quoteLabel, strategy, isDealEdit, isSettingsReadonly]);
+  }, [
+    baseLabel,
+    quoteLabel,
+    strategy,
+    futures,
+    coinm,
+    isDealEdit,
+    isSettingsReadonly,
+  ]);
 
   const isPercentageMode =
     orderSizeType === 'percFree' || orderSizeType === 'percTotal';
