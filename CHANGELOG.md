@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.6] - 2026-11-09
+
+### Fixed
+
+- DCA bot form: on futures, the "% Free / % Total" order-size options now name the margin coin the bot sizes from (the quote on USD-margined, the base on COIN-M) in both directions
+
 ## [2.130.5] - 2026-11-09
 
 ### Fixed
