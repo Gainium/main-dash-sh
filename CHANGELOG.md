@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.5] - 2026-11-09
+
+### Fixed
+
+- Exchange cards: the fullscreen button no longer sits on top of the card's menu on hover
+
 ## [2.130.4] - 2026-11-08
 
 ### Fixed
