@@ -150,6 +150,9 @@ export interface WidgetMetadata {
   title: string;
   displayName?: string; // Human-readable widget type name (e.g., "Portfolio Value")
   header?: boolean; // Whether to show the widget header (default: true)
+  // Headerless widgets get a corner fullscreen button. Set false when the
+  // widget draws its own control in that corner (it would sit on top of it).
+  fullscreenButton?: boolean;
   defaultSize?: {
     w: number;
     h: number;
@@ -1947,7 +1950,9 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
                 "Enter fullscreen" never renders and — before bug #695 — a
                 400ms triple-tap was the only way in. Sits beside the drag
                 handle when that is present, in its place when it is not. */}
-            {metadata.header === false && !isFullscreen && (
+            {metadata.header === false &&
+              metadata.fullscreenButton !== false &&
+              !isFullscreen && (
               <Button
                 variant="ghost"
                 size="icon"

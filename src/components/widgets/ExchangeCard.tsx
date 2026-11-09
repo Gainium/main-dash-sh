@@ -311,6 +311,8 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
         id: `exchange-card-${exchangeId}`,
         title: exchange?.name || 'Exchange',
         header: false,
+        // The card's own menu sits in the top-right corner.
+        fullscreenButton: false,
         value: {
           primary: privacyMode ? '***' : totalValue,
           secondary: currency.code,
