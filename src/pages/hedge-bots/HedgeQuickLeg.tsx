@@ -304,6 +304,7 @@ export const HedgeQuickFooter: React.FC<{
       {...(footerOverride.activeDeals !== undefined
         ? { activeDealsOverride: footerOverride.activeDeals }
         : {})}
+      backtestPeriodStart={footerOverride.backtestPeriodStart ?? null}
     />
   );
 };

@@ -20,6 +20,7 @@
  *  - Create-from-template flow (`?load=<botId>`) still uses defaults; will
  *    use getHedge*BotSettings in a follow-up slice.
  */
+import { botStartTime } from '@/features/bots/widgets/BotForm/botStartBacktestPeriod';
 import { Bookmark, FolderOpen, Trash2 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
@@ -1596,6 +1597,9 @@ export const HedgeBotEditLayout: React.FC = () => {
       togglePending: togglingStatus,
       botStatus: hedgeBot?.status ?? null,
       activeDeals: totalActiveDeals,
+      // Backtest bar opens on hedge start → now for a saved hedge bot.
+      backtestPeriodStart:
+        mode === 'edit' ? botStartTime({ created: hedgeBot?.created }) : null,
     }),
     [
       handleSave,
@@ -1608,6 +1612,7 @@ export const HedgeBotEditLayout: React.FC = () => {
       hedgeBotRef.id,
       hedgeBotLoaded,
       hedgeBot?.status,
+      hedgeBot?.created,
       totalActiveDeals,
       backtestRunner,
       backtestSummary,

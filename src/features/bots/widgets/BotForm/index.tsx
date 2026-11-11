@@ -171,6 +171,7 @@ import {
   localBacktestBalances,
   localDcaBacktestSettings,
 } from './localBacktestSettings';
+import { botStartTime } from './botStartBacktestPeriod';
 import type { ComboBot } from '@/types/comboBot';
 import type { GridBot } from '@/types/gridBot';
 import { useExampleOrdersStore } from '@/contexts/bots/form/formStoreContexts';
@@ -2139,6 +2140,12 @@ const BotForm: React.FC<BotFormProps> = ({
     gridPlacementProgress.total > 0 &&
     gridPlacementProgress.stage !== gridPlacementProgress.total;
 
+  // Saved bot's start, for the backtest bar's default period (edit only).
+  const botBacktestStart = useMemo(
+    () => (mode === 'edit' ? botStartTime(bot) : null),
+    [mode, bot]
+  );
+
   const botForOperations = useMemo(() => {
     if (isDcaBotEntity(bot)) {
       return bot as DCABot;
@@ -3965,6 +3972,9 @@ const BotForm: React.FC<BotFormProps> = ({
                   footerOverride ? undefined : extraBacktestActions
                 }
                 getBacktestSnapshot={getBacktestSnapshot}
+                backtestPeriodStart={
+                  footerOverride?.backtestPeriodStart ?? botBacktestStart
+                }
                 backtestProgress={
                   footerOverride?.backtestProgress ?? backtestProgress
                 }
@@ -4459,6 +4469,9 @@ const BotForm: React.FC<BotFormProps> = ({
               footerOverride ? undefined : extraBacktestActions
             }
             getBacktestSnapshot={getBacktestSnapshot}
+            backtestPeriodStart={
+              footerOverride?.backtestPeriodStart ?? botBacktestStart
+            }
             backtestProgress={
               footerOverride?.backtestProgress ?? backtestProgress
             }

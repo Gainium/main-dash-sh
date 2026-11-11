@@ -110,6 +110,9 @@ export interface BotFormProps {
     showCredits?: boolean;
     /** Hide the "Save as preset" templates menu. Used for hedge bots. */
     hideTemplates?: boolean;
+    /** Saved hedge bot's start (ms): the backtest bar's default period
+     *  start in edit mode. Falls back to the leg bot's own start. */
+    backtestPeriodStart?: number | null;
     /** Multiplier applied to the credits readout. Hedge bots set 2 so the
      *  cost reflects long + short legs running together. */
     creditsMultiplier?: number;

@@ -29,6 +29,7 @@ import {
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { BacktestConfig } from './BacktestSettingsDialog'
 import { useBotFormPreloadStore } from '@/stores/botFormPreloadStore'
+import { botStartBacktestPeriod } from '../botStartBacktestPeriod'
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 
 import { type PanelMenuConfig } from '@/components/bots/panels/PanelContainer'
@@ -200,6 +201,12 @@ export interface BotFormFooterProps {
   extraBacktestActions?: BotFormBacktestActionView[] | undefined
   /** The form as Save would send it, for `extraBacktestActions`. */
   getBacktestSnapshot?: (() => BotFormBacktestSnapshot | null) | undefined
+  /**
+   * Start of the saved bot (ms). In edit mode the backtest period opens on
+   * this → now instead of the last 30 days, so new settings are tested on
+   * the market the bot has actually traded. Ignored in create mode.
+   */
+  backtestPeriodStart?: number | null | undefined
 }
 
 const ACTIVE_STATUSES = new Set(['error', 'open', 'range', 'monitoring'])
@@ -768,6 +775,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     onDismissResults,
     extraBacktestActions,
     getBacktestSnapshot,
+    backtestPeriodStart,
   }) => {
     const formData = useTrackedBotFormData(givenFormData)
     const errors = useBotFormErrorsOr(givenErrors)
@@ -1596,12 +1604,34 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
     const consumeBacktestHint = useBotFormPreloadStore(
       (s) => s.consumeBacktestHint,
     )
+    // Set once the period is owned by something stronger than the bot-start
+    // default: a curated hint, or the user's own pick in this session.
+    const periodPinnedRef = useRef(false)
     useEffect(() => {
       const hint = consumeBacktestHint()
       if (!hint) return
+      periodPinnedRef.current = true
       setTimeframe(hint.interval as ExchangeIntervals)
       setPeriod({ from: new Date(hint.from), to: new Date(hint.to) })
       // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [])
+
+    // An existing bot opens its backtest on bot start → now (V1 parity),
+    // seeded when the bot's start arrives (it can load after mount) and
+    // never over a curated hint or a period the user picked.
+    const seedStart = mode === 'edit' ? (backtestPeriodStart ?? null) : null
+    const seededStartRef = useRef<number | null>(null)
+    useEffect(() => {
+      if (seedStart == null || periodPinnedRef.current) return
+      if (seededStartRef.current === seedStart) return
+      const seeded = botStartBacktestPeriod(seedStart, Date.now())
+      if (!seeded) return
+      seededStartRef.current = seedStart
+      setPeriod(seeded)
+    }, [seedStart])
+    const applyUserPeriod = useCallback((next: PeriodValue | null) => {
+      periodPinnedRef.current = true
+      setPeriod(next)
     }, [])
 
     const periodChipLabel = useMemo(() => {
@@ -1725,11 +1755,11 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               disabled={readOnly || backtestPending}
               label={periodChipLabel}
               value={period}
-              onApply={(next) => setPeriod(next)}
+              onApply={applyUserPeriod}
               onReset={() => {
                 const to = new Date()
                 const from = new Date(to.getTime() - 29 * 86_400_000)
-                setPeriod({ from, to })
+                applyUserPeriod({ from, to })
               }}
             />
           ),
@@ -1739,11 +1769,11 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
               disabled={readOnly || backtestPending}
               label={periodChipLabel}
               value={period}
-              onApply={(next) => setPeriod(next)}
+              onApply={applyUserPeriod}
               onReset={() => {
                 const to = new Date()
                 const from = new Date(to.getTime() - 29 * 86_400_000)
-                setPeriod({ from, to })
+                applyUserPeriod({ from, to })
               }}
             />
           ),
@@ -1882,6 +1912,7 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
       handleOpenBacktestSettings,
       extraBacktestActions,
       getBacktestSnapshot,
+      applyUserPeriod,
     ])
 
     return (
