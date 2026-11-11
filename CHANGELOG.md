@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.130.7] - 2026-11-11
+
+### Changed
+
+- Backtesting an existing DCA, Combo, Grid or Hedge bot now opens on the period from the bot's start date to now, instead of the last 30 days.
+
 ## [2.130.6] - 2026-11-09
 
 ### Fixed
