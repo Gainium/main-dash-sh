@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.131.0] - 2026-11-11
+
+### Added
+
+- Backtest equity curve: a band of the same bot rerun 100 times in your browser with its entries moved to random times, with the median run, so you can see whether the strategy's entries beat random timing
+
+### Removed
+
+- Backtest Analysis: the Strategy vs Random card, replaced by the random-entry band on the equity curve
+
 ## [2.130.7] - 2026-11-11
 
 ### Changed
