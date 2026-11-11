@@ -30,6 +30,13 @@ import {
 import { BotPairStatsTable } from '@/components/widgets/bots/stats/BotPairStatsTable';
 import { buildPairStatsRowsFromBacktest } from '@/components/widgets/bots/stats/pairStatsViewModel';
 
+import {
+  randomBandUnavailable,
+  useRandomBand,
+  type RandomTestSource,
+} from '@/lib/backtester/randomRuns/client';
+import type { RandomBand } from '@/lib/backtester/randomRuns/math';
+
 import { EquityChart } from '../charts';
 import type { BacktestViewModel, DealVM } from '../viewModel';
 
@@ -114,10 +121,30 @@ const Scatter: React.FC<ScatterProps> = ({ deals, width, height }) => {
   );
 };
 
+// ── Random-entry band (spec 150) ─────────────────────────────────────────────
+
+const RANDOM_RUNNING_TOOLTIP =
+  'Rerunning this bot in your browser with its entries moved to random times. The band appears once enough runs finish.';
+
+function randomBandTooltip(band: RandomBand): string {
+  const missed = band.entries
+    ? Math.round((band.missed / band.entries) * 100)
+    : 0;
+  return (
+    `The same bot rerun ${band.draws} times with all its entries moved together to a random time: same deals, same spacing, same take profit, DCA and stop loss. ` +
+    'The dashed line is the median run; 90% of runs fall inside the band. A strategy curve above the band suggests its entries add something over random timing.' +
+    (missed >= 5
+      ? ` ${missed}% of random entries could not open (deal limit, cooldown or price filters).`
+      : '')
+  );
+}
+
 // ── Overview body ────────────────────────────────────────────────────────────
 
 export interface RedesignOverviewTabProps {
   vm: BacktestViewModel;
+  /** The run's engine input, for the random-entry band (spec 150). */
+  randomTest?: RandomTestSource | null;
 }
 
 /**
@@ -127,7 +154,15 @@ export interface RedesignOverviewTabProps {
  */
 export const RedesignOverviewTab: React.FC<RedesignOverviewTabProps> = ({
   vm,
+  randomTest = null,
 }) => {
+  const randomSource =
+    randomTest && !randomBandUnavailable(randomTest) ? randomTest : null;
+  const random = useRandomBand(randomSource);
+  const band =
+    random?.band && random.band.lo.length === vm.equity.length
+      ? random.band
+      : null;
   const pairRows = useMemo(
     () => buildPairStatsRowsFromBacktest(vm.raw.symbolStats, vm.raw.deals),
     [vm.raw.symbolStats, vm.raw.deals]
@@ -277,6 +312,27 @@ export const RedesignOverviewTab: React.FC<RedesignOverviewTabProps> = ({
                       Buy &amp; Hold
                     </span>
                   )}
+                  {band ? (
+                    <>
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <span className="inline-block w-3 border-t-[1.5px] border-dashed border-muted-foreground" />
+                        Random, median
+                      </span>
+                      <Tooltip tooltip={randomBandTooltip(band)}>
+                        <span className="flex items-center gap-1.5 text-muted-foreground">
+                          <span className="inline-block h-2.5 w-3 rounded-sm bg-muted-foreground/25" />
+                          90% of {band.draws} random runs
+                        </span>
+                      </Tooltip>
+                    </>
+                  ) : random?.status === 'running' ||
+                    random?.status === 'loading' ? (
+                    <Tooltip tooltip={RANDOM_RUNNING_TOOLTIP}>
+                      <span className="tabular-nums text-muted-foreground">
+                        Random runs {random.done}/{random.total}
+                      </span>
+                    </Tooltip>
+                  ) : null}
                 </div>
                 <EquityChart
                   data={vm.equity}
@@ -284,6 +340,7 @@ export const RedesignOverviewTab: React.FC<RedesignOverviewTabProps> = ({
                   height={188}
                   dealMarkers={equityDealMarkers}
                   showBH={vm.hasBuyAndHold}
+                  band={band}
                   className="w-full"
                 />
               </Panel>

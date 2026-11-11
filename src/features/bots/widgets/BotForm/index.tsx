@@ -119,7 +119,7 @@ import DCABacktesting from '@/lib/backtester/wrapper';
 import {
   rememberRandomTestSource,
   type RandomTestSource,
-} from '@/components/widgets/bots/backtest/analysis/useRandomEdgeRun';
+} from '@/lib/backtester/randomRuns/client';
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
@@ -293,7 +293,7 @@ interface BacktestResultCapture {
   settings: DCABotSettings;
   meta: BacktestViewModelMeta;
   summary: { netPerc: number; winRate: number; deals: number };
-  /** DCA only: the run's engine input + result, for Strategy vs Random. */
+  /** DCA only: the run's engine input + result, for the random-entry band (spec 150). */
   randomTest?: RandomTestSource;
 }
 
@@ -3515,7 +3515,7 @@ const BotForm: React.FC<BotFormProps> = ({
                     historySettings,
                     dcaMeta
                   );
-                  // Strategy vs Random reruns this input (DCA only)
+                  // the random-entry band reruns this input (DCA only)
                   const randomTest: RandomTestSource | undefined =
                     isComboBacktest
                       ? undefined

@@ -21,6 +21,8 @@
  */
 
 import type React from 'react';
+import type { RandomBand } from '@/lib/backtester/randomRuns/math';
+
 import type { DealCandleVM, EquityPointVM } from './viewModel';
 
 // ── token references (kept identical to the contract token table) ───────────
@@ -393,6 +395,8 @@ export interface EquityChartProps {
   onPick?: ((idx: number) => void) | null;
   /** Draw the buy&hold comparison line. */
   showBH?: boolean;
+  /** Random-entry band (spec 150), aligned to `data`'s points. */
+  band?: RandomBand | null;
   className?: string;
 }
 
@@ -413,6 +417,7 @@ export const EquityChart: React.FC<EquityChartProps> = ({
   activeIdx = -1,
   onPick = null,
   showBH = true,
+  band = null,
   className,
 }) => {
   if (data.length === 0) {
@@ -435,7 +440,11 @@ export const EquityChart: React.FC<EquityChartProps> = ({
     .map((d) => d.bh)
     .filter((v): v is number => v !== null && Number.isFinite(v));
   const hasBH = showBH && bhs.length === data.length;
-  const all = hasBH ? [...eqs, ...bhs] : eqs;
+  const hasBand = !!band && band.lo.length === data.length;
+  const bandVals = hasBand
+    ? [...band.lo, ...band.hi].filter((v) => Number.isFinite(v))
+    : [];
+  const all = [...eqs, ...(hasBH ? bhs : []), ...bandVals];
 
   const yMin = Math.min(...all) * 0.99;
   const yMax = Math.max(...all) * 1.01;
@@ -457,6 +466,18 @@ export const EquityChart: React.FC<EquityChartProps> = ({
         )
         .join(' ')
     : '';
+  const bandPath = (vals: number[]) =>
+    vals.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)} ${y(v).toFixed(1)}`);
+  const bandArea = hasBand
+    ? [
+        ...bandPath(band.hi),
+        ...bandPath(band.lo)
+          .map((p) => `L${p.slice(1)}`)
+          .reverse(),
+        'Z',
+      ].join(' ')
+    : '';
+  const bandMid = hasBand ? bandPath(band.mid).join(' ') : '';
   const area = `${eqLine} L${x(data.length - 1).toFixed(1)} ${(padT + ih).toFixed(1)} L${padL.toFixed(1)} ${(padT + ih).toFixed(1)} Z`;
 
   const ticks = niceTicks(yMin, yMax, 3);
@@ -520,6 +541,22 @@ export const EquityChart: React.FC<EquityChartProps> = ({
       ))}
 
       <path d={area} fill={`url(#${gradId})`} />
+      {hasBand && (
+        <>
+          <path
+            d={bandArea}
+            fill="var(--color-muted-foreground)"
+            opacity="0.16"
+          />
+          <path
+            d={bandMid}
+            fill="none"
+            stroke="var(--color-muted-foreground)"
+            strokeWidth="1.2"
+            strokeDasharray="3 3"
+          />
+        </>
+      )}
       {hasBH && (
         <path
           d={bhLine}

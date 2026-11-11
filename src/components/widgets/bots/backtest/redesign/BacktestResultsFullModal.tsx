@@ -80,7 +80,7 @@ import type { HedgeBacktestHistoryItem } from '@/hooks/bots/hedge/useHedgeBackte
 import {
   randomTestSourceFor,
   type RandomTestSource,
-} from '@/components/widgets/bots/backtest/analysis/useRandomEdgeRun';
+} from '@/lib/backtester/randomRuns/client';
 
 import { RedesignOverviewTab } from './tabs/RedesignOverviewTab';
 import { RedesignDealsTab } from './tabs/RedesignDealsTab';
@@ -142,7 +142,7 @@ export interface BacktestResultsFullModalProps {
    * deal focus requests. Absent ⇒ the modal as it always was.
    */
   extension?: BacktestResultsExtension | null;
-  /** A fresh DCA run's input + result; enables Analysis → Strategy vs Random. */
+  /** A fresh DCA run's input + result; for the equity curve's random-entry band (spec 150). */
   randomTest?: RandomTestSource | null;
 }
 
@@ -356,7 +356,7 @@ export function BacktestResultsFullModal({
   const shownResult = replacementError ? null : replacing ? extResult : result;
   const loadingReplacement =
     replacing && !replacementError && extResult == null;
-  // A list row finds its run's input when this session ran it (spec 135 §1.3).
+  // A list row finds its run's input when this session ran it (spec 150).
   const randomSource =
     randomTest ??
     randomTestSourceFor((result as { _id?: string } | null | undefined)?._id);
@@ -756,7 +756,12 @@ export function BacktestResultsFullModal({
             )}
 
           {/* dca / combo */}
-          {vm && activeTab === 'Overview' && <RedesignOverviewTab vm={vm} />}
+          {vm && activeTab === 'Overview' && (
+            <RedesignOverviewTab
+              vm={vm}
+              randomTest={kind === 'dca' && !replacing ? randomSource : null}
+            />
+          )}
           {vm && activeTab === 'Deals' && (
             <RedesignDealsTab
               vm={vm}
@@ -773,8 +778,6 @@ export function BacktestResultsFullModal({
             (analysisEnabled ? (
               <BacktestAnalysisTab
                 backtest={vm.raw}
-                // only for the run it was captured from, never a swapped-in result
-                randomTest={kind === 'dca' && !replacing ? randomSource : null}
               />
             ) : (
               <div className="grid h-full place-items-center text-sm text-muted-foreground">
