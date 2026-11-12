@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.131.3] - 2026-11-12
+
+### Fixed
+
+- Charts on the same page no longer borrow each other's slice colors
+
 ## [2.131.2] - 2026-11-12
 
 ### Added
