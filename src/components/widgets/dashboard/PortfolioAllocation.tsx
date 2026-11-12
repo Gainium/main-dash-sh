@@ -2,7 +2,7 @@ import { useGraphQL } from '@/hooks/useGraphQL';
 import { GraphQlQuery } from '@/lib/api';
 // import { logger } from '@/lib/loggerInstance';
 import { StatusEnum, type PortfolioQuery } from '@/types';
-import React, { useContext, useEffect, useState } from 'react';
+import React, { useContext, useEffect, useId, useState } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import { useReportingCurrency } from '@/hooks/useReportingCurrency';
 import { PortfolioContext } from '../../../contexts/PortfolioContext';
@@ -69,6 +69,9 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
   onTabMove,
   menuActions,
 }) => {
+  // Unique per instance: SVG ids are document-global, so a fixed `gradient-N`
+  // collides with every other chart on the page.
+  const gradientPrefix = `gradient-${useId().replace(/:/g, '')}`;
   // Use the generic widget settings hook with type safety
   const { usePersistedState } =
     useWidgetSettings<PortfolioWidgetSettings>(widgetId);
@@ -605,7 +608,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
                   (item: AllocationDataItem, index: number) => (
                     <linearGradient
                       key={`gradient-${item.name}-${index}`}
-                      id={`gradient-${index}`}
+                      id={`${gradientPrefix}-${index}`}
                       x1="0%"
                       y1="0%"
                       x2="100%"
@@ -647,7 +650,7 @@ export const PortfolioAllocation: React.FC<PortfolioAllocationProps> = ({
                   (item: AllocationDataItem, index: number) => (
                     <Cell
                       key={`cell-${item.name}-${index}`}
-                      fill={`url(#gradient-${index})`}
+                      fill={`url(#${gradientPrefix}-${index})`}
                       stroke="rgba(255,255,255,0.2)"
                       strokeWidth={1}
                       style={{ pointerEvents: 'auto' }}

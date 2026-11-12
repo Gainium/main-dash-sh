@@ -63,6 +63,23 @@ export const normalizeAssetToSymbol = (raw: string): string => {
 };
 
 /**
+ * The tickers to look up in the screener for a set of holdings: each asset's
+ * own name plus its normalized form, mirroring what findBestScreenerMatch tries.
+ */
+export const screenerSymbolsForAssets = (
+  assets: { name?: string | null }[] | undefined | null
+): string[] => {
+  const out = new Set<string>();
+  for (const asset of assets || []) {
+    const raw = (asset?.name || '').toUpperCase().trim();
+    if (!raw) continue;
+    out.add(raw);
+    out.add(normalizeAssetToSymbol(raw));
+  }
+  return Array.from(out);
+};
+
+/**
  * Builds a map from normalized symbols to screener coins, preferring higher market cap when duplicates exist
  */
 export const buildScreenerSymbolMap = (

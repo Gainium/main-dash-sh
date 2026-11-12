@@ -102,3 +102,57 @@ export const useTopScreenerCoins = () =>
     staleTime: METADATA_STALE_MS,
     refetchInterval: METADATA_STALE_MS,
   });
+
+/** The screener's `isAnyOf` filter accepts at most 50 values (main-app SCREENER_FILTER_ANY_OF_MAX). */
+const SYMBOLS_PER_REQUEST = 25; // well under the cap, so duplicate-symbol tokens never overflow a 100-row page
+
+/**
+ * Screener metadata (market-cap rank, name, …) for exactly the symbols given —
+ * typically the coins a user holds.
+ *
+ * {@link useTopScreenerCoins} only carries the top 100 coins by market cap, so a
+ * holding ranked #101 or lower is simply absent from it. Anything that ranks or
+ * classifies holdings (e.g. the market-cap distribution) must use this instead.
+ *
+ * Rows are sorted by market cap descending, so where several tokens share a
+ * ticker the largest one comes first — the same tie-break
+ * `buildScreenerSymbolMap` applies.
+ */
+export const useScreenerCoinsForSymbols = (symbols: string[]) => {
+  const wanted = Array.from(
+    new Set(
+      symbols
+        .map((s) => (s || '').toUpperCase().trim())
+        .filter((s) => s.length > 0 && s.length <= 30)
+    )
+  ).sort();
+  return useQuery({
+    queryKey: ['screener', 'symbols', wanted],
+    queryFn: async () => {
+      const chunks: string[][] = [];
+      for (let i = 0; i < wanted.length; i += SYMBOLS_PER_REQUEST) {
+        chunks.push(wanted.slice(i, i + SYMBOLS_PER_REQUEST));
+      }
+      const pages = await Promise.all(
+        chunks.map((chunk) =>
+          postScreener({
+            page: 0,
+            pageSize: SCREENER_PAGE_SIZE,
+            sortField: 'marketCap',
+            sortType: 'desc',
+            filterModel: {
+              items: [{ field: 'symbol', operator: 'isAnyOf', value: chunk }],
+            },
+          })
+        )
+      );
+      return {
+        status: StatusEnum.ok,
+        data: { result: pages.flat() },
+      } as const;
+    },
+    enabled: wanted.length > 0,
+    staleTime: METADATA_STALE_MS,
+    refetchInterval: METADATA_STALE_MS,
+  });
+};

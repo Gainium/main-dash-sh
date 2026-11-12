@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useId } from 'react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
 import CustomTooltip from '../../charts/CustomTooltip';
 
@@ -28,6 +28,12 @@ export const Donut: React.FC<DonutProps> = ({
   privacyMode = false,
   valueFormatter,
 }) => {
+  // SVG gradient ids are document-global. A fixed `gradient-${index}` collides
+  // with every other Donut on the page, and the browser resolves each url(#…)
+  // to the FIRST matching id — so this chart painted its slices with another
+  // chart's colors while its tooltip showed its own.
+  const gradientPrefix = `donut-gradient-${useId().replace(/:/g, '')}`;
+
   // Custom formatters for the tooltip
   const tooltipValueFormatter = (
     value: unknown,
@@ -109,7 +115,7 @@ export const Donut: React.FC<DonutProps> = ({
             {data.map((item, index) => (
               <linearGradient
                 key={`gradient-${item.name}-${index}`}
-                id={`gradient-${index}`}
+                id={`${gradientPrefix}-${index}`}
                 x1="0%"
                 y1="0%"
                 x2="100%"
@@ -137,7 +143,7 @@ export const Donut: React.FC<DonutProps> = ({
             {data.map((item, index) => (
               <Cell
                 key={`cell-${item.name}-${index}`}
-                fill={`url(#gradient-${index})`}
+                fill={`url(#${gradientPrefix}-${index})`}
                 stroke="rgba(255,255,255,0.2)"
                 strokeWidth={1}
                 style={{ pointerEvents: 'auto' }}

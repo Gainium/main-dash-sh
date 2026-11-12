@@ -1,5 +1,5 @@
 import { useReportingCurrency } from '@/hooks/useReportingCurrency';
-import React from 'react';
+import React, { useId } from 'react';
 import { motion } from 'framer-motion';
 import { clsx } from 'clsx';
 import { cardHoverVariants } from '@/lib/animations/variants';
@@ -21,6 +21,9 @@ export const ScreenerCard: React.FC<ScreenerCardProps> = ({
   isSelected = false,
   index,
 }) => {
+  // Unique per instance: SVG ids are document-global, so a fixed `gradient-N`
+  // collides with every other chart on the page.
+  const gradientPrefix = `gradient-${useId().replace(/:/g, '')}`;
   const { currency, toReporting } = useReportingCurrency();
 
   const handleClick = () => {
@@ -160,7 +163,7 @@ export const ScreenerCard: React.FC<ScreenerCardProps> = ({
                 >
                   <defs>
                     <linearGradient
-                      id={`gradient-${index}`}
+                      id={`${gradientPrefix}-${index}`}
                       x1="0%"
                       y1="0%"
                       x2="0%"
@@ -224,7 +227,7 @@ export const ScreenerCard: React.FC<ScreenerCardProps> = ({
                         })
                         .join(' ') + ' 100,100 0,100'
                     }
-                    fill={`url(#gradient-${index})`}
+                    fill={`url(#${gradientPrefix}-${index})`}
                     stroke="none"
                   />
                 </svg>

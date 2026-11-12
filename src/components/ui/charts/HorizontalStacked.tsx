@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useId, useMemo, useRef, useState } from 'react';
 import {
   Bar,
   BarChart,
@@ -29,6 +29,9 @@ const HorizontalStacked: React.FC<HorizontalStackedProps> = ({
   privacyMode = false,
   //hideLegend = true,
 }) => {
+  // Unique per instance: SVG ids are document-global, so a fixed `gradient-N`
+  // collides with every other chart on the page.
+  const gradientPrefix = `gradient-${useId().replace(/:/g, '')}`;
   const total = useMemo(
     () => data.reduce((s, i) => s + (i.value || 0), 0),
     [data]
@@ -77,7 +80,7 @@ const HorizontalStacked: React.FC<HorizontalStackedProps> = ({
               >
                 <defs>
                   <linearGradient
-                    id={`gradient-${key}`}
+                    id={`${gradientPrefix}-${key}`}
                     x1="0"
                     y1="0"
                     x2="0"
@@ -134,7 +137,7 @@ const HorizontalStacked: React.FC<HorizontalStackedProps> = ({
                 />
                 <Bar
                   dataKey={key}
-                  fill={`url(#gradient-${key})`}
+                  fill={`url(#${gradientPrefix}-${key})`}
                   isAnimationActive={false}
                   barSize={
                     typeof height === 'number' ? Math.max(12, height - 8) : 20
