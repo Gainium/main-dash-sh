@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.132.1] - 2026-11-12
+
+### Fixed
+
+- Trading page: a Trading Terminal deal's trade drawer chart now draws its stop-loss line, like bot deals do.
+
 ## [2.132.0] - 2026-11-12
 
 ### Added
