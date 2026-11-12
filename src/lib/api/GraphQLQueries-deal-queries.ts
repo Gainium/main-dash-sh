@@ -1116,6 +1116,8 @@ export const dealQueries = {
      * execute a different level than the one the user saw priced.
      */
     expectedLevel?: number;
+    /** Execute this skipped level instead of the next one. */
+    missedLevel?: number;
   }) => {
     const query = `mutation executeNextDca($input: executeNextDcaInput!) {
   executeNextDca(input: $input) {

@@ -63,6 +63,8 @@ interface ExecuteNextDcaInput {
    * confirmation must never execute a level other than the one it priced.
    */
   expectedLevel?: number;
+  /** Execute this skipped level (deal.missedLevels) instead of the next one. */
+  missedLevel?: number;
 }
 
 interface MoveDealToTerminalInput {

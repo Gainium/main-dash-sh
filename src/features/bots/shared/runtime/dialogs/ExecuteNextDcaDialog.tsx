@@ -74,6 +74,11 @@ export interface ExecuteNextDcaDialogProps {
    */
   onConfirm: (expectedLevel: number) => void;
   isProcessing?: boolean;
+  /**
+   * A skipped level (`deal.missedLevels`) to execute instead of the next one.
+   * Its price and size come from the engine's own record of it.
+   */
+  missedLevel?: { level: number; price: number; qty: number } | undefined;
 }
 
 /**
@@ -93,8 +98,9 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
   currentPrice,
   onConfirm,
   isProcessing = false,
+  missedLevel,
 }) => {
-  const level = nextDcaLevelNumber(trade);
+  const level = missedLevel?.level ?? nextDcaLevelNumber(trade);
   const usedLevels = Math.max(0, (trade.levels?.complete ?? 1) - 1);
   const maxLevels = Math.max(0, (trade.levels?.all ?? 1) - 1);
   const isLong = `${trade.strategy}`.toLowerCase() !== 'short';
@@ -215,6 +221,16 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
     if (!open) {
       return { current: undefined, after: undefined };
     }
+    if (missedLevel) {
+      // A skipped level lies behind the deal's last fill: nothing after it on
+      // the ladder is "next", so there is no following level to quote.
+      const current: LadderLevel = {
+        price: missedLevel.price,
+        qty: missedLevel.qty,
+        projected: false,
+      };
+      return { current, after: undefined };
+    }
     const resting: LadderLevel[] = orders
       .filter(
         (o) =>
@@ -239,7 +255,15 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
       isLong,
       excludePrices,
     });
-  }, [open, orders, fullLadder, rawDeal, trade.levels?.complete, isLong]);
+  }, [
+    open,
+    orders,
+    fullLadder,
+    rawDeal,
+    trade.levels?.complete,
+    isLong,
+    missedLevel,
+  ]);
 
   // The level carries its own assets, which beats re-splitting a concatenated
   // pair string (the splitter has genuine ambiguity on 4-char quotes).
@@ -344,7 +368,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-xs text-base sm:text-lg">
             <Zap className="h-5 w-5 text-primary" />
-            Execute next DCA now
+            {missedLevel ? 'Execute skipped DCA level' : 'Execute next DCA now'}
           </DialogTitle>
           <DialogDescription className="text-sm text-muted-foreground">
             {ladderPrice

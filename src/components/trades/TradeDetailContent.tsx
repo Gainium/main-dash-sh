@@ -35,6 +35,8 @@ import { useExecuteNextDca } from '@/hooks/useDealActions';
 import { Slot } from '@/lib/extensions';
 import { toast } from '@/lib/toast';
 import { DealLevelsText } from '@/components/deals/DealLevelsText';
+import { useDealStore } from '@/stores/live';
+import { SkippedDcaLevels, type SkippedDcaLevel } from './SkippedDcaLevels';
 import { usePositionEntriesLabel } from '@/hooks/useSinglePosition';
 
 interface TradeDetailContentProps {
@@ -145,6 +147,30 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
         expectedLevel,
       });
       setExecuteNextDcaOpen(false);
+    },
+    [executeNextDcaMutation, trade.botId, trade.id]
+  );
+
+  // Skipped ladder levels: the engine's own record of them, off the live deal.
+  const missedLevels = useDealStore((s) =>
+    trade.botId
+      ? (s.deals[trade.botId]?.[trade.id]?.missedLevels ?? null)
+      : null
+  );
+  const [skippedTarget, setSkippedTarget] =
+    React.useState<SkippedDcaLevel | null>(null);
+  const handleSkippedConfirm = React.useCallback(
+    (level: number) => {
+      if (!trade.botId) {
+        toast.error('Cannot execute the DCA level - missing bot ID');
+        return;
+      }
+      executeNextDcaMutation.mutate({
+        dealId: trade.id,
+        botId: trade.botId,
+        missedLevel: level,
+      });
+      setSkippedTarget(null);
     },
     [executeNextDcaMutation, trade.botId, trade.id]
   );
@@ -582,6 +608,17 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
       )}
 
       {/* Orders Section */}
+      {trade.type === 'DCA' &&
+        !isClosedTrade &&
+        missedLevels &&
+        missedLevels.length > 0 && (
+          <SkippedDcaLevels
+            levels={missedLevels}
+            onExecute={setSkippedTarget}
+            disabled={executeNextDcaMutation.isPending}
+          />
+        )}
+
       {trade.botId ? (
         <DealOrdersSection
           dealId={trade.id}
@@ -612,6 +649,21 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
             </div>
           </Card>
         )
+      )}
+
+      {skippedTarget && (
+        <ExecuteNextDcaDialog
+          open={!!skippedTarget}
+          onOpenChange={(o) => {
+            if (!o) {
+              setSkippedTarget(null);
+            }
+          }}
+          trade={trade}
+          missedLevel={skippedTarget}
+          onConfirm={handleSkippedConfirm}
+          isProcessing={executeNextDcaMutation.isPending}
+        />
       )}
 
       {canShowExecuteNextDca && (

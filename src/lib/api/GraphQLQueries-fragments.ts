@@ -1,9 +1,23 @@
 import { isColdStoreArchiveUx } from '@/utils/coldStore';
+import { IS_CLOUD } from '../../config/mode';
 
 // Cold-store adds `coldArchived` to the bot GraphQL types. Only REQUEST it once
 // the cold-store UX is live (flag on) — a backend that predates the field would
 // otherwise 400 the whole bot query. Ships dark: empty selection by default.
 const COLD_ARCHIVED_SELECTION = isColdStoreArchiveUx() ? 'coldArchived' : '';
+
+// A deal's skipped DCA levels. Only the cloud backend has the field yet; a
+// self-hosted backend that predates it rejects the WHOLE deal query at
+// validation time, which empties the deals list. Request it on self-hosted once
+// its pinned backend carries `missedLevels`. Without it the Skipped DCA levels
+// card simply does not render.
+const MISSED_LEVELS_SELECTION = IS_CLOUD
+  ? `missedLevels {
+                    level
+                    price
+                    qty
+                }`
+  : '';
 
 const botSettings = `
     name
@@ -1174,6 +1188,7 @@ fixedSlPrice
                     price
                     displacedPrice
                 }
+                ${MISSED_LEVELS_SELECTION}
                 strategy
                 exchange
                 exchangeUUID

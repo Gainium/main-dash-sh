@@ -3770,6 +3770,8 @@ export type DCADeals = {
   combo?: boolean;
   pendingAddFunds?: PendingAddFundsEntry[];
   pendingReduceFunds?: (AddFundsSettings & { id: string })[];
+  /** Ladder levels the bot skipped and will not place by itself. */
+  missedLevels?: { level: number; price: number; qty: number }[] | null;
   blockOrders?: BlockOrder[];
   moveSlActivated?: boolean;
   parent?: boolean;
