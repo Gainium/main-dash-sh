@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.132.0] - 2026-11-12
+
+### Added
+
+- Deal details: a Skipped DCA levels card lists ladder levels the price moved past before they could be placed, each with an Execute button to fill it at the current market price.
+
 ## [2.131.3] - 2026-11-12
 
 ### Fixed
