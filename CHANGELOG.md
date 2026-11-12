@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.132.2] - 2026-11-12
+
+### Fixed
+
+- Combo bots: the Unrealized percentage now matches the Unrealized amount when open deals with banked grid profit sit at or near breakeven
+
 ## [2.132.1] - 2026-11-12
 
 ### Fixed
