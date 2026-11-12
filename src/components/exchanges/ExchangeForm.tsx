@@ -1,4 +1,5 @@
 import { paidExchanges } from '@/constants/subscription';
+import { getExchangeSignup } from '@/constants/affiliateLinks';
 import { useWeb3Wallet, type WalletProvider } from '@/hooks/useWeb3Wallet';
 import { track as analyticsTrack } from '@/lib/analytics';
 import { useEntitlements } from '@/lib/entitlements';
@@ -1221,13 +1222,30 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                 !isPaperExchange(formData.provider) &&
                 (() => {
                   const helpPath = getExchangeHelpPath(exchangeConfig?.name);
-                  if (!helpPath) {
+                  const signup = getExchangeSignup(
+                    formData.provider,
+                    exchangeConfig?.name
+                  );
+                  if (!helpPath && !signup) {
                     return null;
                   }
 
                   return (
-                    <div className="">
-                      <HelpArticlePill url={helpPath} />
+                    <div className="space-y-xs">
+                      {helpPath && <HelpArticlePill url={helpPath} />}
+                      {signup && (
+                        <p className="text-sm text-muted-foreground">
+                          No {signup.label} account?{' '}
+                          <a
+                            href={signup.url}
+                            target="_blank"
+                            rel="noopener noreferrer sponsored"
+                            className="text-primary underline-offset-4 hover:underline"
+                          >
+                            Create one
+                          </a>
+                        </p>
+                      )}
                     </div>
                   );
                 })()}
