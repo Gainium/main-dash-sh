@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.131.2] - 2026-11-12
+
+### Added
+
+- Unlimited badge for free users: in the Add Exchange picker for exchanges that offer unlimited trading, and on connected accounts verified for it
+
 ## [2.131.1] - 2026-11-12
 
 ### Added
