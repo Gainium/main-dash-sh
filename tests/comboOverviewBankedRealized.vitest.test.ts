@@ -103,7 +103,8 @@ describe('combo bot Overview — banked grid profit of open deals', () => {
 
   test('no-price path (server liveStats) splits the same way', () => {
     const out = transformDcaBotToBot(
-      makeCombo({ value: -2, relativeValue: -1 }),
+      // -2 on the deal's filled usage ($100) — the server's combo basis.
+      makeCombo({ value: -2, relativeValue: -2 }),
       [],
       [],
       true
@@ -111,6 +112,7 @@ describe('combo bot Overview — banked grid profit of open deals', () => {
 
     expect(out.unPnl).toBe(-2);
     expect(out.openDealsRealizedUsd).toBe(BANKED);
-    expect(out.openDealsRealizedPerc).toBeCloseTo(-1 * (BANKED / -2), 5);
+    // banked ÷ the same $100 basis, not a ratio through unPnl.
+    expect(out.openDealsRealizedPerc).toBeCloseTo((BANKED / 100) * 100, 5);
   });
 });

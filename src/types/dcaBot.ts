@@ -626,28 +626,9 @@ export function transformDcaBotToBot(
             { price, usdRate: usdRatesQuote[d.symbol], fee },
             { combo: true }
           );
-          const comboBasedOn =
-            !d.comboTpBase || d.comboTpBase === ComboTpBase.full
-              ? ComboTpBase.full
-              : ComboTpBase.filled;
-          const usageBase =
-            comboBasedOn === ComboTpBase.full
-              ? d.usage.max.base
-              : d.usage.current.base;
-          const usageQuote =
-            comboBasedOn === ComboTpBase.full
-              ? d.usage.max.quote
-              : d.usage.current.quote;
-          comboDealCurrentValues +=
-            (res.settings.futures
-              ? res.settings.coinm
-                ? usageBase
-                : usageQuote
-              : long
-                ? usageQuote
-                : usageBase) * usdRate;
           unPnl += leg?.unrealizedUsd ?? 0;
         });
+        comboDealCurrentValues = comboDealsUsageUsd(res, long, usdRate);
       }
       let usage = combo ? comboDealCurrentValues || maxValue : currentValues;
       let tpUsage = 0;
@@ -720,9 +701,17 @@ export function transformDcaBotToBot(
   // Realized (`calculateDealOpenPnl`); expose it so the bot Overview can make
   // the same split. The percent is on unPnlPerc's own basis.
   const openDealsRealizedUsd = combo ? comboOpenDealsRealizedUsd(res) : 0;
+  // Divide by that basis directly — the combo `usage` (deals' usage, else
+  // max cost), which the server's liveStats.relativeValue uses too — rather
+  // than scaling unPnlPerc by banked/unPnl: that ratio is undefined when the
+  // open deals sit at breakeven (unPnl 0) and amplifies unPnlPerc's 2-decimal
+  // rounding next to it.
+  const openDealsRealizedBasis = openDealsRealizedUsd
+    ? comboDealsUsageUsd(res, long, usdRate) || maxValue
+    : 0;
   const openDealsRealizedPerc =
-    openDealsRealizedUsd && unPnl
-      ? (unPnlPerc * openDealsRealizedUsd) / unPnl
+    openDealsRealizedBasis > 0
+      ? (openDealsRealizedUsd / openDealsRealizedBasis) * 100
       : 0;
   unPnl = active ? math.round(unPnl, 2, unPnl < 0, unPnl > 0) : 0;
   res.usage = {
@@ -897,6 +886,44 @@ export function transformDcaBotToBot(
   };
 
   return res;
+}
+
+/**
+ * USD the combo bot's open deals put to work — each deal's full or filled
+ * usage per its `comboTpBase` — the basis combo unPnlPerc is a percent of.
+ */
+function comboDealsUsageUsd(
+  res: {
+    settings: { futures?: boolean; coinm?: boolean };
+    dealsStatsForBot?: ReadonlyArray<{
+      comboTpBase?: ComboTpBase | string | null;
+      usage?: {
+        current?: { base?: number; quote?: number };
+        max?: { base?: number; quote?: number };
+      };
+    }>;
+  },
+  long: boolean,
+  usdRate: number
+): number {
+  let sum = 0;
+  for (const d of res.dealsStatsForBot ?? []) {
+    const u =
+      !d.comboTpBase || d.comboTpBase === ComboTpBase.full
+        ? d.usage?.max
+        : d.usage?.current;
+    const usageBase = u?.base ?? 0;
+    const usageQuote = u?.quote ?? 0;
+    sum +=
+      (res.settings.futures
+        ? res.settings.coinm
+          ? usageBase
+          : usageQuote
+        : long
+          ? usageQuote
+          : usageBase) * usdRate;
+  }
+  return sum;
 }
 
 /**
