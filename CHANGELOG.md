@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.131.1] - 2026-11-12
+
+### Added
+
+- Add Exchange: a 'Create one' link for users without an account on the selected exchange
+
 ## [2.131.0] - 2026-11-11
 
 ### Added
