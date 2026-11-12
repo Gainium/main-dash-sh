@@ -1,5 +1,7 @@
 import { paidExchanges } from '@/constants/subscription';
 import { getExchangeSignup } from '@/constants/affiliateLinks';
+import { offersUnlimitedTrading } from '@/constants/unlimitedTrading';
+import { UnlimitedBadge } from './UnlimitedBadge';
 import { useWeb3Wallet, type WalletProvider } from '@/hooks/useWeb3Wallet';
 import { track as analyticsTrack } from '@/lib/analytics';
 import { useEntitlements } from '@/lib/entitlements';
@@ -1197,6 +1199,11 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                             </Badge>
                           )
                         )}
+                        {!isPaidUser &&
+                          !formData.isPaperTrading &&
+                          offersUnlimitedTrading(config.id) && (
+                            <UnlimitedBadge tooltip="Unlimited trading on the free plan" />
+                          )}
                       </div>
                     </SelectItem>
                   ))}

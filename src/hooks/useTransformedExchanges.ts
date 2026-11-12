@@ -14,6 +14,7 @@ interface ExchangeData {
   status?: boolean | undefined;
   rotationRequired?: boolean | undefined;
   linkedTo?: string | null | undefined;
+  affiliate?: boolean | undefined;
 }
 
 // Transformed exchange for UI consumption
@@ -34,6 +35,8 @@ export interface UIExchange {
    * market legs). Its `balance` IS that wallet, so it is never summed again.
    */
   linkedTo?: string;
+  /** Verified for unlimited trading (see constants/unlimitedTrading). */
+  affiliate?: boolean;
 }
 
 /**
@@ -89,6 +92,7 @@ export function useTransformedExchanges() {
         status: exchange.status ?? false,
         rotationRequired: exchange.rotationRequired ?? false,
         linkedTo: exchange.linkedTo || undefined,
+        affiliate: !!exchange.affiliate,
       })
     );
 

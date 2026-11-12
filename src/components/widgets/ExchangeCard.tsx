@@ -37,6 +37,8 @@ import WidgetWrapper from './WidgetWrapper';
 import { getWidgetMetadata } from './index';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { useReportingCurrency } from '@/hooks/useReportingCurrency';
+import { useEntitlements } from '@/lib/entitlements';
+import { UnlimitedBadge } from '@/components/exchanges/UnlimitedBadge';
 
 interface ExchangeCardProps {
   exchangeId?: string; // 'ALL' or single exchange uuid
@@ -261,6 +263,9 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
   // `statusKey` returns null and all three handlers are guarded. Prefer that
   // over impersonating another row.
   const exchange = exchanges.find((e) => e.id === exchangeId) ?? null;
+  const { isPaid } = useEntitlements();
+  // Shown to free users only: a paid plan has no limit to lift.
+  const showUnlimited = !isPaid && !!exchange?.affiliate;
 
   // A unified account: this connection plus the market legs `linkedTo` it,
   // one wallet. The Exchanges page shows one card for all of them.
@@ -356,6 +361,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                         Unified
                       </span>
                     )}
+                    {showUnlimited && <UnlimitedBadge />}
                     {statusKey && (
                       <span title={statusTooltip} className="shrink-0">
                         <StatusChip
