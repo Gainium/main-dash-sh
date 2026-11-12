@@ -176,8 +176,17 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
   const { getCachedFee } = useUserFees();
   // Raw deal (not the lossy `trade`) — carries initialPrice, gridBreakpoints,
   // per-deal settings overrides, dynamicAr — needed to project smart orders.
+  // Terminal deals are stored under the 'terminal' bucket, not their botId
+  // (see useDcaDeals), so look there too — otherwise a terminal deal never
+  // gets its stop-loss / trailing exit lines.
   const rawDeal = useDealStore((s) =>
-    trade.botId ? (s.deals[trade.botId]?.[trade.id] ?? null) : null
+    trade.botId
+      ? (s.deals[trade.botId]?.[trade.id] ??
+        (trade.type === 'Terminal'
+          ? s.deals['terminal']?.[trade.id]
+          : undefined) ??
+        null)
+      : null
   );
 
   const { pendingOrders, completedOrders } = useMemo(
