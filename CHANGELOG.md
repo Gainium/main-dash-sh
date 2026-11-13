@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.132.3] - 2026-11-13
+
+### Fixed
+
+- Indicator summaries show the value of a linked global variable instead of the value the field had before it was linked
+
 ## [2.132.2] - 2026-11-12
 
 ### Fixed
