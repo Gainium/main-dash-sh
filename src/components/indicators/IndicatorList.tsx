@@ -11,6 +11,7 @@ import type { IndicatorConfig } from '@/types/indicators/indicators';
 import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
 import type { EdgeSide } from '@/utils/indicatorEdge';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
+import { useIndicatorVarValues } from '@/hooks/bots/global-variables/useIndicatorVarValues';
 import { Pencil, Star, Trash2 } from 'lucide-react';
 import React from 'react';
 
@@ -65,6 +66,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
 }) => {
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
+  const withVarValues = useIndicatorVarValues();
 
   if (!indicators.length) {
     return (
@@ -79,7 +81,10 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
       <div className="flex min-w-0 flex-col">
         {indicators.map((indicator, index) => {
           const definition = getIndicatorDefinition(indicator.type);
-          const summary = buildIndicatorSummary(definition, indicator);
+          const summary = buildIndicatorSummary(
+            definition,
+            withVarValues(indicator)
+          );
           const helpSlug = definition.documentationUrl
             ? parseHelpUrl(definition.documentationUrl).helpSlug
             : null;
