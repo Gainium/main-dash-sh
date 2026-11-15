@@ -14,6 +14,8 @@ import {
 } from '@/types';
 /* import type { DrawerBot } from '@/types/bots/drawer'; */
 import { formatOrderForDisplay, useBotOrders } from '@/hooks/useBotOrders';
+import { useDealOrders } from '@/hooks/useDealOrders';
+import { splitDealOrders } from '@/utils/orders/viewOrder';
 import { useDealsWithLivePnl } from '@/hooks/useLiveDealPnl';
 import { indicatorStore } from '@/stores/indicatorStore';
 import { chartIndicatorsContextFromSettings } from '@/utils/indicators/chartIndicatorUtils';
@@ -1129,6 +1131,40 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
     const rawDeal = useDealStore((s) =>
       selectedTrade?.id ? (s.deals[bot._id]?.[selectedTrade.id] ?? null) : null
     );
+
+    // The open deal's own orders. The bot-level pool above stops at its 2×500
+    // newest orders, so on a busy bot an older deal's base order and early DCA
+    // levels are not in it. `useDealOrders` fetches the whole deal and merges it
+    // into the order store, so socket fills keep arriving. A hedge deal belongs
+    // to its leg's bot, hence `selectedTrade.botId`.
+    const selectedDealId = !isGrid && selectedTrade ? selectedTrade.id : '';
+    const {
+      orders: selectedDealRawOrders,
+      isLoading: dealOrdersLoading,
+    } = useDealOrders(
+      selectedDealId ? (selectedTrade?.botId ?? bot._id) : '',
+      selectedDealId,
+      type === BotTypesEnum.combo || type === BotTypesEnum.hedgeCombo
+        ? BotTypesEnum.combo
+        : BotTypesEnum.dca
+    );
+    const selectedDealOrders = useMemo(
+      () =>
+        selectedDealId
+          ? splitDealOrders(selectedDealRawOrders, bot.exchange, rawDeal)
+          : { pendingOrders, completedOrders },
+      [
+        selectedDealId,
+        selectedDealRawOrders,
+        bot.exchange,
+        rawDeal,
+        pendingOrders,
+        completedOrders,
+      ]
+    );
+    const selectedDealOrdersLoading = selectedDealId
+      ? dealOrdersLoading
+      : isLoadingOrders;
 
     // Auto-select the most recent deal so TP/SL lines show on chart immediately
     const hasAutoSelectedDeal = useRef(false);
@@ -2278,9 +2314,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                     >
                       <TradeDetailContent
                         trade={selectedTrade}
-                        completedOrders={completedOrders}
-                        pendingOrders={pendingOrders}
-                        isLoadingOrders={isLoadingOrders}
+                        completedOrders={selectedDealOrders.completedOrders}
+                        pendingOrders={selectedDealOrders.pendingOrders}
+                        isLoadingOrders={selectedDealOrdersLoading}
                         chartOrders={chartOrders}
                         chartTransactions={chartTransactions}
                         {...(rawDeal?.pendingAddFunds && {
@@ -2324,9 +2360,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                     >
                       <TradeDetailContent
                         trade={selectedTrade}
-                        completedOrders={completedOrders}
-                        pendingOrders={pendingOrders}
-                        isLoadingOrders={isLoadingOrders}
+                        completedOrders={selectedDealOrders.completedOrders}
+                        pendingOrders={selectedDealOrders.pendingOrders}
+                        isLoadingOrders={selectedDealOrdersLoading}
                         chartOrders={chartOrders}
                         chartTransactions={chartTransactions}
                         {...(rawDeal?.pendingAddFunds && {
