@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.133.2] - 2026-11-15
+
+### Changed
+
+- Bot details panel: widgets no longer have a full-screen button or triple-click full-screen shortcut
+
 ## [2.133.1] - 2026-11-15
 
 ### Fixed
