@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.132.4] - 2026-11-15
+
+### Added
+
+- Navigation sidebar: extension slot for a promotional entry above the trading-mode footer
+
 ## [2.132.3] - 2026-11-13
 
 ### Fixed
