@@ -176,6 +176,16 @@ export interface SlotPropsMap {
    *  MainLayout above the page content. */
   'layout.maintenanceBanner': Record<string, unknown>;
 
+  /** Promotional entry in the navigation sidebar, above the trading-mode
+   *  footer. `collapsed` is true while the sidebar shows icons only, so the
+   *  filler can switch between a compact and an extended layout;
+   *  `onNavigate` closes the mobile drawer after a click. Sh renders
+   *  nothing. */
+  'sidebar.promo': {
+    collapsed: boolean;
+    onNavigate?: () => void;
+  };
+
   /** Detached Max chat panel. Cloud's filler renders a floating
    *  panel (desktop) / bottom sheet (mobile) that hosts the real
    *  ChatCore plus the first-run onboarding walkthrough overlays.

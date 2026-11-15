@@ -36,6 +36,7 @@ import { Switch } from '../ui/switch';
 import { TruncatedText } from '../ui/TruncatedText';
 
 import { IS_CLOUD } from '@/config/mode';
+import { Slot } from '@/lib/extensions';
 import { SHORTCUT_IDS } from '@/config/shortcuts';
 import { usePaperContext } from '@/hooks/usePaperContext';
 import { useTradingModeSwitching } from '@/stores/live/tradingContext';
@@ -1747,6 +1748,16 @@ const NavigationSidebar: React.FC<NavigationSidebarProps> = ({
             )}
           </div>
         </div>
+
+        {/* Host-supplied promo entry (cloud: running offer). Sh renders
+            nothing. Hidden in edit mode with the rest of the footer. */}
+        {!isEditMode && (
+          <Slot
+            name="sidebar.promo"
+            collapsed={!isExpanded}
+            onNavigate={onNavigate}
+          />
+        )}
 
         {/* Trading Mode Toggle at bottom — hidden in edit mode so the
             sidebar focuses on item selection. */}
