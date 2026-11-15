@@ -92,6 +92,8 @@ import {
 import CoinPair from '../../../widgets/shared/CoinPair';
 import { Slot } from '../../../../lib/extensions';
 import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
+import { useDealOrders } from '@/hooks/useDealOrders';
+import { splitDealOrders } from '@/utils/orders/viewOrder';
 import { SYMBOL_COLUMN_FILTER_META } from '../../../widgets/shared/symbolColumnFilterMeta';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 import { DrawerSection } from './DrawerSection';
@@ -2132,15 +2134,24 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     transformedTradePosition
   );
 
-  const ordersForDealDialog = useMemo(
-    () =>
-      selectedDealForOrders
-        ? [...pendingOrders, ...completedOrders].filter(
-            (o) => o.dealId === selectedDealForOrders.id
-          )
-        : [],
-    [completedOrders, pendingOrders, selectedDealForOrders]
-  );
+  // The usage gauge's orders dialog lists the deal's own orders. The
+  // `pendingOrders`/`completedOrders` props are the bot-level pool, capped at
+  // its 2×500 newest orders, so on a busy bot an older deal's base order and
+  // early DCA levels are not in it — fetch the deal itself, only while the
+  // dialog is open. A hedge deal belongs to its leg's bot, hence `botId`.
+  const dialogDeal = ordersDialogOpen ? selectedDealForOrders : null;
+  const { orders: dialogDealOrders, isLoading: dialogDealOrdersLoading } =
+    useDealOrders(
+      dialogDeal ? (dialogDeal.botId || botId || '') : '',
+      dialogDeal?.id ?? '',
+      isComboLike ? BotTypesEnum.combo : BotTypesEnum.dca
+    );
+  const ordersForDealDialog = useMemo(() => {
+    if (!dialogDeal) return [];
+    const { pendingOrders: pending, completedOrders: completed } =
+      splitDealOrders(dialogDealOrders, dialogDeal.exchange);
+    return [...pending, ...completed];
+  }, [dialogDeal, dialogDealOrders]);
   const showTable = useMemo(
     () => (selectedTab === 'active' ? activeDeals : closedDeals).length > 0,
     [selectedTab, activeDeals, closedDeals]
@@ -2422,6 +2433,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           }
           exchange={selectedDealForOrders.exchange}
           orders={ordersForDealDialog}
+          isLoading={dialogDealOrdersLoading}
         />
       )}
 
