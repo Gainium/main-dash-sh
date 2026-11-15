@@ -8,7 +8,6 @@ import type { DrawerBot } from '@/types/bots/drawer';
 import type { ColumnDef } from '@tanstack/react-table';
 import {
     Handshake,
-    Maximize2,
     MoreHorizontal,
     PauseCircle,
     Plus,
@@ -96,7 +95,6 @@ import { DealOrdersDialog } from '../../../widgets/shared/DealOrdersDialog';
 import { SYMBOL_COLUMN_FILTER_META } from '../../../widgets/shared/symbolColumnFilterMeta';
 import { DealsLoadingIndicator } from './DealsLoadingIndicator';
 import { DrawerSection } from './DrawerSection';
-import { useDrawerSectionFullscreen } from './useDrawerSectionFullscreen';
 import { useLargeAccount } from '../../../../hooks/useLargeAccount';
 import { useShareContext } from '../../../../hooks/useShareContext';
 import { DealLevelsText } from '@/components/deals/DealLevelsText';
@@ -2163,37 +2161,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
     }),
     []
   );
-  // Full-screen lives in the toolbar: a floating corner button needs a strip
-  // of its own above the table, which wasted a whole row of the drawer.
-  const { isFullscreen, enterFullscreen } =
-    useDrawerSectionFullscreen(widgetId);
-  const fullscreenToolbarAction = useMemo(
-    () =>
-      isFullscreen ? undefined : (
-        <Button
-          variant="outline"
-          size="icon"
-          className="h-9 w-9"
-          onClick={enterFullscreen}
-          title="Enter fullscreen"
-          aria-label="Enter fullscreen"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </Button>
-      ),
-    [enterFullscreen, isFullscreen]
-  );
-  const fullscreenToolbarOverflow = useMemo(
-    () =>
-      isFullscreen
-        ? undefined
-        : {
-            menuLabel: 'Fullscreen',
-            menuIcon: Maximize2,
-            onMenuClick: enterFullscreen,
-          },
-    [enterFullscreen, isFullscreen]
-  );
   const cardViewBreakpoints = useMemo(
     () => ({ default: 1, 600: 2, 768: 2, 1024: 2, 1280: 3 }),
     []
@@ -2372,8 +2339,6 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
               getRowId={getRowId}
               firstToolbarActions={firstToolbarAction}
               firstToolbarActionsCompact={firstToolbarActionCompact}
-              finalToolbarActions={fullscreenToolbarAction}
-              finalToolbarActionsOverflow={fullscreenToolbarOverflow}
               getExportData={getExportData}
               serverTotalRows={dealsServerTotal}
               exportFilename={`${selectedTab === 'active' ? 'open' : 'closed'}-deals`}

@@ -17,25 +17,21 @@ export interface DrawerSectionProps {
   hasOptions?: boolean;
   /**
    * Drop the section's own surface — inner `Card`, background, rounding and
-   * shadow — so the wrapper contributes nothing but the full-screen control.
+   * shadow — so the wrapper contributes no surface of its own.
    *
    * For a section *inside* a tab the surface is the point. For a body that IS
    * the whole tab (deals, events, settings, stats) it is not: those already lay
    * out against the drawer background and bring their own cards, and the inner
    * `Card`'s padding costs them 32px of width — enough to drop the deals card
-   * grid from two columns to one. They still need the wrapper, because it is
-   * the only thing that renders "Enter fullscreen".
+   * grid from two columns to one.
    *
    * A bare section also draws no `title`/`icon`/`headerActions` row: the tab
-   * bar directly above already names it. `title` is still worth passing —
-   * it names the widget in the full-screen view and the widget menu.
+   * bar directly above already names it.
    */
   bare?: boolean;
   /**
-   * With `bare`: the body fills the section's height (for a table that
-   * scrolls itself) and the wrapper draws no floating full-screen button —
-   * the caller puts one in its own toolbar (`useDrawerSectionFullscreen`),
-   * so no strip has to be reserved above the content for it.
+   * With `bare`: the body fills the section's height, for content that
+   * scrolls itself (a table, or a form with a sticky nav).
    */
   fill?: boolean;
 }
@@ -62,7 +58,6 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
   bare = false,
   fill = false,
 }) => {
-  const ownsFullscreenControl = bare && fill;
   const wrapperProps = {
     metadata: {
       id: widgetId,
@@ -70,7 +65,10 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
       title: title || 'Section',
       header: false, // Remove header section for unified drawer appearance
       hasOptions,
-      ...(ownsFullscreenControl ? { fullscreenButton: false } : {}),
+      // Drawer widgets never go full-screen: the corner button cost a row of
+      // the drawer or covered the widget's own controls, and the triple-click
+      // shortcut fired while selecting text.
+      fullscreen: false,
     },
     isEditable: false,
     isCollapsible: false, // Remove fold/unfold functionality for unified drawer appearance
@@ -83,7 +81,7 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
 
   // A bare section is a whole tab body, so its name is already on the tab
   // above it; drawing it again here would just duplicate the tab bar. The
-  // name still reaches `metadata.title` for the full-screen view.
+  // name still reaches `metadata.title`.
   const header = !bare && (title || Icon) && (
     <div className="flex items-center justify-between gap-sm mb-4 min-h-7">
       <div className="flex items-center gap-xs">
@@ -100,17 +98,10 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
 
   return (
     <WidgetWrapper {...wrapperProps}>
-      {ownsFullscreenControl ? (
+      {bare && fill ? (
         <div className="flex h-full min-h-0 flex-col">{children}</div>
       ) : bare ? (
-        // The wrapper overlays its full-screen control on the content at
-        // `top-2 right-2` (8px inset + a 36px button). A section widget leaves
-        // that corner free; a whole tab body does not — the deals table puts
-        // its overflow menu there and the events tab its Refresh button, and
-        // the control landed on top of both. Reserve the strip instead of
-        // nudging the control sideways: a horizontal offset would clear the
-        // deals table's 36px menu but not the events tab's much wider button.
-        <div className="pt-11">
+        <div>
           {header}
           {children}
         </div>

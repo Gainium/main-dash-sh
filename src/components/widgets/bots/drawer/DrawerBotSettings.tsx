@@ -2,14 +2,11 @@ import { logger } from '@/lib/loggerInstance';
 import { BotTypesEnum, type Bot, type ComboBot, type DCABot } from '@/types';
 import type { DrawerBot } from '@/types/bots/drawer';
 import { buildBotEditRoute } from '@/utils/bots/navigation';
-import { Maximize2 } from 'lucide-react';
 import React, { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Button } from '../../../ui/button';
 import { Card } from '../../../ui/card';
 import ReadOnlyBotForm from '@/features/bots/widgets/BotForm/ReadOnlyBotForm';
 import { DrawerSection } from './DrawerSection';
-import { useDrawerSectionFullscreen } from './useDrawerSectionFullscreen';
 
 const LOG_PREFIX = 'DrawerBotSettings';
 
@@ -40,8 +37,6 @@ const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({
   bot,
 }) => {
   const navigate = useNavigate();
-  const { isFullscreen, enterFullscreen } =
-    useDrawerSectionFullscreen(widgetId);
 
   const botType = useMemo(
     () => (bot ? resolveBotType(bot) : BotTypesEnum.dca),
@@ -68,13 +63,9 @@ const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({
     navigate(editPath);
   };
 
-  // DrawerSection (a headerless WidgetWrapper) names the widget in the
-  // full-screen view; `bare` keeps the title off the tab body (the tab bar
-  // right above already says "Settings"). With `fill` the wrapper's own
-  // scroller is the one the form scrolls in, so the sticky section nav sticks
-  // to it, and the full-screen control lives in that nav row instead of a
-  // strip reserved above it. The nav sits outside the read-only form's
-  // disabled <fieldset>, so the button stays clickable.
+  // `bare` keeps the title off the tab body (the tab bar right above already
+  // says "Settings"). With `fill` the wrapper's own scroller is the one the
+  // form scrolls in, so the sticky section nav sticks to it.
   return (
     <DrawerSection
       widgetId={widgetId}
@@ -88,20 +79,6 @@ const DrawerBotSettings: React.FC<DrawerBotSettingsProps> = ({
         botType={botType}
         showNavigation
         onEditClick={handleEdit}
-        navigationActions={
-          isFullscreen ? undefined : (
-            <Button
-              variant="ghost"
-              size="icon"
-              type="button"
-              onClick={enterFullscreen}
-              title="Enter fullscreen"
-              aria-label="Enter fullscreen"
-            >
-              <Maximize2 className="h-4 w-4" />
-            </Button>
-          )
-        }
       />
     </DrawerSection>
   );

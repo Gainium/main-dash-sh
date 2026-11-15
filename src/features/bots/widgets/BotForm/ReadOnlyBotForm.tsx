@@ -93,8 +93,6 @@ export interface ReadOnlyBotFormProps {
   showNavigation?: boolean;
   /** When provided, an edit icon button is shown in the tab navigation */
   onEditClick?: () => void;
-  /** Extra controls drawn at the end of the tab navigation row */
-  navigationActions?: React.ReactNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -133,7 +131,6 @@ interface ReadOnlyBotFormInnerProps {
   showNavigation: boolean;
   className?: string;
   onEditClick?: () => void;
-  navigationActions?: React.ReactNode;
 }
 
 const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
@@ -142,7 +139,6 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
   showNavigation,
   className,
   onEditClick,
-  navigationActions,
 }) => {
   const isGridBot = botType === BotTypesEnum.grid;
   const isComboBot = botType === BotTypesEnum.combo;
@@ -421,22 +417,19 @@ const ReadOnlyBotFormInner: React.FC<ReadOnlyBotFormInnerProps> = ({
               />
             </div>
 
-            {(onEditClick || navigationActions) && (
-              <div className="flex shrink-0 items-center gap-xs">
-                {onEditClick && (
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    type="button"
-                    onClick={onEditClick}
-                    title="Edit bot settings"
-                    aria-label="Edit bot settings"
-                    className="pointer-events-auto"
-                  >
-                    <Edit className="h-4 w-4" />
-                  </Button>
-                )}
-                {navigationActions}
+            {onEditClick && (
+              <div className="shrink-0">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  onClick={onEditClick}
+                  title="Edit bot settings"
+                  aria-label="Edit bot settings"
+                  className="pointer-events-auto"
+                >
+                  <Edit className="h-4 w-4" />
+                </Button>
               </div>
             )}
           </div>
@@ -612,7 +605,6 @@ const ReadOnlyBotForm: React.FC<ReadOnlyBotFormProps> = ({
   className,
   showNavigation = true,
   onEditClick,
-  navigationActions,
 }) => {
   const resolvedExperience: BotExperienceDescriptor =
     tryGetBotExperience(botType) ?? getBotExperience(BotTypesEnum.dca);
@@ -673,7 +665,6 @@ const ReadOnlyBotForm: React.FC<ReadOnlyBotFormProps> = ({
               showNavigation={showNavigation}
               className={className}
               onEditClick={onEditClick}
-              navigationActions={navigationActions}
             />
           </BotFormQueryContext.Provider>
         </BotFormProvider>

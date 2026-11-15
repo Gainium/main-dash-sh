@@ -153,6 +153,9 @@ export interface WidgetMetadata {
   // Headerless widgets get a corner fullscreen button. Set false when the
   // widget draws its own control in that corner (it would sit on top of it).
   fullscreenButton?: boolean;
+  // false: the widget cannot go full-screen at all — no corner button, no
+  // triple-click/tap shortcut.
+  fullscreen?: boolean;
   defaultSize?: {
     w: number;
     h: number;
@@ -1068,6 +1071,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
 
   // Handle triple-click/tap for fullscreen toggle
   const handleTripleClick = useCallback(() => {
+    if (metadata.fullscreen === false) return;
     clickCountRef.current += 1;
 
     if (clickCountRef.current === 1) {
@@ -1089,7 +1093,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
         handleEnterFullscreen();
       }
     }
-  }, [isFullscreen, exitFullscreen, handleEnterFullscreen]);
+  }, [isFullscreen, exitFullscreen, handleEnterFullscreen, metadata.fullscreen]);
 
   // Calculate menu position based on button position
   const handleMenuToggle = () => {
@@ -1952,6 +1956,7 @@ export const WidgetWrapper: React.FC<WidgetWrapperProps> = ({
                 handle when that is present, in its place when it is not. */}
             {metadata.header === false &&
               metadata.fullscreenButton !== false &&
+              metadata.fullscreen !== false &&
               !isFullscreen && (
               <Button
                 variant="ghost"
