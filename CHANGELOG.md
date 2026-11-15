@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.133.0] - 2026-11-15
+
+### Added
+
+- Order execution setting for the base order, DCA orders, take profit and stop loss: Market, Limit, Chasing limit and Split order
+
+### Fixed
+
+- A restored bot form draft keeps its values instead of being overwritten by the Quick setup preset
+
 ## [2.132.4] - 2026-11-15
 
 ### Added
