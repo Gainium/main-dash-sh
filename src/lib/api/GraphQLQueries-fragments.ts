@@ -537,6 +537,10 @@ comboSmartGridsCount
                 minTp
                 closeDealType
                 closeOrderType
+                entryExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                dcaExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                tpExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                slExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
                 terminalDealType
                 useMultiTp
                 multiTp {
@@ -881,6 +885,10 @@ useCloseAfterXwin
                 minTp
                 closeDealType
                 closeOrderType
+                entryExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                dcaExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                tpExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                slExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
                 terminalDealType
                 useMultiTp
                 multiTp {
@@ -1133,6 +1141,9 @@ baseSlOn
                     minTp
                     closeDealType
                     closeOrderType
+                    dcaExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                    tpExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                    slExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
                     orderSizeType
                     useMultiSl
                     multiSl {
@@ -1376,6 +1387,9 @@ baseSlOn
                     minTp
                     closeDealType
                     closeOrderType
+                    dcaExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                    tpExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
+                    slExecution { mode repriceSec maxChasePerc timeoutSec slices pace sliceIntervalSec sliceMode floorPerc onFloor }
                     orderSizeType
                     useMultiSl
                     multiSl {

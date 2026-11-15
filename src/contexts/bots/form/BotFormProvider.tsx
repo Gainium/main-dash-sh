@@ -430,6 +430,9 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
 
   const storeRef = useRef<BotFormStore | null>(null);
   const restoredDraftAtRef = useRef<number | null>(null);
+  const restoredPresetRef = useRef<string | null>(null);
+  // Read by the draft autosave, which runs outside render.
+  const selectedPresetRef = useRef<string | null>(null);
   if (storeRef.current === null) {
     const base = defaultStateFn(props);
     // Layer a saved draft over the defaults on first mount, before any
@@ -437,6 +440,7 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
     const draft = draftKey ? loadBotFormDraft(draftKey) : null;
     if (draft) {
       restoredDraftAtRef.current = draft.savedAt;
+      restoredPresetRef.current = draft.selectedPreset ?? null;
     }
     storeRef.current = createBotFormStore(
       draft ? { ...base, ...draft.formData, type: base.type } : base
@@ -516,7 +520,12 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
         clearBotFormDraft(draftKey);
         return;
       }
-      saveBotFormDraft(draftKey, formData);
+      saveBotFormDraft(
+        draftKey,
+        formData,
+        Date.now(),
+        selectedPresetRef.current
+      );
     };
     const unsubscribe = store.subscribe(() => {
       if (timer) return; // leading-throttle: one write per window, not per keystroke
@@ -710,7 +719,13 @@ export const BotFormProvider: React.FC<BotFormProviderProps> = (props) => {
       ? 'quick'
       : 'manual'
   );
-  const [selectedPreset, setSelectedPreset] = useState<string | null>(null);
+  // A restored draft brings its preset back, so the picker treats it as the
+  // user's existing choice instead of auto-applying its default tier over the
+  // restored values.
+  const [selectedPreset, setSelectedPreset] = useState<string | null>(
+    () => restoredPresetRef.current
+  );
+  selectedPresetRef.current = selectedPreset;
   const [activeChartPair, setActiveChartPair] = useState<string | null>(null);
 
   useEffect(() => {

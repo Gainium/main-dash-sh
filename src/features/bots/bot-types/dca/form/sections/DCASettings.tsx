@@ -1,3 +1,4 @@
+import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
 import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
@@ -32,6 +33,7 @@ import { fundsTiles } from '@/utils/bots/dca/deal-summary';
 import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
   useBotFormSelector,
+  useBotFormTopLevelSelector,
   useOptionalBotFormState,
   useTrackedBotFormState,
   type BotFormMode,
@@ -2024,6 +2026,25 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
 };
 
 // Technical Indicators DCA Component
+/**
+ * DCA order execution, bound to the form. Sits at the end of the DCA section,
+ * just before its More Settings when it has one.
+ */
+const DcaExecutionRow: React.FC = () => {
+  const botType = useBotFormTopLevelSelector('type');
+  const dcaCondition = useBotFormSelector('dcaCondition');
+  return (
+    <ExitExecutionRow
+      stage="dca"
+      isCombo={botType === BotTypesEnum.combo}
+      trigger={
+        dcaCondition === DCAConditionEnum.indicators ? 'indicator' : 'level'
+      }
+      colSpan="full"
+    />
+  );
+};
+
 const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
   formData,
   updateFormData,
@@ -3562,6 +3583,8 @@ const CustomDCA: React.FC<DCASectionProps> = ({
         </div>
       </SettingsRow>
 
+      <DcaExecutionRow />
+
       <SettingsLoadMore id="dca-custom-volume-advanced" title="More Settings">
         <SettingsRow
           colSpan="full"
@@ -3653,7 +3676,6 @@ export const DCASettings: React.FC<Partial<DCASettingsProps>> = ({
   } = useTrackedBotFormState();
   const useDca = useBotFormSelector('useDca');
   const dcaCondition = useBotFormSelector('dcaCondition');
-  const dcaByMarket = useBotFormSelector('dcaByMarket');
   // Pass `bot` so the trading context falls back to the bot's saved symbol
   // when `formData.pairMetadata` is empty — happens in the readonly bot-view
   // dialog where ReadOnlyBotForm seeds an empty `pairMetadata` (no exchange
@@ -3792,25 +3814,6 @@ export const DCASettings: React.FC<Partial<DCASettingsProps>> = ({
         </SettingsRow>
       )}
 
-      {dcaCondition !== DCAConditionEnum.indicators &&
-        dcaCondition !== DCAConditionEnum.dynamicAr && (
-          <SettingsRow
-            name="DCA order type"
-            tooltip="Place DCA orders as market orders instead of limit orders. This can help ensure DCA orders are filled quickly and funds are not locked in advance, but deviation from the desired price may occur."
-          >
-            <TerminalButtonStack
-              value={dcaByMarket ? 'market' : 'limit'}
-              onValueChange={(value) =>
-                updateFormData('dcaByMarket', value === 'market')
-              }
-              options={[
-                { value: 'limit', label: 'Limit' },
-                { value: 'market', label: 'Market' },
-              ]}
-            />
-          </SettingsRow>
-        )}
-
       {!isComboBot && (
         <DcaVolumeBasedOnSettings
           updateFormData={updateFormData}
@@ -3820,6 +3823,8 @@ export const DCASettings: React.FC<Partial<DCASettingsProps>> = ({
       )}
 
       <div className="col-span-full space-y-md">{renderDCATypeContent()}</div>
+
+      {dcaCondition !== DCAConditionEnum.custom && <DcaExecutionRow />}
     </>
   );
 };

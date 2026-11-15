@@ -2,10 +2,8 @@ import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCoun
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
-import { TerminalButtonStack } from '@/components/ui';
 import { Button } from '@/components/ui/button';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
-import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import {
@@ -57,7 +55,6 @@ import { math } from '@/lib/utils/math';
 import {
     CloseConditionEnum,
     closeConditionsMap,
-    CloseDCATypeEnum,
     IndicatorAction,
     IndicatorEnum,
     IndicatorSection,
@@ -126,6 +123,7 @@ import React, {
 import { BaseStopLosslOn } from '../../bot-types/combo/form/components/BaseStopLossOn';
 import { IndicatorGroupsManager } from '../components/IndicatorGroupsManager';
 import MultiTarget from '../components/MultiTarget';
+import { ExitExecutionRow } from '../components/OrderExecutionSettings';
 
 const MAX_MULTI_TP_TARGETS = 10;
 // Position-allocation ceiling: the % of the position closed across all targets
@@ -313,9 +311,6 @@ export const TakeProfitSettings: React.FC = () => {
   const trailingTpPerc = useBotFormSelector('trailingTpPerc');
   const trailingTp = useBotFormSelector('trailingTp');
   const closeByTimerUnits = useBotFormSelector('closeByTimerUnits');
-  const closeOrderType = useBotFormSelector('closeOrderType');
-  const closeDealType = useBotFormSelector('closeDealType');
-  const comboTpLimit = useBotFormSelector('comboTpLimit');
   // Settings consumed by useDcaTradingContext -> resolveDcaRanges. Selected
   // individually so this section stays reactive to exactly these (matching the
   // pre-refactor whole-formData behaviour) instead of subscribing to the entire
@@ -646,27 +641,6 @@ export const TakeProfitSettings: React.FC = () => {
   const isHedgeBot = formType === 'hedgeCombo' || formType === 'hedgeDca';
   const isInsideHedgeForm = useHedgeBotFormOptional() !== undefined;
   const closeConditionIsTp = closeCondition === CloseConditionEnum.tp;
-  const closeDealTypeOptions = useMemo<
-    Array<{
-      value: CloseDCATypeEnum;
-      label: string;
-      description: string;
-    }>
-  >(
-    () => [
-      {
-        value: CloseDCATypeEnum.closeByLimit,
-        label: 'Limit',
-        description: '',
-      },
-      {
-        value: CloseDCATypeEnum.closeByMarket,
-        label: 'Market',
-        description: '',
-      },
-    ],
-    []
-  );
 
   const [priceValue, setPriceValue] = useState<string>(fixedTpPrice || '');
   const timerInputRef = useRef<HTMLInputElement>(null);
@@ -2717,28 +2691,6 @@ export const TakeProfitSettings: React.FC = () => {
 
               <BotFieldExtensionPanel path="tpPerc" />
 
-              <div className="space-y-md border-t border-muted pt-3">
-                <div className="space-y-1">
-                  <div className="flex items-center gap-xs">
-                    <Label className="text-sm">Deal close type</Label>
-                    <Tooltip tooltip="Limit order rests the take profit on the ladder; Market order executes it immediately at market when the target triggers.">
-                      <InfoIcon />
-                    </Tooltip>
-                  </div>
-                  <TerminalButtonStack
-                    value={comboTpLimit ? 'limit' : 'market'}
-                    onValueChange={(value) =>
-                      updateFormData('comboTpLimit', value === 'limit')
-                    }
-                    options={[
-                      { value: 'limit', label: 'Limit order' },
-                      { value: 'market', label: 'Market order' },
-                    ]}
-                    className="w-full sm:w-auto"
-                  />
-                </div>
-              </div>
-
               {mergedErrors['tpPerc'] ? (
                 <p className="text-xs text-destructive">
                   {mergedErrors['tpPerc']}
@@ -2755,6 +2707,8 @@ export const TakeProfitSettings: React.FC = () => {
 
             <BaseStopLosslOn section="tp" />
           </MasonryLayout>
+
+          <ExitExecutionRow stage="tp" isCombo colSpan="full" />
 
           <SettingsLoadMore
             id="take-profit-advanced"
@@ -3109,44 +3063,6 @@ export const TakeProfitSettings: React.FC = () => {
                     emptyStateMessage="No indicator groups configured yet. Add a group to start building your close conditions."
                     emptyIndicatorsAlertTitle="No close indicators yet"
                     emptyIndicatorsAlertDescription="Add at least one indicator inside a group to allow the bot to confirm exits automatically."
-                    secondColumnContent={
-                      <div className="space-y-1">
-                        <Label htmlFor="close-deal-type" className="text-sm">
-                          When indicators trigger close by
-                        </Label>
-                        <Select
-                          value={closeDealType ?? CloseDCATypeEnum.closeByLimit}
-                          onValueChange={(value) =>
-                            updateFormData(
-                              'closeDealType',
-                              value as CloseDCATypeEnum
-                            )
-                          }
-                        >
-                          <SelectTrigger
-                            id="close-deal-type"
-                            className="w-full @[500px]:w-48"
-                          >
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            {closeDealTypeOptions.map((option) => (
-                              <SelectItem
-                                key={option.value}
-                                value={option.value}
-                              >
-                                <div className="flex flex-col">
-                                  <span>{option.label}</span>
-                                  <span className="text-xs text-muted-foreground/80">
-                                    {option.description}
-                                  </span>
-                                </div>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    }
                     onAddGroup={handleAddCloseGroup}
                     onChangeGroupJoins={handleChangeGroupJoins}
                     onRemoveGroup={handleRemoveCloseGroup}
@@ -3200,43 +3116,6 @@ export const TakeProfitSettings: React.FC = () => {
                     emptyState="No ATR/ADR indicators configured. Add ATR or ADR to enable dynamic take profit."
                   />
 
-                  <div className="space-y-xs">
-                    <Label
-                      htmlFor="close-deal-type-dynamic"
-                      className="text-sm"
-                    >
-                      When indicators trigger close by
-                    </Label>
-                    <Select
-                      value={closeDealType ?? CloseDCATypeEnum.closeByLimit}
-                      onValueChange={(value) =>
-                        updateFormData(
-                          'closeDealType',
-                          value as CloseDCATypeEnum
-                        )
-                      }
-                    >
-                      <SelectTrigger
-                        id="close-deal-type-dynamic"
-                        className="w-full @[500px]:w-48"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {closeDealTypeOptions.map((option) => (
-                          <SelectItem key={option.value} value={option.value}>
-                            <div className="flex flex-col">
-                              <span>{option.label}</span>
-                              <span className="text-xs text-muted-foreground/80">
-                                {option.description}
-                              </span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {dynamicArIndicators.length === 0 ? (
                     <SettingsAlert
                         variant="error"
@@ -3246,6 +3125,15 @@ export const TakeProfitSettings: React.FC = () => {
                   ) : null}
                 </SettingsRow>
               ) : null}
+
+              {!isComboBot && !isHedgeBot && (
+                <ExitExecutionRow
+                  stage="tp"
+                  isCombo={false}
+                  colSpan="full"
+                  className={interactionDisabledClass}
+                />
+              )}
 
               {/**
                * Only auto expand when any of the contained options are actually
@@ -3431,39 +3319,6 @@ export const TakeProfitSettings: React.FC = () => {
                     </SettingsRow>
                   )}
 
-                {!isComboBot && !isHedgeBot && (
-                  <SettingsRow
-                    key="close-order-type"
-                    name="Close order type"
-                    tooltip="Select the order type used to close the deal."
-                    className={interactionDisabledClass}
-                    contentClassName="space-y-xs"
-                  >
-                    <Select
-                      value={closeOrderType || OrderTypeEnum.limit}
-                      onValueChange={(value) =>
-                        updateFormData('closeOrderType', value as OrderTypeEnum)
-                      }
-                    >
-                      <SelectTrigger className="w-full @[500px]:w-40">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Object.values(OrderTypeEnum)
-                          .filter((candidate) => typeof candidate === 'string')
-                          .map((candidate) => (
-                            <SelectItem
-                              key={candidate}
-                              value={candidate as OrderTypeEnum}
-                            >
-                              {(candidate as string).charAt(0).toUpperCase() +
-                                (candidate as string).slice(1)}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                  </SettingsRow>
-                )}
               </SettingsLoadMore>
             </TabsContent>
           ))}

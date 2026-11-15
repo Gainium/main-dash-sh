@@ -236,6 +236,10 @@ export const DCA_FORM_DEFAULTS: Readonly<Required<BotFormData['dca']>> = {
   stopDealSlLogic: IndicatorsLogicEnum.and,
   stopBotPriceValue: '',
   closeOrderType: OrderTypeEnum.limit,
+  entryExecution: null,
+  dcaExecution: null,
+  tpExecution: null,
+  slExecution: null,
   rrSlType: RRSlTypeEnum.indicator,
   rrSlFixedValue: '2',
 };

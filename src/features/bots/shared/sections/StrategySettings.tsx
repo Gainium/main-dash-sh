@@ -9,6 +9,7 @@ import { SettingsLoadMore } from '@/components/ui/SettingsLoadMore';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
+import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { IS_CLOUD } from '@/config/mode';
 import MarginTypeSelector from '@/components/widgets/bots/MarginTypeSelector';
@@ -35,9 +36,7 @@ import useBotVarBinding from '@/hooks/bots/global-variables/useBotVarBinding';
 import useLadderLiquidation from '@/hooks/bots/dca/useLadderLiquidation';
 import {
   BotTypesEnum,
-  ENTER_MARKET_TIMEOUT_GUARD,
   OrderSizeTypeEnum,
-  OrderTypeEnum,
 } from '@/types';
 import type {
   BotFormData,
@@ -100,8 +99,6 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
     isRiskReductionEnabled,
     reinvestDisplayValue,
     reinvestSliderValue,
-    enterMarketTimeoutDisplayValue,
-    isEnterMarketTimeoutEnabled,
     leverageInputValue,
     handleLeverageChange,
     handleLeverageInputChange,
@@ -110,18 +107,14 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
     marginNotices,
     handleMarginTypeChange,
     handleCurrencyReferenceChange,
-    handleBaseOrderTypeChange,
     baseOrderWarning,
     canTriggerBalanceRefresh,
     handleRefreshBalances,
     setBaseOrderVariable,
     setRiskReductionVariable,
-    setEnterMarketTimeoutVariable,
     setReinvestVariable,
-    isLimitOrder,
     riskReductionLocked,
     reinvestLocked,
-    enterMarketTimeoutLocked,
     skipBalanceCheckDisabled,
     skipBalanceCheckDisabledMessage,
     shouldShowDirectionControl,
@@ -138,8 +131,6 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
     baseOrderGuard,
     baseOrderContext,
     isBaseOrderVarBound,
-    isEnterMarketTimeoutVarBound,
-    unbindEnterMarketTimeoutVariable,
     supportsRiskReduction,
     reinvestDisabledReason,
     isReinvestVarBound,
@@ -165,10 +156,8 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
   const strategy = useBotFormSelector('strategy');
   const profitCurrency = useBotFormSelector('profitCurrency');
   const marginType = useBotFormSelector('marginType');
-  const limitTimeout = useBotFormSelector('limitTimeout');
   const riskReductionValue = useBotFormSelector('riskReductionValue');
   const reinvestValue = useBotFormSelector('reinvestValue');
-  const notUseLimitReposition = useBotFormSelector('notUseLimitReposition');
   const skipBalanceCheck = useBotFormSelector('skipBalanceCheck');
   const reduceToAvailableBalance = useBotFormSelector(
     'reduceToAvailableBalance'
@@ -194,7 +183,6 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
     marginType: marginType as string | undefined,
   });
   const baseOrderSize = useBotFormSelector('baseOrderSize');
-  const startOrderType = useBotFormSelector('startOrderType');
   const useReinvest = useBotFormSelector('useReinvest');
   const baseStep = useBotFormSelector('baseStep');
   const step = useBotFormSelector('step');
@@ -510,23 +498,6 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
               </div>
             </SettingsRow>
 
-            {!isComboBot && (
-              <SettingsRow
-                name="Base Order Type"
-                tooltip="Market orders will execute immediately, although you will not get the best price and will incur higher fees. Limit orders incurs less fees, but they may not execute immediately. We reposition limit orders every few seconds until they are filled."
-              >
-                <TerminalButtonStack
-                  value={startOrderType}
-                  onValueChange={(next) =>
-                    handleBaseOrderTypeChange(next as OrderTypeEnum)
-                  }
-                  options={[
-                    { value: OrderTypeEnum.market, label: 'Market' },
-                    { value: OrderTypeEnum.limit, label: 'Limit' },
-                  ]}
-                />
-              </SettingsRow>
-            )}
             {isComboBot && (
               <SettingsRow
                 name="Combo grid strategy"
@@ -665,117 +636,16 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
           </>
         )}
       </MasonryLayout>
+      {!isComboBot && <ExitExecutionRow stage="entry" isCombo={false} />}
       <SettingsLoadMore
         id="strategy-advanced"
         autoExpand={
-          (isLimitOrder &&
-            (!!notUseLimitReposition || isEnterMarketTimeoutEnabled)) ||
           !!skipBalanceCheck ||
           (!isComboBot && !!reduceToAvailableBalance) ||
           !!isRiskReductionEnabled ||
           !!useReinvest
         }
       >
-        {isLimitOrder && (
-          <SettingsRow
-            name="Disable Repositioning"
-            tooltip="By default we reposition limit orders closer to price to ensure they get filled ASAP. If you want to maintain the original price that triggered the entry, you can deactivate repositioning here."
-            trailing={
-              <Switch
-                id="disable-repositioning"
-                checked={!!notUseLimitReposition}
-                onCheckedChange={(checked) =>
-                  updateFormData('notUseLimitReposition', checked)
-                }
-              />
-            }
-          />
-        )}
-
-        {isLimitOrder && (
-          <SettingsRow
-            name="Enter Market Timeout"
-            tooltip="Activate a timer for limit orders. If the limit order has not been filled within that time, a market order will be executed instead."
-            trailing={
-              <Switch
-                id="enter-market-timeout-switch"
-                checked={isEnterMarketTimeoutEnabled}
-                onCheckedChange={(checked) => {
-                  if (!checked) {
-                    if (isEnterMarketTimeoutVarBound) {
-                      unbindEnterMarketTimeoutVariable();
-                    }
-                    updateFormData('useLimitTimeout', false);
-                    return;
-                  }
-
-                  const nextValue =
-                    enterMarketTimeoutDisplayValue !== '0' &&
-                    enterMarketTimeoutDisplayValue !== ''
-                      ? enterMarketTimeoutDisplayValue
-                      : '20';
-                  updateFormData('useLimitTimeout', true);
-                  updateFormData('limitTimeout', nextValue);
-                }}
-              />
-            }
-          >
-            {isEnterMarketTimeoutEnabled && (
-              <div className="space-y-sm">
-                <Label className="text-sm font-medium">Timeout (seconds)</Label>
-                <FieldVariableBinding
-                  path="limitTimeout"
-                  varType="float"
-                  tooltip="Bind enter market timeout"
-                  disabled={enterMarketTimeoutLocked}
-                  variant="inline"
-                  onVariableResolved={setEnterMarketTimeoutVariable}
-                  onVariableSelected={(variable) => {
-                    if (variable.value !== undefined) {
-                      applyGuardedValue(
-                        'limitTimeout',
-                        variable.value,
-                        ENTER_MARKET_TIMEOUT_GUARD,
-                        limitTimeout,
-                        {
-                          allowZero: false,
-                          ...(variable.name
-                            ? { variableName: variable.name }
-                            : {}),
-                        }
-                      );
-                    }
-                  }}
-                >
-                  <NumberInput
-                    value={enterMarketTimeoutDisplayValue}
-                    onChange={(value) => {
-                      const nextValue =
-                        typeof value === 'number'
-                          ? value.toString()
-                          : (value ?? '');
-                      updateFormData('limitTimeout', nextValue);
-                    }}
-                    min={1}
-                    max={600}
-                    className="w-28"
-                    showControls={false}
-                    disabled={
-                      isEnterMarketTimeoutVarBound || enterMarketTimeoutLocked
-                    }
-                  />
-                </FieldVariableBinding>
-                {errors['limitTimeout'] && (
-                  <SettingsAlert
-                    variant="error"
-                    title={errors['limitTimeout']}
-                  />
-                )}
-              </div>
-            )}
-          </SettingsRow>
-        )}
-
         <SettingsRow
           name="Skip Balance Check"
           tooltip="Skip balance validation before placing orders. Use with caution as this may lead to insufficient balance errors."

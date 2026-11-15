@@ -4,8 +4,8 @@
  *
  * Behavior mirrors the original inline block in TakeProfitSettings.tsx
  * (`isDynamicArClose && !isDealEdit` → SettingsRow with Add button,
- * description, IndicatorList, "When indicators trigger close by" Select
- * and the empty-section alert). All section-specific bits (filter,
+ * description, IndicatorList and the empty-section alert). How the close
+ * order executes lives in the shared execution row, not here. All section-specific bits (filter,
  * indicator creation, copy text, navigation id) are driven by props.
  *
  * The component owns its own indicator-selector instance and favorites,
@@ -14,14 +14,6 @@
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
@@ -33,7 +25,6 @@ import { useFavoriteIndicators } from '@/hooks/useFavoriteIndicators';
 import { useIndicatorSelector } from '@/hooks/useIndicatorSelector';
 import {
   CloseConditionEnum,
-  CloseDCATypeEnum,
   IndicatorAction,
   IndicatorEnum,
   IndicatorSection,
@@ -100,7 +91,6 @@ export const DynamicArIndicatorPanel: React.FC<
   isDealEdit = false,
 }) => {
   const indicators = useBotFormSelector('indicators');
-  const closeDealType = useBotFormSelector('closeDealType');
   const { updateFormData } = useBotFormActions();
 
   // Indicator-picker plumbing — pre-filter the type list to ATR/ADR.
@@ -307,19 +297,6 @@ export const DynamicArIndicatorPanel: React.FC<
   );
 
   // ─── Close-deal-type options (Limit / Market) ──────────────────
-  const closeDealTypeOptions = useMemo<
-    Array<{ value: CloseDCATypeEnum; label: string; description: string }>
-  >(
-    () => [
-      { value: CloseDCATypeEnum.closeByLimit, label: 'Limit', description: '' },
-      {
-        value: CloseDCATypeEnum.closeByMarket,
-        label: 'Market',
-        description: '',
-      },
-    ],
-    []
-  );
 
   if (isDealEdit) {
     return null;
@@ -360,40 +337,6 @@ export const DynamicArIndicatorPanel: React.FC<
           renderExtras={renderExtras}
           emptyState={emptyState}
         />
-
-        <div className="space-y-xs">
-          <Label
-            htmlFor={`close-deal-type-dynamic-${section}`}
-            className="text-sm"
-          >
-            When indicators trigger close by
-          </Label>
-          <Select
-            value={closeDealType ?? CloseDCATypeEnum.closeByLimit}
-            onValueChange={(value) =>
-              updateFormData('closeDealType', value as CloseDCATypeEnum)
-            }
-          >
-            <SelectTrigger
-              id={`close-deal-type-dynamic-${section}`}
-              className="w-full @[500px]:w-48"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {closeDealTypeOptions.map((option) => (
-                <SelectItem key={option.value} value={option.value}>
-                  <div className="flex flex-col">
-                    <span>{option.label}</span>
-                    <span className="text-xs text-muted-foreground/80">
-                      {option.description}
-                    </span>
-                  </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
         {closeIndicators.length === 0 ? (
           <SettingsAlert

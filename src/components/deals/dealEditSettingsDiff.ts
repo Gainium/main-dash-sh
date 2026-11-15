@@ -13,6 +13,13 @@ import type { BotFormData } from '@/types/bots/form';
 // suite at collection. That is why the key list below is restated rather than
 // imported.
 import type { DealSettingsInput } from '@/lib/api/GraphQLQueries-deal-queries';
+import { sanitizeExecution } from '@/types/orderExecution';
+
+const EXECUTION_DEAL_SETTING_KEYS = new Set<string>([
+  'dcaExecution',
+  'tpExecution',
+  'slExecution',
+]);
 
 /**
  * Keys main-app declares as `Int` on `{dca,combo}DealSettingsInputSet`, and so
@@ -103,6 +110,9 @@ export const mapFromDataToDealSettings = (
     'dealCloseConditionSL',
     'closeDealType',
     'closeOrderType',
+    'dcaExecution',
+    'tpExecution',
+    'slExecution',
     'futures',
     'coinm',
     'marginType',
@@ -198,6 +208,19 @@ export const mapFromDataToDealSettings = (
         ? originalState[k as keyof typeof originalState]
         : undefined;
     let newValue = newState[k as keyof typeof newState];
+    // Execution objects: compare by value (a fresh object never === the
+    // original) and ship them without Apollo's __typename, which an input
+    // type rejects.
+    if (EXECUTION_DEAL_SETTING_KEYS.has(k)) {
+      const next = sanitizeExecution(newValue);
+      const prev = sanitizeExecution(original);
+      if (JSON.stringify(next) === JSON.stringify(prev)) {
+        return acc;
+      }
+      //@ts-expect-error accumulator typing
+      acc[k] = reset ? prev : next;
+      return acc;
+    }
     if (
       newValue === original ||
       (`${newValue}` === 'undefined' && `${original}` === 'null') ||

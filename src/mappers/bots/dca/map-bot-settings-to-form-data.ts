@@ -1,3 +1,4 @@
+import { sanitizeExecution } from '@/types/orderExecution';
 import { toBaseFundingMode } from '@/lib/baseFunding/baseFundingApi';
 import type { BotFormData } from '@/types/bots/form';
 import { normalizeMultiTpTargets } from '@/utils/bots/dca/take-profit';
@@ -869,6 +870,10 @@ export const mapBotSettingsToFormData = (
       'closeOrderType',
       OrderTypeEnum.limit
     ),
+    entryExecution: sanitizeExecution(getValue('entryExecution', null)),
+    dcaExecution: sanitizeExecution(getValue('dcaExecution', null)),
+    tpExecution: sanitizeExecution(getValue('tpExecution', null)),
+    slExecution: sanitizeExecution(getValue('slExecution', null)),
     dynamicArLockValue: getBoolean('dynamicArLockValue', true),
     stopDealLogic,
     stopDealSlLogic,

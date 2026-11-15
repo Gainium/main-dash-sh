@@ -8,6 +8,7 @@ import type {
 } from 'public/static/charting_library/charting_library';
 import { type ReactElement } from 'react';
 import { ExchangeEnum } from './exchange.types';
+import type { OrderExecution } from './orderExecution';
 
 export const indicatorsLimit = 20;
 export { ExchangeEnum, TradeTypeEnum } from './exchange.types';
@@ -2277,6 +2278,14 @@ export interface DCABotSettings extends BaseSettings {
   botActualStart?: BotStartTypeEnum | undefined;
   useNoOverlapDeals?: boolean;
   closeOrderType?: OrderTypeEnum;
+  /** How the take profit executes. null = derived from the legacy fields. */
+  /** How the base order executes. null = derived from the legacy fields. */
+  entryExecution?: OrderExecution | null;
+  /** How DCA orders execute. null = derived from the legacy fields. */
+  dcaExecution?: OrderExecution | null;
+  tpExecution?: OrderExecution | null;
+  /** How the stop loss executes. null = derived from the legacy fields. */
+  slExecution?: OrderExecution | null;
   rrSlType?: RRSlTypeEnum;
   rrSlFixedValue?: string;
 }

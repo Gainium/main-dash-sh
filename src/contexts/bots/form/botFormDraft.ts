@@ -31,6 +31,11 @@ export const DRAFT_MAX_BYTES = 512 * 1024;
 export interface BotFormDraft {
   formData: BotFormData;
   savedAt: number;
+  /**
+   * The quick-setup preset that was selected. Restoring it is what stops the
+   * preset picker from auto-applying its default tier over the restored values.
+   */
+  selectedPreset?: string | null;
 }
 
 /**
@@ -55,12 +60,13 @@ const storage = (): Storage | null => {
 export const saveBotFormDraft = (
   key: string,
   formData: BotFormData,
-  now: number = Date.now()
+  now: number = Date.now(),
+  selectedPreset: string | null = null
 ): boolean => {
   const store = storage();
   if (!store) return false;
   try {
-    const payload = JSON.stringify({ formData, savedAt: now });
+    const payload = JSON.stringify({ formData, savedAt: now, selectedPreset });
     if (payload.length > DRAFT_MAX_BYTES) return false;
     store.setItem(key, payload);
     return true;
@@ -100,7 +106,12 @@ export const loadBotFormDraft = (
       clearBotFormDraft(key);
       return null;
     }
-    return { formData: parsed.formData as BotFormData, savedAt: parsed.savedAt };
+    return {
+      formData: parsed.formData as BotFormData,
+      savedAt: parsed.savedAt,
+      selectedPreset:
+        typeof parsed.selectedPreset === 'string' ? parsed.selectedPreset : null,
+    };
   } catch {
     clearBotFormDraft(key);
     return null;

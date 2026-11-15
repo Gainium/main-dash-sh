@@ -1,4 +1,5 @@
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
+import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { Slider } from '@/components/ui';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { Button } from '@/components/ui/button';
@@ -161,8 +162,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
   const useMultiSl = useBotFormSelector('useMultiSl');
   const trailingSl = useBotFormSelector('trailingSl');
   const baseSlOn = useBotFormSelector('baseSlOn');
-  const comboSlLimit = useBotFormSelector('comboSlLimit');
-  const useFixedSLPrices = useBotFormSelector('useFixedSLPrices');
+    const useFixedSLPrices = useBotFormSelector('useFixedSLPrices');
   const fixedSlPrice = useBotFormSelector('fixedSlPrice');
   const isShort = useMemo(() => strategy === StrategyEnum.short, [strategy]);
   // Stable context reads only: this sub-section must not re-render on every
@@ -1419,27 +1419,6 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
                 </div>
               </div>
             </div>
-            <div className="space-y-sm border-t border-muted pt-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-xs">
-                  <Label className="text-sm">Deal close type</Label>
-                  <Tooltip tooltip="Limit order rests the stop loss on the ladder; Market order executes it immediately at market when the target triggers.">
-                    <InfoIcon />
-                  </Tooltip>
-                </div>
-                <TerminalButtonStack
-                  value={comboSlLimit ? 'limit' : 'market'}
-                  onValueChange={(value) =>
-                    updateFormData('comboSlLimit', value === 'limit')
-                  }
-                  options={[
-                    { value: 'limit', label: 'Limit order' },
-                    { value: 'market', label: 'Market order' },
-                  ]}
-                  className="w-full sm:w-auto"
-                />
-              </div>
-            </div>
             {slErrorMessage ? (
               <div className="pt-2">
                 <SettingsAlert variant="error" title={slErrorMessage} />
@@ -1452,6 +1431,7 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
           <BotFieldExtensionPanel path="slPerc" />
         </SettingsRow>
       )}
+      <ExitExecutionRow stage="sl" isCombo={isComboBot} />
       {!isComboBot ? (
         <SettingsLoadMore
           id="stop-loss-advanced"
@@ -2308,6 +2288,7 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
               stopLossLocked={riskRewardActive}
             />
             {indicatorMoveSlRow}
+            <ExitExecutionRow stage="sl" isCombo={isComboBot} />
           </>
         );
       case CloseConditionEnum.dynamicAr:
@@ -2318,6 +2299,7 @@ export const StopLossSettings: React.FC<StopLossSettingsRootProps> = ({
               currentExchange={currentExchange}
             />
             {indicatorMoveSlRow}
+            <ExitExecutionRow stage="sl" isCombo={isComboBot} />
           </>
         );
       case CloseConditionEnum.webhook:
