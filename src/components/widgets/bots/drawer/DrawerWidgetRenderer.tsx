@@ -38,6 +38,12 @@ export interface DrawerWidget {
 
 export interface DrawerWidgetRendererProps {
   widgets: DrawerWidget[];
+  /**
+   * Stretch the widgets to the renderer's height instead of stacking them at
+   * their natural height. For a single widget that scrolls itself (the deals
+   * table), inside a `fill` drawer body.
+   */
+  fill?: boolean;
   botId?: string;
   bot?: DrawerBot;
   className?: string;
@@ -100,6 +106,7 @@ const WIDGET_COMPONENTS: Record<
 
 const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
   widgets,
+  fill = false,
   botId,
   bot,
   className = '',
@@ -118,7 +125,9 @@ const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
   }
 
   return (
-    <div className={`space-y-5 ${className}`}>
+    <div
+      className={`${fill ? 'flex h-full min-h-0 flex-col gap-5' : 'space-y-5'} ${className}`}
+    >
       {widgets.map((widget, index) => {
         const WidgetComponent = WIDGET_COMPONENTS[widget.type];
 
@@ -161,7 +170,7 @@ const DrawerWidgetRenderer: React.FC<DrawerWidgetRendererProps> = ({
           <AnimatedSection
             key={widgetId}
             delay={index * 0.1}
-            className="w-full"
+            className={fill ? 'flex w-full min-h-0 flex-1 flex-col' : 'w-full'}
           >
             <WidgetComponent {...widgetProps} />
           </AnimatedSection>

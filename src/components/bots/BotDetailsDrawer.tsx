@@ -457,6 +457,13 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
           : validTabs[0],
       [tabParam, validTabs]
     );
+    // The single-bot deals table fills the tab and scrolls itself. Hedge
+    // deals render through OpenOrdersWidget, which lays out at its own height.
+    const dealsFillHeight = activeTab === 'deals' && !isHedge;
+    // The read-only settings form scrolls inside its widget wrapper, so its
+    // sticky section nav needs that wrapper to be the bounded scroller. The
+    // hedge tab stacks a leg switch and several cards and keeps body scroll.
+    const settingsFillHeight = activeTab === 'settings' && !isHedge;
 
     // Tabs component will handle URL syncing via paramKey="tab"
     const handleTabChange = useCallback((_tab: string) => {
@@ -1673,6 +1680,8 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               <DetailDrawerBody
                 className="px-4 py-5 sm:px-6 sm:py-6"
                 fill={
+                  dealsFillHeight ||
+                  settingsFillHeight ||
                   !!extensionTabs.find((tab) => tab.key === activeTab)
                     ?.fillHeight
                 }
@@ -1687,7 +1696,15 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                 )}
                 <TabsContent
                   value="deals"
-                  className="mt-0 flex-1 overflow-hidden"
+                  className={cn(
+                    'mt-0 flex-1 overflow-hidden',
+                    // The table fills the body and scrolls itself, header and
+                    // pagination always on screen — like the bot list pages.
+                    // The body drops its mobile bottom-nav spacer in fill
+                    // mode, so the tab carries it instead.
+                    dealsFillHeight &&
+                      'flex min-h-0 flex-col data-[state=inactive]:hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+                  )}
                 >
                   <motion.div
                     key="deals-tab"
@@ -1695,7 +1712,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="h-full"
+                    className={
+                      dealsFillHeight ? 'flex min-h-0 flex-1 flex-col' : 'h-full'
+                    }
                   >
                     {/* Deals widget — hedge shows both legs' deals combined
                         via the dedicated hedge query; non-hedge uses the
@@ -1728,6 +1747,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       />
                     ) : (
                       <DrawerWidgetRenderer
+                        fill
                         botId={bot._id}
                         bot={bot}
                         privacyMode={privacyMode}
@@ -1943,14 +1963,24 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                   </motion.div>
                 </TabsContent>
 
-                <TabsContent value="settings" className="mt-0">
+                <TabsContent
+                  value="settings"
+                  className={cn(
+                    'mt-0',
+                    settingsFillHeight &&
+                      'flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+                  )}
+                >
                   <motion.div
                     key="settings-tab"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: -10 }}
                     transition={{ duration: 0.2 }}
-                    className="-mt-5 sm:-mt-6"
+                    className={cn(
+                      '-mt-5 sm:-mt-6',
+                      settingsFillHeight && 'flex min-h-0 flex-1 flex-col'
+                    )}
                   >
                     {/* Bot Settings — the ONE hedge tab with a sub-switch:
                         Hedge (shared TP/SL) / Long / Short, mirroring the new
@@ -2004,6 +2034,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       })()
                     ) : (
                       <DrawerWidgetRenderer
+                        fill
                         botId={bot._id}
                         bot={bot}
                         privacyMode={privacyMode}

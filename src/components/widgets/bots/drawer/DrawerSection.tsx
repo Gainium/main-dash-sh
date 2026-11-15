@@ -31,6 +31,13 @@ export interface DrawerSectionProps {
    * it names the widget in the full-screen view and the widget menu.
    */
   bare?: boolean;
+  /**
+   * With `bare`: the body fills the section's height (for a table that
+   * scrolls itself) and the wrapper draws no floating full-screen button —
+   * the caller puts one in its own toolbar (`useDrawerSectionFullscreen`),
+   * so no strip has to be reserved above the content for it.
+   */
+  fill?: boolean;
 }
 
 /**
@@ -53,7 +60,9 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
   maxSize: _maxSize = { w: 12, h: 12 },
   hasOptions = false,
   bare = false,
+  fill = false,
 }) => {
+  const ownsFullscreenControl = bare && fill;
   const wrapperProps = {
     metadata: {
       id: widgetId,
@@ -61,6 +70,7 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
       title: title || 'Section',
       header: false, // Remove header section for unified drawer appearance
       hasOptions,
+      ...(ownsFullscreenControl ? { fullscreenButton: false } : {}),
     },
     isEditable: false,
     isCollapsible: false, // Remove fold/unfold functionality for unified drawer appearance
@@ -90,7 +100,9 @@ export const DrawerSection: React.FC<DrawerSectionProps> = ({
 
   return (
     <WidgetWrapper {...wrapperProps}>
-      {bare ? (
+      {ownsFullscreenControl ? (
+        <div className="flex h-full min-h-0 flex-col">{children}</div>
+      ) : bare ? (
         // The wrapper overlays its full-screen control on the content at
         // `top-2 right-2` (8px inset + a 36px button). A section widget leaves
         // that corner free; a whole tab body does not — the deals table puts
