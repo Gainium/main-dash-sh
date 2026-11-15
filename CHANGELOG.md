@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.133.3] - 2026-11-15
+
+### Fixed
+
+- A deal opened from the bot drawer lists all of its orders, including the base order, on bots with a long order history
+
 ## [2.133.2] - 2026-11-15
 
 ### Changed
