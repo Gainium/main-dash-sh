@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.135.0] - 2026-11-16
+
+### Added
+
+- KAMA, ALMA and LSMA moving-average types for the Moving Averages and MA Ratio indicators
+- On-Balance Volume, Chaikin Money Flow and Choppiness Index indicators: bot conditions, chart studies and divergence oscillators (OBV, CMF)
+
+### Fixed
+
+- Divergences chart study draws every selected oscillator, not only RSI
+
 ## [2.134.0] - 2026-11-16
 
 ### Added
