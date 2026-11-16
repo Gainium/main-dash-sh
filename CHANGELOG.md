@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.134.0] - 2026-11-16
+
+### Added
+
+- DCA by indicators: each DCA level is a collapsible card with its own AND/OR indicator groups, using the same editor as deal start
+- Hide on chart toggle on every bot indicator; the same indicator used in several sections (e.g. deal start and a DCA level) is drawn once, and hiding it from any of them hides it
+
 ## [2.133.4] - 2026-11-15
 
 ### Fixed
