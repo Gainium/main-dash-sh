@@ -1556,6 +1556,9 @@ export enum IndicatorEnum {
   candle = 'CANDLE',
   ob = 'OB',
   sqz = 'SQZ',
+  obv = 'OBV',
+  cmf = 'CMF',
+  chop = 'CHOP',
 }
 
 export enum SessionRuleEnum {
@@ -1903,6 +1906,17 @@ export type SettingsIndicators = {
   sqzSignal?: SqzSignalEnum;
   /** Squeeze Momentum: the momentum required (default positive). */
   sqzMomentum?: SqzMomentumEnum;
+  /**
+   * On-Balance Volume: the moving average the OBV line is compared with
+   * (default sma; not vwma, price or mcginley).
+   */
+  obvMaType?: MAEnum;
+  /** On-Balance Volume: length of that average, 1..1000 (default 20). */
+  obvMaLength?: number;
+  /** Chaikin Money Flow: length, 1..1000 (default 20). */
+  cmfLength?: number;
+  /** Choppiness Index: length, 2..1000 (default 14). */
+  chopLength?: number;
   /**
    * Divergence: pivot bars left / right and the bars between two pivots.
    * Unset = the defaults 3 / 1 / 1 / 60, and nothing is stored.
@@ -4219,6 +4233,9 @@ export enum MAEnum {
   hma = 'hma',
   rma = 'rma',
   mcginley = 'mcginley',
+  kama = 'kama',
+  alma = 'alma',
+  lsma = 'lsma',
 }
 
 export enum TradingviewAnalysisSignalEnum {
@@ -4389,6 +4406,10 @@ export type CommonIndicatorSettings = {
   sqzKCMult?: number;
   sqzSignal?: SqzSignalEnum;
   sqzMomentum?: SqzMomentumEnum;
+  obvMaType?: MAEnum;
+  obvMaLength?: number;
+  cmfLength?: number;
+  chopLength?: number;
   divPivotLeft?: number;
   divPivotRight?: number;
   divRangeLower?: number;
@@ -4462,7 +4483,9 @@ type DivergenceOscillators =
   | IndicatorEnum.bbw
   | IndicatorEnum.vo
   | IndicatorEnum.bbpb
-  | IndicatorEnum.stoch;
+  | IndicatorEnum.stoch
+  | IndicatorEnum.obv
+  | IndicatorEnum.cmf;
 
 export enum ECDTriggerEnum {
   bearish = 'bearish',

@@ -1,6 +1,20 @@
 import { isSessionActiveDuring } from '@/utils/indicators/sessionWindow';
 import { mcginleyNext } from '@/utils/indicators/mcginley';
 import {
+  almaValue,
+  almaWeights,
+  kamaNext,
+  lsmaValue,
+} from '@/utils/indicators/movingAverages';
+import {
+  CHOPState,
+  CMFState,
+  OBVState,
+  resolveChopLength,
+  resolveCmfLength,
+  resolveObvSettings,
+} from '@/utils/indicators/volumeFlow';
+import {
   SessionLevelsState,
   sessionLevelValue,
 } from '@/utils/indicators/sessionLevels';
@@ -1104,6 +1118,9 @@ export const custom_indicators_getter = (r, callback) => {
       TVTA(r),
       RMA(r, cb),
       McGinley(r, cb),
+      KAMAStudy(r, cb),
+      ALMAStudy(r, cb),
+      LSMAStudy(r, cb),
       SMA(r, cb),
       BB(r, cb),
       Stoch(r),
@@ -1144,6 +1161,9 @@ export const custom_indicators_getter = (r, callback) => {
       CandleColour(r),
       OrderBlocks(r),
       SqueezeMomentum(r),
+      OBV(r),
+      CMF(r),
+      CHOP(r),
     ];
 
     // Filter out any undefined/null indicators and validate structure
@@ -5686,6 +5706,17 @@ export const XO = (r) => ({
   },
 });
 
+// The last `size` values of a series, oldest first (NaN before the chart's
+// first bar).
+const seriesWindow = (series, size) => {
+  const out = new Array(size);
+  for (let k = 0; k < size; k++) {
+    const v = series.get(size - 1 - k);
+    out[k] = typeof v === 'number' ? v : NaN;
+  }
+  return out;
+};
+
 const getMarValue = (type1, r, closeVar, type1length, context) => {
   let result1 = r.Std.na();
   switch (type1) {
@@ -5738,6 +5769,24 @@ const getMarValue = (type1, r, closeVar, type1length, context) => {
       mg.set(result1);
       break;
     }
+    case 'KAMA': {
+      const kama = context.new_var();
+      result1 = kamaNext(
+        kama.get(1),
+        seriesWindow(closeVar, type1length + 1)
+      );
+      kama.set(result1);
+      break;
+    }
+    case 'ALMA':
+      result1 = almaValue(
+        seriesWindow(closeVar, type1length),
+        almaWeights(type1length)
+      );
+      break;
+    case 'LSMA':
+      result1 = lsmaValue(seriesWindow(closeVar, type1length));
+      break;
     case 'price':
       result1 = closeVar.get();
       break;
@@ -5884,6 +5933,9 @@ export const MAR = withSmoothing((r) => ({
           'HMA',
           'RMA',
           'MCGINLEY',
+          'KAMA',
+          'ALMA',
+          'LSMA',
         ],
       },
       {
@@ -5909,6 +5961,9 @@ export const MAR = withSmoothing((r) => ({
           'HMA',
           'RMA',
           'MCGINLEY',
+          'KAMA',
+          'ALMA',
+          'LSMA',
           'price',
         ],
       },
@@ -5982,7 +6037,9 @@ export const MAR = withSmoothing((r) => ({
             : type2length * (type2 === 'TEMA' ? 3 : type2 === 'DEMA' ? 2 : 1)
         ) +
         percentileLookback +
-        trendLookback;
+        trendLookback +
+        // KAMA's window is one bar longer than its length
+        1;
       this._context.setMinimumAdditionalDepth(bars);
       const close = r.Std.close(this._context);
       const closeVar = this._context.new_var(close);
@@ -6288,6 +6345,50 @@ const divTitle = (value) => {
   return { title: `${value}`, text: `${value}` };
 };
 
+// Divergences' On-Balance Volume: the running signed-volume total (0 on the
+// first bar the chart has).
+const divObvLine = (r, context) => {
+  const close = r.Std.close(context);
+  const closeVar = context.new_var(close);
+  const prevClose = closeVar.get(1);
+  const volume = r.Std.volume(context);
+  const obvVar = context.new_var();
+  const prev = obvVar.get(1);
+  let obv = isFinite(prev) ? prev : 0;
+  if (isFinite(close) && isFinite(prevClose)) {
+    const v = isFinite(volume) ? volume : 0;
+    if (close > prevClose) {
+      obv += v;
+    } else if (close < prevClose) {
+      obv -= v;
+    }
+  }
+  obvVar.set(obv);
+  return obv;
+};
+
+// Divergences' Chaikin Money Flow over `length` bars.
+const divCmfLine = (r, context, length) => {
+  const high = r.Std.high(context);
+  const low = r.Std.low(context);
+  const close = r.Std.close(context);
+  const volume = r.Std.volume(context);
+  const range = high - low;
+  const multiplier = range === 0 ? 0 : (close - low - (high - close)) / range;
+  const mfvVar = context.new_var(multiplier * volume);
+  const volumeVar = context.new_var(volume);
+  let sumMfv = 0;
+  let sumVolume = 0;
+  for (let k = length - 1; k >= 0; k--) {
+    sumMfv += mfvVar.get(k);
+    sumVolume += volumeVar.get(k);
+  }
+  if (!isFinite(sumMfv) || !isFinite(sumVolume)) {
+    return r.Std.na();
+  }
+  return sumVolume === 0 ? 0 : sumMfv / sumVolume;
+};
+
 export const DIV = (r) => ({
   name: 'Divergences',
   metainfo: {
@@ -6321,6 +6422,8 @@ export const DIV = (r) => ({
         mom: true,
         stoch: true,
         /* bbpb: true, */
+        obv: false,
+        cmf: false,
       },
     },
     plots: Object.entries(divStyles).map(([k, v]) => ({
@@ -6520,6 +6623,18 @@ export const DIV = (r) => ({
         defval: true,
         type: 'bool',
       }, */
+      {
+        id: 'obv',
+        name: 'On-Balance Volume (OBV)',
+        defval: false,
+        type: 'bool',
+      },
+      {
+        id: 'cmf',
+        name: 'Chaikin Money Flow (CMF)',
+        defval: false,
+        type: 'bool',
+      },
     ],
   },
   constructor: function () {
@@ -6881,6 +6996,8 @@ export const DIV = (r) => ({
       const useMom = this._input(16);
       const useStoch = this._input(17);
       /*  const useBbpb = this._input(20) */
+      const useObv = this._input(18);
+      const useCmf = this._input(19);
       const mfi = useMfi ? mfiCalc(r, this._context, 14) : null;
       /*  const adx = useAdx ? adxCalc(r, this._context, 14, 14)[0] : null
       const bbw = useBbw ? bbwCalc(r, this._context, 'SMA', 20, 20, 2) : null */
@@ -6908,6 +7025,14 @@ export const DIV = (r) => ({
       /* const adxVar = this._context.new_var(adx)
       const bbwVar = this._context.new_var(bbw) */
       const stochVar = this._context.new_var(stoch);
+      // the OBV line (pivots are compared with each other, so where the sum
+      // started does not matter) and CMF 20, as the bot's divergence reads them
+      const obvDivVar = this._context.new_var(
+        useObv ? divObvLine(r, this._context) : null
+      );
+      const cmfDivVar = this._context.new_var(
+        useCmf ? divCmfLine(r, this._context, 20) : null
+      );
       const macdVar = this._context.new_var(macd);
       const rsiVar = this._context.new_var(rsi);
       /* const voVar = this._context.new_var(vo) */
@@ -7246,6 +7371,70 @@ export const DIV = (r) => ({
       _hstochPivotBearVar.get(size);
       const _hstochPivotBullVar = this._context.new_var();
       _hstochPivotBullVar.get(size);
+      const obvDivValueWhenBearVar = this._context.new_var();
+      obvDivValueWhenBearVar.get(size);
+      const obvDivValueWhenPriceBearVar = this._context.new_var();
+      obvDivValueWhenPriceBearVar.get(size);
+      const obvDivBarsSinceBearVar = this._context.new_var();
+      obvDivBarsSinceBearVar.get(size);
+      const obvDivValueWhenBullVar = this._context.new_var();
+      obvDivValueWhenBullVar.get(size);
+      const obvDivValueWhenPriceBullVar = this._context.new_var();
+      obvDivValueWhenPriceBullVar.get(size);
+      const obvDivBarsSinceBullVar = this._context.new_var();
+      obvDivBarsSinceBullVar.get(size);
+      const _hobvDivValueWhenBearVar = this._context.new_var();
+      _hobvDivValueWhenBearVar.get(size);
+      const _hobvDivValueWhenPriceBearVar = this._context.new_var();
+      _hobvDivValueWhenPriceBearVar.get(size);
+      const _hobvDivBarsSinceBearVar = this._context.new_var();
+      _hobvDivBarsSinceBearVar.get(size);
+      const _hobvDivValueWhenBullVar = this._context.new_var();
+      _hobvDivValueWhenBullVar.get(size);
+      const _hobvDivValueWhenPriceBullVar = this._context.new_var();
+      _hobvDivValueWhenPriceBullVar.get(size);
+      const _hobvDivBarsSinceBullVar = this._context.new_var();
+      _hobvDivBarsSinceBullVar.get(size);
+      const obvDivPivotBearVar = this._context.new_var();
+      obvDivPivotBearVar.get(size);
+      const obvDivPivotBullVar = this._context.new_var();
+      obvDivPivotBullVar.get(size);
+      const _hobvDivPivotBearVar = this._context.new_var();
+      _hobvDivPivotBearVar.get(size);
+      const _hobvDivPivotBullVar = this._context.new_var();
+      _hobvDivPivotBullVar.get(size);
+      const cmfDivValueWhenBearVar = this._context.new_var();
+      cmfDivValueWhenBearVar.get(size);
+      const cmfDivValueWhenPriceBearVar = this._context.new_var();
+      cmfDivValueWhenPriceBearVar.get(size);
+      const cmfDivBarsSinceBearVar = this._context.new_var();
+      cmfDivBarsSinceBearVar.get(size);
+      const cmfDivValueWhenBullVar = this._context.new_var();
+      cmfDivValueWhenBullVar.get(size);
+      const cmfDivValueWhenPriceBullVar = this._context.new_var();
+      cmfDivValueWhenPriceBullVar.get(size);
+      const cmfDivBarsSinceBullVar = this._context.new_var();
+      cmfDivBarsSinceBullVar.get(size);
+      const _hcmfDivValueWhenBearVar = this._context.new_var();
+      _hcmfDivValueWhenBearVar.get(size);
+      const _hcmfDivValueWhenPriceBearVar = this._context.new_var();
+      _hcmfDivValueWhenPriceBearVar.get(size);
+      const _hcmfDivBarsSinceBearVar = this._context.new_var();
+      _hcmfDivBarsSinceBearVar.get(size);
+      const _hcmfDivValueWhenBullVar = this._context.new_var();
+      _hcmfDivValueWhenBullVar.get(size);
+      const _hcmfDivValueWhenPriceBullVar = this._context.new_var();
+      _hcmfDivValueWhenPriceBullVar.get(size);
+      const _hcmfDivBarsSinceBullVar = this._context.new_var();
+      _hcmfDivBarsSinceBullVar.get(size);
+      const cmfDivPivotBearVar = this._context.new_var();
+      cmfDivPivotBearVar.get(size);
+      const cmfDivPivotBullVar = this._context.new_var();
+      cmfDivPivotBullVar.get(size);
+      const _hcmfDivPivotBearVar = this._context.new_var();
+      _hcmfDivPivotBearVar.get(size);
+      const _hcmfDivPivotBullVar = this._context.new_var();
+      _hcmfDivPivotBullVar.get(size);
       /*  const adxPivotBearVar = this._context.new_var()
       adxPivotBearVar.get(size)
       const adxPivotBullVar = this._context.new_var()
@@ -7367,6 +7556,42 @@ export const DIV = (r) => ({
           stochValueWhenPriceBearVar,
           stochBarsSinceBearVar,
           stochPivotBearVar
+        )
+      ) {
+        negdivergence += 1;
+      }
+      if (
+        useObv &&
+        this.bearCond(
+          obvDivVar,
+          plotBear,
+          highVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          obvDivValueWhenBearVar,
+          obvDivValueWhenPriceBearVar,
+          obvDivBarsSinceBearVar,
+          obvDivPivotBearVar
+        )
+      ) {
+        negdivergence += 1;
+      }
+      if (
+        useCmf &&
+        this.bearCond(
+          cmfDivVar,
+          plotBear,
+          highVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          cmfDivValueWhenBearVar,
+          cmfDivValueWhenPriceBearVar,
+          cmfDivBarsSinceBearVar,
+          cmfDivPivotBearVar
         )
       ) {
         negdivergence += 1;
@@ -7606,6 +7831,42 @@ export const DIV = (r) => ({
       ) {
         posdivergence += 1;
       }
+      if (
+        useObv &&
+        this.bullCond(
+          obvDivVar,
+          plotBull,
+          lowVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          obvDivValueWhenBullVar,
+          obvDivValueWhenPriceBullVar,
+          obvDivBarsSinceBullVar,
+          obvDivPivotBullVar
+        )
+      ) {
+        posdivergence += 1;
+      }
+      if (
+        useCmf &&
+        this.bullCond(
+          cmfDivVar,
+          plotBull,
+          lowVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          cmfDivValueWhenBullVar,
+          cmfDivValueWhenPriceBullVar,
+          cmfDivBarsSinceBullVar,
+          cmfDivPivotBullVar
+        )
+      ) {
+        posdivergence += 1;
+      }
       /* if (
         useAdx &&
         this.bullCond(
@@ -7841,6 +8102,42 @@ export const DIV = (r) => ({
       ) {
         negdivergencehidden += 1;
       }
+      if (
+        useObv &&
+        this.hiddenBearCond(
+          obvDivVar,
+          plotBearHidden,
+          highVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          _hobvDivValueWhenBearVar,
+          _hobvDivValueWhenPriceBearVar,
+          _hobvDivBarsSinceBearVar,
+          _hobvDivPivotBearVar
+        )
+      ) {
+        negdivergencehidden += 1;
+      }
+      if (
+        useCmf &&
+        this.hiddenBearCond(
+          cmfDivVar,
+          plotBearHidden,
+          highVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          _hcmfDivValueWhenBearVar,
+          _hcmfDivValueWhenPriceBearVar,
+          _hcmfDivBarsSinceBearVar,
+          _hcmfDivPivotBearVar
+        )
+      ) {
+        negdivergencehidden += 1;
+      }
       /* if (
         useAdx &&
         this.hiddenBearCond(
@@ -8072,6 +8369,42 @@ export const DIV = (r) => ({
           _hstochValueWhenPriceBullVar,
           _hstochBarsSinceBullVar,
           _hstochPivotBullVar
+        )
+      ) {
+        posdivergencehidden += 1;
+      }
+      if (
+        useObv &&
+        this.hiddenBullCond(
+          obvDivVar,
+          plotBullHidden,
+          lowVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          _hobvDivValueWhenBullVar,
+          _hobvDivValueWhenPriceBullVar,
+          _hobvDivBarsSinceBullVar,
+          _hobvDivPivotBullVar
+        )
+      ) {
+        posdivergencehidden += 1;
+      }
+      if (
+        useCmf &&
+        this.hiddenBullCond(
+          cmfDivVar,
+          plotBullHidden,
+          lowVar,
+          pivotLeft,
+          pivotRight,
+          rangeLower,
+          rangeUpper,
+          _hcmfDivValueWhenBullVar,
+          _hcmfDivValueWhenPriceBullVar,
+          _hcmfDivBarsSinceBullVar,
+          _hcmfDivPivotBullVar
         )
       ) {
         posdivergencehidden += 1;
@@ -13339,6 +13672,356 @@ export const SqueezeMomentum = (r) => ({
       const squeezeColor =
         value.squeeze === 1 ? 0 : value.squeeze === -1 ? 1 : 2;
       return [m, momentumColor, 0, squeezeColor];
+    };
+  },
+});
+
+// KAMA, ALMA and LSMA lines on the candles, the moving averages the bot runs
+// (`kamaNext`, `almaValue`, `lsmaValue` copy @gainium/indicators). KAMA
+// starts from the close and adapts its speed to how cleanly price moves;
+// ALMA is a Gaussian-weighted window (offset 0.85, sigma 6); LSMA the end of
+// the least-squares line through the window.
+const adaptiveMaStudy = (r, callback, { name, title, short, color, kind }) => ({
+  name,
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: {
+          linestyle: 0,
+          linewidth: 2,
+          plottype: 0,
+          trackPrice: !1,
+          transparency: 0,
+          visible: !0,
+          color,
+        },
+      },
+      inputs: { in_0: 20, id: '' },
+    },
+    plots: [{ id: 'plot_0', type: 'line' }],
+    styles: {
+      plot_0: { title, histogramBase: 0, joinPoints: !1 },
+    },
+    description: name,
+    shortDescription: short,
+    is_price_study: !0,
+    linkedToSeries: true,
+    inputs: [
+      { id: 'in_0', name: 'Length', defval: 20, type: 'integer', min: 1, max: 2e3 },
+      { id: 'id', name: 'ID', defval: '', type: 'text' },
+    ],
+    id: `${name}@tv-basicstudies-1`,
+    scriptIdPart: '',
+    name,
+    format: { type: 'inherit' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = this._input(0);
+      const id = this._input(1);
+      this._context.setMinimumAdditionalDepth(length + 1);
+      const closeVar = this._context.new_var(r.Std.close(this._context));
+      let value;
+      if (kind === 'kama') {
+        const kama = this._context.new_var();
+        value = kamaNext(kama.get(1), seriesWindow(closeVar, length + 1));
+        kama.set(value);
+      } else if (kind === 'alma') {
+        if (this.almaLength !== length) {
+          this.almaLength = length;
+          this.almaWeights = almaWeights(length);
+        }
+        value = almaValue(seriesWindow(closeVar, length), this.almaWeights);
+      } else {
+        value = lsmaValue(seriesWindow(closeVar, length));
+      }
+      if (!isFinite(value)) {
+        value = r.Std.na();
+      }
+      if (callback) {
+        callback(value, id);
+      }
+      return [value];
+    };
+  },
+});
+
+export const KAMAStudy = (r, callback) =>
+  adaptiveMaStudy(r, callback, {
+    name: 'KAMA (Custom)',
+    title: 'KAMA',
+    short: 'KAMA',
+    color: '#AB47BC',
+    kind: 'kama',
+  });
+
+export const ALMAStudy = (r, callback) =>
+  adaptiveMaStudy(r, callback, {
+    name: 'ALMA (Custom)',
+    title: 'ALMA',
+    short: 'ALMA',
+    color: '#26A69A',
+    kind: 'alma',
+  });
+
+export const LSMAStudy = (r, callback) =>
+  adaptiveMaStudy(r, callback, {
+    name: 'LSMA (Custom)',
+    title: 'LSMA',
+    short: 'LSMA',
+    color: '#FF7043',
+    kind: 'lsma',
+  });
+
+const paneLineStyle = (color, linewidth = 1) => ({
+  linestyle: 0,
+  linewidth,
+  plottype: 0,
+  trackPrice: !1,
+  transparency: 0,
+  visible: !0,
+  color,
+});
+
+const paneBand = (value, visible = !0) => ({
+  color: '#787B86',
+  linestyle: 2,
+  linewidth: 1,
+  visible,
+  value,
+});
+
+// On-Balance Volume with the average the condition compares it with. OBV's
+// level depends on the first candle the chart has; only where it sits
+// against its average matters. The calculation is `OBVState`, a copy of the
+// one the bot runs, fed closed candles.
+export const OBV = (r) => ({
+  name: 'On-Balance Volume (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: {
+        plot_0: paneLineStyle('#2962FF', 2),
+        plot_1: paneLineStyle('#FF9800'),
+      },
+      inputs: { maType: 'SMA', maLength: 20 },
+    },
+    plots: [
+      { id: 'plot_0', type: 'line' },
+      { id: 'plot_1', type: 'line' },
+    ],
+    styles: {
+      plot_0: { title: 'OBV', histogramBase: 0, joinPoints: !1 },
+      plot_1: { title: 'Average', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'On-Balance Volume (Custom)',
+    shortDescription: 'OBV',
+    is_price_study: !1,
+    inputs: [
+      {
+        id: 'maType',
+        name: 'Average',
+        defval: 'SMA',
+        type: 'text',
+        options: [
+          'SMA',
+          'EMA',
+          'WMA',
+          'DEMA',
+          'TEMA',
+          'HMA',
+          'RMA',
+          'KAMA',
+          'ALMA',
+          'LSMA',
+        ],
+      },
+      { id: 'maLength', name: 'Average length', defval: 20, type: 'integer', min: 1, max: 1e3 },
+    ],
+    id: 'On-Balance Volume (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'On-Balance Volume (Custom)',
+    format: { type: 'volume' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const settings = resolveObvSettings(this._input(0), this._input(1));
+      if (!settings) {
+        return [r.Std.na(), r.Std.na()];
+      }
+      this._context.setMinimumAdditionalDepth(3 * settings.maLength + 50);
+      const symbol = this._context.symbol;
+      const { value } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          close: r.Std.close(this._context),
+          volume: r.Std.volume(this._context),
+        },
+        () => new OBVState(settings.maType, settings.maLength),
+        (state, c) => state.next(c.close, c.volume)
+      );
+      return value ? [value.obv, value.ma] : [r.Std.na(), r.Std.na()];
+    };
+  },
+});
+
+// Chaikin Money Flow, −1…+1, with its zero line; the condition's level
+// moves the two limit bands. The calculation is `CMFState`, a copy of the
+// one the bot runs, fed closed candles.
+export const CMF = (r) => ({
+  name: 'Chaikin Money Flow (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: { plot_0: paneLineStyle('#43A047', 2) },
+      bands: [paneBand(0.05, !1), paneBand(-0.05, !1), paneBand(0)],
+      filledAreasStyle: {
+        fill_0: { color: '#43A047', transparency: 90, visible: !1 },
+      },
+      inputs: { in_0: 20 },
+    },
+    plots: [{ id: 'plot_0', type: 'line' }],
+    styles: {
+      plot_0: { title: 'CMF', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'Chaikin Money Flow (Custom)',
+    shortDescription: 'CMF',
+    is_price_study: !1,
+    bands: [
+      { id: 'hline_0', name: 'UpperLimit' },
+      { id: 'hline_1', name: 'LowerLimit' },
+      { id: 'hline_2', name: 'Zero' },
+    ],
+    filledAreas: [
+      {
+        id: 'fill_0',
+        objAId: 'hline_0',
+        objBId: 'hline_1',
+        type: 'hline_hline',
+        title: 'Hlines Background',
+      },
+    ],
+    inputs: [
+      { id: 'in_0', name: 'Length', defval: 20, type: 'integer', min: 1, max: 1e3 },
+    ],
+    id: 'Chaikin Money Flow (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Chaikin Money Flow (Custom)',
+    format: { precision: 4, type: 'price' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = resolveCmfLength(this._input(0));
+      if (!length) {
+        return [r.Std.na()];
+      }
+      this._context.setMinimumAdditionalDepth(length + 50);
+      const symbol = this._context.symbol;
+      const { value } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+          volume: r.Std.volume(this._context),
+        },
+        () => new CMFState(length),
+        (state, c) => state.next(c.high, c.low, c.close, c.volume)
+      );
+      return [value === null || value === undefined ? r.Std.na() : value];
+    };
+  },
+});
+
+// Choppiness Index, 0…100, with the conventional 61.8 (choppy) and 38.2
+// (trending) bands, which the condition's level moves. The calculation is
+// `CHOPState`, a copy of the one the bot runs, fed closed candles.
+export const CHOP = (r) => ({
+  name: 'Choppiness Index (Custom)',
+  metainfo: {
+    _metainfoVersion: 53,
+    isTVScript: !1,
+    isTVScriptStub: !1,
+    is_hidden_study: !1,
+    defaults: {
+      styles: { plot_0: paneLineStyle('#2962FF', 2) },
+      bands: [paneBand(61.8), paneBand(38.2)],
+      filledAreasStyle: {
+        fill_0: { color: '#2962FF', transparency: 90, visible: !0 },
+      },
+      inputs: { in_0: 14 },
+    },
+    plots: [{ id: 'plot_0', type: 'line' }],
+    styles: {
+      plot_0: { title: 'CHOP', histogramBase: 0, joinPoints: !1 },
+    },
+    description: 'Choppiness Index (Custom)',
+    shortDescription: 'CHOP',
+    is_price_study: !1,
+    bands: [
+      { id: 'hline_0', name: 'UpperLimit' },
+      { id: 'hline_1', name: 'LowerLimit' },
+    ],
+    filledAreas: [
+      {
+        id: 'fill_0',
+        objAId: 'hline_0',
+        objBId: 'hline_1',
+        type: 'hline_hline',
+        title: 'Hlines Background',
+      },
+    ],
+    inputs: [
+      { id: 'in_0', name: 'Length', defval: 14, type: 'integer', min: 2, max: 1e3 },
+    ],
+    id: 'Choppiness Index (Custom)@tv-basicstudies-1',
+    scriptIdPart: '',
+    name: 'Choppiness Index (Custom)',
+    format: { precision: 2, type: 'price' },
+  },
+  constructor: function () {
+    this.main = function (e, t) {
+      this._context = e;
+      this._input = t;
+      const length = resolveChopLength(this._input(0));
+      if (!length) {
+        return [r.Std.na()];
+      }
+      this._context.setMinimumAdditionalDepth(length + 50);
+      const symbol = this._context.symbol;
+      const { value } = closedCandleFeed(
+        this,
+        symbol,
+        {
+          index: symbol.index,
+          high: r.Std.high(this._context),
+          low: r.Std.low(this._context),
+          close: r.Std.close(this._context),
+        },
+        () => new CHOPState(length),
+        (state, c) => state.next(c.high, c.low, c.close)
+      );
+      return [value === null || value === undefined ? r.Std.na() : value];
     };
   },
 });

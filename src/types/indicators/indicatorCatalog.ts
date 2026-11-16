@@ -242,13 +242,68 @@ const summarizeSmoothingCompare = (params: SettingsIndicators): string | null =>
         ?.label ?? null)
     : null;
 
-// The averages the Moving Average and MA Ratio lines can be. McGinley Dynamic
-// is a line of its own, not a basis for the Bollinger family, whose engines
-// would compute it as an EMA.
+// The averages the Moving Average and MA Ratio lines can be. McGinley Dynamic,
+// KAMA, ALMA and LSMA are lines of their own, not a basis for the Bollinger
+// family, Keltner, MACD or smoothing, whose engines do not build them.
+const ADAPTIVE_MA_OPTIONS = [
+  { value: MAEnum.kama, label: 'KAMA' },
+  { value: MAEnum.alma, label: 'ALMA' },
+  { value: MAEnum.lsma, label: 'LSMA' },
+];
+
 const MA_LINE_OPTIONS = [
   ...MA_TYPE_OPTIONS,
   { value: MAEnum.mcginley, label: 'McGinley Dynamic' },
+  ...ADAPTIVE_MA_OPTIONS,
 ];
+
+// The averages On-Balance Volume can be compared with: every single-series
+// average (`OBV_MA_TYPES` in @gainium/indicators) — not VWMA, which weighs
+// by the series' own volume, and not McGinley Dynamic, which needs a
+// positive series (OBV crosses zero).
+const OBV_MA_OPTIONS = [
+  ...MA_TYPE_OPTIONS.filter((option) => option.value !== MAEnum.vwma),
+  ...ADAPTIVE_MA_OPTIONS,
+];
+
+// OBV's condition reads the line against its average, never a value.
+const OBV_CONDITION_OPTIONS = [
+  {
+    value: IndicatorStartConditionEnum.cd,
+    label: 'Crossing down through its average',
+  },
+  {
+    value: IndicatorStartConditionEnum.cu,
+    label: 'Crossing up through its average',
+  },
+  { value: IndicatorStartConditionEnum.gt, label: 'Above its average' },
+  { value: IndicatorStartConditionEnum.lt, label: 'Below its average' },
+];
+
+// Card summary for OBV: "OBV crosses above its SMA 20".
+const OBV_CONDITION_PHRASES: Partial<Record<string, string>> = {
+  [IndicatorStartConditionEnum.cu]: 'crosses above',
+  [IndicatorStartConditionEnum.cd]: 'crosses below',
+  [IndicatorStartConditionEnum.gt]: 'is above',
+  [IndicatorStartConditionEnum.lt]: 'is below',
+};
+
+export const summarizeObvCondition = (
+  params: SettingsIndicators
+): string | null => {
+  const phrase =
+    OBV_CONDITION_PHRASES[
+      String(params.indicatorCondition ?? IndicatorStartConditionEnum.cu)
+    ];
+  if (!phrase) {
+    return null;
+  }
+  const type = String(params.obvMaType || MAEnum.sma).toLowerCase();
+  const average =
+    OBV_MA_OPTIONS.find((option) => option.value === type)?.label ??
+    type.toUpperCase();
+  return `OBV ${phrase} its ${average} ${params.obvMaLength ?? 20}`;
+};
 
 const MA_REFERENCE_OPTIONS = [
   { value: MAEnum.price, label: 'Current price' },
@@ -650,7 +705,15 @@ const DIV_OSCILLATOR_OPTIONS = [
   { value: IndicatorEnum.stoch, label: 'Stochastic Oscillator (Stoch)' },
   { value: IndicatorEnum.uo, label: 'Ultimate Oscillator' },
   { value: IndicatorEnum.wr, label: 'Williams Percent Range (Williams %R)' },
+  { value: IndicatorEnum.obv, label: 'On-Balance Volume (OBV)' },
+  { value: IndicatorEnum.cmf, label: 'Chaikin Money Flow (CMF)' },
 ];
+
+// A new Divergence starts with the oscillators it always had; OBV and CMF are
+// added by choice.
+const DIV_DEFAULT_OSCILLATORS = DIV_OSCILLATOR_OPTIONS.map(
+  (option) => option.value as IndicatorEnum
+).filter((value) => value !== IndicatorEnum.obv && value !== IndicatorEnum.cmf);
 
 const XO_OSCILLATOR_OPTIONS = [
   { value: IndicatorEnum.rsi, label: 'Relative Strength Index (RSI)' },
@@ -799,6 +862,9 @@ export const INDICATOR_DOCUMENTATION_URLS = {
   [IndicatorEnum.candle]: '/help/candle-colour',
   [IndicatorEnum.ob]: '/help/order-blocks',
   [IndicatorEnum.sqz]: '/help/squeeze-momentum',
+  [IndicatorEnum.obv]: '/help/on-balance-volume',
+  [IndicatorEnum.cmf]: '/help/chaikin-money-flow',
+  [IndicatorEnum.chop]: '/help/choppiness-index',
 } satisfies Partial<Record<IndicatorEnum, string>>;
 
 export const MARKET_STRUCTURE_VALUE_GROUPS = {
@@ -3090,7 +3156,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
         label: 'Min number of divergences',
         defaultValue: 2,
         min: 1,
-        // one divergence per oscillator, and there are nine to choose from
+        // one divergence per oscillator
         max: DIV_OSCILLATOR_OPTIONS.length,
         step: 1,
         allowVariables: true,
@@ -3104,9 +3170,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeSelectField({
         key: 'divOscillators',
         label: 'Oscillators',
-        defaultValue: DIV_OSCILLATOR_OPTIONS.map(
-          (option) => option.value as IndicatorEnum
-        ),
+        defaultValue: DIV_DEFAULT_OSCILLATORS,
         options: DIV_OSCILLATOR_OPTIONS,
       }),
       makeIntervalField({
@@ -4111,6 +4175,142 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
           get: (params) => params.sqzMomentum ?? SqzMomentumEnum.positive,
           set: sqzMomentumParams,
         },
+      }),
+      keepConditionBarsField,
+    ],
+  },
+
+  [IndicatorEnum.obv]: {
+    type: IndicatorEnum.obv,
+    label: 'On-Balance Volume (OBV)',
+    shortLabel: 'OBV',
+    category: IndicatorCategories.Volume,
+    description:
+      'Running total of volume, added on up closes and subtracted on down closes, compared with its own moving average.',
+    supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
+    fields: [
+      makeSelectField({
+        key: 'obvMaType',
+        label: 'Average',
+        defaultValue: MAEnum.sma,
+        options: OBV_MA_OPTIONS,
+        tooltip:
+          'The moving average of the OBV line the condition compares it with. OBV has no level of its own: its value depends on the first candle counted, so it is only ever compared with its average.',
+        // Folded into the Condition item ("OBV crosses above its SMA 20").
+        summary: () => null,
+      }),
+      makeNumberField({
+        key: 'obvMaLength',
+        label: 'Average length',
+        defaultValue: 20,
+        min: 1,
+        max: 1000,
+        step: 1,
+        allowVariables: true,
+        summary: () => null,
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cu,
+        options: OBV_CONDITION_OPTIONS,
+        tooltip:
+          'Crossing up / down: OBV moves from below its average to above it, or the reverse, on the closed candle. Above / below: OBV is on that side of its average.',
+        summary: summarizeObvCondition,
+      }),
+      keepConditionBarsField,
+    ],
+  },
+  [IndicatorEnum.cmf]: {
+    type: IndicatorEnum.cmf,
+    label: 'Chaikin Money Flow (CMF)',
+    shortLabel: 'CMF',
+    category: IndicatorCategories.Volume,
+    description:
+      'Volume-weighted measure of where candles close within their range, from −1 (selling pressure) to +1 (buying pressure).',
+    supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
+    fields: [
+      makeNumberField({
+        key: 'cmfLength',
+        label: 'Length',
+        defaultValue: 20,
+        min: 1,
+        max: 1000,
+        step: 1,
+        allowVariables: true,
+        tooltip: 'Candles whose money flow and volume are summed.',
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cu,
+        options: INDICATOR_CONDITION_OPTIONS,
+      }),
+      makeNumberField({
+        key: 'indicatorValue',
+        label: 'Value',
+        defaultValue: 0,
+        min: -1,
+        max: 1,
+        step: 0.01,
+        allowVariables: true,
+        tooltip:
+          'CMF stays between −1 and +1. Above 0 more volume closed near the highs (buying pressure), below 0 near the lows.',
+      }),
+      keepConditionBarsField,
+    ],
+  },
+  [IndicatorEnum.chop]: {
+    type: IndicatorEnum.chop,
+    label: 'Choppiness Index (CHOP)',
+    shortLabel: 'CHOP',
+    category: IndicatorCategories.Trend,
+    description:
+      'Tells ranging from trending markets on a 0–100 scale: high when price moves back and forth inside its range, low when it travels.',
+    supportedActions: INDICATOR_ACTIONS_EXCEPT_RISK_REWARD,
+    fields: [
+      makeNumberField({
+        key: 'chopLength',
+        label: 'Length',
+        defaultValue: 14,
+        min: 2,
+        max: 1000,
+        step: 1,
+        allowVariables: true,
+        tooltip:
+          'Candles whose true ranges are summed and compared with their overall high-low range.',
+      }),
+      makeIntervalField({
+        key: 'indicatorInterval',
+        label: 'Interval',
+        defaultValue: ExchangeIntervals.oneH,
+      }),
+      makeSelectField({
+        key: 'indicatorCondition',
+        label: 'Condition',
+        defaultValue: IndicatorStartConditionEnum.cd,
+        options: INDICATOR_CONDITION_OPTIONS,
+      }),
+      makeNumberField({
+        key: 'indicatorValue',
+        label: 'Value',
+        defaultValue: 61.8,
+        min: 0,
+        max: 100,
+        step: 0.1,
+        allowVariables: true,
+        tooltip:
+          'CHOP stays between 0 and 100. Above 61.8 is conventionally choppy (ranging), below 38.2 trending; it does not say which way.',
       }),
       keepConditionBarsField,
     ],

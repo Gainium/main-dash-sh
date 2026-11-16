@@ -462,6 +462,10 @@ xOscillator2voShort
   sqzKCMult
   sqzSignal
   sqzMomentum
+  obvMaType
+  obvMaLength
+  cmfLength
+  chopLength
   divPivotLeft
   divPivotRight
   divRangeLower
@@ -813,6 +817,10 @@ xOscillator2voShort
   sqzKCMult
   sqzSignal
   sqzMomentum
+  obvMaType
+  obvMaLength
+  cmfLength
+  chopLength
   divPivotLeft
   divPivotRight
   divRangeLower

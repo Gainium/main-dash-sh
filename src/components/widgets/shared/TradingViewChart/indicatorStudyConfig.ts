@@ -87,6 +87,9 @@ const STUDY_NAME_MAP: Omit<
   [IndicatorEnum.candle]: 'Candle Colour (Custom)',
   [IndicatorEnum.ob]: 'Order Blocks (Custom)',
   [IndicatorEnum.sqz]: 'Squeeze Momentum (Custom)',
+  [IndicatorEnum.obv]: 'On-Balance Volume (Custom)',
+  [IndicatorEnum.cmf]: 'Chaikin Money Flow (Custom)',
+  [IndicatorEnum.chop]: 'Choppiness Index (Custom)',
 };
 
 // ADX in DMI mode draws +DI, −DI and the ADX in a study of its own.
@@ -113,6 +116,9 @@ const MA_STUDY_NAME_MAP: Omit<Record<MAEnum, string>, MAEnum.price> = {
   [MAEnum.hma]: 'Hull Moving Average (Custom)',
   [MAEnum.rma]: 'RMA',
   [MAEnum.mcginley]: 'McGinley Dynamic (Custom)',
+  [MAEnum.kama]: 'KAMA (Custom)',
+  [MAEnum.alma]: 'ALMA (Custom)',
+  [MAEnum.lsma]: 'LSMA (Custom)',
 };
 
 // Studies that plot in PRICE units and therefore belong on the candle pane.
@@ -357,7 +363,9 @@ const buildInputs = (
           String(entry).toUpperCase()
         )
       );
-      const contains = (code: string) => oscillatorSet.has(code);
+      // stored as IndicatorEnum values ('MFI', 'Stoch', 'OBV'), compared
+      // upper-cased
+      const contains = (code: string) => oscillatorSet.has(code.toUpperCase());
       const divType = String(indicator.divType ?? '').toLowerCase();
       return {
         minDiv: toNumber(indicator.divMinCount, 2),
@@ -374,6 +382,8 @@ const buildInputs = (
         uo: contains('uo'),
         mom: contains('mom'),
         stoch: contains('stoch'),
+        obv: contains('obv'),
+        cmf: contains('cmf'),
         // unset = the DIV defaults, as the bot runs it
         pivotLeft: toNumber(indicator.divPivotLeft, 3),
         pivotRight: toNumber(indicator.divPivotRight, 1),
@@ -649,6 +659,16 @@ const buildInputs = (
         anchor: String(indicator.vwapAnchor || 'day'),
         multiplier: toNumber(indicator.vwapBandMultiplier, 1),
       };
+    case IndicatorEnum.obv:
+      // the study draws nothing for an average the bot cannot build
+      return {
+        maType: String(indicator.obvMaType || MAEnum.sma).toUpperCase(),
+        maLength: toNumber(indicator.obvMaLength, 20),
+      };
+    case IndicatorEnum.cmf:
+      return { in_0: toNumber(indicator.cmfLength, 20) };
+    case IndicatorEnum.chop:
+      return { in_0: toNumber(indicator.chopLength, 14) };
     case IndicatorEnum.kdj:
       return {
         in_0: toNumber(indicator.kdjLength, 9),
@@ -723,6 +743,7 @@ const buildOverrides = (
     type === IndicatorEnum.candle ||
     type === IndicatorEnum.ob ||
     type === IndicatorEnum.sqz ||
+    type === IndicatorEnum.obv ||
     isAdxDmi(indicator)
   ) {
     return undefined;
@@ -1016,6 +1037,9 @@ export function buildTradingViewStudyDescriptor(
     IndicatorEnum.macd,
     IndicatorEnum.bbw,
     IndicatorEnum.mar,
+    IndicatorEnum.obv,
+    IndicatorEnum.cmf,
+    IndicatorEnum.chop,
   ]);
 
   if (oscillatorTypes.has(type)) {

@@ -511,13 +511,15 @@ function buildChartIndicator(
   // so there is no band to shade (the smoothed line itself is drawn instead).
   // Neither has a VWAP (the close against a line of the study), an ADX in
   // DMI mode (+DI against −DI), nor the types whose condition reads no value
-  // (Candle Colour, Order Blocks, Squeeze Momentum).
+  // (Candle Colour, Order Blocks, Squeeze Momentum, On-Balance Volume — which
+  // is compared with its own average).
   const comparesSmoothedLine =
     resolveSmoothingCompare(i) === 'line' ||
     i.type === IndicatorEnum.vwap ||
     i.type === IndicatorEnum.candle ||
     i.type === IndicatorEnum.ob ||
     i.type === IndicatorEnum.sqz ||
+    i.type === IndicatorEnum.obv ||
     (i.type === IndicatorEnum.adx && i.adxMode === ADXModeEnum.dmi);
   // KDJ shades Stochastic's zones (Anywhere when unset) or, against a custom
   // value, marks that value.
@@ -830,6 +832,12 @@ function buildChartIndicator(
     sqzKCMult: +(i.sqzKCMult || 1.5),
     sqzSignal: i.sqzSignal,
     sqzMomentum: i.sqzMomentum,
+    // as stored: the studies apply the defaults and draw nothing for a
+    // setting the bot cannot build
+    obvMaType: i.obvMaType,
+    obvMaLength: i.obvMaLength,
+    cmfLength: i.cmfLength,
+    chopLength: i.chopLength,
     divPivotLeft: +(i.divPivotLeft || 3),
     divPivotRight: +(i.divPivotRight || 1),
     divRangeLower: +(i.divRangeLower || 1),

@@ -237,11 +237,11 @@ test('the second bound of Between is "Upper value" on every indicator', () => {
 test('limits stop at what the indicator can reach', () => {
   // Combined Ratings sums 28 signals of ±1
   expect(field(IndicatorEnum.tv, 'checkLevel')?.max).toBe(28);
-  // one divergence per oscillator, nine oscillators to pick from
+  // one divergence per oscillator, eleven oscillators to pick from
   const div = field(IndicatorEnum.div, 'divMinCount');
   const oscillators = field(IndicatorEnum.div, 'divOscillators');
   expect(div?.max).toBe(oscillators?.options?.length);
-  expect(div?.max).toBe(9);
+  expect(div?.max).toBe(11);
 });
 
 test('defaults match what the bot and the backtest use when unset', () => {

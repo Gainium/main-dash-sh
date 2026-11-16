@@ -54,6 +54,7 @@ import {
   type DCACustom,
   type MultiTP,
   IndicatorEnum,
+  MAEnum,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import type { IndicatorConfig } from '@/types/indicators';
@@ -180,6 +181,9 @@ const normalizeIndicatorParamsRecord = (
     'divPivotRight',
     'divRangeLower',
     'divRangeUpper',
+    'obvMaLength',
+    'cmfLength',
+    'chopLength',
   ];
 
   const fieldsAsString: (keyof IndicatorConfig)[] = [
@@ -4664,6 +4668,32 @@ export const mapFormDataToBackend = (
       ) {
         // not read by any of them either
         i.indicatorLength = i.indicatorLength || 14;
+      }
+      if (
+        i.type === IndicatorEnum.obv ||
+        i.type === IndicatorEnum.cmf ||
+        i.type === IndicatorEnum.chop
+      ) {
+        // No percentile, between or upper value on these three (the API
+        // refuses them), and none carried over from the type the condition
+        // had before.
+        i.percentile = false;
+        delete i.indicatorValue2;
+        // Each reads its own length field; indicatorLength is only what the
+        // engine logs.
+        i.indicatorLength =
+          i.indicatorLength ||
+          (i.type === IndicatorEnum.obv
+            ? (i.obvMaLength ?? 20)
+            : i.type === IndicatorEnum.cmf
+              ? (i.cmfLength ?? 20)
+              : (i.chopLength ?? 14));
+      }
+      if (i.type === IndicatorEnum.obv) {
+        // OBV is compared with its own average, never a value: the API takes
+        // only '0' here, whatever the previous type left behind.
+        i.indicatorValue = '0';
+        i.obvMaType = String(i.obvMaType || MAEnum.sma).toLowerCase() as MAEnum;
       }
       if (
         i.type === IndicatorEnum.session &&
