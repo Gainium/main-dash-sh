@@ -187,6 +187,7 @@ const normalizeIndicatorParamsRecord = (
     'indicatorValue2',
     'groupId',
     'uuid',
+    'dcaLevel',
     'maUUID',
     'xoUUID',
     'stochUpper',

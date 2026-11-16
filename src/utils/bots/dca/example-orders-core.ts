@@ -1,3 +1,4 @@
+import { startDcaLevelAnchors } from '@/utils/bots/dca/indicatorLevels';
 import { globalVariablesStore } from '@/stores/globalVariablesStore';
 import {
   BaseSlOnEnum,
@@ -806,9 +807,7 @@ export async function createDCAOrders(
     if (settings.useDca && symbol) {
       const ordersCount =
         settings.dcaCondition === DCAConditionEnum.indicators
-          ? settings.indicators.filter(
-              (i) => i.indicatorAction === IndicatorAction.startDca
-            ).length
+          ? startDcaLevelAnchors(settings.indicators).length
           : settings.dcaCondition === DCAConditionEnum.custom
             ? (settings.dcaCustom ?? []).length
             : parseInt(settings.ordersCount);
@@ -857,9 +856,8 @@ export async function createDCAOrders(
         if (settings.dcaCondition === DCAConditionEnum.indicators) {
           const indicatorValue =
             +(
-              settings.indicators.filter(
-                (ind) => ind.indicatorAction === IndicatorAction.startDca
-              )[i - 1]?.minPercFromLast ?? '100'
+              startDcaLevelAnchors(settings.indicators)[i - 1]
+                ?.minPercFromLast ?? '100'
             ) / 100;
           price = math.round(
             (i === 1 ? latestPrice : orders[orders.length - 1].price) *
@@ -968,9 +966,8 @@ export async function createDCAOrders(
         ) {
           orderSize =
             +(
-              settings.indicators.filter(
-                (ind) => ind.indicatorAction === IndicatorAction.startDca
-              )[i - 1]?.orderSize ?? '0'
+              startDcaLevelAnchors(settings.indicators)[i - 1]?.orderSize ??
+              '0'
             ) || _orderSize;
         }
         if (

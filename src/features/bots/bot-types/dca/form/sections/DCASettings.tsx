@@ -1,9 +1,13 @@
 import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
-import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
-import { InlineIndicatorConfig } from '@/components/indicators/InlineIndicatorConfig';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from '@/components/ui/collapsible';
+import { IndicatorGroupsManager } from '@/features/bots/shared/components/IndicatorGroupsManager';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { Label } from '@/components/ui/label';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
@@ -76,6 +80,7 @@ import {
     IndicatorAction,
     IndicatorEnum,
     IndicatorSection,
+    indicatorsLimit,
     IndicatorsLogicEnum,
     OrderSizeTypeEnum,
     ScaleDcaTypeEnum,
@@ -89,7 +94,7 @@ import { CloseConditionEnum } from '@/types/bots/dealConditions';
 import { resolveOrderSizeIconSymbol } from '@/utils/bots/dca/order-size-icon';
 import type { BotFormData, BotFormErrors } from '@/types/bots/form';
 import type { GlobalVariable } from '@/types/globalVariables';
-import type { IndicatorConfig } from '@/types/indicators';
+import type { IndicatorConfig, IndicatorGroup } from '@/types/indicators';
 import {
     getIndicatorDefaultParams,
     getIndicatorDefinition,
@@ -107,6 +112,7 @@ import {
 import { sanitizeIndicatorParams } from '@/utils/indicators/indicatorConfigUtils';
 import { withFieldDefaults } from '@/utils/indicators/indicatorFieldGating';
 import {
+    ChevronDown,
     Crosshair,
     DollarSign,
     Trash2,
@@ -122,6 +128,11 @@ import {
 } from '../hooks/useTerminalControls';
 import type { TerminalControlsToolkit } from '../hooks/useTerminalControls.types';
 import { DcaOrderSizingControl } from './DcaOrderSizingControl';
+import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
+import {
+  dcaLevelKey,
+  startDcaLevels,
+} from '@/utils/bots/dca/indicatorLevels';
 
 const MINIMUM_DEVIATION_MIN = 0;
 
@@ -2057,6 +2068,7 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
 }) => {
   const isComboBot = useMemo(() => formData.type === 'combo', [formData.type]);
   const indicatorGroups = useBotFormSelector('indicatorGroups');
+  const { currentExchange } = useBotFormQuery();
   const { openSelector, selector } = useIndicatorSelector();
   const {
     favorites: favoriteIndicatorTypes,
@@ -2205,56 +2217,186 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     };
   }, [indicators, useDca]); */
 
-  const addIndicator = () => {
-    if ((indicators || []).length >= 20) return; // Max 20 indicators
-    const findGroup = indicatorGroups.find(
-      (g) => g.action === IndicatorAction.startDca
-    );
-    const groupToUse = findGroup ?? {
-      id: `dca-group-${Date.now()}`,
-      action: IndicatorAction.startDca,
-      section: IndicatorSection.dca,
-      logic: IndicatorsLogicEnum.and,
+  // DCA levels. Each level is one DCA order (its own size and minimum % from
+  // the last fill) placed when its conditions match: the same AND/OR groups
+  // editor as Deal start, scoped by `dcaLevel` on the groups and indicators.
+  // Bots saved before per-level groups have one indicator per level and no
+  // `dcaLevel`: that indicator is the level (its uuid is the level id) and
+  // is given a group of its own the first time its conditions are edited.
+  // The level's size and minimum % live on its anchor: the indicator whose
+  // uuid is the level id, else the level's first indicator.
+  const levelGroupId = (levelId: string) => `dca-group-${levelId}`;
+  const levelKeyOf = dcaLevelKey;
+
+  const dcaLevels = useMemo(
+    () =>
+      startDcaLevels(
+        (indicators || []).map((i) => ({ ...i, section: IndicatorSection.dca }))
+      ).map(({ key: id, anchor, indicators: levelIndicators }) => {
+        const groups = indicatorGroups.filter(
+          (g) => g.action === IndicatorAction.startDca && g.dcaLevel === id
+        );
+        if (groups.length > 0) {
+          return { id, anchor, indicators: levelIndicators, groups };
+        }
+        const group: IndicatorGroup = {
+          id: levelGroupId(id),
+          action: IndicatorAction.startDca,
+          section: IndicatorSection.dca,
+          logic: IndicatorsLogicEnum.and,
+          dcaLevel: id,
+        };
+        return {
+          id,
+          anchor,
+          indicators: levelIndicators.map((i) => ({ ...i, groupId: group.id })),
+          groups: [group],
+        };
+      }),
+    [indicators, indicatorGroups]
+  );
+
+  // The indicator cap counts the ladder as its largest level, as the other
+  // sections do. The first level adds one; a copy of the last adds none.
+  const billableIndicatorCount = useBillableIndicatorCount();
+  const addLevelBlocked =
+    billableIndicatorCount + (dcaLevels.length === 0 ? 1 : 0) > indicatorsLimit;
+
+  /** Form state with `levelId` given its own group (no-op once it has one). */
+  const materializeLevel = (levelId: string) => {
+    const current = {
+      indicators: indicators || [],
+      groups: indicatorGroups || [],
     };
-    // Ladders of start-DCA signals are usually the same indicator repeated at
-    // increasing distance, so a new row clones the last one (fresh ids) rather
-    // than resetting to RSI. Only the first row falls back to defaults — legacy
-    // V1 parity (useSettingsComponent.ts:1385-1406).
-    const startDcaIndicators = (indicators || []).filter(
-      (i) => i.indicatorAction === IndicatorAction.startDca
-    );
-    const previous = startDcaIndicators[startDcaIndicators.length - 1];
-    const base: IndicatorConfig = previous ?? {
-      ...getIndicatorDefaultParams(
-        IndicatorEnum.rsi,
-        IndicatorAction.startDca,
-        IndicatorSection.dca
-      ),
-      minPercFromLast: '1',
-      orderSize: orderSize || '0',
-    };
-    const newIndicator: IndicatorConfig = {
-      ...base,
-      indicatorAction: IndicatorAction.startDca,
-      section: IndicatorSection.dca,
-      uuid: createDcaIndicatorId(),
-      ...(base.maUUID ? { maUUID: createDcaIndicatorId() } : {}),
-      ...(base.xoUUID ? { xoUUID: createDcaIndicatorId() } : {}),
-      groupId: groupToUse.id,
-    };
-    const updatedIndicators = [...(indicators || []), newIndicator];
-    updateFormData('indicators', updatedIndicators);
-    if (!findGroup) {
-      const updatedGroups = [...indicatorGroups, groupToUse];
-      updateFormData('indicatorGroups', updatedGroups);
+    if (
+      current.groups.some(
+        (g) => g.action === IndicatorAction.startDca && g.dcaLevel === levelId
+      )
+    ) {
+      return current;
     }
+    const groupId = levelGroupId(levelId);
+    return {
+      indicators: current.indicators.map((i) =>
+        i.indicatorAction === IndicatorAction.startDca &&
+        levelKeyOf(i) === levelId
+          ? { ...i, groupId, dcaLevel: levelId, section: IndicatorSection.dca }
+          : i
+      ),
+      groups: [
+        ...current.groups,
+        {
+          id: groupId,
+          action: IndicatorAction.startDca,
+          section: IndicatorSection.dca,
+          logic: IndicatorsLogicEnum.and,
+          dcaLevel: levelId,
+        },
+      ],
+    };
   };
 
-  const removeIndicator = (id: string) => {
-    const updatedIndicators = (indicators || []).filter(
-      (ind) => ind.uuid !== id
+  const commitLevels = (
+    nextIndicators: IndicatorConfig[],
+    nextGroups: IndicatorGroup[]
+  ) => {
+    // Start-DCA groups nothing points at any more (the pre-level shared group
+    // once every level has its own) are dropped.
+    const used = new Set(nextIndicators.map((i) => i.groupId));
+    updateFormData('indicators', nextIndicators as SettingsIndicators[]);
+    updateFormData(
+      'indicatorGroups',
+      nextGroups.filter(
+        (g) => g.action !== IndicatorAction.startDca || used.has(g.id)
+      )
     );
-    updateFormData('indicators', updatedIndicators);
+  };
+
+  const buildLevelCondition = (
+    groupId: string,
+    levelId: string
+  ): IndicatorConfig => ({
+    ...getIndicatorDefaultParams(
+      IndicatorEnum.rsi,
+      IndicatorAction.startDca,
+      IndicatorSection.dca
+    ),
+    indicatorAction: IndicatorAction.startDca,
+    section: IndicatorSection.dca,
+    uuid: createDcaIndicatorId(),
+    groupId,
+    dcaLevel: levelId,
+  });
+
+  // A new level clones the last one — its conditions too — with fresh ids:
+  // ladders are usually the same signal repeated further away. The first
+  // level starts from RSI (legacy V1 parity, useSettingsComponent.ts).
+  const addIndicator = () => {
+    if (addLevelBlocked) return;
+    const last = dcaLevels[dcaLevels.length - 1];
+    const levelId = createDcaIndicatorId();
+    if (!last) {
+      const groupId = levelGroupId(levelId);
+      commitLevels(
+        [
+          ...(indicators || []),
+          {
+            ...buildLevelCondition(groupId, levelId),
+            uuid: levelId,
+            minPercFromLast: '1',
+            orderSize: orderSize || '0',
+          },
+        ],
+        [
+          ...indicatorGroups,
+          {
+            id: groupId,
+            action: IndicatorAction.startDca,
+            section: IndicatorSection.dca,
+            logic: IndicatorsLogicEnum.and,
+            dcaLevel: levelId,
+          },
+        ]
+      );
+      return;
+    }
+    // A copy of the last level is never larger than the largest level, so it
+    // adds nothing to the billable count (the ladder counts as its largest
+    // level — see billableIndicators).
+    const groupIds = new Map(
+      last.groups.map((g) => [g.id, levelGroupId(createDcaIndicatorId())])
+    );
+    const clonedGroups = last.groups.map((g) => ({
+      ...g,
+      id: groupIds.get(g.id) ?? g.id,
+      dcaLevel: levelId,
+    }));
+    const clonedIndicators = last.indicators.map((i) => ({
+      ...i,
+      uuid: i.uuid === last.anchor?.uuid ? levelId : createDcaIndicatorId(),
+      ...(i.maUUID ? { maUUID: createDcaIndicatorId() } : {}),
+      ...(i.xoUUID ? { xoUUID: createDcaIndicatorId() } : {}),
+      groupId: groupIds.get(i.groupId) ?? i.groupId,
+      dcaLevel: levelId,
+    }));
+    commitLevels(
+      [...(indicators || []), ...clonedIndicators],
+      [...indicatorGroups, ...clonedGroups]
+    );
+  };
+
+  /** Remove a whole level. Called with the level's anchor uuid. */
+  const removeIndicator = (id: string) => {
+    const level = dcaLevels.find((l) => l.anchor?.uuid === id);
+    if (!level) return;
+    commitLevels(
+      (indicators || []).filter(
+        (i) =>
+          i.indicatorAction !== IndicatorAction.startDca ||
+          levelKeyOf(i) !== level.id
+      ),
+      indicatorGroups.filter((g) => g.dcaLevel !== level.id)
+    );
   };
 
   const updateIndicator = (
@@ -2268,57 +2410,150 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
     updateFormData('indicators', updatedIndicators);
   };
 
-  const handleIndicatorSelection = (
+  // Swapping only `type` left the new type's own fields absent (a row born
+  // as RSI switched to MAR kept no `mar2length`, which the engine's warm-up
+  // reads as NaN). `withFieldDefaults` only FILLS gaps, so the level's size
+  // and minimum % survive the swap.
+  const retypeIndicator = (
     indicator: IndicatorConfig,
     type: IndicatorEnum
-  ) => {
-    const updatedIndicators: SettingsIndicators[] = (indicators || []).map(
-      (ind) => {
-        if (ind.uuid !== indicator.uuid) {
-          return ind;
-        }
-        // Swapping only `type` left the new type's own fields absent: a DCA
-        // ladder row is born as RSI (see the `getIndicatorDefaultParams`
-        // fallback above), so switching it to MAR kept RSI's parameters and
-        // added none of MAR's — `mar1type`/`mar2type`/`mar2length` stayed
-        // unset. Unlike every other section, this path never goes through
-        // `buildIndicatorConfig`, so nothing seeded them.
-        //
-        // That is not only cosmetic: `indicatorLoader` sizes MAR's warm-up
-        // with `Math.max(mar1length, mar2length)` — NaN when the second is
-        // missing — and `MAR`'s constructor calls `ma2Type.toLowerCase()` on
-        // the raw argument, a TypeError rather than a fallback.
-        //
-        // `withFieldDefaults` is the helper the inline editor and the summary
-        // card already use to answer "what value does this field effectively
-        // have"; running it here persists that same answer, so what is saved
-        // matches what was on screen. It only FILLS gaps (`== null`), so every
-        // value already set on the row — interval, order size, the DCA step —
-        // survives untouched.
-        return (withFieldDefaults(getIndicatorDefinition(type), {
-          ...ind,
-          type,
-        } as IndicatorParamsState) ?? { ...ind, type }) as SettingsIndicators;
-      }
-    );
-    updateFormData('indicators', updatedIndicators);
-  };
+  ): IndicatorConfig =>
+    (withFieldDefaults(getIndicatorDefinition(type), {
+      ...indicator,
+      type,
+    } as IndicatorParamsState) ?? { ...indicator, type }) as IndicatorConfig;
 
-  const handleIndicatorParamsChange = (
-    indicator: IndicatorConfig,
-    newParams: IndicatorParamsState
-  ) => {
-    const sanitized = sanitizeIndicatorParams(newParams);
-    const updatedIndicators: SettingsIndicators[] = (indicators || []).map(
-      (ind) =>
-        ind.uuid === indicator.uuid
-          ? {
-              ...ind,
-              ...sanitized,
-            }
-          : ind
+  const levelHandlers = (levelId: string) => ({
+    onAddGroup: (join?: IndicatorsLogicEnum) => {
+      const m = materializeLevel(levelId);
+      const groupId = levelGroupId(createDcaIndicatorId());
+      commitLevels(
+        [...m.indicators, buildLevelCondition(groupId, levelId)],
+        [
+          ...m.groups,
+          {
+            id: groupId,
+            action: IndicatorAction.startDca,
+            section: IndicatorSection.dca,
+            logic: IndicatorsLogicEnum.and,
+            dcaLevel: levelId,
+            ...(join ? { join } : {}),
+          },
+        ]
+      );
+    },
+    onRemoveGroup: (groupId: string) => {
+      const m = materializeLevel(levelId);
+      commitLevels(
+        m.indicators.filter((i) => i.groupId !== groupId),
+        m.groups.filter((g) => g.id !== groupId)
+      );
+    },
+    onChangeGroupLogic: (groupId: string, logic: IndicatorGroup['logic']) => {
+      const m = materializeLevel(levelId);
+      commitLevels(
+        m.indicators,
+        m.groups.map((g) => (g.id === groupId ? { ...g, logic } : g))
+      );
+    },
+    onChangeGroupJoins: (joins: Record<string, IndicatorsLogicEnum>) => {
+      const m = materializeLevel(levelId);
+      commitLevels(
+        m.indicators,
+        m.groups.map((g) => (joins[g.id] ? { ...g, join: joins[g.id] } : g))
+      );
+    },
+    onAddIndicatorToGroup: (groupId: string) => {
+      const m = materializeLevel(levelId);
+      commitLevels(
+        [...m.indicators, buildLevelCondition(groupId, levelId)],
+        m.groups
+      );
+    },
+    onRemoveIndicatorFromGroup: (_groupId: string, indicatorId: string) => {
+      const m = materializeLevel(levelId);
+      const levelRows = m.indicators.filter(
+        (i) =>
+          i.indicatorAction === IndicatorAction.startDca &&
+          levelKeyOf(i) === levelId
+      );
+      const removed = levelRows.find((i) => i.uuid === indicatorId);
+      const heir = levelRows.find((i) => i.uuid !== indicatorId);
+      commitLevels(
+        m.indicators
+          .filter((i) => i.uuid !== indicatorId)
+          .map((i) =>
+            // The level's size and minimum % move with the anchor.
+            heir && removed && i.uuid === heir.uuid
+              ? {
+                  ...i,
+                  orderSize: removed.orderSize ?? i.orderSize,
+                  minPercFromLast:
+                    removed.minPercFromLast ?? i.minPercFromLast,
+                }
+              : i
+          ),
+        m.groups
+      );
+    },
+    onSelectIndicatorType: (_groupId: string, indicator: IndicatorConfig) =>
+      openDcaIndicatorSelector({
+        allowedActions: [
+          IndicatorAction.startDeal,
+          IndicatorAction.startDca,
+          IndicatorAction.closeDeal,
+        ],
+        title: 'Select indicator',
+        onSelect: (type) => {
+          const m = materializeLevel(levelId);
+          commitLevels(
+            m.indicators.map((i) =>
+              i.uuid === indicator.uuid ? retypeIndicator(i, type) : i
+            ),
+            m.groups
+          );
+        },
+      }),
+    onChangeIndicatorParams: (
+      _groupId: string,
+      indicatorId: string,
+      params: IndicatorParamsState
+    ) => {
+      const sanitized = sanitizeIndicatorParams(params);
+      const m = materializeLevel(levelId);
+      commitLevels(
+        m.indicators.map((i) =>
+          i.uuid === indicatorId
+            ? ({
+                ...i,
+                ...sanitized,
+                // The editor works on the level view; keep the stored ids.
+                groupId: i.groupId,
+                dcaLevel: i.dcaLevel,
+              } as IndicatorConfig)
+            : i
+        ),
+        m.groups
+      );
+    },
+  });
+
+  const levelSummary = (level: (typeof dcaLevels)[number]) => {
+    const parts: string[] = [];
+    if (showVolumeOption && level.anchor?.orderSize) {
+      parts.push(
+        `${level.anchor.orderSize} ${tradingContext.quoteAsset ?? ''}`.trim()
+      );
+    }
+    if (level.anchor?.minPercFromLast) {
+      parts.push(`Min ${level.anchor.minPercFromLast}%`);
+    }
+    parts.push(
+      level.indicators.length === 1
+        ? '1 indicator'
+        : `${level.indicators.length} indicators`
     );
-    updateFormData('indicators', updatedIndicators);
+    return parts.join(' · ');
   };
 
   const {
@@ -2398,40 +2633,59 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
             orders.
           </SettingsRowSurface>
         ) : (
-          <MasonryLayout
-            gap={16}
-            containerBreakpoints={{
-              default: 1,
-              640: 2,
-              1024: 3,
-            }}
-          >
-            {(dcaIndicators || []).map((indicator, index) => (
-              <TechnicalIndicatorCard
-                key={indicator.uuid}
-                indicator={indicator}
-                index={index}
-                formData={formData}
-                updateFormData={updateFormData}
-                errors={errors}
-                tradingContext={tradingContext}
-                openSelector={openDcaIndicatorSelector}
-                onSelectIndicator={handleIndicatorSelection}
-                onUpdateIndicator={updateIndicator}
-                onUpdateIndicatorParams={handleIndicatorParamsChange}
-                stepRangeMin={stepRangeMin}
-                stepRangeMax={stepRangeMax}
-                stepHelperMessage={stepHelperMessage}
-                clampStep={clampIndicatorStep}
-                onRemove={removeIndicator}
-                canTriggerBalanceRefresh={canTriggerBalanceRefresh}
-                onRefreshBalances={handleRefreshBalances}
-                updateFieldError={updateFieldError}
-                mode={mode}
-                showVolumeOption={showVolumeOption}
-              />
-            ))}
-          </MasonryLayout>
+          <div className="flex flex-col gap-md">
+            {dcaLevels.map((level, index) => {
+              if (!level.anchor) return null;
+              const handlers = levelHandlers(level.id);
+              return (
+                <TechnicalIndicatorCard
+                  key={level.id}
+                  indicator={level.anchor}
+                  index={index}
+                  formData={formData}
+                  updateFormData={updateFormData}
+                  errors={errors}
+                  tradingContext={tradingContext}
+                  summary={levelSummary(level)}
+                  conditions={
+                    <IndicatorGroupsManager
+                      indicators={level.indicators}
+                      indicatorGroups={level.groups}
+                      globalLogic={IndicatorsLogicEnum.and}
+                      totalIndicatorsAcrossBot={billableIndicatorCount}
+                      indicatorAction={IndicatorAction.startDca}
+                      indicatorSection={IndicatorSection.dca}
+                      exchange={currentExchange?.provider}
+                      botStrategy={strategy}
+                      formulaLabel={`Place DCA ${index + 1} when`}
+                      onAddGroup={handlers.onAddGroup}
+                      onRemoveGroup={handlers.onRemoveGroup}
+                      onChangeGroupLogic={handlers.onChangeGroupLogic}
+                      onChangeGroupJoins={handlers.onChangeGroupJoins}
+                      onAddIndicatorToGroup={handlers.onAddIndicatorToGroup}
+                      onRemoveIndicatorFromGroup={
+                        handlers.onRemoveIndicatorFromGroup
+                      }
+                      onSelectIndicatorType={handlers.onSelectIndicatorType}
+                      onChangeIndicatorParams={handlers.onChangeIndicatorParams}
+                      onChangeGlobalLogic={() => undefined}
+                    />
+                  }
+                  onUpdateIndicator={updateIndicator}
+                  stepRangeMin={stepRangeMin}
+                  stepRangeMax={stepRangeMax}
+                  stepHelperMessage={stepHelperMessage}
+                  clampStep={clampIndicatorStep}
+                  onRemove={removeIndicator}
+                  canTriggerBalanceRefresh={canTriggerBalanceRefresh}
+                  onRefreshBalances={handleRefreshBalances}
+                  updateFieldError={updateFieldError}
+                  mode={mode}
+                  showVolumeOption={showVolumeOption}
+                />
+              );
+            })}
+          </div>
         )}
       </SettingsRow>
 
@@ -2443,10 +2697,10 @@ const TechnicalIndicatorsDCA: React.FC<DCASectionProps> = ({
         <Button
           variant="outline"
           onClick={addIndicator}
-          disabled={(indicators || []).length >= 20}
+          disabled={addLevelBlocked}
         >
           <span className="mr-2">+</span>
-          Add DCA Indicator
+          Add DCA
         </Button>
       </SettingsRow>
 
@@ -2890,16 +3144,14 @@ interface TechnicalIndicatorCardProps {
   updateFormData: DCASettingsProps['updateFormData'];
   errors: Record<string, string>;
   tradingContext: DcaTradingContext;
-  openSelector: ReturnType<typeof useIndicatorSelector>['openSelector'];
-  onSelectIndicator: (indicator: IndicatorConfig, type: IndicatorEnum) => void;
+  /** One-line recap shown while the level is collapsed. */
+  summary: string;
+  /** The level's conditions: the shared indicator group editor. */
+  conditions: React.ReactNode;
   onUpdateIndicator: (
     id: string,
     field: keyof IndicatorConfig,
     value: string | number | boolean
-  ) => void;
-  onUpdateIndicatorParams: (
-    indicator: IndicatorConfig,
-    newParams: IndicatorParamsState
   ) => void;
   stepRangeMin: number;
   stepRangeMax: number | null;
@@ -2934,10 +3186,9 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
   updateFormData,
   errors,
   tradingContext,
-  openSelector,
-  onSelectIndicator,
+  summary,
+  conditions,
   onUpdateIndicator,
-  onUpdateIndicatorParams,
   stepRangeMin,
   stepRangeMax,
   stepHelperMessage,
@@ -2951,7 +3202,7 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
 }) => {
   const orderSizeReference = formData.orderSizeReference || 'notional';
   const futures = useBotFormSelector('futures');
-  const { currentExchange } = useBotFormQuery();
+  const [isOpen, setIsOpen] = React.useState(true);
   const minPercError =
     errors[`dcaIndicators.${indicator.uuid}.minPercFromLast`] ?? null;
 
@@ -3058,86 +3309,48 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
     [clampStep, indicator.uuid, onUpdateIndicator]
   );
 
-  let indicatorLabel: string = indicator.type;
-  let indicatorDefinition: ReturnType<typeof getIndicatorDefinition> | null =
-    null;
-  try {
-    if (typeof indicator.type === 'string') {
-      indicatorDefinition = getIndicatorDefinition(
-        indicator.type as IndicatorEnum
-      );
-      indicatorLabel = indicatorDefinition.label;
-    }
-  } catch (_error) {
-    indicatorLabel = indicator.type;
-    indicatorDefinition = null;
-  }
-
-  const indicatorParams = useMemo(
-    () => (indicator ?? {}) as IndicatorConfig,
-    [indicator]
-  );
-
-  const indicatorConfigurationSection = indicatorDefinition ? (
-    <InlineIndicatorConfig
-      definition={indicatorDefinition}
-      params={indicatorParams}
-      indicatorUuid={indicator.uuid}
-      exchange={currentExchange?.provider}
-      onChange={(newParams) => onUpdateIndicatorParams(indicator, newParams)}
-      className="space-y-sm"
-    />
-  ) : (
-    <SettingsAlert
-      variant="error"
-      title="Selected indicator definition is unavailable."
-    />
-  );
-
+  // Levels sit straight on the section's card surface, split by a hairline,
+  // so the shared group editor renders exactly as it does in Deal start
+  // (groups as muted fills). A filled level box would be a third nested
+  // surface and hide the groups' fill (DESIGN_SYSTEM §2).
   return (
-    <SettingsRowSurface tone="inner" spacing="lg">
-      <div className="flex flex-wrap items-center justify-between gap-sm">
-        <div className="space-y-1">
-          <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-            DCA {index + 1}
-          </p>
-          <p className="text-sm font-semibold text-foreground">
-            {indicatorLabel}
-          </p>
-        </div>
-        <div className="flex items-center gap-xs">
-          <Button
-            type="button"
-            size="sm"
-            variant="outline"
-            onClick={() =>
-              openSelector({
-                allowedActions: [
-                  IndicatorAction.startDeal,
-                  IndicatorAction.startDca,
-                  IndicatorAction.closeDeal,
-                ],
-                title: 'Select indicator',
-                onSelect: (type) => onSelectIndicator(indicator, type),
-              })
-            }
-          >
-            Change indicator
-          </Button>
+    <div className={index > 0 ? 'border-t border-border/60 pt-md' : undefined}>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <div className="flex items-center justify-between gap-sm">
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex min-w-0 flex-1 items-center gap-sm text-left"
+              aria-label={`${isOpen ? 'Collapse' : 'Expand'} DCA ${index + 1}`}
+            >
+              <ChevronDown
+                className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform${isOpen ? '' : ' -rotate-90'}`}
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-semibold text-foreground">
+                  DCA {index + 1}
+                </span>
+                {!isOpen && summary ? (
+                  <span className="block truncate text-xs text-muted-foreground">
+                    {summary}
+                  </span>
+                ) : null}
+              </span>
+            </button>
+          </CollapsibleTrigger>
           <Button
             type="button"
             size="icon"
             variant="ghost"
             className="text-destructive hover:bg-destructive/10 hover:text-destructive"
             onClick={() => onRemove(indicator.uuid)}
-            aria-label={`Remove DCA indicator ${index + 1}`}
+            aria-label={`Remove DCA ${index + 1}`}
           >
             <Trash2 className="h-4 w-4" />
           </Button>
         </div>
-      </div>
-
-      <div className="space-y-sm rounded-md border border-border/60 bg-card p-md">
+        <CollapsibleContent className="space-y-md pt-md">
+      <div className="space-y-sm">
         <div className="grid gap-md md:grid-cols-[minmax(0,1fr)_220px] md:items-end">
           <div className="space-y-xs">
             <Label htmlFor={`min-perc-${indicator.uuid}`}>
@@ -3185,7 +3398,7 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
       </div>
 
       {showVolumeOption && (
-        <div className="space-y-sm rounded-md border border-border/60 bg-card p-md">
+        <div className="space-y-sm">
           {futures && (
             <div className="space-y-xs">
               <Label>Order size reference</Label>
@@ -3223,16 +3436,10 @@ const TechnicalIndicatorCard: React.FC<TechnicalIndicatorCardProps> = ({
         </div>
       )}
 
-      <div className="space-y-sm rounded-md border border-border/60 bg-card p-md">
-        {indicatorConfigurationSection}
-      </div>
-
-      {indicator.type === IndicatorEnum.pc ? (
-        <div>
-          <HelpArticlePill url="/help/price-change-indicator" />
-        </div>
-      ) : null}
-    </SettingsRowSurface>
+      {conditions}
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
   );
 };
 

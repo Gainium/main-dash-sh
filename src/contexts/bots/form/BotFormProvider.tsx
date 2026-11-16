@@ -2335,6 +2335,10 @@ export const useBotFormTopLevelSelector = <
 export const useBotFormStoreApi = (): BotFormStore =>
   useBotFormInternalContext('useBotFormStoreApi').store;
 
+/** `updateFormData`, or `undefined` outside a `BotFormProvider`. No store subscription. */
+export const useOptionalBotFormUpdate = () =>
+  useContext(BotFormStateContext)?.updateFormData;
+
 /** The form store, or `null` outside a `BotFormProvider`. */
 export const useOptionalBotFormStoreApi = (): BotFormStore | null =>
   useContext(BotFormStateContext)?.store ?? null;

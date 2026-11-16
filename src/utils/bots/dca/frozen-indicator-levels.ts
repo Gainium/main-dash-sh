@@ -1,3 +1,4 @@
+import { startDcaLevelAnchors } from '@/utils/bots/dca/indicatorLevels';
 /**
  * Apply a deal's frozen indicator-DCA levels onto merged bot + deal settings.
  *
@@ -31,14 +32,21 @@ export function applyFrozenIndicatorLevels<
 >(settings: T): T {
   const frozen = settings.dcaIndicatorLevels;
   if (!frozen?.length || !settings.indicators?.length) return settings;
-  let level = 0;
+  // One frozen entry per level, applied to the level's anchor (spec 244).
+  const anchorLevel = new Map(
+    startDcaLevelAnchors(settings.indicators).map((a, i) => [a.uuid, i])
+  );
   return {
     ...settings,
     indicators: settings.indicators.map((indicator) => {
-      if (indicator.indicatorAction !== IndicatorAction.startDca) {
+      const level = anchorLevel.get(indicator.uuid);
+      if (
+        indicator.indicatorAction !== IndicatorAction.startDca ||
+        level === undefined
+      ) {
         return indicator;
       }
-      const entry = frozen[level++];
+      const entry = frozen[level];
       if (!entry) return indicator;
       return {
         ...indicator,

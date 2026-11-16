@@ -12,7 +12,8 @@ import type { EdgeApplyRequest } from '@/utils/indicators/edgeApply';
 import type { EdgeSide } from '@/utils/indicatorEdge';
 import { buildIndicatorSummary } from '@/utils/indicators/indicatorFormatting';
 import { useIndicatorVarValues } from '@/hooks/bots/global-variables/useIndicatorVarValues';
-import { Pencil, Star, Trash2 } from 'lucide-react';
+import { useIndicatorChartToggle } from '@/hooks/bots/useIndicatorChartToggle';
+import { Eye, EyeOff, Pencil, Star, Trash2 } from 'lucide-react';
 import React from 'react';
 
 interface IndicatorListProps {
@@ -23,6 +24,8 @@ interface IndicatorListProps {
   /** Star an indicator as a favorite, keeping its current settings. */
   onToggleFavorite?: (indicator: IndicatorConfig) => void;
   isFavorite?: (type: IndicatorEnum) => boolean;
+  /** Show or hide the indicator on the chart (`hideOnChart`). */
+  onToggleChart?: (indicator: IndicatorConfig) => void;
   emptyState?: string;
   renderExtras?: (indicator: IndicatorConfig, index: number) => React.ReactNode;
   /** The AND/OR drawn between consecutive indicators. */
@@ -59,6 +62,7 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   onSelectType,
   onToggleFavorite,
   isFavorite,
+  onToggleChart: onToggleChartProp,
   connector,
   surface = 'raised',
   onApplyEdgeSetting,
@@ -67,6 +71,10 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
   const [helpSlug, setHelpSlug] = React.useState<string | null>(null);
   const [openId, setOpenId] = React.useState<string | null>(null);
   const withVarValues = useIndicatorVarValues();
+  // Every indicator row in a bot form gets the chart toggle, whichever
+  // section renders it; it applies to every copy of the same chart study.
+  const formChartToggle = useIndicatorChartToggle();
+  const onToggleChart = onToggleChartProp ?? formChartToggle;
 
   if (!indicators.length) {
     return (
@@ -188,6 +196,39 @@ export const IndicatorList: React.FC<IndicatorListProps> = ({
                       >
                         Change indicator
                       </Button>
+                    ) : null}
+                    {onToggleChart ? (
+                      <Tooltip
+                        tooltip={
+                          indicator.hideOnChart
+                            ? 'Show on chart'
+                            : 'Hide on chart'
+                        }
+                      >
+                        <Button
+                          type="button"
+                          size="icon"
+                          variant="ghost"
+                          className={
+                            indicator.hideOnChart
+                              ? 'text-muted-foreground'
+                              : 'text-primary hover:text-primary'
+                          }
+                          onClick={() => onToggleChart(indicator)}
+                          aria-label={
+                            indicator.hideOnChart
+                              ? 'Show on chart'
+                              : 'Hide on chart'
+                          }
+                          aria-pressed={!indicator.hideOnChart}
+                        >
+                          {indicator.hideOnChart ? (
+                            <EyeOff className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
+                        </Button>
+                      </Tooltip>
                     ) : null}
                     {onToggleFavorite ? (
                       <Tooltip

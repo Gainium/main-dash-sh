@@ -1702,6 +1702,13 @@ export type SettingsIndicators = {
   groupId: string;
   uuid: string;
   indicatorInterval: ExchangeIntervals;
+  /** Keep this indicator off the chart; it still trades. */
+  hideOnChart?: boolean;
+  /**
+   * DCA level this start-DCA condition belongs to. Unset = the indicator is
+   * a level of its own (bots saved before per-level groups).
+   */
+  dcaLevel?: string;
   signal?: TradingviewAnalysisSignalEnum;
   condition?: TradingviewAnalysisConditionEnum;
   rsiValue?: rsiValueEnum;
@@ -2088,6 +2095,8 @@ export type SettingsIndicatorGroup = {
    * the bot-level logic (startDealLogic, stopDealLogic, ...).
    */
   join?: IndicatorsLogicEnum;
+  /** Start-DCA groups only: the DCA level whose conditions this group holds. */
+  dcaLevel?: string;
 };
 
 export interface DCABotSettings extends BaseSettings {

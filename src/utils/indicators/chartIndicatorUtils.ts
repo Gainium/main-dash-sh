@@ -218,7 +218,7 @@ export function selectActiveChartIndicators(
     useRiskRewardIndicators,
   } = context;
 
-  return indicators
+  const active = indicators
     .filter(
       (i) =>
         !i.groupId || (i.groupId && indicatorGroupsToUse.includes(i.groupId))
@@ -245,6 +245,77 @@ export function selectActiveChartIndicators(
       }
       return filter.includes(i.indicatorAction);
     });
+  return dedupeChartIndicators(active, context);
+}
+
+/**
+ * Identity of an indicator on the chart: everything the chart draws for it,
+ * but not which bot section it came from. Two indicators with the same key
+ * (e.g. the same RSI as a deal start and as a DCA condition) are one study on
+ * the chart. Editing one so it draws differently splits them again — no
+ * stored id to keep in sync. `null` when the indicator draws nothing.
+ */
+export function chartIndicatorKey(
+  indicator: IndicatorConfig,
+  context: ChartIndicatorsContext
+): string | null {
+  const config = buildChartIndicator(indicator, context);
+  return config ? chartConfigKey(config) : null;
+}
+
+const chartConfigKey = (config: ChartIndicatorConfig): string => {
+  const { uuid: _uuid, ...drawn } = config;
+  return JSON.stringify(
+    Object.keys(drawn)
+      .sort()
+      .filter((k) => drawn[k as keyof typeof drawn] !== undefined)
+      .map((k) => [k, drawn[k as keyof typeof drawn]])
+  );
+};
+
+/**
+ * One indicator per chart identity (`chartIndicatorKey`), the first one kept.
+ * An identity is hidden when ANY of its copies is hidden (`hideOnChart`), so
+ * hiding it from either section hides the study.
+ */
+function dedupeChartIndicators(
+  indicators: IndicatorConfig[],
+  context: ChartIndicatorsContext
+): IndicatorConfig[] {
+  const keyed = indicators.map((indicator) => ({
+    indicator,
+    key: chartIndicatorKey(indicator, context) ?? `uuid:${indicator.uuid}`,
+  }));
+  const hidden = new Set(
+    keyed.filter(({ indicator }) => indicator.hideOnChart).map(({ key }) => key)
+  );
+  const seen = new Set<string>();
+  return keyed
+    .filter(({ key }) => {
+      if (hidden.has(key) || seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    })
+    .map(({ indicator }) => indicator);
+}
+
+/**
+ * The uuids of every indicator that is the same chart study as `uuid`
+ * (`chartIndicatorKey`), itself included. The hide-on-chart toggle applies
+ * to all of them, so each section's row shows the same state.
+ */
+export function sameChartIndicatorUuids(
+  indicators: IndicatorConfig[],
+  uuid: string,
+  context: ChartIndicatorsContext
+): string[] {
+  const target = indicators.find((i) => i.uuid === uuid);
+  if (!target) return [];
+  const key = chartIndicatorKey(target, context);
+  if (key === null) return [uuid];
+  return indicators
+    .filter((i) => i.uuid === uuid || chartIndicatorKey(i, context) === key)
+    .map((i) => i.uuid);
 }
 
 /**
@@ -305,7 +376,13 @@ export function convertIndicatorConfigsToChart(
       }
 
       return results;
-    });
+    })
+    // Two different MA conditions can share one comparison MA.
+    .filter(
+      (config, index, all) =>
+        all.findIndex((c) => chartConfigKey(c) === chartConfigKey(config)) ===
+        index
+    );
 }
 
 export const convertDcaIndicatorsToChart = convertIndicatorConfigsToChart;

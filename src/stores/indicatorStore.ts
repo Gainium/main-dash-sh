@@ -84,6 +84,11 @@ export class IndicatorStore {
     this.scheduleNotify();
   }
 
+  /** The context the chart is currently built with. */
+  getChartIndicatorsContext(): ChartIndicatorsContext {
+    return this.chartIndicatorsContext;
+  }
+
   setIndicators(indicators: IndicatorConfig[]) {
     // The bot form calls this on every write; an unchanged list (same array
     // reference — a keystroke elsewhere in the form) must not rebuild the

@@ -4,7 +4,7 @@ import { billableIndicators } from '@/utils/bots/credits';
 
 /**
  * The bot form's indicator count against `indicatorsLimit`: the DCA by
- * indicators ladder counts as one indicator, every other indicator once.
+ * indicators ladder counts as its largest level, every other indicator once.
  */
 export const useBillableIndicatorCount = (): number => {
   const indicators = useBotFormSelector('indicators');

@@ -22,6 +22,7 @@ export interface IndicatorGroupCardProps {
   onSelectIndicatorType?: (indicator: IndicatorConfig) => void;
   onToggleFavorite?: (indicator: IndicatorConfig) => void;
   isFavorite?: (type: IndicatorEnum) => boolean;
+  onToggleChart?: (indicator: IndicatorConfig) => void;
   renderIndicatorExtras?: (
     indicator: IndicatorConfig,
     index: number
@@ -59,6 +60,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
   onSelectIndicatorType,
   onToggleFavorite,
   isFavorite,
+  onToggleChart,
   renderIndicatorExtras,
   addIndicatorDisabledReason,
   emptyState,
@@ -119,6 +121,7 @@ export const IndicatorGroupCard: React.FC<IndicatorGroupCardProps> = ({
           : {})}
         {...(onToggleFavorite ? { onToggleFavorite } : {})}
         {...(isFavorite ? { isFavorite } : {})}
+        {...(onToggleChart ? { onToggleChart } : {})}
         {...(renderIndicatorExtras
           ? { renderExtras: renderIndicatorExtras }
           : {})}

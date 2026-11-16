@@ -1,3 +1,4 @@
+import { startDcaLevelAnchors } from '@/utils/bots/dca/indicatorLevels';
 import { useTradingPairsFromContext } from '@/contexts/ExchangeDataContext';
 import { useUsdRate } from '@/hooks/useUsdRate';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -6,7 +7,6 @@ import {
   BotOrderSideEnum,
   DCAConditionEnum,
   DCAOrderTypeEnum,
-  IndicatorAction,
   StrategyEnum,
   type Asset,
   type BotVars,
@@ -124,8 +124,7 @@ const NO_LADDER: ComputedLadder = {
  * bindable, so the literals on the bot are not the distances the engine uses.
  */
 function startDcaMinPercs(settings: DCABotSettings | null): number[] {
-  return (settings?.indicators ?? [])
-    .filter((i) => i.indicatorAction === IndicatorAction.startDca)
+  return startDcaLevelAnchors(settings?.indicators)
     .map((i) => +(i.minPercFromLast ?? '0') / 100)
     .map((v) => (Number.isFinite(v) && v > 0 ? v : 0));
 }
@@ -288,9 +287,10 @@ export function useDealSmartOrders({
       // Indicator-condition ladders size themselves off the startDca indicator
       // list (level count + per-level order size), so it has to key the compute.
       inds: isIndicatorDca
-        ? (mergedSettings.indicators ?? [])
-            .filter((i) => i.indicatorAction === IndicatorAction.startDca)
-            .map((i) => [i.minPercFromLast, i.orderSize])
+        ? startDcaLevelAnchors(mergedSettings.indicators).map((i) => [
+            i.minPercFromLast,
+            i.orderSize,
+          ])
         : undefined,
       // Any of the above may be BOUND to a global variable, in which case the
       // literal keyed above is not what the ladder is built from — rebind and

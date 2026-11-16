@@ -335,6 +335,7 @@ pair
                  action
                  section
                  join
+                 dcaLevel
                 }
                 indicators {
                     type
@@ -344,6 +345,8 @@ pair
                     indicatorValue2
                     indicatorCondition
                     groupId
+                    dcaLevel
+                    hideOnChart
                     indicatorInterval
                     signal
                     checkLevel
@@ -683,6 +686,7 @@ pair
                  action
                  section
                  join
+                 dcaLevel
                 }
                 indicators {
                     type
@@ -693,6 +697,8 @@ pair
                     indicatorCondition
                     indicatorInterval
                     groupId
+                    dcaLevel
+                    hideOnChart
                     signal
                     checkLevel
                     condition
@@ -978,6 +984,7 @@ pairs
                  action
                  section
                  join
+                 dcaLevel
                 }
                 indicators {
                     type
@@ -988,6 +995,8 @@ pairs
                     indicatorCondition
                     indicatorInterval
                     groupId
+                    dcaLevel
+                    hideOnChart
                     signal
                     checkLevel
                     condition

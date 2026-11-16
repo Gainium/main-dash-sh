@@ -91,13 +91,22 @@ export const calculateCost = ({
 
 /**
  * How many indicators a bot counts as, for its credits and for the
- * `indicatorsLimit` cap. With DCA by indicators each `startDca` indicator is
- * one ladder level, and a deal only listens to its next one, so the whole
- * ladder counts as ONE indicator. Every other indicator counts once.
- * Mirrors main-app-sh's `billableIndicators`.
+ * `indicatorsLimit` cap. With DCA by indicators a deal only listens to the
+ * conditions of its next ladder level (a level = the `startDca` indicators
+ * sharing `dcaLevel`, or one indicator without it), so the ladder counts as
+ * its LARGEST level — locked up front so the bot can afford whichever level
+ * it reaches. Single-indicator levels count as one. Every other indicator
+ * counts once. Mirrors main-app-sh's `billableIndicators`.
  */
 export const billableIndicators = (
-  indicators: { indicatorAction?: IndicatorAction }[] | null | undefined,
+  indicators:
+    | {
+        indicatorAction?: IndicatorAction;
+        uuid?: string;
+        dcaLevel?: string;
+      }[]
+    | null
+    | undefined,
   dcaCondition: DCAConditionEnum | string | null | undefined,
 ): number => {
   const all = indicators ?? [];
@@ -106,6 +115,12 @@ export const billableIndicators = (
   }
   const ladder = all.filter(
     (i) => i.indicatorAction === IndicatorAction.startDca,
-  ).length;
-  return all.length - ladder + (ladder > 0 ? 1 : 0);
+  );
+  const levelSizes = new Map<string, number>();
+  ladder.forEach((i, n) => {
+    const key = i.dcaLevel || i.uuid || `#${n}`;
+    levelSizes.set(key, (levelSizes.get(key) ?? 0) + 1);
+  });
+  const largestLevel = Math.max(0, ...levelSizes.values());
+  return all.length - ladder.length + largestLevel;
 };
