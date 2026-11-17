@@ -1,3 +1,4 @@
+import { useExchangesStore } from '@/stores/exchangesStore';
 import { useUsdRateStore } from '@/stores/usdRateStore';
 import {
   GraphQLClient,
@@ -171,6 +172,93 @@ const requestPrices = async (exchange: ExchangeEnum) => {
   }
 };
 
+// Last good ticker snapshot per exchange (paper mirrors included), so an
+// exchange that is not refetched this cycle, or whose request failed, keeps
+// its previous prices instead of disappearing from the list.
+const pricesByExchange = new Map<ExchangeEnum, Prices>();
+const exchangeFetchedAt = new Map<ExchangeEnum, number>();
+// Exchanges the account has no connection to are refreshed this often.
+const otherExchangesInterval = 5 * 60 * 1000;
+
+/** Real exchanges behind the account's connections (paper ones mapped back). */
+const getConnectedExchanges = (): Set<ExchangeEnum> => {
+  const result = new Set<ExchangeEnum>();
+  try {
+    for (const ex of useExchangesStore.getState().getAllExchanges()) {
+      const provider = `${ex.provider ?? ''}`;
+      if (!provider) continue;
+      const real = provider.startsWith('paper')
+        ? `${provider.charAt(5).toLowerCase()}${provider.slice(6)}`
+        : provider;
+      result.add(real as ExchangeEnum);
+      // okxInverse tickers also fill okxLinear (see toPriceEntries).
+      if (real === ExchangeEnum.okxLinear) result.add(ExchangeEnum.okxInverse);
+    }
+  } catch (error) {
+    logger.warn('[Price] Could not read connected exchanges:', error);
+  }
+  return result;
+};
+
+const toPriceEntries = (
+  exchange: ExchangeEnum,
+  rows: { pair: string; price: number | string }[]
+): Prices => {
+  const entries: Prices = [];
+  for (const d of rows) {
+    // Handle the AllPricesResponse structure: { pair: string, price: number }
+    const data = {
+      symbol: d.pair,
+      price: typeof d.price === 'number' ? d.price : parseFloat(d.price),
+    };
+    if (!data.price || isNaN(data.price)) continue;
+    entries.push({ ...data, exchange });
+
+    // Add paper exchange version
+    if (exchange !== ExchangeEnum.binanceUS) {
+      entries.push({
+        ...data,
+        exchange: `paper${exchange
+          .at(0)
+          ?.toUpperCase()}${exchange.slice(1, exchange.length)}` as ExchangeEnum,
+      });
+    }
+
+    // Special handling for OKX inverse
+    if (exchange === ExchangeEnum.okxInverse) {
+      entries.push({ ...data, exchange: ExchangeEnum.okxLinear });
+      entries.push({ ...data, exchange: ExchangeEnum.paperOkxLinear });
+    }
+  }
+  return entries;
+};
+
+const fetchExchanges = (exchanges: ExchangeEnum[]) =>
+  Promise.all(
+    exchanges.map((exchange) =>
+      requestPrices(exchange)
+        .then((res) => {
+          if (res.status === StatusEnum.ok && res.data) {
+            pricesByExchange.set(exchange, toPriceEntries(exchange, res.data));
+            exchangeFetchedAt.set(exchange, new Date().getTime());
+          } else if (import.meta.env.DEV) {
+            logger.warn(
+              `[Price] Failed to fetch prices from ${exchange}:`,
+              res.reason
+            );
+          }
+        })
+        .catch((error) => {
+          if (import.meta.env.DEV) {
+            logger.error(
+              `[Price] Error fetching prices from ${exchange}:`,
+              error
+            );
+          }
+        })
+    )
+  );
+
 let inWork = false;
 
 export async function getPrices(
@@ -181,7 +269,10 @@ export async function getPrices(
   loadUs: boolean,
   returnPrice: true
 ): Promise<Prices>;
-export async function getPrices(loadUs: boolean, returnPrice: boolean) {
+export async function getPrices(
+  loadUs: boolean,
+  returnPrice: boolean
+): Promise<Prices | void> {
   if (import.meta.env.DEV) {
     logger.debug('[Price] getPrices called', {
       loadUs,
@@ -268,117 +359,74 @@ export async function getPrices(loadUs: boolean, returnPrice: boolean) {
       }
     }
 
-    // Add USD rate to prices
-    latestPricesUpdate.push({
+    const usdEntry = {
       symbol: 'USDTZUSD',
       price: usdRate,
       exchange: 'all',
-    });
+    } as Prices[number];
 
-    // Fetch prices from all exchanges
+    // Connected exchanges first and every cycle; the rest (still needed by
+    // pages that show other venues) on a slower cadence and after the
+    // connected ones have been published, so a dashboard is not held back by
+    // tickers for exchanges the account does not use.
     const exchangesToFetch = getExchangesToFetch(loadUs);
+    const connected = getConnectedExchanges();
+    const now = new Date().getTime();
+    const firstWave = connected.size
+      ? exchangesToFetch.filter((e) => connected.has(e))
+      : exchangesToFetch;
+    const secondWave = connected.size
+      ? exchangesToFetch.filter(
+          (e) =>
+            !connected.has(e) &&
+            now - (exchangeFetchedAt.get(e) ?? 0) >= otherExchangesInterval
+        )
+      : [];
 
     if (import.meta.env.DEV) {
-      logger.debug('[Price] Fetching prices from exchanges:', exchangesToFetch);
+      logger.debug('[Price] Fetching prices from exchanges:', {
+        firstWave,
+        secondWave,
+      });
     }
 
-    await Promise.all(
-      exchangesToFetch.map((exchange) =>
-        requestPrices(exchange)
-          .then((res) => {
-            if (res.status === StatusEnum.ok && res.data) {
-              res.data.forEach(
-                (d: { pair: string; price: number | string }) => {
-                  // Handle the AllPricesResponse structure: { pair: string, price: number }
-                  const data = {
-                    symbol: d.pair,
-                    price:
-                      typeof d.price === 'number'
-                        ? d.price
-                        : parseFloat(d.price),
-                  };
+    const publish = () => {
+      latestPricesUpdate.length = 0;
+      latestPricesUpdate.push(usdEntry);
+      for (const entries of pricesByExchange.values()) {
+        latestPricesUpdate.push(...entries);
+      }
+      pricesStorage = [...latestPricesUpdate];
+      lastUpdate = new Date().getTime();
 
-                  if (data.price && !isNaN(data.price)) {
-                    latestPricesUpdate.push({
-                      ...data,
-                      exchange: exchange as ExchangeEnum,
-                    });
+      const result: GetLatestPricesResult = {
+        status: StatusEnum.ok,
+        data: pricesStorage,
+        reason: null,
+      };
 
-                    // Add paper exchange version
-                    if (exchange !== ExchangeEnum.binanceUS) {
-                      latestPricesUpdate.push({
-                        ...data,
-                        exchange: `paper${exchange
-                          .at(0)
-                          ?.toUpperCase()}${exchange.slice(
-                          1,
-                          exchange.length
-                        )}` as ExchangeEnum,
-                      });
-                    }
+      // Save to cache for next page load
+      saveCachedPrices(result).catch((error) => {
+        logger.warn('[Price] Failed to save prices to cache:', error);
+      });
 
-                    // Special handling for OKX inverse
-                    if (exchange === ExchangeEnum.okxInverse) {
-                      latestPricesUpdate.push({
-                        ...data,
-                        exchange: ExchangeEnum.okxLinear,
-                      });
-                      latestPricesUpdate.push({
-                        ...data,
-                        exchange: ExchangeEnum.paperOkxLinear,
-                      });
-                    }
-                  }
-                }
-              );
-            } else {
-              if (import.meta.env.DEV) {
-                logger.warn(
-                  `[Price] Failed to fetch prices from ${exchange}:`,
-                  res.reason
-                );
-              }
-            }
-          })
-          .catch((error) => {
-            if (import.meta.env.DEV) {
-              logger.error(
-                `[Price] Error fetching prices from ${exchange}:`,
-                error
-              );
-            }
-          })
-      )
-    );
-
-    if (import.meta.env.DEV) {
-      logger.debug('[Price] Total prices fetched:', latestPricesUpdate.length);
-      logger.debug(
-        '[Price] Unique symbols:',
-        [...new Set(latestPricesUpdate.map((p) => p.symbol))].length
-      );
-    }
-
-    pricesStorage = [...latestPricesUpdate];
-    lastUpdate = new Date().getTime();
-    inWork = false;
-
-    const result: GetLatestPricesResult = {
-      status: StatusEnum.ok,
-      data: latestPricesUpdate,
-      reason: null,
+      if (!returnPrice) handleResult(result);
     };
 
-    // Save to cache for next page load
-    saveCachedPrices(result).catch((error) => {
-      logger.warn('[Price] Failed to save prices to cache:', error);
-    });
+    await fetchExchanges(firstWave);
+    if (secondWave.length) {
+      // Publish what the account trades on before waiting on the rest.
+      publish();
+      await fetchExchanges(secondWave);
+    }
+    publish();
+    inWork = false;
 
-    if (returnPrice) {
-      return pricesStorage;
+    if (import.meta.env.DEV) {
+      logger.debug('[Price] Total prices fetched:', pricesStorage.length);
     }
 
-    return handleResult(result);
+    return returnPrice ? pricesStorage : undefined;
   } catch (error) {
     inWork = false;
     logger.error('Error fetching prices:', error);
@@ -390,9 +438,7 @@ export async function getPrices(loadUs: boolean, returnPrice: boolean) {
       reason: error instanceof Error ? error.message : 'Unknown error',
     });
 
-    if (returnPrice) {
-      return pricesStorage;
-    }
+    return returnPrice ? pricesStorage : undefined;
   }
 }
 
