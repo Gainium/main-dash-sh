@@ -10,6 +10,8 @@ import {
 import React, { useEffect, useState } from 'react';
 import Confetti from 'react-confetti';
 
+import { useVisualSettingsStore } from '@/stores/visualSettingsStore';
+
 interface CelebrationAction {
   label: string;
   onClick?: () => void;
@@ -39,13 +41,17 @@ const Celebration: React.FC<CelebrationProps> = ({
   actions,
   children,
 }) => {
+  // Confetti is a canvas animation; with visual effects off it is skipped
+  // like the other decorative effects.
+  const visualEffects = useVisualSettingsStore((s) => s.visualEffects);
+  const showConfetti = open && visualEffects;
   const [confettiSize, setConfettiSize] = useState({
     width: typeof window !== 'undefined' ? window.innerWidth : 0,
     height: typeof window !== 'undefined' ? window.innerHeight : 0,
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!showConfetti) return;
     const onResize = () => {
       setConfettiSize({
         width: window.innerWidth,
@@ -54,7 +60,7 @@ const Celebration: React.FC<CelebrationProps> = ({
     };
     window.addEventListener('resize', onResize);
     return () => window.removeEventListener('resize', onResize);
-  }, [open]);
+  }, [showConfetti]);
 
   const handleAction = (action?: CelebrationAction) => {
     action?.onClick?.();
@@ -63,7 +69,7 @@ const Celebration: React.FC<CelebrationProps> = ({
 
   return (
     <>
-      {open && (
+      {showConfetti && (
         // Above the dialog band (overlay + content both sit at 60) — the
         // Dialog portals into <body>, so at an equal z-index it paints over
         // the confetti and the `bg-black/50 backdrop-blur-sm` overlay hides
