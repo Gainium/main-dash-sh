@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.135.1] - 2026-11-17
+
+### Changed
+
+- Confetti no longer plays when visual effects are turned off
+
+### Fixed
+
+- Help Center: tables in an article opened as a full page now render as tables instead of a line of raw pipes; the article page and the help article dialog share one renderer
+
 ## [2.135.0] - 2026-11-16
 
 ### Added
