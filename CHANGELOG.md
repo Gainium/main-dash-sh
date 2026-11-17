@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.2] - 2026-11-17
+
+### Changed
+
+- Prices for your connected exchanges load first; other exchanges refresh every 5 minutes instead of every minute
+
 ## [2.135.1] - 2026-11-17
 
 ### Changed
