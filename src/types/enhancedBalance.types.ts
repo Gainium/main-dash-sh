@@ -172,6 +172,11 @@ export interface BalanceCalculationInput {
         quoteAsset: string;
       };
     }>;
+    // Present on DCA/Combo bots; a closed bot with an active deal still counts.
+    dealsInBot?: {
+      active?: number;
+      all?: number;
+    };
     type?: string;
   }>;
 
@@ -180,6 +185,8 @@ export interface BalanceCalculationInput {
     id: string;
     name: string;
     uuid?: string;
+    // The connection whose wallet a linked leg (unified account) shares.
+    linkedTo?: string;
   }>;
 
   // Price data

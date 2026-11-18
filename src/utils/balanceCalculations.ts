@@ -132,12 +132,14 @@ const checkGridBot = (bot: any): boolean => {
   return bot.type === 'grid' || bot.settings?.strategy === 'grid';
 };
 
-// Check if bot is a DCA bot (simplified version)
+// Check if bot is a DCA/Combo bot. The bot-list queries select no top-level
+// `type` and `settings.strategy` is LONG/SHORT, so - like the legacy
+// dashboard - a bot carrying `dealsInBot` is a DCA/Combo bot.
 const checkDcaBot = (bot: any): boolean => {
   return (
     bot.type === 'dca' ||
     bot.type === 'combo' ||
-    bot.settings?.strategy === 'dca'
+    Object.prototype.hasOwnProperty.call(bot, 'dealsInBot')
   );
 };
 
@@ -159,17 +161,31 @@ export const calculateEnhancedBalances = (
   const assetsPlanned: Map<string, Map<string, number>> = new Map();
   const legend: Map<string, Map<string, BotLegendItem[]>> = new Map();
 
+  // The user's connections, keyed by uuid. A linked leg (unified account)
+  // shares its source's wallet, whose balance rows carry the SOURCE uuid.
+  const userExchanges = new Map(
+    exchanges
+      .filter((e) => e.id !== 'ALL')
+      .map((e) => [e.uuid ?? e.id, e] as const)
+  );
+
   // Process bot data to calculate required balances (REAL BOT DATA INTEGRATION)
   bots.forEach((bot) => {
     if (
       !bot.exchangeUUID ||
       bot.status === 'archive' ||
-      bot.status === 'closed'
+      // A closed bot still funds the deal it left open.
+      (bot.status === 'closed' && !((bot.dealsInBot?.active ?? 0) > 0))
     ) {
       return;
     }
+    // A bot on a connection the user no longer has funds no wallet here.
+    if (userExchanges.size > 0 && !userExchanges.has(bot.exchangeUUID)) {
+      return;
+    }
 
-    const exchangeId = bot.exchangeUUID;
+    const exchangeId =
+      userExchanges.get(bot.exchangeUUID)?.linkedTo || bot.exchangeUUID;
 
     // Process Grid bots (simplified - most bots are DCA/Combo)
     if (checkGridBot(bot)) {
@@ -226,49 +242,79 @@ export const calculateEnhancedBalances = (
       });
     }
 
-    // Process DCA/Combo bots (MAIN BOT TYPE - Real Integration)
+    // Process DCA/Combo bots - sized like the legacy balance table:
+    // - no open position: the whole max usage is reserved and still planned;
+    // - in a deal: what is left (max - current) is reserved, and only the part
+    //   not already locked in the bot's resting orders is still planned;
+    // - the asset is the quote for long spot / linear futures and the base for
+    //   short spot / coin-margined futures.
     if (checkDcaBot(bot)) {
-      const maxQuote = bot.usage?.max?.quote || 0;
-      const currentQuote = bot.usage?.current?.quote || 0;
-      const maxBase = bot.usage?.max?.base || 0;
-      const currentBase = bot.usage?.current?.base || 0;
+      const { settings } = bot;
+      const short = settings.strategy === 'SHORT';
+      const maxBase = bot.usage?.max?.base ?? 0;
+      const maxQuote = bot.usage?.max?.quote ?? 0;
+      const currentBase = bot.usage?.current?.base ?? 0;
+      const currentQuote = bot.usage?.current?.quote ?? 0;
+      const usesBase = settings.futures ? !!settings.coinm : short;
+      const type: BotLegendItem['type'] =
+        bot.type === 'dca' ? 'dca' : 'combo';
+      const addLegend = (asset: string, value: number) => {
+        if (value > 0) {
+          setInMapArray(legend, exchangeId, asset, {
+            id: bot._id,
+            name: settings.name,
+            type,
+            amount: `${value}`,
+            terminal: settings.type === 'terminal',
+          });
+        }
+      };
 
-      // Get asset symbols from bot symbol array
-      const symbolData = bot.symbol?.[0]?.value;
-      if (!symbolData) return;
+      const idle =
+        ((settings.coinm || short) && currentBase === 0) ||
+        (((settings.futures && !settings.coinm) || settings.strategy === 'LONG') &&
+          currentQuote === 0);
 
-      const quoteAsset = symbolData.quoteAsset;
-      const baseAsset = symbolData.baseAsset;
-
-      // Handle quote asset (most common for DCA bots)
-      if (quoteAsset && maxQuote > 0) {
-        const requiredAmount = maxQuote; // Total max usage
-        const plannedAmount = Math.max(0, maxQuote - currentQuote); // Available for new deals
-
-        setInMap(assets, exchangeId, quoteAsset, requiredAmount);
-        setInMap(assetsPlanned, exchangeId, quoteAsset, plannedAmount);
-
-        setInMapArray(legend, exchangeId, quoteAsset, {
-          id: bot._id,
-          name: bot.settings.name,
-          type: bot.type === 'combo' ? 'combo' : 'dca',
-          amount: `${requiredAmount}`,
-        });
-      }
-
-      // Handle base asset (for futures/short strategies)
-      if (baseAsset && maxBase > 0) {
-        const requiredAmount = maxBase; // Total max usage
-        const plannedAmount = Math.max(0, maxBase - currentBase); // Available for new deals
-
-        setInMap(assets, exchangeId, baseAsset, requiredAmount);
-        setInMap(assetsPlanned, exchangeId, baseAsset, plannedAmount);
-
-        setInMapArray(legend, exchangeId, baseAsset, {
-          id: bot._id,
-          name: bot.settings.name,
-          type: bot.type === 'combo' ? 'combo' : 'dca',
-          amount: `${requiredAmount}`,
+      if (idle) {
+        const symbolData = bot.symbol?.[0]?.value;
+        const asset = usesBase ? symbolData?.baseAsset : symbolData?.quoteAsset;
+        if (!asset) return;
+        const value = usesBase ? maxBase : maxQuote;
+        addLegend(asset, value);
+        setInMap(assets, exchangeId, asset, value);
+        setInMap(assetsPlanned, exchangeId, asset, value);
+      } else {
+        const sides = [
+          {
+            required: bot.assets?.required?.base ?? [],
+            used: bot.assets?.used?.base ?? [],
+            remaining: settings.coinm || short ? maxBase - currentBase : null,
+          },
+          {
+            required: bot.assets?.required?.quote ?? [],
+            used: bot.assets?.used?.quote ?? [],
+            remaining:
+              (settings.futures && !settings.coinm) ||
+              settings.strategy === 'LONG'
+                ? maxQuote - currentQuote
+                : null,
+          },
+        ];
+        sides.forEach(({ required, used, remaining }) => {
+          required.forEach((a) => {
+            const value = remaining ?? a.value;
+            addLegend(a.key, value);
+            setInMap(assets, exchangeId, a.key, value);
+            const locked = used.find((u) => u.key === a.key);
+            if (locked) {
+              setInMap(
+                assetsPlanned,
+                exchangeId,
+                a.key,
+                Math.max(0, value - locked.value)
+              );
+            }
+          });
         });
       }
     }

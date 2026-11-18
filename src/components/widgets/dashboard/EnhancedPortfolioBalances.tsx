@@ -1,6 +1,7 @@
 import { useGraphQL } from '@/hooks/useGraphQL';
-// import { useDcaBots } from '@/hooks/useDcaBots';
-// import { useComboBots } from '@/hooks/useComboBots';
+import { useDcaBots } from '@/hooks/useDcaBots';
+import { useComboBots } from '@/hooks/useComboBots';
+import { PartialCount } from '@/components/ui/large-account';
 import { useTransformedExchangesFromContext } from '@/contexts/ExchangeDataContext';
 import { GraphQlQuery } from '@/lib/api';
 import {
@@ -100,39 +101,39 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
   // Get real exchange data from the shared hook
   const { exchanges } = useTransformedExchangesFromContext();
 
-  // Get real bot data (CRITICAL BOT INTEGRATION) - Temporarily disabled for testing
-  // const {
-  //   bots: dcaBots,
-  //   isLoading: dcaBotsLoading,
-  //   isError: dcaBotsError,
-  //   refetch: refetchDcaBots,
-  // } = useDcaBots({
-  //   status: ['open', 'range', 'monitoring'], // Active bots only
-  //   all: false,
-  //   terminal: false, // Exclude terminal bots
-  // });
+  // The user's DCA and Combo bots, from the shared bot-list cache (the same
+  // canonical list every bot page reads). The calculation decides which still
+  // reserve funds: archived never, closed only while a deal is still open.
+  const {
+    bots: dcaBots,
+    isPartial: dcaPartial,
+    loadedCount: dcaLoaded,
+    total: dcaTotal,
+  } = useDcaBots();
+  const {
+    bots: comboBots,
+    isPartial: comboPartial,
+    loadedCount: comboLoaded,
+    total: comboTotal,
+  } = useComboBots();
 
-  // const {
-  //   bots: comboBots,
-  //   isLoading: comboBotsLoading,
-  //   isError: comboBotsError,
-  //   refetch: refetchComboBots,
-  // } = useComboBots({
-  //   status: ['open', 'range', 'monitoring'], // Active bots only
-  //   all: false,
-  // });
+  // Combine all bots for balance calculations. The list rows carry no `type`;
+  // tag each with the list it came from, as the legacy dashboard does.
+  const allBots = useMemo<NonNullable<BalanceCalculationInput['bots']>>(
+    () =>
+      [
+        ...(dcaBots || []).map((b) => ({ ...b, type: 'dca' })),
+        ...(comboBots || []).map((b) => ({ ...b, type: 'combo' })),
+      ] as unknown as NonNullable<BalanceCalculationInput['bots']>,
+    [dcaBots, comboBots]
+  );
 
-  // Combine all bots for balance calculations
-  const allBots = useMemo<NonNullable<BalanceCalculationInput['bots']>>(() => {
-    // const combined = [...(dcaBots || []), ...(comboBots || [])];
-    const combined: NonNullable<BalanceCalculationInput['bots']> = []; // Temporary empty array for testing
-    logger.debug('[EnhancedPortfolioBalances] Bot data loaded:', {
-      dcaBots: 0,
-      comboBots: 0,
-      total: combined.length,
-    });
-    return combined;
-  }, []);
+  // Bot usage summed over a capped bot list is a subset: mark it.
+  const botsPartial = dcaPartial || comboPartial;
+  const botsShown =
+    (dcaPartial ? dcaLoaded : dcaTotal) +
+    (comboPartial ? comboLoaded : comboTotal);
+  const botsTotal = dcaTotal + comboTotal;
 
   // Use the generic widget settings hook with type safety
   const { usePersistedState } = useWidgetSettings<
@@ -1140,6 +1141,13 @@ const EnhancedPortfolioBalances: React.FC<EnhancedBalanceTableProps> = ({
             emptyMessage="No portfolio data found."
             customToolbarActions={
               <div className="flex items-center gap-xs">
+                {showBotUsage && botsPartial && (
+                  <PartialCount
+                    shown={botsShown}
+                    total={botsTotal}
+                    noun="bots"
+                  />
+                )}
                 <div className="flex items-center gap-xs mr-4">
                   <label
                     className={`text-sm font-medium ${
