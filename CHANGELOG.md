@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.3] - 2026-11-18
+
+### Fixed
+
+- Backtest Stats tab shows the take profit, stop loss and DCA conditions the bot uses (indicators, webhook, Move SL) instead of unused percentage targets, and labels the DCA order size in the order currency
+
 ## [2.135.2] - 2026-11-17
 
 ### Changed
