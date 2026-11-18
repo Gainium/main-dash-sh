@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.5] - 2026-11-18
+
+### Changed
+
+- Sign-up form names where the license key comes from: app.gainium.io → Settings → License Key
+
 ## [2.135.4] - 2026-11-18
 
 ### Fixed
