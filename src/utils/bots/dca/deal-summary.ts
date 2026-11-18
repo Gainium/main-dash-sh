@@ -158,12 +158,19 @@ export const computeDealSummary = (orders: DCAGrid[]): DealOverviewSummary => {
   // an active combo minigrid executes them. Combo minigrid (`Grid`) orders add
   // nothing on top — the closing side is reduce-only / sells back what the
   // level bought — so they are not counted, matching the engine's deal usage.
-  const totalCapital = lastBuy?.totalQuote || buyOrders[0]?.totalQuote || 0;
+  // Read it from the unfiltered list: with every level executed by an active
+  // minigrid, the visible list holds only the base order.
+  const lastEntry = orders
+    .filter((order) => entryTypes.includes(order.type || 'Smart order'))
+    .at(-1);
+  const totalCapital =
+    lastEntry?.quote || lastBuy?.totalQuote || buyOrders[0]?.totalQuote || 0;
 
   // Base-currency equivalent of the cumulative capital. Spot short bots
   // deposit the base coin they sell, so the funds tile shows this instead of
   // the quote figure.
-  const totalCapitalBase = lastBuy?.totalBase || buyOrders[0]?.totalBase || 0;
+  const totalCapitalBase =
+    lastEntry?.base || lastBuy?.totalBase || buyOrders[0]?.totalBase || 0;
 
   // The first entry order is the base order; its cumulative figure is the
   // base-order capital for a single deal.
