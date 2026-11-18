@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.4] - 2026-11-18
+
+### Fixed
+
+- Bot details panel on phones: the Deals and Settings tabs no longer leave an empty strip below the table, and deal cards use the full card width
+
 ## [2.135.3] - 2026-11-18
 
 ### Fixed
