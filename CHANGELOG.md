@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.8] - 2026-11-18
+
+### Fixed
+
+- Combo bot form: Coverage and Avg. Down Power no longer show 0.00% when "Active minigrids on deal start" covers every DCA level.
+
 ## [2.135.7] - 2026-11-18
 
 ### Fixed
