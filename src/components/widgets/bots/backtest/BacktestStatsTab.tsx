@@ -7,6 +7,11 @@ import {
 } from '@/components/widgets/bots/statsPrimitives';
 import type { DCABacktestingResultHistory } from '@/types';
 import {
+  describeBacktestDca,
+  describeBacktestSl,
+  describeBacktestTp,
+} from '@/utils/backtest/settings-summary';
+import {
   Activity,
   Percent,
   Target,
@@ -121,17 +126,13 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
     return settings.profitCurrency === 'base' ? baseAsset : quoteAsset;
   })();
 
-  // Calculate DCA settings description
-  const dcaDescription = resolvedSettings?.useDca
-    ? `DCA max/grid's ${resolvedSettings?.ordersCount || 5} orders each ${resolvedSettings?.orderSize || '0.0005'} ${profitSign || quoteAsset || 'BTC'} step ${resolvedSettings?.step || '5'}% levels`
-    : 'DCA not used';
-
-  const tpDescription = resolvedSettings?.useTp
-    ? `TP ${resolvedSettings?.tpPerc || '0'}%`
-    : 'Not use TP';
-  const slDescription = resolvedSettings?.useSl
-    ? `SL ${resolvedSettings?.slPerc || '0'}%`
-    : 'Not use SL';
+  const dcaDescription = describeBacktestDca(
+    resolvedSettings,
+    quoteAsset,
+    baseAsset
+  );
+  const tpDescription = describeBacktestTp(resolvedSettings);
+  const slDescription = describeBacktestSl(resolvedSettings);
 
   // Format testing period
   const testingPeriodFrom = duration?.firstDataTime

@@ -14,6 +14,7 @@ import {
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { toast } from '@/lib/toast';
 import { cn } from '@/lib/utils';
+import { sizeUnit } from '@/utils/bots/dca/order-size-unit';
 import { formatCurrency } from '@/utils/formatters';
 
 import {
@@ -60,27 +61,6 @@ const fmtNum = (v: number) =>
   v >= 1000
     ? v.toLocaleString('en-US', { maximumFractionDigits: 2 })
     : v.toLocaleString('en-US', { maximumSignificantDigits: 6 });
-
-function sizeUnit(
-  type: string | null,
-  quote?: string,
-  base?: string
-): string {
-  switch (type) {
-    case 'base':
-      return base ? ` ${base}` : '';
-    case 'quote':
-      return quote ? ` ${quote}` : '';
-    case 'usd':
-      return ' USD';
-    case 'percTotal':
-      return '% of total';
-    case 'percFree':
-      return '% of free';
-    default:
-      return '';
-  }
-}
 
 const Row: React.FC<{ label: string; tooltip?: string; children: React.ReactNode }> = ({
   label,
