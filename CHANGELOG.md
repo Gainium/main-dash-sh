@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.6] - 2026-11-18
+
+### Fixed
+
+- Portfolio Balances: Max Bot Usage and Planned now show what your active DCA and Combo bots still need, and Free deducts it, instead of always reading zero.
+
 ## [2.135.5] - 2026-11-18
 
 ### Changed
