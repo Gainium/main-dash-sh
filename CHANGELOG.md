@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.7] - 2026-11-18
+
+### Fixed
+
+- Combo bot Required Capital now includes every DCA level when "Active minigrids on deal start" covers all of them, instead of showing only the base order.
+
 ## [2.135.6] - 2026-11-18
 
 ### Fixed
