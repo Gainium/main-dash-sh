@@ -425,14 +425,14 @@ const Login: React.FC = () => {
                 <Label htmlFor="licenseKey">
                   License key{' '}
                   <span className="text-muted-foreground font-normal">
-                    (generate at{' '}
+                    (app.gainium.io →{' '}
                     <a
                       href="https://app.gainium.io/settings/license-key"
                       target="_blank"
                       rel="noreferrer"
                       className="text-primary hover:underline"
                     >
-                      gainium.io
+                      Settings → License Key
                     </a>
                     )
                   </span>
