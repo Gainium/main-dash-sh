@@ -117,3 +117,26 @@ describe("combo required capital with active minigrids (spec 156)", () => {
     });
   }
 });
+
+describe("combo coverage with active minigrids (spec 156 §1.3)", () => {
+  for (const futures of [false, true]) {
+    it(`§1.3 ${futures ? "futures" : "spot"}: coverage and avg down power span the whole ladder whether minigrids are active or not`, async () => {
+      const off = computeDealSummary(await build({ futures }));
+      if (!futures) {
+        expect(off.coverage).toBe("8.00");
+        expect(off.avgDownPower).toBe("4.89");
+      }
+      for (const active of ["2", "4"]) {
+        const on = computeDealSummary(
+          await build({
+            futures,
+            useActiveMinigrids: true,
+            comboActiveMinigrids: active,
+          }),
+        );
+        expect(on.coverage).toBe(off.coverage);
+        expect(on.avgDownPower).toBe(off.avgDownPower);
+      }
+    });
+  }
+});

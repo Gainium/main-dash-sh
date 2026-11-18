@@ -135,17 +135,28 @@ export const computeDealSummary = (orders: DCAGrid[]): DealOverviewSummary => {
     return EMPTY_DEAL_SUMMARY;
   }
 
+  // Coverage, avg-down power and the committed capital all span the whole
+  // ladder, so they are read from the last entry row of the unfiltered list:
+  // a DCA level executed by an active combo minigrid is hidden from the order
+  // list, but the deal still covers its price and commits its capital. With
+  // every level executed by an active minigrid, the visible list holds only
+  // the base order.
+  const lastEntry = orders
+    .filter((order) => entryTypes.includes(order.type || 'Smart order'))
+    .at(-1);
+
   const referencePrice = buyOrders[0].price;
   const lastBuy = buyOrders[buyOrders.length - 1];
+  const lastPrice = lastEntry?.price ?? lastBuy?.price;
 
   const coverage =
-    lastBuy && referencePrice
-      ? Math.abs(
-          ((lastBuy.price - referencePrice) / referencePrice) * 100
-        ).toFixed(2)
+    lastPrice && referencePrice
+      ? Math.abs(((lastPrice - referencePrice) / referencePrice) * 100).toFixed(
+          2
+        )
       : '0.00';
 
-  const lastBuyAvgPrice = lastBuy?.avgPrice;
+  const lastBuyAvgPrice = lastEntry?.avgPrice ?? lastBuy?.avgPrice;
   const avgDownPower =
     lastBuyAvgPrice && referencePrice
       ? Math.abs(
@@ -158,11 +169,6 @@ export const computeDealSummary = (orders: DCAGrid[]): DealOverviewSummary => {
   // an active combo minigrid executes them. Combo minigrid (`Grid`) orders add
   // nothing on top — the closing side is reduce-only / sells back what the
   // level bought — so they are not counted, matching the engine's deal usage.
-  // Read it from the unfiltered list: with every level executed by an active
-  // minigrid, the visible list holds only the base order.
-  const lastEntry = orders
-    .filter((order) => entryTypes.includes(order.type || 'Smart order'))
-    .at(-1);
   const totalCapital =
     lastEntry?.quote || lastBuy?.totalQuote || buyOrders[0]?.totalQuote || 0;
 
