@@ -1714,7 +1714,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               </DetailDrawerHeader>
 
               <DetailDrawerBody
-                className="px-4 py-5 sm:px-6 sm:py-6"
+                className="px-4 py-3 sm:px-6 sm:py-6"
                 fill={
                   dealsFillHeight ||
                   settingsFillHeight ||
@@ -1736,10 +1736,10 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                     'mt-0 flex-1 overflow-hidden',
                     // The table fills the body and scrolls itself, header and
                     // pagination always on screen — like the bot list pages.
-                    // The body drops its mobile bottom-nav spacer in fill
-                    // mode, so the tab carries it instead.
+                    // No bottom-nav spacer: on mobile the drawer covers the
+                    // nav and ends in its own action footer.
                     dealsFillHeight &&
-                      'flex min-h-0 flex-col data-[state=inactive]:hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+                      'flex min-h-0 flex-col data-[state=inactive]:hidden'
                   )}
                 >
                   <motion.div
@@ -2004,7 +2004,7 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                   className={cn(
                     'mt-0',
                     settingsFillHeight &&
-                      'flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden max-md:pb-[calc(4.5rem+env(safe-area-inset-bottom,0px))]'
+                      'flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden'
                   )}
                 >
                   <motion.div

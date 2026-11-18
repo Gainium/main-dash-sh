@@ -657,8 +657,10 @@ const EnhancedCard = React.memo(
           orders={ordersForDialog}
           isLoading={ordersLoading}
         />
+        {/* The Card around this already pads by p-sm; on phones a second
+            p-md inset left the content a third narrower than the card. */}
         <CardContent
-          className="p-md relative"
+          className="p-md max-md:p-1 relative"
           style={{ isolation: 'isolate' }}
           onClickCapture={handleCardContentClick}
           {...longPressHandlers}
