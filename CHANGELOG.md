@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.10] - 2026-11-19
+
+### Fixed
+
+- Portfolio balances: FREE no longer counts funds a bot has already locked in its open position and resting orders
+
 ## [2.135.9] - 2026-11-19
 
 ### Fixed
