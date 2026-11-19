@@ -24,13 +24,63 @@ export interface ExecuteNextDcaEligibilityTrade {
  * `levels.complete === index + 1` against `levelNumber === index + 1`.)
  *
  * The count a user sees, "2 / 5", is `levels.complete - 1` of `levels.all - 1`,
- * because both totals include the base order. Same arithmetic
- * `ChangeDcaLevelsDialog` uses.
+ * because both totals include the base order. `ChangeDcaLevelsDialog` reads
+ * its bounds from {@link dcaLadderStanding} instead, which leaves out Add Funds.
  */
 export function nextDcaLevelNumber(trade: {
   levels?: { complete: number; all: number } | undefined;
 }) {
   return trade.levels?.complete || 1;
+}
+
+/** What {@link dcaLadderStanding} reads off a raw DCA deal. */
+export interface DcaLadderStandingDeal {
+  levels?: { complete: number; all: number } | undefined;
+  funds?:
+    | readonly { consumesLadderLevel?: boolean | null | undefined }[]
+    | null
+    | undefined;
+  settings?:
+    | {
+        dcaCondition?: string | null | undefined;
+        ordersCount?: string | number | null | undefined;
+      }
+    | null
+    | undefined;
+}
+
+/**
+ * Where a DCA deal stands in its CONFIGURED ladder, for "Change DCA levels":
+ * how many of its safety orders have filled, and how many it has in all.
+ *
+ * `levels` does not answer either on a deal that has taken Add Funds: the fill
+ * increments `levels.complete` and grows `levels.all`, but it is not one of the
+ * bot's levels. `filled` is main-app's `nextLadderLevel - 1` — `complete`
+ * minus the base order minus every `deal.funds` entry that took no level.
+ * `max` is the ladder size main-app's `dcaLadderSize` reads, the deal's own
+ * `ordersCount`, except on an indicator / custom ladder (not sized by it) or a
+ * deal whose settings are not to hand, which keep `levels.all - 1`.
+ */
+export function dcaLadderStanding(deal: DcaLadderStandingDeal): {
+  filled: number;
+  max: number;
+} {
+  const outsideLadder = (deal.funds ?? []).filter(
+    (f) => f?.consumesLadderLevel !== true
+  ).length;
+  const filled = Math.max(
+    0,
+    (deal.levels?.complete || 1) - 1 - outsideLadder
+  );
+  const condition = deal.settings?.dcaCondition;
+  const ordersCount = parseInt(`${deal.settings?.ordersCount ?? ''}`, 10);
+  const sizedByCount =
+    condition !== 'indicators' &&
+    condition !== 'custom' &&
+    Number.isFinite(ordersCount) &&
+    ordersCount >= 0;
+  const max = sizedByCount ? ordersCount : (deal.levels?.all || 1) - 1;
+  return { filled, max: Math.max(filled, max) };
 }
 
 /**

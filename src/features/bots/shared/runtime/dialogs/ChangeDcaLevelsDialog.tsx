@@ -25,9 +25,12 @@ export interface ChangeDcaLevelsDialogProps {
   open: boolean;
   /** Update handler when dialog visibility changes */
   onOpenChange: (open: boolean) => void;
-  /** Number of DCA levels already filled on the deal (`levels.complete - 1`) */
+  /**
+   * Number of the deal's configured DCA levels already filled — not counting
+   * Add Funds fills (see `dcaLadderStanding`)
+   */
   currentLevel: number;
-  /** Current max DCA levels configured for the deal (`levels.all - 1`) */
+  /** Current max DCA levels configured for the deal (see `dcaLadderStanding`) */
   maxLevel: number;
   /**
    * Invoked with the new max DCA levels. `0` turns DCA off; a positive value

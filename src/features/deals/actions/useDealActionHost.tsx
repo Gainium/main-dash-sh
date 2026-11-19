@@ -14,7 +14,9 @@ import {
   ChangeDcaLevelsDialog,
   CloseOptionsDialog,
   ExecuteNextDcaDialog,
+  dcaLadderStanding,
   type AdjustFundsDialogMode,
+  type DcaLadderStandingDeal,
 } from '@/features/bots/shared/runtime';
 import type { PendingLevels } from '@/features/bots/shared/runtime/dialogs/fundsOutcome';
 import { useMergeSmartOrders } from '@/features/bots/widgets/BotForm/hooks/useMergeSmartOrders';
@@ -32,6 +34,7 @@ import {
 import { fetchDealOrders, useDealOrders } from '@/hooks/useDealOrders';
 import { logger } from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
+import { useDealStore } from '@/stores/live';
 import { useTradeJournalStore } from '@/stores/tradeJournalStore';
 import {
   BaseFundingEnum,
@@ -608,6 +611,28 @@ export function useDealActionHost({
     return { ...levels, lines };
   }, [comboFundsDeal, comboFundsOrders]);
 
+  // "Change DCA levels" bounds (spec 157). An Add Funds fill bumps `levels`
+  // but is not a DCA level, so a DCA deal's bounds are read off its raw deal
+  // (its `funds` and `ordersCount`) from the live store — the same deal the
+  // dialog's preview reads. Combo funds keep the levels arithmetic, as does a
+  // deal the store does not hold.
+  const changeDcaRawDeal = useDealStore((s) =>
+    pendingId === 'changeDcaLevels' &&
+    pendingDeal?.botId &&
+    (pendingDeal.kind === 'dca' || pendingDeal.kind === 'hedgeDca')
+      ? (s.deals[pendingDeal.botId]?.[pendingDeal.dealId] ?? null)
+      : null
+  ) as DcaLadderStandingDeal | null;
+  const changeDcaStanding = useMemo(
+    () =>
+      dcaLadderStanding({
+        levels: changeDcaRawDeal?.levels ?? pendingDeal?.levels,
+        funds: changeDcaRawDeal?.funds,
+        settings: changeDcaRawDeal?.settings,
+      }),
+    [changeDcaRawDeal, pendingDeal?.levels]
+  );
+
   // Base funding (main-app spec 044): adding levels to a short spot deal of a
   // bot-funded bot buys their base first, so the dialog previews it.
   const fundingKind =
@@ -642,7 +667,7 @@ export function useDealActionHost({
     ) {
       return undefined;
     }
-    const filled = Math.max(0, (deal.levels?.complete || 1) - 1);
+    const { filled } = changeDcaStanding;
     return (newMax: number) => {
       const safetyQty = estimateLevelsBase({
         fromLevel: filled + 1,
@@ -664,7 +689,7 @@ export function useDealActionHost({
         dealId: deal.dealId || deal.id,
       };
     };
-  }, [fundingCandidate, pendingDeal, fundingSettings]);
+  }, [fundingCandidate, pendingDeal, fundingSettings, changeDcaStanding]);
 
   const handleAdjustFundsConfirm = useCallback(
     (settings: AddFundsSettings) => {
@@ -837,8 +862,8 @@ export function useDealActionHost({
         <ChangeDcaLevelsDialog
           open
           onOpenChange={onOpenChange}
-          currentLevel={(pendingDeal.levels?.complete || 1) - 1}
-          maxLevel={(pendingDeal.levels?.all || 1) - 1}
+          currentLevel={changeDcaStanding.filled}
+          maxLevel={changeDcaStanding.max}
           onConfirm={handleChangeDcaConfirm}
           isProcessing={editDeal.isPending}
           {...(fundingInputFor ? { fundingInputFor } : {})}
