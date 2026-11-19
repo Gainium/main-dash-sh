@@ -160,4 +160,61 @@ describe('portfolio balances count the bots that still need funds', () => {
     expect(after.used).toBe(before.used);
     expect(after.total).toBe(before.total);
   });
+
+  // spec 158 — FREE never counts margin a bot already locked in its position and orders.
+  it('§158.1 a bot whose remaining orders are all resting leaves FREE at the wallet free', () => {
+    const r = row(
+      calc(
+        [
+          listBot({
+            usage: { current: { base: 0, quote: 1600 }, max: { base: 0, quote: 2200 } },
+            assets: {
+              used: { base: [{ key: 'TSLA', value: 0 }], quote: [{ key: 'USDT', value: 1300 }] },
+              required: { base: [{ key: 'TSLA', value: 0 }], quote: [{ key: 'USDT', value: 1300 }] },
+            },
+            dealsInBot: { active: 1, all: 5 },
+          }),
+        ],
+        [bal('USDT', '300', '1900')]
+      ),
+      'USDT'
+    );
+
+    expect(r.required).toBe(600);
+    expect(r.planned).toBe(0);
+    expect(r.freeAndOver).toBe(300);
+  });
+
+  it('§158.3 a spot bot holding its position in the wallet free keeps it out of FREE', () => {
+    const r = row(
+      calc(
+        [
+          listBot({
+            settings: { futures: false },
+            symbol: [{ key: 'JSTUSDT', value: { symbol: 'JSTUSDT', baseAsset: 'JST', quoteAsset: 'USDT' } }],
+            usage: { current: { base: 0, quote: 200 }, max: { base: 0, quote: 1500 } },
+            assets: {
+              used: { base: [{ key: 'JST', value: 1270 }], quote: [{ key: 'USDT', value: 60 }] },
+              required: { base: [{ key: 'JST', value: 1270 }], quote: [{ key: 'USDT', value: 1300 }] },
+            },
+            dealsInBot: { active: 1, all: 5 },
+          }),
+        ],
+        [bal('JST', '1300'), bal('USDT', '500', '600')]
+      ),
+      'JST'
+    );
+
+    expect(r.required).toBe(1270);
+    expect(r.planned).toBe(0);
+    expect(r.freeAndOver).toBe(30);
+  });
+
+  it('§158.2 an account no bot reserves anything on keeps FREE at the wallet total', () => {
+    const r = row(calc([], [bal('USDT', '300', '700')]), 'USDT');
+
+    expect(r.required).toBe(0);
+    expect(r.planned).toBe(0);
+    expect(r.freeAndOver).toBe(1000);
+  });
 });

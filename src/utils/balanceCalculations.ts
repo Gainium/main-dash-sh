@@ -143,6 +143,25 @@ const checkDcaBot = (bot: any): boolean => {
   );
 };
 
+/**
+ * FREE: what is left once the bots have what they reserve. It can exceed
+ * neither the wallet's free minus what bots still have to place (`planned`),
+ * nor the wallet's total minus everything bots reserve (`required`). With
+ * `planned` 0 a bot's funds may sit either in `locked` (futures margin, resting
+ * orders) or in `free` (a spot position with no resting order), so both bounds
+ * apply. An asset no bot reserves anything on reports the wallet total.
+ */
+const freeAfterBots = (
+  free: number,
+  total: number,
+  required: number,
+  planned: number
+): number => {
+  if (planned > 0) return free - planned;
+  if (required === 0) return total;
+  return Math.min(free, total - required);
+};
+
 // Main function to calculate enhanced balance data
 export const calculateEnhancedBalances = (
   input: BalanceCalculationInput,
@@ -377,10 +396,12 @@ export const calculateEnhancedBalances = (
           amount: `${math.round(+p.amount, 8)} ${balance.asset}`,
         }));
 
-        const freeAndOver =
-          totalPlanned === 0
-            ? freeValue + usedValue - totalRequired
-            : freeValue - totalPlanned;
+        const freeAndOver = freeAfterBots(
+          freeValue,
+          total,
+          totalRequired,
+          totalPlanned
+        );
 
         const requiredRatio =
           total === 0
@@ -468,8 +489,12 @@ export const calculateEnhancedBalances = (
         const total = amount;
 
         // Calculate free and over balance
-        const freeAndOver =
-          totalPlanned === 0 ? total - totalRequired : free - totalPlanned;
+        const freeAndOver = freeAfterBots(
+          free,
+          total,
+          totalRequired,
+          totalPlanned
+        );
 
         // Calculate required ratio
         const requiredRatio =
