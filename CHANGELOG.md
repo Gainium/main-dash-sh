@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.11] - 2026-11-20
+
+### Changed
+
+- Maintenance warning query requests the banner style
+
 ## [2.135.10] - 2026-11-19
 
 ### Fixed
