@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.12] - 2026-11-21
+
+### Fixed
+
+- Bot view chart draws indicator levels bound to a global variable at the variable's value, not the value saved on the bot
+
 ## [2.135.11] - 2026-11-20
 
 ### Changed
