@@ -187,6 +187,10 @@ export interface OrderExecutionSettingsProps {
   modeContext?: ExecutionModeContext;
   /** Render without the SettingsRow wrapper (dialogs supply their own). */
   bare?: boolean;
+  /** A limit placed at this price instead of the current one (manual close). */
+  limitPrice?: number;
+  /** Extra fields shown right under the mode tabs, above the mode's own fields (manual close). */
+  beforeFields?: React.ReactNode;
 }
 
 /**
@@ -204,6 +208,8 @@ export const OrderExecutionSettings: React.FC<OrderExecutionSettingsProps> = ({
   trigger = 'level',
   modeContext = {},
   bare,
+  limitPrice,
+  beforeFields,
 }) => {
   const modes = availableExecutionModes(stage, trigger, modeContext);
   const showTimeout = limitTimeoutSupported(stage, trigger, modeContext);
@@ -388,6 +394,7 @@ export const OrderExecutionSettings: React.FC<OrderExecutionSettingsProps> = ({
           ))}
         </TabsList>
       </Tabs>
+      {beforeFields}
       {current.mode !== 'market' &&
       !(current.mode === 'limit' && !showTimeout) ? (
         <SettingsRowSurface
@@ -414,7 +421,7 @@ export const OrderExecutionSettings: React.FC<OrderExecutionSettingsProps> = ({
       >
         <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden="true" />
         <div className="space-y-1">
-          {summarizeExecution(stage, current, trigger).map((line) => (
+          {summarizeExecution(stage, current, trigger, limitPrice).map((line) => (
             <p key={line}>{line}</p>
           ))}
         </div>

@@ -1,3 +1,4 @@
+import type { OrderExecution } from '@/types/orderExecution';
 import type {
   BotStatus,
   BotTypesEnum,
@@ -1422,6 +1423,9 @@ export const botQueries = {
     dealId: string;
     type: CloseDCATypeEnum;
     botId: string;
+    /** Spec 249 — how to close (the close dialog's execution block). */
+    execution?: OrderExecution;
+    limitPrice?: number;
   }) => {
     const query = `mutation closeDCADeal($input: closeDCADeal!) { 
                     closeDCADeal(input: $input) {
@@ -1438,6 +1442,9 @@ export const botQueries = {
     dealId: string;
     type: CloseDCATypeEnum;
     botId: string;
+    /** Spec 249 — how to close (the close dialog's execution block). */
+    execution?: OrderExecution;
+    limitPrice?: number;
   }) => {
     const query = `mutation closeComboDeal($input: closeDCADeal!) { 
                     closeComboDeal(input: $input) {

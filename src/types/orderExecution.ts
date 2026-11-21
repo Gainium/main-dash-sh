@@ -376,7 +376,7 @@ const STAGE_WORDS: Record<ExecutionStage, StageWords> = {
   },
   close: {
     levelName: 'the close price',
-    when: () => 'When the deal is closed',
+    when: () => 'When you confirm the close',
     fills: 'the position is closed',
     splitWhat: 'the position is closed',
     restAtMarket: 'the rest is executed at market',
@@ -390,7 +390,9 @@ const STAGE_WORDS: Record<ExecutionStage, StageWords> = {
 export const summarizeExecution = (
   stage: ExecutionStage,
   value: OrderExecution,
-  trigger: ExecutionTrigger
+  trigger: ExecutionTrigger,
+  /** A limit at a chosen price instead of the current one (manual close). */
+  limitPrice?: number
 ): string[] => {
   const e = normalizeExecution(value);
   const w = STAGE_WORDS[stage];
@@ -418,7 +420,9 @@ export const summarizeExecution = (
         ];
       }
       return [
-        `${when}, a limit order is placed at the current price and stays at that price.`,
+        limitPrice && limitPrice > 0
+          ? `${when}, a limit order is placed at ${limitPrice} and stays at that price.`
+          : `${when}, a limit order is placed at the current price and stays at that price.`,
         timeout('after it is placed'),
       ];
     case 'chase':
@@ -501,3 +505,4 @@ export const sanitizeExecution = (raw: unknown): OrderExecution | null => {
   }
   return out as unknown as OrderExecution;
 };
+

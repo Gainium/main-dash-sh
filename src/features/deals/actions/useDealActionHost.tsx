@@ -43,6 +43,10 @@ import {
   type AddFundsSettings,
 } from '@/types';
 import { useBaseFundingSettings } from '@/hooks/useBaseFunding';
+import {
+  EXECUTION_MODE_DEFAULTS,
+  type OrderExecution,
+} from '@/types/orderExecution';
 import { estimateLevelsBase } from '@/lib/baseFunding/estimateLevelsBase';
 import type { ViewOrder } from '@/types/bots';
 import { isDealInJournal } from '@/utils/journalDealDedupe';
@@ -414,13 +418,32 @@ export function useDealActionHost({
   );
 
   const endDeals = useCallback(
-    async (deals: DealRef[], type: CloseDCATypeEnum, skipped = 0) => {
+    async (
+      deals: DealRef[],
+      type: CloseDCATypeEnum,
+      skipped = 0,
+      execution?: OrderExecution,
+      limitPrice?: number
+    ) => {
       const cancel = type === CloseDCATypeEnum.cancel;
       const closeOne = (deal: DealRef & { botId: string }) => {
         const close = runsOnComboEngine(deal.kind)
           ? closeMutations.closeComboDeal
           : closeMutations.closeDCADeal;
-        return close({ dealId: deal.id, botId: deal.botId, type });
+        // The type follows the chosen execution: only a market close ends
+        // the deal at once (the optimistic "closed" mark reads it).
+        const withExecution = execution && !cancel;
+        return close({
+          dealId: deal.id,
+          botId: deal.botId,
+          type: withExecution
+            ? execution.mode === 'market'
+              ? CloseDCATypeEnum.closeByMarket
+              : CloseDCATypeEnum.closeByLimit
+            : type,
+          ...(withExecution ? { execution } : {}),
+          ...(withExecution && limitPrice ? { limitPrice } : {}),
+        });
       };
       if (deals.length === 1 && skipped === 0) {
         const deal = deals[0] as DealRef;
@@ -431,7 +454,12 @@ export function useDealActionHost({
         try {
           await closeOne({ ...deal, botId: deal.botId });
           toast.success(
-            cancel ? 'Deal canceled successfully' : 'Deal closed successfully'
+            cancel
+              ? 'Deal canceled successfully'
+              : // Spec 249 — only a market close ends the deal at once.
+                execution && execution.mode !== 'market'
+                ? 'Close order placed'
+                : 'Deal closed successfully'
           );
         } catch (error) {
           logger.error(`${LOG_PREFIX} ${cancel ? 'Cancel' : 'Close'} failed`, {
@@ -573,6 +601,19 @@ export function useDealActionHost({
   const pendingId = pending?.id;
   const pendingDeal = pending?.deals[0];
   const copy = pending ? confirmCopy(pending.id, pending.deals) : null;
+
+  // Spec 249 — "Close deal" means close now: every close starts as a
+  // chasing limit from the order book (re-priced every 10 s, the rest at market
+  // after 35 s), editable in the dialog. One deal also gets the limit price box.
+  const closeSingleDeal =
+    pendingId === 'close' &&
+    pending?.deals.length === 1 &&
+    (pending?.skipped ?? 0) === 0
+      ? pendingDeal
+      : undefined;
+  const closeIsCombo =
+    pendingId === 'close' &&
+    (pending?.deals ?? []).some((d) => runsOnComboEngine(d.kind));
 
   // A combo funds adjustment scales the deal's pending DCA levels too, so its
   // preview needs what they hold. Only fetched while that dialog is open.
@@ -800,16 +841,27 @@ export function useDealActionHost({
         <CloseOptionsDialog
           open
           onOpenChange={onOpenChange}
-          onConfirm={(type) => {
+          onConfirm={(type, execution, limitPrice) => {
             const deals = pending?.deals ?? [];
             const skipped = pending?.skipped ?? 0;
             setPending(null);
-            void endDeals(deals, type as CloseDCATypeEnum, skipped);
+            void endDeals(
+              deals,
+              type as CloseDCATypeEnum,
+              skipped,
+              execution,
+              limitPrice
+            );
           }}
           defaultCloseType={CloseDCATypeEnum.closeByMarket}
           ignoreOptions={[CloseDCATypeEnum.leave]}
           mode="deal"
           count={pending?.deals.length ?? 1}
+          defaultExecution={EXECUTION_MODE_DEFAULTS.chase}
+          isCombo={closeIsCombo}
+          symbol={closeSingleDeal?.symbol}
+          exchange={closeSingleDeal?.exchange}
+          quoteAsset={closeSingleDeal?.quoteAsset}
         />
       )}
       {(pendingId === 'addFunds' || pendingId === 'reduceFunds') &&

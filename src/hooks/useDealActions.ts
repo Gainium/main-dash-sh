@@ -27,11 +27,16 @@ import {
   invalidateListCaches,
   DEAL_LIST_QUERY_KEYS,
 } from '@/lib/queryCacheUtils';
+import type { OrderExecution } from '@/types/orderExecution';
 
 interface CloseDealInput {
   dealId: string;
   botId: string;
   type: CloseDCATypeEnum; // 'leave', 'cancel', 'closeByLimit', 'closeByMarket'
+  /** Spec 249 — how to close, from the close dialog's execution block. */
+  execution?: OrderExecution;
+  /** Spec 249 — a limit close at this price. */
+  limitPrice?: number;
 }
 
 interface DealResponse {
@@ -230,13 +235,15 @@ export function useCloseDCADeal() {
   );
 
   return useMutation<DealResponse, Error, CloseDealInput>({
-    mutationFn: async ({ dealId, type, botId }) => {
+    mutationFn: async ({ dealId, type, botId, execution, limitPrice }) => {
       logger.info('[useCloseDCADeal] Closing DCA deal:', { dealId, type });
 
       const { query, variables } = botQueries.closeDCADeal({
         dealId,
         botId,
         type,
+        ...(execution ? { execution } : {}),
+        ...(limitPrice ? { limitPrice } : {}),
       });
 
       const response = await client.request<{
@@ -520,13 +527,15 @@ export function useCloseComboDeal() {
     !isLiveTrading
   );
   return useMutation<DealResponse, Error, CloseDealInput>({
-    mutationFn: async ({ dealId, type, botId }) => {
+    mutationFn: async ({ dealId, type, botId, execution, limitPrice }) => {
       logger.info('[useCloseComboDeal] Closing Combo deal:', { dealId, type });
 
       const { query, variables } = botQueries.closeComboDeal({
         dealId,
         botId,
         type,
+        ...(execution ? { execution } : {}),
+        ...(limitPrice ? { limitPrice } : {}),
       });
 
       const response = await client.request<{

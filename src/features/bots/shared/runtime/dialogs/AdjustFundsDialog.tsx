@@ -270,7 +270,7 @@ const formatQty = (value: number) =>
  * has the symbol to hand, but only some already hold a price, and seeding a
  * limit order from a stale one is worse than leaving the box empty.
  */
-const useMarketPrice = (symbol?: string, exchange?: string) => {
+export const useMarketPrice = (symbol?: string, exchange?: string) => {
   const [price, setPrice] = React.useState<number | null>(null);
 
   React.useEffect(() => {
