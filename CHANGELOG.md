@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.19] - 2026-11-21
+
+### Added
+
+- Trades list and cards mark deals whose settings were edited and differ from their bot, with the differing settings in the tooltip
+
 ## [2.135.18] - 2026-11-21
 
 ### Changed
