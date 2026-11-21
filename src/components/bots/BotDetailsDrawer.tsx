@@ -18,6 +18,7 @@ import { useDealOrders } from '@/hooks/useDealOrders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import { useDealsWithLivePnl } from '@/hooks/useLiveDealPnl';
 import { indicatorStore } from '@/stores/indicatorStore';
+import { useIndicatorVarValues } from '@/hooks/bots/global-variables/useIndicatorVarValues';
 import { chartIndicatorsContextFromSettings } from '@/utils/indicators/chartIndicatorUtils';
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
@@ -1475,12 +1476,21 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       chartAvgPrices,
     ]);
 
+    // Draw what the engine evaluates: fields bound to a global variable carry
+    // the variable's value, not the literal saved on the bot.
+    const withIndicatorVarValues = useIndicatorVarValues(
+      isGrid
+        ? null
+        : ((bot as { vars?: BotVars | null } | undefined)?.vars ?? null)
+    );
     useEffect(() => {
       if (isGrid) {
         return;
       }
-      indicatorStore.setIndicators((bot as DCABot).settings.indicators);
-    }, [isGrid, bot]);
+      indicatorStore.setIndicators(
+        ((bot as DCABot).settings.indicators ?? []).map(withIndicatorVarValues)
+      );
+    }, [isGrid, bot, withIndicatorVarValues]);
 
     useEffect(() => {
       if (bot?.type === BotTypesEnum.grid) {

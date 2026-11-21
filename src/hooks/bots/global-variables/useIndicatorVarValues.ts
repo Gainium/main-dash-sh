@@ -5,30 +5,37 @@ import { useOptionalBotFormBinding } from '@/contexts/bots/form/BotFormProvider'
 import { globalVariablesStore } from '@/stores/globalVariablesStore';
 import { useAuthStore } from '@/stores/authStore';
 import { useUIStore } from '@/stores/uiStore';
-import type { SettingsIndicators } from '@/types';
+import type { BotVars, SettingsIndicators } from '@/types';
+
+import { resolveIndicatorVars } from './botVarBindingUtils';
 
 /**
  * Indicator settings with every field bound to a global variable replaced by
  * that variable's value — what the bot engine evaluates. A bound field keeps
  * the literal it had when it was bound, so reading the settings directly shows
  * a value the bot no longer uses.
+ *
+ * Inside a bot form the bindings come from the form. Outside one (the bot
+ * view's chart) pass the saved bot's `vars`; they take precedence when given.
  */
-export const useIndicatorVarValues = () => {
+export const useIndicatorVarValues = (botVars?: BotVars | null) => {
   const binding = useOptionalBotFormBinding();
   const { tokens } = useAuthStore();
   const isLiveTrading = useUIStore((s) => s.isLiveTrading);
 
   // Deal-edit modes use per-deal resolved values, not the binding (same rule
   // as useBotVarBinding).
-  const paths = useMemo(
-    () =>
-      binding?.mode === 'deal-edit' || binding?.mode === 'deal-mass-edit'
-        ? []
-        : (binding?.botVars?.paths ?? []).filter((entry) =>
-            entry.path.startsWith('indicators.')
-          ),
-    [binding?.botVars, binding?.mode]
-  );
+  const paths = useMemo(() => {
+    const source =
+      botVars !== undefined
+        ? botVars?.paths
+        : binding?.mode === 'deal-edit' || binding?.mode === 'deal-mass-edit'
+          ? []
+          : binding?.botVars?.paths;
+    return (source ?? []).filter((entry) =>
+      entry.path.startsWith('indicators.')
+    );
+  }, [botVars, binding?.botVars, binding?.mode]);
   const ids = useMemo(
     () => [...new Set(paths.map((entry) => entry.variable))].sort(),
     [paths]
@@ -43,27 +50,8 @@ export const useIndicatorVarValues = () => {
   });
 
   return useCallback(
-    (indicator: SettingsIndicators): SettingsIndicators => {
-      if (!paths.length || !variables?.length) {
-        return indicator;
-      }
-      const prefix = `indicators.${indicator.uuid}.`;
-      let resolved: SettingsIndicators | null = null;
-      for (const entry of paths) {
-        if (!entry.path.startsWith(prefix)) {
-          continue;
-        }
-        const variable = variables.find((v) => v.id === entry.variable);
-        if (!variable) {
-          continue;
-        }
-        resolved ??= { ...indicator };
-        (resolved as unknown as Record<string, unknown>)[
-          entry.path.slice(prefix.length)
-        ] = variable.value;
-      }
-      return resolved ?? indicator;
-    },
+    (indicator: SettingsIndicators): SettingsIndicators =>
+      resolveIndicatorVars(indicator, paths, variables ?? []),
     [paths, variables]
   );
 };
