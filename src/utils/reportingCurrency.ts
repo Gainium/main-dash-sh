@@ -25,9 +25,58 @@ export const getReportingCurrency = (): Currency =>
 export const reportingProfitInput = (
   currency: Currency = getReportingCurrency()
 ): { reportingCurrency?: string; reportingRate?: number } =>
-  currency.code === 'USD' || !(currency.rate > 0)
+  reportingProfitUnsupported ||
+  currency.code === 'USD' ||
+  !(currency.rate > 0)
     ? {}
     : { reportingCurrency: currency.code, reportingRate: currency.rate };
+
+/**
+ * Set for the rest of the page's life once a backend has refused the
+ * `reportingProfitInput` fields (one that predates them): later requests
+ * stop sending them and the profit figures fall back to plain USD.
+ */
+let reportingProfitUnsupported = false;
+const REPORTING_INPUT_KEYS = ['reportingCurrency', 'reportingRate'] as const;
+
+/** Test hook. */
+export const __resetReportingProfitSupportForTests = () => {
+  reportingProfitUnsupported = false;
+};
+
+/** Whether a failed request was refused for the `reportingProfitInput` fields. */
+export const isReportingInputRejection = (error: unknown): boolean =>
+  /Field "reporting(Currency|Rate)" is not defined by type/.test(
+    String((error as { message?: unknown })?.message ?? error)
+  );
+
+/**
+ * `variables` without the `reportingProfitInput` fields (in a single `input`
+ * or in a batch's `v0`, `v1`… inputs), or null when it carries none. Marks
+ * the backend as not supporting them, so it is called only on a rejection.
+ */
+export const withoutReportingProfitInput = (
+  variables: unknown
+): Record<string, unknown> | null => {
+  if (!variables || typeof variables !== 'object') return null;
+  let found = false;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(variables as Record<string, unknown>)) {
+    if (v && typeof v === 'object' && !Array.isArray(v)) {
+      const input = Object.fromEntries(
+        Object.entries(v as Record<string, unknown>).filter(([key]) => {
+          const drop = (REPORTING_INPUT_KEYS as readonly string[]).includes(key);
+          if (drop) found = true;
+          return !drop;
+        })
+      );
+      out[k] = input;
+    } else out[k] = v;
+  }
+  if (!found) return null;
+  reportingProfitUnsupported = true;
+  return out;
+};
 
 /** A USD value in the reporting currency. */
 export const usdToReporting = (

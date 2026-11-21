@@ -1,4 +1,8 @@
 import { IdMutex } from '@/utils/mutex';
+import {
+  isReportingInputRejection,
+  withoutReportingProfitInput,
+} from '../../utils/reportingCurrency';
 import logger from '../loggerInstance';
 
 export interface GraphQLHttpErrorDetails {
@@ -355,6 +359,28 @@ export class GraphQLClient {
   }
 
   async request<T>(
+    query: string,
+    variables?: unknown,
+    options?: GraphQLRequestOptions
+  ): Promise<T> {
+    try {
+      return await this.requestOnce<T>(query, variables, options);
+    } catch (error) {
+      // A backend older than the reporting-currency profit input refuses the
+      // whole request; ask again without it (plain USD figures) rather than
+      // leave the profit widgets empty during a dashboard-first deploy.
+      const fallback = isReportingInputRejection(error)
+        ? withoutReportingProfitInput(variables)
+        : null;
+      if (!fallback) throw error;
+      logger.warn(
+        '[GraphQLClient] backend lacks the reporting-currency profit input; retrying in USD'
+      );
+      return this.requestOnce<T>(query, fallback, options);
+    }
+  }
+
+  private async requestOnce<T>(
     query: string,
     variables?: unknown,
     options?: GraphQLRequestOptions
