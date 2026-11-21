@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.135.17] - 2026-11-21
+
+### Changed
+
+- Close deal opens on the same order execution block as the bot form (market, limit, chasing limit, split); it starts as a chasing limit from the order book with a visible market timeout, and Limit takes a price (default: the live market price) with quick buttons beside it
+- Quick value buttons (25/50/75 %, price and percent presets, leverage, ratios) share one look across the app and highlight the preset the field holds
+
 ## [2.135.16] - 2026-11-21
 
 ### Fixed
