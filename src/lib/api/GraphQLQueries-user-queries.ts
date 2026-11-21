@@ -10,6 +10,7 @@ import type {
 import type { ExchangeEnum } from '../../types/exchange.types';
 import { IS_CLOUD } from '../../config/mode';
 import { credits, period } from './GraphQLQueries-fragments';
+import { reportingProfitInput } from '../../utils/reportingCurrency';
 
 type FavoriteIndicatorInput = {
   indicator: IndicatorEnum | string;
@@ -563,7 +564,7 @@ export const userQueries = {
                             }
                         }
                     }`;
-    const variables = { input };
+    const variables = { input: { ...input, ...reportingProfitInput() } };
     return { query, variables };
   },
 

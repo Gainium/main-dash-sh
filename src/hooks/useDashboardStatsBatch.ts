@@ -7,6 +7,12 @@ import {
   type ReturnResult,
 } from '@/lib/api';
 import { useAuthStore } from '@/stores/authStore';
+import { useReportingCurrencyStore } from '@/stores/reportingCurrencyStore';
+import type { Currency } from '@/utils/currencyUtils';
+import {
+  getReportingCurrency,
+  reportingProfitInput,
+} from '@/utils/reportingCurrency';
 import { useUIStore } from '@/stores/uiStore';
 import { BotTypesEnum } from '@/types';
 import { useCacheKey } from './useCacheKey';
@@ -131,7 +137,13 @@ const PROFIT_SELECTION = `data {
       }
     }`;
 
-const LEGACY_ENTRIES: readonly BatchEntry[] = [
+/**
+ * Built per currency: the all-time profit entries carry the reporting currency
+ * (see `reportingProfitInput`), so they are part of the cache key.
+ */
+const legacyEntries = (
+  currency: Currency = getReportingCurrency()
+): readonly BatchEntry[] => [
   ...(
     [
       ['botDca', BotTypesEnum.dca],
@@ -175,7 +187,7 @@ const LEGACY_ENTRIES: readonly BatchEntry[] = [
     alias,
     field: 'getProfitByUser',
     inputType: 'getProfitByUser',
-    input: { ...input },
+    input: { ...input, ...reportingProfitInput(currency) },
     selection: PROFIT_SELECTION,
   })),
 ];
@@ -184,10 +196,15 @@ const LEGACY_ENTRIES: readonly BatchEntry[] = [
  * For WidgetWrapper's stale-while-revalidate indicator
  * (`cacheQueries={[LEGACY_STATS_CACHE_QUERY]}`).
  */
-export const LEGACY_STATS_CACHE_QUERY = {
+export const legacyStatsCacheQuery = (
+  currency: Currency = getReportingCurrency()
+) => ({
   queryKey: 'dashboardStatsLegacy',
-  variables: batchSignature(LEGACY_ENTRIES) as Record<string, unknown>,
-};
+  variables: batchSignature(legacyEntries(currency)) as Record<
+    string,
+    unknown
+  >,
+});
 
 export type LegacyStatsAlias =
   | 'botDca'
@@ -210,7 +227,9 @@ export type LegacyStatsAlias =
  * shared (one cache entry) by every consumer.
  */
 export function useLegacyDashboardStats() {
-  const q = useBatch('dashboardStatsLegacy', LEGACY_ENTRIES);
+  const currency = useReportingCurrencyStore((st) => st.currency);
+  const entries = useMemo(() => legacyEntries(currency), [currency]);
+  const q = useBatch('dashboardStatsLegacy', entries);
   return {
     ...q,
     data: q.data as

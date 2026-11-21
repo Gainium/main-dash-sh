@@ -73,3 +73,34 @@ export const dealProfitUsdForReporting = (
       : deal.symbol?.quoteAsset;
   return profitUsdForReporting(asset, deal.profit?.total ?? 0, totalUsd);
 };
+
+/**
+ * A deal's realized profit in the currency it was made in, for the
+ * face-value path (`holding` / `ProfitValue`'s `quoteAsset` + `quoteValue`):
+ * `profit.native` (the deal's own `profit.total`) in its profit currency —
+ * base when the deal keeps profit in base or is coin-margined, else quote.
+ * Undefined when the deal does not say, which leaves the USD conversion.
+ */
+export const tradeProfitFace = (trade: {
+  symbol?: { baseAsset?: string; quoteAsset?: string } | string | null;
+  settings?: { profitCurrency?: string | null; coinm?: boolean | null } | null;
+  coinm?: boolean | null;
+  profit?: { native?: number } | null;
+}): { asset: string; amount: number } | undefined => {
+  const amount = trade.profit?.native;
+  const profitCurrency = trade.settings?.profitCurrency;
+  if (
+    amount === undefined ||
+    !Number.isFinite(amount) ||
+    !profitCurrency ||
+    !trade.symbol ||
+    typeof trade.symbol === 'string'
+  ) {
+    return undefined;
+  }
+  const asset =
+    profitCurrency === 'base' || trade.coinm || trade.settings?.coinm
+      ? trade.symbol.baseAsset
+      : trade.symbol.quoteAsset;
+  return asset ? { asset, amount } : undefined;
+};

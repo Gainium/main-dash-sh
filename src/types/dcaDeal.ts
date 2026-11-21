@@ -2,6 +2,7 @@ import {
   computeDealUnrealizedPnlFromPrices,
   serverDealUnrealizedPnl,
 } from '@/lib/utils/dealUnrealizedPnl';
+import { tradeProfitFace } from '@/utils/bots/reportingProfit';
 import {
   calculateDealCost,
   calculateDealSize,
@@ -45,6 +46,8 @@ export type TradeChartPoint = {
 
 export type TransformedTrade = DealPositionValue & {
   active: boolean;
+  /** Currency `profit.native` is in, when the deal says (see `tradeProfitFace`). */
+  profitAsset?: string;
   id: string;
   type: 'DCA' | 'Combo' | 'Hedge DCA' | 'Hedge Combo' | 'Grid' | 'Terminal';
   /** True for terminal deals — they have no bot page, so bot links are hidden */
@@ -89,6 +92,8 @@ export type TransformedTrade = DealPositionValue & {
         totalUsd: number;
         pureBase: number;
         pureQuote: number;
+        /** The deal's own `profit.total`, in its profit currency (see `tradeProfitFace`). */
+        native?: number;
       }
     | undefined;
   funding?:
@@ -391,9 +396,20 @@ export const transformDealToTrade = (
     profit: {
       total: ('pureBase' in profit ? profit.pureBase : 0) || 0,
       totalUsd: profit.totalUsd || 0,
+      native: profit.total || 0,
       pureBase: ('pureBase' in profit ? profit.pureBase : 0) || 0,
       pureQuote: ('pureQuote' in profit ? profit.pureQuote : 0) || 0,
     },
+    ...(() => {
+      const face = tradeProfitFace({
+        symbol: deal.symbol,
+        settings:
+          (deal.settings as { profitCurrency?: string; coinm?: boolean }) ??
+          (bot?.settings as { profitCurrency?: string; coinm?: boolean }),
+        profit: { native: profit.total },
+      });
+      return face ? { profitAsset: face.asset } : {};
+    })(),
     ...(deal.funding && { funding: deal.funding }),
     avgPrice: deal.avgPrice || 0,
     futures: !!futures,

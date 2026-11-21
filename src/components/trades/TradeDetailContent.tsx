@@ -78,8 +78,11 @@ interface TradeDetailContentProps {
           totalUsd: number;
           pureBase: number;
           pureQuote: number;
+          native?: number;
         }
       | undefined;
+    /** Currency `profit.native` is in (see `tradeProfitFace`). */
+    profitAsset?: string;
     funding?:
       | {
           total: number;
@@ -299,6 +302,10 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
               </div>
               <ProfitAndPerc
                 value={trade.profit?.totalUsd || 0}
+                quoteAsset={trade.profitAsset}
+                quoteValue={
+                  trade.profitAsset ? trade.profit?.native : undefined
+                }
                 percentage={
                   trade.usage.currentUsd
                     ? ((trade.profit?.totalUsd || 0) / trade.usage.currentUsd) *

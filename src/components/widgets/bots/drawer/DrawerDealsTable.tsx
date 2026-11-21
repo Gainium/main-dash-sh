@@ -1947,7 +1947,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           <ProfitAndPerc
             value={realizedPnl}
             quoteAsset={dealProfitAsset(trade)}
-            quoteValue={trade.profit?.total}
+            quoteValue={trade.profit?.native}
             percentage={percentage}
             privacyMode={privacyMode}
             chipPosition="right"

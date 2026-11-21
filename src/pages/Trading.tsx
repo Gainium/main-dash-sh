@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { tradeProfitFace } from '@/utils/bots/reportingProfit';
 import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -135,6 +136,8 @@ interface TradeItem {
         totalUsd: number;
         pureBase: number;
         pureQuote: number;
+        /** The deal's own `profit.total`, in its profit currency (see `tradeProfitFace`). */
+        native?: number;
       }
     | undefined;
   funding?:
@@ -624,6 +627,7 @@ const Trading: React.FC = () => {
             },
             profit: {
               total: deal.profit?.total || 0,
+              native: deal.profit?.total || 0,
               totalUsd: deal.profit?.totalUsd || 0,
               pureBase: deal.profit?.pureBase || 0,
               pureQuote: deal.profit?.pureQuote || 0,
@@ -750,6 +754,7 @@ const Trading: React.FC = () => {
             },
             profit: {
               total: deal.profit?.total || 0,
+              native: deal.profit?.total || 0,
               totalUsd: deal.profit?.totalUsd || 0,
               pureBase: deal.profit?.pureBase || 0,
               pureQuote: deal.profit?.pureQuote || 0,
@@ -839,6 +844,7 @@ const Trading: React.FC = () => {
             profit: deal.profit
               ? {
                   total: deal.profit.total,
+                  native: deal.profit.total,
                   totalUsd: deal.profit.totalUsd,
                   pureBase: deal.profit.pureBase,
                   pureQuote: deal.profit.pureQuote,
@@ -922,6 +928,7 @@ const Trading: React.FC = () => {
             profit: deal.profit?.totalUsd
               ? {
                   total: deal.profit.total || 0,
+                  native: deal.profit.total || 0,
                   totalUsd: deal.profit.totalUsd,
                   pureBase: deal.profit.pureBase || 0,
                   pureQuote: deal.profit.pureQuote || 0,
@@ -1021,6 +1028,7 @@ const Trading: React.FC = () => {
             profit: deal.profit
               ? {
                   total: deal.profit.total,
+                  native: deal.profit.total,
                   totalUsd: deal.profit.totalUsd,
                   pureBase: deal.profit.pureBase || 0,
                   pureQuote: deal.profit.pureQuote || 0,
@@ -1286,6 +1294,17 @@ const Trading: React.FC = () => {
           trade.usage.max?.quote ||
           trade.usage.current.quote,
       },
+      ...(() => {
+        const face = tradeProfitFace({
+          symbol: { baseAsset: trade.baseAsset, quoteAsset: trade.quoteAsset },
+          settings: trade.settings as
+            | { profitCurrency?: string; coinm?: boolean }
+            | undefined,
+          coinm: trade.coinm,
+          profit: trade.profit,
+        });
+        return face ? { profitAsset: face.asset } : {};
+      })(),
       profit: trade.profit || {
         total: 0,
         totalUsd: 0,

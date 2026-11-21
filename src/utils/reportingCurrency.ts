@@ -15,6 +15,20 @@ import type { Currency } from '@/utils/currencyUtils';
 export const getReportingCurrency = (): Currency =>
   useReportingCurrencyStore.getState().currency;
 
+/**
+ * Extra input for `getProfitByUser`: with it the backend returns realized
+ * profit in the reporting currency — the part made in that currency at face
+ * value, the rest at the rate of the day it was made — divided by THIS rate,
+ * so the usual USD → reporting multiplication shows exactly that amount.
+ * Empty for USD (and while the rate is unknown), which keeps plain USD.
+ */
+export const reportingProfitInput = (
+  currency: Currency = getReportingCurrency()
+): { reportingCurrency?: string; reportingRate?: number } =>
+  currency.code === 'USD' || !(currency.rate > 0)
+    ? {}
+    : { reportingCurrency: currency.code, reportingRate: currency.rate };
+
 /** A USD value in the reporting currency. */
 export const usdToReporting = (
   usd: number,

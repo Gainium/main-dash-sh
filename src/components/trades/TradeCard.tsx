@@ -850,6 +850,11 @@ const EnhancedCard = React.memo(
                     </div>
                     <ProfitAndPerc
                       value={pnlBoxValue}
+                      {...(isClosedDeal &&
+                        trade.profitAsset && {
+                          quoteAsset: trade.profitAsset,
+                          quoteValue: trade.profit?.native,
+                        })}
                       percentage={pnlBoxRoi}
                       privacyMode={privacyMode}
                       chipPosition="right"
@@ -1262,13 +1267,13 @@ const SimpleCard = React.memo(
           : // `profit.totalUsd` is in US dollars whatever the quote asset.
             `${formatNumber(
               holding(
-                symbolAssets.quoteAsset,
-                trade.profit?.total || 0,
+                trade.profitAsset,
+                trade.profit?.native ?? 0,
                 trade.profit?.totalUsd || 0
               ),
               true
             )} ${currency.code}`,
-      [privacyMode, trade.profit, holding, symbolAssets.quoteAsset, currency]
+      [privacyMode, trade.profit, trade.profitAsset, holding, currency]
     );
     // Open position only: what the deal already banked is under Realized.
     const openUnrealized = Number(

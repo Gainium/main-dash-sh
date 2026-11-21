@@ -1,7 +1,8 @@
 import {
-  LEGACY_STATS_CACHE_QUERY,
+  legacyStatsCacheQuery,
   useLegacyDashboardStats,
 } from '@/hooks/useDashboardStatsBatch';
+import { useReportingCurrencyStore } from '@/stores/reportingCurrencyStore';
 import { type ReturnResult } from '@/lib/api';
 import { logger } from '@/lib/loggerInstance';
 import { BotTypesEnum } from '@/types';
@@ -142,7 +143,11 @@ export const BotStatus: React.FC<BotStatsProps> = ({
   // Bot status counts, deal stats and all-time profit for every bot type in
   // ONE request (shared with the balance card) instead of 13.
   const legacyStats = useLegacyDashboardStats();
-  const cacheQueries = useMemo(() => [LEGACY_STATS_CACHE_QUERY], []);
+  const reportingCurrency = useReportingCurrencyStore((st) => st.currency);
+  const cacheQueries = useMemo(
+    () => [legacyStatsCacheQuery(reportingCurrency)],
+    [reportingCurrency]
+  );
   const stats = legacyStats.data;
   type BotRes = ReturnResult<BotDashboardStatsApiResponse> | undefined;
   type DealRes = ReturnResult<DealDashboardStatsApiResponse> | undefined;
