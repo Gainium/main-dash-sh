@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.16] - 2026-11-21
+
+### Fixed
+
+- Backtest Stats tab: DCA Usage figures are labelled in the currency the orders are paid in (quote for a spot long, base for a spot short) instead of the profit currency
+
 ## [2.135.15] - 2026-11-21
 
 ### Fixed
