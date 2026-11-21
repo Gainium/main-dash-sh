@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.14] - 2026-11-21
+
+### Fixed
+
+- Profit widgets keep working against a backend that does not yet accept the reporting-currency profit input: they ask again in USD instead of failing
+
 ## [2.135.13] - 2026-11-21
 
 ### Fixed
