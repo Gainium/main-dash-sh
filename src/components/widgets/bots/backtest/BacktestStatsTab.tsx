@@ -7,6 +7,10 @@ import {
 } from '@/components/widgets/bots/statsPrimitives';
 import type { DCABacktestingResultHistory } from '@/types';
 import {
+  resolveUsageSign,
+  type BotStatsSourceBot,
+} from '@/components/widgets/bots/stats/botStatsViewModel';
+import {
   describeBacktestDca,
   describeBacktestSl,
   describeBacktestTp,
@@ -125,6 +129,14 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
     }
     return settings.profitCurrency === 'base' ? baseAsset : quoteAsset;
   })();
+
+  // DCA usage is measured in the currency the orders are paid in, which is
+  // not the profit currency on a spot bot (a long spends quote, a short base).
+  const usageSign = resolveUsageSign({
+    settings: resolvedSettings as BotStatsSourceBot['settings'],
+    baseAsset,
+    quoteAsset,
+  });
 
   const dcaDescription = describeBacktestDca(
     resolvedSettings,
@@ -415,15 +427,15 @@ export const BacktestStatsTab: React.FC<BacktestStatsTabProps> = ({
             />
             <StatItem
               label="Max theoretical usage"
-              value={formatBase(usage?.maxTheoreticalUsage, profitSign)}
+              value={formatBase(usage?.maxTheoreticalUsage, usageSign)}
             />
             <StatItem
               label="Actual max usage"
-              value={formatBase(usage?.maxRealUsage, profitSign)}
+              value={formatBase(usage?.maxRealUsage, usageSign)}
             />
             <StatItem
               label="Avg deal usage"
-              value={formatBase(usage?.avgRealUsage, profitSign)}
+              value={formatBase(usage?.avgRealUsage, usageSign)}
             />
             <StatItem
               label="Max DCA orders trigger"

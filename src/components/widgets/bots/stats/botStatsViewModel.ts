@@ -239,7 +239,7 @@ export const resolveProfitSign = (bot: BotStatsSourceBot): string => {
  * spot shorts — a short bot spends base, not quote. Mirrors legacy's
  * `usageSign`.
  */
-const resolveUsageSign = (bot: BotStatsSourceBot): string => {
+export const resolveUsageSign = (bot: BotStatsSourceBot): string => {
   const s = bot.settings;
   const { base, quote } = assetsOf(bot);
   if (!s) return quote;
