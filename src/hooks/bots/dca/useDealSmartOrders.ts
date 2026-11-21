@@ -12,6 +12,7 @@ import {
   type BotVars,
   type DCABotSettings,
   type DCADeals,
+  type ComboMinigrid,
   type DCAGrid,
   type Symbols,
 } from '@/types';
@@ -22,6 +23,7 @@ import { smartOrderProjectionBound } from '@/utils/bots/dca/smart-order-bound';
 import {
   createComboOrders,
   createDCAOrders,
+  createMinigridChartLevels,
   DCA_BY_MARKET_LABEL,
   DCA_MIN_PERC_LABEL,
   defaultContext,
@@ -29,6 +31,12 @@ import {
   type ExampleOrdersStoreContext,
 } from '@/utils/bots/dca/example-orders-core';
 import { useBalanceStore } from '@/stores/live/balanceStore';
+import {
+  ComboMinigridStatusEnum,
+  useMinigridsStore,
+} from '@/stores/live/minigridsStore';
+import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
+import { useGraphQL } from '@/hooks/useGraphQL';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 /**
@@ -261,6 +269,63 @@ export function useDealSmartOrders({
       }));
   }, [allBalances, bot?.exchangeUUID]);
 
+  /**
+   * The deal's live minigrids, for its not-placed grid levels. Each minigrid
+   * starts where its DCA order really filled, so its levels are built from its
+   * own stored range (`createMinigridChartLevels`), not from the deal's
+   * projected ladder, which leaves out every minigrid whose DCA order filled
+   * off the projection.
+   */
+  const minigridBotId =
+    guardPass && comboProjectsGrid && deal?.botId ? deal.botId : '';
+  const minigridsRequest = useMemo(
+    () =>
+      botQueries.getComboBotMinigrids({
+        id: minigridBotId,
+        status: 'open',
+        page: 0,
+      }),
+    [minigridBotId]
+  );
+  const minigridsQuery = useGraphQL<ComboMinigrid[]>(
+    'getComboBotMinigrids',
+    minigridsRequest,
+    { enabled: Boolean(minigridBotId) }
+  );
+  useEffect(() => {
+    if (
+      minigridBotId &&
+      minigridsQuery.data?.status === 'OK' &&
+      minigridsQuery.data.data
+    ) {
+      useMinigridsStore
+        .getState()
+        .updateMinigrids(minigridBotId, minigridsQuery.data.data);
+    }
+  }, [minigridsQuery.data, minigridBotId]);
+  const botMinigrids = useMinigridsStore((s) =>
+    minigridBotId ? s.minigrids[minigridBotId] : undefined
+  );
+  const minigridLevels = useMemo<DCAGrid[] | null>(() => {
+    if (!minigridBotId || !botMinigrids || !symbol || !mergedSettings) {
+      return null;
+    }
+    const live = Object.values(botMinigrids).filter(
+      (m) =>
+        m.dealId === deal?._id && m.status !== ComboMinigridStatusEnum.closed
+    );
+    if (!live.length) return null;
+    const fee = getCachedFee(bot?.exchangeUUID ?? '', symbol.pair)?.maker;
+    return live.flatMap((m) =>
+      createMinigridChartLevels(m, {
+        symbol,
+        userFee: typeof fee === 'number' ? fee : 0.001,
+        settings: mergedSettings,
+      })
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [minigridBotId, botMinigrids, symbol, mergedSettings, deal?._id]);
+
   const [computed, setComputed] = useState<ComputedLadder>(NO_LADDER);
   const { ladder } = computed;
   // Key the async compute on the stable inputs that change the ladder.
@@ -455,8 +520,11 @@ export function useDealSmartOrders({
       : Math.max(0, (deal.levels?.complete ?? 1) - 1);
     let dcaLevel = 0;
 
+    // Grid levels come from the deal's real minigrids when they are loaded.
+    const gridFromMinigrids = Boolean(minigridLevels?.length);
     const projected = effectiveLadder.filter((o) => {
       if (!projectsType(o.type)) return false;
+      if (gridFromMinigrids && o.type === DCAOrderTypeEnum.grid) return false;
       if (!isCombo && o.type === DCAOrderTypeEnum.dca) {
         dcaLevel += 1;
         if (dcaLevel <= filledDcaLevels) return false;
@@ -475,6 +543,25 @@ export function useDealSmartOrders({
       if (realPrices.has(roundP(o.price))) return false;
       return true;
     });
+    if (gridFromMinigrids && minigridLevels) {
+      // A grid level is not a ladder step: no DCA bound or stop-loss bound
+      // applies, and a level that filled re-arms, so only a level resting on
+      // the exchange right now is left to the real order line.
+      const restingPrices = new Set(
+        pendingOrders
+          .map((o) => o.price)
+          .filter((p) => p > 0)
+          .map(roundP)
+      );
+      const seen = new Set<number>();
+      for (const g of minigridLevels) {
+        const p = roundP(g.price);
+        if (!(g.price > 0) || !(g.qty > 0)) continue;
+        if (restingPrices.has(p) || seen.has(p)) continue;
+        seen.add(p);
+        projected.push(g);
+      }
+    }
 
     const side = isLong ? BotOrderSideEnum.buy : BotOrderSideEnum.sell;
     const sideLower: 'buy' | 'sell' = isLong ? 'buy' : 'sell';
@@ -545,6 +632,7 @@ export function useDealSmartOrders({
     dcaProjectionLabel,
     pendingOrders,
     completedOrders,
+    minigridLevels,
   ]);
 
   return result;

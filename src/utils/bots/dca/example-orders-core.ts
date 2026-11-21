@@ -3205,3 +3205,82 @@ export function getEstimateGridBalance(
     quote,
   };
 }
+
+/**
+ * The levels of one live combo minigrid, built from the minigrid's own stored
+ * range, level count, budget and sell displacement: the grid the engine runs.
+ *
+ * The deal's projected ladder (`createComboOrders`) anchors every minigrid on a
+ * projected DCA price. A minigrid starts where its DCA order actually filled,
+ * which differs whenever a level filled off the projection, so drawing a
+ * deal's not-placed grid levels from the ladder leaves whole minigrids out.
+ */
+export function createMinigridChartLevels(
+  minigrid: Pick<ComboMinigrid, 'initialPrice' | 'lastPrice' | 'settings'>,
+  {
+    symbol,
+    userFee,
+    settings,
+  }: {
+    symbol: Symbols;
+    userFee: number;
+    settings: Pick<
+      DCABotSettings,
+      'futures' | 'coinm' | 'profitCurrency' | 'strategy'
+    >;
+  }
+): DCAGrid[] {
+  const s = minigrid.settings;
+  if (!(s?.lowPrice > 0) || !(s?.topPrice > 0) || !(s?.levels > 0)) {
+    return [];
+  }
+  const long = settings.strategy !== StrategyEnum.short;
+  const futures = !!settings.futures;
+  const anchor = minigrid.lastPrice || minigrid.initialPrice || s.lowPrice;
+  return createGridOrders(
+    {
+      lowPrice: `${s.lowPrice}`,
+      topPrice: `${s.topPrice}`,
+      budget: `${s.budget}`,
+      levels: `${s.levels}`,
+      useStartPrice: false,
+      startPrice: undefined,
+      updatedBudget: true,
+      forceLocal: false,
+      symbol,
+      _latestPrice: anchor,
+      userFee,
+      sellDisplacement: `${(s.sellDisplacement ?? userFee * 2) * 100}`,
+      gridType: 'arithmetic',
+      initialPrice: minigrid.initialPrice || anchor,
+      futures,
+      profitCurrency: futures
+        ? 'quote'
+        : ((settings.profitCurrency ?? 'quote') as Currency),
+      orderFixedIn: futures
+        ? settings.coinm
+          ? 'quote'
+          : 'base'
+        : settings.profitCurrency === 'quote'
+          ? 'base'
+          : 'quote',
+      coinm: !!settings.coinm,
+      futuresStrategy: long
+        ? FuturesStrategyEnum.long
+        : FuturesStrategyEnum.short,
+      useOrderInAdvance: false,
+      combo: true,
+    },
+    {},
+    true,
+    false,
+    true
+  ).map((g) => ({
+    ...g,
+    type: DCAOrderTypeEnum.grid,
+    grey: true,
+    pair: symbol.pair ?? '',
+    strategy: settings.strategy,
+    exchange: symbol.exchange,
+  })) as DCAGrid[];
+}
