@@ -4077,6 +4077,24 @@ function DataTableComponent<TData, TValue>(
     [effectivePinnedColumns, getColumnWidth, bulkActions]
   );
 
+  // The horizontal scroll strips sit beside the pinned columns, never over
+  // them: the left strip starts after the selection column and left pins,
+  // the right strip ends before the right pins (e.g. the actions column).
+  const pinnedInsets = useMemo(() => {
+    const visibleWidth = (ids: string[]) =>
+      ids.reduce(
+        (sum, id) =>
+          columnVisibility[id] === false ? sum : sum + getColumnWidth(id),
+        0
+      );
+    return {
+      left:
+        (bulkActions && bulkActions.length > 0 ? 48 : 0) +
+        visibleWidth(effectivePinnedColumns.left),
+      right: visibleWidth(effectivePinnedColumns.right),
+    };
+  }, [effectivePinnedColumns, getColumnWidth, bulkActions, columnVisibility]);
+
   // Export functions
   //
   // When `getExportData` is provided the export serializes the COMPLETE
@@ -4448,6 +4466,7 @@ function DataTableComponent<TData, TValue>(
           {canScrollLeft && (
             <div
               className="absolute left-0 top-0 bottom-0 z-30 w-6 bg-background/95 flex items-center justify-center cursor-pointer hover:bg-background transition-all duration-200 border-r border-border/30"
+              style={{ left: pinnedInsets.left }}
               onClick={scrollLeft}
               title="Scroll left"
             >
@@ -4459,7 +4478,7 @@ function DataTableComponent<TData, TValue>(
           {canScrollRight && (
             <div
               className="absolute right-0 top-0 bottom-0 z-30 w-6 bg-background/95 flex items-center justify-center cursor-pointer hover:bg-background transition-all duration-200 border-l border-border/30"
-              style={{ right: vScrollbarWidth }}
+              style={{ right: vScrollbarWidth + pinnedInsets.right }}
               onClick={scrollRight}
               title="Scroll right"
             >
