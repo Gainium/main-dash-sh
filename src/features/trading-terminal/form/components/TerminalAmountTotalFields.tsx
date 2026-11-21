@@ -1,6 +1,6 @@
 import { NumberInput } from '@/components/ui';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { BalanceInput } from '@/components/ui/balance-input';
-import { Button } from '@/components/ui/button';
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
 import {
   formatNumberWithTrim,
@@ -213,19 +213,16 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
         />
 
         {/* Percentage row (Amount only) */}
-        <div className="flex flex-wrap items-center gap-1">
-          {percentButtons.map((val) => (
-            <Button
-              key={val}
-              type="button"
-              size="sm"
-              variant={activePerc === `${val}` ? 'default' : 'outline'}
-              disabled={disabled}
-              onClick={setPercent(val)}
-            >
-              {val}%
-            </Button>
-          ))}
+        <QuickValueButtons
+          aria-label="Percent of balance"
+          disabled={disabled}
+          value={activePerc ?? ''}
+          options={percentButtons.map((val) => ({
+            value: `${val}`,
+            label: `${val}%`,
+          }))}
+          onValueChange={(next) => setPercent(Number(next))()}
+          trailing={
           <div className="w-20">
             <NumberInput
               value={freePerc}
@@ -240,7 +237,8 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
               endAdornment={<span className="opacity-50">%</span>}
             />
           </div>
-        </div>
+          }
+        />
 
         {/* The USD equivalent used to sit inside the field; the balance
             readout now occupies that slot, so it joins the max hint. */}

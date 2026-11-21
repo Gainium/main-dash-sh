@@ -1,4 +1,5 @@
 import { Crosshair, Info } from 'lucide-react';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import React, { useEffect, useMemo } from 'react';
 
 import { Badge } from '@/components/ui/badge';
@@ -14,7 +15,6 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
-import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { CustomPercentChip } from '@/features/bots/shared/components/CustomPercentChip';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
@@ -137,7 +137,6 @@ export const GridStopLossSettings: React.FC = () => {
       [-5, -10, -15, -20, -25].map((percent) => ({
         value: percent.toString(),
         label: `${percent}%`,
-        buttonClassName: 'min-w-[64px] px-2',
       })),
     []
   );
@@ -148,7 +147,6 @@ export const GridStopLossSettings: React.FC = () => {
         percent,
         value: percent.toString(),
         label: `${percent > 0 ? '+' : ''}${percent}%`,
-        buttonClassName: 'min-w-[64px] px-2',
         targetPrice: priceFromPercent(startPrice, percent),
       })),
     [startPrice, pricePercentPresets]
@@ -241,7 +239,7 @@ export const GridStopLossSettings: React.FC = () => {
                 showControls={false}
                 endAdornment={unitAdornment('%', { size: 'sm' })}
               />
-              <TerminalButtonStack
+              <QuickValueButtons
                 value={`${slPerc ?? ''}`}
                 onValueChange={(next) => {
                   const numeric = Number.parseFloat(next);
@@ -303,7 +301,7 @@ export const GridStopLossSettings: React.FC = () => {
                   </span>
                 }
               />
-              <TerminalButtonStack
+              <QuickValueButtons
                 value={activePricePreset}
                 onValueChange={(next) => {
                   const numeric = Number.parseFloat(next);
@@ -312,10 +310,9 @@ export const GridStopLossSettings: React.FC = () => {
                   }
                 }}
                 options={pricePresetOptions.map(
-                  ({ value, label, buttonClassName }) => ({
+                  ({ value, label }) => ({
                     value,
                     label,
-                    buttonClassName,
                   })
                 )}
                 trailing={

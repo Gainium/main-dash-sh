@@ -1,4 +1,5 @@
 import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -1716,7 +1717,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                         >
                           Active minigrid count
                         </Label>
-                        <TerminalButtonStack
+                        <QuickValueButtons
                           value={comboActiveMinigridsNumeric.toString()}
                           onValueChange={handleActiveMinigridsChange}
                           options={activeMinigridsPresets}
@@ -1794,7 +1795,7 @@ const ScaledDCA: React.FC<DCASectionProps> = ({
                         >
                           Smart grid order count
                         </Label>
-                        <TerminalButtonStack
+                        <QuickValueButtons
                           value={comboSmartGridsCountNumeric.toString()}
                           onValueChange={handleSmartGridsCountChange}
                           options={smartGridPresets}

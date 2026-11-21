@@ -1,4 +1,5 @@
 import { BalanceInput } from '@/components/ui/balance-input';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { BotFieldExtensionPanel } from '@/lib/extensions/botFieldExtensions';
 import { Label } from '@/components/ui/label';
@@ -829,7 +830,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                 />
               </FieldVariableBinding>
               {!isRiskReductionVarBound && !riskReductionLocked && (
-                <TerminalButtonStack
+                <QuickValueButtons
                   value={riskReductionDisplayValue ?? ''}
                   onValueChange={(nextValue) =>
                     updateFormData('riskReductionValue', nextValue)
@@ -943,7 +944,7 @@ export const StrategySettings: React.FC<StrategySettingsRootProps> = ({
                 />
               </FieldVariableBinding>
               {!isReinvestVarBound && !reinvestLocked && (
-                <TerminalButtonStack
+                <QuickValueButtons
                   value={reinvestDisplayValue ?? ''}
                   onValueChange={(nextValue) =>
                     updateFormData('reinvestValue', nextValue)

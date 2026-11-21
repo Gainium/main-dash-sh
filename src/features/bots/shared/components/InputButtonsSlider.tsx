@@ -1,7 +1,7 @@
 import { FieldVariableBinding } from '@/components/ui/field-variable-binding';
 import { NumberInput } from '@/components/ui/number-input';
 import { Slider } from '@/components/ui/slider';
-import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import type { VarBindingPath } from '@/hooks/bots/global-variables/useBotVarBinding';
 import { cn } from '@/lib/utils';
 import type { VarToSearchType } from '@/types';
@@ -118,26 +118,28 @@ export const InputButtonsSlider = ({
         {wrappedInput}
         {showButtons && (
           <div className="flex-1 min-w-0">
-            <div className="overflow-x-auto">
-              <TerminalButtonStack
-                value=""
-                onValueChange={(selectedValue) => {
-                  const preset = presetButtons.find(
-                    (p) => p.label === selectedValue
-                  );
-                  if (preset) {
-                    const newValue = baseValue + preset.value;
-                    onChange(newValue);
-                  }
-                }}
-                options={presetButtons.map((p) => ({
-                  value: p.label,
-                  label: p.label,
-                  buttonClassName: 'min-w-[60px] flex-none h-9 px-3 text-sm',
-                }))}
-                className="flex-nowrap whitespace-nowrap"
-              />
-            </div>
+            <QuickValueButtons
+              layout="row"
+              className="h-full items-center"
+              value={
+                presetButtons.find(
+                  (p) =>
+                    Math.abs(baseValue + p.value - Number(value)) < 1e-9
+                )?.label ?? ''
+              }
+              onValueChange={(selectedValue) => {
+                const preset = presetButtons.find(
+                  (p) => p.label === selectedValue
+                );
+                if (preset) {
+                  onChange(baseValue + preset.value);
+                }
+              }}
+              options={presetButtons.map((p) => ({
+                value: p.label,
+                label: p.label,
+              }))}
+            />
           </div>
         )}
       </div>

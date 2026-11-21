@@ -78,8 +78,12 @@ export const CustomPercentChip: React.FC<CustomPercentChipProps> = ({
     <>
       <label
         className={cn(
-          'flex h-9 min-w-[96px] items-center gap-0.5 rounded-md border border-dashed border-primary px-2 text-sm text-primary',
-          isCustom && draft === null && 'border-solid bg-primary/15',
+          // Matches QuickValueButtons: neutral outline, filled when it holds
+          // the field's value.
+          'flex h-8 min-w-[88px] items-center gap-0.5 rounded-md border border-dashed border-border px-2 text-xs text-foreground',
+          isCustom &&
+            draft === null &&
+            'border-solid border-primary bg-primary text-primary-foreground',
           error && 'border-solid border-destructive',
           disabled && 'pointer-events-none opacity-60'
         )}
@@ -93,7 +97,7 @@ export const CustomPercentChip: React.FC<CustomPercentChipProps> = ({
           disabled={disabled}
           aria-label={`Custom percentage ${sign > 0 ? 'above' : 'below'} start price`}
           aria-invalid={Boolean(error)}
-          className="w-14 bg-transparent text-right text-sm text-primary outline-none placeholder:text-primary/60"
+          className="w-14 bg-transparent text-right text-xs text-inherit outline-none placeholder:text-muted-foreground"
           onChange={(event) => {
             setError(null);
             setDraft(

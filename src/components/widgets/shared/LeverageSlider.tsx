@@ -1,8 +1,8 @@
 import { AlertTriangle } from 'lucide-react';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import React from 'react';
 
 import { cn } from '../../../lib/utils';
-import { Button } from '../../ui/button';
 import { NumberInput } from '../../ui/number-input';
 import { Slider } from '../../ui/slider';
 
@@ -94,25 +94,18 @@ const LeverageSlider: React.FC<LeverageSliderProps> = ({
       </div>
 
       {/* Quick-select presets — single full-width row */}
-      <div className="grid grid-cols-6 gap-xs">
-        {presetValues.map((preset) => (
-          <Button
-            key={preset}
-            variant={value === preset ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => handlePresetClick(preset)}
-            className={cn(
-              'h-8 text-xs',
-              value === preset
-                ? 'bg-primary text-primary-foreground hover:bg-primary/90'
-                : 'hover:border-primary/30 hover:bg-primary/10'
-            )}
-            disabled={disabled}
-          >
-            {formatLeverage(preset)}
-          </Button>
-        ))}
-      </div>
+      <QuickValueButtons
+        layout="equal"
+        className="grid-cols-6"
+        aria-label="Leverage presets"
+        disabled={disabled}
+        value={`${value}`}
+        options={presetValues.map((preset) => ({
+          value: `${preset}`,
+          label: formatLeverage(preset),
+        }))}
+        onValueChange={(next) => handlePresetClick(Number(next))}
+      />
 
       {/* Risk Warning */}
       {value > 10 && (

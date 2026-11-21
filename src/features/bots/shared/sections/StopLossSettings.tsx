@@ -1,4 +1,5 @@
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { ExitExecutionRow } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { Slider } from '@/components/ui';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
@@ -1387,14 +1388,13 @@ const PercentageSL: React.FC<StopLossSettingsProps> = ({
                 />
               </div>
 
-              <TerminalButtonStack
+              <QuickValueButtons
                 value={String(Math.abs(parseFloat(slPerc) || 0))}
                 onValueChange={(value) => handlePresetClick(-Number(value))}
                 options={[1, 2, 5, 10].map((percentage) => ({
                   value: String(percentage),
                   label: `-${percentage}%`,
                   disabled: percentage < minSlToUse,
-                  buttonClassName: 'flex-none min-w-[88px]',
                 }))}
                 className="sm:ml-auto"
               />

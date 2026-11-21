@@ -1,4 +1,5 @@
 import { Button } from '@/components/ui/button';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { MasonryLayout } from '@/components/ui/MasonryLayout';
 import { NumberInput } from '@/components/ui/number-input';
 import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
@@ -286,7 +287,7 @@ export const GridRangeSettings: React.FC = () => {
                 </span>
               }
             />
-            <TerminalButtonStack
+            <QuickValueButtons
               value={topPercent ?? ''}
               onValueChange={(next) => {
                 const numeric = Number.parseFloat(next);
@@ -297,7 +298,6 @@ export const GridRangeSettings: React.FC = () => {
               options={TOP_PRICE_PRESETS.map((percent) => ({
                 value: formatPercent(percent),
                 label: `+${percent}%`,
-                buttonClassName: 'min-w-[64px] px-2',
               }))}
               trailing={
                 <CustomPercentChip
@@ -372,7 +372,7 @@ export const GridRangeSettings: React.FC = () => {
                 </span>
               }
             />
-            <TerminalButtonStack
+            <QuickValueButtons
               value={lowPercent ?? ''}
               onValueChange={(next) => {
                 const numeric = Number.parseFloat(next);
@@ -383,7 +383,6 @@ export const GridRangeSettings: React.FC = () => {
               options={LOW_PRICE_PRESETS.map((percent) => ({
                 value: formatPercent(percent),
                 label: `${percent}%`,
-                buttonClassName: 'min-w-[64px] px-2',
               }))}
               trailing={
                 <CustomPercentChip

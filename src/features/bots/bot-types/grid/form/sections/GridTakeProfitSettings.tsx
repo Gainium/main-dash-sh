@@ -1,4 +1,5 @@
 import { Crosshair } from 'lucide-react';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import React, { useEffect, useMemo } from 'react';
 
 import BotFormAlertSummary from '@/components/ui/BotFormAlertSummary';
@@ -12,7 +13,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { TerminalButtonStack } from '@/components/ui/terminal-button-stack';
 import SettingsRow from '@/components/widgets/shared/SettingsRow';
 import { CustomPercentChip } from '@/features/bots/shared/components/CustomPercentChip';
 import { unitAdornment } from '@/features/bots/shared/utils/unit-adornment';
@@ -138,7 +138,6 @@ export const GridTakeProfitSettings: React.FC = () => {
       [5, 10, 15, 20, 25].map((percent) => ({
         value: percent.toString(),
         label: `${percent}%`,
-        buttonClassName: 'min-w-[64px] px-2',
       })),
     []
   );
@@ -149,7 +148,6 @@ export const GridTakeProfitSettings: React.FC = () => {
         percent,
         value: percent.toString(),
         label: `${percent > 0 ? '+' : ''}${percent}%`,
-        buttonClassName: 'min-w-[64px] px-2',
         targetPrice: priceFromPercent(startPrice, percent),
       })),
     [startPrice, pricePercentPresets]
@@ -242,7 +240,7 @@ export const GridTakeProfitSettings: React.FC = () => {
                 showControls={false}
                 endAdornment={unitAdornment('%', { size: 'sm' })}
               />
-              <TerminalButtonStack
+              <QuickValueButtons
                 value={`${tpPerc ?? ''}`}
                 onValueChange={(next) => {
                   const numeric = Number.parseFloat(next);
@@ -305,7 +303,7 @@ export const GridTakeProfitSettings: React.FC = () => {
                 }
               />
 
-              <TerminalButtonStack
+              <QuickValueButtons
                 value={activePricePreset}
                 onValueChange={(next) => {
                   const numeric = Number.parseFloat(next);
@@ -314,10 +312,9 @@ export const GridTakeProfitSettings: React.FC = () => {
                   }
                 }}
                 options={pricePresetOptions.map(
-                  ({ value, label, buttonClassName }) => ({
+                  ({ value, label }) => ({
                     value,
                     label,
-                    buttonClassName,
                   })
                 )}
                 trailing={

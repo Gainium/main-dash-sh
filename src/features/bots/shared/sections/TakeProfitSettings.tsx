@@ -1,4 +1,5 @@
 import { useBillableIndicatorCount } from '@/hooks/bots/useBillableIndicatorCount';
+import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import { DynamicArIndicatorConfig } from '@/components/indicators/DynamicArIndicatorConfig';
 import WebhooksDisabledWarning from '@/components/webhook/WebhooksDisabledWarning';
 import { IndicatorList } from '@/components/indicators/IndicatorList';
@@ -2662,31 +2663,17 @@ export const TakeProfitSettings: React.FC = () => {
               </FieldVariableBinding>
 
               <BotFieldManagedFieldset path="tpPerc">
-                <div className="flex flex-wrap gap-xs">
-                  {[1, 2, 5, 10].map((percentage) => {
-                    const label = `${percentage}%`;
-
-                    const numericTpPerc = Number.parseFloat(tpPerc || '0');
-
-                    const isActive = numericTpPerc === percentage;
-
-                    const shouldDisable =
-                      percentage < minTpToUse || isTpPercBound;
-
-                    return (
-                      <Button
-                        key={percentage}
-                        variant={isActive ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handlePresetClick(percentage)}
-                        className="h-7 px-3 text-xs"
-                        disabled={shouldDisable}
-                      >
-                        {label}
-                      </Button>
-                    );
-                  })}
-                </div>
+                <QuickValueButtons
+                  aria-label="Take profit presets"
+                  disabled={isTpPercBound}
+                  value={`${Number.parseFloat(tpPerc || '0')}`}
+                  options={[1, 2, 5, 10].map((percentage) => ({
+                    value: `${percentage}`,
+                    label: `${percentage}%`,
+                    disabled: percentage < minTpToUse,
+                  }))}
+                  onValueChange={(next) => handlePresetClick(Number(next))}
+                />
               </BotFieldManagedFieldset>
 
               <BotFieldExtensionPanel path="tpPerc" />

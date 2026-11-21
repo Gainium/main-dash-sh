@@ -1,4 +1,5 @@
 import { Tooltip } from '@/components/ui/tooltip';
+import { QuickValueButtons } from './quick-value-buttons';
 import { useComponentError } from '@/hooks/bots/useComponentError';
 import { useContainerWidth } from '@/hooks/useContainerWidth';
 import { useBalanceStore } from '@/stores/live/balanceStore';
@@ -19,7 +20,6 @@ import React, {
   useState,
 } from 'react';
 import { cn } from '../../lib/utils';
-import { Button } from './button';
 import { Input } from './input';
 import {
   Select,
@@ -681,20 +681,15 @@ export const BalanceInput: React.FC<BalanceInputProps> = ({
       {/* Percentage and Max Buttons */}
       {showPercentageButtons && !disabled && (
         <div className="flex items-center gap-2 w-full">
-          <div className="flex flex-wrap gap-2">
-            {percentageButtons.map((percentage) => (
-              <Button
-                key={percentage}
-                variant="outline"
-                size="sm"
-                onClick={() => handlePercentageClick(percentage)}
-                className="h-8 px-3 text-xs"
-                disabled={availableBalance === 0}
-              >
-                {percentage}%
-              </Button>
-            ))}
-          </div>
+          <QuickValueButtons
+            aria-label="Percent of balance"
+            disabled={availableBalance === 0}
+            options={percentageButtons.map((percentage) => ({
+              value: `${percentage}`,
+              label: `${percentage}%`,
+            }))}
+            onValueChange={(next) => handlePercentageClick(Number(next))}
+          />
 
           {/* Balance is rendered inside Input endAdornment for stacked layout */}
         </div>
