@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { tradeProfitFace } from '@/utils/bots/reportingProfit';
+import { editedSettingsOf } from '@/types/dcaDeal';
 import { percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
@@ -106,6 +107,8 @@ interface TradeItem {
   exchangeUUID?: string | undefined;
   botId?: string | undefined; // Added to support orders fetching
   botName?: string | undefined;
+  /** Settings a hand edit left different from the bot's (spec 250). */
+  editedSettings?: string[] | undefined;
   currentBalance: {
     base: number;
     quote: number;
@@ -601,6 +604,9 @@ const Trading: React.FC = () => {
             exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || undefined,
+            editedSettings: editedSettingsOf(
+              (deal as { settings?: Parameters<typeof editedSettingsOf>[0] }).settings
+            ),
             currentBalance: {
               base: deal.currentBalances?.base || 0,
               quote: deal.currentBalances?.quote || 0,
@@ -728,6 +734,9 @@ const Trading: React.FC = () => {
             exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || deal.dcaBot?.settings?.name || undefined,
+            editedSettings: editedSettingsOf(
+              (deal as { settings?: Parameters<typeof editedSettingsOf>[0] }).settings
+            ),
             currentBalance: {
               base: deal.currentBalances?.base || 0,
               quote: deal.currentBalances?.quote || 0,
@@ -817,6 +826,9 @@ const Trading: React.FC = () => {
             exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || deal.dcaBot?.settings?.name || undefined,
+            editedSettings: editedSettingsOf(
+              (deal as { settings?: Parameters<typeof editedSettingsOf>[0] }).settings
+            ),
             currentBalance: {
               base: deal.currentBalances?.base || 0,
               quote: deal.currentBalances?.quote || 0,
@@ -901,6 +913,9 @@ const Trading: React.FC = () => {
             exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || deal.dcaBot?.settings?.name || undefined,
+            editedSettings: editedSettingsOf(
+              (deal as { settings?: Parameters<typeof editedSettingsOf>[0] }).settings
+            ),
             currentBalance: {
               base: deal.currentBalances?.base || 0,
               quote: deal.currentBalances?.quote || 0,
@@ -1001,6 +1016,9 @@ const Trading: React.FC = () => {
             exchangeUUID: deal.exchangeUUID,
             botId: deal.botId, // Add botId for orders fetching
             botName: deal.botName || undefined,
+            editedSettings: editedSettingsOf(
+              (deal as { settings?: Parameters<typeof editedSettingsOf>[0] }).settings
+            ),
             currentBalance: {
               base: deal.currentBalances?.base || 0,
               quote: deal.currentBalances?.quote || 0,
@@ -1284,6 +1302,7 @@ const Trading: React.FC = () => {
       exchangeUUID: trade.exchangeUUID,
       botId: trade.botId, // Pass botId for orders fetching
       botName: trade.botName,
+      editedSettings: trade.editedSettings,
       currentBalance: trade.currentBalance,
       usage: {
         current: trade.usage.current,
@@ -2214,6 +2233,7 @@ const Trading: React.FC = () => {
                   }),
                   ...(originalTrade.botName && {
                     botName: originalTrade.botName,
+                    editedSettings: originalTrade.editedSettings,
                   }),
                   currentBalance: originalTrade.currentBalance,
                   usage: {

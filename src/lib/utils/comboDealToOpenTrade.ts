@@ -22,7 +22,7 @@ import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { formatDuration } from '@/utils/formatters';
 import { extractPairAssets } from '@/utils/pairs';
 import { ExchangeEnum } from '@/types';
-import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { editedSettingsOf, percentBasisFromDeal } from '@/types/dcaDeal';
 import type { ComboDeal } from '@/hooks/useComboDeals';
 
 export function comboDealToOpenTrade(
@@ -101,6 +101,7 @@ export function comboDealToOpenTrade(
     // doesn't carry one (some closed combo deals come back without
     // botName populated), so the column doesn't render a bare "—".
     botName: deal.botName || botNameFallback?.(deal.botId) || undefined,
+    editedSettings: editedSettingsOf(deal.settings),
     currentBalance: {
       base: deal.currentBalances?.base || 0,
       quote: deal.currentBalances?.quote || 0,

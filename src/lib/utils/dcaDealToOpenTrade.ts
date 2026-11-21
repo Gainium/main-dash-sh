@@ -19,7 +19,7 @@ import { isCoinmExchange, isFuturesExchange } from '@/utils/exchangeUtils';
 import { extractPairAssets } from '@/utils/pairs';
 import { formatDuration } from '@/utils/formatters';
 import { ExchangeEnum, type DCADeals } from '@/types';
-import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { editedSettingsOf, percentBasisFromDeal } from '@/types/dcaDeal';
 
 export function dcaDealToOpenTrade(deal: DCADeals) {
   const symbol = deal.symbol?.symbol || 'Unknown';
@@ -103,6 +103,7 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     exchangeUUID: deal.exchangeUUID,
     botId: deal.botId,
     botName: deal.botName || undefined,
+    editedSettings: editedSettingsOf(deal.settings),
     currentBalance: {
       base: deal.currentBalances?.base || 0,
       quote: deal.currentBalances?.quote || 0,

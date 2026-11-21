@@ -44,6 +44,17 @@ export type TradeChartPoint = {
   price: number;
 };
 
+/**
+ * Spec 250 — the settings a hand edit left different from the bot's, or
+ * undefined when the deal was not edited or matches its bot.
+ */
+export const editedSettingsOf = (
+  settings?: { changed?: boolean | null; changedKeys?: string[] | null } | null
+): string[] | undefined =>
+  settings?.changed && settings.changedKeys && settings.changedKeys.length > 0
+    ? settings.changedKeys
+    : undefined;
+
 export type TransformedTrade = DealPositionValue & {
   active: boolean;
   /** Currency `profit.native` is in, when the deal says (see `tradeProfitFace`). */
@@ -70,6 +81,8 @@ export type TransformedTrade = DealPositionValue & {
   exchangeUUID?: string | undefined;
   botId?: string | undefined; // Added to support orders fetching
   botName?: string | undefined;
+  /** Settings a hand edit left different from the bot's (spec 250). */
+  editedSettings?: string[] | undefined;
   currentBalance: {
     base: number;
     quote: number;
@@ -373,6 +386,7 @@ export const transformDealToTrade = (
     exchange: deal.exchange || '',
     exchangeUUID: deal.exchangeUUID || '',
     botName: bot?.name || '',
+    editedSettings: editedSettingsOf(deal.settings),
     botId: resolvedBotId,
     pair:
       deal.symbol?.symbol ||

@@ -2,6 +2,7 @@
 // the Trading dashboard Open Orders widget wrapper, and the Trading Terminal panel.
 // Not used in the bot drawer (see DrawerDealsTable for drawer deals UI).
 import { dealStartBlockedSummary } from '@/lib/utils/dealStartBlocked';
+import { EditedDealIcon } from '@/components/trades/EditedDealIcon';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
@@ -226,6 +227,8 @@ export interface OpenTrade extends DealPositionValue {
   exchangeUUID?: string | undefined;
   botId?: string | undefined; // Added to support orders fetching
   botName?: string | undefined;
+  /** Settings a hand edit left different from the bot's (spec 250). */
+  editedSettings?: string[] | undefined;
   currentBalance: {
     base: number;
     quote: number;
@@ -1631,6 +1634,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
               >
                 {botName}
               </div>
+              <EditedDealIcon keys={row.original.editedSettings} />
               {/* Terminal deals stay in the terminal — no bot page to open */}
               {botId && !row.original.terminal && (
                 <button

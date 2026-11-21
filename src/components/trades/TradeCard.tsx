@@ -1,5 +1,6 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 import { axisIndexProps, withAxisIndex } from '@/lib/charts/axisIndex';
+import { EditedDealIcon } from '@/components/trades/EditedDealIcon';
 import { DealActionsMenu } from '@/features/deals/actions/DealActionsMenu';
 import { dealRefFromTrade } from '@/features/deals/actions/dealRef';
 import { useChartColors } from '@/hooks/useChartColors';
@@ -764,8 +765,11 @@ const EnhancedCard = React.memo(
             </div>
 
             {trade.botName && (
-              <div className="text-base font-semibold text-foreground truncate">
-                {trade.botName}
+              <div className="flex min-w-0 items-center gap-xs">
+                <div className="text-base font-semibold text-foreground truncate">
+                  {trade.botName}
+                </div>
+                <EditedDealIcon keys={trade.editedSettings} />
               </div>
             )}
           </div>

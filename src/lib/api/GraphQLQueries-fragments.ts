@@ -1179,6 +1179,7 @@ baseSlOn
                     minimumDeviation
                     avgPrice
                     changed
+                    changedKeys
                     orderSizePercQty
                     step
                     dealCloseConditionSL
@@ -1424,6 +1425,7 @@ baseSlOn
                     stepScale
                     avgPrice
                     changed
+                    changedKeys
                     orderSizePercQty
                     step
                     dealCloseConditionSL

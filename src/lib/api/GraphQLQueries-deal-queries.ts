@@ -177,6 +177,8 @@ export const dealQueries = {
                     settings {
                       futures
                       coinm
+                      changed
+                      changedKeys
                     }
                       usage {
                         current {
@@ -661,6 +663,7 @@ export const dealQueries = {
   slPerc
   useDca
   changed
+  changedKeys
   useSmartOrders
   activeOrdersCount
   orderSizePercQty
@@ -825,6 +828,7 @@ export const dealQueries = {
   slPerc
   useDca
   changed
+  changedKeys
   useSmartOrders
   activeOrdersCount
   orderSizePercQty

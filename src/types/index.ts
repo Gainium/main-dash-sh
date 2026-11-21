@@ -3658,6 +3658,8 @@ export type DCADealsSettings = Pick<
 > & {
   avgPrice: number;
   changed: boolean;
+  /** Spec 250 — settings a hand edit left different from the bot's. */
+  changedKeys?: string[] | null;
   dcaIndicatorLevels?: DCAIndicatorLevel[] | null;
   orderSizePercQty?: number;
   slChangedByUser?: boolean;
