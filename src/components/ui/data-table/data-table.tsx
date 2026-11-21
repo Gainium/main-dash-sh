@@ -2619,6 +2619,10 @@ function DataTableComponent<TData, TValue>(
   const [canScrollRight, setCanScrollRight] = useState(false);
   // The right indicator sits left of the vertical scrollbar, not over it.
   const [vScrollbarWidth, setVScrollbarWidth] = useState(0);
+  // Gap between the visible bottom of the table and the bottom of the
+  // scroll box (bottom padding + horizontal scrollbar, or empty space under
+  // short tables). The scroll strips end at the last row, not over it.
+  const [stripBottomInset, setStripBottomInset] = useState(0);
   const [canScrollVertically, setCanScrollVertically] = useState(false);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   // The scroller mounts after the first render (rows load later), so the
@@ -2679,6 +2683,17 @@ function DataTableComponent<TData, TValue>(
     setCanScrollLeft(scrollLeft > 0);
     setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
     setVScrollbarWidth(container.offsetWidth - clientWidth);
+    const tableEl = container.querySelector('table');
+    if (tableEl) {
+      const boxRect = container.getBoundingClientRect();
+      const visibleBottom = Math.min(
+        tableEl.getBoundingClientRect().bottom,
+        boxRect.top + clientHeight
+      );
+      setStripBottomInset(
+        Math.max(0, Math.round(boxRect.bottom - visibleBottom))
+      );
+    }
     setCanScrollVertically(scrollHeight > clientHeight + 1);
   }, []);
 
@@ -4465,8 +4480,8 @@ function DataTableComponent<TData, TValue>(
           {/* Left scroll indicator */}
           {canScrollLeft && (
             <div
-              className="absolute left-0 top-0 bottom-0 z-30 w-6 bg-background/95 flex items-center justify-center cursor-pointer hover:bg-background transition-all duration-200 border-r border-border/30"
-              style={{ left: pinnedInsets.left }}
+              className="glass-surface absolute left-0 top-0 bottom-0 z-30 w-6 flex items-center justify-center cursor-pointer transition-all duration-200 border-r border-border/30"
+              style={{ left: pinnedInsets.left, bottom: stripBottomInset }}
               onClick={scrollLeft}
               title="Scroll left"
             >
@@ -4477,8 +4492,11 @@ function DataTableComponent<TData, TValue>(
           {/* Right scroll indicator */}
           {canScrollRight && (
             <div
-              className="absolute right-0 top-0 bottom-0 z-30 w-6 bg-background/95 flex items-center justify-center cursor-pointer hover:bg-background transition-all duration-200 border-l border-border/30"
-              style={{ right: vScrollbarWidth + pinnedInsets.right }}
+              className="glass-surface absolute right-0 top-0 bottom-0 z-30 w-6 flex items-center justify-center cursor-pointer transition-all duration-200 border-l border-border/30"
+              style={{
+                right: vScrollbarWidth + pinnedInsets.right,
+                bottom: stripBottomInset,
+              }}
               onClick={scrollRight}
               title="Scroll right"
             >
