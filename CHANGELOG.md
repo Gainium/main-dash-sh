@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.135.18] - 2026-11-21
+
+### Changed
+
+- Data table scroll arrows end at the last row instead of covering the scrollbar, and use the frosted-glass surface that follows the visual effects setting.
+
+### Fixed
+
+- Data table scroll arrows no longer cover pinned columns (selection, actions and other pinned columns).
+
 ## [2.135.17] - 2026-11-21
 
 ### Changed
