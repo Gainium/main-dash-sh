@@ -25,10 +25,11 @@ import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import {
   dcaLadderLevels,
+  dcaLadderStanding,
   levelQuoteBudget,
   levelSizeAtMarket,
-  nextDcaLevelNumber,
   resolveNextLevels,
+  type DcaLadderStandingDeal,
   type LadderLevel,
 } from './executeNextDcaEligibility';
 
@@ -100,9 +101,6 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
   isProcessing = false,
   missedLevel,
 }) => {
-  const level = missedLevel?.level ?? nextDcaLevelNumber(trade);
-  const usedLevels = Math.max(0, (trade.levels?.complete ?? 1) - 1);
-  const maxLevels = Math.max(0, (trade.levels?.all ?? 1) - 1);
   const isLong = `${trade.strategy}`.toLowerCase() !== 'short';
 
   // Only queried while the dialog is open — same gating trick TradeCard uses
@@ -160,6 +158,22 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
   const rawDeal = useDealStore((s) =>
     trade.botId ? (s.deals[trade.botId]?.[trade.id] ?? null) : null
   );
+
+  /**
+   * Where the deal stands in its configured ladder. An Add Funds fill raises
+   * `levels.complete` and `levels.all` but is not a DCA level, and the engine
+   * resolves the level it executes without it (`nextLadderLevel`), refusing an
+   * `expectedLevel` that differs. A deal the store does not hold falls back to
+   * `levels`, which is exact on a deal without Add Funds.
+   */
+  const standing = dcaLadderStanding({
+    levels: rawDeal?.levels ?? trade.levels,
+    funds: (rawDeal as DcaLadderStandingDeal | null)?.funds,
+    settings: (rawDeal as DcaLadderStandingDeal | null)?.settings,
+  });
+  const usedLevels = standing.filled;
+  const maxLevels = standing.max;
+  const level = missedLevel?.level ?? usedLevels + 1;
 
   /**
    * The bot's FULL settings, from the live DCA bots store — again the deal
@@ -251,7 +265,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
     return resolveNextLevels({
       resting,
       ladder: dcaLadderLevels(fullLadder, DCAOrderTypeEnum.dca),
-      levelsComplete: trade.levels?.complete ?? 1,
+      levelsComplete: usedLevels + 1,
       isLong,
       excludePrices,
     });
@@ -260,7 +274,7 @@ export const ExecuteNextDcaDialog: React.FC<ExecuteNextDcaDialogProps> = ({
     orders,
     fullLadder,
     rawDeal,
-    trade.levels?.complete,
+    usedLevels,
     isLong,
     missedLevel,
   ]);

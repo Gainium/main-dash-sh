@@ -17,22 +17,6 @@ export interface ExecuteNextDcaEligibilityTrade {
   levels?: { complete: number; all: number } | undefined;
 }
 
-/**
- * `levels.complete` counts the base order as 1, and the engine numbers safety
- * orders from 1 — so the next safety order's level number IS `levels.complete`.
- * (The engine relies on the same identity: `addDCAOrderByIndicator` matches
- * `levels.complete === index + 1` against `levelNumber === index + 1`.)
- *
- * The count a user sees, "2 / 5", is `levels.complete - 1` of `levels.all - 1`,
- * because both totals include the base order. `ChangeDcaLevelsDialog` reads
- * its bounds from {@link dcaLadderStanding} instead, which leaves out Add Funds.
- */
-export function nextDcaLevelNumber(trade: {
-  levels?: { complete: number; all: number } | undefined;
-}) {
-  return trade.levels?.complete || 1;
-}
-
 /** What {@link dcaLadderStanding} reads off a raw DCA deal. */
 export interface DcaLadderStandingDeal {
   levels?: { complete: number; all: number } | undefined;
@@ -50,8 +34,9 @@ export interface DcaLadderStandingDeal {
 }
 
 /**
- * Where a DCA deal stands in its CONFIGURED ladder, for "Change DCA levels":
- * how many of its safety orders have filled, and how many it has in all.
+ * Where a DCA deal stands in its CONFIGURED ladder, for "Change DCA levels"
+ * and "Execute next DCA": how many of its safety orders have filled, and how
+ * many it has in all. The next level the engine executes is `filled + 1`.
  *
  * `levels` does not answer either on a deal that has taken Add Funds: the fill
  * increments `levels.complete` and grows `levels.all`, but it is not one of the
