@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.135.20] - 2026-11-21
+
+### Fixed
+
+- Trading terminal: "Capital required" no longer multiplies the order by a Max open deals value carried over from a loaded bot template
+
 ## [2.135.19] - 2026-11-21
 
 ### Added
