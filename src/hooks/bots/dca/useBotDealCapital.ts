@@ -67,7 +67,11 @@ export const useBotDealCapital = (
   const strategy = slice.strategy;
   const futures = !!slice.futures;
   const coinm = !!slice.coinm;
-  const maxDeals = Math.max(1, toPositiveInt(slice.maxNumberOfOpenDeals, 1));
+  // A terminal order is always a single deal; its form never shows Max open
+  // deals, so a value carried in from a loaded template must not scale it.
+  const maxDeals = formData.terminal
+    ? 1
+    : Math.max(1, toPositiveInt(slice.maxNumberOfOpenDeals, 1));
   const leverage = futures ? Math.max(1, Number(slice.leverage) || 1) : 1;
 
   const aggregated = tradingContext.aggregatedBalances;
