@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.136.0] - 2026-11-22
+
+### Added
+
+- Bot Events tab: the Type filter takes several types at once (e.g. Errors and Warnings together)
+
 ## [2.135.20] - 2026-11-21
 
 ### Fixed
