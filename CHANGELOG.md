@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.0] - 2026-11-22
+
+### Added
+
+- Backtest settings: an optional Budget for spot DCA bots. When set, the backtest skips deals and DCA orders the budget cannot pay for, and the results show how many were skipped
+
 ## [2.136.0] - 2026-11-22
 
 ### Added
