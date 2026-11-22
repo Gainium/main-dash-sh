@@ -316,6 +316,11 @@ export function ExchangeOrdersPanel() {
   const activeLoading =
     shownTab === 'orders' ? ordersQ.isLoading : positionsQ.isLoading;
   const activeError = shownTab === 'orders' ? ordersQ.error : positionsQ.error;
+  // OK answer that could not read every account: the rows are real but
+  // incomplete, so say which accounts are missing rather than imply the
+  // list is everything.
+  const activePartialReason =
+    shownTab === 'orders' ? ordersQ.partialReason : positionsQ.partialReason;
   const activeHasData =
     shownTab === 'orders' ? orderRows.length > 0 : positionRows.length > 0;
 
@@ -357,6 +362,15 @@ export function ExchangeOrdersPanel() {
         </div>
       </div>
 
+      {activePartialReason && !activeError && (
+        <div
+          role="status"
+          className="mx-md mb-sm rounded-md border border-warning/40 bg-warning/10 p-sm text-xs text-warning"
+        >
+          {activePartialReason}
+        </div>
+      )}
+
       <div className="flex-1 overflow-hidden">
         {activeLoading && !activeHasData ? (
           <div className="flex flex-col gap-sm px-md py-sm">
@@ -366,7 +380,8 @@ export function ExchangeOrdersPanel() {
           </div>
         ) : activeError ? (
           <div className="px-md py-sm text-sm text-destructive">
-            Failed to load {shownTab}.
+            Failed to load {shownTab}
+            {activeError.message ? `: ${activeError.message}` : '.'}
           </div>
         ) : shownTab === 'orders' ? (
           <DataTable<RowOrder, unknown>

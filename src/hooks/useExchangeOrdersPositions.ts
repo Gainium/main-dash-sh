@@ -1,12 +1,15 @@
 import { useMemo } from 'react';
 import { useGraphQL } from './useGraphQL';
 import { otherQueries } from '@/lib/api/GraphQLQueries-other-queries';
+import type { ReturnResult } from '@/lib/api';
 import type { GeneralOpenOrder, GeneralOpenPosition } from '@/types';
 
 export interface UseExchangeOrdersResult {
   orders: GeneralOpenOrder[];
   isLoading: boolean;
   error: Error | null;
+  /** Set when the list is partial: names the accounts that could not be read. */
+  partialReason: string | null;
   refetch: () => void;
 }
 
@@ -14,7 +17,41 @@ export interface UseExchangePositionsResult {
   positions: GeneralOpenPosition[];
   isLoading: boolean;
   error: Error | null;
+  /** Set when the list is partial: names the accounts that could not be read. */
+  partialReason: string | null;
   refetch: () => void;
+}
+
+/**
+ * Read an open-orders/positions answer. The backend reads every exchange
+ * account and reports the ones it could not read in the envelope instead of
+ * listing them as empty: NOTOK + `reason` when every requested account failed,
+ * OK + `reason` when the list is partial. `useGraphQL` resolves on NOTOK, so
+ * the caller has to look at the envelope itself.
+ */
+export function readOpenListAnswer<T>(
+  answer: ReturnResult<T[]> | undefined
+): { rows: T[]; notOkReason: string | null; partialReason: string | null } {
+  if (answer?.status === 'NOTOK') {
+    return {
+      rows: [],
+      notOkReason: answer.reason || 'Could not read the exchange',
+      partialReason: null,
+    };
+  }
+  return {
+    rows: answer?.data ?? [],
+    notOkReason: null,
+    partialReason: (answer?.reason as string | null | undefined) || null,
+  };
+}
+
+function answerError(
+  queryError: unknown,
+  notOkReason: string | null
+): Error | null {
+  if (queryError) return queryError as Error;
+  return notOkReason ? new Error(notOkReason) : null;
 }
 
 /**
@@ -25,7 +62,8 @@ export interface UseExchangePositionsResult {
  * `useGraphQL` already pulls the token from the auth store and derives the
  * paper-context header from the live/paper toggle, so live/paper changes
  * auto-refetch with no extra wiring. The hook returns `ReturnResult<TData>`
- * (already unwrapped to the operation field's value), so we read `q.data?.data`.
+ * (already unwrapped to the operation field's value); {@link readOpenListAnswer}
+ * reads its status/reason as well as `data`.
  */
 export function useExchangeOrders(
   exchangeUUID: string, // 'all' => no filter
@@ -41,12 +79,17 @@ export function useExchangeOrders(
     enabled: enabled && !!exchangeUUID, // legacy: falsy uuid clears + returns
   });
 
-  const orders = q.data?.data ?? [];
+  const read = useMemo(() => readOpenListAnswer(q.data), [q.data]);
+  const error = useMemo(
+    () => answerError(q.error, read.notOkReason),
+    [q.error, read.notOkReason]
+  );
 
   return {
-    orders,
+    orders: read.rows,
     isLoading: q.isLoading,
-    error: (q.error as Error) ?? null,
+    error,
+    partialReason: read.partialReason,
     refetch: () => {
       void q.refetch();
     },
@@ -71,12 +114,17 @@ export function useExchangePositions(
     enabled: enabled && !!exchangeUUID,
   });
 
-  const positions = q.data?.data ?? [];
+  const read = useMemo(() => readOpenListAnswer(q.data), [q.data]);
+  const error = useMemo(
+    () => answerError(q.error, read.notOkReason),
+    [q.error, read.notOkReason]
+  );
 
   return {
-    positions,
+    positions: read.rows,
     isLoading: q.isLoading,
-    error: (q.error as Error) ?? null,
+    error,
+    partialReason: read.partialReason,
     refetch: () => {
       void q.refetch();
     },
