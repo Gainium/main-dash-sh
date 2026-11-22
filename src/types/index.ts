@@ -898,6 +898,16 @@ export type DCABacktestingResult = {
   symbolStats?: SymbolStats[];
   periodicStats?: PeriodicStats[];
   messages?: string[];
+  /** Hard-budget run only (`enforceBalances`): the budget and what it refused. */
+  budgetLimit?: {
+    asset: string;
+    budget: number;
+    dealsSkipped: number;
+    /** distinct DCA orders (deal + level) */
+    dcaRefused: number;
+    /** every refusal, retries included */
+    dcaRefusedAttempts: number;
+  };
 };
 
 export type DCABacktestingResultShort = Omit<DCABacktestingResult, 'deals'> & {
@@ -1098,6 +1108,8 @@ export enum EdgeBacktestEnum {
 export type DCABacktestingInput = BacktestingInput<DCABotSettings> & {
   edge?: EdgeBacktestEnum;
   previousData?: DCABacktestingResult;
+  /** Treat `balances` as a hard budget (spot DCA only). */
+  enforceBalances?: boolean;
 };
 
 //TODO: install github:Gainium/backtester

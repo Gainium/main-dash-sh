@@ -1,11 +1,13 @@
 import type { BalanceData } from '@/stores/live/balanceStore';
 import {
   BotTypesEnum,
+  StrategyEnum,
   type Asset,
   type DCABotSettings,
   type ExchangeInUser,
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
+import { extractPairAssets, normalizePairKey } from '@/utils/pairs';
 
 /**
  * The settings a local (in-browser) DCA / combo backtest runs with: the form's
@@ -67,4 +69,76 @@ export const localBacktestBalances = (
       free: `${b.free ?? 0}`,
       locked: `${b.locked ?? 0}`,
     }));
+};
+
+/**
+ * The asset a "Budget" for a local DCA backtest is counted in (spec 162): the
+ * quote a long buys with, or the base a short sells. The engine's hard budget
+ * (`enforceBalances`) covers spot DCA bots only and one spend asset for the
+ * whole run, so a combo bot, a futures bot or a multi-pair bot whose pairs
+ * spend different assets gets the reason instead.
+ */
+export const backtestBudgetAsset = (
+  formData: Pick<BotFormData, 'type' | 'pair' | 'pairMetadata'> & {
+    dca?: Partial<Pick<DCABotSettings, 'strategy' | 'futures'>>;
+  }
+):
+  | { asset: string }
+  | {
+      unsupported: string;
+      /** not a DCA-engine bot: no field at all */
+      hidden?: true;
+    } => {
+  if (formData.type === BotTypesEnum.combo) {
+    return { unsupported: 'Budget is available for spot DCA bots only.' };
+  }
+  if (formData.type !== BotTypesEnum.dca) {
+    return {
+      unsupported: 'Budget is available for DCA bots only.',
+      hidden: true,
+    };
+  }
+  const dca = formData.dca;
+  if (dca?.futures) {
+    return { unsupported: 'Budget is available for spot DCA bots only.' };
+  }
+  const short = dca?.strategy === StrategyEnum.short;
+  const assets = new Set(
+    [formData.pair]
+      .flat()
+      .filter((p): p is string => typeof p === 'string' && p.trim() !== '')
+      .map((p) => {
+        const meta = (formData.pairMetadata ?? {})[normalizePairKey(p)];
+        const fallback = extractPairAssets(p);
+        return short
+          ? (meta?.baseAsset?.name ?? fallback.baseAsset)
+          : (meta?.quoteAsset?.name ?? fallback.quoteAsset);
+      })
+      .filter(Boolean)
+  );
+  if (assets.size !== 1) {
+    return {
+      unsupported:
+        assets.size === 0
+          ? 'Select a pair to set a budget.'
+          : 'Budget needs all pairs to spend the same asset.',
+    };
+  }
+  return { asset: [...assets][0] };
+};
+
+/**
+ * The balances a budgeted run starts from: the account rows, with the spend
+ * asset's free amount replaced by the budget (added when the account holds
+ * none). The engine reads that row as the hard budget.
+ */
+export const applyBacktestBudget = (
+  balances: readonly Asset[],
+  asset: string,
+  budget: number
+): Asset[] => {
+  const row: Asset = { asset, free: `${budget}`, locked: '0' };
+  return balances.some((b) => b.asset === asset)
+    ? balances.map((b) => (b.asset === asset ? row : b))
+    : [...balances, row];
 };

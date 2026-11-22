@@ -19,6 +19,7 @@
 
 import React, { useMemo } from 'react';
 import { formatUsdAsReporting } from '@/utils/reportingCurrency';
+import { formatNumber } from '@/utils/numberFormatter';
 import { Tooltip } from '@/components/ui/tooltip';
 
 import {
@@ -273,6 +274,31 @@ export const RedesignOverviewTab: React.FC<RedesignOverviewTabProps> = ({
             <MetricRow k="Winners" v={vm.wins} tone="up" />
             <MetricRow k="Losers" v={vm.losses} tone="down" />
             <MetricRow k="Open" v={vm.open} />
+            {vm.budget && (
+              <>
+                <div className="my-1.5 border-t border-border/60" />
+                <MetricRow
+                  k="Budget"
+                  v={`${formatNumber(vm.budget.amount, true)} ${vm.budget.asset}`}
+                />
+                <MetricRow
+                  k="Deals skipped"
+                  v={vm.budget.dealsSkipped}
+                  tone={vm.budget.dealsSkipped > 0 ? 'down' : 'neutral'}
+                />
+                <MetricRow
+                  k="DCA orders refused"
+                  v={
+                    <Tooltip
+                      tooltip={`${vm.budget.dcaRefused} distinct DCA orders (deal + level). A deal waiting for funds tries again at later signals: ${vm.budget.dcaRefusedAttempts} attempts in total.`}
+                    >
+                      <span>{vm.budget.dcaRefused}</span>
+                    </Tooltip>
+                  }
+                  tone={vm.budget.dcaRefused > 0 ? 'down' : 'neutral'}
+                />
+              </>
+            )}
             <div className="my-1.5 border-t border-border/60" />
             <MetricRow k="Sharpe Ratio" v={vm.sharpe.toFixed(3)} />
             <MetricRow k="Sortino Ratio" v={vm.sortino.toFixed(3)} />

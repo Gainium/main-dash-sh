@@ -25,6 +25,8 @@ import {
 import logger from '@/lib/loggerInstance';
 import { toast } from '@/lib/toast';
 import { useBacktestPeriodStore } from '@/stores/backtestPeriodStore';
+import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
+import type { backtestBudgetAsset } from '../localBacktestSettings';
 import {
   ExchangeIntervals,
   intervalMap,
@@ -49,6 +51,12 @@ export type BacktestConfig = {
   periodId?: string;
   saveNew?: boolean;
   newName?: string;
+  /**
+   * Hard budget for a local spot DCA run (spec 162), in `budgetAsset`.
+   * Unset = no budget (today's behaviour).
+   */
+  budget?: number;
+  budgetAsset?: string;
 };
 
 const formatLocalDate = (d: Date) => {
@@ -73,6 +81,8 @@ const parseLocalDateTime = (s: string) => {
   return new Date(y, (m || 1) - 1, d || 1, hh || 0, min || 0);
 };
 
+const BUDGET_HIDDEN = { unsupported: '', hidden: true } as const;
+
 export const BacktestSettingsDialog: React.FC<{
   open: boolean;
   initialData?: Partial<BacktestConfig>;
@@ -91,6 +101,12 @@ export const BacktestSettingsDialog: React.FC<{
    * so hedge must always run locally via @gainium/backtester.
    */
   forceLocalMode?: boolean;
+  /**
+   * What a Budget is counted in for this bot (`backtestBudgetAsset`), or why
+   * it cannot take one. Omitted (hedge bots: no hard budget in that engine)
+   * = no Budget field.
+   */
+  budgetTarget?: ReturnType<typeof backtestBudgetAsset>;
 }> = ({
   open,
   initialData,
@@ -101,6 +117,7 @@ export const BacktestSettingsDialog: React.FC<{
   backtestProgress,
   onCancelLocal,
   forceLocalMode = false,
+  budgetTarget = BUDGET_HIDDEN,
 }) => {
   const [mode, setMode] = useState<'local' | 'server'>(
     forceLocalMode ? 'local' : (initialData?.mode ?? 'local')
@@ -139,6 +156,18 @@ export const BacktestSettingsDialog: React.FC<{
     initialData?.saveNew ?? false
   );
   const [newName, setNewName] = useState<string>(initialData?.newName ?? '');
+  // Empty = no budget. Kept as typed text so a cleared field stays empty.
+  const [budget, setBudget] = useState<string>('');
+  const budgetAsset = 'asset' in budgetTarget ? budgetTarget.asset : null;
+  const budgetDisabledReason =
+    'unsupported' in budgetTarget
+      ? budgetTarget.unsupported
+      : mode === 'server'
+        ? 'Budget is available for client side backtests only.'
+        : null;
+  const budgetValue = Number(budget);
+  const budgetInvalid =
+    budget.trim() !== '' && !(Number.isFinite(budgetValue) && budgetValue > 0);
   /* const [localAvailable, setLocalAvailable] = useState<boolean | null>(null); */
   /* const [backtesterImportKeys, setBacktesterImportKeys] = useState<
     string[] | null
@@ -443,6 +472,12 @@ export const BacktestSettingsDialog: React.FC<{
         periodId: resolvedPeriodId,
         saveNew,
         newName,
+        ...(budgetAsset &&
+        !budgetDisabledReason &&
+        budget.trim() !== '' &&
+        !budgetInvalid
+          ? { budget: budgetValue, budgetAsset }
+          : {}),
       });
     } catch (err) {
       // logger.error('[backtester] Backtest run error', { error: err instanceof Error ? { message: err.message, stack: err.stack } : String(err) })
@@ -669,6 +704,40 @@ export const BacktestSettingsDialog: React.FC<{
                       endAdornment="%"
                     />
                   </div>
+
+                  {!('hidden' in budgetTarget) && (
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-1">
+                        <Label className="text-xs" htmlFor="backtest-budget">
+                          Budget
+                        </Label>
+                        <Tooltip
+                          tooltip={
+                            budgetDisabledReason ??
+                            'Leave empty for no limit. When set, the backtest skips new deals and DCA orders this amount cannot pay for, as the live bot does. Closed deals return their funds and profit, and profit % is measured against this budget.'
+                          }
+                        >
+                          <InfoIcon />
+                        </Tooltip>
+                      </div>
+                      <Input
+                        id="backtest-budget"
+                        type="number"
+                        min="0"
+                        step="any"
+                        placeholder="No limit"
+                        value={budgetDisabledReason ? '' : budget}
+                        disabled={!!budgetDisabledReason}
+                        onChange={(e) => setBudget(e.target.value)}
+                        endAdornment={budgetAsset ?? undefined}
+                      />
+                      {budgetInvalid && !budgetDisabledReason && (
+                        <p className="text-xs text-destructive">
+                          Enter an amount above 0.
+                        </p>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 {/* Sortino Ratio Calculation */}
@@ -898,6 +967,7 @@ export const BacktestSettingsDialog: React.FC<{
                   onClick={handleRun}
                   disabled={
                     running ||
+                    (budgetInvalid && !budgetDisabledReason) ||
                     (startDate !== '' &&
                       endDate !== '' &&
                       parseLocalDateTime(startDate) >

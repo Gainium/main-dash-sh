@@ -164,7 +164,7 @@ const sanitizeIndicators = (indicators?: unknown[]): unknown[] => {
   return clone as CreateDCABotPayload;
 }; */
 
-const sanitizeResult = (
+export const sanitizeResult = (
   result: DCABacktestingResult,
   periodName?: string
 ): DCABacktestingResultShort => {
@@ -175,6 +175,9 @@ const sanitizeResult = (
   delete (copy as Partial<DCABacktestingResult>).indicatorsEvents;
   delete (copy as Partial<DCABacktestingResult>).buyAndHoldEquity;
   delete (copy as Partial<DCABacktestingResult>).portfolio;
+  // Not a field of the backend's backtest input: sending it fails the whole
+  // save. The counts also sit in `messages`, which is saved.
+  delete (copy as Partial<DCABacktestingResult>).budgetLimit;
 
   if (copy.duration && periodName) {
     copy.duration = {

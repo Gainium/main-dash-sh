@@ -130,6 +130,15 @@ export interface BacktestViewModel {
   hasEquityCurve: boolean;
   hasBuyAndHold: boolean;
 
+  /** Hard-budget run only (spec 162): the budget and what it refused. */
+  budget: {
+    asset: string;
+    amount: number;
+    dealsSkipped: number;
+    dcaRefused: number;
+    dcaRefusedAttempts: number;
+  } | null;
+
   // raw passthrough for the reused Stats/Analysis tabs
   raw: DCABacktestingResultHistory;
 }
@@ -565,6 +574,16 @@ export function buildBacktestViewModel(
     hasDeals,
     hasEquityCurve,
     hasBuyAndHold,
+
+    budget: result.budgetLimit
+      ? {
+          asset: result.budgetLimit.asset,
+          amount: num(result.budgetLimit.budget),
+          dealsSkipped: num(result.budgetLimit.dealsSkipped),
+          dcaRefused: num(result.budgetLimit.dcaRefused),
+          dcaRefusedAttempts: num(result.budgetLimit.dcaRefusedAttempts),
+        }
+      : null,
 
     raw: toHistory(result, settings, meta),
   };

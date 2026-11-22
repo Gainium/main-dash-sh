@@ -168,6 +168,8 @@ import {
 } from '@/types';
 import type { BotFormData } from '@/types/bots/form';
 import {
+  applyBacktestBudget,
+  backtestBudgetAsset,
   localBacktestBalances,
   localDcaBacktestSettings,
 } from './localBacktestSettings';
@@ -3413,16 +3415,33 @@ const BotForm: React.FC<BotFormProps> = ({
             }
 
             const isComboBacktest = formData.type === BotTypesEnum.combo;
+            // Budget (spec 162): the dialog sends it only for a spot DCA bot
+            // run client side; empty = today's unlimited run.
+            const budgeted =
+              !isComboBacktest &&
+              !!cfg.budgetAsset &&
+              typeof cfg.budget === 'number' &&
+              cfg.budget > 0;
             const backtesterInput: DCABacktestingInput = {
               exchange: currentExchange?.provider,
               symbols,
               settings: localDcaBacktestSettings(formData, settingsFromMapping),
               userFee,
               prices: getLocalPrices(),
-              balances: localBacktestBalances(
-                useBalanceStore.getState().balances,
-                currentExchange
-              ),
+              balances: budgeted
+                ? applyBacktestBudget(
+                    localBacktestBalances(
+                      useBalanceStore.getState().balances,
+                      currentExchange
+                    ),
+                    cfg.budgetAsset as string,
+                    cfg.budget as number
+                  )
+                : localBacktestBalances(
+                    useBalanceStore.getState().balances,
+                    currentExchange
+                  ),
+              ...(budgeted ? { enforceBalances: true } : {}),
               interval: cfg.timeframe,
               from: firstDataTime,
               to: lastDataTime,
@@ -3480,6 +3499,15 @@ const BotForm: React.FC<BotFormProps> = ({
 
               if (result) {
                 toast.success('Local backtest finished successfully');
+                if (
+                  budgeted &&
+                  !(result as unknown as DCABacktestingResult).budgetLimit
+                ) {
+                  // An engine without the budget cap ran without a limit.
+                  toast.error(
+                    'Budget was not applied: this backtest ran without a limit.'
+                  );
+                }
                 try {
                   if (!persistenceSymbol || !currentExchange) {
                     throw new Error('Missing symbol metadata for persistence');
@@ -3620,6 +3648,18 @@ const BotForm: React.FC<BotFormProps> = ({
   const backtestDialogFormData = useMemo(
     () => ({ userFee: formUserFee }) as BotFormData,
     [formUserFee]
+  );
+  // Budget (spec 162): what the dialog's Budget field is counted in, or why
+  // this bot cannot take one. Built from narrow selectors, like the fee above.
+  const backtestBudgetTarget = useMemo(
+    () =>
+      backtestBudgetAsset({
+        type: formBotType,
+        pair: formPair,
+        pairMetadata: formPairMetadata,
+        dca: { strategy: dcaStrategy, futures: dcaFutures },
+      }),
+    [formBotType, formPair, formPairMetadata, dcaStrategy, dcaFutures]
   );
 
   // Memoized so unrelated re-renders of BotFormShell don't hand every
@@ -4095,6 +4135,7 @@ const BotForm: React.FC<BotFormProps> = ({
         initialData={backtestDialogInitial}
         onClose={() => setShowBacktestDialog(false)}
         formData={backtestDialogFormData}
+        budgetTarget={backtestBudgetTarget}
         backtestProgress={backtestProgress}
         onCancelLocal={cancelLocalBacktest}
         onRun={onRunBacktest}
@@ -4582,6 +4623,7 @@ const BotForm: React.FC<BotFormProps> = ({
         initialData={backtestDialogInitial}
         onClose={() => setShowBacktestDialog(false)}
         formData={backtestDialogFormData}
+        budgetTarget={backtestBudgetTarget}
         backtestProgress={backtestProgress}
         onCancelLocal={cancelLocalBacktest}
         onRun={onRunBacktest}
