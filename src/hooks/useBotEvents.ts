@@ -48,6 +48,8 @@ export interface UseBotEventsOptions {
   category?: BotEventCategory; // Server-side bucket (recent/deals/alerts)
   sortModel?: GridSortModel;
   filterModel?: GridFilterModel;
+  /** Union of event types (e.g. orders + errors), AND-ed with filterModel. */
+  types?: string[];
 }
 
 const EMPTY_COUNTS: BotEventCounts = { recent: 0, deals: 0, alerts: 0 };
@@ -76,6 +78,7 @@ export function useBotEvents(
     category,
     sortModel,
     filterModel,
+    types,
   } = options;
 
   const derivedFilterModel: GridFilterModel | undefined = eventType
@@ -100,6 +103,7 @@ export function useBotEvents(
     ...(sortModel ? { sortModel } : {}),
     ...(derivedFilterModel ? { filterModel: derivedFilterModel } : {}),
     ...(category ? { category } : {}),
+    ...(types?.length ? { types } : {}),
     combo: botType === BotTypesEnum.combo,
     hedge:
       botType === BotTypesEnum.hedgeCombo || botType === BotTypesEnum.hedgeDca,

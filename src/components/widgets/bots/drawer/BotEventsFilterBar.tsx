@@ -14,6 +14,7 @@
  */
 import React, { useState } from 'react';
 import {
+  ChevronDown,
   Download,
   Filter,
   RefreshCw,
@@ -22,14 +23,23 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import {
+  ALL_BOT_EVENT_TYPES_LABEL,
   BOT_EVENT_TYPE_OPTIONS,
+  botEventTypesLabel,
   countActiveBotEventFilters,
   type BotEventFilters,
   type BotEventPairOption,
-  type BotEventTypeFilter,
+  type BotEventType,
 } from '@/lib/botEventFilters';
 import { Button } from '@/components/ui/button';
 import { DateTimeInput } from '@/components/ui/date-time-input';
+import {
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import {
   Select,
@@ -55,6 +65,54 @@ const formatShortTime = (local: string) => {
 };
 
 type TypeOption = (typeof BOT_EVENT_TYPE_OPTIONS)[number];
+
+/**
+ * Multi-select Type control: checkboxes, nothing checked = all types. The menu
+ * stays open while toggling so several types can be picked in one go.
+ */
+const TypeMultiSelect: React.FC<{
+  types: BotEventType[];
+  typeOptions: TypeOption[];
+  onChange: (types: BotEventType[]) => void;
+}> = ({ types, typeOptions, onChange }) => {
+  const toggle = (value: BotEventType, checked: boolean) =>
+    onChange(
+      typeOptions
+        .map((o) => o.value)
+        .filter((t) => (t === value ? checked : types.includes(t)))
+    );
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        aria-label="Type"
+        className="h-9 w-full justify-between whitespace-nowrap border border-border/50 bg-foreground/[0.04] px-3 py-2 text-sm shadow-xs transition-colors hover:bg-foreground/[0.06]"
+      >
+        <span className="truncate">{botEventTypesLabel(types)}</span>
+        <ChevronDown className="size-4 shrink-0 opacity-50" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-44">
+        <DropdownMenuCheckboxItem
+          checked={types.length === 0}
+          onCheckedChange={() => onChange([])}
+          onSelect={(e) => e.preventDefault()}
+        >
+          {ALL_BOT_EVENT_TYPES_LABEL}
+        </DropdownMenuCheckboxItem>
+        <DropdownMenuSeparator />
+        {typeOptions.map((o) => (
+          <DropdownMenuCheckboxItem
+            key={o.value}
+            checked={types.includes(o.value)}
+            onCheckedChange={(checked) => toggle(o.value, checked === true)}
+            onSelect={(e) => e.preventDefault()}
+          >
+            {o.label}
+          </DropdownMenuCheckboxItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+};
 
 interface FieldsProps {
   filters: BotEventFilters;
@@ -116,21 +174,11 @@ const FilterFields: React.FC<FieldsProps> = ({
       )}
       {wrap(
         'Type',
-        <Select
-          value={filters.type}
-          onValueChange={(v) => onChange({ type: v as BotEventTypeFilter })}
-        >
-          <SelectTrigger aria-label="Type" className="h-9 w-full text-sm">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            {typeOptions.map((o) => (
-              <SelectItem key={o.value} value={o.value}>
-                {o.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>,
+        <TypeMultiSelect
+          types={filters.types}
+          typeOptions={typeOptions}
+          onChange={(types) => onChange({ types })}
+        />,
         panel ? undefined : 'w-32 shrink-0'
       )}
       {pairOptions.length > 1 &&
@@ -199,13 +247,11 @@ export const BotEventsFilterBar: React.FC<BotEventsFilterBarProps> = ({
       clear: { from: '', to: '' },
     });
   }
-  if (filters.type !== 'all') {
+  for (const t of filters.types) {
     chips.push({
-      key: 'type',
-      label:
-        BOT_EVENT_TYPE_OPTIONS.find((o) => o.value === filters.type)?.label ??
-        filters.type,
-      clear: { type: 'all' },
+      key: `type-${t}`,
+      label: BOT_EVENT_TYPE_OPTIONS.find((o) => o.value === t)?.label ?? t,
+      clear: { types: filters.types.filter((x) => x !== t) },
     });
   }
   if (filters.symbol) {
@@ -325,7 +371,7 @@ export const BotEventsFilterBar: React.FC<BotEventsFilterBarProps> = ({
             <button
               type="button"
               onClick={() =>
-                onChange({ type: 'all', symbol: '', from: '', to: '' })
+                onChange({ types: [], symbol: '', from: '', to: '' })
               }
               className="px-1 text-xs text-muted-foreground underline-offset-2 hover:underline"
             >

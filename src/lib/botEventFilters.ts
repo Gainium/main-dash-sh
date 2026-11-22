@@ -12,35 +12,66 @@
  *
  * "Deals" is the backend's own `category` bucket (deal-tied, non-alert) rather
  * than a filter item, because "has a deal id" is not expressible as an item.
+ *
+ * Type is a multi-select whose result is the UNION of the chosen types. A
+ * selection the item model can express (one type, or Errors + Warnings) is
+ * sent as before; any other mix (e.g. Orders + Errors) goes in `types`, which
+ * the backend turns into one `$or` group AND-ed with the rest.
  */
 import type { BotEvent } from '@/hooks/useBotEvents';
 import type { GridFilterItem, GridFilterModel } from '@/types';
 
-export type BotEventTypeFilter =
-  'all' | 'orders' | 'deals' | 'errors' | 'warnings';
+export type BotEventType = 'orders' | 'deals' | 'errors' | 'warnings';
+/** A single type, or 'all' — the shape of the `?eventsType=` deep link. */
+export type BotEventTypeFilter = 'all' | BotEventType;
 
 export const BOT_EVENT_TYPE_OPTIONS: {
-  value: BotEventTypeFilter;
+  value: BotEventType;
   label: string;
 }[] = [
-  { value: 'all', label: 'All types' },
   { value: 'orders', label: 'Orders' },
   { value: 'deals', label: 'Deals' },
   { value: 'errors', label: 'Errors' },
   { value: 'warnings', label: 'Warnings' },
 ];
 
-export const isBotEventTypeFilter = (
-  value: unknown
-): value is BotEventTypeFilter =>
-  BOT_EVENT_TYPE_OPTIONS.some((o) => o.value === value);
+export const ALL_BOT_EVENT_TYPES_LABEL = 'All types';
+
+/**
+ * Type selection from a stored/linked value: a single type (`errors`), `all`,
+ * a comma list (`errors,warnings`) or an array. Returns `null` when nothing in
+ * it is recognised, so a caller can ignore a bad link. Order follows the
+ * option list and duplicates collapse.
+ */
+export const parseBotEventTypes = (value: unknown): BotEventType[] | null => {
+  if (value === 'all') return [];
+  const raw = Array.isArray(value)
+    ? value
+    : typeof value === 'string'
+      ? value.split(',').map((v) => v.trim())
+      : [];
+  const types = BOT_EVENT_TYPE_OPTIONS.map((o) => o.value).filter((t) =>
+    raw.includes(t)
+  );
+  return types.length ? types : null;
+};
+
+/** Label of the Type control: "All types", the one label, or "N types". */
+export const botEventTypesLabel = (types: BotEventType[]): string =>
+  types.length === 0
+    ? ALL_BOT_EVENT_TYPES_LABEL
+    : types.length === 1
+      ? (BOT_EVENT_TYPE_OPTIONS.find((o) => o.value === types[0])?.label ??
+        types[0])
+      : `${types.length} types`;
 
 /** Exact `event` names the bot engines write for order activity. */
 const ORDER_EVENT_NAMES = ['Order', 'Order error', 'Take Profit', 'Stop Loss'];
 
 export interface BotEventFilters {
   search: string;
-  type: BotEventTypeFilter;
+  /** Selected types; empty = all types. */
+  types: BotEventType[];
   /** Exchange symbol as stored on the event (e.g. `BTCUSDT`), or '' for all. */
   symbol: string;
   /** `datetime-local` input values (local time), or ''. */
@@ -50,7 +81,7 @@ export interface BotEventFilters {
 
 export const EMPTY_BOT_EVENT_FILTERS: BotEventFilters = {
   search: '',
-  type: 'all',
+  types: [],
   symbol: '',
   from: '',
   to: '',
@@ -58,7 +89,7 @@ export const EMPTY_BOT_EVENT_FILTERS: BotEventFilters = {
 
 /** Number of structured filters set (search excluded — it's always visible). */
 export const countActiveBotEventFilters = (f: BotEventFilters): number =>
-  (f.type !== 'all' ? 1 : 0) + (f.symbol ? 1 : 0) + (f.from || f.to ? 1 : 0);
+  (f.types.length ? 1 : 0) + (f.symbol ? 1 : 0) + (f.from || f.to ? 1 : 0);
 
 const toIso = (local: string): string | null => {
   if (!local) return null;
@@ -69,6 +100,7 @@ const toIso = (local: string): string | null => {
 export function buildBotEventsQuery(f: BotEventFilters): {
   category?: 'deals';
   filterModel?: GridFilterModel;
+  types?: BotEventType[];
 } {
   const items: GridFilterItem[] = [];
   const from = toIso(f.from);
@@ -89,15 +121,27 @@ export function buildBotEventsQuery(f: BotEventFilters): {
       value: to,
     });
   }
-  if (f.type === 'errors' || f.type === 'warnings') {
+  const selected = parseBotEventTypes(f.types) ?? [];
+  const alertsOnly =
+    selected.length > 0 &&
+    selected.every((t) => t === 'errors' || t === 'warnings');
+  // One type, or Errors + Warnings, fit the item model; any other mix is a
+  // union the backend applies from `types`.
+  const single = selected.length === 1 ? selected[0] : undefined;
+  const types = !single && !alertsOnly && selected.length ? selected : undefined;
+  if (alertsOnly) {
     items.push({
       id: 'type',
       field: 'type',
-      operator: 'equals',
-      value: f.type === 'errors' ? 'error' : 'warning',
+      ...(selected.length === 1
+        ? {
+            operator: 'equals',
+            value: selected[0] === 'errors' ? 'error' : 'warning',
+          }
+        : { operator: 'isAnyOf', value: 'error,warning' }),
     });
   }
-  if (f.type === 'orders') {
+  if (single === 'orders') {
     items.push({
       id: 'type',
       field: 'event',
@@ -115,9 +159,11 @@ export function buildBotEventsQuery(f: BotEventFilters): {
   }
 
   const search = f.search.trim();
-  const category = f.type === 'deals' ? ('deals' as const) : undefined;
+  const category = single === 'deals' ? ('deals' as const) : undefined;
 
-  if (search && items.length === 0) {
+  // With a `types` union the search matches the description only, the same
+  // rule as with any other type filter.
+  if (search && items.length === 0 && !types) {
     return {
       category,
       filterModel: {
@@ -150,6 +196,7 @@ export function buildBotEventsQuery(f: BotEventFilters): {
   return {
     category,
     ...(items.length ? { filterModel: { items } } : {}),
+    ...(types ? { types } : {}),
   };
 }
 

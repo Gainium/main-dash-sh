@@ -1508,6 +1508,7 @@ export const botQueries = {
     combo?: boolean;
     shareId?: string;
     category?: 'recent' | 'deals' | 'alerts';
+    types?: string[];
   }) => {
     const query = `query getBotEvents($input: getBotEventsInput!) {
       getBotEvents(input: $input) {

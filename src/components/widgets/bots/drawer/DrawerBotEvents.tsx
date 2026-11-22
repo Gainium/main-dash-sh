@@ -14,8 +14,8 @@ import {
   buildBotEventsQuery,
   countActiveBotEventFilters,
   extractOrderId,
-  isBotEventTypeFilter,
   pairOptionsFromBot,
+  parseBotEventTypes,
   type BotEventFilters,
 } from '../../../../lib/botEventFilters';
 import { GraphQLClient, getGraphQLConfig } from '../../../../lib/api';
@@ -237,15 +237,17 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   const actualBotId = botId || paramBotId;
 
   const [searchParams, setSearchParams] = useSearchParams();
-  // `?eventsType=errors` deep-links straight to a filtered view (the bot
-  // error banner's "Review the bot events" uses it). Read once for the
-  // initial state, then consumed by the effect below.
+  // `?eventsType=errors` (or a comma list, `errors,warnings`) deep-links
+  // straight to a filtered view (the bot error banner's "Review the bot
+  // events" uses it). Read once for the initial state, then consumed by the
+  // effect below.
   const linkedType = searchParams.get('eventsType');
-  const [filters, setFilters] = useState<BotEventFilters>(() =>
-    isBotEventTypeFilter(linkedType)
-      ? { ...EMPTY_BOT_EVENT_FILTERS, type: linkedType }
-      : EMPTY_BOT_EVENT_FILTERS
-  );
+  const [filters, setFilters] = useState<BotEventFilters>(() => {
+    const linkedTypes = parseBotEventTypes(linkedType);
+    return linkedTypes
+      ? { ...EMPTY_BOT_EVENT_FILTERS, types: linkedTypes }
+      : EMPTY_BOT_EVENT_FILTERS;
+  });
   const updateFilters = useCallback(
     (patch: Partial<BotEventFilters>) =>
       setFilters((prev) => ({ ...prev, ...patch })),
@@ -256,8 +258,9 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   // filter choices.
   useEffect(() => {
     if (!linkedType) return;
-    if (isBotEventTypeFilter(linkedType)) {
-      setFilters({ ...EMPTY_BOT_EVENT_FILTERS, type: linkedType });
+    const linkedTypes = parseBotEventTypes(linkedType);
+    if (linkedTypes) {
+      setFilters({ ...EMPTY_BOT_EVENT_FILTERS, types: linkedTypes });
     }
     setSearchParams(
       (prev) => {
@@ -338,12 +341,16 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
   }, [filters.search]);
 
   // The query follows the debounced search, never the raw keystrokes.
-  const { type, symbol, from, to } = filters;
+  const { types, symbol, from, to } = filters;
   const queryFilters = useMemo<BotEventFilters>(
-    () => ({ type, symbol, from, to, search: debouncedSearch }),
-    [type, symbol, from, to, debouncedSearch]
+    () => ({ types, symbol, from, to, search: debouncedSearch }),
+    [types, symbol, from, to, debouncedSearch]
   );
-  const { category, filterModel } = useMemo(
+  const {
+    category,
+    filterModel,
+    types: typesUnion,
+  } = useMemo(
     () => buildBotEventsQuery(queryFilters),
     [queryFilters]
   );
@@ -375,6 +382,7 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
     pageSize: visibleCount,
     ...(category ? { category } : {}),
     ...(filterModel ? { filterModel } : {}),
+    ...(typesUnion ? { types: typesUnion } : {}),
   });
 
   const handleLoadMore = useCallback(() => {
@@ -399,6 +407,7 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
         pageSize: EXPORT_CAP,
         ...(category ? { category } : {}),
         ...(filterModel ? { filterModel } : {}),
+        ...(typesUnion ? { types: typesUnion } : {}),
         combo: botTypeEnum === BotTypesEnum.combo,
         hedge:
           botTypeEnum === BotTypesEnum.hedgeCombo ||
@@ -441,7 +450,15 @@ export const DrawerBotEvents: React.FC<DrawerBotEventsProps> = ({
     } finally {
       setIsExporting(false);
     }
-  }, [actualBotId, category, filterModel, botTypeEnum, tokens, isLiveTrading]);
+  }, [
+    actualBotId,
+    category,
+    filterModel,
+    typesUnion,
+    botTypeEnum,
+    tokens,
+    isLiveTrading,
+  ]);
 
   // Format event timestamp
   const formatEventTime = useCallback((created: string) => {
