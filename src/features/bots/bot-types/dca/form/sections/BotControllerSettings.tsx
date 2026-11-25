@@ -1098,7 +1098,7 @@ export const BotControllerSettings: React.FC<BotControllerSettingsProps> = ({
 
           <SettingsRow
             name="Stop after X accumulated bot profit or loss"
-            tooltip="Stop the bot once its total profit crosses a threshold. Use Greater than with a positive value for a profit target, or Less than with a negative value for a loss cap — e.g. Less than -100 stops the bot at $100 of accumulated loss."
+            tooltip="Stop the bot once its realized profit crosses a threshold. Only closed deals count: the unrealized P&L of open deals does not, so the check runs each time a deal closes. Use Greater than with a positive value for a profit target, or Less than with a negative value for a loss cap — e.g. Less than -100 stops the bot at $100 of accumulated loss."
             colSpan="full"
             navId="stop-after-profit"
             alerts={alerts?.closeAfterXprofitValue ?? []}
