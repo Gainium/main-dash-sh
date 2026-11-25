@@ -1,5 +1,6 @@
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useBotSpecificDeals } from '@/hooks/useBotSpecificDeals';
+import { useDealHeldOrders } from '@/hooks/bots/dca/useDealHeldOrders';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import {
   useComboBotsStore,
@@ -19,6 +20,7 @@ import {
 import {
   dealCompletedOrdersToTransactions,
   dealPendingOrdersToChartLines,
+  dealHeldOrdersToChartLines,
 } from '@/utils/bots/dca/deal-chart-orders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import { normalizePairKey } from '@/utils/pairs';
@@ -182,15 +184,36 @@ export function useBotPageDealChart({
     enabled: Boolean(dealId),
   });
 
+  const heldOrders = useDealHeldOrders({
+    botId,
+    dealId,
+    isCombo,
+    liveHeld: storeDeal?.heldOrders,
+  });
+
   const orders = useMemo<DCAGrid[]>(() => {
     if (!dealId) return EMPTY_ORDERS;
     const real = dealPendingOrdersToChartLines(
       pendingOrders,
       strategy ?? StrategyEnum.long
     );
-    if (!real.length && !smartChartOrders.length) return EMPTY_ORDERS;
-    return [...real, ...smartChartOrders];
-  }, [dealId, pendingOrders, smartChartOrders, strategy]);
+    const held = dealHeldOrdersToChartLines(
+      heldOrders,
+      pendingOrders,
+      strategy ?? StrategyEnum.long,
+      deal?.symbol?.symbol ?? ''
+    );
+    if (!real.length && !held.length && !smartChartOrders.length)
+      return EMPTY_ORDERS;
+    return [...real, ...held, ...smartChartOrders];
+  }, [
+    dealId,
+    pendingOrders,
+    smartChartOrders,
+    strategy,
+    heldOrders,
+    deal?.symbol?.symbol,
+  ]);
 
   const transactions = useMemo<TransactionChart[]>(() => {
     if (!dealId || !completedOrders.length) return EMPTY_TRANSACTIONS;

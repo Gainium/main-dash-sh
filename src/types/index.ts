@@ -3552,6 +3552,15 @@ export enum BotTypesEnum {
   terminal = 'terminal',
 }
 
+export type DealHeldOrder = {
+  side: string;
+  price: number;
+  qty: number;
+  typeOrder?: string | null;
+  minigridId?: string | null;
+  dcaLevel?: number | null;
+};
+
 export type DCAGrid = {
   qty: number;
   price: number;
@@ -3818,6 +3827,11 @@ export type DCADeals = {
   pendingReduceFunds?: (AddFundsSettings & { id: string })[];
   /** Ladder levels the bot skipped and will not place by itself. */
   missedLevels?: { level: number; price: number; qty: number }[] | null;
+  /**
+   * Orders the exchange refuses this far from the price (its price band); the
+   * bot places them once the price is near. Drawn grey on the chart.
+   */
+  heldOrders?: DealHeldOrder[] | null;
   blockOrders?: BlockOrder[];
   moveSlActivated?: boolean;
   parent?: boolean;

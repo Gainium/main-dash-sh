@@ -22,6 +22,8 @@ import { useIndicatorVarValues } from '@/hooks/bots/global-variables/useIndicato
 import { chartIndicatorsContextFromSettings } from '@/utils/indicators/chartIndicatorUtils';
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
+import { useDealHeldOrders } from '@/hooks/bots/dca/useDealHeldOrders';
+import { dealHeldOrdersToChartLines } from '@/utils/bots/dca/deal-chart-orders';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import { buildDealExitLines } from '@/utils/bots/dca/deal-exit-lines';
 import type { ViewOrder } from '@/types/bots';
@@ -1306,6 +1308,16 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       [bot.settings, chartRawDeal]
     );
 
+    // Orders the exchange refuses this far from the price, drawn grey where
+    // they will rest once the price is near.
+    const chartHeldOrders = useDealHeldOrders({
+      botId: chartTrade?.botId ?? selectedTrade?.botId ?? bot._id,
+      dealId: isGrid ? '' : chartDealId,
+      isCombo: type === BotTypesEnum.combo || type === BotTypesEnum.hedgeCombo,
+      liveHeld: chartRawDeal?.heldOrders,
+      enabled: !isGrid && chartRawDeal?.status === 'open',
+    });
+
     const chartDealOrders = useMemo(() => {
       if (isGrid || !chartDealId) {
         return { pending: [] as typeof pendingOrders, completed: [] as typeof completedOrders };
@@ -1387,10 +1399,26 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                   false
                 ), // false = not real order for display
           })),
+        ...dealHeldOrdersToChartLines(
+          isGrid || chartRawDeal?.status !== 'open' ? null : chartHeldOrders,
+          chartDealOrders.pending,
+          StrategyEnum.long,
+          chartRawDeal?.symbol?.symbol ?? ''
+        ),
         ...dealProjectedOrders,
         ...dealExitLines,
       ],
-      [pendingOrders, chartDealId, isGrid, dealProjectedOrders, dealExitLines]
+      [
+        pendingOrders,
+        chartDealId,
+        isGrid,
+        dealProjectedOrders,
+        dealExitLines,
+        chartHeldOrders,
+        chartDealOrders.pending,
+        chartRawDeal?.status,
+        chartRawDeal?.symbol?.symbol,
+      ]
     );
 
     const chartTransactions = useMemo(

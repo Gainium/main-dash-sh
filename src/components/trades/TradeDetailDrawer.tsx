@@ -1,3 +1,4 @@
+import { useDealHeldOrders } from '@/hooks/bots/dca/useDealHeldOrders';
 import { useDealOrders } from '@/hooks/useDealOrders';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { useUserFees } from '@/hooks/useUserFeesService';
@@ -5,6 +6,7 @@ import { buildDealExitLines } from '@/utils/bots/dca/deal-exit-lines';
 import {
   dealCompletedOrdersToTransactions,
   dealPendingOrdersToChartLines,
+  dealHeldOrdersToChartLines,
 } from '@/utils/bots/dca/deal-chart-orders';
 import { splitDealOrders } from '@/utils/orders/viewOrder';
 import {
@@ -247,13 +249,35 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
   // Feed the price chart: real pending orders + projected grey smart levels +
   // the engine-managed exits. Grey lines render automatically (BotChart maps
   // grey:true → color).
+  const heldOrders = useDealHeldOrders({
+    botId: trade.botId ?? '',
+    dealId: trade.id,
+    isCombo,
+    liveHeld: rawDeal?.heldOrders,
+    enabled: rawDeal?.status === 'open',
+  });
+
   const chartOrders = useMemo<DCAGrid[]>(
     () => [
       ...dealPendingOrdersToChartLines(pendingOrders, strategy),
+      ...dealHeldOrdersToChartLines(
+        rawDeal?.status === 'open' ? heldOrders : null,
+        pendingOrders,
+        strategy,
+        rawDeal?.symbol?.symbol ?? ''
+      ),
       ...smartChartOrders,
       ...dealExitLines,
     ],
-    [pendingOrders, smartChartOrders, strategy, dealExitLines]
+    [
+      pendingOrders,
+      smartChartOrders,
+      strategy,
+      dealExitLines,
+      heldOrders,
+      rawDeal?.status,
+      rawDeal?.symbol?.symbol,
+    ]
   );
 
   const chartTransactions = useMemo(

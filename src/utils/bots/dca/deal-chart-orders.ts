@@ -3,10 +3,12 @@ import {
   StrategyEnum,
   type DCAGrid,
   type DCAOrderTypeEnum,
+  type DealHeldOrder,
   type TransactionChart,
 } from '@/types';
 import type { ViewOrder } from '@/types/bots';
 import { getOrderTypeLabel } from '@/utils/mapOrderName';
+import { heldOrdersToChartLines } from './held-order-lines';
 
 /**
  * Turns a deal's still-resting orders into chart order lines.
@@ -35,6 +37,20 @@ export const dealPendingOrdersToChartLines = (
       false
     ),
   }));
+
+/**
+ * A deal's held orders (refused by the exchange this far from the price,
+ * placed by the bot once the price is near) as grey chart lines.
+ */
+export const dealHeldOrdersToChartLines = (
+  held: DealHeldOrder[] | null | undefined,
+  pendingOrders: ViewOrder[],
+  strategy: StrategyEnum,
+  pair: string
+): DCAGrid[] =>
+  heldOrdersToChartLines(held, pendingOrders, strategy, pair, (typeOrder) =>
+    getOrderTypeLabel(typeOrder, false, '', undefined, false)
+  );
 
 /**
  * Turns a deal's filled/cancelled orders into the chart's buy/sell markers.

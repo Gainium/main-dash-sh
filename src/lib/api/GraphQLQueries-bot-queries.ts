@@ -1815,6 +1815,39 @@ export const botQueries = {
     return { query, variables };
   },
 
+  /**
+   * Just a deal's held orders (orders the exchange refuses this far from the
+   * price). Its own small query, so a backend without the field fails only
+   * this, never the deal lists.
+   */
+  getDealHeldOrders: (
+    input: { botId: string; id: string[] },
+    combo: boolean
+  ) => {
+    const field = combo ? 'getComboBotDealsById' : 'getDCABotDealsById';
+    const query = `query ${field}($input: getComboBotDealsByIdInput!) {
+  ${field}(input: $input) {
+  status
+  reason
+  data {
+  deals {
+  _id
+  heldOrders {
+    side
+    price
+    qty
+    typeOrder
+    minigridId
+    dcaLevel
+  }
+  }
+  }
+  }
+  }`;
+    const variables = { input };
+    return { query, variables };
+  },
+
   getDCABotDealsById: (input: { botId: string; id: string[] }) => {
     const query = `query getDCABotDealsById($input: getComboBotDealsByIdInput!) { 
   getDCABotDealsById(input: $input) {
