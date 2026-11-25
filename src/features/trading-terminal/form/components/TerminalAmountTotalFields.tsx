@@ -175,7 +175,11 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
     // The terminal keeps its own percentage row (below the Amount field): it
     // has a free-form % entry and an active-selection highlight, and it sizes
     // off the leverage/fee-adjusted max rather than the raw wallet balance.
-    commitOn: 'blur' as const,
+    // Every keystroke commits, so the form validates the figure being typed
+    // (the exchange minimum disables Place Order before focus leaves the box).
+    // The field keeps its own text while focused, so the linked field
+    // re-deriving from it never rewrites what is being typed.
+    commitOn: 'change' as const,
     ...(onRefreshBalance ? { onRefreshBalance } : {}),
   };
 
@@ -186,9 +190,6 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
         <FieldCaption label="Amount" active={amountActive} />
         <BalanceInput
           value={amountValue}
-          // Commit on blur only (legacy parity): committing per-keystroke
-          // would thrash the form store and re-derive the linked field on
-          // every character.
           onChange={onAmountChange}
           onFocus={onAmountFocus}
           disabled={disabled}
@@ -253,7 +254,6 @@ const TerminalAmountTotalFields: React.FC<TerminalAmountTotalFieldsProps> = ({
         <FieldCaption label="Total" active={totalActive} />
         <BalanceInput
           value={totalValue}
-          // Commit on blur only (legacy parity) — see Amount field above.
           onChange={onTotalChange}
           onFocus={onTotalFocus}
           disabled={disabled}

@@ -304,6 +304,25 @@ export const validateDcaFormData = (
     addError('baseOrderSize', 'Base order size must be greater than 0.');
   }
 
+  // The exchange minimum the form shows while you type (hot validation) is
+  // checked here too: hot validation is debounced, so a click right after
+  // typing reaches Save before the error has disabled the button.
+  const sizingSource = isComboBot ? formData.combo : formData.dca;
+  const guardMinErrors = getDcaOrderGuardMinErrors({
+    dcaOrderGuard: formData.dcaOrderGuard,
+    orderSizeType: sizingSource.orderSizeType,
+    baseOrderSize: parseFloat(sizingSource.baseOrderSize),
+    orderSize: parseFloat(sizingSource.orderSize),
+    useDca: sizingSource.useDca,
+    dcaCondition: sizingSource.dcaCondition,
+  });
+  if (guardMinErrors.baseOrderSize) {
+    addError('baseOrderSize', guardMinErrors.baseOrderSize);
+  }
+  if (guardMinErrors.orderSize) {
+    addError('orderSize', guardMinErrors.orderSize);
+  }
+
   const mappingResult = mapFormDataToBackend(formData, vars);
 
   for (const errorMessage of mappingResult.errors ?? []) {
@@ -407,6 +426,47 @@ export const validateDcaFormData = (
 
 export const checkNumber = (num?: string) => {
   return num && num !== '' && !isNaN(+num);
+};
+
+/**
+ * The exchange-minimum checks on the base order and the DCA order size, read
+ * off `dcaOrderGuard`. The live validator shows them as you type and the
+ * click-time validator refuses Save on them, so both call this: a minimum the
+ * form shows as an error is one Save cannot send.
+ */
+export const getDcaOrderGuardMinErrors = ({
+  dcaOrderGuard,
+  orderSizeType,
+  baseOrderSize,
+  orderSize,
+  useDca,
+  dcaCondition,
+}: {
+  dcaOrderGuard: BotFormData['dcaOrderGuard'];
+  orderSizeType: OrderSizeTypeEnum;
+  baseOrderSize: number;
+  orderSize: number;
+  useDca: boolean;
+  dcaCondition?: DCAConditionEnum | undefined;
+}): { baseOrderSize?: string; orderSize?: string } => {
+  const result: { baseOrderSize?: string; orderSize?: string } = {};
+  if (!dcaOrderGuard?.min) {
+    return result;
+  }
+  const { min, unit } = dcaOrderGuard;
+  if (orderSizeType === OrderSizeTypeEnum.quote && baseOrderSize < min) {
+    result.baseOrderSize = `Base order amount must be more than ${min} ${unit}`;
+  }
+  if (
+    (orderSizeType === OrderSizeTypeEnum.quote &&
+      orderSize < min &&
+      useDca &&
+      dcaCondition === DCAConditionEnum.percentage) ||
+    (orderSizeType === OrderSizeTypeEnum.base && orderSize < min)
+  ) {
+    result.orderSize = `Order amount must be more than ${min} ${unit}`;
+  }
+  return result;
 };
 
 export const hotValidateDcaFormData = ({
@@ -803,14 +863,16 @@ export const hotValidateDcaFormData = ({
   if (useDca && orderSize === 0) {
     errors['orderSize'] = `Order size must be set`;
   }
-  if (
-    dcaOrderGuard?.min &&
-    orderSizeType === OrderSizeTypeEnum.quote &&
-    baseOrderSize < dcaOrderGuard.min
-  ) {
-    const message = `Base order amount must be more than ${
-      dcaOrderGuard.min
-    } ${dcaOrderGuard.unit}`;
+  const guardMinErrors = getDcaOrderGuardMinErrors({
+    dcaOrderGuard,
+    orderSizeType,
+    baseOrderSize,
+    orderSize,
+    useDca,
+    dcaCondition,
+  });
+  if (guardMinErrors.baseOrderSize) {
+    const message = guardMinErrors.baseOrderSize;
     setError(errors, 'baseOrderSize', message);
     setAlert(alerts, 'baseOrderSize', {
       variant: 'error',
@@ -868,14 +930,10 @@ export const hotValidateDcaFormData = ({
     errors['slPerc'] = `Stop loss % must be less than ${-MIN_DCA_TP * 100}%`;
   }
   if (
-    dcaOrderGuard?.min &&
     orderSizeType === OrderSizeTypeEnum.quote &&
-    orderSize < dcaOrderGuard?.min &&
-    useDca &&
-    dcaCondition === DCAConditionEnum.percentage
+    guardMinErrors.orderSize
   ) {
-    errors['orderSize'] =
-      `Order amount must be more than ${dcaOrderGuard?.min} ${dcaOrderGuard.unit}`;
+    errors['orderSize'] = guardMinErrors.orderSize;
   }
   if (
     (orderSizeType === OrderSizeTypeEnum.percFree ||
@@ -917,13 +975,8 @@ export const hotValidateDcaFormData = ({
       navId: 'baseOrderSize',
     });
   }
-  if (
-    dcaOrderGuard?.min &&
-    orderSizeType === OrderSizeTypeEnum.base &&
-    orderSize < dcaOrderGuard?.min
-  ) {
-    errors['orderSize'] =
-      `Order amount must be more than ${dcaOrderGuard.min} ${dcaOrderGuard.unit}`;
+  if (orderSizeType === OrderSizeTypeEnum.base && guardMinErrors.orderSize) {
+    errors['orderSize'] = guardMinErrors.orderSize;
   }
   const stepMin = Math.max(
     MIN_DCA_ORDER_STEP,
