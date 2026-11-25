@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.7] - 2026-11-25
+
+### Fixed
+
+- Deal charts draw orders the exchange will not accept yet (too far from the price) as grey lines where they will rest once the price is near, instead of leaving those levels empty.
+
 ## [2.137.6] - 2026-11-25
 
 ### Changed
