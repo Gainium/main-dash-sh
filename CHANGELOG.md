@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.2] - 2026-11-25
+
+### Fixed
+
+- Bot and deal charts of a bot with multiple stop-loss targets now draw those targets, instead of the single stop-loss percentage the bot ignores while multiple targets are on
+
 ## [2.137.1] - 2026-11-22
 
 ### Fixed
