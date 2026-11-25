@@ -183,3 +183,94 @@ describe('session expiry on requests', () => {
     expect(toastError).not.toHaveBeenCalled();
   });
 });
+
+// Some resolvers report a dead session inside `data` as an envelope
+// (`{status:'NOTOK', reason:'User not found'}`, HTTP 200, no `errors`). The same
+// text is also an ordinary refusal elsewhere, so it only triggers a re-check.
+describe('session-dead reason inside a NOTOK payload', () => {
+  const fetchMock = vi.fn();
+  const editRefused = {
+    changeDCADealSettings: { status: 'NOTOK', reason: 'User not found', data: null },
+  };
+  // The suspect handler throttles re-checks (one per 15 s); give each test its
+  // own clock so they never throttle each other.
+  let clock = Date.parse('2030-01-01T00:00:00Z');
+
+  beforeEach(() => {
+    clock += 60_000;
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(clock);
+    vi.stubGlobal('fetch', fetchMock);
+    fetchMock.mockReset();
+    validateTokenDetailed.mockReset();
+    toastError.mockReset();
+    clearSessionExpired();
+    signIn();
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it('re-checks the session when a resolver answers NOTOK with a session-dead reason (§2.1, §2.6)', async () => {
+    fetchMock.mockReturnValueOnce(respond({ data: editRefused }));
+    validateTokenDetailed.mockResolvedValueOnce({ ok: true, user: { id: 'u1' } });
+    const client = new GraphQLClient(ENDPOINT, TOKEN);
+    await expect(client.request('mutation { changeDCADealSettings { status } }')).resolves.toEqual(
+      editRefused
+    );
+    await vi.waitFor(() =>
+      expect(validateTokenDetailed).toHaveBeenCalledWith(TOKEN, expect.anything())
+    );
+  });
+
+  it('ends the session when the re-check rejects the token (§2.2)', async () => {
+    fetchMock.mockReturnValueOnce(respond({ data: editRefused }));
+    validateTokenDetailed.mockResolvedValueOnce({
+      ok: false,
+      definitive: true,
+      reason: 'User not found',
+    });
+    const client = new GraphQLClient(ENDPOINT, TOKEN);
+    await client.request('mutation { changeDCADealSettings { status } }');
+    await vi.waitFor(() => expect(useAuthStore.getState().isAuthenticated).toBe(false));
+    expect(useAuthStore.getState().tokens).toBeNull();
+    expect(toastError).toHaveBeenCalledWith(SESSION_EXPIRED_MESSAGE, expect.anything());
+  });
+
+  it('keeps the session when the re-check accepts the token (§2.3)', async () => {
+    const affiliate = { getAffiliate: { status: 'NOTOK', reason: 'User not found', data: null } };
+    fetchMock.mockReturnValueOnce(respond({ data: affiliate }));
+    validateTokenDetailed.mockResolvedValueOnce({ ok: true, user: { id: 'u1' } });
+    const client = new GraphQLClient(ENDPOINT, TOKEN);
+    await expect(client.request('query { getAffiliate { status } }')).resolves.toEqual(affiliate);
+    await vi.waitFor(() => expect(validateTokenDetailed).toHaveBeenCalled());
+    await flush();
+    await flush();
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+    expect(useAuthStore.getState().tokens?.accessToken).toBe(TOKEN);
+    expect(toastError).not.toHaveBeenCalled();
+  });
+
+  it('ignores a NOTOK reason that is not session-dead (§2.4)', async () => {
+    fetchMock.mockReturnValueOnce(
+      respond({ data: { changeDCADealSettings: { status: 'NOTOK', reason: 'Deal not found' } } })
+    );
+    const client = new GraphQLClient(ENDPOINT, TOKEN);
+    await client.request('mutation { changeDCADealSettings { status } }');
+    await flush();
+    await flush();
+    expect(validateTokenDetailed).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
+  it('ignores a session-dead NOTOK payload on a demo request (§2.5)', async () => {
+    fetchMock.mockReturnValueOnce(respond({ data: editRefused }));
+    const client = new GraphQLClient(ENDPOINT, 'demo');
+    await client.request('mutation { changeDCADealSettings { status } }');
+    await flush();
+    await flush();
+    expect(validateTokenDetailed).not.toHaveBeenCalled();
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+});

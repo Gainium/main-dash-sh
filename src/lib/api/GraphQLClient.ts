@@ -267,6 +267,10 @@ export const setSessionSuspectHandler = (
   onSessionSuspect = handler;
 };
 
+/** Requests made without a session (no token, `demo`, public share pages). */
+const isSessionRequest = (token: string | null | undefined): token is string =>
+  !!token && token !== 'demo' && !isPublicShareView();
+
 /**
  * The single entry point for auth failures seen by ANY request path — this
  * client, and host code that posts GraphQL / REST with its own `fetch` (pass
@@ -281,7 +285,7 @@ export const reportAuthErrors = (
   httpStatus?: number
 ): AuthErrorKind | null => {
   const kind = classifyAuthErrors(errors, httpStatus);
-  if (!kind || !token || token === 'demo' || isPublicShareView()) return kind;
+  if (!kind || !isSessionRequest(token)) return kind;
   if (kind === 'dead') {
     logger.warn('Backend rejected the session token', {
       rejectedTokenTail: token.slice(-8),
@@ -291,6 +295,35 @@ export const reportAuthErrors = (
     onSessionSuspect?.(token);
   }
   return kind;
+};
+
+/**
+ * Most resolvers report a dead session not in `errors` but inside their own
+ * envelope: main-app's gate verifies only the JWT signature, and a token whose
+ * session is gone reaches the resolver, whose `findUser` answers
+ * `{status:'NOTOK', reason:'User not found'}` with HTTP 200. Left alone, the
+ * page shows that reason and the user stays on a session that fails every
+ * request. The same text is also an ordinary refusal in some resolvers
+ * (affiliate, payments…), so it only asks for a re-validation — never ends
+ * the session by itself. The data is returned unchanged to the caller.
+ */
+const reportSessionDeadPayload = (
+  token: string | null | undefined,
+  data: unknown
+): void => {
+  if (!data || typeof data !== 'object' || !isSessionRequest(token)) return;
+  const deadSession = Object.values(data as Record<string, unknown>).some(
+    (value) => {
+      if (!value || typeof value !== 'object') return false;
+      const { status, reason } = value as { status?: unknown; reason?: unknown };
+      return (
+        status === 'NOTOK' &&
+        typeof reason === 'string' &&
+        isSessionDeadMessage(reason)
+      );
+    }
+  );
+  if (deadSession) onSessionSuspect?.(token);
 };
 
 const hasUsableData = (data: unknown): boolean =>
@@ -664,6 +697,8 @@ export class GraphQLClient {
         logger.error('GraphQL response missing data', { result });
         throw new Error('GraphQL response missing data');
       }
+
+      reportSessionDeadPayload(this.token, result.data);
 
       logger.debug('GraphQL request successful', {
         hasData: !!result.data,
