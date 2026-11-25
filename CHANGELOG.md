@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.6] - 2026-11-25
+
+### Changed
+
+- Charts remember the starred timeframe and open on it — bot and deal charts start there even when the bot's indicators use another timeframe. With several starred, the shortest counts.
+
 ## [2.137.5] - 2026-11-25
 
 ### Changed
