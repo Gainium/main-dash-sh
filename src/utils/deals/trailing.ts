@@ -79,6 +79,11 @@ export interface DealSlInfo {
   moveSlTriggerPrice: number;
   /** Label for {@link price}, e.g. `Stop loss (moved)`. */
   label: string;
+  /**
+   * Multiple stop-loss targets the deal reaches after {@link price}, closest
+   * first. Empty unless the bot uses multiple targets.
+   */
+  laterPrices: number[];
 }
 
 const EMPTY_SL: DealSlInfo = {
@@ -87,6 +92,7 @@ const EMPTY_SL: DealSlInfo = {
   moveSlActivated: false,
   moveSlTriggerPrice: 0,
   label: '',
+  laterPrices: [],
 };
 
 const num = (value: unknown): number => {
@@ -299,6 +305,7 @@ export function getDealSl(
         | 'settings'
         | 'moveSlActivated'
         | 'strategy'
+        | 'tpSlTargetFilled'
       >
     | null
     | undefined,
@@ -333,8 +340,25 @@ export function getDealSl(
   );
   const moveSlActivated = Boolean(deal.moveSlActivated);
 
-  const slPerc = num(settings.slPerc);
   const fee = settings.useFixedSLPrices ? 0 : takerFee * 2;
+
+  // The engine's multiple-target branch (`getDealStopLossPrice`): with several
+  // targets and a price-based stop, `slPerc` is ignored — the deal stops at the
+  // highest target it has not filled yet, and closes once all have filled.
+  const filled = (deal.tpSlTargetFilled ?? []) as string[];
+  const multiTargets =
+    settings.useMultiSl &&
+    settings.multiSl?.length &&
+    settings.dealCloseConditionSL === CloseConditionEnum.tp
+      ? settings.multiSl
+          .filter((t) => !filled.includes(t.uuid))
+          .map((t) => num(t.target))
+          .sort((a, b) => b - a)
+      : null;
+  if (multiTargets && multiTargets.length === 0) return EMPTY_SL;
+  const slPerc = multiTargets ? multiTargets[0] : num(settings.slPerc);
+  const percPrice = (perc: number) =>
+    perc <= -100 ? 0 : slRef * (1 + long * (perc / 100 + fee));
 
   // The engine's fixed-price branch sits INSIDE the same gated `else if`, so an
   // unarmed stop draws nothing whether its price comes from a percentage or
@@ -343,9 +367,16 @@ export function getDealSl(
     ? 0
     : settings.useFixedSLPrices && isSetNumber(settings.fixedSlPrice)
       ? num(settings.fixedSlPrice)
-      : slPerc <= -100
-        ? 0
-        : slRef * (1 + long * (slPerc / 100 + fee));
+      : percPrice(slPerc);
+  // Later targets only exist on the percentage path: a fixed stop price
+  // replaces every target in the engine.
+  const laterPrices =
+    price > 0 && multiTargets && !settings.useFixedSLPrices
+      ? multiTargets
+          .slice(1)
+          .map(percPrice)
+          .filter((p) => p > 0)
+      : [];
 
   const moveSlTriggerPrice =
     moveSlEnabled && !moveSlActivated
@@ -358,5 +389,6 @@ export function getDealSl(
     moveSlActivated,
     moveSlTriggerPrice,
     label: moveSlActivated ? 'Stop loss (moved)' : 'Stop loss',
+    laterPrices,
   };
 }

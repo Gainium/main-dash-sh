@@ -108,6 +108,10 @@ export function buildDealExitLines(
   if (sl.price > 0) {
     push(sl.price, sl.label, DCAOrderTypeEnum.sl, sl.moveSlActivated);
   }
+  // Multiple stop-loss targets: the ones after the current stop.
+  sl.laterPrices.forEach((price, i) =>
+    push(price, `Stop loss ${i + 2}`, DCAOrderTypeEnum.sl, false)
+  );
   if (sl.moveSlTriggerPrice > 0) {
     // Move SL leaves no trace until it fires — it just rewrites `slPerc`. Show
     // the trigger so "my stop jumps to +X% at this price" is visible up front.
