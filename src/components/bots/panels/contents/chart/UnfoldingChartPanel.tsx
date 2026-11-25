@@ -1,3 +1,4 @@
+import { getFavoriteChartInterval } from '@/stores/chartFavoriteIntervalStore';
 import {
   useCallback,
   useEffect,
@@ -640,6 +641,10 @@ const UnfoldingChartPanel = ({
   const [avgPrices, setAvgPrices] = useState<AvgPrice[]>([]);
   const [indicators, setIndicators] = useState<ChartIndicatorConfig[]>([]);
   const getIndicatorInterval = useCallback((): string => {
+    // A starred timeframe wins over the indicators' own, and is known before
+    // the bot loads, so the chart opens on it instead of switching later.
+    const favorite = getFavoriteChartInterval();
+    if (favorite) return favorite;
     const indicators = (bot?.settings as DCABotSettings)?.indicators;
     if (!indicators?.length) return '60';
     const int =

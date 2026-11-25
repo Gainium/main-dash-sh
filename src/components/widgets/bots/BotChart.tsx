@@ -6,6 +6,7 @@ import {
   useIndicatorStore,
 } from '@/contexts/bots/form/formStoreContexts';
 import { riskRewardPositionStore } from '@/stores/riskRewardPositionStore';
+import { getFavoriteChartInterval } from '@/stores/chartFavoriteIntervalStore';
 import { IndicatorEnum } from '@/types';
 import React, {
   useCallback,
@@ -48,6 +49,9 @@ import {
 
 const DEFAULT_SYMBOL = 'BTCUSDT';
 const DEFAULT_EXCHANGE = 'binance';
+// How long after opening an indicator-timeframe request counts as the form
+// loading (matches the indicator store's pending-request window).
+const OPEN_FOLLOW_GRACE_MS = 3_000;
 
 const getString = (value: unknown): string | undefined => {
   if (typeof value !== 'string') {
@@ -324,10 +328,25 @@ const BotChart: React.FC<BotChartProps> = ({
   // `onSymbolChanged` listener overwrite each other every tick and lock
   // the main thread.
   const lastPropSymbolRef = useRef<string>(initialChartSymbol);
-  const [interval, setInterval] = usePersistedState(
+  const [storedInterval, setStoredInterval] = usePersistedState(
     'interval',
     defaultInterval
   );
+  // A starred timeframe is what the chart opens on — ahead of the interval it
+  // showed last time and of the indicators' timeframes — until the user or a
+  // newly added indicator moves it.
+  const [favoriteAtOpen] = useState(getFavoriteChartInterval);
+  const [onFavorite, setOnFavorite] = useState(() => !!favoriteAtOpen);
+  const interval =
+    onFavorite && favoriteAtOpen ? favoriteAtOpen : storedInterval;
+  const setInterval = useCallback(
+    (next: string) => {
+      setOnFavorite(false);
+      setStoredInterval(next);
+    },
+    [setStoredInterval]
+  );
+  const openedAtRef = useRef(Date.now());
 
   // The active deal's chart annotation, handed down by the bot page (see
   // useBotPageDealChart). Absent everywhere else, which keeps the terminal /
@@ -732,9 +751,24 @@ const BotChart: React.FC<BotChartProps> = ({
 
   // The form asks the chart to follow an indicator's timeframe when one is
   // added or retimed — otherwise the chart filters that indicator out.
+  // The form loading an existing bot also asks for this right after the chart
+  // mounts; with a starred timeframe that request is not the user's, so it
+  // must not move the chart off the favourite it opened on.
+  const followIndicatorInterval = useCallback(
+    (nextInterval: string) => {
+      if (
+        favoriteAtOpen &&
+        Date.now() - openedAtRef.current < OPEN_FOLLOW_GRACE_MS
+      ) {
+        return;
+      }
+      handleIntervalChange(nextInterval);
+    },
+    [favoriteAtOpen, handleIntervalChange]
+  );
   useEffect(
-    () => indicatorStore.subscribeChartInterval(handleIntervalChange),
-    [indicatorStore, handleIntervalChange]
+    () => indicatorStore.subscribeChartInterval(followIndicatorInterval),
+    [indicatorStore, followIndicatorInterval]
   );
 
   const intervalLabel = formatIntervalLabel(interval);

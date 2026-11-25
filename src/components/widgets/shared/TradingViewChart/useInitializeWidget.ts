@@ -23,6 +23,7 @@ import { replayMissedInnerWindowLoad } from './innerWindowLoadReplay';
 import { ZustandSaveLoadAdapter } from './TradingViewSaveLoadAdapter';
 import { getCustomThemeColors } from './themeColors';
 import type { TradingViewWidgetInstance } from './types';
+import { createFavoriteIntervalSettingsAdapter } from '@/stores/chartFavoriteIntervalStore';
 
 interface WindowWithTradingView extends Window {
   TradingView?: { widget: new (config: unknown) => TradingViewWidgetInstance };
@@ -456,6 +457,9 @@ export function useInitializeWidget({
           getCustomIndicators(pineJs, indicatorValueCallback),
         custom_css_url: '/static/charting_library/tradingview-custom.css',
         save_load_adapter: saveLoadAdapter,
+        // Keeps the starred interval across chart opens (local-storage
+        // settings are disabled above).
+        settings_adapter: createFavoriteIntervalSettingsAdapter(),
         priceFormatter: createDynamicPriceFormatter(),
         custom_themes: {
           light: lightThemeColors,
