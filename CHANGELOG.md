@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.4] - 2026-11-25
+
+### Fixed
+
+- Trading terminal: Place Order no longer sends a trade below the exchange minimum when it is clicked right after typing the amount; the minimum error now shows, and disables the button, while the amount is still being typed
+
 ## [2.137.3] - 2026-11-25
 
 ### Fixed
