@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.5] - 2026-11-25
+
+### Changed
+
+- The "Stop after X accumulated bot profit or loss" help text now says it counts realized profit from closed deals only
+
 ## [2.137.4] - 2026-11-25
 
 ### Fixed
