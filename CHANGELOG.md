@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.138.2] - 2026-11-26
+
+### Fixed
+
+- Server-side backtests send the browser's time zone, so their daily and monthly stats and timer starts match the same backtest run in the browser
+
 ## [2.138.1] - 2026-11-26
 
 ### Fixed
