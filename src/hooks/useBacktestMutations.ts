@@ -173,6 +173,10 @@ export function prepareBacktestInput(
     to: backtestConfig.lastDataTime,
     slippage: +backtestConfig.slippage,
     userFee: +backtestConfig.userFee,
+    // The zone the backtester buckets day / month / year stats in (and runs
+    // timers on). The in-browser run passes the browser's zone; sending the
+    // same one here keeps a server-side run's stats identical to it.
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
   };
   const pairList = [formData.pair].flat();
 
