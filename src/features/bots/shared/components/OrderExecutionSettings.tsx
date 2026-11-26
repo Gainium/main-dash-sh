@@ -45,6 +45,8 @@ const STAGE_NAMES: Record<ExecutionStage, string> = {
   tp: 'Take profit execution',
   sl: 'Stop loss execution',
   close: 'Close execution',
+  addFunds: 'Order type',
+  reduceFunds: 'Order type',
 };
 
 const STAGE_TOOLTIPS: Record<ExecutionStage, string> = {
@@ -55,6 +57,10 @@ const STAGE_TOOLTIPS: Record<ExecutionStage, string> = {
   sl: 'How the order that closes the deal is placed once stop loss triggers. Market fills immediately. Chasing limit places a limit at the current price and follows the price until it fills. Split order closes a large position in several smaller orders.',
   close:
     'How the order that closes the deal is placed. Market fills immediately. Chasing limit follows the price until it fills. Split order closes a large position in several smaller orders.',
+  addFunds:
+    'How the funds are added. Market fills immediately. Limit waits at your price until it fills. Chasing limit follows the price until it fills. Split order adds a large amount in several smaller orders.',
+  reduceFunds:
+    'How the funds are withdrawn. Market fills immediately. Limit waits at your price until it fills.',
 };
 
 const SLICE_MODE_LABELS = {

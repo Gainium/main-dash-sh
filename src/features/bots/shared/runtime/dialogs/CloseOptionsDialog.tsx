@@ -1,5 +1,4 @@
 import { Button } from '@/components/ui/button';
-import { QuickValueButtons } from '@/components/ui/quick-value-buttons';
 import {
   Dialog,
   DialogContent,
@@ -8,10 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { useMarketPrice } from '@/features/bots/shared/runtime/dialogs/AdjustFundsDialog';
+import { LimitPriceField } from '@/features/bots/shared/runtime/dialogs/LimitPriceField';
+import { useLimitPriceInput } from '@/features/bots/shared/runtime/dialogs/useLimitPriceInput';
 import { OrderExecutionSettings } from '@/features/bots/shared/components/OrderExecutionSettings';
 import { cn } from '@/lib/utils';
 import { CloseDCATypeEnum } from '@/types';
@@ -63,15 +62,6 @@ const CLOSE_TYPE_OPTIONS: CloseOptionItem[] = [
  * Cancelling a deal is its own menu action with its own confirmation.
  */
 
-/** Quick limit prices, as % from the market price (like the bot form's). */
-const LIMIT_PRICE_PERCENTS = [-1, -0.5, 0.5, 1];
-
-/** Rounded to the market price's own decimals (the pair's price step). */
-const priceAtPercent = (market: number, percent: number): string => {
-  const decimals = (`${market}`.split('.')[1] ?? '').length;
-  return `${Number((market * (1 + percent / 100)).toFixed(decimals))}`;
-};
-
 export interface CloseOptionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -118,30 +108,16 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
   // The default arrives after the dialog opens (the bot's settings load);
   // it applies until the person changes the block themselves.
   const [executionTouched, setExecutionTouched] = useState(false);
-  // Starts on the live market price — the price the close would be placed at
-  // — and follows it until the person types or picks a preset.
-  const [typedLimitPrice, setTypedLimitPrice] = useState('');
-  const [limitPriceTouched, setLimitPriceTouched] = useState(false);
   const marketPrice = useMarketPrice(
     open && symbol ? symbol : undefined,
     exchange
   );
-  const limitPrice = limitPriceTouched
-    ? typedLimitPrice
-    : marketPrice
-      ? `${marketPrice}`
-      : '';
-  const setLimitPrice = (next: string) => {
-    setTypedLimitPrice(next);
-    setLimitPriceTouched(true);
-  };
+  const limit = useLimitPriceInput(open, marketPrice);
 
   useEffect(() => {
     if (open) {
       setSelected(defaultCloseType);
       setExecutionTouched(false);
-      setTypedLimitPrice('');
-      setLimitPriceTouched(false);
     }
   }, [open, defaultCloseType]);
 
@@ -156,33 +132,8 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
   // One price only means something for one pair; combo has no fixed limit.
   const showLimitPrice =
     isClosePosition && execution.mode === 'limit' && !isBulkDeals && !isCombo;
-  const limitPriceValue = Number(limitPrice);
-  const chosenLimitPrice =
-    showLimitPrice && limitPrice.trim() !== '' && limitPriceValue > 0
-      ? limitPriceValue
-      : undefined;
-  const limitPriceInvalid =
-    showLimitPrice && limitPrice.trim() !== '' && !(limitPriceValue > 0);
-  const limitPricePresets = useMemo(
-    () =>
-      marketPrice
-        ? [
-            { value: 'market', label: 'Market', price: `${marketPrice}` },
-            ...LIMIT_PRICE_PERCENTS.map((percent) => ({
-              value: `${percent}`,
-              label: `${percent > 0 ? '+' : ''}${percent}%`,
-              price: priceAtPercent(marketPrice, percent),
-            })),
-          ]
-        : [],
-    [marketPrice]
-  );
-  // "Market" is active while the price follows the market (untouched).
-  const activeLimitPricePreset = !limitPriceTouched
-    ? 'market'
-    : (limitPricePresets.find(
-        (p) => p.value !== 'market' && +p.price === limitPriceValue
-      )?.value ?? '');
+  const chosenLimitPrice = showLimitPrice ? limit.value : undefined;
+  const limitPriceInvalid = showLimitPrice && limit.invalid;
 
   const handleConfirm = () => {
     if (isProcessing) {
@@ -286,60 +237,13 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                 limitPrice={chosenLimitPrice}
                 beforeFields={
                   showLimitPrice ? (
-                    <div className="space-y-xs">
-                      <Label htmlFor="close-deal-limit-price">
-                        Limit price
-                      </Label>
-                      <div className="flex items-center gap-xs">
-                        <Input
-                          id="close-deal-limit-price"
-                          className="min-w-[110px] flex-1"
-                          value={limitPrice}
-                          onChange={(event) =>
-                            setLimitPrice(event.target.value ?? '')
-                          }
-                          placeholder={
-                            quoteAsset
-                              ? `Current price (${quoteAsset})`
-                              : 'Current price'
-                          }
-                          inputMode="decimal"
-                          disabled={isProcessing}
-                          aria-invalid={limitPriceInvalid || undefined}
-                        />
-                        {limitPricePresets.length > 0 && (
-                          <QuickValueButtons
-                            layout="row"
-                            aria-label="Limit price presets"
-                            value={activeLimitPricePreset}
-                            onValueChange={(next) => {
-                              if (next === 'market') {
-                                // Back to following the live market price.
-                                setLimitPriceTouched(false);
-                                return;
-                              }
-                              const preset = limitPricePresets.find(
-                                (p) => p.value === next
-                              );
-                              if (preset) {
-                                setLimitPrice(preset.price);
-                              }
-                            }}
-                            options={limitPricePresets.map(
-                              ({ value, label }) => ({
-                                value,
-                                label,
-                              })
-                            )}
-                          />
-                        )}
-                      </div>
-                      {limitPriceInvalid && (
-                        <p className="text-xs text-destructive">
-                          Enter a price above 0.
-                        </p>
-                      )}
-                    </div>
+                    <LimitPriceField
+                      id="close-deal-limit-price"
+                      input={limit}
+                      marketPrice={marketPrice}
+                      quoteAsset={quoteAsset}
+                      disabled={isProcessing}
+                    />
                   ) : undefined
                 }
               />

@@ -20,7 +20,6 @@ import {
 import { NumberInput } from '@/components/ui/number-input';
 import { BalanceInput } from '@/components/ui/balance-input';
 import CoinIcon from '@/components/widgets/shared/CoinIcon';
-import { Input } from '@/components/ui/input';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import SettingsAlert from '@/components/ui/SettingsAlert';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
@@ -37,6 +36,13 @@ import {
   type PercentBasis,
 } from './adjustFundsAmount';
 import { useDealFreeBalance } from './useDealFreeBalance';
+import { LimitPriceField } from './LimitPriceField';
+import { useLimitPriceInput } from './useLimitPriceInput';
+import { OrderExecutionSettings } from '@/features/bots/shared/components/OrderExecutionSettings';
+import {
+  EXECUTION_MODE_DEFAULTS,
+  type OrderExecution,
+} from '@/types/orderExecution';
 import {
   comboFundsOutcome,
   dcaFundsOutcome,
@@ -194,6 +200,12 @@ const COMBO_REDUCE_SCALE_TOOLTIP =
 
 const COMBO_AMOUNT_TOOLTIP =
   'An amount is spread over every DCA level: what the filled levels cost at today’s price plus what the pending levels will spend.';
+
+const ORDER_TYPE_TOOLTIPS: Record<AdjustFundsDialogMode, string> = {
+  add: 'Market fills immediately. Limit waits at your price until it fills. Chasing limit follows the price until it fills. Split order adds a large amount in several smaller orders.',
+  reduce:
+    'Market fills immediately. Limit waits at your price until it fills.',
+};
 
 const RAISED_TO_MINIMUM_TOOLTIP =
   'Below the exchange minimum order size, so the order is raised to it.';
@@ -381,13 +393,14 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   const [type, setType] = React.useState<AddFundsTypeEnum>(
     defaultSettings?.type ?? RESET_PAYLOAD.type
   );
-  const [useLimitPriceState, setUseLimitPrice] = React.useState<boolean>(
-    defaultSettings?.useLimitPrice ?? RESET_PAYLOAD.useLimitPrice
-  );
-  const useLimitPrice = !isCombo && useLimitPriceState;
-  const [limitPrice, setLimitPrice] = React.useState<string>(
-    defaultSettings?.limitPrice ?? RESET_PAYLOAD.limitPrice
-  );
+  // The same execution block as the Close dialog. Combo deals scale every
+  // level at market, so they have none.
+  const initialExecution: OrderExecution = defaultSettings?.useLimitPrice
+    ? EXECUTION_MODE_DEFAULTS.limit
+    : EXECUTION_MODE_DEFAULTS.market;
+  const [execution, setExecution] =
+    React.useState<OrderExecution>(initialExecution);
+  const useLimitPrice = !isCombo && execution.mode === 'limit';
   /* const [scope, setScope] = React.useState<FundsScopeOptionValue>(
     scopeOptions[0]?.value ?? DEFAULT_SCOPE.value
   ); */
@@ -421,6 +434,12 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
   };
 
   const marketPrice = useMarketPrice(symbol, exchange);
+  const limit = useLimitPriceInput(
+    open,
+    marketPrice,
+    defaultSettings?.limitPrice ?? RESET_PAYLOAD.limitPrice
+  );
+  const limitPrice = limit.limitPrice;
   const pairLimits = usePairLimits(symbol, exchange, baseAsset, quoteAsset);
 
   // What caps this adjustment, in the unit the user is currently typing in.
@@ -535,32 +554,15 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
       // UI-only, so it has no counterpart in defaultSettings to restore from;
       // a reopened dialog starts on a concrete amount.
       setPercentOfAvailable(false);
-      setUseLimitPrice(
-        defaultSettings?.useLimitPrice ?? RESET_PAYLOAD.useLimitPrice
+      setExecution(
+        defaultSettings?.useLimitPrice
+          ? EXECUTION_MODE_DEFAULTS.limit
+          : EXECUTION_MODE_DEFAULTS.market
       );
-      setLimitPrice(defaultSettings?.limitPrice ?? RESET_PAYLOAD.limitPrice);
       /* setScope(scopeOptions[0]?.value ?? DEFAULT_SCOPE.value); */
       /* setFormError(null); */
     }
   }, [open, defaultSettings /* , scopeOptions */]);
-
-  // Seed the limit price once per opening. The box used to open empty, so the
-  // price had to be read off the chart and retyped every time. It is only ever
-  // written while the field is untouched, and never rewritten as the feed
-  // ticks — a limit price that moves under the user would be worse than the
-  // empty box it replaces.
-  const seededLimitRef = React.useRef(false);
-  React.useEffect(() => {
-    if (!open) {
-      seededLimitRef.current = false;
-      return;
-    }
-    if (seededLimitRef.current || !useLimitPrice || limitPrice || !marketPrice) {
-      return;
-    }
-    seededLimitRef.current = true;
-    setLimitPrice(`${marketPrice}`);
-  }, [open, useLimitPrice, limitPrice, marketPrice]);
 
   const Icon = ICONS[mode];
 
@@ -619,6 +621,11 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
       type,
       ...(useLimitPrice
         ? { limitPrice: normalizeNumberString(limitPrice) }
+        : {}),
+      // Chasing limit and split run in the engine; market and limit are the
+      // plain order above, so older servers keep accepting the request.
+      ...(!isCombo && (execution.mode === 'chase' || execution.mode === 'split')
+        ? { execution }
         : {}),
     };
 
@@ -892,56 +899,35 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
               </div>
             </div>
 
-            {/* Aligned to the top rather than the bottom: the limit column
-                grows a line taller when the market-price hint is showing, and
-                bottom alignment pushed its label out of line with "Order
-                type". */}
             {isCombo ? null : (
-            <div className="grid gap-md sm:grid-cols-2 sm:items-start">
-              <div className="space-y-xs">
-                <Label htmlFor="adjust-funds-order-type">Order type</Label>
-                <Select
-                  value={useLimitPrice ? 'limit' : 'market'}
-                  onValueChange={(value) => setUseLimitPrice(value === 'limit')}
-                >
-                  <SelectTrigger id="adjust-funds-order-type">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="market">Market</SelectItem>
-                    <SelectItem value="limit">Limit</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {useLimitPrice ? (
-                <div className="space-y-xs">
-                  <Label htmlFor="adjust-funds-limit-price">Limit price</Label>
-                  <Input
-                    id="adjust-funds-limit-price"
-                    value={limitPrice}
-                    onChange={(event) =>
-                      setLimitPrice(event.target.value ?? '')
-                    }
-                    placeholder={
-                      quoteAsset ? `Price in ${quoteAsset}` : 'Price'
-                    }
-                    inputMode="decimal"
-                  />
-                  {marketPrice ? (
-                    <button
-                      type="button"
-                      onClick={() => setLimitPrice(`${marketPrice}`)}
-                      className="text-xs text-muted-foreground transition-colors hover:text-foreground"
-                    >
-                      Market: {marketPrice}
-                    </button>
-                  ) : null}
+              <div className="space-y-xs" data-testid="adjust-funds-execution">
+                <div className="flex items-center gap-xs">
+                  <Label>Order type</Label>
+                  <Tooltip tooltip={ORDER_TYPE_TOOLTIPS[mode]} side="right">
+                    <InfoIcon />
+                  </Tooltip>
                 </div>
-              ) : (
-                <div />
-              )}
-            </div>
+                <OrderExecutionSettings
+                  bare
+                  stage={mode === 'add' ? 'addFunds' : 'reduceFunds'}
+                  trigger="manual"
+                  value={execution}
+                  onChange={setExecution}
+                  disabled={isProcessing}
+                  limitPrice={useLimitPrice ? limit.value : undefined}
+                  beforeFields={
+                    useLimitPrice ? (
+                      <LimitPriceField
+                        id="adjust-funds-limit-price"
+                        input={limit}
+                        marketPrice={marketPrice}
+                        quoteAsset={quoteAsset}
+                        disabled={isProcessing}
+                      />
+                    ) : undefined
+                  }
+                />
+              </div>
             )}
 
             {outcome && !outcome.belowMinimum ? (

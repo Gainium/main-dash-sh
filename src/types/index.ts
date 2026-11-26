@@ -3939,6 +3939,8 @@ export type AddFundsSettings = {
   limitPrice?: string;
   asset: OrderSizeTypeEnum;
   type?: AddFundsTypeEnum;
+  /** Add funds only: chasing limit or split (market / limit use the fields above). */
+  execution?: OrderExecution;
 };
 /**
  * A deal's pending "add funds" entry as the API returns it. `baseRemainder`

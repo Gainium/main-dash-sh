@@ -1,3 +1,4 @@
+import type { OrderExecution } from '@/types/orderExecution';
 import type {
   AddFundsTypeEnum,
   Bot,
@@ -1064,6 +1065,7 @@ export const dealQueries = {
       limitPrice?: string;
       asset: OrderSizeTypeEnum;
       type?: AddFundsTypeEnum;
+      execution?: OrderExecution;
     } & Partial<Bot['settings']>
   ) => {
     const query = `mutation addDealFunds($input: addDealFundsInput!) {

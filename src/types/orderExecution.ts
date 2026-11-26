@@ -19,7 +19,16 @@ export type ExecutionSliceMode = 'market' | 'chase' | 'limit';
 /** What a split does when price moves past its floor. */
 export type ExecutionFloorAction = 'pause' | 'market';
 
-export type ExecutionStage = 'entry' | 'dca' | 'tp' | 'sl' | 'close';
+export type ExecutionStage =
+  | 'entry'
+  | 'dca'
+  | 'tp'
+  | 'sl'
+  | 'close'
+  /** A manual add to a running deal (Add funds dialog). */
+  | 'addFunds'
+  /** A manual withdrawal from a running deal: market or limit only. */
+  | 'reduceFunds';
 
 /**
  * What starts the order. `level`: a price the bot knows in advance
@@ -116,6 +125,12 @@ export const availableExecutionModes = (
   ctx: ExecutionModeContext = {}
 ): ExecutionMode[] => {
   const isLevel = trigger === 'level';
+  if (stage === 'addFunds') {
+    return ctx.isCombo ? ['market'] : ['market', 'limit', 'chase', 'split'];
+  }
+  if (stage === 'reduceFunds') {
+    return ctx.isCombo ? ['market'] : ['market', 'limit'];
+  }
   if (stage === 'dca') {
     return isLevel ? ['market', 'limit'] : ['market'];
   }
@@ -145,7 +160,8 @@ export const limitTimeoutSupported = (
   trigger: ExecutionTrigger,
   ctx: ExecutionModeContext = {}
 ): boolean => {
-  if (stage === 'dca') {
+  // A manual add/reduce limit rests until it fills or is cancelled.
+  if (stage === 'dca' || stage === 'addFunds' || stage === 'reduceFunds') {
     return false;
   }
   if (stage === 'tp' && trigger === 'level' && ctx.multiTarget) {
@@ -373,6 +389,20 @@ const STAGE_WORDS: Record<ExecutionStage, StageWords> = {
     fills: 'the position is closed',
     splitWhat: 'the position is closed',
     restAtMarket: 'the rest is executed at market',
+  },
+  addFunds: {
+    levelName: 'the limit price',
+    when: () => 'When you confirm',
+    fills: 'the funds are added',
+    splitWhat: 'the funds are added',
+    restAtMarket: 'the rest is added at market',
+  },
+  reduceFunds: {
+    levelName: 'the limit price',
+    when: () => 'When you confirm',
+    fills: 'the funds are withdrawn',
+    splitWhat: 'the funds are withdrawn',
+    restAtMarket: 'the rest is withdrawn at market',
   },
   close: {
     levelName: 'the close price',
