@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.9] - 2026-11-26
+
+### Changed
+
+- Chart buy/sell markers are sized by order value, so larger orders stand out, and hovering a marker shows its side, quantity, price and value.
+
 ## [2.137.8] - 2026-11-26
 
 ### Fixed
