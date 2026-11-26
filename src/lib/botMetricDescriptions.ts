@@ -45,7 +45,7 @@ const DCA = {
   maxCost:
     'The most this bot can have deployed at once — base order plus every safety order — converted to your reporting currency.',
   realizedPnl:
-    'Profit already banked from the deals this bot has closed. Deals still running are not counted here; they show under Unrealized PnL.',
+    'Profit already banked from the deals this bot has closed. Deals still running are not counted here; they show under Unrealized PnL. A deal closed outside Gainium whose profit is unknown counts only what it had banked before the close.',
   realizedPnlPerc:
     "Realized PnL as a percentage. Uses the bot's own net-profit stat when the backend provides one, otherwise realized PnL ÷ max cost.",
   unrealizedPnl:
@@ -55,7 +55,7 @@ const DCA = {
   netPnl:
     'Realized PnL + Unrealized PnL — everything this bot has made, banked and still open.',
   comboRealizedPnl:
-    'Profit already banked: the deals this bot has closed plus the grid profit its running deals have taken so far.',
+    'Profit already banked: the deals this bot has closed plus the grid profit its running deals have taken so far. A deal closed outside Gainium whose profit is unknown counts only what it had banked before the close.',
   comboUnrealizedPnl:
     'Open profit or loss on the position the running deals still hold, after estimated fees. Grid profit those deals already took is under Realized PnL.',
   netPnlPerc:
@@ -123,11 +123,11 @@ const HEDGE = {
   maxCost:
     'The most this hedge can have deployed at once — base order plus every safety order on both legs, in your reporting currency.',
   realizedPnl:
-    'Profit already banked from closed deals on both legs. Deals still running show under Unrealized PnL.',
+    'Profit already banked from closed deals on both legs. Deals still running show under Unrealized PnL. A deal closed outside Gainium whose profit is unknown counts only what it had banked before the close.',
   unrealizedPnl:
     'Open profit or loss on the deals running right now, both legs added together, after estimated entry and exit fees.',
   comboRealizedPnl:
-    'Profit already banked on both legs: closed deals plus the grid profit the running deals have taken so far.',
+    'Profit already banked on both legs: closed deals plus the grid profit the running deals have taken so far. A deal closed outside Gainium whose profit is unknown counts only what it had banked before the close.',
   comboUnrealizedPnl:
     'Open profit or loss on the position the running deals still hold, both legs added together, after estimated fees. Grid profit those deals already took is under Realized PnL.',
   netPnl:

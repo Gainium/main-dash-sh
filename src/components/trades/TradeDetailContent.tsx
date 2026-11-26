@@ -37,6 +37,11 @@ import { toast } from '@/lib/toast';
 import { DealLevelsText } from '@/components/deals/DealLevelsText';
 import { useDealStore } from '@/stores/live';
 import { SkippedDcaLevels, type SkippedDcaLevel } from './SkippedDcaLevels';
+import {
+  DealClosedOutsideBadge,
+  DealProfitUnknown,
+} from './DealClosedOutsideBadge';
+import { isDealProfitUnknown } from '@/lib/utils/dealClosedOutside';
 import { usePositionEntriesLabel } from '@/hooks/useSinglePosition';
 
 interface TradeDetailContentProps {
@@ -83,6 +88,9 @@ interface TradeDetailContentProps {
       | undefined;
     /** Currency `profit.native` is in (see `tradeProfitFace`). */
     profitAsset?: string;
+    /** `deal.flags` / `deal.closeTrigger` — see `dealClosedOutside`. */
+    flags?: string[] | undefined;
+    closeTrigger?: string | undefined;
     funding?:
       | {
           total: number;
@@ -187,6 +195,10 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
   const isClosedTrade = ['closed', 'cancelled', 'canceled'].includes(
     normalizedStatus
   );
+  const profitUnknown = isDealProfitUnknown({
+    ...trade,
+    active: !isClosedTrade,
+  });
   // Open position only: what the deal already banked is under Realized.
   const openUnrealized = calculateDealOpenPnl({
     active: !isClosedTrade,
@@ -297,29 +309,39 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
         <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
           <Card className="p-md">
             <div className="space-y-xs">
-              <div className="text-sm text-muted-foreground">
+              <div className="flex items-center gap-xs text-sm text-muted-foreground">
                 Realized Profit
+                <DealClosedOutsideBadge deal={trade} />
               </div>
-              <ProfitAndPerc
-                value={trade.profit?.totalUsd || 0}
-                quoteAsset={trade.profitAsset}
-                quoteValue={
-                  trade.profitAsset ? trade.profit?.native : undefined
-                }
-                percentage={
-                  trade.usage.currentUsd
-                    ? ((trade.profit?.totalUsd || 0) / trade.usage.currentUsd) *
-                      100
-                    : 0
-                }
-                privacyMode={privacyMode}
-                chipPosition="right"
-                size="lg"
-              />
-              <div className="text-sm text-muted-foreground">
-                {formatNumber(trade.profit?.pureBase || 0, false)} {baseAsset} /{' '}
-                {formatNumber(trade.profit?.pureQuote || 0, false)} {quoteAsset}
-              </div>
+              {profitUnknown ? (
+                <DealProfitUnknown className="text-lg font-semibold" />
+              ) : (
+                <>
+                  <ProfitAndPerc
+                    value={trade.profit?.totalUsd || 0}
+                    quoteAsset={trade.profitAsset}
+                    quoteValue={
+                      trade.profitAsset ? trade.profit?.native : undefined
+                    }
+                    percentage={
+                      trade.usage.currentUsd
+                        ? ((trade.profit?.totalUsd || 0) /
+                            trade.usage.currentUsd) *
+                          100
+                        : 0
+                    }
+                    privacyMode={privacyMode}
+                    chipPosition="right"
+                    size="lg"
+                  />
+                  <div className="text-sm text-muted-foreground">
+                    {formatNumber(trade.profit?.pureBase || 0, false)}{' '}
+                    {baseAsset} /{' '}
+                    {formatNumber(trade.profit?.pureQuote || 0, false)}{' '}
+                    {quoteAsset}
+                  </div>
+                </>
+              )}
             </div>
           </Card>
 
@@ -374,7 +396,8 @@ export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
       </div>
 
       {/* Gross → Fees → Slippage → Net. Grid has no deals of its own. */}
-      {trade.botId && trade.type !== 'Grid' && (
+      {/* Hidden when the profit is unknown: its Net bar is that profit. */}
+      {trade.botId && trade.type !== 'Grid' && !profitUnknown && (
         <DealCostsSection
           botId={trade.botId}
           dealId={trade.id}

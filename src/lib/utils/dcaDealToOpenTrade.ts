@@ -190,6 +190,7 @@ export function dcaDealToOpenTrade(deal: DCADeals) {
     initialBalances: deal.initialBalances,
     currentBalances: deal.currentBalances,
     closeTrigger: deal.closeTrigger,
+    flags: deal.flags,
     closePrice: deal.lastPrice,
     gridProfit: deal.profit?.gridProfit,
     gridProfitUsd: deal.profit?.gridProfitUsd,

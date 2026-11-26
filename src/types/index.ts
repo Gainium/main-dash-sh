@@ -3919,6 +3919,11 @@ export enum DCADealFlags {
   futuresPrecision = 'futuresPrecision',
   externalSl = 'externalSl',
   externalTp = 'externalTp',
+  /** The deal's position was closed on the exchange, not by the bot. */
+  closedExternally = 'closedExternally',
+  /** Set with `closedExternally` when the exchange's fills could not price
+   * the close: the deal's stored profit is not its real result. */
+  profitUnknown = 'profitUnknown',
 }
 
 export type Sizes = {

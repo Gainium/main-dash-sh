@@ -33,6 +33,11 @@ import {
 import getLatestPrices from '../../helper/price';
 import { DealOrdersDialog } from '../widgets/shared/DealOrdersDialog';
 import { TrailingBadge } from './TrailingBadge';
+import {
+  DealClosedOutsideBadge,
+  DealProfitUnknown,
+} from './DealClosedOutsideBadge';
+import { isDealProfitUnknown } from '@/lib/utils/dealClosedOutside';
 import { Slot } from '@/lib/extensions';
 import { orderDataToViewOrder } from '@/utils/orders/viewOrder';
 import { baseRemainderAddFundsIds } from '@/utils/mapOrderName';
@@ -739,6 +744,7 @@ const EnhancedCard = React.memo(
                   level={trade.trailingLevel}
                   quoteAsset={symbolAssets.quoteAsset}
                 />
+                <DealClosedOutsideBadge deal={trade} />
               </div>
             </div>
 
@@ -852,25 +858,33 @@ const EnhancedCard = React.memo(
                     <div className="text-xs text-muted-foreground mb-0.5">
                       {pnlBoxLabel}
                     </div>
-                    <ProfitAndPerc
-                      value={pnlBoxValue}
-                      {...(isClosedDeal &&
-                        trade.profitAsset && {
-                          quoteAsset: trade.profitAsset,
-                          quoteValue: trade.profit?.native,
-                        })}
-                      percentage={pnlBoxRoi}
-                      privacyMode={privacyMode}
-                      chipPosition="right"
-                      size="md"
-                      pending={pnlPending}
-                    />
-                    <PnlRangeTrack
-                      current={pnlBoxRoi}
-                      drawdown={trade.drawdown || 0}
-                      runUp={trade.runUp || 0}
-                      avgPriceDisplay={avgPriceDisplay}
-                    />
+                    {isDealProfitUnknown(trade) ? (
+                      // No range track either: its marker would place the
+                      // unknown result.
+                      <DealProfitUnknown className="text-sm font-semibold" />
+                    ) : (
+                      <>
+                        <ProfitAndPerc
+                          value={pnlBoxValue}
+                          {...(isClosedDeal &&
+                            trade.profitAsset && {
+                              quoteAsset: trade.profitAsset,
+                              quoteValue: trade.profit?.native,
+                            })}
+                          percentage={pnlBoxRoi}
+                          privacyMode={privacyMode}
+                          chipPosition="right"
+                          size="md"
+                          pending={pnlPending}
+                        />
+                        <PnlRangeTrack
+                          current={pnlBoxRoi}
+                          drawdown={trade.drawdown || 0}
+                          runUp={trade.runUp || 0}
+                          avgPriceDisplay={avgPriceDisplay}
+                        />
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -1330,6 +1344,7 @@ const SimpleCard = React.memo(
                   level={trade.trailingLevel}
                   quoteAsset={symbolAssets.quoteAsset}
                 />
+                <DealClosedOutsideBadge deal={trade} />
               </div>
             </div>
 
@@ -1385,7 +1400,13 @@ const SimpleCard = React.memo(
           {/* P&L Display */}
           <div className="grid grid-cols-2 gap-xs">
             {/* Realized P&L Box */}
-            {!trade.active && (
+            {!trade.active && isDealProfitUnknown(trade) && (
+              <div className="p-1 rounded-md border text-center bg-muted/30 border-border">
+                <div className="text-xs text-muted-foreground">Realized</div>
+                <DealProfitUnknown className="text-sm font-semibold" />
+              </div>
+            )}
+            {!trade.active && !isDealProfitUnknown(trade) && (
               <div
                 className={`p-1 rounded-md border text-center ${
                   (trade.profit?.totalUsd || 0) < 0

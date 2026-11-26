@@ -6,6 +6,14 @@ import { EditedDealIcon } from '@/components/trades/EditedDealIcon';
 import { useAccountTimeZone } from '@/hooks/useAccountTimeZone';
 import InlineNoteCell from '@/components/ui/InlineNoteCell';
 import { Tooltip as HelpTooltip } from '@/components/ui/tooltip';
+import {
+  DealClosedOutsideBadge,
+  DealProfitUnknown,
+} from '@/components/trades/DealClosedOutsideBadge';
+import {
+  dealClosedOutside,
+  isDealProfitUnknown,
+} from '@/lib/utils/dealClosedOutside';
 import getLatestPrices from '@/helper/price';
 import { useSetDealNote } from '@/hooks/useSetDealNote';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
@@ -180,6 +188,7 @@ export interface DCADeal {
   lastPrice?: number;
   avgPrice?: number;
   closeTrigger?: string;
+  flags?: string[] | null;
   profit?: {
     total?: number;
     totalUsd?: number;
@@ -312,6 +321,8 @@ export interface OpenTrade extends DealPositionValue {
     quote: number;
   };
   closeTrigger?: string;
+  /** `deal.flags` — e.g. `closedExternally` / `profitUnknown`. */
+  flags?: string[] | undefined;
   closePrice?: number;
   gridProfit?: number;
   gridProfitUsd?: number;
@@ -1089,6 +1100,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         initialBalances: deal.initialBalances,
         currentBalances: deal.currentBalances,
         closeTrigger: deal.closeTrigger,
+        flags: deal.flags ?? undefined,
         closePrice: deal.lastPrice,
         gridProfit: deal.profit?.gridProfit,
         gridProfitUsd: deal.profit?.gridProfitUsd,
@@ -1685,7 +1697,16 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         meta: { filterType: 'array' },
         cell: ({ getValue, row }) => {
           const status = getValue() as string;
-          const chip = <StatusChip status={status} size="xs" />;
+          let chip = <StatusChip status={status} size="xs" />;
+          // A deal closed on the exchange (not by the bot) says so here.
+          if (dealClosedOutside(row.original)) {
+            chip = (
+              <div className="flex flex-col items-start gap-0.5">
+                {chip}
+                <DealClosedOutsideBadge deal={row.original} />
+              </div>
+            );
+          }
           // A deal the venue refused to open looks identical to one that is
           // simply waiting: same status, no orders, all-zero numbers. This is
           // the list a user scans when a signal produced nothing, so the reason
@@ -1745,6 +1766,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         },
         aggregationFn: 'sum',
         cell: ({ row }) => {
+          if (isDealProfitUnknown(row.original)) return <DealProfitUnknown />;
           const profit = Number(row.original.profit?.totalUsd || 0);
           const cost = Number(row.original.cost || 0);
           const percentage = calculatePnlPercentage(profit, cost);
@@ -1791,6 +1813,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         meta: { filterType: 'number' },
         enableHiding: true,
         cell: ({ row }) => {
+          if (isDealProfitUnknown(row.original)) return <DealProfitUnknown />;
           const profit = Number(row.original.profit?.totalUsd || 0);
           const cost = Number(row.original.cost || 0);
           const percentage = calculatePnlPercentage(profit, cost);
@@ -1951,6 +1974,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
           </span>
         ),
         cell: ({ row }) => {
+          if (isDealProfitUnknown(row.original)) return <DealProfitUnknown />;
           if (row.original.active && pricesLoading) {
             return <Skeleton className="h-4 w-16" />;
           }
@@ -1987,6 +2011,7 @@ const OpenOrdersWidget: React.FC<OpenTradesWidgetProps> = ({
         meta: { filterType: 'number' },
         enableHiding: true,
         cell: ({ row }) => {
+          if (isDealProfitUnknown(row.original)) return <DealProfitUnknown />;
           if (row.original.active && pricesLoading) {
             return <Skeleton className="h-4 w-12" />;
           }

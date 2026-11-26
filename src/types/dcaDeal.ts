@@ -196,6 +196,8 @@ export type TransformedTrade = DealPositionValue & {
     quote: number;
   };
   closeTrigger?: string;
+  /** `deal.flags` — e.g. `closedExternally` / `profitUnknown`. */
+  flags?: string[] | undefined;
   closePrice?: number;
   gridProfit?: number;
   gridProfitUsd?: number;
@@ -515,6 +517,7 @@ export const transformDealToTrade = (
     initialBalances: deal.initialBalances,
     currentBalances: deal.currentBalances,
     closeTrigger: deal.closeTrigger,
+    flags: deal.flags,
     startBlocked: deal.startBlocked,
     closePrice: deal.lastPrice,
     gridProfit: deal.profit?.gridProfit,

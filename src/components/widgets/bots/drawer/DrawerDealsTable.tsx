@@ -67,6 +67,14 @@ import { useAuthStore } from '@/stores/authStore';
 import type { ViewOrder } from '@/types/bots';
 import { transformDealToTrade, type TransformedTrade } from '@/types/dcaDeal';
 import { TrailingBadge } from '@/components/trades/TrailingBadge';
+import {
+  DealClosedOutsideBadge,
+  DealProfitUnknown,
+} from '@/components/trades/DealClosedOutsideBadge';
+import {
+  dealClosedOutside,
+  isDealProfitUnknown,
+} from '@/lib/utils/dealClosedOutside';
 import { Button } from '../../../ui/button';
 import {
     ProfitAndPerc,
@@ -1007,7 +1015,12 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
           // Trailing is invisible otherwise: the dot only says open/closed, and
           // an armed trailing exit replaces the deal's TP/SL entirely, so
           // without this the user cannot tell a deal is riding its best price.
-          if (!trade.trailingMode || !trade.trailingLevel) {
+          // A deal closed on the exchange (not by the bot) says so here.
+          const closedOutside = !!dealClosedOutside(trade);
+          if (
+            (!trade.trailingMode || !trade.trailingLevel) &&
+            !closedOutside
+          ) {
             return chip;
           }
           return (
@@ -1022,6 +1035,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
                     : trade.symbol.quoteAsset
                 }
               />
+              <DealClosedOutsideBadge deal={trade} />
             </div>
           );
         },
@@ -1940,6 +1954,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       meta: { filterType: 'number', reportingUsd: true },
       cell: ({ row }) => {
         const trade = row.original;
+        if (isDealProfitUnknown(trade)) return <DealProfitUnknown />;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
         const cost = trade.cost || 0;
         const percentage = cost > 0 ? (realizedPnl / cost) * 100 : 0;
@@ -1978,6 +1993,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
+        if (isDealProfitUnknown(trade)) return <DealProfitUnknown />;
         const realizedPnl = trade.profit?.totalUsd || trade.pnl || 0;
         const cost = trade.cost || 0;
         const percentage = cost > 0 ? (realizedPnl / cost) * 100 : 0;
@@ -2006,6 +2022,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
+        if (isDealProfitUnknown(trade)) return <DealProfitUnknown />;
         if (trade.active && pricesLoading) {
           return <Skeleton className="h-4 w-16" />;
         }
@@ -2050,6 +2067,7 @@ export const DrawerDealsTable: React.FC<DrawerDealsTableProps> = ({
       meta: { filterType: 'number' },
       cell: ({ row }) => {
         const trade = row.original;
+        if (isDealProfitUnknown(trade)) return <DealProfitUnknown />;
         if (trade.active && pricesLoading) {
           return <Skeleton className="h-4 w-12" />;
         }
