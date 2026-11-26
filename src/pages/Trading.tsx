@@ -1,7 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { tradeProfitFace } from '@/utils/bots/reportingProfit';
-import { editedSettingsOf } from '@/types/dcaDeal';
-import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { editedSettingsOf, percentBasisFromDeal } from '@/types/dcaDeal';
 import { tpSLConfig } from '@/utils/bots/dca/tpSlConfig';
 import type { ColumnDef } from '@tanstack/react-table';
 import { motion } from 'framer-motion';

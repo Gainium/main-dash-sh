@@ -26,6 +26,7 @@ import {
   StartConditionEnum,
   type ExchangeInUser,
 } from '@/types';
+import { EXECUTION_MODE_DEFAULTS } from '@/types/orderExecution';
 import type { BotFormData } from '@/types/bots/form';
 
 /**
@@ -140,6 +141,12 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   multiTp: MULTI_TARGETS,
   multiSl: MULTI_TARGETS,
   dcaCustom: DCA_CUSTOM_STEPS,
+  // Order execution per stage — structured, so named. One mode each, every
+  // key the mode reads set, so the round trip covers the whole object.
+  entryExecution: EXECUTION_MODE_DEFAULTS.chase,
+  dcaExecution: { mode: 'limit', timeoutSec: 45 },
+  tpExecution: EXECUTION_MODE_DEFAULTS.split,
+  slExecution: { mode: 'limit', timeoutSec: 20 },
   // Same probe as the round-trip suite.
   hodlWeekdays: [1, 3, 5],
   fixedTpPrice: '31000',
@@ -257,6 +264,12 @@ const CREATE_ENVELOPE = new Set([
  */
 const CREATE_ONLY_EMPTY: Record<Section, string[]> = {
   dca: [
+    // Order execution: unset (`null`, the legacy order-type fields decide)
+    // ships as null on create, is omitted on edit; both read back as unset.
+    'dcaExecution',
+    'entryExecution',
+    'slExecution',
+    'tpExecution',
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',
@@ -270,6 +283,12 @@ const CREATE_ONLY_EMPTY: Record<Section, string[]> = {
   ],
   // Identical, minus `importFrom` — combo deletes it from the create payload.
   combo: [
+    // Order execution: unset (`null`, the legacy order-type fields decide)
+    // ships as null on create, is omitted on edit; both read back as unset.
+    'dcaExecution',
+    'entryExecution',
+    'slExecution',
+    'tpExecution',
     'dcaCustom',
     'fixedSlPrice',
     'fixedTpPrice',

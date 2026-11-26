@@ -19,7 +19,7 @@ import {
   formatPnlBps,
 } from '@/utils/tradingCosts';
 import { botQueries } from '@/lib/api/GraphQLQueries-bot-queries';
-import { BotTypesEnum } from '@/types';
+import { BotTypesEnum, type OrderData } from '@/types';
 import { withFetchedOrderCosts } from '@/utils/orders/orderCosts';
 import { dealQueries } from '@/lib/api/GraphQLQueries-deal-queries';
 import { DealCostWaterfall } from '@/components/trades/DealCostsSection';
@@ -30,57 +30,64 @@ import {
 } from '@/components/widgets/dashboard/useAccountTradingCostsTooltip';
 import WidgetStats from '@/components/widgets/shared/WidgetStats';
 import { ProfitAndPerc } from '@/components/ui/chip/ProfitAndPerc';
-import type { OrderData } from '@/types';
+
+/** `v`, or a failed test when it is missing. */
+const must = <T,>(v: T | null | undefined): T => {
+  if (v === null || v === undefined) throw new Error('expected a value');
+  return v;
+};
+
+const waterfall = (input: Parameters<typeof buildCostWaterfall>[0]) =>
+  must(buildCostWaterfall(input));
 
 const span = (w: { min: number; max: number }, ...xs: number[]) =>
   xs.every((x) => x >= w.min && x <= w.max);
 
 describe('buildCostWaterfall', () => {
   it('chains each cost from where the previous step ended', () => {
-    const w = buildCostWaterfall({ gross: 100, fees: 10, slippage: 5, net: 85 });
-    expect(w).not.toBeNull();
-    const [gross, fees, slippage, net] = w!.steps;
+    const w = waterfall({ gross: 100, fees: 10, slippage: 5, net: 85 });
+    const [gross, fees, slippage, net] = w.steps;
     expect(gross).toMatchObject({ key: 'gross', from: 0, to: 100, value: 100 });
     expect(fees).toMatchObject({ key: 'fees', from: 100, to: 90, value: -10 });
     expect(slippage).toMatchObject({ from: 90, to: 85, value: -5 });
     expect(net).toMatchObject({ key: 'net', from: 0, to: 85, value: 85 });
-    expect(span(w!, 0, 100, 85)).toBe(true);
+    expect(span(w, 0, 100, 85)).toBe(true);
     // Padded beyond the endpoints, and 0 is a tick.
-    expect(w!.min).toBeLessThan(0);
-    expect(w!.max).toBeGreaterThan(100);
-    expect(w!.ticks).toContain(0);
+    expect(w.min).toBeLessThan(0);
+    expect(w.max).toBeGreaterThan(100);
+    expect(w.ticks).toContain(0);
   });
 
   it('keeps 0 and every endpoint in the domain when gross is a loss', () => {
-    const w = buildCostWaterfall({ gross: -20, fees: 5, slippage: 2, net: -27 });
-    const [, fees, slippage] = w!.steps;
+    const w = waterfall({ gross: -20, fees: 5, slippage: 2, net: -27 });
+    const [, fees, slippage] = w.steps;
     expect(fees).toMatchObject({ from: -20, to: -25 });
     expect(slippage).toMatchObject({ from: -25, to: -27 });
-    expect(span(w!, 0, -20, -27)).toBe(true);
+    expect(span(w, 0, -20, -27)).toBe(true);
   });
 
   it('runs a price improvement back toward the gross (net > gross)', () => {
-    const w = buildCostWaterfall({ gross: 100, fees: 10, slippage: -15, net: 105 });
-    const slippage = w!.steps.find((s) => s.key === 'slippage')!;
+    const w = waterfall({ gross: 100, fees: 10, slippage: -15, net: 105 });
+    const slippage = must(w.steps.find((s) => s.key === 'slippage'));
     expect(slippage).toMatchObject({ from: 90, to: 105, value: 15 });
-    expect(span(w!, 105)).toBe(true);
+    expect(span(w, 105)).toBe(true);
   });
 
   it('turns a positive gross into a negative net when costs exceed it', () => {
-    const w = buildCostWaterfall({ gross: 4, fees: 3, slippage: 2, net: -1 });
-    expect(w!.steps.at(-1)).toMatchObject({ from: 0, to: -1 });
-    expect(span(w!, 0, 4, -1)).toBe(true);
+    const w = waterfall({ gross: 4, fees: 3, slippage: 2, net: -1 });
+    expect(w.steps.at(-1)).toMatchObject({ from: 0, to: -1 });
+    expect(span(w, 0, 4, -1)).toBe(true);
   });
 
   it('derives gross from net + costs, and returns null with neither', () => {
-    const w = buildCostWaterfall({ fees: 2, slippage: 1, net: 7 });
-    expect(w!.steps[0]).toMatchObject({ key: 'gross', to: 10 });
+    const w = waterfall({ fees: 2, slippage: 1, net: 7 });
+    expect(w.steps[0]).toMatchObject({ key: 'gross', to: 10 });
     expect(buildCostWaterfall({ fees: 2, slippage: 1 })).toBeNull();
   });
 
   it('omits a step the backend did not send', () => {
-    const w = buildCostWaterfall({ gross: 10, fees: 1, net: 9 });
-    expect(w!.steps.map((s) => s.key)).toEqual(['gross', 'fees', 'net']);
+    const w = waterfall({ gross: 10, fees: 1, net: 9 });
+    expect(w.steps.map((s) => s.key)).toEqual(['gross', 'fees', 'net']);
   });
 });
 

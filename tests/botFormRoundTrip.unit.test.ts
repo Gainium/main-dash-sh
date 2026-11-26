@@ -18,6 +18,7 @@ import {
   IndicatorAction,
   IndicatorEnum,
 } from '@/types';
+import { EXECUTION_MODE_DEFAULTS } from '@/types/orderExecution';
 import type { BotFormData } from '@/types/bots/form';
 
 /**
@@ -117,6 +118,12 @@ const PROBE_OVERRIDES: Record<string, unknown> = {
   multiTp: MULTI_TARGETS,
   multiSl: MULTI_TARGETS,
   dcaCustom: DCA_CUSTOM_STEPS,
+  // Order execution per stage — structured, so named. One mode each, every
+  // key the mode reads set, so the round trip covers the whole object.
+  entryExecution: EXECUTION_MODE_DEFAULTS.chase,
+  dcaExecution: { mode: 'limit', timeoutSec: 45 },
+  tpExecution: EXECUTION_MODE_DEFAULTS.split,
+  slExecution: { mode: 'limit', timeoutSec: 20 },
   // Empty-string defaults. probeValue skips an empty default because it has no
   // basis for a value; these are the values the controls actually accept.
   fixedTpPrice: '31000',
@@ -568,6 +575,9 @@ const NEVER_MAPPED: Record<'dca' | 'combo', string[]> = {
  * Regenerate by running with UPDATE_PIN=1 and pasting the logged output.
  */
 const NOT_IN_PAYLOAD: Record<Section, string[]> = {
+  // The four order-execution fields default to null (not set: the legacy
+  // order-type fields decide) and the edit payload omits a null; each is
+  // probed with a real value in the round-trip test above.
   // Six empty-string defaults — the mapper omits an unset optional rather than
   // sending "" — plus the three structured arrays, which are empty until their
   // gate is on (useMultiTp/useMultiSl, dcaCondition=custom). All nine are
@@ -577,6 +587,8 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
   // baseline does not use.
   dca: [
     'dcaCustom',
+    'dcaExecution',
+    'entryExecution',
     'fixedSlPrice',
     'fixedTpPrice',
     'hodlWeekdays',
@@ -584,13 +596,17 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'minOpenDeal',
     'multiSl',
     'multiTp',
+    'slExecution',
     'startBotPriceValue',
     'stopBotPriceValue',
+    'tpExecution',
   ],
   // Plus the DCA-only settings the combo inputs do not declare
   // (DECLARED_BY_DCA_ONLY), which the mapper strips for combo.
   combo: [
     'dcaCustom',
+    'dcaExecution',
+    'entryExecution',
     'fixedSlPrice',
     'fixedTpPrice',
     'hodlWeekdays',
@@ -604,6 +620,8 @@ const NOT_IN_PAYLOAD: Record<Section, string[]> = {
     'maxPositionEntries',
     'startBotPriceValue',
     'stopBotPriceValue',
+    'slExecution',
+    'tpExecution',
   ].sort(),
   // The grid payload derives these rather than carrying them through.
   grid: ['newProfit', 'strategy', 'updatedBudget'],

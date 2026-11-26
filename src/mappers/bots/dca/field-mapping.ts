@@ -1,4 +1,5 @@
 import { toBaseFundingMode } from '@/lib/baseFunding/baseFundingApi';
+import { sanitizeExecution } from '@/types/orderExecution';
 /**
  * Modular field mapping utilities for DCA bot forms.
  * Provides organized, debuggable field mapping for bot settings.
@@ -358,6 +359,13 @@ const pruneUnusedCloseIndicators = (
   });
 };
 
+const EXECUTION_FIELDS = [
+  'entryExecution',
+  'dcaExecution',
+  'tpExecution',
+  'slExecution',
+] as const;
+
 /**
  * Basic bot settings mapping - Core fields that always work
  */
@@ -504,6 +512,7 @@ export const mapBasicFields = (formData: BotFormData): FieldMappingResult => {
         | 'hodlAt'
         | 'hodlNextBuy'
         | 'terminalDealType'
+        | (typeof EXECUTION_FIELDS)[number]
       >
     > = {
       name: nameValue,
@@ -639,6 +648,18 @@ export const mapBasicFields = (formData: BotFormData): FieldMappingResult => {
           fieldsMapped.push('hodlNextBuy');
         }
       }
+    }
+
+    // How each stage's orders are placed (market / limit / chase / split).
+    // Sent as the form holds it, cleaned to the keys its mode reads, the same
+    // way the reverse mapper reads it back; null = not set, the legacy
+    // order-type fields (kept in step by the form) decide.
+    for (const key of EXECUTION_FIELDS) {
+      fieldsProcessed.push(key);
+      basicFields[key] = sanitizeExecution(
+        (isComboBot ? formData.combo : formData.dca)[key]
+      );
+      fieldsMapped.push(key);
     }
 
     return {

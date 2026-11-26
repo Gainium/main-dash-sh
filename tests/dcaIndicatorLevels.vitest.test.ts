@@ -4,14 +4,17 @@
  * frozen per-deal sizes line up with what trades.
  */
 import { describe, expect, it } from 'vitest';
-import { IndicatorAction, type SettingsIndicators } from '@/types';
+import {
+  DCAConditionEnum,
+  IndicatorAction,
+  type SettingsIndicators,
+} from '@/types';
 import {
   startDcaLevelAnchors,
   startDcaLevels,
 } from '@/utils/bots/dca/indicatorLevels';
 import { applyFrozenIndicatorLevels } from '@/utils/bots/dca/frozen-indicator-levels';
 import { billableIndicators } from '@/utils/bots/credits';
-import { DCAConditionEnum } from '@/types';
 
 const dca = (
   uuid: string,
