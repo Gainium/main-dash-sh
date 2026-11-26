@@ -17,6 +17,9 @@ import {
 } from '@/stores/live';
 import {
   BotTypesEnum,
+  type AvgPrice,
+  type ComboDeals,
+  type DCADeals,
   type BotVars,
   type DCABotSettings,
   type DCAGrid,
@@ -24,7 +27,10 @@ import {
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
 import { extractPairAssets } from '@/utils/pairs';
-import React, { useMemo, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
+import { exampleOrdersStore } from '@/utils/bots/dca/example-orders';
+import { useDealFees } from '@/hooks/useLiveDealPnl';
+import { useLatestPrices } from '@/hooks/useLatestPrices';
 import { TVChartPicker } from '../widgets/shared/TradingViewChart/TVChartPicker';
 import type { TradingViewChartRef } from '../widgets/shared/TradingViewChart/TradingViewChart';
 import {
@@ -35,7 +41,7 @@ import { DealActionBar } from '@/features/deals/actions/DealActionBar';
 import { DealActionsContext } from '@/features/deals/actions/dealActionsContext';
 import { dealKindOfTrade, type DealRef } from '@/features/deals/actions/dealRef';
 import { useDealActionHost } from '@/features/deals/actions/useDealActionHost';
-import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { percentBasisFromDeal, transformDealToTrade } from '@/types/dcaDeal';
 import { isLongStrategy } from '@/lib/utils/tradingMetrics';
 import { formatTradingPair } from '../../lib/utils';
 import UnfoldingChartPanel from '../bots/panels/contents/chart/UnfoldingChartPanel';
@@ -203,6 +209,59 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
       : null
   );
 
+  // What the drawer shows. `trade` is the row its caller built when the list
+  // or card rendered: a partial snapshot, and the only source for deals the
+  // live store does not hold (grid, closed). For any deal it does hold, every
+  // figure comes from the live deal through the same transformer the deal
+  // lists use, so the cards, the chart and the actions read one source.
+  // `trade` keeps the identity and the labels (type, name, symbol).
+  const prices = useLatestPrices();
+  const feeInputs = useMemo(
+    () => (rawDeal ? [rawDeal as DCADeals] : []),
+    [rawDeal]
+  );
+  const fees = useDealFees(feeInputs);
+  const displayTrade = useMemo<TradeDetailDrawerProps['trade']>(() => {
+    if (!rawDeal) return trade;
+    const deal = rawDeal as DCADeals | ComboDeals;
+    const bot = {
+      type:
+        trade.type === 'Hedge DCA'
+          ? BotTypesEnum.hedgeDca
+          : trade.type === 'Hedge Combo'
+            ? BotTypesEnum.hedgeCombo
+            : tradeBotType,
+      name: trade.botName ?? '',
+    } as unknown as DrawerBot;
+    // Live P&L needs a price and a fee for the pair; until both are there,
+    // the server's stored value beats a confident zero (as the deal lists do).
+    const priced =
+      prices.length > 0 && fees.length > 0
+        ? transformDealToTrade(deal, fees, prices, bot)
+        : undefined;
+    const live =
+      priced && priced.unrealizedProfit !== undefined
+        ? priced
+        : transformDealToTrade(deal, [], [], bot);
+    return {
+      ...trade,
+      status: live.status,
+      strategy: live.strategy || trade.strategy,
+      exchangeUUID: live.exchangeUUID || trade.exchangeUUID,
+      currentBalance: live.currentBalance,
+      usage: live.usage,
+      profit: live.profit,
+      ...(live.profitAsset ? { profitAsset: live.profitAsset } : {}),
+      funding: live.funding,
+      unrealizedProfit: live.unrealizedProfit,
+      unrealizedPending: live.unrealizedPending,
+      avgPrice: live.avgPrice,
+      levels: live.levels,
+      created: live.created,
+      compoundBreakdown: live.compoundBreakdown,
+    };
+  }, [rawDeal, trade, tradeBotType, prices, fees]);
+
   const { pendingOrders, completedOrders } = useMemo(
     () => splitDealOrders(dealOrders, trade.exchange, rawDeal),
     [dealOrders, trade.exchange, rawDeal]
@@ -296,6 +355,21 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
     () => dealCompletedOrdersToTransactions(completedOrders),
     [completedOrders]
   );
+
+  // The deal's breakeven line, as the bot drawer draws it. The order section
+  // publishes the deal's orders and fills to the chart, but not this.
+  const avgPrice = Number(rawDeal?.avgPrice ?? trade.avgPrice ?? 0);
+  const chartAvgPrices = useMemo<AvgPrice[]>(
+    () =>
+      tradeBotType !== BotTypesEnum.grid && avgPrice > 0
+        ? [{ price: avgPrice, label: 'Breakeven', symbol: symbolString }]
+        : [],
+    [tradeBotType, avgPrice, symbolString]
+  );
+  useEffect(() => {
+    exampleOrdersStore.setAvgPrices(chartAvgPrices);
+    return () => exampleOrdersStore.setAvgPrices([]);
+  }, [chartAvgPrices]);
 
   // Deal actions run here, beside the chart: their forms open inline in the
   // details column, and a limit price can be picked on the chart.
@@ -422,7 +496,7 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
             </ChartPricePickerContext.Provider>
           </DealActionsContext.Provider>
           <TradeDetailContent
-            trade={trade}
+            trade={displayTrade}
             privacyMode={privacyMode}
             showChips={true}
             pendingOrders={pendingOrders}
