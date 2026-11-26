@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.138.4] - 2026-11-26
+
+### Changed
+
+- Bot saves send each stage's order execution cleaned to the settings its mode uses; the in-browser backtest engine pinned in the lockfile is current
+
 ## [2.138.3] - 2026-11-26
 
 ### Fixed
