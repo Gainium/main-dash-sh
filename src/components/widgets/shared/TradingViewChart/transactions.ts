@@ -5,6 +5,9 @@ import type {
   TradingViewWidgetInstance,
   TransactionExtended,
 } from './types';
+import { FILL_MARKER_DEFAULT_PX } from './fillMarkers';
+
+export * from './fillMarkers';
 
 export function normalizeTimeToSeconds(time: number): number {
   if (time >= 1e15) return Math.floor(time / 1_000_000); // microseconds -> s
@@ -291,6 +294,7 @@ export function addTransactionInternal(
         if (exitIcon) entities.push(exitIcon);
       }
     } else if (chart.createShape) {
+      const size = tr.markerSize ?? FILL_MARKER_DEFAULT_PX;
       const entity = chart.createShape(
         { time: timeInSeconds, price: tr.price },
         {
@@ -304,7 +308,7 @@ export function addTransactionInternal(
             angle: isBuy ? 45 : 90,
             color: isBuy ? '#00ff00' : '#ff0040',
             linewidth: 3,
-            size: 20,
+            size,
           },
         }
       );

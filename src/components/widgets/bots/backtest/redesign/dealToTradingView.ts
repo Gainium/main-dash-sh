@@ -186,6 +186,8 @@ function transactionsFromDeal(
       side: String(o.side),
       time: o.filledTime,
       price,
+      // Backtest grid orders carry `qty` at runtime; the type omits it.
+      qty: Number((o as { qty?: unknown }).qty) || undefined,
     });
   }
   if (out.length > 0) return out;
@@ -201,6 +203,7 @@ function transactionsFromDeal(
       side: isBuy ? 'buy' : 'sell',
       time: txn.updateTime,
       price,
+      qty: Number(isBuy ? txn.amountBaseBuy : txn.amountBaseSell) || undefined,
     });
   }
   return out;

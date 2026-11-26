@@ -4189,7 +4189,13 @@ export type TransactionChart = {
   pnlPercent?: number;
   // Optional: precomputed Risk:Reward ratio for the trade
   // If provided, the chart will use this instead of calculating from prices
-  rrRatio?: number;  // Optional: draw as a note pin (hover shows `text`) instead of a fill icon.
+  rrRatio?: number;
+  // Optional: filled base quantity. Sizes the marker by order value
+  // (qty × price) relative to the other markers, and shows on hover.
+  qty?: number | undefined;
+  // Optional: quote asset, used only to label the hover value.
+  quoteAsset?: string | undefined;
+  // Optional: draw as a note pin (hover shows `text`) instead of a fill icon.
   note?: { text: string; color: string; active?: boolean } | undefined;
 };
 

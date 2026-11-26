@@ -63,4 +63,6 @@ export const dealCompletedOrdersToTransactions = (
     side: o.side === 'buy' ? BotOrderSideEnum.buy : BotOrderSideEnum.sell,
     id: o.id,
     time: o.time,
+    qty: +o.executedQty || +o.origQty || undefined,
+    quoteAsset: o.quoteAsset || undefined,
   }));

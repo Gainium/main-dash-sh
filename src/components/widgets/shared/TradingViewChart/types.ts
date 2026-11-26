@@ -179,4 +179,10 @@ export interface TransactionExtended extends TransactionChart {
   tradeNumber?: number;
   rrRatio?: number;
   pnlPercent?: number;
+  /** qty × price, summed over the fills merged into this marker. */
+  notional?: number;
+  /** How many fills this marker stands for (merging keeps one per spot). */
+  fillCount?: number;
+  /** Icon size in px, scaled by `notional` against the largest fill. */
+  markerSize?: number;
 }

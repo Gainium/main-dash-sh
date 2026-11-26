@@ -19,12 +19,21 @@ import {
   useEffect,
   useImperativeHandle,
   useRef,
+  useState,
 } from 'react';
 import { addTradingViewIndicator, clearCustomIndicators } from './indicators';
 import { createOrderLine } from './orderLines';
 import {
   addTransactionInternal,
   clearTransactionsInternal,
+  fillMarkerSize,
+  fillTooltip,
+  fillUnderCrosshair,
+  isPointFill,
+  largestFillNotional,
+  type DrawnFill,
+  mergeFills,
+  withFillValue,
   normalizeTimeToSeconds,
 } from './transactions';
 import type {
@@ -38,6 +47,13 @@ import type {
   TransactionExtended,
 } from './types';
 import { useInitializeWidget } from './useInitializeWidget';
+
+type CrossHair = {
+  time: number;
+  price: number;
+  offsetX?: number;
+  offsetY?: number;
+};
 
 // The slice of TradingView's ITimeScaleApi the Session view restore uses.
 interface ChartTimeScale {
@@ -292,6 +308,13 @@ export const TradingViewChartCore = forwardRef<
     } | null>(null);
     const positionEntityRef = useRef<unknown | null>(null);
     const currentIntervalRef = useRef<string>(initialInterval);
+    // Fill markers as last drawn, and the one the crosshair is over.
+    const drawnFillsRef = useRef<DrawnFill[]>([]);
+    const [fillHover, setFillHover] = useState<{
+      x: number;
+      y: number;
+      text: string;
+    } | null>(null);
     const toolbarDropdownHandleRef = useRef<TradingViewDropdownHandle | null>(
       null
     );
@@ -694,6 +717,8 @@ export const TradingViewChartCore = forwardRef<
         const widget = widgetRef.current as ExtendedWidget | null;
         // Remove the shapes plotted on the previous pass before re-filtering.
         clearTransactionsInternal(widget, true, transactionEntitiesRef.current);
+        drawnFillsRef.current = [];
+        setFillHover(null);
         if (!widget) return;
 
         const resolvedRange =
@@ -717,7 +742,12 @@ export const TradingViewChartCore = forwardRef<
         };
 
         const cache = transactionsCacheRef.current;
-        let visible = resolvedRange ? cache.filter(inRange) : cache.slice();
+        let visible = (
+          resolvedRange ? cache.filter(inRange) : cache.slice()
+        ).map(withFillValue);
+        // Sizes are measured against the largest single fill in the whole
+        // set, not just the viewport, so a marker keeps its size on pan.
+        const referenceNotional = largestFillNotional(cache);
 
         // Collapse to one marker per (side, price level, bar) — the legacy
         // main-dash rule (TVChartContainer.addTransactions keyed by bar-index +
@@ -744,7 +774,8 @@ export const TradingViewChartCore = forwardRef<
               ? tr.entryTime / 1000
               : normalizeTimeToSeconds(Number(tr.time));
           const barIndex = Math.floor(seconds / barSeconds);
-          perBarLevel.set(`${sideKey}-${barIndex}-${level}`, tr);
+          const key = `${sideKey}-${barIndex}-${level}`;
+          perBarLevel.set(key, mergeFills(perBarLevel.get(key), tr));
         }
         visible = [...perBarLevel.values()];
 
@@ -817,12 +848,24 @@ export const TradingViewChartCore = forwardRef<
             const cellKey = `${sideKey}-${Math.floor(seconds / tCell)}-${Math.floor(
               (Number.isFinite(level) ? level : 0) / pCell
             )}`;
-            cells.set(cellKey, tr);
+            cells.set(cellKey, mergeFills(cells.get(cellKey), tr));
           }
           visible = [...cells.values()];
         }
 
-        visible.forEach((t) => {
+        visible.forEach((tr) => {
+          const t: TransactionExtended = {
+            ...tr,
+            markerSize: fillMarkerSize(tr.notional, referenceNotional),
+          };
+          if (isPointFill(t)) {
+            drawnFillsRef.current.push({
+              seconds: normalizeTimeToSeconds(Number(t.time)),
+              price: Number(t.price),
+              size: t.markerSize ?? 20,
+              text: fillTooltip(t),
+            });
+          }
           addTransactionInternal(widget, true, t, (id, entities) =>
             transactionEntitiesRef.current.set(id, entities)
           );
@@ -1103,6 +1146,89 @@ export const TradingViewChartCore = forwardRef<
     useEffect(() => {
       layoutChangeCallbackRef.current = handleLayoutChangeInternal;
     }, [handleLayoutChangeInternal]);
+
+    // Hover text for fill markers. TradingView's drawing shapes have no hover
+    // text of their own, so the crosshair position is matched to the drawn
+    // markers here and the text is shown next to it.
+    useEffect(() => {
+      if (!isChartReady) return;
+      const chart = getActiveChart() as
+        | (ChartInstance & {
+            crossHairMoved?: () => {
+              subscribe: (
+                thisArg: null,
+                cb: (p: CrossHair) => void
+              ) => void;
+              unsubscribe: (thisArg: null, cb: (p: CrossHair) => void) => void;
+            };
+            getVisiblePriceRange?: () => { from?: number; to?: number } | null;
+          })
+        | null;
+      const delegate = chart?.crossHairMoved?.();
+      if (!chart || !delegate) return;
+      const onMove = (p: CrossHair) => {
+        const fills = drawnFillsRef.current;
+        const x = p.offsetX;
+        const y = p.offsetY;
+        if (
+          !fills.length ||
+          x == null ||
+          y == null ||
+          !Number.isFinite(p.time) ||
+          !Number.isFinite(p.price)
+        ) {
+          setFillHover(null);
+          return;
+        }
+        let pricePerPx = 0;
+        try {
+          const range = chart.getVisiblePriceRange?.();
+          // The price pane is the container less the time axis (~30px).
+          const paneHeight = Math.max(
+            1,
+            (chartContainerRef.current?.clientHeight ?? 600) - 30
+          );
+          if (range?.from != null && range?.to != null) {
+            pricePerPx = Math.abs(range.to - range.from) / paneHeight;
+          }
+        } catch {
+          /* no hover without a scale */
+        }
+        const barSeconds = Math.max(
+          1,
+          intervalToSeconds(currentIntervalRef.current)
+        );
+        const hit = fillUnderCrosshair(
+          fills,
+          p.time,
+          p.price,
+          barSeconds,
+          pricePerPx
+        );
+        setFillHover((prev) =>
+          hit
+            ? prev?.text === hit.text && prev.x === x
+              ? prev
+              : { x, y, text: hit.text }
+            : prev
+              ? null
+              : prev
+        );
+      };
+      try {
+        delegate.subscribe(null, onMove);
+      } catch {
+        return;
+      }
+      return () => {
+        try {
+          delegate.unsubscribe(null, onMove);
+        } catch {
+          /* widget already gone */
+        }
+        setFillHover(null);
+      };
+    }, [isChartReady, getActiveChart]);
 
     // A (re)built widget starts with nothing on it: forget the entities that
     // belonged to the previous one and draw everything from the caches.
@@ -2100,6 +2226,23 @@ export const TradingViewChartCore = forwardRef<
             flexDirection: 'column',
           }}
         />
+        {fillHover && (
+          <div
+            className="pointer-events-none absolute z-20 whitespace-nowrap rounded border border-border bg-popover px-2 py-1 text-xs text-popover-foreground shadow"
+            style={{
+              left: fillHover.x,
+              top: fillHover.y,
+              // Opens toward the chart's middle so it never runs off an edge.
+              transform: `translate(${
+                fillHover.x > (chartContainerRef.current?.clientWidth ?? 0) / 2
+                  ? 'calc(-100% - 14px)'
+                  : '14px'
+              }, 14px)`,
+            }}
+          >
+            {fillHover.text}
+          </div>
+        )}
       </div>
     );
   }

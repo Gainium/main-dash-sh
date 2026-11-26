@@ -23,7 +23,10 @@ import { chartIndicatorsContextFromSettings } from '@/utils/indicators/chartIndi
 import { useDealStore } from '@/stores/live/dealStore';
 import { useDealSmartOrders } from '@/hooks/bots/dca/useDealSmartOrders';
 import { useDealHeldOrders } from '@/hooks/bots/dca/useDealHeldOrders';
-import { dealHeldOrdersToChartLines } from '@/utils/bots/dca/deal-chart-orders';
+import {
+  dealCompletedOrdersToTransactions,
+  dealHeldOrdersToChartLines,
+} from '@/utils/bots/dca/deal-chart-orders';
 import { useUserFees } from '@/hooks/useUserFeesService';
 import { buildDealExitLines } from '@/utils/bots/dca/deal-exit-lines';
 import type { ViewOrder } from '@/types/bots';
@@ -1423,19 +1426,13 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
 
     const chartTransactions = useMemo(
       () =>
-        [...completedOrders]
-          .filter((o) => {
+        dealCompletedOrdersToTransactions(
+          completedOrders.filter((o) => {
             // Grid bots don't have deals — show all transactions on the chart
             if (isGrid) return true;
             return o.dealId === chartDealId;
           })
-          .map((o) => ({
-            price: +o.price,
-            side:
-              o.side === 'buy' ? BotOrderSideEnum.buy : BotOrderSideEnum.sell,
-            id: o.id,
-            time: o.time,
-          })),
+        ),
       [completedOrders, chartDealId, isGrid]
     );
 

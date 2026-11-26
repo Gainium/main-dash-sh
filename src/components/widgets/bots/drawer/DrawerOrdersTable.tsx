@@ -1177,6 +1177,7 @@ export const DrawerOrdersTable: React.FC<DrawerOrdersTableProps> = ({
         id: o.clientOrderId,
         // Execution time — see `getOrderExecutionTime`.
         time: getOrderExecutionTime(o),
+        qty: +o.executedQty || +o.origQty || undefined,
       })
     );
     exampleOrdersStore.setTransactions(mappedTransactions);

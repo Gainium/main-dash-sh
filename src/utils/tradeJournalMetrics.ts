@@ -123,6 +123,7 @@ export const calculateExecutionsSummary = (
     time: execution.timestamp,
     price: execution.price,
     tradeNumber: index + 1,
+    qty: execution.quantity,
   }));
 
   const summary: JournalExecutionsSummary = {
