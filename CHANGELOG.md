@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.138.3] - 2026-11-26
+
+### Fixed
+
+- In-browser grid backtests bucket their daily and monthly stats in the browser's time zone, like DCA and combo backtests
+
 ## [2.138.2] - 2026-11-26
 
 ### Fixed
