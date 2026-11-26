@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.137.8] - 2026-11-26
+
+### Fixed
+
+- Deals whose position was closed on the exchange now say so ("Closed on exchange" / "Liquidated"), and show "Unknown" instead of a misleading profit when the exchange's fills could not price the close
+
 ## [2.137.7] - 2026-11-25
 
 ### Fixed
