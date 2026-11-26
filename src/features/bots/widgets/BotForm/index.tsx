@@ -3243,6 +3243,7 @@ const BotForm: React.FC<BotFormProps> = ({
               from: firstDataTime,
               to: lastDataTime,
               slippage: cfg.slippagePercent ?? 0,
+              timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
             };
 
             logger.info('[backtester] Grid local run settingsInput', {
