@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.138.0] - 2026-11-26
+
+### Added
+
+- Add funds uses the same order type block as Close deal: market, limit with quick price buttons, chasing limit or split order; Reduce funds offers market or limit
+
 ## [2.137.9] - 2026-11-26
 
 ### Changed
