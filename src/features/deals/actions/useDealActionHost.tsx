@@ -3,6 +3,8 @@
 // from the runner uses the hook directly and provides the runner itself; the
 // others wrap their content in <DealActionsProvider>.
 import { ConfirmationDialog } from '@/components/ui/confirmation-dialog';
+import { DialogPresentationProvider } from '@/components/ui/dialog';
+import type { DialogPresentation } from '@/components/ui/dialog-presentation';
 import { MoveDealToBotDialog } from '@/components/deals/MoveDealToBotDialog';
 import {
   MergeDealsDialog,
@@ -81,6 +83,11 @@ export interface DealActionHostOptions {
    * executions from these instead of fetching each deal's orders.
    */
   filledOrders?: readonly ViewOrder[];
+  /**
+   * `inline` draws the action dialogs in place as panels (the deal drawer puts
+   * them beside its chart) instead of as modals. Defaults to `modal`.
+   */
+  presentation?: DialogPresentation;
 }
 
 interface Pending {
@@ -173,9 +180,12 @@ export function useDealActionHost({
   onView,
   onEdit,
   filledOrders,
+  presentation = 'modal',
 }: DealActionHostOptions): {
   runner: DealActionRunner;
   dialogs: React.ReactNode;
+  /** The action whose dialog is open, if any. */
+  pendingId: DealActionId | undefined;
 } {
   const [pending, setPending] = useState<Pending | null>(null);
   const closePending = useCallback(() => setPending(null), []);
@@ -824,7 +834,7 @@ export function useDealActionHost({
   );
 
   const dialogs = (
-    <>
+    <DialogPresentationProvider value={presentation}>
       {copy && (
         <ConfirmationDialog
           open
@@ -862,6 +872,7 @@ export function useDealActionHost({
           symbol={closeSingleDeal?.symbol}
           exchange={closeSingleDeal?.exchange}
           quoteAsset={closeSingleDeal?.quoteAsset}
+          long={closeSingleDeal?.long ?? true}
         />
       )}
       {(pendingId === 'addFunds' || pendingId === 'reduceFunds') &&
@@ -952,8 +963,8 @@ export function useDealActionHost({
         }
       />
       {bulkAdjustFundsDialog}
-    </>
+    </DialogPresentationProvider>
   );
 
-  return { runner, dialogs };
+  return { runner, dialogs, pendingId };
 }

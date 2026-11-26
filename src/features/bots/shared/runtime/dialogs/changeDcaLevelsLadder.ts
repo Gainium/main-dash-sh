@@ -15,6 +15,23 @@ export interface AddedDcaLevel {
 }
 
 /**
+ * The first ladder level that raising the max does NOT add: the levels after it
+ * up to the new max are what the change places.
+ *
+ * Saving a new max always turns DCA on (`useDca: true` plus `ordersCount`). On
+ * a deal whose DCA is off, none of its configured levels rest on the exchange,
+ * so every level past the ones already filled is added, not only those above
+ * the old max.
+ */
+export function addedDcaLevelsFrom(
+  dcaOn: boolean,
+  filled: number,
+  currentMax: number
+): number {
+  return dcaOn ? currentMax : Math.min(filled, currentMax);
+}
+
+/**
  * The levels between the current max and the new one, from the deal's full
  * ladder (level order). The engine rebuilds the ladder from the deal's opening
  * price on save, so these are the prices it will place.

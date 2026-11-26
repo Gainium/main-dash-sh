@@ -77,6 +77,8 @@ export interface UnfoldingChartPanelProps {
    * across the deal's still-resting safety orders. Null/undefined draws nothing.
    */
   liquidationContext?: DealLiquidationContext | null;
+  /** More lines to draw, e.g. the draft price of a deal action being set up. */
+  extraOrderLines?: ChartOrderLine[] | undefined;
 }
 
 const DEFAULT_TIMEFRAME: TimeframeKey = 'all';
@@ -162,6 +164,7 @@ const UnfoldingChartPanel = ({
   overrideExchange,
   chartRef,
   liquidationContext,
+  extraOrderLines,
 }: UnfoldingChartPanelProps) => {
   const resolvedBotIdentifier = botId ?? bot?.id ?? null;
   const persistenceKey = getTimeframeStorageKey(resolvedBotIdentifier);
@@ -728,8 +731,12 @@ const UnfoldingChartPanel = ({
       isDraggable: o.grey ? false : !!o.draggable,
       ...(o.grey ? { color: '#94a3b8' } : {}),
     }));
-    return liquidationLine ? [...mapped, liquidationLine] : mapped;
-  }, [exampleOrders, liquidationLine]);
+    return [
+      ...mapped,
+      ...(liquidationLine ? [liquidationLine] : []),
+      ...(extraOrderLines ?? []),
+    ];
+  }, [exampleOrders, liquidationLine, extraOrderLines]);
 
   useEffect(() => {
     indicatorStore.setChartIndicatorsContext({

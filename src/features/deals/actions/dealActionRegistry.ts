@@ -328,6 +328,11 @@ export const DEAL_ACTION_SURFACES = {
       'moveToBot',
     ],
   },
+  /**
+   * The deal details drawer's action bar. It has no deal editor or journal
+   * hook of its own, and the drawer already is the details view.
+   */
+  dealDrawer: { exclude: ['view', 'journal', 'edit'] },
 } as const satisfies Record<string, DealActionSurface>;
 
 export type DealActionSurfaceId = keyof typeof DEAL_ACTION_SURFACES;

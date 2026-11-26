@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useDialogPresentation } from '@/components/ui/dialog-presentation';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
@@ -79,6 +80,7 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
   previewDeal,
 }) => {
   const minValue = Math.max(0, currentLevel);
+  const inline = useDialogPresentation() === 'inline';
   const [value, setValue] = React.useState<number>(maxLevel);
 
   React.useEffect(() => {
@@ -192,9 +194,11 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
             ) : null}
           </div>
 
-          {previewDeal ? (
-            // Laid out (invisible) even before a level is added: the dialog is
-            // centred, so any growth here would move the stepper above it.
+          {previewDeal && (!inline || addedLevels.length > 0) ? (
+            // A modal lays this out (invisible) even before a level is added:
+            // it is centred, so any growth here would move the stepper above
+            // it. Drawn inline nothing is centred, so it only appears when
+            // there is a level to show.
             <div
               className={cn(
                 'space-y-xs',
@@ -211,7 +215,10 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
               </div>
               <div
                 ref={levelsListRef}
-                className="h-56 overflow-y-auto divide-y divide-border rounded-lg bg-muted/20 text-sm"
+                className={cn(
+                  'overflow-y-auto divide-y divide-border rounded-lg bg-muted/20 text-sm',
+                  inline ? 'max-h-56' : 'h-56'
+                )}
                 data-testid="change-dca-new-levels"
               >
                 {addedLevels.map((l) => (

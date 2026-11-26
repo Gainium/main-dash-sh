@@ -85,6 +85,8 @@ export interface CloseOptionsDialogProps {
   symbol?: string;
   exchange?: string;
   quoteAsset?: string;
+  /** Deal mode, one deal: its direction (a long closes by selling). */
+  long?: boolean;
 }
 
 export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
@@ -101,6 +103,7 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
   symbol,
   exchange,
   quoteAsset,
+  long = true,
 }) => {
   const isBulkDeals = mode === 'deal' && count > 1;
   const [selected, setSelected] = useState<CloseTypeOption>(defaultCloseType);
@@ -243,6 +246,8 @@ export const CloseOptionsDialog: React.FC<CloseOptionsDialogProps> = ({
                       marketPrice={marketPrice}
                       quoteAsset={quoteAsset}
                       disabled={isProcessing}
+                      chartLabel="Close deal"
+                      chartSide={long ? 'sell' : 'buy'}
                     />
                   ) : undefined
                 }

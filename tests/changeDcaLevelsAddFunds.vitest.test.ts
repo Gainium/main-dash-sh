@@ -82,6 +82,22 @@ describe('dcaLadderStanding', () => {
     });
   });
 
+  it('a deal with DCA switched off has no ladder beyond what filled', () => {
+    // `ordersCount` keeps its old value when DCA is turned off.
+    expect(
+      dcaLadderStanding({
+        levels: { complete: 1, all: 1 },
+        settings: { dcaCondition: 'percentage', ordersCount: '8', useDca: false },
+      })
+    ).toEqual({ filled: 0, max: 0 });
+    expect(
+      dcaLadderStanding({
+        levels: { complete: 3, all: 3 },
+        settings: { dcaCondition: 'percentage', ordersCount: '8', useDca: false },
+      })
+    ).toEqual({ filled: 2, max: 2 });
+  });
+
   it('a missing levels object reads as a fresh deal', () => {
     expect(dcaLadderStanding({})).toEqual({ filled: 0, max: 0 });
   });

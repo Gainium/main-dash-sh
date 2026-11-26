@@ -24,7 +24,19 @@ import {
 import type { DrawerBot } from '@/types/bots/drawer';
 import type { CompoundBreakdownEntry } from '@/lib/utils/compoundBreakdown';
 import { extractPairAssets } from '@/utils/pairs';
-import React, { useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
+import { TVChartPicker } from '../widgets/shared/TradingViewChart/TVChartPicker';
+import type { TradingViewChartRef } from '../widgets/shared/TradingViewChart/TradingViewChart';
+import {
+  ChartPricePickerContext,
+  useChartPricePickerHost,
+} from '@/features/bots/shared/runtime/dialogs/chartPricePicker';
+import { DealActionBar } from '@/features/deals/actions/DealActionBar';
+import { DealActionsContext } from '@/features/deals/actions/dealActionsContext';
+import { dealKindOfTrade, type DealRef } from '@/features/deals/actions/dealRef';
+import { useDealActionHost } from '@/features/deals/actions/useDealActionHost';
+import { percentBasisFromDeal } from '@/types/dcaDeal';
+import { isLongStrategy } from '@/lib/utils/tradingMetrics';
 import { formatTradingPair } from '../../lib/utils';
 import UnfoldingChartPanel from '../bots/panels/contents/chart/UnfoldingChartPanel';
 import { buildDealLiquidationContext } from '@/utils/bots/dca/liquidation';
@@ -285,6 +297,43 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
     [completedOrders]
   );
 
+  // Deal actions run here, beside the chart: their forms open inline in the
+  // details column, and a limit price can be picked on the chart.
+  const rawSettings = (
+    rawDeal as { settings?: { futures?: boolean; useRiskReward?: boolean } } | null
+  )?.settings;
+  const dealRef = useMemo<DealRef>(() => {
+    const basis = rawDeal
+      ? percentBasisFromDeal(rawDeal as Parameters<typeof percentBasisFromDeal>[0])
+      : null;
+    return {
+      id: trade.id,
+      dealId: trade.id,
+      botId: trade.botId || undefined,
+      kind: dealKindOfTrade({ type: trade.type, terminal: false, hedge: false }),
+      status: String(rawDeal?.status ?? trade.status).toLowerCase(),
+      symbol: symbolString,
+      baseAsset: baseAsset || undefined,
+      quoteAsset: quoteAsset || undefined,
+      exchange: trade.exchange || undefined,
+      exchangeUUID: trade.exchangeUUID ?? rawDeal?.exchangeUUID ?? undefined,
+      strategy: trade.strategy || undefined,
+      long: isLongStrategy(trade.strategy),
+      futures: !!rawSettings?.futures,
+      riskBased: !!rawSettings?.useRiskReward,
+      levels: trade.levels,
+      percentBasis: basis ?? undefined,
+      trade: undefined,
+    };
+  }, [trade, rawDeal, rawSettings, symbolString, baseAsset, quoteAsset]);
+  const {
+    runner: dealActions,
+    dialogs: dealActionPanels,
+    pendingId: openActionId,
+  } = useDealActionHost({ presentation: 'inline' });
+  const pricePicker = useChartPricePickerHost();
+  const chartWidgetRef = useRef<TradingViewChartRef | null>(null);
+
   return (
     <DetailDrawer
       {...(open !== undefined && { open })}
@@ -301,6 +350,7 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
             <div className="h-full flex flex-col">
               <div className="flex-1 overflow-hidden">
                 {trade.botId ? (
+                  <div className="relative h-full w-full">
                   <UnfoldingChartPanel
                     botId={trade.botId}
                     bot={chartBot}
@@ -316,7 +366,15 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
                     liquidationContext={liquidationContext}
                     enabled={true}
                     className="h-full"
+                    chartRef={chartWidgetRef}
+                    extraOrderLines={pricePicker.lines}
                   />
+                  <TVChartPicker
+                    chartRef={chartWidgetRef}
+                    isActive={pricePicker.isActive}
+                    onPick={pricePicker.onPick}
+                  />
+                  </div>
                 ) : (
                   <div className="flex items-center justify-center h-full text-muted-foreground">
                     Chart data not available
@@ -350,6 +408,19 @@ export const TradeDetailDrawer: React.FC<TradeDetailDrawerProps> = ({
         </DetailDrawerHeader>
 
         <DetailDrawerBody>
+          <DealActionsContext.Provider value={dealActions}>
+            <ChartPricePickerContext.Provider value={pricePicker.value}>
+              <DealActionBar
+                deal={dealRef}
+                activeId={openActionId}
+                className="mb-sm"
+              />
+              {/* Empty until an action is picked. */}
+              <div className={openActionId ? 'mb-md' : undefined}>
+                {dealActionPanels}
+              </div>
+            </ChartPricePickerContext.Provider>
+          </DealActionsContext.Provider>
           <TradeDetailContent
             trade={trade}
             privacyMode={privacyMode}

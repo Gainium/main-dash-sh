@@ -1,6 +1,9 @@
 import { test, expect } from '@playwright/test';
 
-import { addedDcaLevels } from '@/features/bots/shared/runtime/dialogs/changeDcaLevelsLadder';
+import {
+  addedDcaLevels,
+  addedDcaLevelsFrom,
+} from '@/features/bots/shared/runtime/dialogs/changeDcaLevelsLadder';
 
 /**
  * "Change DCA levels" lists the levels a higher max adds and marks the ones
@@ -44,4 +47,17 @@ test('a short level below the market fills now', () => {
 test('nothing is marked without a market price, and lowering adds nothing', () => {
   expect(addedDcaLevels(LADDER, 3, 4, true, undefined)[0]?.crossed).toBe(false);
   expect(addedDcaLevels(LADDER, 3, 2, true, 80)).toEqual([]);
+});
+
+test('with DCA on, only the levels above the old max are added', () => {
+  expect(addedDcaLevelsFrom(true, 2, 8)).toBe(8);
+});
+
+test('with DCA off, every level past the filled ones is added', () => {
+  // Saving turns DCA on, and none of the configured levels rest yet.
+  const from = addedDcaLevelsFrom(false, 0, 3);
+  expect(from).toBe(0);
+  expect(addedDcaLevels(LADDER, from, 4, true, 95).map((l) => l.level)).toEqual(
+    [1, 2, 3, 4]
+  );
 });

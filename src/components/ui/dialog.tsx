@@ -2,13 +2,29 @@ import { X } from 'lucide-react';
 import * as React from 'react';
 import { createPortal } from 'react-dom';
 import { cn } from '../../lib/utils';
+import {
+  DialogPresentationContext,
+  useDialogPresentation,
+  type DialogPresentation,
+} from './dialog-presentation';
 
 interface DialogContextValue {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Rendered inside another dialog; such a dialog is always modal. */
+  nested: boolean;
 }
 
 const DialogContext = React.createContext<DialogContextValue | null>(null);
+
+export const DialogPresentationProvider: React.FC<{
+  value: DialogPresentation;
+  children: React.ReactNode;
+}> = ({ value, children }) => (
+  <DialogPresentationContext.Provider value={value}>
+    {children}
+  </DialogPresentationContext.Provider>
+);
 
 const useDialog = () => {
   const context = React.useContext(DialogContext);
@@ -30,6 +46,7 @@ const Dialog: React.FC<DialogProps> = ({
   children,
 }) => {
   const [internalOpen, setInternalOpen] = React.useState(false);
+  const nested = React.useContext(DialogContext) !== null;
 
   const isControlled = open !== undefined && onOpenChange !== undefined;
   const isOpen = isControlled ? open : internalOpen;
@@ -39,8 +56,9 @@ const Dialog: React.FC<DialogProps> = ({
     () => ({
       open: isOpen,
       onOpenChange: setOpen,
+      nested,
     }),
-    [isOpen, setOpen]
+    [isOpen, setOpen, nested]
   );
 
   return (
@@ -107,7 +125,8 @@ const DialogContent: React.FC<DialogContentProps> = ({
   backdropStyle = 'default',
   style,
 }) => {
-  const { open, onOpenChange } = useDialog();
+  const { open, onOpenChange, nested } = useDialog();
+  const inline = useDialogPresentation() === 'inline' && !nested;
   const [mounted, setMounted] = React.useState(false);
 
   // Ensure we're on the client side
@@ -133,8 +152,10 @@ const DialogContent: React.FC<DialogContentProps> = ({
     }
   }, [onClose, onOpenChange]);
 
-  // Handle escape key
+  // Handle escape key. Not inline: the page around an inline panel keeps its
+  // own Escape handling (the chart price picker cancels with it).
   React.useEffect(() => {
+    if (inline) return;
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && open) {
         handleClose();
@@ -150,9 +171,35 @@ const DialogContent: React.FC<DialogContentProps> = ({
       document.removeEventListener('keydown', handleEscape);
       document.body.style.overflow = '';
     };
-  }, [open, handleClose]);
+  }, [open, handleClose, inline]);
 
   if (!mounted || !open) return null;
+
+  if (inline) {
+    return (
+      <section
+        className={cn(
+          'relative rounded-lg border border-border bg-card p-sm',
+          // The modal width caps do not apply to a panel in a column.
+          className,
+          'w-full max-w-none sm:max-w-none max-h-none overflow-visible'
+        )}
+        style={style}
+      >
+        {showCloseButton && (
+          <button
+            type="button"
+            onClick={handleClose}
+            aria-label="Close"
+            className="absolute top-3 right-3 grid place-items-center h-7 w-7 rounded-full bg-muted/60 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {children}
+      </section>
+    );
+  }
 
   const dialogContent = (
     <div

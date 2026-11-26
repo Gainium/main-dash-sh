@@ -923,6 +923,9 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
                         marketPrice={marketPrice}
                         quoteAsset={quoteAsset}
                         disabled={isProcessing}
+                        chartLabel={mode === 'reduce' ? 'Reduce funds' : 'Add funds'}
+                        // Adding to a long buys; reducing it sells.
+                        chartSide={(mode === 'reduce') === long ? 'sell' : 'buy'}
                       />
                     ) : undefined
                   }

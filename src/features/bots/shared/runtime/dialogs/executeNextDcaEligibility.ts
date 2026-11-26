@@ -28,6 +28,7 @@ export interface DcaLadderStandingDeal {
     | {
         dcaCondition?: string | null | undefined;
         ordersCount?: string | number | null | undefined;
+        useDca?: boolean | null | undefined;
       }
     | null
     | undefined;
@@ -44,7 +45,9 @@ export interface DcaLadderStandingDeal {
  * minus the base order minus every `deal.funds` entry that took no level.
  * `max` is the ladder size main-app's `dcaLadderSize` reads, the deal's own
  * `ordersCount`, except on an indicator / custom ladder (not sized by it) or a
- * deal whose settings are not to hand, which keep `levels.all - 1`.
+ * deal whose settings are not to hand, which keep `levels.all - 1`. A deal
+ * with DCA switched off has no ladder (main-app passes a ladder size of 0), so
+ * its max is what has already filled, whatever `ordersCount` still says.
  */
 export function dcaLadderStanding(deal: DcaLadderStandingDeal): {
   filled: number;
@@ -64,7 +67,12 @@ export function dcaLadderStanding(deal: DcaLadderStandingDeal): {
     condition !== 'custom' &&
     Number.isFinite(ordersCount) &&
     ordersCount >= 0;
-  const max = sizedByCount ? ordersCount : (deal.levels?.all || 1) - 1;
+  const max =
+    deal.settings?.useDca === false
+      ? 0
+      : sizedByCount
+        ? ordersCount
+        : (deal.levels?.all || 1) - 1;
   return { filled, max: Math.max(filled, max) };
 }
 

@@ -12,8 +12,16 @@ import {
   type DCABotSettings,
   type DCADeals,
 } from '@/types';
-import { dcaLadderLevels } from './executeNextDcaEligibility';
-import { addedDcaLevels, type AddedDcaLevel } from './changeDcaLevelsLadder';
+import {
+  dcaLadderLevels,
+  dcaLadderStanding,
+  type DcaLadderStandingDeal,
+} from './executeNextDcaEligibility';
+import {
+  addedDcaLevels,
+  addedDcaLevelsFrom,
+  type AddedDcaLevel,
+} from './changeDcaLevelsLadder';
 
 export interface ChangeDcaLevelsPreviewDeal {
   botId: string;
@@ -54,17 +62,38 @@ export function useAddedDcaLevels(
 
   // Build the ladder as far as the larger of the two maxes; the projection
   // keys its compute on ordersCount, so it re-runs as the value changes.
+  //
+  // Project it with DCA on, because saving sends `useDca: true`: on a deal
+  // whose DCA is off, the generator otherwise draws the start order alone and
+  // the list stays empty.
   const ladderMax = Math.max(currentMax, newMax);
   const projectedDeal = React.useMemo(
     () =>
       rawDeal
         ? {
             ...rawDeal,
-            settings: { ...rawDeal.settings, ordersCount: `${ladderMax}` },
+            settings: {
+              ...rawDeal.settings,
+              useDca: true,
+              ordersCount: `${ladderMax}`,
+            },
           }
         : null,
     [rawDeal, ladderMax]
   );
+  const fromLevel = rawDeal
+    ? addedDcaLevelsFrom(
+        rawDeal.settings?.useDca !== false,
+        dcaLadderStanding({
+          levels: rawDeal.levels,
+          settings: rawDeal.settings,
+          // `DCADeals` does not type `consumesLadderLevel`; a fund without it
+          // counts as outside the ladder, the same as on the dialog's header.
+          funds: rawDeal.funds as DcaLadderStandingDeal['funds'],
+        }).filled,
+        currentMax
+      )
+    : currentMax;
 
   const { fullLadder } = useDealSmartOrders({
     bot: bot
@@ -105,12 +134,12 @@ export function useAddedDcaLevels(
     () =>
       addedDcaLevels(
         dcaLadderLevels(fullLadder, DCAOrderTypeEnum.dca),
-        currentMax,
+        fromLevel,
         newMax,
         deal?.long ?? true,
         market
       ),
-    [fullLadder, currentMax, newMax, deal?.long, market]
+    [fullLadder, fromLevel, newMax, deal?.long, market]
   );
 
   return { levels, market };
