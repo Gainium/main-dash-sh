@@ -4,8 +4,8 @@ import {
   fillMarkerSize,
   fillTooltip,
   fillUnderCrosshair,
-  largestFillNotional,
   mergeFills,
+  typicalFillNotional,
   withFillValue,
 } from '@/components/widgets/shared/TradingViewChart/fillMarkers';
 import type { TransactionExtended } from '@/components/widgets/shared/TradingViewChart/types';
@@ -28,22 +28,31 @@ const fill = (
   ...(qty != null && { qty }),
 });
 
-test('the largest fill gets the biggest marker, smaller fills shrink by sqrt', () => {
-  const big = withFillValue(fill('a', 100, 4)); // 400
-  const small = withFillValue(fill('b', 100, 1)); // 100
-  const ref = largestFillNotional([big, small]);
-  expect(ref).toBe(400);
-  expect(fillMarkerSize(big.notional, ref)).toBe(34);
-  // 1/4 of the value → half the ratio on the sqrt scale.
-  expect(fillMarkerSize(small.notional, ref)).toBe(24);
-  expect(fillMarkerSize(small.notional, ref)).toBeLessThan(
-    fillMarkerSize(big.notional, ref)
+test('the typical (median) order keeps 20px; bigger grow, smaller shrink by sqrt', () => {
+  const fills = [1, 1, 1, 4, 0.25].map((q, i) =>
+    withFillValue(fill(String(i), 100, q))
   );
+  const ref = typicalFillNotional(fills);
+  expect(ref).toBe(100);
+  expect(fillMarkerSize(100, ref)).toBe(20);
+  // 4× the value → twice as wide; a quarter → half as wide (clamped at 12).
+  expect(fillMarkerSize(400, ref)).toBe(34);
+  expect(fillMarkerSize(225, ref)).toBe(30);
+  expect(fillMarkerSize(25, ref)).toBe(12);
+});
+
+test('equal orders (a grid) all keep the old 20px', () => {
+  const fills = [12.5, 12.5, 12.5].map((q, i) =>
+    withFillValue(fill(String(i), 1.1, q))
+  );
+  const ref = typicalFillNotional(fills);
+  for (const f of fills) expect(fillMarkerSize(f.notional, ref)).toBe(20);
 });
 
 test('fills without a quantity keep the old fixed size', () => {
   const bare = withFillValue(fill('a', 100));
   expect(bare.notional).toBeUndefined();
+  expect(typicalFillNotional([bare])).toBe(0);
   expect(fillMarkerSize(bare.notional, 400)).toBe(20);
   expect(fillMarkerSize(100, 0)).toBe(20);
 });
@@ -69,15 +78,22 @@ test('a single fill reads side, qty, price and value', () => {
   expect(fillTooltip(t)).toBe('Sell 0.0739 @ 270.45 · 19.99 USDT');
 });
 
-test('the crosshair finds the fill in its bar within the icon radius', () => {
+test('the crosshair finds the fill within the icon radius, across bars', () => {
   const day = 86_400;
   const fills = [
-    { seconds: 10 * day, price: 100, size: 30, text: 'A' },
+    { seconds: 10 * day + 500, price: 100, size: 30, text: 'A' },
     { seconds: 10 * day, price: 120, size: 14, text: 'B' },
   ];
-  // 1 price unit per px: A's radius is 15 + 2.
-  expect(fillUnderCrosshair(fills, 10 * day + 500, 110, day, 1)?.text).toBe('A');
-  expect(fillUnderCrosshair(fills, 10 * day, 119, day, 1)?.text).toBe('B');
-  expect(fillUnderCrosshair(fills, 10 * day, 140, day, 1)).toBeNull();
-  expect(fillUnderCrosshair(fills, 11 * day, 100, day, 1)).toBeNull();
+  // 1 price unit and 1 hour per px: A's radius is 15 + 2 px.
+  const hit = (t: number, p: number) =>
+    fillUnderCrosshair(fills, t, p, day, 1, 3_600)?.text ?? null;
+  expect(hit(10 * day, 110)).toBe('A');
+  expect(hit(10 * day, 119)).toBe('B');
+  expect(hit(10 * day, 140)).toBeNull();
+  // A big icon is wider than one bar: the next bar (24px away) misses, but
+  // with 4 h per px it is 6px away and still on the icon.
+  expect(hit(11 * day, 100)).toBeNull();
+  expect(fillUnderCrosshair(fills, 11 * day, 100, day, 1, 14_400)?.text).toBe(
+    'A'
+  );
 });

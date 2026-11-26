@@ -175,6 +175,8 @@ function transactionsFromDeal(
   rawDeal: PreparedDeal,
 ): (TransactionChart & { entity?: undefined })[] {
   const out: (TransactionChart & { entity?: undefined })[] = [];
+  // Labels the order value on hover ("… · 828.21 USDT").
+  const quoteAsset = rawDeal.symbol?.quoteAsset?.name || undefined;
 
   for (const o of rawDeal.filledOrders ?? []) {
     const price = px(o.price);
@@ -186,8 +188,10 @@ function transactionsFromDeal(
       side: String(o.side),
       time: o.filledTime,
       price,
-      // Backtest grid orders carry `qty` at runtime; the type omits it.
+      // `qty` on prepared fills since @gainium/backtester 1.32.2; the local
+      // PreparedGrid type predates it.
       qty: Number((o as { qty?: unknown }).qty) || undefined,
+      quoteAsset,
     });
   }
   if (out.length > 0) return out;
@@ -204,6 +208,7 @@ function transactionsFromDeal(
       time: txn.updateTime,
       price,
       qty: Number(isBuy ? txn.amountBaseBuy : txn.amountBaseSell) || undefined,
+      quoteAsset,
     });
   }
   return out;

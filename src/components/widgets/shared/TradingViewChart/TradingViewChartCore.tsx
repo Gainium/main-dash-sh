@@ -30,9 +30,9 @@ import {
   fillTooltip,
   fillUnderCrosshair,
   isPointFill,
-  largestFillNotional,
   type DrawnFill,
   mergeFills,
+  typicalFillNotional,
   withFillValue,
   normalizeTimeToSeconds,
 } from './transactions';
@@ -745,9 +745,9 @@ export const TradingViewChartCore = forwardRef<
         let visible = (
           resolvedRange ? cache.filter(inRange) : cache.slice()
         ).map(withFillValue);
-        // Sizes are measured against the largest single fill in the whole
+        // Sizes are measured against the typical (median) fill of the whole
         // set, not just the viewport, so a marker keeps its size on pan.
-        const referenceNotional = largestFillNotional(cache);
+        const referenceNotional = typicalFillNotional(cache);
 
         // Collapse to one marker per (side, price level, bar) — the legacy
         // main-dash rule (TVChartContainer.addTransactions keyed by bar-index +
@@ -1162,6 +1162,7 @@ export const TradingViewChartCore = forwardRef<
               unsubscribe: (thisArg: null, cb: (p: CrossHair) => void) => void;
             };
             getVisiblePriceRange?: () => { from?: number; to?: number } | null;
+            getVisibleRange?: () => { from?: number; to?: number } | null;
           })
         | null;
       const delegate = chart?.crossHairMoved?.();
@@ -1181,15 +1182,20 @@ export const TradingViewChartCore = forwardRef<
           return;
         }
         let pricePerPx = 0;
+        let secondsPerPx = 0;
         try {
-          const range = chart.getVisiblePriceRange?.();
-          // The price pane is the container less the time axis (~30px).
-          const paneHeight = Math.max(
-            1,
-            (chartContainerRef.current?.clientHeight ?? 600) - 30
-          );
-          if (range?.from != null && range?.to != null) {
-            pricePerPx = Math.abs(range.to - range.from) / paneHeight;
+          const container = chartContainerRef.current;
+          // The price pane is the container less the time axis (~30px) and
+          // the price axis (~60px).
+          const paneHeight = Math.max(1, (container?.clientHeight ?? 600) - 30);
+          const paneWidth = Math.max(1, (container?.clientWidth ?? 1200) - 60);
+          const prices = chart.getVisiblePriceRange?.();
+          if (prices?.from != null && prices?.to != null) {
+            pricePerPx = Math.abs(prices.to - prices.from) / paneHeight;
+          }
+          const times = chart.getVisibleRange?.();
+          if (times?.from != null && times?.to != null) {
+            secondsPerPx = Math.abs(times.to - times.from) / paneWidth;
           }
         } catch {
           /* no hover without a scale */
@@ -1203,7 +1209,8 @@ export const TradingViewChartCore = forwardRef<
           p.time,
           p.price,
           barSeconds,
-          pricePerPx
+          pricePerPx,
+          secondsPerPx
         );
         setFillHover((prev) =>
           hit

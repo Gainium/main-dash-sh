@@ -2,8 +2,11 @@
 // Pure helpers (no chart or logger), so they can be unit-tested.
 import type { TransactionExtended } from './types';
 
-/** Smallest and largest fill icon, in px. The old fixed size was 20. */
-const FILL_MARKER_MIN_PX = 14;
+/**
+ * Fill icon sizes, in px. A typical order (the median) keeps the old fixed
+ * 20 px, so bots whose orders are all alike (a grid) look as they always did.
+ */
+const FILL_MARKER_MIN_PX = 12;
 const FILL_MARKER_MAX_PX = 34;
 export const FILL_MARKER_DEFAULT_PX = 20;
 
@@ -21,15 +24,20 @@ export function withFillValue(tr: TransactionExtended): TransactionExtended {
   return { ...tr, notional, fillCount: 1 };
 }
 
-/** The largest single fill's value; the 100 % reference for marker sizes. */
-export function largestFillNotional(all: TransactionExtended[]): number {
-  let max = 0;
+/** The median single fill's value; the reference a marker is sized against. */
+export function typicalFillNotional(all: TransactionExtended[]): number {
+  const values: number[] = [];
   for (const tr of all) {
     if (!isPointFill(tr)) continue;
-    const n = withFillValue(tr).notional ?? 0;
-    if (n > max) max = n;
+    const n = withFillValue(tr).notional;
+    if (n != null) values.push(n);
   }
-  return max;
+  if (!values.length) return 0;
+  values.sort((x, y) => x - y);
+  const mid = Math.floor(values.length / 2);
+  return values.length % 2
+    ? (values[mid] as number)
+    : ((values[mid - 1] as number) + (values[mid] as number)) / 2;
 }
 
 /**
@@ -53,9 +61,10 @@ export function mergeFills(
 }
 
 /**
- * Icon size for a fill worth `notional`, against the largest fill. Area grows
- * with value (square-root scale), so a 4× order reads twice as wide and one
- * huge fill doesn't shrink the rest to dots. No size data → the old fixed size.
+ * Icon size for a fill worth `notional`, against the typical (median) fill.
+ * Area grows with value (square-root scale): a 4× order reads twice as wide,
+ * a quarter-size one half as wide, within 12–34 px. Equal orders all keep the
+ * old 20 px. No size data → the old fixed size.
  */
 export function fillMarkerSize(
   notional: number | undefined,
@@ -64,9 +73,9 @@ export function fillMarkerSize(
   if (notional == null || !(notional > 0) || !(reference > 0)) {
     return FILL_MARKER_DEFAULT_PX;
   }
-  const ratio = Math.min(1, Math.sqrt(notional / reference));
+  const size = FILL_MARKER_DEFAULT_PX * Math.sqrt(notional / reference);
   return Math.round(
-    FILL_MARKER_MIN_PX + (FILL_MARKER_MAX_PX - FILL_MARKER_MIN_PX) * ratio
+    Math.min(FILL_MARKER_MAX_PX, Math.max(FILL_MARKER_MIN_PX, size))
   );
 }
 
@@ -107,24 +116,30 @@ export type DrawnFill = {
 };
 
 /**
- * The drawn fill under the crosshair, if any: same bar, and the price within
- * the icon's own radius (converted from px with the pane's price-per-px).
+ * The drawn fill under the crosshair, if any: within the icon's own radius in
+ * screen pixels. A large icon is wider than a candle, so the distance is
+ * measured in both directions, not just "same bar". The crosshair snaps to a
+ * bar's start, so fills are compared by the start of the bar they sit in.
  */
 export function fillUnderCrosshair(
   fills: DrawnFill[],
   time: number,
   price: number,
   barSeconds: number,
-  pricePerPx: number
+  pricePerPx: number,
+  secondsPerPx: number
 ): DrawnFill | null {
-  if (!(pricePerPx > 0)) return null;
-  const bar = Math.floor(time / barSeconds);
+  if (!(pricePerPx > 0) || !(secondsPerPx > 0) || !(barSeconds > 0)) {
+    return null;
+  }
   let best: DrawnFill | null = null;
   let bestDistance = Infinity;
   for (const f of fills) {
-    if (Math.floor(f.seconds / barSeconds) !== bar) continue;
-    const distance = Math.abs(f.price - price);
-    if (distance <= (f.size / 2 + 2) * pricePerPx && distance < bestDistance) {
+    const barStart = Math.floor(f.seconds / barSeconds) * barSeconds;
+    const dx = (barStart - time) / secondsPerPx;
+    const dy = (f.price - price) / pricePerPx;
+    const distance = Math.hypot(dx, dy);
+    if (distance <= f.size / 2 + 2 && distance < bestDistance) {
       best = f;
       bestDistance = distance;
     }
