@@ -1,5 +1,16 @@
 # Changelog
 
+## [2.139.0] - 2026-11-26
+
+### Added
+
+- Deal details drawer: an action bar (add/reduce funds, next DCA, close, and more) whose forms open inline beside the chart; limit prices can be picked on the chart or set by dragging a draft line
+
+### Fixed
+
+- Change DCA levels: the new-levels preview and the max shown now work on deals with DCA turned off
+- Limit price presets wrap instead of being cut off in narrow dialogs
+
 ## [2.138.4] - 2026-11-26
 
 ### Changed
