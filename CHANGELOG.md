@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.140.2] - 2026-11-27
+
+### Fixed
+
+- Bot form footer: the capital-required chip shows the tokenized stock's logo instead of a letter tile on short spot bots
+
 ## [2.140.1] - 2026-11-27
 
 ### Fixed
