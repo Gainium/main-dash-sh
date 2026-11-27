@@ -7,6 +7,7 @@ import {
   TrendingDown,
   TrendingUp,
 } from 'lucide-react';
+import { InlineError } from '@/components/ui/inline-error';
 import React from 'react';
 import type { BacktestData } from '../../hooks/useBacktests';
 import logger from '../../lib/loggerInstance';
@@ -116,15 +117,7 @@ export const BacktestResultsModal: React.FC<BacktestResultsModalProps> = ({
           )}
 
           {error && (
-            <Card className="border-red-200 bg-red-50">
-              <CardContent className="pt-6">
-                <div className="flex items-center gap-xs text-red-700">
-                  <AlertCircle className="w-5 h-5" />
-                  <span className="font-medium">Backtest Error</span>
-                </div>
-                <p className="text-red-600 mt-2">{error}</p>
-              </CardContent>
-            </Card>
+            <InlineError title="Backtest Error" message={error} />
           )}
 
           {backtestResult && !isLoading && !error && (

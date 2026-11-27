@@ -2,6 +2,7 @@ import React from 'react';
 import { PlayCircle } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import {
   Dialog,
   DialogContent,
@@ -99,12 +100,12 @@ const LegFunding: React.FC<{
 }> = ({ leg, plan, baseAsset, quoteAsset }) => {
   if (plan.kind === 'refuse') {
     return (
-      <div className="text-sm text-destructive" role="alert">
+      <InlineError>
         {plan.message ||
           `Not enough ${plan.needAsset ?? ''}: ≈ ${fmt(plan.required ?? 0)} needed, ${fmt(
             plan.held ?? 0
           )} available`}
-      </div>
+      </InlineError>
     );
   }
   const required = plan.required ?? 0;
@@ -394,9 +395,7 @@ export const HedgeStartDialog: React.FC<HedgeStartDialogProps> = ({
             );
           })}
           {failed ? (
-            <div className="text-sm text-destructive" role="alert">
-              {failure}
-            </div>
+            <InlineError message={failure} />
           ) : null}
         </div>
 

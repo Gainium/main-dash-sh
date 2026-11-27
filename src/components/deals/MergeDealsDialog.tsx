@@ -11,6 +11,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Checkbox } from '@/components/ui/checkbox';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { fetchDealOrders } from '@/hooks/useDealOrders';
@@ -353,10 +354,10 @@ function MergeDcaPanel({
         </table>
       </div>
       {typeof freeQuote === 'number' && covered < ladder.length && (
-        <p className="text-xs text-destructive">
+        <InlineError size="compact">
           Free balance {amount(freeQuote)} {quoteAsset} covers {covered} of{' '}
           {ladder.length} levels
-        </p>
+        </InlineError>
       )}
     </div>
   );

@@ -34,6 +34,7 @@ import { PromptPill } from '../onboarding/PromptPill';
 import { OnboardingSurvey } from '../survey/OnboardingSurvey';
 import { PWAStatus } from '../ui/PWAStatus';
 import { EncryptionKeyNotice } from './EncryptionKeyNotice';
+import { HyperliquidRenewHost } from '../exchanges/HyperliquidRenewHost';
 import { UpdateAvailableNotice } from './UpdateAvailableNotice';
 import HeaderWidgetsManager from './HeaderManager';
 import MobileBottomNav from './MobileBottomNav';
@@ -466,6 +467,7 @@ const MainLayoutContent: React.FC<MainLayoutContentProps> = ({
       <Socket />
       <OnboardingSurvey />
       <DemoModePill />
+      <HyperliquidRenewHost />
 
       {/* Cloud-only pending-account-delete banner. Sh renders nothing. */}
       <Slot name="layout.pendingDeleteBanner" />

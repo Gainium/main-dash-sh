@@ -22,6 +22,16 @@ export type ExchangeInUser = {
    * the user to replace. Server-computed; false unless the backend flagged it.
    */
   rotationRequired?: boolean;
+  /** Hyperliquid only: the API (agent) wallet and its expiry. Cloud only. */
+  hlAgent?: HyperliquidAgentInfo | null;
+};
+
+export type HyperliquidAgentInfo = {
+  address?: string | null;
+  state?: 'active' | 'expired' | 'missing' | 'master' | 'unknown' | null;
+  /** ms epoch; null when the agent has no expiry or is not listed. */
+  expiresAt?: number | null;
+  checkedAt?: number | null;
 };
 
 export enum OKXSource {

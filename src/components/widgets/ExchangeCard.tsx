@@ -6,6 +6,7 @@ import { StatusEnum, type PortfolioQuery, type Snapshots } from '@/types';
 import { ExchangeEnum, type ExchangeInUser } from '@/types/exchange.types';
 import { StatusChip } from '@/components/ui/chip/StatusChip';
 import { RotationChip } from '@/components/ui/chip/RotationChip';
+import { HyperliquidAgentChip } from '@/components/ui/chip/HyperliquidAgentChip';
 import {
   formatExchangeProvider,
   getProviderIcon,
@@ -383,6 +384,7 @@ export const ExchangeCard: React.FC<ExchangeCardProps> = ({
                           : undefined
                       }
                     />
+                    <HyperliquidAgentChip uuid={exchange.id} />
                   </div>
                   {isUnified ? (
                     <span className="text-base text-muted-foreground truncate">

@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { useDialogPresentation } from '@/components/ui/dialog-presentation';
 import { Label } from '@/components/ui/label';
 import { NumberInput } from '@/components/ui/number-input';
@@ -190,7 +191,7 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
               </Button>
             </div>
             {error ? (
-              <div className="text-sm text-destructive">{error}</div>
+              <InlineError message={error} />
             ) : null}
           </div>
 
@@ -267,11 +268,11 @@ export const ChangeDcaLevelsDialog: React.FC<ChangeDcaLevelsDialogProps> = ({
             </div>
           ) : null}
           {preview?.kind === 'refuse' ? (
-            <div className="text-sm text-destructive">
+            <InlineError>
               Not enough {preview.quoteAsset}: ≈ {fmt(preview.buyQuote)}{' '}
               needed, {fmt(Math.max(0, preview.freeQuote - preview.reservedQuote))}{' '}
               available
-            </div>
+            </InlineError>
           ) : null}
         </div>
 

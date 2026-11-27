@@ -2,6 +2,7 @@ import { DialogSearchInput } from '@/components/common/DialogSearchInput';
 import { ItemRowList } from '@/components/common/ItemRowList';
 import ShortcutRecorder from '@/components/common/ShortcutRecorder';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Input } from '@/components/ui/input';
 import { InfoIcon, Tooltip } from '@/components/ui/tooltip';
 import { useShortcutStore, type ShortcutConfig } from '@/stores/shortcutStore';
@@ -339,9 +340,7 @@ export const ShortcutsList: React.FC<ShortcutsListProps> = ({
                       </div>
                     </div>
                     {newError && (
-                      <div className="text-sm text-destructive mt-2">
-                        {newError}
-                      </div>
+                      <InlineError className="mt-2" message={newError} />
                     )}
                   </>
                 )}

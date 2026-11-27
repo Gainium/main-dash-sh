@@ -1,4 +1,5 @@
 import SettingsAlert from '@/components/ui/SettingsAlert';
+import { InlineError } from '@/components/ui/inline-error';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -824,15 +825,14 @@ export const GridStartBotDialog: React.FC<GridStartBotDialogProps> = ({
                   />
                 )}
                 {startDialog.textNow !== '' && (
-                  <p className="text-xs text-destructive">
-                    {startDialog.textNow}
-                  </p>
+                  <InlineError size="compact" message={startDialog.textNow} />
                 )}
                 {formData.grid.useOrderInAdvance &&
                   startDialog.textTotal !== '' && (
-                    <p className="text-xs text-destructive">
-                      {startDialog.textTotal}
-                    </p>
+                    <InlineError
+                      size="compact"
+                      message={startDialog.textTotal}
+                    />
                   )}
               </AssetSummaryCard>
             </div>

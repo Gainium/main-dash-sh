@@ -1,4 +1,5 @@
 import { IS_CLOUD } from '@/config/mode';
+import { InlineError } from '@/components/ui/inline-error';
 import { useIsReadOnly } from '@/lib/demoMode';
 import { Slot } from '@/lib/extensions';
 import { useIsCompactSpacing } from '@/hooks/useSpacing';
@@ -1723,7 +1724,7 @@ const Settings: React.FC = () => {
                     />
                   </div>
                   {regenError && (
-                    <p className="text-sm text-red-500">{regenError}</p>
+                    <InlineError message={regenError} />
                   )}
                 </div>
               )}

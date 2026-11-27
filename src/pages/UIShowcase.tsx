@@ -1,5 +1,6 @@
 /* eslint-disable spacing/no-hardcoded-font-size */
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { InlineError } from '@/components/ui/inline-error';
 import { Badge } from '@/components/ui/badge';
 import { PlanBadge } from '@/components/subscription/PlanBadge';
 import { BalanceInput } from '@/components/ui/balance-input';
@@ -2610,6 +2611,37 @@ export default function UIShowcase() {
                     wrong.
                   </AlertDescription>
                 </Alert>
+              </CardContent>
+            </Card>
+
+            <Card data-showcase="inline-error">
+              <CardHeader>
+                <CardTitle>Inline error</CardTitle>
+                <CardDescription>
+                  Errors inside dialogs, sheets and drawers
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-md">
+                <InlineError message="No Web3 wallet detected." />
+                <InlineError message="Hyperliquid refused the agent approval: User or API Wallet 0x7a3f9c2e41b8d05f6e1a9c3b7d2e8f4a5b6c7d8e does not exist. Deposit funds first, then sign again (nonce 1764230411822, hash 0x9f2c4e81a7b3d6f5c0e9a8b7d6c5f4e3a2b1c0d9e8f7a6b5c4d3e2f1a0b9c8d7)." />
+                <InlineError
+                  title="Failed to load article"
+                  message="Request failed with status code 503"
+                />
+                <InlineError title="Please review the highlighted fields:">
+                  <ul className="ml-4 list-disc space-y-1">
+                    <li>Length</li>
+                    <li>Source</li>
+                  </ul>
+                </InlineError>
+                <InlineError
+                  size="compact"
+                  message="Free balance 120.5 USDT covers 3 of 5 levels"
+                />
+                <InlineError
+                  variant="warning"
+                  message="Not enough USDT: ≈ 250 needed, 180 available"
+                />
               </CardContent>
             </Card>
 

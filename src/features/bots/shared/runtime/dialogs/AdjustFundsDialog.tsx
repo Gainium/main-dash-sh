@@ -9,6 +9,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Label } from '@/components/ui/label';
 import {
   Select,
@@ -1068,7 +1069,7 @@ export const AdjustFundsDialog: React.FC<AdjustFundsDialogProps> = ({
               </div>
             ) : null}
             {!!blockingError && (
-              <div className="text-sm text-destructive">{blockingError}</div>
+              <InlineError message={blockingError} />
             )}
           </div>
 

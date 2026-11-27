@@ -2153,6 +2153,17 @@ const dcaMultiBotFragment = `
 
 `;
 
+// Hyperliquid API-wallet expiry. Only the cloud backend reads it (the sync is
+// a cloud cron job), and an older self-hosted backend would reject the field.
+const HL_AGENT_SELECTION = IS_CLOUD
+  ? `hlAgent {
+  address
+  state
+  expiresAt
+  checkedAt
+}`
+  : '';
+
 const exchangeFragment = `
 key
 provider
@@ -2172,6 +2183,7 @@ waitingForConfirmation
 affiliate
 subaccount
 rotationRequired
+${HL_AGENT_SELECTION}
 `;
 
 const shortExchangeFragment = `

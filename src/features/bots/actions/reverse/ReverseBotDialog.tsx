@@ -1,8 +1,8 @@
 import { AlertTriangle, ArrowRight, ArrowUpDown } from 'lucide-react';
 import React, { useEffect, useState } from 'react';
 
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
+import { InlineError } from '@/components/ui/inline-error';
 import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
@@ -207,15 +207,11 @@ export const ReverseBotDialog: React.FC<ReverseBotDialogProps> = ({
         )}
 
         {preview.isError && (
-          <Alert variant="destructive">
-            <AlertDescription>{reverseErrorMessage(preview.error)}</AlertDescription>
-          </Alert>
+          <InlineError message={reverseErrorMessage(preview.error)} />
         )}
 
         {p?.refusal && (
-          <Alert variant="destructive">
-            <AlertDescription>{p.refusal}</AlertDescription>
-          </Alert>
+          <InlineError message={p.refusal} />
         )}
 
         {p && !p.refusal && nb && (
@@ -350,9 +346,7 @@ export const ReverseBotDialog: React.FC<ReverseBotDialogProps> = ({
         )}
 
         {failure && (
-          <Alert variant="destructive">
-            <AlertDescription>{failure}</AlertDescription>
-          </Alert>
+          <InlineError message={failure} />
         )}
 
         <DialogFooter className="flex-col gap-sm sm:flex-row sm:items-center">

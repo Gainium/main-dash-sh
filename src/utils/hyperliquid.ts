@@ -21,6 +21,66 @@ export const generateAgentWallet = (): {
 };
 
 /**
+ * Every Gainium agent is approved under this name. Hyperliquid keeps one agent
+ * per name, so approving a new one REPLACES the previous Gainium agent of the
+ * same wallet — every other connection on that wallet must then be given the
+ * new key too (see `hyperliquidSiblings`).
+ */
+export const GAINIUM_AGENT_NAME = 'GainiumTrading';
+
+/** Hyperliquid caps agent validity at 180 days; one day of margin. */
+export const AGENT_VALIDITY_DAYS = 179;
+
+const approvalError = (label: string, e: unknown) => {
+  const err = e as { response?: { response?: unknown } };
+  return {
+    success: false as const,
+    error: label,
+    details: err?.response?.response?.toString() || `${e}`,
+  };
+};
+
+const exchangeClientFor = (signer: ethers.Signer) => {
+  const isTestnet = import.meta.env['VITE_HYPERLIQUID_ENV'] === 'demo';
+  const transport = new hl.HttpTransport({ isTestnet });
+  return new hl.ExchangeClient({
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    wallet: signer as any, // The SDK supports ethers signers
+    transport,
+    isTestnet,
+  });
+};
+
+/**
+ * Generate a new agent and have the wallet approve it — the one signature a
+ * renewal needs. The builder-fee approval belongs to the wallet, not to the
+ * agent, so a renewal never asks for it again.
+ */
+export const approveHyperliquidAgent = async (
+  signer: ethers.Signer
+): Promise<
+  | { success: true; agentAddress: string; agentPrivateKey: string }
+  | { success: false; error: string; details: string }
+> => {
+  const agent = generateAgentWallet();
+  try {
+    await exchangeClientFor(signer).approveAgent({
+      agentAddress: agent.address as Hex,
+      agentName: `${GAINIUM_AGENT_NAME} valid_until ${
+        +new Date() + AGENT_VALIDITY_DAYS * 24 * 60 * 60 * 1000
+      }`,
+    });
+  } catch (e) {
+    return approvalError('Failed to approve agent', e);
+  }
+  return {
+    success: true,
+    agentAddress: agent.address,
+    agentPrivateKey: agent.privateKey,
+  };
+};
+
+/**
  * Complete Hyperliquid setup flow:
  * 1. Generate agent wallet
  * 2. Approve agent using the Hyperliquid SDK
@@ -42,40 +102,13 @@ export const completeHyperliquidSetup = async (
 }> => {
   const maxFeeRate = '0.07%';
   try {
-    // Step 1: Generate agent wallet
-    const agent = generateAgentWallet();
-    const isTestnet =
-      import.meta.env['VITE_HYPERLIQUID_ENV'] === 'demo';
-
-    // Step 2: Create Hyperliquid exchange client with the main wallet
-    const transport = new hl.HttpTransport({ isTestnet });
-
-    const exchClient = new hl.ExchangeClient({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      wallet: signer as any, // The SDK supports ethers signers
-      transport,
-      isTestnet,
-    });
-
-    // Step 3: Approve the agent
-    try {
-      await exchClient.approveAgent({
-        agentAddress: agent.address as Hex,
-        agentName: `GainiumTrading valid_until ${
-          +new Date() + 90 * 24 * 60 * 60 * 1000
-        }`,
-      });
-    } catch (agentError: unknown) {
-      const err = agentError as { response?: { response?: unknown } };
-      return {
-        success: false,
-        error: 'Failed to approve agent',
-        details:
-          err?.response?.response?.toString() || `${agentError}`,
-      };
+    const approved = await approveHyperliquidAgent(signer);
+    if (!approved.success) {
+      return approved;
     }
+    const exchClient = exchangeClientFor(signer);
 
-    // Step 4: Approve builder fee (if requested)
+    // Approve builder fee (if requested)
     if (useApproveBuilderFees) {
       const apiEndpoint =
         import.meta.env['VITE_API_ENDPOINT'] || 'http://localhost:4000';
@@ -128,8 +161,8 @@ export const completeHyperliquidSetup = async (
 
     return {
       success: true,
-      agentAddress: agent.address,
-      agentPrivateKey: agent.privateKey,
+      agentAddress: approved.agentAddress,
+      agentPrivateKey: approved.agentPrivateKey,
     };
   } catch (error) {
     return {

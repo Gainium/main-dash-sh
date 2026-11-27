@@ -28,6 +28,7 @@ import React, {
 } from 'react';
 import { createPortal } from 'react-dom';
 import { Checkbox } from '@/components/ui/checkbox';
+import { InlineError } from '@/components/ui/inline-error';
 import { Chip } from '@/components/ui/chip';
 import { DataTable } from '@/components/ui/data-table/data-table';
 import {
@@ -1113,9 +1114,9 @@ export const PairPickerDialog: React.FC<PairPickerDialogProps> = ({
 
         </div>
         {notice && (
-          <p role="status" className="px-md pt-xs text-xs text-destructive">
-            {notice}
-          </p>
+          <div className="px-md pt-xs">
+            <InlineError role="status" size="compact" message={notice} />
+          </div>
         )}
         {/* The table scrolls itself (so its header and toolbar stay put):
             give it the remaining height rather than scrolling this box. */}

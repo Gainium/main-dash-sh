@@ -7,7 +7,10 @@ import {
   Trash2,
   Zap,
 } from 'lucide-react';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
+import { useHyperliquidRenewStore } from '../stores/hyperliquidRenewStore';
+import { findRenewTarget } from '@/utils/hyperliquidRenewal';
 import { ExchangeDialog } from '../components/exchanges';
 import DeleteExchangeDialog from '../components/exchanges/DeleteExchangeDialog';
 import EmptyStateExchanges from '../components/exchanges/EmptyStateExchanges';
@@ -23,6 +26,7 @@ import {
   DropdownMenuTrigger,
 } from '../components/ui/dropdown-menu';
 import { RotationChip } from '../components/ui/chip/RotationChip';
+import { HyperliquidAgentChip } from '../components/ui/chip/HyperliquidAgentChip';
 import ExchangeCard from '../components/widgets/ExchangeCard';
 import { useExchangeActions } from '../hooks/useExchangeActions';
 import { type UIExchange } from '../hooks/useTransformedExchanges';
@@ -82,6 +86,23 @@ const Exchanges: React.FC = () => {
   const handleEditExchange = (exchangeData: ExchangeInUser) => {
     setEditExchangeDialog({ isOpen: true, exchangeData });
   };
+
+  // `?renew=<uuid>` (or `?renew=hyperliquid`) — the link in the expiry
+  // notices — opens the Hyperliquid renewal dialog once the connections load.
+  const [searchParams, setSearchParams] = useSearchParams();
+  const renewParam = searchParams.get('renew');
+  const storeExchanges = useExchangesStore((s) => s.exchanges);
+  const openRenew = useHyperliquidRenewStore((s) => s.open);
+  useEffect(() => {
+    if (!renewParam) return;
+    const all = Object.values(storeExchanges);
+    if (!all.length) return;
+    const target = findRenewTarget(renewParam, all, Date.now());
+    if (target) openRenew(target.uuid);
+    const next = new URLSearchParams(searchParams);
+    next.delete('renew');
+    setSearchParams(next, { replace: true });
+  }, [renewParam, storeExchanges, openRenew, searchParams, setSearchParams]);
 
   return (
     <MainLayout pageTitle="Exchanges" activePage="/exchanges">
@@ -178,6 +199,7 @@ const ExchangeCardsGrid: React.FC<{
                   onEdit(resolveExchangeData(exchange));
                 }}
               />
+              <HyperliquidAgentChip uuid={exchange.id} />
             </div>
           );
         },

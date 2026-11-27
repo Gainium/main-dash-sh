@@ -7,6 +7,7 @@ import {
   FolderOpen,
   Upload,
 } from 'lucide-react';
+import { InlineError } from '@/components/ui/inline-error';
 import React, { useCallback, useState } from 'react';
 import { Alert, AlertDescription } from '../ui/alert';
 import { Button } from '../ui/button';
@@ -499,16 +500,13 @@ export const SettingsImportExportModal: React.FC<
           {/* Errors */}
           {errors.length > 0 && (
             <div className="px-6">
-              <Alert variant="destructive">
-                <AlertTriangle className="h-4 w-4" />
-                <AlertDescription className="text-sm">
-                  <ul className="list-disc list-inside space-y-1">
-                    {errors.map((error, index) => (
-                      <li key={index}>{error}</li>
-                    ))}
-                  </ul>
-                </AlertDescription>
-              </Alert>
+              <InlineError>
+                <ul className="list-disc list-inside space-y-1">
+                  {errors.map((error, index) => (
+                    <li key={index}>{error}</li>
+                  ))}
+                </ul>
+              </InlineError>
             </div>
           )}
         </div>

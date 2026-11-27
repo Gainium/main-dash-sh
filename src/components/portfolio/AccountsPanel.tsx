@@ -9,6 +9,7 @@ import { Button } from '../ui/button';
 import Widget from '../ui/widget';
 import ExchangeIcon from '../widgets/shared/ExchangeIcon';
 import { RotationChip } from '../ui/chip/RotationChip';
+import { HyperliquidAgentChip } from '../ui/chip/HyperliquidAgentChip';
 import {
   unifiedAccountName as groupName,
   unifiedLegName as legName,
@@ -299,6 +300,7 @@ export const AccountsPanel: React.FC<AccountsPanelProps> = ({
                 compact
                 onClick={(e) => handleEditExchange(exchange, e)}
               />
+              <HyperliquidAgentChip uuid={exchange.id} compact />
             </div>
           </div>
 

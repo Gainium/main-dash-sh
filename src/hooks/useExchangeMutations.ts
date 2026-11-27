@@ -324,7 +324,7 @@ export function useExchangeMutations() {
       const service = createExchangeServiceInstance(tokens, isLiveTrading);
       return service.updateExchange(input);
     },
-    onSuccess: (data) => {
+    onSuccess: (data, variables) => {
       logger.info('Exchange updated successfully:', data);
 
       // See addExchange: `['user']` is the exchange list's cache key.
@@ -340,10 +340,25 @@ export function useExchangeMutations() {
       // mutations); a hard replace clobbers the local truth we just set
       // via the live toggle, which is how the dialog ended up rendering
       // hedge=false even though the DB had hedge=true.
+      //
+      // `key` too: the mutation answers with the STORED (sealed) key, while the
+      // list query decrypts it. Merging it would put ciphertext where the
+      // wallet / API key is shown and compared (Hyperliquid sibling legs are
+      // matched on the wallet). Keep what the user sent, else what we had.
+      // `balance` likewise: the stored connection has none, so the answer
+      // carries null and the row read "—" until the next full reload.
       const existing = useExchangesStore.getState().exchanges[data.uuid];
-      useExchangesStore
-        .getState()
-        .addOrUpdateExchange(existing ? { ...existing, ...data } : data);
+      const key = variables.key || existing?.key;
+      useExchangesStore.getState().addOrUpdateExchange(
+        existing
+          ? {
+              ...existing,
+              ...data,
+              ...(key ? { key } : {}),
+              balance: data.balance ?? existing.balance,
+            }
+          : { ...data, ...(key ? { key } : {}) }
+      );
     },
     onError: (error) => {
       logger.error('Failed to update exchange:', error);

@@ -7,6 +7,7 @@
 
 import { IndicatorEdgePanel } from '@/components/indicators/IndicatorEdgePanel';
 import { Badge } from '@/components/ui/badge';
+import { InlineError } from '@/components/ui/inline-error';
 import {
   Dialog,
   DialogContent,
@@ -228,12 +229,7 @@ export const HelpArticleModal: React.FC<HelpArticleModalProps> = ({
 
           {error && (
             <div className="p-md">
-              <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-sm">
-                <p className="text-sm text-destructive font-medium">
-                  Failed to load article
-                </p>
-                <p className="text-sm text-destructive/80">{error}</p>
-              </div>
+              <InlineError title="Failed to load article" message={error} />
             </div>
           )}
 

@@ -7,6 +7,7 @@ export * from './detail-drawer';
 export * from './dialog';
 export * from './field-variable-binding';
 export * from './global-variable-button';
+export * from './inline-error';
 export * from './number-input';
 export * from './ResponsiveFormLayout';
 export * from './ResponsiveTabNavigation';

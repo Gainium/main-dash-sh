@@ -234,6 +234,7 @@ const ExchangeDialog: React.FC<ExchangeDialogProps> = ({
                 fallbackMessage="There was an error loading the exchange form. Please try again."
               >
                 <ExchangeForm
+                  exchangeUuid={exchangeData?.uuid}
                   initialData={getInitialFormData()}
                   onSubmit={handleFormSubmit}
                   onCancel={onClose}

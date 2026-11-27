@@ -1,4 +1,5 @@
 import { paidExchanges } from '@/constants/subscription';
+import { InlineError } from '@/components/ui/inline-error';
 import { getExchangeSignup } from '@/constants/affiliateLinks';
 import { offersUnlimitedTrading } from '@/constants/unlimitedTrading';
 import { UnlimitedBadge } from './UnlimitedBadge';
@@ -9,6 +10,7 @@ import { Slot } from '@/lib/extensions';
 import { useTrial } from '@/lib/trial';
 import { toast } from '@/lib/toast';
 import { completeHyperliquidSetup } from '@/utils/hyperliquid';
+import { useHyperliquidAgentPropagation } from '@/hooks/useHyperliquidAgentPropagation';
 import { isFuturesExchange, showZeroFee } from '@/utils/exchangeUtils';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import React, {
@@ -85,6 +87,8 @@ interface ExchangeFormProps {
   onIgnoreFeesChange?: (value: boolean) => Promise<void>;
   hedgeModePending?: boolean;
   ignoreFeesPending?: boolean;
+  /** Edit mode: the connection being edited, so it is not updated twice. */
+  exchangeUuid?: string | undefined;
 }
 
 const getExchangeHelpPath = (name?: string): string | null => {
@@ -156,6 +160,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
   onIgnoreFeesChange,
   hedgeModePending = false,
   ignoreFeesPending = false,
+  exchangeUuid,
 }) => {
   // Unified entitlements gate. Cloud reads `userProfile.subscription.subscriptionPlanName`
   // against `paidPlans`; sh reads `useLicense().isPremium`. The
@@ -247,6 +252,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
 
   // Web3 wallet state for Hyperliquid
   const web3Wallet = useWeb3Wallet();
+  const { updateLegs, siblingsOf } = useHyperliquidAgentPropagation();
   const [hyperliquidSetupStatus, setHyperliquidSetupStatus] = useState<
     'idle' | 'connecting' | 'approving' | 'success' | 'error'
   >('idle');
@@ -327,6 +333,27 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
           'Hyperliquid wallet connected and approved successfully!'
         );
 
+        // The approval replaced the Gainium agent every other connection on
+        // this wallet holds, so give them the new key BEFORE submitting this
+        // one: the edit dialog unmounts as soon as its own save resolves.
+        const siblings = siblingsOf(w.account, exchangeUuid);
+        if (siblings.length && result.agentPrivateKey) {
+          const moved = await updateLegs(
+            siblings.map((s) => s.uuid),
+            w.account,
+            result.agentPrivateKey
+          );
+          if (moved.failed.length) {
+            toast.error(
+              `Could not move ${moved.failed
+                .map((f) => f.name)
+                .join(', ')} to the new wallet key — renew ${
+                moved.failed.length > 1 ? 'them' : 'it'
+              } from Exchanges.`
+            );
+          }
+        }
+
         // Submit the exchange with wallet account as key and agent private key as secret
         await onSubmit({
           ...formData,
@@ -340,7 +367,15 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         setHyperliquidSetupStatus('error');
       }
     },
-    [isHyperliquid, web3Wallet, onSubmit, formData]
+    [
+      isHyperliquid,
+      web3Wallet,
+      onSubmit,
+      formData,
+      siblingsOf,
+      updateLegs,
+      exchangeUuid,
+    ]
   );
 
   // Sync useApproveBuilderFees when user profile loads/changes
@@ -1138,12 +1173,7 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
     <form onSubmit={handleSubmit} className="space-y-lg">
       {/* Connection Status Alert */}
       {connectionStatus.connectionError && (
-        <div className="flex items-start p-md text-red-800 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800 dark:text-red-200">
-          <AlertCircle className="h-4 w-4 mr-2 mt-0.5 shrink-0" />
-          <p className="min-w-0 text-sm break-words">
-            {connectionStatus.connectionError}
-          </p>
-        </div>
+        <InlineError message={connectionStatus.connectionError} />
       )}
 
       {/* Paper/Live Switch */}
@@ -1550,16 +1580,10 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
                   </div>
 
                   {web3Wallet.error && (
-                    <div className="flex items-center p-md text-red-800 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800 dark:text-red-200">
-                      <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
-                      <p className="text-sm">{web3Wallet.error}</p>
-                    </div>
+                    <InlineError message={web3Wallet.error} />
                   )}
                   {hyperliquidError && (
-                    <div className="flex items-center p-md text-red-800 bg-red-50 border border-red-200 rounded-lg dark:bg-red-950/20 dark:border-red-800 dark:text-red-200">
-                      <AlertCircle className="h-4 w-4 mr-2 shrink-0" />
-                      <p className="text-sm">{hyperliquidError}</p>
-                    </div>
+                    <InlineError message={hyperliquidError} />
                   )}
                   {web3Wallet.walletState.isConnected && (
                     <div className="flex items-center p-md text-blue-800 bg-blue-50 border border-blue-200 rounded-lg dark:bg-blue-950/20 dark:border-blue-800 dark:text-blue-200">

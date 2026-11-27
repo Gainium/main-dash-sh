@@ -1,5 +1,6 @@
 import React from 'react';
 import { HelpArticlePill } from '@/components/ui/HelpArticlePill';
+import { InlineError } from '@/components/ui/inline-error';
 import {
   Dialog,
   DialogContent,
@@ -526,16 +527,13 @@ export const IndicatorConfigurationModal: React.FC<
               }}
             >
               {errors.length > 0 ? (
-                <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-md text-sm text-destructive shadow-sm">
-                  <p className="mb-2 font-medium">
-                    Please review the highlighted fields:
-                  </p>
-                  <ul className="ml-4 list-disc space-y-1 text-destructive">
+                <InlineError title="Please review the highlighted fields:">
+                  <ul className="ml-4 list-disc space-y-1">
                     {errors.map((key) => (
                       <li key={key}>{getFieldLabel(definition, key) ?? key}</li>
                     ))}
                   </ul>
-                </div>
+                </InlineError>
               ) : null}
 
               <ScrollArea className="max-h-104 pr-1">
