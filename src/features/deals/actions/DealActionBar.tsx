@@ -1,6 +1,6 @@
 // The deal drawer's action bar: the actions that place orders as buttons, the
 // rest in a "More" menu. Items, gating and reasons all come from the registry
-// (surface `dealDrawer`), like every other deal action surface.
+// (surface `dealDrawer` / `dealDrawerWithEdit`), like every other surface.
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -17,6 +17,7 @@ import {
   getDealActionItems,
   type DealActionId,
   type DealActionItem,
+  type DealActionSurfaceId,
 } from './dealActionRegistry';
 import { useDealActionRunner } from './dealActionsContext';
 import type { DealRef } from './dealRef';
@@ -38,14 +39,21 @@ const SHORT_LABEL: Partial<Record<DealActionId, string>> = {
 
 export interface DealActionBarProps {
   deal: DealRef;
+  /** `dealDrawer`, or `dealDrawerWithEdit` where a deal editor is wired. */
+  surface?: DealActionSurfaceId;
   /** The action whose panel is open, drawn as selected. */
   activeId?: DealActionId | undefined;
   className?: string;
 }
 
-export function DealActionBar({ deal, activeId, className }: DealActionBarProps) {
+export function DealActionBar({
+  deal,
+  surface = 'dealDrawer',
+  activeId,
+  className,
+}: DealActionBarProps) {
   const { run } = useDealActionRunner();
-  const items = getDealActionItems(deal, 'dealDrawer');
+  const items = getDealActionItems(deal, surface);
   // A deal that can take no action (a closed one) gets no bar at all.
   if (!items.some((item) => item.disabledReason === null)) return null;
 

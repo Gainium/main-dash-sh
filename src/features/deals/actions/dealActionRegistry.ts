@@ -333,6 +333,8 @@ export const DEAL_ACTION_SURFACES = {
    * hook of its own, and the drawer already is the details view.
    */
   dealDrawer: { exclude: ['view', 'journal', 'edit'] },
+  /** The same bar in a drawer that has a deal editor (the bot drawer). */
+  dealDrawerWithEdit: { exclude: ['view', 'journal'] },
 } as const satisfies Record<string, DealActionSurface>;
 
 export type DealActionSurfaceId = keyof typeof DEAL_ACTION_SURFACES;

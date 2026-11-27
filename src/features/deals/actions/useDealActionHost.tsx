@@ -186,6 +186,8 @@ export function useDealActionHost({
   dialogs: React.ReactNode;
   /** The action whose dialog is open, if any. */
   pendingId: DealActionId | undefined;
+  /** Closes the open dialog without running it. */
+  closePending: () => void;
 } {
   const [pending, setPending] = useState<Pending | null>(null);
   const closePending = useCallback(() => setPending(null), []);
@@ -966,5 +968,5 @@ export function useDealActionHost({
     </DialogPresentationProvider>
   );
 
-  return { runner, dialogs, pendingId };
+  return { runner, dialogs, pendingId, closePending };
 }

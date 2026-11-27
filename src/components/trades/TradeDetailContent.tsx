@@ -127,6 +127,9 @@ interface TradeDetailContentProps {
   pendingReduceFunds?: (AddFundsSettings & { id: string })[];
 }
 
+/** The deal row a deal details view renders. */
+export type DealDetailTrade = TradeDetailContentProps['trade'];
+
 export const TradeDetailContent: React.FC<TradeDetailContentProps> = ({
   trade,
   privacyMode = false,

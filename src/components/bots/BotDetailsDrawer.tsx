@@ -61,6 +61,8 @@ import React, {
 } from 'react';
 import { useLocation, useSearchParams } from 'react-router-dom';
 import { TradeDetailContent } from '../../components/trades/TradeDetailContent';
+import { DealDetailActions } from '@/features/deals/detail/DealDetailActions';
+import { useDealDetailView } from '@/features/deals/detail/useDealDetailView';
 import { ShareBotDialog } from '../../features/bots/shared/runtime/dialogs/ShareBotDialog';
 import { useBotViewTracking } from '../../hooks/useBotAnalytics';
 import { useBotActions } from '../../hooks/useBotActions';
@@ -273,6 +275,19 @@ const mapDrawerBotTypeToBotType = (type: BotTypesEnum): BotType => {
 };
 
 const statusNew = { status: 'NEW', autoPaginate: true };
+
+/** Stands in for the deal view's row while no deal is open (hooks run anyway). */
+const NO_TRADE: TradeDetails = {
+  id: '',
+  type: 'DCA',
+  symbol: '',
+  strategy: '',
+  status: '',
+  exchange: '',
+  currentBalance: { base: 0, quote: 0 },
+  usage: { current: { base: 0, quote: 0 } },
+  levels: { complete: 0, all: 0 },
+};
 const statusFilled = { status: 'FILLED', autoPaginate: true };
 type BuiltInBotTab =
   | 'deals'
@@ -1138,6 +1153,23 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
       selectedTrade?.id ? (s.deals[bot._id]?.[selectedTrade.id] ?? null) : null
     );
 
+    // The deal view shared with the standalone deal drawer: figures from the
+    // live deal, the action bar with inline forms, and the chart price picker.
+    const dealView = useDealDetailView({
+      trade: selectedTrade ?? NO_TRADE,
+      rawDeal: rawDeal as DCADeals | null,
+      onEdit: rawDeal
+        ? () => handleEditDeal([rawDeal as DCADeals])
+        : undefined,
+    });
+    // The chart panel below is memoized; it takes only the picker's own
+    // (stable) values, not the whole view, which is new on every render.
+    const {
+      lines: dealDraftLines,
+      isActive: dealPickerActive,
+      onPick: onDealPricePick,
+    } = dealView.picker;
+
     // The open deal's own orders. The bot-level pool above stops at its 2×500
     // newest orders, so on a busy bot an older deal's base order and early DCA
     // levels are not in it. `useDealOrders` fetches the whole deal and merges it
@@ -1540,6 +1572,13 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
               overrideSymbol={dealSymbol}
               liquidationContext={chartLiquidationContext}
               chartRef={chartWidgetRef}
+              extraOrderLines={dealDraftLines}
+            />
+            {/* Same, for a limit price in the deal view's action forms. */}
+            <TVChartPicker
+              chartRef={chartWidgetRef}
+              isActive={dealPickerActive}
+              onPick={onDealPricePick}
             />
             {/* Makes the TP/SL bullseyes in the Edit Deal form resolve a click
                 on THIS chart to a price. Only armed while a picker is active,
@@ -1558,6 +1597,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
         dealSymbol,
         chartLiquidationContext,
         activePickerField,
+        dealDraftLines,
+        dealPickerActive,
+        onDealPricePick,
         handleChartPick,
         onPickerActiveChanged,
       ]
@@ -2347,8 +2389,9 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       transition={{ duration: 0.2 }}
                       className="space-y-5"
                     >
+                      <DealDetailActions view={dealView} chartBeside={false} />
                       <TradeDetailContent
-                        trade={selectedTrade}
+                        trade={dealView.displayTrade}
                         completedOrders={selectedDealOrders.completedOrders}
                         pendingOrders={selectedDealOrders.pendingOrders}
                         isLoadingOrders={selectedDealOrdersLoading}
@@ -2393,8 +2436,12 @@ const BotDetailsDrawerInner: React.FC<BotDetailsDrawerProps> = React.memo(
                       transition={{ duration: 0.2 }}
                       className="space-y-5"
                     >
+                      <DealDetailActions
+                        view={dealView}
+                        chartBeside={!isLeftPanelCollapsed}
+                      />
                       <TradeDetailContent
-                        trade={selectedTrade}
+                        trade={dealView.displayTrade}
                         completedOrders={selectedDealOrders.completedOrders}
                         pendingOrders={selectedDealOrders.pendingOrders}
                         isLoadingOrders={selectedDealOrdersLoading}
