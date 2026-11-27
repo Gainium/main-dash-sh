@@ -35,10 +35,11 @@ test('the typical (median) order keeps 20px; bigger grow, smaller shrink by sqrt
   const ref = typicalFillNotional(fills);
   expect(ref).toBe(100);
   expect(fillMarkerSize(100, ref)).toBe(20);
-  // 4× the value → twice as wide; a quarter → half as wide (clamped at 12).
-  expect(fillMarkerSize(400, ref)).toBe(34);
+  // Ring width grows with sqrt(value): 2.25× → 1.5× wide; clamped to 14–30.
   expect(fillMarkerSize(225, ref)).toBe(30);
-  expect(fillMarkerSize(25, ref)).toBe(12);
+  expect(fillMarkerSize(400, ref)).toBe(30);
+  expect(fillMarkerSize(49, ref)).toBe(14);
+  expect(fillMarkerSize(25, ref)).toBe(14);
 });
 
 test('equal orders (a grid) all keep the old 20px', () => {

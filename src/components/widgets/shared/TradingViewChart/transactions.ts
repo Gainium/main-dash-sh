@@ -7,6 +7,13 @@ import type {
 } from './types';
 import { FILL_MARKER_DEFAULT_PX } from './fillMarkers';
 
+// TradingView drawing-icon codes (Font Awesome): a hollow circle, and solid
+// carets pointing up (buy) and down (sell).
+const FILL_RING_ICON = 0xf10c;
+const FILL_TRIANGLE_UP_ICON = 0xf0d8;
+const FILL_TRIANGLE_DOWN_ICON = 0xf0d7;
+const FILL_TRIANGLE_PX = 10;
+
 export * from './fillMarkers';
 
 export function normalizeTimeToSeconds(time: number): number {
@@ -294,8 +301,12 @@ export function addTransactionInternal(
         if (exitIcon) entities.push(exitIcon);
       }
     } else if (chart.createShape) {
+      // A fixed-size triangle marks the fill; a hollow, translucent ring
+      // around it carries the order's value. The ring is open in the middle
+      // and thin, so the candles under a large order stay visible.
       const size = tr.markerSize ?? FILL_MARKER_DEFAULT_PX;
-      const entity = chart.createShape(
+      const solid = isBuy ? '#00ff00' : '#ff0040';
+      const ring = chart.createShape(
         { time: timeInSeconds, price: tr.price },
         {
           disableSave: true,
@@ -304,15 +315,29 @@ export function addTransactionInternal(
           disableSelection: true,
           zOrder: 'top',
           overrides: {
-            icon: 0xf01d,
-            angle: isBuy ? 45 : 90,
-            color: isBuy ? '#00ff00' : '#ff0040',
-            linewidth: 3,
+            icon: FILL_RING_ICON,
+            color: isBuy ? 'rgba(0, 255, 0, 0.55)' : 'rgba(255, 0, 64, 0.55)',
             size,
           },
         }
       );
-      if (entity) entities.push(entity);
+      if (ring) entities.push(ring);
+      const triangle = chart.createShape(
+        { time: timeInSeconds, price: tr.price },
+        {
+          disableSave: true,
+          shape: 'icon',
+          lock: true,
+          disableSelection: true,
+          zOrder: 'top',
+          overrides: {
+            icon: isBuy ? FILL_TRIANGLE_UP_ICON : FILL_TRIANGLE_DOWN_ICON,
+            color: solid,
+            size: FILL_TRIANGLE_PX,
+          },
+        }
+      );
+      if (triangle) entities.push(triangle);
     }
 
     if (entities.length) {

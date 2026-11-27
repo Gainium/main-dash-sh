@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { useTradingViewAutoSave } from '@/hooks/useTradingViewAutoSave';
 import { logger } from '@/lib/loggerInstance';
 import { getCSSVar } from '@/lib/utils/chart';
+import { useChartFillMarkerStore } from '@/stores/chartFillMarkerStore';
 import {
   BotOrderSideEnum,
   IndicatorEnum,
@@ -18,6 +19,7 @@ import {
   useCallback,
   useEffect,
   useImperativeHandle,
+  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -26,6 +28,7 @@ import { createOrderLine } from './orderLines';
 import {
   addTransactionInternal,
   clearTransactionsInternal,
+  FILL_MARKER_DEFAULT_PX,
   fillMarkerSize,
   fillTooltip,
   fillUnderCrosshair,
@@ -308,6 +311,13 @@ export const TradingViewChartCore = forwardRef<
     } | null>(null);
     const positionEntityRef = useRef<unknown | null>(null);
     const currentIntervalRef = useRef<string>(initialInterval);
+    // Buy/sell icon rings sized by order value (on) or all one size (off).
+    const sizeFillsByValue = useChartFillMarkerStore((s) => s.sizeByValue);
+    const toggleSizeFillsByValue = useChartFillMarkerStore(
+      (s) => s.toggleSizeByValue
+    );
+    const sizeFillsByValueRef = useRef(sizeFillsByValue);
+    sizeFillsByValueRef.current = sizeFillsByValue;
     // Fill markers as last drawn, and the one the crosshair is over.
     const drawnFillsRef = useRef<DrawnFill[]>([]);
     const [fillHover, setFillHover] = useState<{
@@ -856,7 +866,9 @@ export const TradingViewChartCore = forwardRef<
         visible.forEach((tr) => {
           const t: TransactionExtended = {
             ...tr,
-            markerSize: fillMarkerSize(tr.notional, referenceNotional),
+            markerSize: sizeFillsByValueRef.current
+              ? fillMarkerSize(tr.notional, referenceNotional)
+              : FILL_MARKER_DEFAULT_PX,
           };
           if (isPointFill(t)) {
             drawnFillsRef.current.push({
@@ -1400,22 +1412,36 @@ export const TradingViewChartCore = forwardRef<
       [detachToolbarDropdown, widgetRef]
     );
 
+    // Every chart's "Chart" menu carries the icon-size switch, after the
+    // caller's own items (bot charts add their show/hide toggles).
+    const chartMenu = useMemo<TradingViewToolbarDropdownConfig>(
+      () => ({
+        title: toolbarDropdown?.title ?? 'Chart',
+        tooltip: toolbarDropdown?.tooltip ?? 'Chart display options',
+        useTradingViewStyle: toolbarDropdown?.useTradingViewStyle ?? true,
+        items: [
+          ...(toolbarDropdown?.items ?? []),
+          {
+            // Same checkbox style as the bot charts' display options.
+            title: `${sizeFillsByValue ? '[✓]' : '[  ]'} Icon size by order value`,
+            onSelect: toggleSizeFillsByValue,
+          },
+        ],
+      }),
+      [sizeFillsByValue, toggleSizeFillsByValue, toolbarDropdown]
+    );
+
     useEffect(() => {
       if (!isChartReady) {
         return;
       }
-      void attachToolbarDropdown(toolbarDropdown);
-      return () => {
-        if (!toolbarDropdown) {
-          detachToolbarDropdown();
-        }
-      };
-    }, [
-      attachToolbarDropdown,
-      detachToolbarDropdown,
-      isChartReady,
-      toolbarDropdown,
-    ]);
+      void attachToolbarDropdown(chartMenu);
+    }, [attachToolbarDropdown, chartMenu, isChartReady]);
+
+    // Redraw the icons when the size switch flips.
+    useEffect(() => {
+      if (isChartReady) requestOverlays(['transactions']);
+    }, [isChartReady, requestOverlays, sizeFillsByValue]);
 
     useEffect(() => {
       const orderEntities = orderDrawingEntitiesRef.current;

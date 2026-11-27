@@ -6,8 +6,8 @@ import type { TransactionExtended } from './types';
  * Fill icon sizes, in px. A typical order (the median) keeps the old fixed
  * 20 px, so bots whose orders are all alike (a grid) look as they always did.
  */
-const FILL_MARKER_MIN_PX = 12;
-const FILL_MARKER_MAX_PX = 34;
+const FILL_MARKER_MIN_PX = 14;
+const FILL_MARKER_MAX_PX = 30;
 export const FILL_MARKER_DEFAULT_PX = 20;
 
 export const isPointFill = (tr: TransactionExtended) =>
@@ -63,7 +63,7 @@ export function mergeFills(
 /**
  * Icon size for a fill worth `notional`, against the typical (median) fill.
  * Area grows with value (square-root scale): a 4× order reads twice as wide,
- * a quarter-size one half as wide, within 12–34 px. Equal orders all keep the
+ * a quarter-size one half as wide, within 14–30 px. Equal orders all keep the
  * old 20 px. No size data → the old fixed size.
  */
 export function fillMarkerSize(
