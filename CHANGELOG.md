@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.139.2] - 2026-11-27
+
+### Changed
+
+- Bot drawer: a deal's details now have the same action bar, inline forms and chart price picker as the deal details drawer, and show the live deal's figures
+
 ## [2.139.1] - 2026-11-26
 
 ### Fixed
