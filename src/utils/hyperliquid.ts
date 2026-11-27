@@ -1,6 +1,10 @@
 import { ethers, Wallet } from 'ethers';
 import * as hl from '@nktkas/hyperliquid';
 import { ExchangeEnum } from '@/types/exchange.types';
+import {
+  ARBITRUM_MAINNET_CHAIN_ID,
+  ARBITRUM_MAINNET_PARAMS,
+} from '@/hooks/useWeb3Wallet';
 
 /** Hex address type matching the Hyperliquid SDK's expectation */
 type Hex = `0x${string}`;
@@ -51,18 +55,55 @@ const exchangeClientFor = (signer: ethers.Signer) => {
   });
 };
 
+/** The EIP-1193 surface of an injected wallet (window.ethereum & co). */
+export type Eip1193Provider = {
+  request: (args: { method: string; params?: unknown[] }) => Promise<unknown>;
+};
+
+/**
+ * Put the wallet on Arbitrum, then hand back a signer built AFTER the switch.
+ *
+ * The Hyperliquid SDK reads the chain from the signer's ethers provider. An
+ * ethers `BrowserProvider` created before the wallet changed network refuses
+ * every later call ("network changed"), which the SDK reports as "Failed to
+ * get chain ID from wallet" — so the first attempt from any other chain
+ * failed and only the retry, already on Arbitrum, went through.
+ */
+export const signerOnArbitrum = async (
+  wallet: Eip1193Provider
+): Promise<ethers.Signer> => {
+  const current = `${await wallet.request({ method: 'eth_chainId' })}`;
+  if (current.toLowerCase() !== ARBITRUM_MAINNET_CHAIN_ID) {
+    try {
+      await wallet.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: ARBITRUM_MAINNET_CHAIN_ID }],
+      });
+    } catch (e) {
+      // 4902: the wallet does not know the chain yet — adding it switches.
+      if ((e as { code?: number })?.code !== 4902) throw e;
+      await wallet.request({
+        method: 'wallet_addEthereumChain',
+        params: [ARBITRUM_MAINNET_PARAMS],
+      });
+    }
+  }
+  return new ethers.BrowserProvider(wallet).getSigner();
+};
+
 /**
  * Generate a new agent and have the wallet approve it — the one signature a
  * renewal needs. The builder-fee approval belongs to the wallet, not to the
  * agent, so a renewal never asks for it again.
  */
 export const approveHyperliquidAgent = async (
-  signer: ethers.Signer
+  signer: ethers.Signer,
+  /** Pass one in to show its address before the wallet asks to sign. */
+  agent: { address: string; privateKey: string } = generateAgentWallet()
 ): Promise<
   | { success: true; agentAddress: string; agentPrivateKey: string }
   | { success: false; error: string; details: string }
 > => {
-  const agent = generateAgentWallet();
   try {
     await exchangeClientFor(signer).approveAgent({
       agentAddress: agent.address as Hex,

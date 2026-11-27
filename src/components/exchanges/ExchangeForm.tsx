@@ -9,7 +9,10 @@ import { useEntitlements } from '@/lib/entitlements';
 import { Slot } from '@/lib/extensions';
 import { useTrial } from '@/lib/trial';
 import { toast } from '@/lib/toast';
-import { completeHyperliquidSetup } from '@/utils/hyperliquid';
+import {
+  completeHyperliquidSetup,
+  signerOnArbitrum,
+} from '@/utils/hyperliquid';
 import { useHyperliquidAgentPropagation } from '@/hooks/useHyperliquidAgentPropagation';
 import { isFuturesExchange, showZeroFee } from '@/utils/exchangeUtils';
 import { AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
@@ -301,15 +304,6 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
         }
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // Step 2: Ensure we're on Arbitrum Mainnet
-        if (!w.isCorrectChain) {
-          await web3Wallet.switchToArbitrum();
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-
-        // Step 3: Approve agent & builder fees
-        setHyperliquidSetupStatus('approving');
-
         const ethereumProvider = w.selectedWalletProvider;
         if (!ethereumProvider || !w.signer || !w.account) {
           throw new Error(
@@ -317,8 +311,15 @@ const ExchangeForm: React.FC<ExchangeFormProps> = ({
           );
         }
 
+        // Step 2: Arbitrum, with a signer built after the switch — the one
+        // from before it fails with "Failed to get chain ID from wallet".
+        const signer = await signerOnArbitrum(ethereumProvider);
+
+        // Step 3: Approve agent & builder fees
+        setHyperliquidSetupStatus('approving');
+
         const result = await completeHyperliquidSetup(
-          w.signer,
+          signer,
           formData.useApproveBuilderFees
         );
 

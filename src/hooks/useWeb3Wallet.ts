@@ -12,7 +12,7 @@ export interface WalletProvider {
 }
 
 // Arbitrum Chain IDs
-const ARBITRUM_MAINNET_CHAIN_ID = '0xa4b1'; // 42161 in hex
+export const ARBITRUM_MAINNET_CHAIN_ID = '0xa4b1'; // 42161 in hex
 const ARBITRUM_MAINNET_CHAIN_ID_DECIMAL = 42161;
 
 interface ArbitrumChainParams {
@@ -27,7 +27,7 @@ interface ArbitrumChainParams {
   blockExplorerUrls: string[];
 }
 
-const ARBITRUM_MAINNET_PARAMS: ArbitrumChainParams = {
+export const ARBITRUM_MAINNET_PARAMS: ArbitrumChainParams = {
   chainId: ARBITRUM_MAINNET_CHAIN_ID,
   chainName: 'Arbitrum One',
   nativeCurrency: {

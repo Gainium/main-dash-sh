@@ -20,6 +20,8 @@ import { toast } from '@/lib/toast';
 import {
   AGENT_VALIDITY_DAYS,
   approveHyperliquidAgent,
+  generateAgentWallet,
+  signerOnArbitrum,
 } from '@/utils/hyperliquid';
 import { agentRenewal, shortAddress } from '@/utils/hyperliquidRenewal';
 
@@ -32,6 +34,9 @@ const formatDate = (ms: number) =>
     month: 'short',
     year: 'numeric',
   });
+
+const APPROVING_TOOLTIP =
+  "The new API wallet, created in your browser just now. Your wallet's signature request names this address: check it matches before you sign. Because it is brand new, a wallet's security scanner may not recognise it.";
 
 const RENEW_TOOLTIP = `Your wallet signs one approval for a new Gainium API wallet, valid for ${AGENT_VALIDITY_DAYS} days. Every connection listed here moves to it, and your bots keep running. Nothing is transferred and no fee is charged.`;
 
@@ -62,6 +67,7 @@ export const HyperliquidRenewDialog: React.FC = () => {
   // Frozen when a renewal starts: saving rewrites the store under us, and
   // the list on screen must stay the set of legs this renewal covers.
   const [runLegs, setRunLegs] = useState<ExchangeInUser[] | null>(null);
+  const [agentAddress, setAgentAddress] = useState<string | null>(null);
 
   const liveLegs = useMemo(() => {
     if (!target) return [];
@@ -77,6 +83,7 @@ export const HyperliquidRenewDialog: React.FC = () => {
     setFailed([]);
     setRenewedUntil(null);
     setRunLegs(null);
+    setAgentAddress(null);
     pending.current = null;
   };
 
@@ -126,11 +133,16 @@ export const HyperliquidRenewDialog: React.FC = () => {
             `Connected wallet ${shortAddress(w.account)} is not this connection's wallet ${shortAddress(target.key)}.`
           );
         }
-        if (!w.isCorrectChain) {
-          await web3Wallet.switchToArbitrum();
+        if (!w.selectedWalletProvider) {
+          throw new Error('Could not connect to your wallet.');
         }
+        const signer = await signerOnArbitrum(w.selectedWalletProvider);
+        // Shown while the wallet asks to sign, so the address in the wallet's
+        // request can be checked against it.
+        const agent = generateAgentWallet();
+        setAgentAddress(agent.address);
         setStage('signing');
-        const approved = await approveHyperliquidAgent(w.signer);
+        const approved = await approveHyperliquidAgent(signer, agent);
         if (!approved.success) {
           throw new Error(approved.details || approved.error);
         }
@@ -202,6 +214,17 @@ export const HyperliquidRenewDialog: React.FC = () => {
                     ? `Expired ${formatDate(renewal.expiresAt)}`
                     : `Expires in ${renewal.daysLeft} day${renewal.daysLeft === 1 ? '' : 's'}`}
                 </dd>
+              </>
+            )}
+            {stage === 'signing' && agentAddress && (
+              <>
+                <dt className="text-muted-foreground flex items-center gap-1">
+                  Approving
+                  <Tooltip tooltip={APPROVING_TOOLTIP}>
+                    <Info className="w-3.5 h-3.5" />
+                  </Tooltip>
+                </dt>
+                <dd className="font-mono break-all">{agentAddress}</dd>
               </>
             )}
             {stage === 'done' && renewedUntil && (
