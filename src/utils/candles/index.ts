@@ -633,7 +633,18 @@ class Candles {
         }
 
         ind++;
-        const fromThis = prev / 1000;
+        // Each page after the first starts AT the last bar already held (one
+        // bar of overlap). When the venue answers with that bar first it
+        // served the head of the window, so a gap to its next bar is a real
+        // closure (a tokenized stock's night/weekend) and the in-page fill
+        // below bridges it. Starting one bar later left every such closure on
+        // a page boundary, unbridged, and the gap refill then walked each
+        // pair a second time — one request per closure, while the progress
+        // bar already read that pair as done (100% on the last pair). A page
+        // whose head was dropped (cold venue cache) does not start with that
+        // bar, so its gap stays for the refill as before.
+        const lastHeld = data.length ? prev - step : undefined;
+        const fromThis = (lastHeld ?? prev) / 1000;
         const toThis =
           Math.min(from + (request + 1) * step * requestStep, to) / 1000;
 
@@ -724,6 +735,14 @@ class Candles {
         logger.info(
           `[Candles.getCandlesFromExchange] Iteration ${ind}/${count}: Received ${candles.length} candles | First: ${candles.length > 0 ? new Date(candles[0].time).toISOString() : 'N/A'} | Last: ${candles.length > 0 ? new Date(candles[candles.length - 1].time).toISOString() : 'N/A'}`
         );
+
+        // Only the overlap bar came back: nothing new, as an empty page was.
+        if (
+          lastHeld !== undefined &&
+          candles.every((c) => c.time <= lastHeld)
+        ) {
+          candles = [];
+        }
 
         // An empty chunk means one of two very different things, and they must
         // not be treated alike.
