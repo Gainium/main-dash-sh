@@ -1,5 +1,21 @@
 # Changelog
 
+## [2.140.0] - 2026-11-27
+
+### Added
+
+- Hyperliquid connections show when their API wallet is about to expire or has expired, with a one-click renewal from Exchanges, Portfolio and notifications
+
+### Changed
+
+- New Hyperliquid API wallets are approved for 179 days instead of 90
+- Error messages in dialogs are shown in a clear, contained error box.
+
+### Fixed
+
+- After editing a connection, its key and balance stay shown correctly instead of changing until the next reload
+- Renewing or adding a Hyperliquid connection gives the new API wallet to every connection on that wallet, instead of leaving the others on the replaced one
+
 ## [2.139.2] - 2026-11-27
 
 ### Changed
