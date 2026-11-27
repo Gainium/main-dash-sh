@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.140.1] - 2026-11-27
+
+### Fixed
+
+- Connecting or renewing a Hyperliquid wallet from another network no longer fails with "Failed to get chain ID from wallet" on the first try; the renewal also shows the address being approved while the wallet asks to sign
+
 ## [2.140.0] - 2026-11-27
 
 ### Added
