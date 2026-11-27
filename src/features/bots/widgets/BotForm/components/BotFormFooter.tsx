@@ -91,6 +91,7 @@ import {
 import type { BotFormData, BotFormErrors } from '@/types/bots'
 import { billableIndicators, calculateCost } from '@/utils/bots/credits'
 import CoinIcon from '@/components/widgets/shared/CoinIcon'
+import type { AssetClass } from '@/hooks/useTradingPairs'
 import { useBotDealCapital } from '@/hooks/bots/dca/useBotDealCapital'
 import { useDcaTradingContext } from '@/hooks/bots/dca/useDcaTradingContext'
 import { useVerifyTerminalBalance } from '@/hooks/bots/dca/useVerifyTerminalBalance'
@@ -542,6 +543,12 @@ export interface FundsInfo {
   title: string
   /** Deposit-currency asset symbol, rendered as the chip's token icon. */
   symbol: string | undefined
+  /**
+   * Asset class + venue of `symbol` when it is the pair's base (spot short),
+   * so a tokenized stock renders its logo, not a letter tile.
+   */
+  iconAssetClass?: AssetClass
+  iconExchange?: string
   /** Whole-bot total as a bare number (no symbol) for the chip face. */
   amountLabel: string
   /** Whole-bot total with its asset symbol, for the popover total row. */
@@ -582,7 +589,12 @@ const FundsChip: React.FC<{ isCompact: boolean; info: FundsInfo }> = ({
           onBlur={() => setOpen(false)}
           className={chipButtonClass(isCompact, open)}
         >
-          <CoinIcon symbol={info.symbol || 'USDT'} size='w-4 h-4' />
+          <CoinIcon
+            symbol={info.symbol || 'USDT'}
+            size='w-4 h-4'
+            assetClass={info.iconAssetClass}
+            exchange={info.iconExchange}
+          />
           {!isCompact && <span>{info.amountLabel}</span>}
         </button>
       </PopoverTrigger>
@@ -1056,9 +1068,22 @@ export const BotFormFooter: React.FC<BotFormFooterProps> = React.memo(
           ? fmtCurrency(availableBalance, displayCurrency, useBase)
           : null
 
+      const activePair = dcaTradingContext?.activePair
+      const isPairBase =
+        !!activePair &&
+        !!displayCurrency &&
+        activePair.baseAsset?.name?.toUpperCase() ===
+          displayCurrency.toUpperCase()
       return {
         title: 'Capital required',
-        symbol: displayCurrency,
+        // the pair's own spelling (Bitget `rAAPL`) drives the stock logo
+        symbol: isPairBase ? activePair.baseAsset.name : displayCurrency,
+        ...(isPairBase
+          ? {
+              iconAssetClass: activePair.assetCategory,
+              iconExchange: activePair.exchange,
+            }
+          : {}),
         amountLabel: fmtAmount(total, useBase),
         totalLabel: fmtCurrency(total, displayCurrency, useBase),
         rows,
