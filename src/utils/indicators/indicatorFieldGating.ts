@@ -244,3 +244,43 @@ export const resetInvalidConditionalSelects = (
   }
   return result as IndicatorParamsState;
 };
+
+/**
+ * The options ticked in a `multiple` select, as the option objects themselves.
+ * Matched by string form, so a stored value keeps the type its options declare
+ * (Session Days' numbers, Divergences' oscillator names). A lone value — what a
+ * single-choice dropdown used to store — reads as one ticked option.
+ */
+export const selectedMultiOptions = (
+  value: unknown,
+  field: IndicatorFieldDefinition,
+  options: IndicatorFieldOption[] | undefined
+): IndicatorFieldOption[] => {
+  const raw = Array.isArray(value)
+    ? value
+    : value !== undefined && value !== null && value !== ''
+      ? [value]
+      : Array.isArray(field.defaultValue)
+        ? field.defaultValue
+        : [];
+  const picked = new Set(raw.map(String));
+  return (options ?? []).filter((option) => picked.has(String(option.value)));
+};
+
+/**
+ * The value a `multiple` select stores after one option is ticked or unticked:
+ * the option values, in the options' own order.
+ */
+export const toggleMultiOption = (
+  selected: IndicatorFieldOption[],
+  option: IndicatorFieldOption,
+  checked: boolean,
+  options: IndicatorFieldOption[] | undefined
+): IndicatorParamPrimitive => {
+  const keep = new Set(selected.map((o) => String(o.value)));
+  if (checked) keep.add(String(option.value));
+  else keep.delete(String(option.value));
+  return (options ?? [])
+    .filter((o) => keep.has(String(o.value)))
+    .map((o) => o.value) as IndicatorParamPrimitive;
+};

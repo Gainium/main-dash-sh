@@ -3170,6 +3170,7 @@ const BASE_INDICATOR_CATALOG: Record<IndicatorEnum, IndicatorDefinition> = {
       makeSelectField({
         key: 'divOscillators',
         label: 'Oscillators',
+        multiple: true,
         defaultValue: DIV_DEFAULT_OSCILLATORS,
         options: DIV_OSCILLATOR_OPTIONS,
       }),

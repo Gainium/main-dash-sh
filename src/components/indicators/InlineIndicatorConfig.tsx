@@ -29,8 +29,10 @@ import {
   resolveFieldKey,
   resolveFieldLabel,
   resolveFieldOptions,
+  selectedMultiOptions,
   shouldDisableField,
   shouldHideField,
+  toggleMultiOption,
   withGatingParams,
 } from '@/utils/indicators/indicatorFieldGating';
 import { layoutFieldSpans } from '@/utils/indicators/indicatorFieldLayout';
@@ -204,12 +206,11 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
       case 'interval':
       case 'select': {
         if (field.multiple) {
-          const raw = Array.isArray(value)
-            ? value
-            : Array.isArray(field.defaultValue)
-              ? field.defaultValue
-              : [];
-          const selectedValues = raw.map(Number);
+          const selected = selectedMultiOptions(
+            value,
+            field,
+            resolvedOptions
+          );
           return (
             <div key={field.key} className="space-y-xs">
               <div className="flex items-center gap-1">
@@ -222,8 +223,7 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
               </div>
               <div className="flex flex-wrap gap-x-4 gap-y-1.5">
                 {resolvedOptions?.map((option: IndicatorFieldOption) => {
-                  const numVal = Number(option.value);
-                  const checked = selectedValues.includes(numVal);
+                  const checked = selected.includes(option);
                   return (
                     <div
                       key={String(option.value)}
@@ -234,12 +234,15 @@ export const InlineIndicatorConfig: React.FC<InlineIndicatorConfigProps> = ({
                         checked={checked}
                         disabled={disabled}
                         onCheckedChange={(c) => {
-                          const next = c
-                            ? [...selectedValues, numVal].sort(
-                                (a, b) => a - b
-                              )
-                            : selectedValues.filter((v) => v !== numVal);
-                          updateParam(field.key, next);
+                          updateParam(
+                            field.key,
+                            toggleMultiOption(
+                              selected,
+                              option,
+                              c === true,
+                              resolvedOptions
+                            )
+                          );
                         }}
                       />
                       <Label
