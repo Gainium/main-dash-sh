@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.140.5] - 2026-11-28
+
+### Fixed
+
+- Divergences indicator: the Oscillators field is a multi-choice list again, with the default oscillators ticked, so "Min number of divergences" above 1 can trigger
+
 ## [2.140.4] - 2026-11-27
 
 ### Changed
